@@ -200,6 +200,10 @@ func (s *UpgradeCharmSuccessSuite) TestSwitch(c *C) {
 	c.Assert(curl.String(), Equals, "local:precise/myriak-8")
 	s.assertLocalRevision(c, 8, myriakPath)
 
+	// Now try the same with explicit revision - should fail.
+	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-8")
+	c.Assert(err, ErrorMatches, `already running specified charm "local:precise/myriak-8"`)
+
 	// Change the revision to 42 and upgrade to it with explicit revision.
 	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
 	c.Assert(err, IsNil)

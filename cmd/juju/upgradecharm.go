@@ -142,9 +142,11 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 		newURL = newURL.WithRevision(latest)
 	}
 	bumpRevision := false
-	if *newURL == *oldURL && !explicitRevision {
-		// Only try bumping the revision when necessary
-		// (local dir charm and no explicit revision).
+	if *newURL == *oldURL {
+		if explicitRevision {
+			return fmt.Errorf("already running specified charm %q", newURL)
+		}
+		// Only try bumping the revision when necessary (local dir charm).
 		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
 			// TODO(dimitern): If the --force flag is set to something
 			// different to before, we might actually want to allow this
