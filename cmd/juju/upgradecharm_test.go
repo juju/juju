@@ -77,7 +77,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *C) {
 func (s *UpgradeCharmErrorsSuite) TestSwitchAndRevisionFails(c *C) {
 	s.deployService(c)
 	err := runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")
-	c.Assert(err, ErrorMatches, "cannot specify --switch and --revision together")
+	c.Assert(err, ErrorMatches, "--switch and --revision are mutually exclusive")
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *C) {

@@ -89,6 +89,9 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
+	if c.SwitchURL != "" && c.Revision != -1 {
+		return fmt.Errorf("--switch and --revision are mutually exclusive")
+	}
 	return nil
 }
 
@@ -107,9 +110,6 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	var curl *charm.URL
 	var scurl *charm.URL // service's current charm URL when using --switch
 	if c.SwitchURL != "" {
-		if c.Revision >= 0 {
-			return fmt.Errorf("cannot specify --switch and --revision together")
-		}
 		var err error
 		conf, err := conn.State.EnvironConfig()
 		if err != nil {
@@ -161,6 +161,9 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if considerBumpRevision {
 		// Only try bumping the revision when necessary (local dir charm).
 		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
+			// TODO(dimitern): If the --force flag is set to something
+			// different to before, we might actually want to allow this
+			// case (and the other error below).
 			return fmt.Errorf("already running latest charm %q", curl)
 		}
 		// This is a local repository.
