@@ -299,6 +299,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(cfg.MongoPort) +
 			" --noprealloc" +
+			" --syslog" +
 			" --smallfiles",
 	}
 	cmds, err := conf.InstallCommands()
