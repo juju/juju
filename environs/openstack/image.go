@@ -23,6 +23,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 			Arches:   ic.Arches,
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
+			Cost:     uint64(flavor.RAM),
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
@@ -41,7 +42,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		defer r.Close()
 		br = bufio.NewReader(r)
 	}
-	spec, err = instances.FindInstanceSpec(br, ic, allInstanceTypes, nil)
+	spec, err = instances.FindInstanceSpec(br, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}

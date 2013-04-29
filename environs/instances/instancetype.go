@@ -12,20 +12,16 @@ type InstanceType struct {
 	Name     string
 	Arches   []string
 	CpuCores uint64
-	CpuPower uint64
 	Mem      uint64
-	// Clustered instance types must be launched with clustered images.
-	Clustered bool
+	Cost     uint64
+	// These attributes are not supported by all clouds.
+	VType    *string // The type of virtualisation used by the hypervisor, must match the image.
+	CpuPower *uint64
 }
 
-// all instance types can run amd64 images, and some can also run i386 ones.
-var (
-	Amd64 = []string{"amd64"}
-	Both  = []string{"amd64", "i386"}
-)
-
-type InstanceTypeCost map[string]uint64
-type RegionCosts map[string]InstanceTypeCost
+func CpuPower(power uint64) *uint64 {
+	return &power
+}
 
 // match returns true if itype can satisfy the supplied constraints. If so,
 // it also returns a copy of itype with any arches that do not match the
@@ -41,7 +37,7 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.CpuCores != nil && itype.CpuCores < *cons.CpuCores {
 		return nothing, false
 	}
-	if cons.CpuPower != nil && itype.CpuPower > 0 && itype.CpuPower < *cons.CpuPower {
+	if cons.CpuPower != nil && itype.CpuPower != nil && *itype.CpuPower < *cons.CpuPower {
 		return nothing, false
 	}
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
@@ -63,59 +59,30 @@ func filterArches(src, filter []string) (dst []string) {
 	return dst
 }
 
-// defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
-// any other instance type's cpuPower. It is used when no explicit CpuPower
-// constraint exists, preventing the smallest instance from being chosen unless
-// the user has clearly indicated that they are willing to accept poor performance.
-// This only comes into effect if the cloud instance supports reporting CPU power
-// for it's instance types.
-var defaultCpuPower uint64 = 100
-
 // getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
 // in ic.Region, sorted by increasing region-specific cost (if known).
-// If no costs are specified, then we use the RAM amount as the cost on the
-// assumption that it costs less to run an instance with a smaller RAM requirement.
-func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType, allRegionCosts RegionCosts) ([]InstanceType, error) {
+func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType) ([]InstanceType, error) {
 	cons := ic.Constraints
 	region := ic.Region
 	defaultInstanceTypeName := ic.DefaultInstanceType
-	if cons.CpuPower == nil {
-		v := defaultCpuPower
-		cons.CpuPower = &v
-	}
-	regionCosts := allRegionCosts[region]
-	if len(regionCosts) == 0 && len(allRegionCosts) > 0 {
-		return nil, fmt.Errorf("no instance types found in %s", region)
-	}
-	var costs []uint64
 	var itypes []InstanceType
 	var defaultInstanceType *InstanceType
 
-	// Iterate over allInstanceTypes, finding matching ones and assigning a cost to each.
+	// Iterate over allInstanceTypes, finding matching ones and recording the default if any.
 	for _, itype := range allinstanceTypes {
 		if itype.Name == defaultInstanceTypeName {
 			itcopy := itype
 			defaultInstanceType = &itcopy
 		}
-		cost, ok := regionCosts[itype.Name]
-		// If there are no explicit costs available, just use the instance type memory.
-		if !ok {
-			if len(allRegionCosts) > 0 {
-				continue
-			} else {
-				cost = itype.Mem
-			}
-		}
 		itype, ok := itype.match(cons)
 		if !ok {
 			continue
 		}
-		costs = append(costs, cost)
 		itypes = append(itypes, itype)
 	}
-	// If we have matching instance types, we can return those.
+	// If we have matching instance types, we can return those, sorted by cost.
 	if len(itypes) > 0 {
-		sort.Sort(byCost{itypes, costs})
+		sort.Sort(byCost(itypes))
 		return itypes, nil
 	}
 
@@ -132,16 +99,11 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []Instanc
 	return nil, fmt.Errorf("no instance types in %s matching constraints %q, %s", region, cons, suffix)
 }
 
-// byCost is used to sort a slice of instance types as a side effect of
-// sorting a matching slice of costs in USDe-3/hour.
-type byCost struct {
-	itypes []InstanceType
-	costs  []uint64
-}
+// byCost is used to sort a slice of instance types by Cost.
+type byCost []InstanceType
 
-func (bc byCost) Len() int           { return len(bc.costs) }
-func (bc byCost) Less(i, j int) bool { return bc.costs[i] < bc.costs[j] }
+func (bc byCost) Len() int           { return len(bc) }
+func (bc byCost) Less(i, j int) bool { return bc[i].Cost < bc[j].Cost }
 func (bc byCost) Swap(i, j int) {
-	bc.costs[i], bc.costs[j] = bc.costs[j], bc.costs[i]
-	bc.itypes[i], bc.itypes[j] = bc.itypes[j], bc.itypes[i]
+	bc[i], bc[j] = bc[j], bc[i]
 }
