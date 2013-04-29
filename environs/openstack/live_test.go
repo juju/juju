@@ -98,6 +98,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 		"auth-url":          t.cred.URL,
 	})
 	t.LiveTests.SetUpSuite(c)
+	openstack.SetFakeToolsStorage(true)
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to
 	// the public storage bucket so that we can upload files for testing.
@@ -116,6 +117,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 	if t.writeablePublicStorage != nil {
 		envtesting.RemoveFakeTools(c, t.writeablePublicStorage)
 	}
+	openstack.SetFakeToolsStorage(false)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }
