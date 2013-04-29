@@ -24,7 +24,8 @@ type UpgradeCharmCommand struct {
 const upgradeCharmDoc = `
 When no flags are set, the service's charm will be upgraded to the
 latest revision available in the repository from which it was
-originally deployed.
+originally deployed. An explicit revision can be chosen with the
+--revision flag.
 
 If the charm came from a local repository, its path will be assumed to
 be $JUJU_REPOSITORY unless overridden by --repository. If there is no
@@ -36,24 +37,26 @@ of a charm author working on a single client machine; use of local
 repositories from multiple clients is not supported and may lead to
 confusing behaviour.
 
-The --switch flag specifies a particular charm URL to use. This is
-potentially dangerous as the new charm may not be fully compatible
-with the old one. To make it a little safer, the following checks are
-made:
+The --switch flag allows you to replace the charm with an entirely
+different one. The new charm's URL and revision are inferred as they
+would be when running a deploy command.
+
+Please note that --switch is dangerous, because juju only has limited
+information with which to determine compatibility; the operation will
+succeed, regardless of potential havoc, so long as the following
+conditions hold:
 
 - The new charm must declare all relations that the service is
 currently participating in.
-
-- The new charm must declare all the configuration settings of the old
-charm and they must all have the same types as the old charm.
+- All config settings shared by the old and new charms must have the
+same types.
 
 The new charm may add new relations and configuration settings.
 
-In addition, you can specify --revision to select a specific revision
-number to upgrade to, rather than the newest one. This cannot be
-combined with --switch. To specify a given revision number with
---switch, give it in the charm URL, for instance "cs:wordpress-5" would
-specify revision number 5 of the wordpress charm.
+--switch and --revision are mutually exclusive. To specify a given
+revision number with --switch, give it in the charm URL, for instance
+"cs:wordpress-5" would specify revision number 5 of the wordpress
+charm.
 
 Use of the --force flag is not generally recommended; units upgraded
 while in an error state will not have upgrade-charm hooks executed,
@@ -73,8 +76,8 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.Force, "force", false, "upgrade all units immediately, even if in error state")
 	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository path")
-	f.StringVar(&c.SwitchURL, "switch", "", "charm URL to upgrade to")
-	f.IntVar(&c.Revision, "revision", -1, "revision number to upgrade to")
+	f.StringVar(&c.SwitchURL, "switch", "", "crossgrade to a different charm")
+	f.IntVar(&c.Revision, "revision", -1, "explicit revision of current charm")
 }
 
 func (c *UpgradeCharmCommand) Init(args []string) error {
@@ -107,74 +110,56 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	var curl *charm.URL
-	var scurl *charm.URL // service's current charm URL when using --switch
+	oldURL, _ := service.CharmURL()
+	var newURL *charm.URL
 	if c.SwitchURL != "" {
-		var err error
+		// A new charm URL was explicitly specified.
 		conf, err := conn.State.EnvironConfig()
 		if err != nil {
 			return err
 		}
-		curl, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
+		newURL, err = charm.InferURL(c.SwitchURL, conf.DefaultSeries())
 		if err != nil {
 			return err
 		}
-		scurl, _ = service.CharmURL()
 	} else {
-		curl, _ = service.CharmURL()
+		// No new URL specified, but revision might have been.
+		newURL = oldURL.WithRevision(c.Revision)
 	}
-	repo, err := charm.InferRepository(curl, ctx.AbsPath(c.RepoPath))
+	repo, err := charm.InferRepository(newURL, ctx.AbsPath(c.RepoPath))
 	if err != nil {
 		return err
 	}
-	bumpRevision := false
-	explicitRevision := false
-	rev := -1
-	if c.SwitchURL != "" && curl.Revision != -1 {
-		// Respect user's explicit revision when switching.
-		rev = curl.Revision
-		explicitRevision = true
-	} else if c.Revision >= 0 {
-		// Respect user's explicit revision as specified.
-		rev = c.Revision
-		explicitRevision = true
-	} else {
-		// No explicit revision set, use the latest available.
-		latest, err := repo.Latest(curl)
+	// If no explicit revision was set with either SwitchURL
+	// or Revision flags, discover the latest.
+	explicitRevision := true
+	if newURL.Revision == -1 {
+		explicitRevision = false
+		latest, err := repo.Latest(newURL)
 		if err != nil {
 			return err
 		}
-		rev = latest
+		newURL = newURL.WithRevision(latest)
 	}
-	// Only try bumping the revision when no explicit one is given and
-	// the inferred latest matches the current one.
-	considerBumpRevision := curl.Revision == rev && !explicitRevision
-	if scurl != nil &&
-		(scurl.WithRevision(-1).String() == curl.WithRevision(-1).String()) &&
-		scurl.Revision == rev {
-		// We have --switch, but the old charm is the same and no
-		// explicit revision is given for the new one, so we need to
-		// bump.
-		curl.Revision = rev
-		considerBumpRevision = true
-	}
-	if considerBumpRevision {
-		// Only try bumping the revision when necessary (local dir charm).
+	bumpRevision := false
+	if *newURL == *oldURL && !explicitRevision {
+		// Only try bumping the revision when necessary
+		// (local dir charm and no explicit revision).
 		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
 			// TODO(dimitern): If the --force flag is set to something
 			// different to before, we might actually want to allow this
-			// case (and the other error below).
-			return fmt.Errorf("already running latest charm %q", curl)
+			// case (and the other error below). LP bug #1174287
+			return fmt.Errorf("already running latest charm %q", newURL)
 		}
 		// This is a local repository.
-		if ch, err := repo.Get(curl); err != nil {
+		if ch, err := repo.Get(newURL); err != nil {
 			return err
 		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
 			// Only bump the revision when it's a directory.
-			return fmt.Errorf("already running latest charm %q", curl)
+			return fmt.Errorf("already running latest charm %q", newURL)
 		}
 	}
-	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
+	sch, err := conn.PutCharm(newURL, repo, bumpRevision)
 	if err != nil {
 		return err
 	}
