@@ -12,8 +12,8 @@ var (
 
 // all instance types can run amd64 images, and some can also run i386 ones.
 var (
-	Amd64 = []string{"amd64"}
-	Both  = []string{"amd64", "i386"}
+	amd64 = []string{"amd64"}
+	both  = []string{"amd64", "i386"}
 )
 
 // allInstanceTypes holds the relevant attributes of every known
@@ -21,28 +21,28 @@ var (
 var allInstanceTypes = []instances.InstanceType{
 	{ // First generation.
 		Name:     "m1.small",
-		Arches:   Both,
+		Arches:   both,
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(100),
 		Mem:      1740,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m1.medium",
-		Arches:   Both,
+		Arches:   both,
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(200),
 		Mem:      3840,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m1.large",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(400),
 		Mem:      7680,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m1.xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(800),
 		Mem:      15360,
@@ -50,14 +50,14 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // Second generation.
 		Name:     "m3.xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      15360,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m3.2xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      30720,
@@ -65,7 +65,7 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // Micro.
 		Name:     "t1.micro",
-		Arches:   Both,
+		Arches:   both,
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(20),
 		Mem:      613,
@@ -73,21 +73,21 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // High-Memory.
 		Name:     "m2.xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(650),
 		Mem:      17408,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m2.2xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      34816,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m2.4xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      69632,
@@ -95,14 +95,14 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // High-CPU.
 		Name:     "c1.medium",
-		Arches:   Both,
+		Arches:   both,
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(500),
 		Mem:      1740,
 		VType:    &paravirtual,
 	}, {
 		Name:     "c1.xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2000),
 		Mem:      7168,
@@ -110,14 +110,14 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // Cluster compute.
 		Name:     "cc1.4xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      23552,
 		VType:    &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      61952,
@@ -125,7 +125,7 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // High Memory cluster.
 		Name:     "cr1.8xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      249856,
@@ -133,7 +133,7 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // Cluster GPU.
 		Name:     "cg1.4xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      22528,
@@ -141,7 +141,7 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // High I/O.
 		Name:     "hi1.4xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      61952,
@@ -149,7 +149,7 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 	{ // High storage.
 		Name:     "hs1.8xlarge",
-		Arches:   Amd64,
+		Arches:   amd64,
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      119808,
@@ -157,9 +157,12 @@ var allInstanceTypes = []instances.InstanceType{
 	},
 }
 
+type instanceTypeCost map[string]uint64
+type regionCosts map[string]instanceTypeCost
+
 // allRegionCosts holds the cost in USDe-3/hour for each available instance
 // type in each region.
-var allRegionCosts = instances.RegionCosts{
+var allRegionCosts = regionCosts{
 	"ap-northeast-1": { // Tokyo.
 		"m1.small":   88,
 		"m1.medium":  175,

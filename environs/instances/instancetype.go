@@ -23,9 +23,6 @@ func CpuPower(power uint64) *uint64 {
 	return &power
 }
 
-type InstanceTypeCost map[string]uint64
-type RegionCosts map[string]InstanceTypeCost
-
 // match returns true if itype can satisfy the supplied constraints. If so,
 // it also returns a copy of itype with any arches that do not match the
 // constraints filtered out.

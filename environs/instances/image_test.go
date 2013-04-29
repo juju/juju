@@ -3,11 +3,10 @@ package instances
 import (
 	"bufio"
 	"bytes"
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"strings"
 	"testing"
 )
 
@@ -29,7 +28,7 @@ func (s *imageSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var imagesData = imagesFields(
+var imagesData = envtesting.ImagesFields(
 	"instance-store amd64 us-east-1 ami-00000011 paravirtual",
 	"ebs amd64 eu-west-1 ami-00000016 paravirtual",
 	"ebs arm ap-northeast-1 ami-00000023 paravirtual",
@@ -40,26 +39,6 @@ var imagesData = imagesFields(
 	"ebs amd64 test ami-00000035 hvm",
 	"ebs arm arm-only ami-00000036 paravirtual",
 )
-
-// Generate an line for inclusion in an images metadata file.
-// See https://help.ubuntu.com/community/UEC/Images
-func imagesFields(srcs ...string) string {
-	strs := make([]string, len(srcs))
-	for i, src := range srcs {
-		parts := strings.Split(src, " ")
-		if len(parts) != 5 {
-			panic("bad clouddata field input")
-		}
-		args := make([]interface{}, len(parts))
-		for i, part := range parts {
-			args[i] = part
-		}
-		// Ignored fields are left empty for clarity's sake, and two additional
-		// tabs are tacked on to the end to verify extra columns are ignored.
-		strs[i] = fmt.Sprintf("\t\t\t\t%s\t%s\t%s\t%s\t\t\t%s\t\t\n", args...)
-	}
-	return strings.Join(strs, "")
-}
 
 type instanceSpecTestParams struct {
 	desc                string
