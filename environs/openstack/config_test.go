@@ -275,31 +275,31 @@ var configTests = []configTest{
 	}, {
 		summary: "keypair authorization mode",
 		config: attrs{
-			"auth-mode": "keypair",
+			"auth-mode":  "keypair",
 			"access-key": "MyAccessKey",
 			"secret-key": "MySecretKey",
 		},
-		authMode: "keypair",
+		authMode:  "keypair",
 		accessKey: "MyAccessKey",
 		secretKey: "MySecretKey",
 	}, {
 		summary: "keypair authorization mode without access key",
 		config: attrs{
-			"auth-mode": "keypair",
+			"auth-mode":  "keypair",
 			"secret-key": "MySecretKey",
 		},
 		envVars: map[string]string{
-			"OS_USERNAME":   "",
+			"OS_USERNAME": "",
 		},
 		err: "required environment variable not set for credentials attribute: User",
 	}, {
 		summary: "keypair authorization mode without secret key",
 		config: attrs{
-			"auth-mode": "keypair",
+			"auth-mode":  "keypair",
 			"access-key": "MyAccessKey",
 		},
 		envVars: map[string]string{
-			"OS_PASSWORD":   "",
+			"OS_PASSWORD": "",
 		},
 		err: "required environment variable not set for credentials attribute: Secrets",
 	}, {
