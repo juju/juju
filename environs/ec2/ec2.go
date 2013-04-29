@@ -399,7 +399,6 @@ type startInstanceParams struct {
 }
 
 var ebsStorage = "ebs"
-var cluster = "hvm"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
@@ -418,7 +417,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		Arches:      arches,
 		Constraints: scfg.constraints,
 		Storage:     &ebsStorage,
-		Cluster:     &cluster,
 	})
 	if err != nil {
 		return nil, err
