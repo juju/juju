@@ -16,9 +16,16 @@ var ErrNoTools = errors.New("no tools available")
 var ErrNoMatches = errors.New("no matching tools available")
 
 const (
-	toolPrefix = "tools/juju-"
-	toolSuffix = ".tgz"
+	DefaultToolPrefix = "tools/juju-"
+	toolSuffix        = ".tgz"
 )
+
+var toolPrefix string = DefaultToolPrefix
+
+// SetToolPrefix changes the prefix used to compose the tools tarball file name.
+func SetToolPrefix(prefix string) {
+	toolPrefix = prefix
+}
 
 // StorageName returns the name that is used to store and retrieve the
 // given version of the juju tools.
