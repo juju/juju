@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -19,6 +20,7 @@ import (
 	"math/rand"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -46,6 +48,7 @@ type Uniter struct {
 	s            *State
 	sf           *StateFile
 	rand         *rand.Rand
+	hookLock     *fslock.Lock
 
 	ranConfigChanged bool
 }
@@ -102,10 +105,33 @@ func (u *Uniter) loop(name string) (err error) {
 	return err
 }
 
+func (u *Uniter) setupLocks() (err error) {
+	lockDir := filepath.Join(u.dataDir, "locks")
+	u.hookLock, err = fslock.NewLock(lockDir, "uniter-hook-execution")
+	if err != nil {
+		return err
+	}
+	if message := u.hookLock.Message(); u.hookLock.IsLocked() && message != "" {
+		// Look to see if it was us that held the lock before.  If it was, we
+		// should be safe enough to break it, as it is likely that we died
+		// before unlocking, and have been restarted by upstart.
+		parts := strings.SplitN(message, ":", 2)
+		if len(parts) > 1 && parts[0] == u.unit.Name() {
+			if err := u.hookLock.BreakLock(); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 func (u *Uniter) init(name string) (err error) {
 	defer utils.ErrorContextf(&err, "failed to initialize uniter for unit %q", name)
 	u.unit, err = u.st.Unit(name)
 	if err != nil {
+		return err
+	}
+	if err = u.setupLocks(); err != nil {
 		return err
 	}
 	ename := u.unit.Tag()
@@ -252,6 +278,7 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	if err = hi.Validate(); err != nil {
 		return err
 	}
+
 	hookName := string(hi.Kind)
 	relationId := -1
 	if hi.Kind.IsRelation() {
@@ -261,6 +288,23 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		}
 	}
 	hctxId := fmt.Sprintf("%s:%s:%d", u.unit.Name(), hookName, u.rand.Int63())
+	// We want to make sure we don't block forever when locking, but take the
+	// tomb into account.
+	checkTomb := func() error {
+		select {
+		case <-u.tomb.Dying():
+			return tomb.ErrDying
+		default:
+			// no-op to fall through to return.
+		}
+		return nil
+	}
+	lockMessage := fmt.Sprintf("%s: running hook %q", u.unit.Name(), hookName)
+	if err = u.hookLock.LockWithFunc(lockMessage, checkTomb); err != nil {
+		return err
+	}
+	defer u.hookLock.Unlock()
+
 	ctxRelations := map[int]*ContextRelation{}
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
