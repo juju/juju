@@ -158,7 +158,7 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 			return err
 		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
 			// Only bump the revision when it's a directory.
-			return fmt.Errorf("already running latest charm %q", newURL)
+			return fmt.Errorf("cannot increment revision of charm %q: not a directory", newURL)
 		}
 	}
 	sch, err := conn.PutCharm(newURL, repo, bumpRevision)
