@@ -157,12 +157,13 @@ var findInstanceSpecTests = []struct {
 func (s *specSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
+		storage := ebsStorage
 		spec, err := findInstanceSpec(&instances.InstanceConstraint{
 			Region:      "test",
 			Series:      t.series,
 			Arches:      t.arches,
 			Constraints: constraints.MustParse(t.cons),
-			Storage:     &ebsStorage,
+			Storage:     &storage,
 		})
 		c.Assert(err, IsNil)
 		c.Check(spec.InstanceTypeName, Equals, t.itype)
