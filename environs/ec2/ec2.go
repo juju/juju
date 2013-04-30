@@ -398,7 +398,7 @@ type startInstanceParams struct {
 	stateServer   bool
 }
 
-var ebsStorage = "ebs"
+const ebsStorage = "ebs"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
@@ -411,12 +411,13 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
 	}
 	arches := scfg.possibleTools.Arches()
+	storage := ebsStorage
 	spec, err := findInstanceSpec(&instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      scfg.series,
 		Arches:      arches,
 		Constraints: scfg.constraints,
-		Storage:     &ebsStorage,
+		Storage:     &storage,
 	})
 	if err != nil {
 		return nil, err
