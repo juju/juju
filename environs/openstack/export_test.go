@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/http"
@@ -80,6 +81,14 @@ var ShortAttempt = &shortAttempt
 
 func DeleteStorageContent(s environs.Storage) error {
 	return s.(*storage).deleteAll()
+}
+
+func SetFakeToolsStorage(useFake bool) {
+	if useFake {
+		tools.SetToolPrefix("tools_test/juju-")
+	} else {
+		tools.SetToolPrefix(tools.DefaultToolPrefix)
+	}
 }
 
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
