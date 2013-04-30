@@ -195,17 +195,29 @@ func GetImages(providerLabel string, e *environs.Environ, cfg *config.Config, ic
 	return getImages(resp.Body, ic)
 }
 
-func findMatchingImage(images map[string]ImageMetadata, ic *InstanceConstraint) *Image {
-	for _, im := range images {
+func findMatchingImages(matchingImages []*ImageMetadata, images map[string]ImageMetadata, ic *InstanceConstraint) []*ImageMetadata {
+	for _, val := range images {
+		im := val
 		if ic.Storage != nil && im.Storage != *ic.Storage {
 			continue
 		}
-		return &Image{
-			Id: im.Id,
-			VType: im.VType,
+		if ic.Region != im.RegionName {
+			continue
+		}
+		if !containsImage(matchingImages, &im) {
+			matchingImages = append(matchingImages, &im)
 		}
 	}
-	return nil
+	return matchingImages
+}
+
+func containsImage(images []*ImageMetadata, image *ImageMetadata) bool {
+	for _, im := range images {
+		if im.VType == image.VType && im.Storage == image.Storage {
+			return true
+		}
+	}
+	return false
 }
 
 // getImages returns the latest released ubuntu server images for the
@@ -217,8 +229,6 @@ func getImages(r io.Reader, ic *InstanceConstraint) ([]Image, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot read image metadata file: %s", err.Error())
 	}
-
-	fmt.Println(string(respData))
 
 	var metadata CloudImageMetadata
 	if len(respData) > 0 {
@@ -235,23 +245,29 @@ func getImages(r io.Reader, ic *InstanceConstraint) ([]Image, error) {
 			continue
 		}
 
-		// Sort the image metadata by version and look for a matching image.
+		// Sort the image metadata by version (desc) and look for a matching image.
 		// Because of the sorting we will always return the most recent image metadata.
-		bv := byVersion{}
+		bv := byVersionDesc{}
 		bv.versions = make([]string, len(metadataCatalog.Images))
 		bv.imageCollections = make([]ImageCollection, len(metadataCatalog.Images))
 		i := 0
-		for k, v := range metadataCatalog.Images {
-			bv.versions[i] = k
-			bv.imageCollections[i] = v
+		for vers, imageColl := range metadataCatalog.Images {
+			bv.versions[i] = vers
+			bv.imageCollections[i] = imageColl
 			i++
 		}
 		sort.Sort(bv)
+		var matchingImages []*ImageMetadata
 		for _, imageCollection := range bv.imageCollections {
-			if image := findMatchingImage(imageCollection.Images, ic); image != nil {
-				image.Arch = metadataCatalog.Arch
-				images = append(images, *image)
-			}
+			matchingImages = findMatchingImages(matchingImages, imageCollection.Images, ic)
+		}
+		for _, imageMetadata := range matchingImages {
+			im := *imageMetadata
+			images = append(images, Image{
+				Id:    im.Id,
+				VType: im.VType,
+				Arch:  metadataCatalog.Arch,
+			})
 		}
 	}
 
@@ -274,16 +290,16 @@ func (ba byArch) Less(i, j int) bool {
 
 // byVersion is used to sort a slice of image collections as a side effect of
 // sorting a matching slice of versions in YYYYMMDD.
-type byVersion struct {
+type byVersionDesc struct {
 	versions         []string
 	imageCollections []ImageCollection
 }
 
-func (bv byVersion) Len() int { return len(bv.imageCollections) }
-func (bv byVersion) Swap(i, j int) {
+func (bv byVersionDesc) Len() int { return len(bv.imageCollections) }
+func (bv byVersionDesc) Swap(i, j int) {
 	bv.versions[i], bv.versions[j] = bv.versions[j], bv.versions[i]
 	bv.imageCollections[i], bv.imageCollections[j] = bv.imageCollections[j], bv.imageCollections[i]
 }
-func (bv byVersion) Less(i, j int) bool {
-	return bv.versions[i] < bv.versions[j]
+func (bv byVersionDesc) Less(i, j int) bool {
+	return bv.versions[i] > bv.versions[j]
 }
