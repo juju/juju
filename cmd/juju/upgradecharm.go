@@ -8,8 +8,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 	"os"
 )
 
@@ -87,9 +85,26 @@ func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	args := params.ServiceUpgradeCharm{
-		ServiceName: c.ServiceName,
-		Force:       c.Force,
+	rev, err := repo.Latest(curl)
+	if err != nil {
+		return err
 	}
-	return statecmd.ServiceUpgradeCharm(conn.State, args, repo, conn)
+	bumpRevision := false
+	if curl.Revision == rev {
+		if _, isLocal := repo.(*charm.LocalRepository); !isLocal {
+			return fmt.Errorf("already running latest charm %q", curl)
+		}
+		// This is a local repository.
+		if ch, err := repo.Get(curl); err != nil {
+			return err
+		} else if _, bumpRevision = ch.(*charm.Dir); !bumpRevision {
+			// Only bump the revision when it's a directory.
+			return fmt.Errorf("already running latest charm %q", curl)
+		}
+	}
+	sch, err := conn.PutCharm(curl.WithRevision(rev), repo, bumpRevision)
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(sch, c.Force)
 }
