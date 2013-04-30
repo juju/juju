@@ -1,12 +1,12 @@
 package ec2
 
 import (
-	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
-	"strings"
 )
 
 type imageSuite struct {
@@ -26,7 +26,7 @@ func (s *imageSuite) TearDownSuite(c *C) {
 }
 
 var imagesData = []jujutest.FileContent{
-	{"/query/precise/server/released.current.txt", imagesFields(
+	{"/query/precise/server/released.current.txt", envtesting.ImagesFields(
 		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
 		"ebs amd64 eu-west-1 ami-00000016 paravirtual",
 		"ebs i386 ap-northeast-1 ami-00000023 paravirtual",
@@ -36,7 +36,7 @@ var imagesData = []jujutest.FileContent{
 		"ebs i386 test ami-00000034 paravirtual",
 		"ebs amd64 test ami-00000035 hvm",
 	)},
-	{"/query/quantal/server/released.current.txt", imagesFields(
+	{"/query/quantal/server/released.current.txt", envtesting.ImagesFields(
 		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
 		"ebs amd64 eu-west-1 ami-01000016 paravirtual",
 		"ebs i386 ap-northeast-1 ami-01000023 paravirtual",
@@ -45,131 +45,21 @@ var imagesData = []jujutest.FileContent{
 		"ebs i386 test ami-01000034 paravirtual",
 		"ebs amd64 test ami-01000035 hvm",
 	)},
-	{"/query/raring/server/released.current.txt", imagesFields(
+	{"/query/raring/server/released.current.txt", envtesting.ImagesFields(
 		"ebs i386 test ami-02000034 paravirtual",
 	)},
 }
 
-func imagesFields(srcs ...string) string {
-	strs := make([]string, len(srcs))
-	for i, src := range srcs {
-		parts := strings.Split(src, " ")
-		if len(parts) != 5 {
-			panic("bad clouddata field input")
-		}
-		args := make([]interface{}, len(parts))
-		for i, part := range parts {
-			args[i] = part
-		}
-		// Ignored fields are left empty for clarity's sake, and two additional
-		// tabs are tacked on to the end to verify extra columns are ignored.
-		strs[i] = fmt.Sprintf("\t\t\t\t%s\t%s\t%s\t%s\t\t\t%s\t\t\n", args...)
-	}
-	return strings.Join(strs, "")
-}
-
-var getImagesTests = []struct {
-	region string
-	series string
-	arches []string
-	images []image
-	err    string
-}{
-	{
-		region: "us-east-1",
-		series: "precise",
-		arches: both,
-		err:    `no "precise" images in us-east-1 with arches \[amd64 i386\]`,
-	}, {
-		region: "eu-west-1",
-		series: "precise",
-		arches: []string{"i386"},
-		err:    `no "precise" images in eu-west-1 with arches \[i386\]`,
-	}, {
-		region: "ap-northeast-1",
-		series: "precise",
-		arches: both,
-		images: []image{
-			{"ami-00000026", "amd64", false},
-			{"ami-00000087", "amd64", true},
-			{"ami-00000023", "i386", false},
-		},
-	}, {
-		region: "ap-northeast-1",
-		series: "precise",
-		arches: []string{"amd64"},
-		images: []image{
-			{"ami-00000026", "amd64", false},
-			{"ami-00000087", "amd64", true},
-		},
-	}, {
-		region: "ap-northeast-1",
-		series: "precise",
-		arches: []string{"i386"},
-		images: []image{
-			{"ami-00000023", "i386", false},
-		},
-	}, {
-		region: "ap-northeast-1",
-		series: "quantal",
-		arches: both,
-		images: []image{
-			{"ami-01000026", "amd64", false},
-			{"ami-01000087", "amd64", true},
-			{"ami-01000023", "i386", false},
-		},
-	},
-}
-
-func (s *imageSuite) TestGetImages(c *C) {
-	for i, t := range getImagesTests {
-		c.Logf("test %d", i)
-		images, err := getImages(t.region, t.series, t.arches)
-		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
-			continue
-		}
-		if !c.Check(err, IsNil) {
-			continue
-		}
-		c.Check(images, DeepEquals, t.images)
-	}
-}
-
-var imageMatchtests = []struct {
-	image image
-	itype instanceType
-	match bool
-}{
-	{
-		image: image{arch: "amd64"},
-		itype: instanceType{arches: []string{"amd64"}},
-		match: true,
-	}, {
-		image: image{arch: "amd64"},
-		itype: instanceType{arches: []string{"i386", "amd64"}},
-		match: true,
-	}, {
-		image: image{arch: "amd64", hvm: true},
-		itype: instanceType{arches: []string{"amd64"}, hvm: true},
-		match: true,
-	}, {
-		image: image{arch: "i386"},
-		itype: instanceType{arches: []string{"amd64"}},
-	}, {
-		image: image{arch: "amd64", hvm: true},
-		itype: instanceType{arches: []string{"amd64"}},
-	}, {
-		image: image{arch: "amd64"},
-		itype: instanceType{arches: []string{"amd64"}, hvm: true},
-	},
-}
-
-func (s *imageSuite) TestImageMatch(c *C) {
-	for i, t := range imageMatchtests {
-		c.Logf("test %d", i)
-		c.Check(t.image.match(t.itype), Equals, t.match)
-	}
+var instanceTypeCosts = instanceTypeCost{
+	"m1.small":    60,
+	"m1.medium":   120,
+	"m1.large":    240,
+	"m1.xlarge":   480,
+	"t1.micro":    20,
+	"c1.medium":   145,
+	"c1.xlarge":   580,
+	"cc1.4xlarge": 1300,
+	"cc2.8xlarge": 2400,
 }
 
 type specSuite struct {
@@ -181,13 +71,13 @@ var _ = Suite(&specSuite{})
 func (s *specSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	UseTestImageData(imagesData)
-	UseTestInstanceTypeData(instanceTypeData)
+	UseTestInstanceTypeData(instanceTypeCosts)
 }
 
 func (s *specSuite) TearDownSuite(c *C) {
 	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
-	s.LoggingSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 var findInstanceSpecTests = []struct {
@@ -267,15 +157,17 @@ var findInstanceSpecTests = []struct {
 func (s *specSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
-		spec, err := findInstanceSpec(&instanceConstraint{
-			region:      "test",
-			series:      t.series,
-			arches:      t.arches,
-			constraints: constraints.MustParse(t.cons),
+		storage := ebsStorage
+		spec, err := findInstanceSpec(&instances.InstanceConstraint{
+			Region:      "test",
+			Series:      t.series,
+			Arches:      t.arches,
+			Constraints: constraints.MustParse(t.cons),
+			Storage:     &storage,
 		})
 		c.Assert(err, IsNil)
-		c.Check(spec.instanceType, Equals, t.itype)
-		c.Check(spec.image.id, Equals, t.image)
+		c.Check(spec.InstanceTypeName, Equals, t.itype)
+		c.Check(spec.Image.Id, Equals, t.image)
 	}
 }
 
@@ -288,16 +180,11 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		series: "bad",
 		arches: both,
-		err:    `cannot get image data for "bad": .*`,
+		err:    `no "bad" images in test with arches \[amd64 i386\], and no default specified`,
 	}, {
 		series: "precise",
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches \[arm\]`,
-	}, {
-		series: "precise",
-		arches: both,
-		cons:   "cpu-power=9001",
-		err:    `no instance types in test matching constraints "cpu-power=9001"`,
+		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
 	}, {
 		series: "raring",
 		arches: both,
@@ -309,11 +196,11 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		_, err := findInstanceSpec(&instanceConstraint{
-			region:      "test",
-			series:      t.series,
-			arches:      t.arches,
-			constraints: constraints.MustParse(t.cons),
+		_, err := findInstanceSpec(&instances.InstanceConstraint{
+			Region:      "test",
+			Series:      t.series,
+			Arches:      t.arches,
+			Constraints: constraints.MustParse(t.cons),
 		})
 		c.Check(err, ErrorMatches, t.err)
 	}

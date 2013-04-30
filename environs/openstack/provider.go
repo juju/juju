@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -706,11 +707,30 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
-	spec, err := findInstanceSpec(e, scfg.possibleTools)
+	series := scfg.possibleTools.Series()
+	if len(series) != 1 {
+		return nil, fmt.Errorf("expected single series, got %v", series)
+	}
+	if series[0] != scfg.series {
+		return nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+	}
+	arches := scfg.possibleTools.Arches()
+	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
+		Region:              e.ecfg().region(),
+		Series:              scfg.series,
+		Arches:              arches,
+		Constraints:         scfg.constraints,
+		DefaultInstanceType: e.ecfg().defaultInstanceType(),
+		DefaultImageId:      e.ecfg().defaultImageId(),
+	})
 	if err != nil {
 		return nil, err
 	}
-	userData, err := e.userData(scfg, spec.tools)
+	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	if err != nil {
+		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+	}
+	userData, err := e.userData(scfg, tools[0])
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
@@ -736,8 +756,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name:               e.machineFullName(scfg.machineId),
-			FlavorId:           spec.flavorId,
-			ImageId:            spec.imageId,
+			FlavorId:           spec.InstanceTypeId,
+			ImageId:            spec.Image.Id,
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
 		})
@@ -1090,14 +1110,14 @@ var zeroGroup nova.SecurityGroup
 // If a group with name does not exist, one will be created.
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
-	nova := e.nova()
-	group, err := nova.CreateSecurityGroup(name, "juju group")
+	novaClient := e.nova()
+	group, err := novaClient.CreateSecurityGroup(name, "juju group")
 	if err != nil {
 		if !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		} else {
 			// We just tried to create a duplicate group, so load the existing group.
-			group, err = nova.SecurityGroupByName(name)
+			group, err = novaClient.SecurityGroupByName(name)
 			if err != nil {
 				return zeroGroup, err
 			}
@@ -1106,7 +1126,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	// The group is created so now add the rules.
 	for _, rule := range rules {
 		rule.ParentGroupId = group.Id
-		_, err := nova.CreateSecurityGroupRule(rule)
+		_, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
@@ -1119,9 +1139,9 @@ func (e *environ) terminateInstances(ids []state.InstanceId) error {
 		return nil
 	}
 	var firstErr error
-	nova := e.nova()
+	novaClient := e.nova()
 	for _, id := range ids {
-		err := nova.DeleteServer(string(id))
+		err := novaClient.DeleteServer(string(id))
 		if gooseerrors.IsNotFound(err) {
 			err = nil
 		}
