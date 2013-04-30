@@ -96,7 +96,7 @@ respawn
 normal exit 0
 {{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
 {{end}}
-{{range $k, $v := .Limit}}limit {{$k}} {{$v|printf "%s"}}
+{{range $k, $v := .Limit}}limit {{$k}} {{$v}}
 {{end}}
 exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 `[1:]))
