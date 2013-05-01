@@ -1,8 +1,6 @@
 package openstack
 
 import (
-	"bufio"
-	"fmt"
 	"launchpad.net/juju-core/environs/instances"
 )
 
@@ -32,17 +30,15 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	// metadata for available images. The format of the data in the files is found at
 	// https://help.ubuntu.com/community/UEC/Images.
 	var spec *instances.InstanceSpec
-	releasesFile := fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", ic.Series)
+	releasesFile := "image-metadata/released.js"
 	r, err := e.Storage().Get(releasesFile)
 	if err != nil {
 		r, err = e.PublicStorage().Get(releasesFile)
 	}
-	var br *bufio.Reader
 	if err == nil {
 		defer r.Close()
-		br = bufio.NewReader(r)
 	}
-	spec, err = instances.FindInstanceSpec(br, ic, allInstanceTypes)
+	spec, err = instances.FindInstanceSpec(r, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}

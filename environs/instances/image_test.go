@@ -4,9 +4,7 @@ import (
 	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/jujutest"
 	coretesting "launchpad.net/juju-core/testing"
-	"net/http"
 	"sort"
 	"testing"
 )
@@ -23,34 +21,10 @@ var _ = Suite(&imageSuite{})
 
 func (s *imageSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	UseTestImageData(imagesData)
 }
 
 func (s *imageSuite) TearDownSuite(c *C) {
-	UseTestImageData(nil)
 	s.LoggingSuite.TearDownTest(c)
-}
-
-// TODO - there are 2 other ProxyRoundTripper usages which could be factored out to a common helper.
-var testRoundTripper = &jujutest.ProxyRoundTripper{}
-
-func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
-}
-
-var origImagesUrl = baseImagesUrl
-
-// UseTestImageData causes the given content to be served
-// when the ec2 client asks for image data.
-func UseTestImageData(content []jujutest.FileContent) {
-	if content != nil {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
-		baseImagesUrl = "test:"
-	} else {
-		testRoundTripper.Sub = nil
-		baseImagesUrl = origImagesUrl
-	}
 }
 
 var jsonImagesContent = `
@@ -150,21 +124,9 @@ var jsonImagesContent = `
      }
    }
  },
- "_aliases": {
-   "crsn": {
-     "us-east-1": {
-       "region": "us-east-1",
-       "endpoint": "http://ec2.us-east-1.amazonaws.com"
-     }
-   }
- },
  "format": "products:1.0"
 }
 `
-
-var imagesData = []jujutest.FileContent{
-	{"/streams/v1/com.ubuntu.cloud:released:test.js", jsonImagesContent},
-}
 
 type instanceSpecTestParams struct {
 	desc                string
@@ -328,7 +290,8 @@ func (s *imageSuite) TestGetImages(c *C) {
 	var ebs = "ebs"
 	for i, t := range getImagesTests {
 		c.Logf("test %d", i)
-		images, err := GetImages("test", nil, nil, &InstanceConstraint{
+		r := bytes.NewBufferString(jsonImagesContent)
+		images, err := getImages(r, &InstanceConstraint{
 			Region:  t.region,
 			Series:  t.series,
 			Arches:  t.arches,
@@ -379,7 +342,7 @@ var imageMatchtests = []struct {
 		itype: InstanceType{Arches: []string{"amd64"}},
 		match: true,
 	}, {
-		image: Image{Arch: "amd64", VType: "paravirtual"},
+		image: Image{Arch: "amd64", VType: "pv"},
 		itype: InstanceType{Arches: []string{"amd64"}, VType: &hvm},
 	},
 }

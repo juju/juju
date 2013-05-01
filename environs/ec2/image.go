@@ -1,8 +1,8 @@
 package ec2
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"launchpad.net/juju-core/environs/instances"
 	"net/http"
 )
@@ -10,7 +10,7 @@ import (
 // imagesHost holds the address of the images http server.
 // It is a variable so that tests can change it to refer to a local
 // server when needed.
-var imagesHost = "http://cloud-images.ubuntu.com"
+var baseImagesUrl = "http://cloud-images.ubuntu.com/eightprotons"
 
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
 // any other instance type's cpuPower. It is used when no explicit CpuPower
@@ -23,16 +23,16 @@ func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec
 	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
-	path := fmt.Sprintf("/query/%s/server/released.current.txt", ic.Series)
-	resp, err := http.Get(imagesHost + path)
-	var r *bufio.Reader
+	imageFileUrl := baseImagesUrl + "/streams/v1/com.ubuntu.cloud:released:aws.js"
+	resp, err := http.Get(imageFileUrl)
+	var r io.Reader
 	if err == nil {
 		defer resp.Body.Close()
 		if resp.StatusCode != 200 {
 			err = fmt.Errorf("%s", resp.Status)
 		}
 		if err == nil {
-			r = bufio.NewReader(resp.Body)
+			r = resp.Body
 		}
 	}
 

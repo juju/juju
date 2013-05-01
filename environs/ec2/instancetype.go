@@ -6,7 +6,7 @@ import (
 
 // Type of virtualisation used.
 var (
-	paravirtual = "paravirtual"
+	paravirtual = "pv"
 	hvm         = "hvm"
 )
 

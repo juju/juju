@@ -5,7 +5,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -26,28 +25,183 @@ func (s *imageSuite) TearDownSuite(c *C) {
 }
 
 var imagesData = []jujutest.FileContent{
-	{"/query/precise/server/released.current.txt", envtesting.ImagesFields(
-		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
-		"ebs amd64 eu-west-1 ami-00000016 paravirtual",
-		"ebs i386 ap-northeast-1 ami-00000023 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-00000026 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-00000087 hvm",
-		"ebs amd64 test ami-00000033 paravirtual",
-		"ebs i386 test ami-00000034 paravirtual",
-		"ebs amd64 test ami-00000035 hvm",
-	)},
-	{"/query/quantal/server/released.current.txt", envtesting.ImagesFields(
-		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
-		"ebs amd64 eu-west-1 ami-01000016 paravirtual",
-		"ebs i386 ap-northeast-1 ami-01000023 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-01000026 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-01000087 hvm",
-		"ebs i386 test ami-01000034 paravirtual",
-		"ebs amd64 test ami-01000035 hvm",
-	)},
-	{"/query/raring/server/released.current.txt", envtesting.ImagesFields(
-		"ebs i386 test ami-02000034 paravirtual",
-	)},
+	{"/streams/v1/com.ubuntu.cloud:released:aws.js", `
+{
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "products": {
+   "com.ubuntu.cloud:server:12.04:amd64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "usee1pi": {
+             "root_store": "instance",
+             "virt": "pv",
+             "crsn": "us-east-1",
+             "id": "ami-00000011"
+           },
+           "usww1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "eu-west-1",
+             "id": "ami-00000016"
+           },
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "ap-northeast-1",
+             "id": "ami-00000026"
+           },
+           "apne1he": {
+             "root_store": "ebs",
+             "virt": "hvm",
+             "crsn": "ap-northeast-1",
+             "id": "ami-00000087"
+           },
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-00000033"
+           },
+           "test1he": {
+             "root_store": "ebs",
+             "virt": "hvm",
+             "crsn": "test",
+             "id": "ami-00000035"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.04:i386": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-00000034"
+           },
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "ap-northeast-1",
+             "id": "ami-00000023"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:amd64": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "usee1pi": {
+             "root_store": "instance",
+             "virt": "pv",
+             "crsn": "us-east-1",
+             "id": "ami-00000011"
+           },
+           "usww1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "eu-west-1",
+             "id": "ami-01000016"
+           },
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "ap-northeast-1",
+             "id": "ami-01000026"
+           },
+           "apne1he": {
+             "root_store": "ebs",
+             "virt": "hvm",
+             "crsn": "ap-northeast-1",
+             "id": "ami-01000087"
+           },
+           "test1he": {
+             "root_store": "ebs",
+             "virt": "hvm",
+             "crsn": "test",
+             "id": "ami-01000035"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:i386": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-01000034"
+           },
+           "apne1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "ap-northeast-1",
+             "id": "ami-01000023"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.10-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:i386": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-02000034"
+           }
+         },
+         "pubname": "ubuntu-raring-13.04-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   }
+ },
+ "_aliases": {
+   "crsn": {
+     "us-east-1": {
+       "region": "us-east-1",
+       "endpoint": "http://ec2.us-east-1.amazonaws.com"
+     }
+   }
+ },
+ "format": "products:1.0"
+}
+`},
 }
 
 var instanceTypeCosts = instanceTypeCost{

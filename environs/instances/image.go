@@ -6,11 +6,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"net/http"
 	"sort"
-	"strings"
 )
 
 // InstanceConstraint constrains the possible instances that may be
@@ -148,6 +144,8 @@ func (image Image) match(itype InstanceType) bool {
 	return false
 }
 
+// The following structs define the data model used in the JSON image metadata files.
+// Not every model attribute is defined here, only the ones we care about.
 type ImageMetadata struct {
 	Id         string `json:"id"`
 	Storage    string `json:"root_store"`
@@ -156,43 +154,23 @@ type ImageMetadata struct {
 }
 
 type ImageCollection struct {
-	Images      map[string]ImageMetadata `json:"items"`
-	PublicName  string                   `json:"pubname"`
-	PublicLabel string                   `json:"publabel"`
-	Tag         string                   `json:"label"`
+	Images map[string]ImageMetadata `json:"items"`
+	Tag    string                   `json:"label"`
 }
 
 type ImagesByVersion map[string]ImageCollection
 
 type ImageMetadataCatalog struct {
-	Release string          `json:"release"`
-	Version string          `json:"version"`
-	Arch    string          `json:"arch"`
-	Images  ImagesByVersion `json:"versions"`
+	Release string `json:"release"`
+	Version string `json:"version"`
+	Arch    string `json:"arch"`
+	// The region can either be specified here or in ImageMetadata
+	RegionName string          `json:"region"`
+	Images     ImagesByVersion `json:"versions"`
 }
 
 type CloudImageMetadata struct {
 	Products map[string]ImageMetadataCatalog `json:"products"`
-}
-
-var baseImagesUrl = "http://cloud-images.ubuntu.com/eightprotons"
-
-func GetImages(providerLabel string, e *environs.Environ, cfg *config.Config, ic *InstanceConstraint) ([]Image, error) {
-	if !strings.HasSuffix(baseImagesUrl, "/") {
-		baseImagesUrl += "/"
-	}
-	imageFilePath := fmt.Sprintf("streams/v1/com.ubuntu.cloud:released:%s.js", providerLabel)
-	imageFileUrl := baseImagesUrl + imageFilePath
-	resp, err := http.Get(imageFileUrl)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
-		err = fmt.Errorf("%s", resp.Status)
-		return nil, err
-	}
-	return getImages(resp.Body, ic)
 }
 
 func findMatchingImages(matchingImages []*ImageMetadata, images map[string]ImageMetadata, ic *InstanceConstraint) []*ImageMetadata {
@@ -244,7 +222,9 @@ func getImages(r io.Reader, ic *InstanceConstraint) ([]Image, error) {
 		if len(filterArches([]string{metadataCatalog.Arch}, ic.Arches)) == 0 {
 			continue
 		}
-
+		if metadataCatalog.RegionName != "" && metadataCatalog.RegionName != ic.Region {
+			continue
+		}
 		// Sort the image metadata by version (desc) and look for a matching image.
 		// Because of the sorting we will always return the most recent image metadata.
 		bv := byVersionDesc{}
@@ -259,6 +239,15 @@ func getImages(r io.Reader, ic *InstanceConstraint) ([]Image, error) {
 		sort.Sort(bv)
 		var matchingImages []*ImageMetadata
 		for _, imageCollection := range bv.imageCollections {
+			// First assign the collection's global region name to each image if not specified.
+			if metadataCatalog.RegionName != "" {
+				for nm, im := range imageCollection.Images {
+					if im.RegionName == "" {
+						im.RegionName = metadataCatalog.RegionName
+						imageCollection.Images[nm] = im
+					}
+				}
+			}
 			matchingImages = findMatchingImages(matchingImages, imageCollection.Images, ic)
 		}
 		for _, imageMetadata := range matchingImages {

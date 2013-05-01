@@ -25,21 +25,137 @@ type ProviderSuite struct{}
 var _ = Suite(&ProviderSuite{})
 
 var testImagesContent = []jujutest.FileContent{{
-	Name: "/query/precise/server/released.current.txt",
-	Content: "" +
-		"precise\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-20800c10\taki-98e26fa8\t\tparavirtual\n" +
-		"precise\tserver\trelease\t20121017\tebs\ti386\ttest\tami-00000034\tparavirtual\n",
-}, {
-	Name: "/query/quantal/server/released.current.txt",
-	Content: "" +
-		"quantal\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
-		"quantal\tserver\trelease\t20121017\tebs\ti386\ttest\tami-01000034\taki-98e26fa8\t\tparavirtual\n",
-}, {
-	Name: "/query/raring/server/released.current.txt",
-	Content: "" +
-		"raring\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
-		"raring\tserver\trelease\t20121017\tebs\ti386\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n",
-}}
+	"/streams/v1/com.ubuntu.cloud:released:aws.js", `
+{
+ "content_id": "com.ubuntu.cloud:released:aws",
+ "products": {
+   "com.ubuntu.cloud:server:12.04:amd64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-20800c10"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.04:i386": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-00000034"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:amd64": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-40f97070"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:i386": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-01000034"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.10-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:ad64m": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-40f97070"
+           }
+         },
+         "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:i386": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "i386",
+     "versions": {
+       "20121218": {
+         "items": {
+           "test1pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "test",
+             "id": "ami-40f97070"
+           }
+         },
+         "pubname": "ubuntu-raring-13.04-i386-server-20121218",
+         "label": "release"
+       }
+     }
+   }
+ },
+ "_aliases": {
+   "crsn": {
+     "us-east-1": {
+       "region": "us-east-1",
+       "endpoint": "http://ec2.us-east-1.amazonaws.com"
+     }
+   }
+ },
+ "format": "products:1.0"
+}
+`},
+}
 
 // testInstanceTypeContent holds the cost in USDe-3/hour for each of the
 // few available instance types in  the convenient fictional "test" region.

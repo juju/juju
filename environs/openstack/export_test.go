@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -112,47 +111,112 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
-var privateBucketImagesData = map[string]string{
-	"quantal": testing.ImagesFields(
-		"inst3 amd64 region-1 id-1 paravirtual",
-		"inst4 amd64 region-2 id-2 paravirtual",
-	),
-	"raring": testing.ImagesFields(
-		"inst5 amd64 some-region id-y paravirtual",
-		"inst6 amd64 another-region id-z paravirtual",
-	),
+var privateBucketImagesData = `
+{
+ "content_id": "com.ubuntu.cloud:released:openstack",
+ "products": {
+   "com.ubuntu.cloud:server:12.10:amd64": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "region-1",
+             "id": "id-1"
+           },
+           "inst4": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "region-2",
+             "id": "id-2"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:amd64": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   }
+ },
+ "format": "products:1.0"
 }
+`
 
-var publicBucketImagesData = map[string]string{
-	"precise": testing.ImagesFields(
-		"inst1 amd64 some-region 1 paravirtual",
-		"inst2 amd64 some-region 2 paravirtual",
-	),
+var publicBucketImagesData = `
+{
+ "content_id": "com.ubuntu.cloud:released:openstack",
+ "products": {
+   "com.ubuntu.cloud:server:12.04:amd64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "crsn": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   }
+ },
+ "format": "products:1.0"
 }
+`
 
-func metadataFilePath(series string) string {
-	return fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", series)
-}
+const metadatafile = "image-metadata/released.js"
 
 func UseTestImageData(e environs.Environ, includePrivate bool) {
 	// Put some image metadata files into the public (and maybe private) storage.
 	if includePrivate {
-		for series, imagesData := range privateBucketImagesData {
-			e.Storage().Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
-		}
+		e.Storage().Put(metadatafile, strings.NewReader(privateBucketImagesData), int64(len(privateBucketImagesData)))
 	}
-	for series, imagesData := range publicBucketImagesData {
-		WritablePublicStorage(e).Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
-	}
+	WritablePublicStorage(e).Put(metadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
-	for series := range privateBucketImagesData {
-		e.Storage().Remove(metadataFilePath(series))
-	}
-	for series := range publicBucketImagesData {
-		WritablePublicStorage(e).Remove(metadataFilePath(series))
-	}
+	e.Storage().Remove(metadatafile)
+	WritablePublicStorage(e).Remove(metadatafile)
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {

@@ -64,17 +64,17 @@ func init() {
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
-var origImagesHost = imagesHost
+var origImagesUrl = baseImagesUrl
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
 func UseTestImageData(content []jujutest.FileContent) {
 	if content != nil {
 		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
-		imagesHost = "test:"
+		baseImagesUrl = "test:"
 	} else {
 		testRoundTripper.Sub = nil
-		imagesHost = origImagesHost
+		baseImagesUrl = origImagesUrl
 	}
 }
 
