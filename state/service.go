@@ -357,6 +357,42 @@ func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, erro
 	return newcfg, orig.assertUnchangedOp(), nil
 }
 
+func (s *Service) checkRelationsOps(ch *Charm) ([]txn.Op, error) {
+	relations, err := s.Relations()
+	if err != nil {
+		return nil, err
+	}
+	if len(relations) != s.doc.RelationCount {
+		// Stale data, need to refresh.
+		return nil, errRefresh
+	}
+	// Make sure the relation count does not change.
+	asserts := []txn.Op{{
+		C:      s.st.services.Name,
+		Id:     s.doc.Name,
+		Assert: D{{"relationcount", s.doc.RelationCount}},
+	}}
+	// Also all relations must still exist.
+	for _, r := range relations {
+		asserts = append(asserts, txn.Op{
+			C:      s.st.relations.Name,
+			Id:     r.doc.Key,
+			Assert: txn.DocExists,
+		})
+	}
+	// Finally, new charm's endpoints must implement all existing relations.
+	eps, err := s.Endpoints()
+	if err != nil {
+		return nil, err
+	}
+	for _, ep := range eps {
+		if !ep.ImplementedBy(ch) {
+			return nil, fmt.Errorf("charm %q does not implement %q", ch, ep)
+		}
+	}
+	return asserts, nil
+}
+
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
@@ -425,6 +461,12 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 		Assert: txn.DocExists,
 		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
 	})
+	// Check relations to ensure no active relations are removed.
+	relOps, err := s.checkRelationsOps(ch)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, relOps...)
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
@@ -458,11 +500,15 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		} else {
 			// Change the charm URL.
 			ops, err = s.changeCharmOps(ch, force)
-			if err != nil {
+			if err == errRefresh {
+				if err = s.Refresh(); err != nil {
+					return err
+				}
+				// Need to start over and try again.
+				continue
+			} else if err != nil {
 				return err
 			}
-			// TODO(fwereade) check that the service's endpoint in each of
-			// its existing relations is still implemented by the new charm.
 		}
 
 		if err := s.st.runner.Run(ops, "", nil); err == nil {

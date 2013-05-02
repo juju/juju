@@ -36,14 +36,16 @@ func (s *ServiceSuite) TestSetCharm(c *C) {
 	c.Assert(url, DeepEquals, s.charm.URL())
 	c.Assert(force, Equals, false)
 
-	wp := s.AddTestingCharm(c, "wordpress")
-	err = s.mysql.SetCharm(wp, true)
-	ch, force, err1 := s.mysql.Charm()
-	c.Assert(err1, IsNil)
-	c.Assert(ch.URL(), DeepEquals, wp.URL())
+	// Add a compatible charm and force it.
+	sch := s.AddMetaCharm(c, "mysql", metaBase, 2) // revno 1 is used by SetUpSuite
+	err = s.mysql.SetCharm(sch, true)
+	c.Assert(err, IsNil)
+	ch, force, err = s.mysql.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.URL(), DeepEquals, sch.URL())
 	c.Assert(force, Equals, true)
 	url, force = s.mysql.CharmURL()
-	c.Assert(url, DeepEquals, wp.URL())
+	c.Assert(url, DeepEquals, sch.URL())
 	c.Assert(force, Equals, true)
 
 	// SetCharm fails when the service is Dying.
@@ -51,7 +53,7 @@ func (s *ServiceSuite) TestSetCharm(c *C) {
 	c.Assert(err, IsNil)
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
-	err = s.mysql.SetCharm(wp, true)
+	err = s.mysql.SetCharm(sch, true)
 	c.Assert(err, ErrorMatches, `service "mysql" is not alive`)
 }
 
@@ -63,6 +65,115 @@ func (s *ServiceSuite) TestSetCharmErrors(c *C) {
 	othermysql := s.AddSeriesCharm(c, "mysql", "otherseries")
 	err = s.mysql.SetCharm(othermysql, false)
 	c.Assert(err, ErrorMatches, "cannot change a service's series")
+}
+
+var metaBase = `
+name: mysql
+summary: "Fake MySQL Database engine"
+description: "Complete with nonsense relations"
+provides:
+  server: mysql
+requires:
+  client: mysql
+peers:
+  cluster: mysql
+`
+var metaDifferentProvider = `
+name: mysql
+description: none
+summary: none
+provides:
+  kludge: mysql
+requires:
+  client: mysql
+peers:
+  cluster: mysql
+`
+var metaDifferentRequirer = `
+name: mysql
+description: none
+summary: none
+provides:
+  server: mysql
+requires:
+  kludge: mysql
+peers:
+  cluster: mysql
+`
+var metaDifferentPeer = `
+name: mysql
+description: none
+summary: none
+provides:
+  server: mysql
+requires:
+  client: mysql
+peers:
+  kludge: mysql
+`
+var metaExtraEndpoints = `
+name: mysql
+description: none
+summary: none
+provides:
+  server: mysql
+  foo: bar
+requires:
+  client: mysql
+  baz: woot
+peers:
+  cluster: mysql
+  just: me
+`
+
+var setCharmEndpointsTests = []struct {
+	summary string
+	meta    string
+	err     string
+}{
+	{
+		summary: "different provider",
+		meta:    metaDifferentProvider,
+		err:     `charm "local:series/series-mysql-3" does not implement "fakemysql:server"`,
+	}, {
+		summary: "different requirer",
+		meta:    metaDifferentRequirer,
+		err:     `charm "local:series/series-mysql-4" does not implement "fakemysql:client"`,
+	}, {
+		summary: "different peer",
+		meta:    metaDifferentPeer,
+		err:     `charm "local:series/series-mysql-5" does not implement "fakemysql:cluster"`,
+	}, {
+		summary: "same relations ok",
+		meta:    metaBase,
+	}, {
+		summary: "extra endpoints ok",
+		meta:    metaExtraEndpoints,
+	},
+}
+
+func (s *ServiceSuite) TestSetCharmChecksEndpoints(c *C) {
+	revno := 2 // 1 is used in SetUpSuite
+	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
+	svc, err := s.State.AddService("fakemysql", ms)
+	c.Assert(err, IsNil)
+	err = svc.SetCharm(ms, false)
+	c.Assert(err, IsNil)
+
+	for i, t := range setCharmEndpointsTests {
+		c.Logf("test %d: %s", i, t.summary)
+
+		newCh := s.AddMetaCharm(c, "mysql", t.meta, revno+i+1)
+		err = svc.SetCharm(newCh, false)
+		if t.err != "" {
+			c.Assert(err, ErrorMatches, t.err)
+		} else {
+			c.Assert(err, IsNil)
+		}
+	}
+
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
 }
 
 var stringConfig = `
