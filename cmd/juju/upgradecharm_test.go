@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"os"
@@ -12,7 +13,7 @@ import (
 )
 
 type UpgradeCharmErrorsSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&UpgradeCharmErrorsSuite{})
@@ -32,7 +33,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *C) {
-	testing.Charms.ClonedDirPath(s.seriesPath, "riak")
+	testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 
@@ -51,43 +52,15 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestCannotBumpRevisionWithBundle(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "riak")
+	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
-
 	err = runUpgradeCharm(c, "riak")
-	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/riak-7": not a directory`)
-}
-
-func (s *UpgradeCharmErrorsSuite) deployService(c *C) {
-	testing.Charms.ClonedDirPath(s.seriesPath, "riak")
-	err := runDeploy(c, "local:riak", "riak")
-	c.Assert(err, IsNil)
-}
-
-func (s *UpgradeCharmErrorsSuite) TestInvalidSwitchURL(c *C) {
-	s.deployService(c)
-	err := runUpgradeCharm(c, "riak", "--switch=blah")
-	c.Assert(err, ErrorMatches, "charm not found: cs:precise/blah")
-	err = runUpgradeCharm(c, "riak", "--switch=cs:missing/one")
-	c.Assert(err, ErrorMatches, "charm not found: cs:missing/one")
-	// TODO(dimitern): add tests with incompatible charms
-}
-
-func (s *UpgradeCharmErrorsSuite) TestSwitchAndRevisionFails(c *C) {
-	s.deployService(c)
-	err := runUpgradeCharm(c, "riak", "--switch=riak", "--revision=2")
-	c.Assert(err, ErrorMatches, "--switch and --revision are mutually exclusive")
-}
-
-func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *C) {
-	s.deployService(c)
-	err := runUpgradeCharm(c, "riak", "--revision=blah")
-	c.Assert(err, ErrorMatches, `invalid value "blah" for flag --revision: strconv.ParseInt: parsing "blah": invalid syntax`)
+	c.Assert(err, ErrorMatches, `already running latest charm "local:precise/riak-7"`)
 }
 
 type UpgradeCharmSuccessSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 	path string
 	riak *state.Service
 }
@@ -95,8 +68,8 @@ type UpgradeCharmSuccessSuite struct {
 var _ = Suite(&UpgradeCharmSuccessSuite{})
 
 func (s *UpgradeCharmSuccessSuite) SetUpTest(c *C) {
-	s.repoSuite.SetUpTest(c)
-	s.path = testing.Charms.ClonedDirPath(s.seriesPath, "riak")
+	s.RepoSuite.SetUpTest(c)
+	s.path = testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 	s.riak, err = s.State.Service("riak")
@@ -107,19 +80,18 @@ func (s *UpgradeCharmSuccessSuite) SetUpTest(c *C) {
 	c.Assert(forced, Equals, false)
 }
 
-func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *C, revision int, forced bool) *charm.URL {
+func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *C, revision int, forced bool) {
 	err := s.riak.Refresh()
 	c.Assert(err, IsNil)
 	ch, force, err := s.riak.Charm()
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, revision)
 	c.Assert(force, Equals, forced)
-	s.assertCharmUploaded(c, ch.URL())
-	return ch.URL()
+	s.AssertCharmUploaded(c, ch.URL())
 }
 
-func (s *UpgradeCharmSuccessSuite) assertLocalRevision(c *C, revision int, path string) {
-	dir, err := charm.ReadDir(path)
+func (s *UpgradeCharmSuccessSuite) assertLocalRevision(c *C, revision int) {
+	dir, err := charm.ReadDir(s.path)
 	c.Assert(err, IsNil)
 	c.Assert(dir.Revision(), Equals, revision)
 }
@@ -128,7 +100,7 @@ func (s *UpgradeCharmSuccessSuite) TestBumpsRevisionWhenNecessary(c *C) {
 	err := runUpgradeCharm(c, "riak")
 	c.Assert(err, IsNil)
 	s.assertUpgraded(c, 8, false)
-	s.assertLocalRevision(c, 8, s.path)
+	s.assertLocalRevision(c, 8)
 }
 
 func (s *UpgradeCharmSuccessSuite) TestDoesntBumpRevisionWhenNotNecessary(c *C) {
@@ -140,7 +112,7 @@ func (s *UpgradeCharmSuccessSuite) TestDoesntBumpRevisionWhenNotNecessary(c *C) 
 	err = runUpgradeCharm(c, "riak")
 	c.Assert(err, IsNil)
 	s.assertUpgraded(c, 42, false)
-	s.assertLocalRevision(c, 42, s.path)
+	s.assertLocalRevision(c, 42)
 }
 
 func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *C) {
@@ -150,66 +122,20 @@ func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *C) {
 	buf := &bytes.Buffer{}
 	err = dir.BundleTo(buf)
 	c.Assert(err, IsNil)
-	bundlePath := path.Join(s.seriesPath, "riak.charm")
+	bundlePath := path.Join(s.SeriesPath, "riak.charm")
 	err = ioutil.WriteFile(bundlePath, buf.Bytes(), 0644)
 	c.Assert(err, IsNil)
+	c.Logf("%q %q", bundlePath, s.SeriesPath)
 
 	err = runUpgradeCharm(c, "riak")
 	c.Assert(err, IsNil)
 	s.assertUpgraded(c, 42, false)
-	s.assertLocalRevision(c, 7, s.path)
+	s.assertLocalRevision(c, 7)
 }
 
 func (s *UpgradeCharmSuccessSuite) TestForcedUpgrade(c *C) {
 	err := runUpgradeCharm(c, "riak", "--force")
 	c.Assert(err, IsNil)
 	s.assertUpgraded(c, 8, true)
-	s.assertLocalRevision(c, 8, s.path)
-}
-
-var myriakMeta = []byte(`
-name: myriak
-summary: "K/V storage engine"
-description: "Scalable K/V Store in Erlang with Clocks :-)"
-provides:
-  endpoint:
-    interface: http
-  admin:
-    interface: http
-peers:
-  ring:
-    interface: riak
-`)
-
-func (s *UpgradeCharmSuccessSuite) TestSwitch(c *C) {
-	myriakPath := testing.Charms.RenamedClonedDirPath(s.seriesPath, "riak", "myriak")
-	err := ioutil.WriteFile(path.Join(myriakPath, "metadata.yaml"), myriakMeta, 0644)
-	c.Assert(err, IsNil)
-
-	// Test with local repo and no explicit revsion.
-	err = runUpgradeCharm(c, "riak", "--switch=local:myriak")
-	c.Assert(err, IsNil)
-	curl := s.assertUpgraded(c, 7, false)
-	c.Assert(curl.String(), Equals, "local:precise/myriak-7")
-	s.assertLocalRevision(c, 7, myriakPath)
-
-	// Try it again without revision - should be bumped.
-	err = runUpgradeCharm(c, "riak", "--switch=local:myriak")
-	c.Assert(err, IsNil)
-	curl = s.assertUpgraded(c, 8, false)
-	c.Assert(curl.String(), Equals, "local:precise/myriak-8")
-	s.assertLocalRevision(c, 8, myriakPath)
-
-	// Now try the same with explicit revision - should fail.
-	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-8")
-	c.Assert(err, ErrorMatches, `already running specified charm "local:precise/myriak-8"`)
-
-	// Change the revision to 42 and upgrade to it with explicit revision.
-	err = ioutil.WriteFile(path.Join(myriakPath, "revision"), []byte("42"), 0644)
-	c.Assert(err, IsNil)
-	err = runUpgradeCharm(c, "riak", "--switch=local:myriak-42")
-	c.Assert(err, IsNil)
-	curl = s.assertUpgraded(c, 42, false)
-	c.Assert(curl.String(), Equals, "local:precise/myriak-42")
-	s.assertLocalRevision(c, 42, myriakPath)
+	s.assertLocalRevision(c, 8)
 }
