@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // On-disk mutex protecting a resource
 //
 // A lock is represented on disk by a directory of a particular name,
