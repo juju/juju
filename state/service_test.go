@@ -132,17 +132,15 @@ var setCharmEndpointsTests = []struct {
 	err     string
 }{
 	{
-		summary: "different provider",
+		summary: "different provider (but no relation yet)",
 		meta:    metaDifferentProvider,
-		err:     `charm "local:series/series-mysql-3" does not implement "fakemysql:server"`,
 	}, {
-		summary: "different requirer",
+		summary: "different requirer (but no relation yet)",
 		meta:    metaDifferentRequirer,
-		err:     `charm "local:series/series-mysql-4" does not implement "fakemysql:client"`,
 	}, {
 		summary: "different peer",
 		meta:    metaDifferentPeer,
-		err:     `charm "local:series/series-mysql-5" does not implement "fakemysql:cluster"`,
+		err:     `cannot upgrade service "fakemysql" to charm "local:series/series-mysql-5": would break relation "fakemysql:cluster"`,
 	}, {
 		summary: "same relations ok",
 		meta:    metaBase,
@@ -152,7 +150,7 @@ var setCharmEndpointsTests = []struct {
 	},
 }
 
-func (s *ServiceSuite) TestSetCharmChecksEndpoints(c *C) {
+func (s *ServiceSuite) TestSetCharmChecksEndpointsWithoutRelations(c *C) {
 	revno := 2 // 1 is used in SetUpSuite
 	ms := s.AddMetaCharm(c, "mysql", metaBase, revno)
 	svc, err := s.State.AddService("fakemysql", ms)
@@ -174,6 +172,34 @@ func (s *ServiceSuite) TestSetCharmChecksEndpoints(c *C) {
 
 	err = svc.Destroy()
 	c.Assert(err, IsNil)
+}
+
+func (s *ServiceSuite) TestSetCharmChecksEndpointsWithRelations(c *C) {
+	revno := 2 // 1 is used by SetUpSuite
+	providerCharm := s.AddMetaCharm(c, "mysql", metaDifferentProvider, revno)
+	providerSvc, err := s.State.AddService("myprovider", providerCharm)
+	c.Assert(err, IsNil)
+	err = providerSvc.SetCharm(providerCharm, false)
+	c.Assert(err, IsNil)
+
+	revno++
+	requirerCharm := s.AddMetaCharm(c, "mysql", metaDifferentRequirer, revno)
+	requirerSvc, err := s.State.AddService("myrequirer", requirerCharm)
+	c.Assert(err, IsNil)
+	err = requirerSvc.SetCharm(requirerCharm, false)
+	c.Assert(err, IsNil)
+
+	eps, err := s.State.InferEndpoints([]string{"myprovider:kludge", "myrequirer:kludge"})
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	revno++
+	baseCharm := s.AddMetaCharm(c, "mysql", metaBase, revno)
+	err = providerSvc.SetCharm(baseCharm, false)
+	c.Assert(err, ErrorMatches, `cannot upgrade service "myprovider" to charm "local:series/series-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
+	err = requirerSvc.SetCharm(baseCharm, false)
+	c.Assert(err, ErrorMatches, `cannot upgrade service "myrequirer" to charm "local:series/series-mysql-4": would break relation "myrequirer:kludge myprovider:kludge"`)
 }
 
 var stringConfig = `
