@@ -358,8 +358,8 @@ func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, erro
 }
 
 func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
-	var asserts []txn.Op
-	// Also all relations must still exist and their endpoints are implemented by the charm.
+	asserts := make([]txn.Op, 0, len(relations))
+	// All relations must still exist and their endpoints are implemented by the charm.
 	for _, rel := range relations {
 		if ep, err := rel.Endpoint(s.doc.Name); err != nil {
 			return nil, err
