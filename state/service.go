@@ -364,7 +364,7 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 		if ep, err := rel.Endpoint(s.doc.Name); err != nil {
 			return nil, err
 		} else if !ep.ImplementedBy(ch) {
-			return nil, fmt.Errorf("cannot upgrade service %q to charm %q: would break relation %q", s.doc.Name, ch, rel)
+			return nil, fmt.Errorf("cannot upgrade service %q to charm %q: would break relation %q", s, ch, rel)
 		}
 		asserts = append(asserts, txn.Op{
 			C:      s.st.relations.Name,
@@ -441,19 +441,15 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
-	if len(relations) != s.doc.RelationCount {
-		// Stale data, need to refresh.
-		return nil, errRefresh
-	}
 	// Make sure the relation count does not change.
-	sameRelCount := D{{"relationcount", s.doc.RelationCount}}
+	sameRelCount := D{{"relationcount", len(relations)}}
 
 	ops = append(ops, peerOps...)
 	// Update the relation count as well.
 	ops = append(ops, txn.Op{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: sameRelCount, // txn.DocExists is implicit and cannot be combined with another assert
+		Assert: append(isAliveDoc, sameRelCount...),
 		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
 	})
 	// Check relations to ensure no active relations are removed.
@@ -495,16 +491,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 		} else {
 			// Change the charm URL.
 			ops, err = s.changeCharmOps(ch, force)
-			if err == errRefresh {
-				// Not using Refresh() here, because that'll change the state
-				// unexpectedly under the client.
-				s, err = s.st.Service(s.doc.Name)
-				if err != nil {
-					return err
-				}
-				// Need to start over and try again.
-				continue
-			} else if err != nil {
+			if err != nil {
 				return err
 			}
 		}
