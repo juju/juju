@@ -56,7 +56,7 @@ func (s *UpgradeCharmErrorsSuite) TestCannotBumpRevisionWithBundle(c *C) {
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 	err = runUpgradeCharm(c, "riak")
-	c.Assert(err, ErrorMatches, `already running latest charm "local:precise/riak-7"`)
+	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/riak-7": not a directory`)
 }
 
 type UpgradeCharmSuccessSuite struct {
