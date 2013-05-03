@@ -140,7 +140,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
+	if err := m.st.runTxn(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	tools := *t
@@ -164,7 +164,7 @@ func (m *Machine) SetPassword(password string) error {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
+	if err := m.st.runTxn(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.PasswordHash = hp
@@ -286,7 +286,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			}
 		}
 		// Run the transaction...
-		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
+		if err := m.st.runTxn([]txn.Op{op}); err != txn.ErrAborted {
 			return err
 		}
 		// ...and retry on abort.
@@ -318,7 +318,7 @@ func (m *Machine) Remove() (err error) {
 	}
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
-	return onAbort(m.st.runner.Run(ops, "", nil), nil)
+	return onAbort(m.st.runTxn(ops), nil)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -418,7 +418,7 @@ func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 	}}
 
-	if err = m.st.runner.Run(ops, "", nil); err == nil {
+	if err = m.st.runTxn(ops); err == nil {
 		m.doc.InstanceId = id
 		m.doc.Nonce = nonce
 		return nil
@@ -475,7 +475,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		if m.doc.InstanceId != "" {
 			return fmt.Errorf("machine is already provisioned")
 		}
-		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := m.st.runTxn(ops); err != txn.ErrAborted {
 			return err
 		}
 		if m, err = m.st.Machine(m.doc.Id); err != nil {
@@ -515,7 +515,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 	},
 		updateStatusOp(m.st, m.globalKey(), doc),
 	}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
+	if err := m.st.runTxn(ops); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil

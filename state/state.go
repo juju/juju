@@ -130,11 +130,39 @@ type State struct {
 	annotations    *mgo.Collection
 	statuses       *mgo.Collection
 	runner         *txn.Runner
+	txnHooks       chan ([]func())
 	watcher        *watcher.Watcher
 	pwatcher       *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+}
+
+// runTxn runs the supplied operations as a single mgo/txn transaction, and
+// includes a mechanism whereby tests can use SetTxnHooks to induce arbitrary
+// state mutations before and after particular transactions are attempted.
+func (st *State) runTxn(ops []txn.Op) error {
+	txnHooks := <-st.txnHooks
+	st.txnHooks <- nil
+	switch len(txnHooks) {
+	default:
+		defer func() {
+			if txnHooks[1] != nil {
+				txnHooks[1]()
+			}
+			if <-st.txnHooks != nil {
+				panic("concurrent use of transaction hooks")
+			}
+			st.txnHooks <- txnHooks[2:]
+		}()
+		fallthrough
+	case 1:
+		if txnHooks[0] != nil {
+			txnHooks[0]()
+		}
+	case 0:
+	}
+	return st.runner.Run(ops, "", nil)
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -266,7 +294,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, nonce string, 
 		return nil, err
 	}
 
-	err = st.runner.Run(ops, "", nil)
+	err = st.runTxn(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -576,7 +604,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
-	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+	if err := st.runTxn(ops); err == txn.ErrAborted {
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -818,7 +846,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Insert: doc,
 		})
 		// Run the transaction, and retry on abort.
-		if err = st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if err = st.runTxn(ops); err == txn.ErrAborted {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -1043,7 +1071,7 @@ func (st *State) Cleanup() error {
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := st.runner.Run(ops, "", nil); err != nil {
+		if err := st.runTxn(ops); err != nil {
 			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}

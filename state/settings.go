@@ -161,7 +161,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 			{"$unset", deletions},
 		},
 	}}
-	err := c.st.runner.Run(ops, "", nil)
+	err := c.st.runTxn(ops)
 	if err == txn.ErrAborted {
 		return nil, NotFoundf("settings")
 	}
@@ -242,7 +242,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 	s := newSettings(st, key)
 	s.core = copyMap(values)
 	ops := []txn.Op{createSettingsOp(st, key, values)}
-	err := s.st.runner.Run(ops, "", nil)
+	err := s.st.runTxn(ops)
 	if err == txn.ErrAborted {
 		return nil, errSettingsExist
 	}

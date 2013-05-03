@@ -107,7 +107,7 @@ func (r *Relation) Destroy() (err error) {
 		} else if err != nil {
 			return err
 		}
-		if err := rel.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := rel.st.runTxn(ops); err != txn.ErrAborted {
 			return err
 		}
 		if err := rel.Refresh(); IsNotFound(err) {

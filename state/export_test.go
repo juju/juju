@@ -12,6 +12,22 @@ import (
 	"path/filepath"
 )
 
+// SetTxnHooks queues up N functions to be run before/after the next N/2
+// transactions. Every function can freely execute its own transactions
+// without causing subsequent hooks to be run. It returns a function that
+// asserts that all hooks have been run and removes any that have not. It
+// is an error to set transaction hooks when any are already queued.
+func SetTxnHooks(c *C, st *State, txnHooks ...func()) (checkRan func()) {
+	original := <-st.txnHooks
+	st.txnHooks <- txnHooks
+	c.Assert(original, HasLen, 0)
+	return func() {
+		remaining := <-st.txnHooks
+		st.txnHooks <- nil
+		c.Assert(remaining, HasLen, 0)
+	}
+}
+
 // TestingEnvironConfig returns a default environment configuration.
 func TestingEnvironConfig(c *C) *config.Config {
 	cfg, err := config.New(map[string]interface{}{

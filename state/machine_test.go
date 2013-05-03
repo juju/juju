@@ -70,6 +70,47 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	c.Assert(m.Life(), Equals, state.Dead)
 }
 
+func (s *MachineSuite) TestDestroyAbort(c *C) {
+	defer state.SetTxnHooks(c, s.State, func() {
+		err := s.machine.Destroy()
+		c.Assert(err, IsNil)
+	})()
+	err := s.machine.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestDestroyCancel(c *C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	defer state.SetTxnHooks(c, s.State, func() {
+		err = unit.AssignToMachine(s.machine)
+		c.Assert(err, IsNil)
+	})()
+	err = s.machine.Destroy()
+	c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
+}
+
+func (s *MachineSuite) TestDestroyContention(c *C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	assign := func() {
+		err = unit.AssignToMachine(s.machine)
+		c.Assert(err, IsNil)
+	}
+	unassign := func() {
+		err = unit.UnassignFromMachine()
+		c.Assert(err, IsNil)
+	}
+	defer state.SetTxnHooks(c, s.State, assign, unassign, assign, unassign, assign)()
+	err = s.machine.Destroy()
+	c.Assert(err, ErrorMatches, "machine 0 cannot advance lifecycle: state changing too quickly; try again soon")
+}
+
 func (s *MachineSuite) TestRemove(c *C) {
 	err := s.machine.Remove()
 	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
@@ -79,6 +120,18 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
 	c.Assert(state.IsNotFound(err), Equals, true)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestRemoveAbort(c *C) {
+	err := s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+
+	defer state.SetTxnHooks(c, s.State, func() {
+		err := s.machine.Remove()
+		c.Assert(err, IsNil)
+	})()
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
