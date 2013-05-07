@@ -1,4 +1,4 @@
-package simplestreams
+package imagemetadata
 
 import (
 	"flag"
@@ -230,7 +230,7 @@ const (
 )
 
 func (s *liveSimplestreamsSuite) TestGetIndex(c *C) {
-	indexRef, err := getIndexWithFormat(s.baseURL, defaultIndexPath, index_v1)
+	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	c.Assert(indexRef.Format, Equals, index_v1)
 	c.Assert(indexRef.baseURL, Equals, s.baseURL)
@@ -238,12 +238,12 @@ func (s *liveSimplestreamsSuite) TestGetIndex(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetIndexWrongFormat(c *C) {
-	_, err := getIndexWithFormat(s.baseURL, defaultIndexPath, "bad")
+	_, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, "bad")
 	c.Assert(err, NotNil)
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *C) {
-	indexRef, err := getIndexWithFormat(s.baseURL, defaultIndexPath, index_v1)
+	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
@@ -251,7 +251,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *C) {
-	indexRef, err := getIndexWithFormat(s.baseURL, defaultIndexPath, index_v1)
+	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	spec := CloudSpec{"bad", "spec"}
 	_, err = indexRef.getImageIdsPath(&spec, &s.validProdSpec)
@@ -259,7 +259,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
-	indexRef, err := getIndexWithFormat(s.baseURL, defaultIndexPath, index_v1)
+	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	spec := ProductSpec{"precise", "bad", "spec"}
 	_, err = indexRef.getImageIdsPath(&s.validCloudSpec, &spec)
@@ -267,15 +267,15 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 }
 
 func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
-	indexRef, err := getIndexWithFormat(s.baseURL, defaultIndexPath, index_v1)
+	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "streams/v1/image_metadata.js")
 }
 
-func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *CloudImageMetadata {
-	indexRef, err := getIndexWithFormat(s.baseURL, defaultIndexPath, index_v1)
+func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *cloudImageMetadata {
+	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	metadata, err := indexRef.getCloudMetadataWithFormat(&s.validCloudSpec, &s.validProdSpec, product_v1)
 	c.Assert(err, IsNil)
@@ -289,7 +289,7 @@ func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetDefaultImageIdMetadataExists(c *C) {
-	im, err := GetDefaultImageIdMetadata(s.baseURL, &s.validCloudSpec, &s.validProdSpec)
+	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
@@ -314,19 +314,13 @@ func (s *simplestreamsSuite) assertImageMetadataContents(c *C, im []*ImageMetada
 	})
 }
 
-func (s *simplestreamsSuite) TestGetDefaultImageIdMetadata(c *C) {
-	im, err := GetDefaultImageIdMetadata(s.baseURL, &s.validCloudSpec, &s.validProdSpec)
-	c.Assert(err, IsNil)
-	s.assertImageMetadataContents(c, im)
-}
-
 func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
-	im, err := GetImageIdMetadata(s.baseURL, defaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
+	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
 	s.assertImageMetadataContents(c, im)
 }
 
-func (s *liveSimplestreamsSuite) assertGetImageCollections(c *C, version string) *ImageCollection {
+func (s *liveSimplestreamsSuite) assertGetImageCollections(c *C, version string) *imageCollection {
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
 	ic := metadataCatalog.Images[version]
@@ -352,53 +346,38 @@ func (s *simplestreamsSuite) TestImageCollection(c *C) {
 	c.Check(ic.RegionName, Equals, "au-east-2")
 	c.Check(ic.Endpoint, Equals, "http://somewhere-else")
 	c.Assert(len(ic.Images) > 0, Equals, true)
-	for key, im := range ic.Images {
-		if key != "usww2he" {
-			continue
-		}
-		c.Check(im.Id, Equals, "ami-442ea674")
-		c.Check(im.Storage, Equals, "ebs")
-		c.Check(im.VType, Equals, "hvm")
-		c.Check(im.RegionName, Equals, "us-east-1")
-		c.Check(im.Endpoint, Equals, "http://ec2.us-east-1.amazonaws.com")
-	}
+	im := ic.Images["usww2he"]
+	c.Check(im.Id, Equals, "ami-442ea674")
+	c.Check(im.Storage, Equals, "ebs")
+	c.Check(im.VType, Equals, "hvm")
+	c.Check(im.RegionName, Equals, "us-east-1")
+	c.Check(im.Endpoint, Equals, "http://ec2.us-east-1.amazonaws.com")
 }
 
 func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *C) {
 	ic := s.assertGetImageCollections(c, "20121218")
-	for key, im := range ic.Images {
-		if key != "usww1pe" {
-			continue
-		}
-		c.Check(im.RegionName, Equals, ic.RegionName)
-		c.Check(im.Endpoint, Equals, ic.Endpoint)
-	}
+
+	im := ic.Images["usww1pe"]
+	c.Check(im.RegionName, Equals, ic.RegionName)
+	c.Check(im.Endpoint, Equals, ic.Endpoint)
 }
 
 func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCatalog(c *C) {
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
-	ic := metadataCatalog.Images["20121111"]
-	for key, im := range ic.Images {
-		if key != "usww3pe" {
-			continue
-		}
-		c.Check(im.RegionName, Equals, metadataCatalog.RegionName)
-		c.Check(im.Endpoint, Equals, metadataCatalog.Endpoint)
-	}
+	ic := metadataCatalog.Images["20111111"]
+	im := ic.Images["usww3pe"]
+	c.Check(im.RegionName, Equals, metadataCatalog.RegionName)
+	c.Check(im.Endpoint, Equals, metadataCatalog.Endpoint)
 }
 
 func (s *simplestreamsSuite) TestImageMetadataDealiasing(c *C) {
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
 	ic := metadataCatalog.Images["20121218"]
-	for key, im := range ic.Images {
-		if key != "usww3he" {
-			continue
-		}
-		c.Check(im.RegionName, Equals, "us-west-3")
-		c.Check(im.Endpoint, Equals, "http://ec2.us-west-3.amazonaws.com")
-	}
+	im := ic.Images["usww3he"]
+	c.Check(im.RegionName, Equals, "us-west-3")
+	c.Check(im.Endpoint, Equals, "http://ec2.us-west-3.amazonaws.com")
 }
 
 type productSpecSuite struct{}
