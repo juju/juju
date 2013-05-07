@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -397,6 +398,8 @@ type startInstanceParams struct {
 	stateServer   bool
 }
 
+const ebsStorage = "ebs"
+
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
 func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
@@ -404,19 +407,24 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
 	}
+	if series[0] != scfg.series {
+		return nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+	}
 	arches := scfg.possibleTools.Arches()
-	spec, err := findInstanceSpec(&instanceConstraint{
-		region:      e.ecfg().region(),
-		series:      series[0],
-		arches:      arches,
-		constraints: scfg.constraints,
+	storage := ebsStorage
+	spec, err := findInstanceSpec(&instances.InstanceConstraint{
+		Region:      e.ecfg().region(),
+		Series:      scfg.series,
+		Arches:      arches,
+		Constraints: scfg.constraints,
+		Storage:     &storage,
 	})
 	if err != nil {
 		return nil, err
 	}
-	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.image.arch})
+	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, fmt.Errorf("chose architecture %v not present in %v", spec.image.arch, arches)
+		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 	userData, err := e.userData(scfg, tools[0])
 	if err != nil {
@@ -430,11 +438,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 
 	for a := shortAttempt.Start(); a.Next(); {
 		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
-			ImageId:        spec.image.id,
+			ImageId:        spec.Image.Id,
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
-			InstanceType:   spec.instanceType,
+			InstanceType:   spec.InstanceTypeName,
 			SecurityGroups: groups,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {

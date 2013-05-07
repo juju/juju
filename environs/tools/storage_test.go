@@ -55,6 +55,16 @@ func (s *StorageSuite) TestStorageName(c *C) {
 	c.Assert(path, Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
+func (s *StorageSuite) TestSetToolPrefix(c *C) {
+	vers := version.MustParseBinary("1.2.3-precise-amd64")
+	tools.SetToolPrefix("test_prefix/juju-")
+	path := tools.StorageName(vers)
+	c.Assert(path, Equals, "test_prefix/juju-1.2.3-precise-amd64.tgz")
+	tools.SetToolPrefix(tools.DefaultToolPrefix)
+	path = tools.StorageName(vers)
+	c.Assert(path, Equals, "tools/juju-1.2.3-precise-amd64.tgz")
+}
+
 func (s *StorageSuite) TestReadListEmpty(c *C) {
 	store := s.env.Storage()
 	_, err := tools.ReadList(store, 2)

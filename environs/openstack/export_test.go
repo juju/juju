@@ -4,12 +4,16 @@ import (
 	"fmt"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -79,6 +83,14 @@ func DeleteStorageContent(s environs.Storage) error {
 	return s.(*storage).deleteAll()
 }
 
+func SetFakeToolsStorage(useFake bool) {
+	if useFake {
+		tools.SetToolPrefix("tools_test/juju-")
+	} else {
+		tools.SetToolPrefix(tools.DefaultToolPrefix)
+	}
+}
+
 // WritablePublicStorage returns a Storage instance which is authorised to write to the PublicStorage bucket.
 // It is used by tests which need to upload files.
 func WritablePublicStorage(e environs.Environ) environs.Storage {
@@ -100,13 +112,59 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
-func FindInstanceSpec(e environs.Environ, possibleTools tools.List) (imageId, flavorId string, tools *state.Tools, err error) {
-	spec, err := findInstanceSpec(e.(*environ), possibleTools)
-	if err == nil {
-		imageId = spec.imageId
-		flavorId = spec.flavorId
-		tools = spec.tools
+var privateBucketImagesData = map[string]string{
+	"quantal": testing.ImagesFields(
+		"inst3 amd64 region-1 id-1 paravirtual",
+		"inst4 amd64 region-2 id-2 paravirtual",
+	),
+	"raring": testing.ImagesFields(
+		"inst5 amd64 some-region id-y paravirtual",
+		"inst6 amd64 another-region id-z paravirtual",
+	),
+}
+
+var publicBucketImagesData = map[string]string{
+	"precise": testing.ImagesFields(
+		"inst1 amd64 some-region 1 paravirtual",
+		"inst2 amd64 some-region 2 paravirtual",
+	),
+}
+
+func metadataFilePath(series string) string {
+	return fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", series)
+}
+
+func UseTestImageData(e environs.Environ, includePrivate bool) {
+	// Put some image metadata files into the public (and maybe private) storage.
+	if includePrivate {
+		for series, imagesData := range privateBucketImagesData {
+			e.Storage().Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+		}
 	}
+	for series, imagesData := range publicBucketImagesData {
+		WritablePublicStorage(e).Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+	}
+}
+
+func RemoveTestImageData(e environs.Environ) {
+	for series := range privateBucketImagesData {
+		e.Storage().Remove(metadataFilePath(series))
+	}
+	for series := range publicBucketImagesData {
+		WritablePublicStorage(e).Remove(metadataFilePath(series))
+	}
+}
+
+func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
+	env := e.(*environ)
+	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
+		Series:              series,
+		Arches:              []string{arch},
+		Region:              env.ecfg().region(),
+		Constraints:         constraints.MustParse(cons),
+		DefaultInstanceType: env.ecfg().defaultInstanceType(),
+		DefaultImageId:      env.ecfg().defaultImageId(),
+	})
 	return
 }
 
@@ -115,9 +173,14 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func DefaultInstanceType(e environs.Environ) string {
+func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
 	ecfg := e.(*environ).ecfg()
-	return ecfg.defaultInstanceType()
+	ecfg.attrs["default-instance-type"] = defaultInstanceType
+}
+
+func SetDefaultImageId(e environs.Environ, defaultId string) {
+	ecfg := e.(*environ).ecfg()
+	ecfg.attrs["default-image-id"] = defaultId
 }
 
 // ImageDetails specify parameters used to start a test machine for the live tests.
