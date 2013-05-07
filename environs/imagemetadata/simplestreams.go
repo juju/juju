@@ -64,7 +64,7 @@ type cloudImageMetadata struct {
 	Format   string                          `json:"format"`
 }
 
-type imagesByVersion map[string]imageCollection
+type imagesByVersion map[string]*imageCollection
 
 type imageMetadataCatalog struct {
 	Release    string          `json:"release"`
@@ -76,9 +76,9 @@ type imageMetadataCatalog struct {
 }
 
 type imageCollection struct {
-	Images     map[string]ImageMetadata `json:"items"`
-	RegionName string                   `json:"region"`
-	Endpoint   string                   `json:"endpoint"`
+	Images     map[string]*ImageMetadata `json:"items"`
+	RegionName string                    `json:"region"`
+	Endpoint   string                    `json:"endpoint"`
 }
 
 // This is the only struct we need to export. The goal of this package is to provide a list of
@@ -95,9 +95,9 @@ type ImageMetadata struct {
 // These structs define the model used to image metadata indices.
 
 type indices struct {
-	Indexes map[string]indexMetadata `json:"index"`
-	Updated string                   `json:"updated"`
-	Format  string                   `json:"format"`
+	Indexes map[string]*indexMetadata `json:"index"`
+	Updated string                    `json:"updated"`
+	Format  string                    `json:"format"`
 }
 
 type indexReference struct {
@@ -230,15 +230,14 @@ func (metadata *cloudImageMetadata) denormaliseImageMetadata() {
 	for _, metadataCatalog := range metadata.Products {
 		attrsToApply = extractAttrMap(&metadataCatalog)
 		for _, imageCollection := range metadataCatalog.Images {
-			collectionAttrs := extractAttrMap(&imageCollection)
+			collectionAttrs := extractAttrMap(imageCollection)
 			for k, v := range collectionAttrs {
 				if v != "" {
 					attrsToApply[k] = v
 				}
 			}
-			for id, im := range imageCollection.Images {
-				applyAttributeValues(&im, attrsToApply, false)
-				imageCollection.Images[id] = im
+			for _, im := range imageCollection.Images {
+				applyAttributeValues(im, attrsToApply, false)
 			}
 		}
 	}
@@ -285,34 +284,32 @@ func (metadata *cloudImageMetadata) processAliases(im *ImageMetadata) {
 func (metadata *cloudImageMetadata) applyAliases() {
 	for _, metadataCatalog := range metadata.Products {
 		for _, imageCollection := range metadataCatalog.Images {
-			for id, im := range imageCollection.Images {
-				metadata.processAliases(&im)
-				imageCollection.Images[id] = im
+			for _, im := range imageCollection.Images {
+				metadata.processAliases(im)
 			}
 		}
 	}
 }
 
-func findMatchingImages(matchingImages []*ImageMetadata, images map[string]ImageMetadata, region string) []*ImageMetadata {
-	for _, val := range images {
-		im := val
+type imageKey struct {
+	vtype   string
+	storage string
+}
+
+func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, region string) []*ImageMetadata {
+	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
+	for _, im := range matchingImages {
+		imagesMap[imageKey{im.VType, im.Storage}] = im
+	}
+	for _, im := range images {
 		if region != im.RegionName {
 			continue
 		}
-		if !containsImage(matchingImages, &im) {
-			matchingImages = append(matchingImages, &im)
+		if _, ok := imagesMap[imageKey{im.VType, im.Storage}]; !ok {
+			matchingImages = append(matchingImages, im)
 		}
 	}
 	return matchingImages
-}
-
-func containsImage(images []*ImageMetadata, image *ImageMetadata) bool {
-	for _, im := range images {
-		if im.VType == image.VType && im.Storage == image.Storage {
-			return true
-		}
-	}
-	return false
 }
 
 // getCloudMetadataWithFormat loads the entire cloud image metadata encoded using the specified format.
@@ -352,7 +349,7 @@ func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(cloudSpec *Cl
 	}
 	bv := byVersionDesc{}
 	bv.versions = make([]string, len(metadataCatalog.Images))
-	bv.imageCollections = make([]imageCollection, len(metadataCatalog.Images))
+	bv.imageCollections = make([]*imageCollection, len(metadataCatalog.Images))
 	i := 0
 	for vers, imageColl := range metadataCatalog.Images {
 		bv.versions[i] = vers
@@ -371,7 +368,7 @@ func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(cloudSpec *Cl
 // sorting a matching slice of versions in YYYYMMDD.
 type byVersionDesc struct {
 	versions         []string
-	imageCollections []imageCollection
+	imageCollections []*imageCollection
 }
 
 func (bv byVersionDesc) Len() int { return len(bv.imageCollections) }

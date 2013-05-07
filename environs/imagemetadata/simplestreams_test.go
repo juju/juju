@@ -324,7 +324,7 @@ func (s *liveSimplestreamsSuite) assertGetImageCollections(c *C, version string)
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
 	ic := metadataCatalog.Images[version]
-	return &ic
+	return ic
 }
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *C) {
