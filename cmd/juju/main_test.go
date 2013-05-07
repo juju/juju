@@ -69,7 +69,7 @@ func syncToolsHelpText() string {
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
+	defer testing.MakeEmptyFakeHome(c).Restore()
 
 	for i, t := range []struct {
 		summary string
