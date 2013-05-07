@@ -226,10 +226,13 @@ func extractAttrMap(metadataStruct interface{}) map[string]string {
 // item may be moved up to a higher level in the tree. denormaliseImageMetadata descends the tree
 // and fills in any missing attributes with values from a higher level.
 func (metadata *cloudImageMetadata) denormaliseImageMetadata() {
-	var attrsToApply map[string]string
 	for _, metadataCatalog := range metadata.Products {
-		attrsToApply = extractAttrMap(&metadataCatalog)
+		catalogAttrs := extractAttrMap(&metadataCatalog)
 		for _, imageCollection := range metadataCatalog.Images {
+			attrsToApply := make(map[string]string)
+			for k, v := range catalogAttrs {
+				attrsToApply[k] = v
+			}
 			collectionAttrs := extractAttrMap(imageCollection)
 			for k, v := range collectionAttrs {
 				if v != "" {

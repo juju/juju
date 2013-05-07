@@ -356,7 +356,6 @@ func (s *simplestreamsSuite) TestImageCollection(c *C) {
 
 func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *C) {
 	ic := s.assertGetImageCollections(c, "20121218")
-
 	im := ic.Images["usww1pe"]
 	c.Check(im.RegionName, Equals, ic.RegionName)
 	c.Check(im.Endpoint, Equals, ic.Endpoint)
