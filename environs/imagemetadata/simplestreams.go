@@ -4,10 +4,13 @@
 package imagemetadata
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"reflect"
 	"sort"
 	"strings"
@@ -20,6 +23,9 @@ type CloudSpec struct {
 }
 
 // releaseVersions provides a mapping between Ubuntu series names and version numbers.
+// The values here are current as of the time of writing. On Ubuntu systems, we update
+// these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
+// On non-Ubuntu systems, these values provide a nice fallback option.
 var releaseVersions = map[string]string{
 	"precise": "12.04",
 	"quantal": "12.10",
@@ -32,18 +38,67 @@ type ProductSpec struct {
 	Release string
 	Arch    string
 	Stream  string // may be "", typically "release", "daily" etc
+	// the name may be expensive to generate so cache it.
+	cachedName string
+}
+
+// NewProductSpec creates a ProductSpec.
+func NewProductSpec(release, arch, stream string) ProductSpec {
+	return ProductSpec{
+		Release: release,
+		Arch:    arch,
+		Stream:  stream,
+	}
+}
+
+// updateDistroInfo updates releaseVersions from /usr/share/distro-info/ubuntu.csv if possible..
+func updateDistroInfo() error {
+	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
+	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
+	f, err := os.Open("/usr/share/distro-info/ubuntu.csv")
+	if err != nil {
+		// On non-Ubuntu systems this file won't exist butr that's expected.
+		return nil
+	}
+	defer f.Close()
+	bufRdr := bufio.NewReader(f)
+	for {
+		line, err := bufRdr.ReadString('\n')
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("reading distro info file file: %v", err)
+		}
+		// lines are of the form: "12.04 LTS,Precise Pangolin,precise,2011-10-13,2012-04-26,2017-04-26"
+		parts := strings.Split(line, ",")
+		// the numeric version may contain a LTS moniker so strip that out.
+		releaseInfo := strings.Split(parts[0], " ")
+		releaseVersions[parts[2]] = releaseInfo[0]
+	}
+	return nil
 }
 
 // Generates a string representing a product id formed similarly to an ISCSI qualified name (IQN).
-func (ps *ProductSpec) String() string {
+func (ps *ProductSpec) Name() (string, error) {
+	if ps.cachedName != "" {
+		return ps.cachedName, nil
+	}
 	stream := ps.Stream
 	if stream != "" {
 		stream = "." + stream
 	}
-	if version, ok := releaseVersions[ps.Release]; ok {
-		return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, ps.Arch)
+	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
+	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
+	err := updateDistroInfo()
+	if err != nil {
+		return "", err
 	}
-	panic(fmt.Errorf("Invalid Ubuntu release %q", ps.Release))
+	if version, ok := releaseVersions[ps.Release]; ok {
+		ps.cachedName = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, ps.Arch)
+		return ps.cachedName, nil
+	}
+	return "", fmt.Errorf("Invalid Ubuntu release %q", ps.Release)
 }
 
 // The following structs define the data model used in the JSON image metadata files.
@@ -131,7 +186,7 @@ func GetImageIdMetadata(baseURL, indexPath string, cloudSpec *CloudSpec, prodSpe
 }
 
 // fetchData gets all the data from the given path relative to the given base URL.
-func fetchData(baseURL, path string) ([]byte, error) {
+func fetchData(baseURL, path string) ([]byte, string, error) {
 	dataURL := baseURL
 	if !strings.HasSuffix(dataURL, "/") {
 		dataURL += "/"
@@ -139,32 +194,32 @@ func fetchData(baseURL, path string) ([]byte, error) {
 	dataURL += path
 	resp, err := http.Get(dataURL)
 	if err != nil {
-		return nil, err
+		return nil, dataURL, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("cannot access URL %s, %s", dataURL, resp.Status)
+		return nil, dataURL, fmt.Errorf("cannot access URL %s, %s", dataURL, resp.Status)
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("cannot read URL data, %s", err.Error())
+		return nil, dataURL, fmt.Errorf("cannot read URL data, %s", err.Error())
 	}
-	return data, nil
+	return data, dataURL, nil
 }
 
 func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, error) {
-	data, err := fetchData(baseURL, indexPath)
+	data, url, err := fetchData(baseURL, indexPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read index data, %v", err)
 	}
 	var indices indices
 	err = json.Unmarshal(data, &indices)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON index metadata: %s", err.Error())
+		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %s: %s", url, err.Error())
 	}
 	if indices.Format != format {
-		return nil, fmt.Errorf("unexpected index file format %q, expected %s", indices.Format, format)
+		return nil, fmt.Errorf("unexpected index file format %q, expected %s at URL %s", indices.Format, format, url)
 	}
 	return &indexReference{
 		indices: indices,
@@ -175,6 +230,10 @@ func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, err
 // getImageIdsPath returns the path to the metadata file containing image ids for the specified
 // cloud and product.
 func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodSpec *ProductSpec) (string, error) {
+	prodSpecName, err := prodSpec.Name()
+	if err != nil {
+		return "", fmt.Errorf("cannot resolve Ubuntu version %q: %v", prodSpec.Release, err)
+	}
 	var containsImageIds bool
 	for _, metadata := range indexRef.Indexes {
 		if metadata.DataType != imageIds {
@@ -190,7 +249,7 @@ func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodSpec *
 		}
 		var prodSpecMatches bool
 		for _, pid := range metadata.ProductIds {
-			if pid == prodSpec.String() {
+			if pid == prodSpecName {
 				prodSpecMatches = true
 				break
 			}
@@ -205,80 +264,47 @@ func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodSpec *
 	return "", fmt.Errorf("index file missing data for cloud %v", cloudSpec)
 }
 
-// Convert a struct into a map of name, value pairs where the map keys are
-// the json tags for each attribute.
-func extractAttrMap(metadataStruct interface{}) map[string]string {
-	attrs := make(map[string]string)
-	v := reflect.ValueOf(metadataStruct).Elem()
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		if f.Type().Kind() != reflect.String {
-			continue
-		}
-		fieldTag := t.Field(i).Tag.Get("json")
-		attrs[fieldTag] = f.String()
-	}
-	return attrs
-}
-
 // To keep the metadata concise, attributes on ImageMetadata which have the same value for each
 // item may be moved up to a higher level in the tree. denormaliseImageMetadata descends the tree
 // and fills in any missing attributes with values from a higher level.
 func (metadata *cloudImageMetadata) denormaliseImageMetadata() {
 	for _, metadataCatalog := range metadata.Products {
-		catalogAttrs := extractAttrMap(&metadataCatalog)
 		for _, imageCollection := range metadataCatalog.Images {
-			attrsToApply := make(map[string]string)
-			for k, v := range catalogAttrs {
-				attrsToApply[k] = v
-			}
-			collectionAttrs := extractAttrMap(imageCollection)
-			for k, v := range collectionAttrs {
-				if v != "" {
-					attrsToApply[k] = v
-				}
-			}
 			for _, im := range imageCollection.Images {
-				applyAttributeValues(im, attrsToApply, false)
+				coll := *imageCollection
+				inherit(&coll, metadataCatalog)
+				inherit(im, &coll)
 			}
 		}
 	}
 }
 
-// Apply the specified alias values to the image metadata record.
-func applyAttributeValues(im *ImageMetadata, aliases attributeValues, override bool) {
-	v := reflect.ValueOf(im).Elem()
-	t := v.Type()
-	for attrName, attrVale := range aliases {
-		for i := 0; i < v.NumField(); i++ {
-			f := v.Field(i)
-			fieldName := t.Field(i).Name
-			fieldTag := t.Field(i).Tag.Get("json")
-			if attrName != fieldName && attrName != fieldTag {
-				continue
-			}
-			if override || f.String() == "" {
-				f.SetString(attrVale)
-			}
-		}
+// inherit sets any blank fields in dst to their equivalent values in fields in src that have matching json tags.
+// The dst parameter must be a pointer to a struct.
+func inherit(dst, src interface{}) {
+	for tag := range tags(dst) {
+		setFieldByTag(dst, tag, fieldByTag(src, tag), false)
 	}
 }
 
-// Search the aliases map for aliases matching image attribute json tags and apply.
+// processAliases looks through the image fields to see if
+// any aliases apply, and sets attributes appropriately
+// if so.
 func (metadata *cloudImageMetadata) processAliases(im *ImageMetadata) {
-	v := reflect.ValueOf(im).Elem()
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		fieldTag := t.Field(i).Tag.Get("json")
-		if aliases, ok := metadata.Aliases[fieldTag]; ok {
-			for aliasValue, attrAliases := range aliases {
-				if f.String() != aliasValue {
-					continue
-				}
-				applyAttributeValues(im, attrAliases, true)
-			}
+	for tag := range tags(im) {
+		aliases, ok := metadata.Aliases[tag]
+		if !ok {
+			continue
+		}
+		// We have found a set of aliases for one of the fields in the image.
+		// Now check to see if the field matches one of the defined aliases.
+		fields, ok := aliases[fieldByTag(im, tag)]
+		if !ok {
+			continue
+		}
+		// The alias matches - set all the aliased fields in the image.
+		for attr, val := range fields {
+			setFieldByTag(im, attr, val, true)
 		}
 	}
 }
@@ -294,11 +320,95 @@ func (metadata *cloudImageMetadata) applyAliases() {
 	}
 }
 
+var tagsForType = mkTags(imageMetadataCatalog{}, imageCollection{}, ImageMetadata{})
+
+func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
+	typeMap := make(map[reflect.Type]map[string]int)
+	for _, v := range vals {
+		t := reflect.TypeOf(v)
+		typeMap[t] = jsonTags(t)
+	}
+	return typeMap
+}
+
+// jsonTags returns a map from json tag to the field index for the string fields in the given type.
+func jsonTags(t reflect.Type) map[string]int {
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("cannot get json tags on type %s", t))
+	}
+	tags := make(map[string]int)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type != reflect.TypeOf("") {
+			continue
+		}
+		if tag := f.Tag.Get("json"); tag != "" {
+			if i := strings.Index(tag, ","); i >= 0 {
+				tag = tag[0:i]
+			}
+			if tag == "-" {
+				continue
+			}
+			if tag != "" {
+				f.Name = tag
+			}
+		}
+		tags[f.Name] = i
+	}
+	return tags
+}
+
+// tags returns the field offsets for the JSON tags defined by the given value, which must be
+// a struct or a pointer to a struct.
+func tags(x interface{}) map[string]int {
+	t := reflect.TypeOf(x)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("expected struct, not %s", t))
+	}
+
+	if tagm := tagsForType[t]; tagm != nil {
+		return tagm
+	}
+	panic(fmt.Errorf("%s not found in type table", t))
+}
+
+// fieldByTag returns the value for the field in x with the given JSON tag, or "" if there is no such field.
+func fieldByTag(x interface{}, tag string) string {
+	tagm := tags(x)
+	v := reflect.ValueOf(x)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if i, ok := tagm[tag]; ok {
+		return v.Field(i).Interface().(string)
+	}
+	return ""
+}
+
+// setFieldByTag sets the value for the field in x with the given JSON tag to val.
+// The override parameter specifies whether the value will be set even if the original value is non-empty.
+func setFieldByTag(x interface{}, tag, val string, override bool) {
+	i, ok := tags(x)[tag]
+	if !ok {
+		return
+	}
+	v := reflect.ValueOf(x).Elem()
+	f := v.Field(i)
+	if override || f.Interface().(string) == "" {
+		f.Set(reflect.ValueOf(val))
+	}
+}
+
 type imageKey struct {
 	vtype   string
 	storage string
 }
 
+// findMatchingImages updates matchingImages with image metadata records from images which belong to the
+// specified region. If an image already exists in matchingImages, it is not overwritten.
 func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, region string) []*ImageMetadata {
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, im := range matchingImages {
@@ -321,17 +431,17 @@ func (indexRef *indexReference) getCloudMetadataWithFormat(cloudSpec *CloudSpec,
 	if err != nil {
 		return nil, fmt.Errorf("error finding product files path %s", err.Error())
 	}
-	data, err := fetchData(indexRef.baseURL, productFilesPath)
+	data, url, err := fetchData(indexRef.baseURL, productFilesPath)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read product data, %v", err)
 	}
 	var imageMetadata cloudImageMetadata
 	err = json.Unmarshal(data, &imageMetadata)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON image metadata: %s", err.Error())
+		return nil, fmt.Errorf("cannot unmarshal JSON image metadata at URL %s: %s", url, err.Error())
 	}
 	if imageMetadata.Format != format {
-		return nil, fmt.Errorf("unexpected index file format %q, expected %q", imageMetadata.Format, format)
+		return nil, fmt.Errorf("unexpected index file format %q, expected %q at URL %s", imageMetadata.Format, format, url)
 	}
 	imageMetadata.applyAliases()
 	imageMetadata.denormaliseImageMetadata()
@@ -346,39 +456,41 @@ func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(cloudSpec *Cl
 	if err != nil {
 		return nil, err
 	}
-	metadataCatalog, ok := imageMetadata.Products[prodSpec.String()]
-	if !ok {
-		return nil, fmt.Errorf("no image metadata for %s", prodSpec.String())
+	prodSpecName, err := prodSpec.Name()
+	if err != nil {
+		return nil, fmt.Errorf("cannot resolve Ubuntu version %q: %v", prodSpec.Release, err)
 	}
-	bv := byVersionDesc{}
-	bv.versions = make([]string, len(metadataCatalog.Images))
-	bv.imageCollections = make([]*imageCollection, len(metadataCatalog.Images))
+	metadataCatalog, ok := imageMetadata.Products[prodSpecName]
+	if !ok {
+		return nil, fmt.Errorf("no image metadata for %s", prodSpecName)
+	}
+	var bv byVersionDesc = make(byVersionDesc, len(metadataCatalog.Images))
 	i := 0
 	for vers, imageColl := range metadataCatalog.Images {
-		bv.versions[i] = vers
-		bv.imageCollections[i] = imageColl
+		bv[i] = imageCollectionVersion{vers, imageColl}
 		i++
 	}
 	sort.Sort(bv)
 	var matchingImages []*ImageMetadata
-	for _, imageCollection := range bv.imageCollections {
-		matchingImages = findMatchingImages(matchingImages, imageCollection.Images, cloudSpec.Region)
+	for _, imageCollVersion := range bv {
+		matchingImages = findMatchingImages(matchingImages, imageCollVersion.imageCollection.Images, cloudSpec.Region)
 	}
 	return matchingImages, nil
 }
 
-// byVersion is used to sort a slice of image collections as a side effect of
-// sorting a matching slice of versions in YYYYMMDD.
-type byVersionDesc struct {
-	versions         []string
-	imageCollections []*imageCollection
+type imageCollectionVersion struct {
+	version         string
+	imageCollection *imageCollection
 }
 
-func (bv byVersionDesc) Len() int { return len(bv.imageCollections) }
+// byVersionDesc is used to sort a slice of image collections in descending order of their
+// version in YYYYMMDD.
+type byVersionDesc []imageCollectionVersion
+
+func (bv byVersionDesc) Len() int { return len(bv) }
 func (bv byVersionDesc) Swap(i, j int) {
-	bv.versions[i], bv.versions[j] = bv.versions[j], bv.versions[i]
-	bv.imageCollections[i], bv.imageCollections[j] = bv.imageCollections[j], bv.imageCollections[i]
+	bv[i], bv[j] = bv[j], bv[i]
 }
 func (bv byVersionDesc) Less(i, j int) bool {
-	return bv.versions[i] > bv.versions[j]
+	return bv[i].version > bv[j].version
 }
