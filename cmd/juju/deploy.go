@@ -10,6 +10,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/statecmd"
 	"os"
 )
 
@@ -126,32 +128,14 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 			return err
 		}
 	}
-	charm, err := conn.PutCharm(curl, repo, c.BumpRevision)
-	if err != nil {
-		return err
-	}
-	if charm.Meta().Subordinate {
-		empty := constraints.Value{}
-		if c.Constraints != empty {
-			return state.ErrSubordinateConstraints
-		}
-		if c.ForceMachineId != "" {
-			return fmt.Errorf("subordinate service cannot specify force-machine")
-		}
-	}
-	serviceName := c.ServiceName
-	if serviceName == "" {
-		serviceName = curl.Name
-	}
-	args := juju.DeployServiceParams{
-		Charm:       charm,
-		ServiceName: serviceName,
-		NumUnits:    c.NumUnits,
-		// BUG(lp:1162122): --config has no tests.
+	args := params.ServiceDeploy{
+		ServiceName:    c.ServiceName,
+		CharmUrl:       c.CharmName,
+		NumUnits:       c.NumUnits,
 		ConfigYAML:     string(configYAML),
 		Constraints:    c.Constraints,
+		BumpRevision:   c.BumpRevision,
 		ForceMachineId: c.ForceMachineId,
 	}
-	_, err = conn.DeployService(args)
-	return err
+	return statecmd.ServiceDeploy(conn.State, args, conn, curl, repo)
 }

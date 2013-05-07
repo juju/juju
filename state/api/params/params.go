@@ -28,12 +28,13 @@ type DestroyRelation struct {
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
-	ServiceName string
-	CharmUrl    string
-	NumUnits    int
-	Config      map[string]string
-	ConfigYAML  string // Takes precedence over config if both are present.
-	Constraints constraints.Value
+	ServiceName    string
+	CharmUrl       string
+	NumUnits       int
+	ConfigYAML     string // Takes precedence over config if both are present.
+	Constraints    constraints.Value
+	BumpRevision   bool
+	ForceMachineId string
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
