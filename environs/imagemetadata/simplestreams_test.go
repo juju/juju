@@ -182,7 +182,7 @@ func registerSimpleStreamsTests() {
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
 			baseURL:        "test:",
 			validCloudSpec: CloudSpec{"us-east-1", "http://ec2.us-east-1.amazonaws.com"},
-			validProdSpec:  ProductSpec{"quantal", "amd64", ""},
+			validProdSpec:  NewProductSpec("quantal", "amd64", ""),
 		},
 	})
 }
@@ -191,7 +191,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validCloudSpec CloudSpec) {
 	Suite(&liveSimplestreamsSuite{
 		baseURL:        baseURL,
 		validCloudSpec: validCloudSpec,
-		validProdSpec:  ProductSpec{"precise", "amd64", ""},
+		validProdSpec:  NewProductSpec("precise", "amd64", ""),
 	})
 }
 
@@ -261,7 +261,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *C) {
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	spec := ProductSpec{"precise", "bad", "spec"}
+	spec := NewProductSpec("precise", "bad", "spec")
 	_, err = indexRef.getImageIdsPath(&s.validCloudSpec, &spec)
 	c.Assert(err, NotNil)
 }
@@ -383,12 +383,26 @@ type productSpecSuite struct{}
 
 var _ = Suite(&productSpecSuite{})
 
-func (s *productSpecSuite) TestStringWithDefaultStream(c *C) {
-	prodSpec := ProductSpec{"precise", "amd64", ""}
-	c.Assert(prodSpec.String(), Equals, "com.ubuntu.cloud:server:12.04:amd64")
+func (s *productSpecSuite) TestNameWithDefaultStream(c *C) {
+	prodSpec := NewProductSpec("precise", "amd64", "")
+	prodSpecName, err := prodSpec.Name()
+	c.Assert(err, IsNil)
+	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud:server:12.04:amd64")
+	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
 }
 
-func (s *productSpecSuite) TestString(c *C) {
-	prodSpec := ProductSpec{"precise", "amd64", "daily"}
-	c.Assert(prodSpec.String(), Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
+func (s *productSpecSuite) TestName(c *C) {
+	prodSpec := NewProductSpec("precise", "amd64", "daily")
+	prodSpecName, err := prodSpec.Name()
+	c.Assert(err, IsNil)
+	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
+	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+}
+
+func (s *productSpecSuite) TestNameWithNonDefaultRelease(c *C) {
+	prodSpec := NewProductSpec("lucid", "amd64", "daily")
+	prodSpecName, err := prodSpec.Name()
+	c.Assert(err, IsNil)
+	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud.daily:server:10.04:amd64")
+	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
 }
