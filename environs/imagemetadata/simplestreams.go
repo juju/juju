@@ -116,7 +116,7 @@ type indexMetadata struct {
 }
 
 const (
-	DefaultIndexPath = "streams/v1/index.js"
+	DefaultIndexPath = "streams/v1/index.json"
 	imageIds         = "image-ids"
 )
 

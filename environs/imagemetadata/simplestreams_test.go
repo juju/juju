@@ -55,7 +55,7 @@ func init() {
 
 var indexData = []jujutest.FileContent{
 	{
-		"/streams/v1/index.js", `
+		"/streams/v1/index.json", `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released:quantal": {
@@ -72,7 +72,7 @@ var indexData = []jujutest.FileContent{
 		   "products": [
 			"com.ubuntu.cloud:server:12.10:amd64"
 		   ],
-		   "path": "streams/v1/image_metadata.js"
+		   "path": "streams/v1/image_metadata.json"
 		  },
 		  "com.ubuntu.cloud:released:raring": {
 		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
@@ -88,11 +88,11 @@ var indexData = []jujutest.FileContent{
 		   "products": [
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
-		   "path": "streams/v1/raring_metadata.js"
+		   "path": "streams/v1/raring_metadata.json"
 		  },
 		  "com.ubuntu.cloud:released:download": {
 		   "datatype": "image-downloads",
-		   "path": "streams/v1/com.ubuntu.cloud:released:download.js",
+		   "path": "streams/v1/com.ubuntu.cloud:released:download.json",
 		   "updated": "Wed, 01 May 2013 13:30:37 +0000",
 		   "products": [
 			"com.ubuntu.cloud:server:12.10:amd64",
@@ -105,7 +105,7 @@ var indexData = []jujutest.FileContent{
 		 "format": "index:1.0"
 		}
 `}, {
-		"/streams/v1/image_metadata.js", `
+		"/streams/v1/image_metadata.json", `
 {
  "updated": "Wed, 01 May 2013 13:31:26 +0000",
  "content_id": "com.ubuntu.cloud:released:aws",
@@ -271,7 +271,7 @@ func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 	c.Assert(err, IsNil)
 	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
-	c.Assert(path, Equals, "streams/v1/image_metadata.js")
+	c.Assert(path, Equals, "streams/v1/image_metadata.json")
 }
 
 func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *cloudImageMetadata {
