@@ -70,7 +70,12 @@ func syncToolsHelpText() string {
 
 func (s *MainSuite) TestRunMain(c *C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
-
+	// The test array structure needs to be inline here as some of the
+	// expected values below use deployHelpText().  This constructs the deploy
+	// command and runs gets the help for it.  When the deploy command is
+	// setting the flags (which is needed for the help text) it is accessing
+	// config.JujuHome(), which panics if SetJujuHome has not been called.
+	// The FakeHome from testing does this.
 	for i, t := range []struct {
 		summary string
 		args    []string
