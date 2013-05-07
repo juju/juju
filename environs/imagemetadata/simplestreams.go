@@ -264,80 +264,47 @@ func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodSpec *
 	return "", fmt.Errorf("index file missing data for cloud %v", cloudSpec)
 }
 
-// Convert a struct into a map of name, value pairs where the map keys are
-// the json tags for each attribute.
-func extractAttrMap(metadataStruct interface{}) map[string]string {
-	attrs := make(map[string]string)
-	v := reflect.ValueOf(metadataStruct).Elem()
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		if f.Type().Kind() != reflect.String {
-			continue
-		}
-		fieldTag := t.Field(i).Tag.Get("json")
-		attrs[fieldTag] = f.String()
-	}
-	return attrs
-}
-
 // To keep the metadata concise, attributes on ImageMetadata which have the same value for each
 // item may be moved up to a higher level in the tree. denormaliseImageMetadata descends the tree
 // and fills in any missing attributes with values from a higher level.
 func (metadata *cloudImageMetadata) denormaliseImageMetadata() {
 	for _, metadataCatalog := range metadata.Products {
-		catalogAttrs := extractAttrMap(&metadataCatalog)
 		for _, imageCollection := range metadataCatalog.Images {
-			attrsToApply := make(map[string]string)
-			for k, v := range catalogAttrs {
-				attrsToApply[k] = v
-			}
-			collectionAttrs := extractAttrMap(imageCollection)
-			for k, v := range collectionAttrs {
-				if v != "" {
-					attrsToApply[k] = v
-				}
-			}
 			for _, im := range imageCollection.Images {
-				applyAttributeValues(im, attrsToApply, false)
+				coll := *imageCollection
+				inherit(&coll, metadataCatalog)
+				inherit(im, &coll)
 			}
 		}
 	}
 }
 
-// Apply the specified alias values to the image metadata record.
-func applyAttributeValues(im *ImageMetadata, aliases attributeValues, override bool) {
-	v := reflect.ValueOf(im).Elem()
-	t := v.Type()
-	for attrName, attrVale := range aliases {
-		for i := 0; i < v.NumField(); i++ {
-			f := v.Field(i)
-			fieldName := t.Field(i).Name
-			fieldTag := t.Field(i).Tag.Get("json")
-			if attrName != fieldName && attrName != fieldTag {
-				continue
-			}
-			if override || f.String() == "" {
-				f.SetString(attrVale)
-			}
-		}
+// inherit sets any blank fields in dst to their equivalent values in fields in src that have matching json tags.
+// The dst parameter must be a pointer to a struct.
+func inherit(dst, src interface{}) {
+	for tag := range tags(dst) {
+		setFieldByTag(dst, tag, fieldByTag(src, tag), false)
 	}
 }
 
-// Search the aliases map for aliases matching image attribute json tags and apply.
+// processAliases looks through the image fields to see if
+// any aliases apply, and sets attributes appropriately
+// if so.
 func (metadata *cloudImageMetadata) processAliases(im *ImageMetadata) {
-	v := reflect.ValueOf(im).Elem()
-	t := v.Type()
-	for i := 0; i < v.NumField(); i++ {
-		f := v.Field(i)
-		fieldTag := t.Field(i).Tag.Get("json")
-		if aliases, ok := metadata.Aliases[fieldTag]; ok {
-			for aliasValue, attrAliases := range aliases {
-				if f.String() != aliasValue {
-					continue
-				}
-				applyAttributeValues(im, attrAliases, true)
-			}
+	for tag := range tags(im) {
+		aliases, ok := metadata.Aliases[tag]
+		if !ok {
+			continue
+		}
+		// We have found a set of aliases for one of the fields in the image.
+		// Now check to see if the field matches one of the defined aliases.
+		fields, ok := aliases[fieldByTag(im, tag)]
+		if !ok {
+			continue
+		}
+		// The alias matches - set all the aliased fields in the image.
+		for attr, val := range fields {
+			setFieldByTag(im, attr, val, true)
 		}
 	}
 }
@@ -353,11 +320,95 @@ func (metadata *cloudImageMetadata) applyAliases() {
 	}
 }
 
+var tagsForType = mkTags(imageMetadataCatalog{}, imageCollection{}, ImageMetadata{})
+
+func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
+	typeMap := make(map[reflect.Type]map[string]int)
+	for _, v := range vals {
+		t := reflect.TypeOf(v)
+		typeMap[t] = jsonTags(t)
+	}
+	return typeMap
+}
+
+// jsonTags returns a map from json tag to the field index for the string fields in the given type.
+func jsonTags(t reflect.Type) map[string]int {
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("cannot get json tags on type %s", t))
+	}
+	tags := make(map[string]int)
+	for i := 0; i < t.NumField(); i++ {
+		f := t.Field(i)
+		if f.Type != reflect.TypeOf("") {
+			continue
+		}
+		if tag := f.Tag.Get("json"); tag != "" {
+			if i := strings.Index(tag, ","); i >= 0 {
+				tag = tag[0:i]
+			}
+			if tag == "-" {
+				continue
+			}
+			if tag != "" {
+				f.Name = tag
+			}
+		}
+		tags[f.Name] = i
+	}
+	return tags
+}
+
+// tags returns the field offsets for the JSON tags defined by the given value, which must be
+// a struct or a pointer to a struct.
+func tags(x interface{}) map[string]int {
+	t := reflect.TypeOf(x)
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+	}
+	if t.Kind() != reflect.Struct {
+		panic(fmt.Errorf("expected struct, not %s", t))
+	}
+
+	if tagm := tagsForType[t]; tagm != nil {
+		return tagm
+	}
+	panic(fmt.Errorf("%s not found in type table", t))
+}
+
+// fieldByTag returns the value for the field in x with the given JSON tag, or "" if there is no such field.
+func fieldByTag(x interface{}, tag string) string {
+	tagm := tags(x)
+	v := reflect.ValueOf(x)
+	if v.Kind() == reflect.Ptr {
+		v = v.Elem()
+	}
+	if i, ok := tagm[tag]; ok {
+		return v.Field(i).Interface().(string)
+	}
+	return ""
+}
+
+// setFieldByTag sets the value for the field in x with the given JSON tag to val.
+// The override parameter specifies whether the value will be set even if the original value is non-empty.
+func setFieldByTag(x interface{}, tag, val string, override bool) {
+	i, ok := tags(x)[tag]
+	if !ok {
+		return
+	}
+	v := reflect.ValueOf(x).Elem()
+	f := v.Field(i)
+	if override || f.Interface().(string) == "" {
+		f.Set(reflect.ValueOf(val))
+	}
+}
+
 type imageKey struct {
 	vtype   string
 	storage string
 }
 
+// findMatchingImages updates matchingImages with image metadata records from images which belong to the
+// specified region. If an image already exists in matchingImages, it is not overwritten.
 func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, region string) []*ImageMetadata {
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, im := range matchingImages {
