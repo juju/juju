@@ -8,6 +8,7 @@ import (
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -17,6 +18,7 @@ import (
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 )
 
 type ProviderSuite struct{}
@@ -406,6 +408,17 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	_, err = openstack.LoadState(s.env)
 	c.Assert(err, NotNil)
+}
+
+func (s *localServerSuite) TestGetImageURLs(c *C) {
+	urls, err := openstack.GetImageURLs(s.env)
+	c.Assert(err, IsNil)
+	c.Assert(len(urls), Equals, 3)
+	// The public bucket URL ends with "/juju-dist/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), Equals, true)
+	// The product-streams URL ends with "/imagemetadata".
+	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), Equals, true)
+	c.Assert(urls[2], Equals, imagemetadata.DefaultBaseURL)
 }
 
 func (s *localServerSuite) TestFindImageSpecPrivateStorage(c *C) {

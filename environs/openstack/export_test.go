@@ -97,7 +97,7 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 	authModeCfg := AuthMode(ecfg.authMode())
 	writablePublicStorage := &storage{
 		containerName: ecfg.publicBucket(),
-		swift:         swift.New(e.(*environ).client(ecfg, authModeCfg)),
+		swift:         swift.New(e.(*environ).authClient(ecfg, authModeCfg)),
 	}
 
 	// Ensure the container exists.
@@ -230,6 +230,10 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 		DefaultImageId:      env.ecfg().defaultImageId(),
 	})
 	return
+}
+
+func GetImageURLs(e environs.Environ) ([]string, error) {
+	return e.(*environ).getImageBaseURLs()
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {

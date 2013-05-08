@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
@@ -62,6 +63,9 @@ type environ struct {
 	s3Unlocked            *s3.S3
 	storageUnlocked       *storage
 	publicStorageUnlocked *storage // optional.
+	// An ordered list of paths in which to find the simplestreams index files used to
+	// look up image ids.
+	imageBaseURLs []string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -341,6 +345,23 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	// containerisation for the units, we should be able to have the ability
 	// to assign back to unused machines.
 	return state.AssignNew
+}
+
+// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) getImageBaseURLs() ([]string, error) {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+
+	if e.imageBaseURLs != nil {
+		return e.imageBaseURLs, nil
+	}
+	// Add the simplestreams base URL off the public bucket.
+	publicBucketURL := e.publicStorageUnlocked.bucket.URL("")
+	e.imageBaseURLs = append(e.imageBaseURLs, publicBucketURL)
+	// Add the default simplestreams base URL.
+	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
+
+	return e.imageBaseURLs, nil
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
