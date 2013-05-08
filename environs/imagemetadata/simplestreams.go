@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"launchpad.net/juju-core/environs"
 	"net/http"
 	"os"
 	"reflect"
@@ -171,18 +172,38 @@ type indexMetadata struct {
 }
 
 const (
+	DefaultBaseURL   = "http://cloud-images.ubuntu.com/releases"
 	DefaultIndexPath = "streams/v1/index.json"
 	imageIds         = "image-ids"
 )
 
 // GetImageIdMetadata returns a list of images for the specified cloud matching the product criteria.
-// The index file location is as specified.
-func GetImageIdMetadata(baseURL, indexPath string, cloudSpec *CloudSpec, prodSpec *ProductSpec) ([]*ImageMetadata, error) {
-	indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0")
-	if err != nil {
-		return nil, err
+// The base URL locations are as specified - the first location which has a file is the one used.
+func GetImageIdMetadata(baseURLs []string, indexPath string, cloudSpec *CloudSpec, prodSpec *ProductSpec) ([]*ImageMetadata, error) {
+	var metadata []*ImageMetadata
+	for _, baseURL := range baseURLs {
+		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0")
+		if err != nil {
+			if _, ok := err.(*environs.NotFoundError); ok {
+				continue
+			}
+			return nil, err
+		}
+		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(cloudSpec, prodSpec, "products:1.0")
+		if err != nil {
+			if _, ok := err.(*environs.NotFoundError); ok {
+				continue
+			}
+			return nil, err
+		}
+		if len(metadata) > 0 {
+			break
+		}
 	}
-	return indexRef.getLatestImageIdMetadataWithFormat(cloudSpec, prodSpec, "products:1.0")
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("no suitable image metadata found at URLs %q", strings.Join(baseURLs, ","))
+	}
+	return metadata, nil
 }
 
 // fetchData gets all the data from the given path relative to the given base URL.
@@ -194,10 +215,13 @@ func fetchData(baseURL, path string) ([]byte, string, error) {
 	dataURL += path
 	resp, err := http.Get(dataURL)
 	if err != nil {
-		return nil, dataURL, err
+		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("invalid URL %s", dataURL)}
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("cannot find URL %s", dataURL)}
+	}
+	if resp.StatusCode != http.StatusOK {
 		return nil, dataURL, fmt.Errorf("cannot access URL %s, %s", dataURL, resp.Status)
 	}
 
@@ -211,6 +235,9 @@ func fetchData(baseURL, path string) ([]byte, string, error) {
 func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, error) {
 	data, url, err := fetchData(baseURL, indexPath)
 	if err != nil {
+		if _, ok := err.(*environs.NotFoundError); ok {
+			return nil, err
+		}
 		return nil, fmt.Errorf("cannot read index data, %v", err)
 	}
 	var indices indices
@@ -462,7 +489,7 @@ func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(cloudSpec *Cl
 	}
 	metadataCatalog, ok := imageMetadata.Products[prodSpecName]
 	if !ok {
-		return nil, fmt.Errorf("no image metadata for %s", prodSpecName)
+		return nil, &environs.NotFoundError{fmt.Errorf("no image metadata for %s", prodSpecName)}
 	}
 	var bv byVersionDesc = make(byVersionDesc, len(metadataCatalog.Images))
 	i := 0

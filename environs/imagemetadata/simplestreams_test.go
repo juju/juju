@@ -20,7 +20,7 @@ type liveTestData struct {
 
 var liveUrls = map[string]liveTestData{
 	"ec2": {
-		baseURL:        "http://cloud-images.ubuntu.com/releases",
+		baseURL:        DefaultBaseURL,
 		validCloudSpec: CloudSpec{"us-east-1", "http://ec2.us-east-1.amazonaws.com"},
 	},
 	"canonistack": {
@@ -288,8 +288,14 @@ func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *C) {
 	s.assertGetMetadata(c)
 }
 
-func (s *liveSimplestreamsSuite) TestGetDefaultImageIdMetadataExists(c *C) {
-	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
+func (s *liveSimplestreamsSuite) TestGetImageIdMetadataExists(c *C) {
+	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
+	c.Assert(err, IsNil)
+	c.Assert(len(im) > 0, Equals, true)
+}
+
+func (s *liveSimplestreamsSuite) TestGetImageIdMetadataMultipleBaseURLsExists(c *C) {
+	im, err := GetImageIdMetadata([]string{"http://bad", s.baseURL}, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
@@ -315,7 +321,7 @@ func (s *simplestreamsSuite) assertImageMetadataContents(c *C, im []*ImageMetada
 }
 
 func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
-	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
+	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
 	c.Assert(err, IsNil)
 	s.assertImageMetadataContents(c, im)
 }

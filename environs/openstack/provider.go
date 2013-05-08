@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
@@ -262,9 +263,13 @@ type environ struct {
 
 	ecfgMutex             sync.Mutex
 	ecfgUnlocked          *environConfig
+	client                client.AuthenticatingClient
 	novaUnlocked          *nova.Client
 	storageUnlocked       environs.Storage
 	publicStorageUnlocked environs.Storage // optional.
+	// An ordered list of paths in which to find the simplestreams index files used to
+	// look up image ids.
+	imageBaseURLs []string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -525,7 +530,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) client(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
+func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -562,8 +567,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	client := e.client(ecfg, authModeCfg)
-	e.novaUnlocked = nova.New(client)
+	e.client = e.authClient(ecfg, authModeCfg)
+	e.novaUnlocked = nova.New(e.client)
 
 	// create new storage instances, existing instances continue
 	// to reference their existing configuration.
@@ -572,7 +577,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(client)}
+		swift:        swift.New(e.client)}
 	if ecfg.publicBucket() != "" {
 		// If no public bucket URL is specified, we will instead create the public bucket
 		// using the user's credentials on the authenticated client.
@@ -582,7 +587,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 				// this is possibly just a hack - if the ACL is swift.Private,
 				// the machine won't be able to get the tools (401 error)
 				containerACL: swift.PublicRead,
-				swift:        swift.New(client)}
+				swift:        swift.New(e.client)}
 		} else {
 			e.publicStorageUnlocked = &storage{
 				containerName: ecfg.publicBucket(),
@@ -594,6 +599,36 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 
 	return nil
+}
+
+// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) getImageBaseURLs() ([]string, error) {
+	e.ecfgMutex.Lock()
+	defer e.ecfgMutex.Unlock()
+
+	if e.imageBaseURLs != nil {
+		return e.imageBaseURLs, nil
+	}
+	if !e.client.IsAuthenticated() {
+		err := e.client.Authenticate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Add the simplestreams base URL off the public bucket.
+	publicBucketURL, err := e.publicStorageUnlocked.URL("")
+	if err == nil {
+		e.imageBaseURLs = append(e.imageBaseURLs, publicBucketURL)
+	}
+	// Add the simplestreams base URL from keystone if it is defined.
+	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
+	if err == nil {
+		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
+	}
+	// Add the default simplestreams base URL.
+	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
+
+	return e.imageBaseURLs, nil
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
