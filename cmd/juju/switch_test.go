@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io/ioutil"
 	"os"
 
 	. "launchpad.net/gocheck"
@@ -17,7 +16,7 @@ var _ = Suite(&SwitchSimpleSuite{})
 func (*SwitchSimpleSuite) TestNoEnvironment(c *C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
 	_, err := testing.RunCommand(c, &SwitchCommand{}, nil)
-	c.Assert(err, ErrorMatches, "Couldn't read the environment.")
+	c.Assert(err, ErrorMatches, "couldn't read the environment.")
 }
 
 func (*SwitchSimpleSuite) TestNoDefault(c *C) {
@@ -66,9 +65,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(context), Equals, "Changed default environment from \"erewhemos\" to \"erewhemos-2\"\n")
-	env, err := ioutil.ReadFile(testing.HomePath(".juju", CurrentEnvironmentFilename))
-	c.Assert(err, IsNil)
-	c.Assert(string(env), Equals, "erewhemos-2")
+	c.Assert(readCurrentEnvironment(), Equals, "erewhemos-2")
 }
 
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *C) {
@@ -82,15 +79,6 @@ func (*SwitchSimpleSuite) TestSettingWhenJujuEnvSet(c *C) {
 	os.Setenv("JUJU_ENV", "using-env")
 	_, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, ErrorMatches, `Cannot switch when JUJU_ENV is overriding the environment \(set to "using-env"\)`)
-}
-
-func (*SwitchSimpleSuite) TestErrorWritingFile(c *C) {
-	defer testing.MakeFakeHome(c, testing.MultipleEnvConfig).Restore()
-	// Can't write a file over a directory.
-	os.MkdirAll(testing.HomePath(".juju", CurrentEnvironmentFilename), 0777)
-	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
-	c.Assert(err, Not(IsNil))
-	c.Assert(testing.Stderr(context), Matches, "Unable to write to the environment file: .*")
 }
 
 const expectedEnvironments = `

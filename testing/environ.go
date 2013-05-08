@@ -62,8 +62,6 @@ type FakeHome struct {
 // dir.
 func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
-	err := os.Mkdir(config.JujuHome(), 0755)
-	c.Assert(err, IsNil)
 
 	for _, name := range certNames {
 		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
@@ -72,7 +70,7 @@ func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 		c.Assert(err, IsNil)
 	}
 
-	err = os.Mkdir(HomePath(".ssh"), 0777)
+	err := os.Mkdir(HomePath(".ssh"), 0777)
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
 	c.Assert(err, IsNil)
@@ -106,7 +104,7 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 	os.Setenv("JUJU_HOME", "")
 	os.Setenv("JUJU_ENV", "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
-	err := os.Mkdir(jujuHome, 0777)
+	err := os.Mkdir(jujuHome, 0755)
 	c.Assert(err, IsNil)
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
