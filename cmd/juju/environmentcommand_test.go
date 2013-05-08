@@ -3,40 +3,23 @@ package main
 import (
 	"io/ioutil"
 	"os"
-	"path/filepath"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/testing"
 )
 
 type EnvironmentCommandSuite struct {
-	originalJujuHome string
-	originalJujuEnv  string
-	jujuHome         string
+	home *testing.FakeHome
 }
 
 var _ = Suite(&EnvironmentCommandSuite{})
 
 func (s *EnvironmentCommandSuite) SetUpTest(c *C) {
-	s.originalJujuHome = os.Getenv("JUJU_HOME")
-	s.originalJujuEnv = os.Getenv("JUJU_ENV")
-
-	os.Setenv("JUJU_ENV", "")
-	s.jujuHome = c.MkDir()
-	os.Setenv("JUJU_HOME", s.jujuHome)
-	err := juju.InitJujuHome()
-	c.Assert(err, IsNil)
+	s.home = testing.MakeEmptyFakeHome(c)
 }
 
 func (s *EnvironmentCommandSuite) TearDownTest(c *C) {
-	os.Setenv("JUJU_HOME", s.originalJujuHome)
-	os.Setenv("JUJU_ENV", s.originalJujuEnv)
-}
-
-func (s *EnvironmentCommandSuite) WriteCurrentEnvironment(c *C, env string) {
-	path := filepath.Join(s.jujuHome, CurrentEnvironmentFile)
-	err := ioutil.WriteFile(path, []byte(env), 0644)
-	c.Assert(err, IsNil)
+	s.home.Restore()
 }
 
 func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *C) {
@@ -45,7 +28,8 @@ func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *C) {
 }
 
 func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *C) {
-	s.WriteCurrentEnvironment(c, "fubar")
+	err := writeCurrentEnvironment("fubar")
+	c.Assert(err, IsNil)
 	env := readCurrentEnvironment()
 	c.Assert(env, Equals, "fubar")
 }
@@ -56,7 +40,8 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *C) {
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *C) {
-	s.WriteCurrentEnvironment(c, "fubar")
+	err := writeCurrentEnvironment("fubar")
+	c.Assert(err, IsNil)
 	env := getDefaultEnvironment()
 	c.Assert(env, Equals, "fubar")
 }
@@ -69,7 +54,16 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *C) {
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *C) {
 	os.Setenv("JUJU_ENV", "magic")
-	s.WriteCurrentEnvironment(c, "fubar")
+	err := writeCurrentEnvironment("fubar")
+	c.Assert(err, IsNil)
 	env := getDefaultEnvironment()
 	c.Assert(env, Equals, "magic")
+}
+
+func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *C) {
+	err := writeCurrentEnvironment("fubar")
+	c.Assert(err, IsNil)
+	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
+	c.Assert(err, IsNil)
+	c.Assert(string(current), Equals, "fubar\n")
 }

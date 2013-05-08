@@ -3,15 +3,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
-	"path/filepath"
 	"sort"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 )
 
 type SwitchCommand struct {
@@ -102,10 +99,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		if !validEnvironmentName(c.EnvName, names) {
 			return fmt.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
-		currentEnvironment := filepath.Join(config.JujuHome(), CurrentEnvironmentFile)
-		err := ioutil.WriteFile(currentEnvironment, []byte(c.EnvName), 0644)
-		if err != nil {
-			fmt.Fprintf(ctx.Stderr, "Unable to write to the environment file: %q", currentEnvironment)
+		if err := writeCurrentEnvironment(c.EnvName); err != nil {
 			return err
 		}
 		fmt.Fprintf(ctx.Stdout, "Changed default environment from %s to %q\n", env(), c.EnvName)

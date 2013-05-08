@@ -105,7 +105,10 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 	os.Setenv("HOME", fakeHome)
 	os.Setenv("JUJU_HOME", "")
 	os.Setenv("JUJU_ENV", "")
-	oldJujuHome := config.SetJujuHome(filepath.Join(fakeHome, ".juju"))
+	jujuHome := filepath.Join(fakeHome, ".juju")
+	err := os.Mkdir(jujuHome, 0777)
+	c.Assert(err, IsNil)
+	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
 		oldJujuEnv:     oldJujuEnv,
