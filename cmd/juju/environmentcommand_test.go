@@ -67,3 +67,10 @@ func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(string(current), Equals, "fubar\n")
 }
+
+func (*EnvironmentCommandSuite) TestErrorWritingFile(c *C) {
+	// Can't write a file over a directory.
+	os.MkdirAll(testing.HomePath(".juju", CurrentEnvironmentFilename), 0777)
+	err := writeCurrentEnvironment("fubar")
+	c.Assert(err, ErrorMatches, "unable to write to the environment file: .*")
+}
