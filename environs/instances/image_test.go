@@ -1,11 +1,10 @@
 package instances
 
 import (
-	"bytes"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	coretesting "launchpad.net/juju-core/testing"
-	"sort"
 	"testing"
 )
 
@@ -221,8 +220,20 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
-		r := bytes.NewBufferString(jsonImagesContent)
-		spec, err := FindInstanceSpec(r, &InstanceConstraint{
+		prodSpec := imagemetadata.NewProductSpec("precise", t.arches, "")
+		names, _ := prodSpec.Names()
+		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), names, t.region)
+		c.Assert(err, IsNil)
+		var images []Image
+		for _, imageMetadata := range imageMeta {
+			im := *imageMetadata
+			images = append(images, Image{
+				Id:    im.Id,
+				VType: im.VType,
+				Arch:  im.Arch,
+			})
+		}
+		spec, err := FindInstanceSpec(images, &InstanceConstraint{
 			Series:         "precise",
 			Region:         t.region,
 			Arches:         t.arches,
@@ -240,81 +251,6 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 		c.Check(spec.InstanceTypeId, Equals, t.instanceTypeId)
 		c.Check(spec.InstanceTypeName, Equals, t.instanceTypeName)
 	}
-}
-
-var getImagesTests = []struct {
-	region string
-	series string
-	arches []string
-	images []Image
-	err    string
-}{
-	{
-		region: "us-east-1",
-		series: "precise",
-		arches: []string{"amd64", "arm"},
-		err:    `no "precise" images in us-east-1 with arches \[amd64 arm\]`,
-	}, {
-		region: "eu-west-1",
-		series: "precise",
-		arches: []string{"arm"},
-		err:    `no "precise" images in eu-west-1 with arches \[arm\]`,
-	}, {
-		region: "ap-northeast-1",
-		series: "precise",
-		arches: []string{"amd64", "arm"},
-		images: []Image{
-			{"ami-00000023", "arm", "pv"},
-			{"ami-00000026", "amd64", "pv"},
-			{"ami-00000087", "amd64", "hvm"},
-		},
-	}, {
-		region: "ap-northeast-1",
-		series: "precise",
-		arches: []string{"amd64"},
-		images: []Image{
-			{"ami-00000026", "amd64", "pv"},
-			{"ami-00000087", "amd64", "hvm"},
-		},
-	}, {
-		region: "ap-northeast-1",
-		series: "precise",
-		arches: []string{"arm"},
-		images: []Image{
-			{"ami-00000023", "arm", "pv"},
-		},
-	},
-}
-
-func (s *imageSuite) TestGetImages(c *C) {
-	var ebs = "ebs"
-	for i, t := range getImagesTests {
-		c.Logf("test %d", i)
-		r := bytes.NewBufferString(jsonImagesContent)
-		images, err := getImages(r, &InstanceConstraint{
-			Region:  t.region,
-			Series:  t.series,
-			Arches:  t.arches,
-			Storage: &ebs,
-		})
-		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
-			continue
-		}
-		if !c.Check(err, IsNil) {
-			continue
-		}
-		sort.Sort(byId(images))
-		c.Check(images, DeepEquals, t.images)
-	}
-}
-
-type byId []Image
-
-func (bi byId) Len() int      { return len(bi) }
-func (bi byId) Swap(i, j int) { bi[i], bi[j] = bi[j], bi[i] }
-func (bi byId) Less(i, j int) bool {
-	return bi[i].Id < bi[j].Id
 }
 
 var imageMatchtests = []struct {

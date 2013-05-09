@@ -202,6 +202,30 @@ var imagesData = []jujutest.FileContent{
  "format": "products:1.0"
 }
 `},
+	//
+	//
+	//		envtesting.ImagesFields(
+	//		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
+	//		"ebs amd64 eu-west-1 ami-00000016 paravirtual",
+	//		"ebs i386 ap-northeast-1 ami-00000023 paravirtual",
+	//		"ebs amd64 ap-northeast-1 ami-00000026 paravirtual",
+	//		"ebs amd64 ap-northeast-1 ami-00000087 hvm",
+	//		"ebs amd64 test ami-00000033 paravirtual",
+	//		"ebs i386 test ami-00000034 paravirtual",
+	//		"ebs amd64 test ami-00000035 hvm",
+	//	)},
+	//	{"/query/quantal/server/released.current.txt", envtesting.ImagesFields(
+	//		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
+	//		"ebs amd64 eu-west-1 ami-01000016 paravirtual",
+	//		"ebs i386 ap-northeast-1 ami-01000023 paravirtual",
+	//		"ebs amd64 ap-northeast-1 ami-01000026 paravirtual",
+	//		"ebs amd64 ap-northeast-1 ami-01000087 hvm",
+	//		"ebs i386 test ami-01000034 paravirtual",
+	//		"ebs amd64 test ami-01000035 hvm",
+	//	)},
+	//	{"/query/raring/server/released.current.txt", envtesting.ImagesFields(
+	//		"ebs i386 test ami-02000034 paravirtual",
+	//	)},
 }
 
 var instanceTypeCosts = instanceTypeCost{

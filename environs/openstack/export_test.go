@@ -1,11 +1,14 @@
 package openstack
 
 import (
+	"bytes"
 	"fmt"
+	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/tools"
@@ -13,6 +16,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -111,63 +115,31 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
-var privateBucketImagesData = `
-{
- "content_id": "com.ubuntu.cloud:released:openstack",
- "products": {
-   "com.ubuntu.cloud:server:12.10:amd64": {
-     "release": "quantal",
-     "version": "12.10",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "inst3": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "region-1",
-             "id": "id-1"
-           },
-           "inst4": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "region-2",
-             "id": "id-2"
-           }
-         },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:13.04:amd64": {
-     "release": "raring",
-     "version": "13.04",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "inst5": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "some-region",
-             "id": "id-y"
-           },
-           "inst6": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "another-region",
-             "id": "id-z"
-           }
-         },
-         "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   }
- },
- "format": "products:1.0"
-}
+var publicBucketIndexData = `
+		{
+		 "index": {
+		  "com.ubuntu.cloud:released:openstack": {
+		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		   "clouds": [
+			{
+			 "region": "{{.Region}}",
+			 "endpoint": "{{.URL}}"
+			}
+		   ],
+		   "cloudname": "test",
+		   "datatype": "image-ids",
+		   "format": "products:1.0",
+		   "products": [
+			"com.ubuntu.cloud:server:12.04:amd64",
+			"com.ubuntu.cloud:server:12.10:amd64",
+			"com.ubuntu.cloud:server:13.04:amd64"
+		   ],
+		   "path": "image-metadata/products.json"
+		  }
+		 },
+		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		 "format": "index:1.0"
+		}
 `
 
 var publicBucketImagesData = `
@@ -184,17 +156,67 @@ var publicBucketImagesData = `
            "inst1": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "some-region",
+             "region": "some-region",
              "id": "1"
            },
            "inst2": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "another-region",
+             "region": "another-region",
              "id": "2"
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:amd64": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "region-1",
+             "id": "id-1"
+           },
+           "inst4": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "region-2",
+             "id": "id-2"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.14-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:amd64": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
          "label": "release"
        }
      }
@@ -204,19 +226,24 @@ var publicBucketImagesData = `
 }
 `
 
-const metadatafile = "image-metadata/released.js"
+const productMetadatafile = "image-metadata/products.json"
 
-func UseTestImageData(e environs.Environ, includePrivate bool) {
-	// Put some image metadata files into the public (and maybe private) storage.
-	if includePrivate {
-		e.Storage().Put(metadatafile, strings.NewReader(privateBucketImagesData), int64(len(privateBucketImagesData)))
+func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
+	// Put some image metadata files into the public storage.
+	t := template.Must(template.New("").Parse(publicBucketIndexData))
+	var metadata bytes.Buffer
+	if err := t.Execute(&metadata, cred); err != nil {
+		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
-	WritablePublicStorage(e).Put(metadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
+	data := metadata.Bytes()
+	WritablePublicStorage(e).Put(imagemetadata.DefaultIndexPath, bytes.NewReader(data), int64(len(data)))
+	WritablePublicStorage(e).Put(
+		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
-	e.Storage().Remove(metadatafile)
-	WritablePublicStorage(e).Remove(metadatafile)
+	WritablePublicStorage(e).Remove(imagemetadata.DefaultIndexPath)
+	WritablePublicStorage(e).Remove(productMetadatafile)
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {

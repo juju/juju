@@ -1,6 +1,7 @@
 package openstack
 
 import (
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 )
 
@@ -26,19 +27,26 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	// look first in the control bucket and then the public bucket to find the release files containing the
-	// metadata for available images. The format of the data in the files is found at
-	// https://help.ubuntu.com/community/UEC/Images.
-	var spec *instances.InstanceSpec
-	releasesFile := "image-metadata/released.js"
-	r, err := e.Storage().Get(releasesFile)
+	cloudSpec := imagemetadata.CloudSpec{ic.Region, e.ecfg().authURL()}
+	prodSpec := imagemetadata.NewProductSpec(ic.Series, ic.Arches, "")
+	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
-		r, err = e.PublicStorage().Get(releasesFile)
+		return nil, err
 	}
-	if err == nil {
-		defer r.Close()
+	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &cloudSpec, &prodSpec)
+	if err != nil {
+		return nil, err
 	}
-	spec, err = instances.FindInstanceSpec(r, ic, allInstanceTypes)
+	var images []instances.Image
+	for _, imageMetadata := range matchingImages {
+		im := *imageMetadata
+		images = append(images, instances.Image{
+			Id:    im.Id,
+			VType: im.VType,
+			Arch:  im.Arch,
+		})
+	}
+	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}

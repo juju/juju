@@ -58,7 +58,7 @@ var indexData = []jujutest.FileContent{
 		"/streams/v1/index.json", `
 		{
 		 "index": {
-		  "com.ubuntu.cloud:released:quantal": {
+		  "com.ubuntu.cloud:released:precise": {
 		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		   "clouds": [
 			{
@@ -70,7 +70,8 @@ var indexData = []jujutest.FileContent{
 		   "datatype": "image-ids",
 		   "format": "products:1.0",
 		   "products": [
-			"com.ubuntu.cloud:server:12.10:amd64"
+			"com.ubuntu.cloud:server:12.04:amd64",
+			"com.ubuntu.cloud:server:12.04:arm"
 		   ],
 		   "path": "streams/v1/image_metadata.json"
 		  },
@@ -110,9 +111,9 @@ var indexData = []jujutest.FileContent{
  "updated": "Wed, 01 May 2013 13:31:26 +0000",
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
-  "com.ubuntu.cloud:server:12.10:amd64": {
-   "release": "quantal",
-   "version": "12.10",
+  "com.ubuntu.cloud:server:12.04:amd64": {
+   "release": "precise",
+   "version": "12.04",
    "arch": "amd64",
    "region": "au-east-1",
    "endpoint": "http://somewhere",
@@ -140,7 +141,7 @@ var indexData = []jujutest.FileContent{
        "id": "ami-442ea675"
       }
      },
-     "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
+     "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
      "label": "release"
     },
     "20111111": {
@@ -158,7 +159,27 @@ var indexData = []jujutest.FileContent{
        "endpoint": "http://ec2.us-east-1.amazonaws.com"
       }
      },
-     "pubname": "ubuntu-quantal-12.10-amd64-server-20111111",
+     "pubname": "ubuntu-precise-12.04-amd64-server-20111111",
+     "label": "release"
+    }
+   }
+  },
+  "com.ubuntu.cloud:server:12.04:arm": {
+   "release": "precise",
+   "version": "12.04",
+   "arch": "arm",
+   "region": "us-east-1",
+   "endpoint": "http://ec2.us-east-1.amazonaws.com",
+   "versions": {
+    "20121219": {
+     "items": {
+      "usww2he": {
+       "root_store": "ebs",
+       "virt": "pv",
+       "id": "ami-442ea699"
+      }
+     },
+     "pubname": "ubuntu-precise-12.04-arm-server-20121219",
      "label": "release"
     }
    }
@@ -182,7 +203,7 @@ func registerSimpleStreamsTests() {
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
 			baseURL:        "test:",
 			validCloudSpec: CloudSpec{"us-east-1", "http://ec2.us-east-1.amazonaws.com"},
-			validProdSpec:  NewProductSpec("quantal", "amd64", ""),
+			validProdSpec:  NewProductSpec("precise", []string{"amd64", "arm"}, ""),
 		},
 	})
 }
@@ -191,7 +212,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validCloudSpec CloudSpec) {
 	Suite(&liveSimplestreamsSuite{
 		baseURL:        baseURL,
 		validCloudSpec: validCloudSpec,
-		validProdSpec:  NewProductSpec("precise", "amd64", ""),
+		validProdSpec:  NewProductSpec("precise", []string{"amd64"}, ""),
 	})
 }
 
@@ -245,7 +266,9 @@ func (s *liveSimplestreamsSuite) TestGetIndexWrongFormat(c *C) {
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
+	prodNames, err := s.validProdSpec.Names()
+	c.Assert(err, IsNil)
+	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, prodNames)
 	c.Assert(err, IsNil)
 	c.Assert(path, Not(Equals), "")
 }
@@ -254,22 +277,28 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
 	spec := CloudSpec{"bad", "spec"}
-	_, err = indexRef.getImageIdsPath(&spec, &s.validProdSpec)
+	prodNames, err := s.validProdSpec.Names()
+	c.Assert(err, IsNil)
+	_, err = indexRef.getImageIdsPath(&spec, prodNames)
 	c.Assert(err, NotNil)
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	spec := NewProductSpec("precise", "bad", "spec")
-	_, err = indexRef.getImageIdsPath(&s.validCloudSpec, &spec)
+	spec := NewProductSpec("precise", []string{"bad"}, "spec")
+	prodNames, err := spec.Names()
+	c.Assert(err, IsNil)
+	_, err = indexRef.getImageIdsPath(&s.validCloudSpec, prodNames)
 	c.Assert(err, NotNil)
 }
 
 func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
+	prodNames, err := s.validProdSpec.Names()
+	c.Assert(err, IsNil)
+	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, prodNames)
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "streams/v1/image_metadata.json")
 }
@@ -277,7 +306,9 @@ func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *cloudImageMetadata {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	metadata, err := indexRef.getCloudMetadataWithFormat(&s.validCloudSpec, &s.validProdSpec, product_v1)
+	prodNames, err := s.validProdSpec.Names()
+	c.Assert(err, IsNil)
+	metadata, err := indexRef.getCloudMetadataWithFormat(&s.validCloudSpec, prodNames, product_v1)
 	c.Assert(err, IsNil)
 	c.Assert(metadata.Format, Equals, product_v1)
 	c.Assert(len(metadata.Products) > 0, Equals, true)
@@ -300,47 +331,21 @@ func (s *liveSimplestreamsSuite) TestGetImageIdMetadataMultipleBaseURLsExists(c 
 	c.Assert(len(im) > 0, Equals, true)
 }
 
-func (s *simplestreamsSuite) assertImageMetadataContents(c *C, im []*ImageMetadata) {
-	c.Assert(len(im), Equals, 2)
-	c.Assert(im, DeepEquals, []*ImageMetadata{
-		{
-			Id:         "ami-442ea674",
-			VType:      "hvm",
-			RegionName: "us-east-1",
-			Endpoint:   "http://ec2.us-east-1.amazonaws.com",
-			Storage:    "ebs",
-		},
-		{
-			Id:         "ami-442ea684",
-			VType:      "pv",
-			RegionName: "us-east-1",
-			Endpoint:   "http://ec2.us-east-1.amazonaws.com",
-			Storage:    "ebs",
-		},
-	})
-}
-
-func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
-	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
-	c.Assert(err, IsNil)
-	s.assertImageMetadataContents(c, im)
-}
-
 func (s *liveSimplestreamsSuite) assertGetImageCollections(c *C, version string) *imageCollection {
 	metadata := s.assertGetMetadata(c)
-	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
+	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Images[version]
 	return ic
 }
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *C) {
 	metadata := s.assertGetMetadata(c)
-	c.Assert(len(metadata.Products), Equals, 1)
+	c.Check(len(metadata.Products), Equals, 2)
 	c.Check(len(metadata.Aliases), Equals, 1)
-	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
+	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Images), Equals, 2)
-	c.Check(metadataCatalog.Release, Equals, "quantal")
-	c.Check(metadataCatalog.Version, Equals, "12.10")
+	c.Check(metadataCatalog.Release, Equals, "precise")
+	c.Check(metadataCatalog.Version, Equals, "12.04")
 	c.Check(metadataCatalog.Arch, Equals, "amd64")
 	c.Check(metadataCatalog.RegionName, Equals, "au-east-1")
 	c.Check(metadataCatalog.Endpoint, Equals, "http://somewhere")
@@ -369,7 +374,7 @@ func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *C
 
 func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCatalog(c *C) {
 	metadata := s.assertGetMetadata(c)
-	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
+	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Images["20111111"]
 	im := ic.Images["usww3pe"]
 	c.Check(im.RegionName, Equals, metadataCatalog.RegionName)
@@ -378,7 +383,7 @@ func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCatalog(c *C) {
 
 func (s *simplestreamsSuite) TestImageMetadataDealiasing(c *C) {
 	metadata := s.assertGetMetadata(c)
-	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
+	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Images["20121218"]
 	im := ic.Images["usww3he"]
 	c.Check(im.RegionName, Equals, "us-west-3")
@@ -390,25 +395,125 @@ type productSpecSuite struct{}
 var _ = Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestNameWithDefaultStream(c *C) {
-	prodSpec := NewProductSpec("precise", "amd64", "")
-	prodSpecName, err := prodSpec.Name()
+	prodSpec := NewProductSpec("precise", []string{"amd64"}, "")
+	prodSpecNames, err := prodSpec.Names()
 	c.Assert(err, IsNil)
-	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud:server:12.04:amd64")
-	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+	c.Assert(prodSpecNames, DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	c.Assert(prodSpec.cachedNames, DeepEquals, prodSpecNames)
 }
 
 func (s *productSpecSuite) TestName(c *C) {
-	prodSpec := NewProductSpec("precise", "amd64", "daily")
-	prodSpecName, err := prodSpec.Name()
+	prodSpec := NewProductSpec("precise", []string{"amd64"}, "daily")
+	prodSpecNames, err := prodSpec.Names()
 	c.Assert(err, IsNil)
-	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
-	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+	c.Assert(prodSpecNames, DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
+	c.Assert(prodSpec.cachedNames, DeepEquals, prodSpecNames)
+}
+
+func (s *productSpecSuite) TestNameMultiArch(c *C) {
+	prodSpec := NewProductSpec("precise", []string{"amd64", "i386"}, "daily")
+	prodSpecNames, err := prodSpec.Names()
+	c.Assert(err, IsNil)
+	c.Assert(prodSpecNames, DeepEquals, []string{
+		"com.ubuntu.cloud.daily:server:12.04:amd64",
+		"com.ubuntu.cloud.daily:server:12.04:i386"})
+	c.Assert(prodSpec.cachedNames, DeepEquals, prodSpecNames)
 }
 
 func (s *productSpecSuite) TestNameWithNonDefaultRelease(c *C) {
-	prodSpec := NewProductSpec("lucid", "amd64", "daily")
-	prodSpecName, err := prodSpec.Name()
+	prodSpec := NewProductSpec("lucid", []string{"amd64"}, "daily")
+	prodSpecNames, err := prodSpec.Names()
 	c.Assert(err, IsNil)
-	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud.daily:server:10.04:amd64")
-	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+	c.Assert(prodSpecNames, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
+	c.Assert(prodSpec.cachedNames, DeepEquals, prodSpecNames)
+}
+
+var getImageIdMetadataTests = []struct {
+	region string
+	series string
+	arches []string
+	images []*ImageMetadata
+}{
+	{
+		region: "us-east-1",
+		series: "precise",
+		arches: []string{"amd64", "arm"},
+		images: []*ImageMetadata{
+			{
+				Id:         "ami-442ea674",
+				VType:      "hvm",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+			{
+				Id:         "ami-442ea684",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+			{
+				Id:         "ami-442ea699",
+				VType:      "pv",
+				Arch:       "arm",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+		},
+	},
+	{
+		region: "us-east-1",
+		series: "precise",
+		arches: []string{"amd64"},
+		images: []*ImageMetadata{
+			{
+				Id:         "ami-442ea674",
+				VType:      "hvm",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+			{
+				Id:         "ami-442ea684",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+		},
+	},
+	{
+		region: "us-east-1",
+		series: "precise",
+		arches: []string{"arm"},
+		images: []*ImageMetadata{
+			{
+				Id:         "ami-442ea699",
+				VType:      "pv",
+				Arch:       "arm",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+		},
+	},
+}
+
+func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
+	for i, t := range getImageIdMetadataTests {
+		c.Logf("test %d", i)
+		prodSpec := NewProductSpec("precise", t.arches, "")
+		cloudSpec := CloudSpec{t.region, "http://ec2.us-east-1.amazonaws.com"}
+		images, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &cloudSpec, &prodSpec)
+		if !c.Check(err, IsNil) {
+			continue
+		}
+		c.Check(images, DeepEquals, t.images)
+	}
 }
