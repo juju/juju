@@ -77,7 +77,6 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	sort.Sort(byArch(possibleImages))
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
-			if ic.Storage != nil && image.
 			if image.match(itype) {
 				return &InstanceSpec{itype.Id, itype.Name, image}, nil
 			}

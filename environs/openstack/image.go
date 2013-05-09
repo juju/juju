@@ -27,13 +27,12 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	cloudSpec := imagemetadata.CloudSpec{ic.Region, e.ecfg().authURL()}
-	prodSpec := imagemetadata.NewProductSpec(ic.Series, ic.Arches, "")
+	imageConstraint := imagemetadata.NewImageConstraint(ic.Region, e.ecfg().authURL(), ic.Series, ic.Arches, "")
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
 	}
-	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &cloudSpec, &prodSpec)
+	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
 	if err != nil {
 		return nil, err
 	}
