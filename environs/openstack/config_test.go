@@ -49,6 +49,8 @@ type configTest struct {
 	tenantName    string
 	authMode      string
 	authURL       string
+	accessKey     string
+	secretKey     string
 	firewallMode  config.FirewallMode
 	err           string
 }
@@ -124,6 +126,12 @@ func (t configTest) check(c *C) {
 	}
 	if t.authMode != "" {
 		c.Assert(ecfg.authMode(), Equals, t.authMode)
+	}
+	if t.accessKey != "" {
+		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
+	}
+	if t.secretKey != "" {
+		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
 	}
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
@@ -264,6 +272,36 @@ var configTests = []configTest{
 			"auth-mode": "invalid-mode",
 		},
 		err: ".*invalid authorization mode.*",
+	}, {
+		summary: "keypair authorization mode",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"access-key": "MyAccessKey",
+			"secret-key": "MySecretKey",
+		},
+		authMode:  "keypair",
+		accessKey: "MyAccessKey",
+		secretKey: "MySecretKey",
+	}, {
+		summary: "keypair authorization mode without access key",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"secret-key": "MySecretKey",
+		},
+		envVars: map[string]string{
+			"OS_USERNAME": "",
+		},
+		err: "required environment variable not set for credentials attribute: User",
+	}, {
+		summary: "keypair authorization mode without secret key",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"access-key": "MyAccessKey",
+		},
+		envVars: map[string]string{
+			"OS_PASSWORD": "",
+		},
+		err: "required environment variable not set for credentials attribute: Secrets",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
