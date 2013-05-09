@@ -1,6 +1,7 @@
 package statecmd
 
 import (
+	"errors"
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -10,6 +11,18 @@ import (
 )
 
 func ServiceDeploy(st *state.State, args params.ServiceDeploy, conn *juju.Conn, curl *charm.URL, repo charm.Repository) error {
+	if args.ServiceName != "" && !state.IsServiceName(args.ServiceName) {
+		return fmt.Errorf("invalid service name %q", args.ServiceName)
+	}
+	if args.ForceMachineId != "" {
+		if !state.IsMachineId(args.ForceMachineId) {
+			return fmt.Errorf("invalid machine id %q", args.ForceMachineId)
+		}
+		if args.NumUnits > 1 {
+			return fmt.Errorf("force-machine cannot be used for multiple units")
+		}
+	}
+
 	charm, err := conn.PutCharm(curl, repo, args.BumpRevision)
 	if err != nil {
 		return err
@@ -21,6 +34,10 @@ func ServiceDeploy(st *state.State, args params.ServiceDeploy, conn *juju.Conn, 
 		}
 		if args.ForceMachineId != "" {
 			return fmt.Errorf("subordinate service cannot specify force-machine")
+		}
+	} else {
+		if args.NumUnits < 1 {
+			return errors.New("must deploy at least one unit")
 		}
 	}
 	serviceName := args.ServiceName
