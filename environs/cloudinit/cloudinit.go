@@ -17,6 +17,11 @@ import (
 	"path"
 )
 
+const (
+	maxMongoFiles = 65000
+	maxAgentFiles = 20000
+)
+
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
 	// StateServer specifies whether the new machine will run the
@@ -267,8 +272,11 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, tag, args str
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", tag),
-		Cmd:     cmd,
-		Out:     logPath,
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
+		},
+		Cmd: cmd,
+		Out: logPath,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
@@ -290,6 +298,10 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxMongoFiles, maxMongoFiles),
+			"nproc":  fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
+		},
 		Cmd: "/usr/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
