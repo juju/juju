@@ -40,7 +40,11 @@ func Test(t *testing.T) {
 			keys := reflect.ValueOf(liveUrls).MapKeys()
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
-		registerLiveSimpleStreamsTests(testData.baseURL, testData.validCloudSpec)
+		registerLiveSimpleStreamsTests(testData.baseURL, ImageConstraint{
+				CloudSpec: testData.validCloudSpec,
+				Release: "quantal",
+				Arch: "amd64",
+			})
 	}
 	registerSimpleStreamsTests()
 	TestingT(t)
@@ -181,17 +185,16 @@ func registerSimpleStreamsTests() {
 	Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
 			baseURL:        "test:",
-			validCloudSpec: CloudSpec{"us-east-1", "http://ec2.us-east-1.amazonaws.com"},
-			validProdSpec:  NewProductSpec("quantal", "amd64", ""),
+			validImageConstraint:  NewImageConstraint(
+				"us-east-1", "http://ec2.us-east-1.amazonaws.com", "quantal", "amd64", ""),
 		},
 	})
 }
 
-func registerLiveSimpleStreamsTests(baseURL string, validCloudSpec CloudSpec) {
+func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint ImageConstraint) {
 	Suite(&liveSimplestreamsSuite{
 		baseURL:        baseURL,
-		validCloudSpec: validCloudSpec,
-		validProdSpec:  NewProductSpec("precise", "amd64", ""),
+		validImageConstraint: validImageConstraint,
 	})
 }
 
@@ -202,8 +205,7 @@ type simplestreamsSuite struct {
 type liveSimplestreamsSuite struct {
 	coretesting.LoggingSuite
 	baseURL        string
-	validCloudSpec CloudSpec
-	validProdSpec  ProductSpec
+	validImageConstraint ImageConstraint
 }
 
 func (s *liveSimplestreamsSuite) SetUpSuite(c *C) {
@@ -245,7 +247,7 @@ func (s *liveSimplestreamsSuite) TestGetIndexWrongFormat(c *C) {
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
+	path, err := indexRef.getImageIdsPath(&s.validImageConstraint)
 	c.Assert(err, IsNil)
 	c.Assert(path, Not(Equals), "")
 }
@@ -253,23 +255,30 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *C) {
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	spec := CloudSpec{"bad", "spec"}
-	_, err = indexRef.getImageIdsPath(&spec, &s.validProdSpec)
+	ic := ImageConstraint{
+		CloudSpec: CloudSpec{"bad", "spec"},
+	}
+	_, err = indexRef.getImageIdsPath(&ic)
 	c.Assert(err, NotNil)
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	spec := NewProductSpec("precise", "bad", "spec")
-	_, err = indexRef.getImageIdsPath(&s.validCloudSpec, &spec)
+	ic := ImageConstraint{
+		CloudSpec: s.validImageConstraint.CloudSpec,
+		Release: "precise",
+		Arch: "bad",
+		Stream: "spec",
+	}
+	_, err = indexRef.getImageIdsPath(&ic)
 	c.Assert(err, NotNil)
 }
 
 func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	path, err := indexRef.getImageIdsPath(&s.validCloudSpec, &s.validProdSpec)
+	path, err := indexRef.getImageIdsPath(&s.validImageConstraint)
 	c.Assert(err, IsNil)
 	c.Assert(path, Equals, "streams/v1/image_metadata.json")
 }
@@ -277,7 +286,7 @@ func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *cloudImageMetadata {
 	indexRef, err := getIndexWithFormat(s.baseURL, DefaultIndexPath, index_v1)
 	c.Assert(err, IsNil)
-	metadata, err := indexRef.getCloudMetadataWithFormat(&s.validCloudSpec, &s.validProdSpec, product_v1)
+	metadata, err := indexRef.getCloudMetadataWithFormat(&s.validImageConstraint, product_v1)
 	c.Assert(err, IsNil)
 	c.Assert(metadata.Format, Equals, product_v1)
 	c.Assert(len(metadata.Products) > 0, Equals, true)
@@ -289,7 +298,7 @@ func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetDefaultImageIdMetadataExists(c *C) {
-	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
+	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validImageConstraint)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
@@ -315,7 +324,7 @@ func (s *simplestreamsSuite) assertImageMetadataContents(c *C, im []*ImageMetada
 }
 
 func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
-	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validCloudSpec, &s.validProdSpec)
+	im, err := GetImageIdMetadata(s.baseURL, DefaultIndexPath, &s.validImageConstraint)
 	c.Assert(err, IsNil)
 	s.assertImageMetadataContents(c, im)
 }
@@ -384,25 +393,25 @@ type productSpecSuite struct{}
 var _ = Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestNameWithDefaultStream(c *C) {
-	prodSpec := NewProductSpec("precise", "amd64", "")
-	prodSpecName, err := prodSpec.Name()
+	prodSpec := NewImageConstraint("region", "ep", "precise", "amd64", "")
+	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
-	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud:server:12.04:amd64")
-	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud:server:12.04:amd64")
+	c.Assert(prodSpec.cachedId, Equals, prodSpecId)
 }
 
-func (s *productSpecSuite) TestName(c *C) {
-	prodSpec := NewProductSpec("precise", "amd64", "daily")
-	prodSpecName, err := prodSpec.Name()
+func (s *productSpecSuite) TestId(c *C) {
+	prodSpec := NewImageConstraint("region", "ep", "precise", "amd64", "daily")
+	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
-	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
-	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
+	c.Assert(prodSpec.cachedId, Equals, prodSpecId)
 }
 
-func (s *productSpecSuite) TestNameWithNonDefaultRelease(c *C) {
-	prodSpec := NewProductSpec("lucid", "amd64", "daily")
-	prodSpecName, err := prodSpec.Name()
+func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
+	prodSpec := NewImageConstraint("region", "ep", "lucid", "amd64", "daily")
+	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
-	c.Assert(prodSpecName, Equals, "com.ubuntu.cloud.daily:server:10.04:amd64")
-	c.Assert(prodSpec.cachedName, Equals, prodSpecName)
+	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud.daily:server:10.04:amd64")
+	c.Assert(prodSpec.cachedId, Equals, prodSpecId)
 }
