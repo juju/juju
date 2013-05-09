@@ -80,7 +80,7 @@ func UseTestImageData(content []jujutest.FileContent) {
 
 // UseTestInstanceTypeData causes the given instance type
 // cost data to be served for the "test" region.
-func UseTestInstanceTypeData(content map[string]uint64) {
+func UseTestInstanceTypeData(content instanceTypeCost) {
 	if content != nil {
 		allRegionCosts["test"] = content
 	} else {

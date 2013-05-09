@@ -47,8 +47,11 @@ func Main(args []string) {
 	juju.Register(&DestroyUnitCommand{})
 	juju.Register(&DestroyEnvironmentCommand{})
 
-	// Error resolution commands.
+	// Reporting commands.
 	juju.Register(&StatusCommand{})
+	juju.Register(&SwitchCommand{})
+
+	// Error resolution commands.
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
 	juju.Register(&ResolvedCommand{})
