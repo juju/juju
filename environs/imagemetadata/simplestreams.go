@@ -291,9 +291,11 @@ func (indexRef *indexReference) getImageIdsPath(imageConstraint *ImageConstraint
 		}
 	}
 	if !containsImageIds {
-		return "", fmt.Errorf("index file missing %q data", imageIds)
+		return "", &environs.NotFoundError{fmt.Errorf("index file missing %q data", imageIds)}
 	}
-	return "", fmt.Errorf("index file missing data for cloud %v", imageConstraint.CloudSpec)
+	return "", &environs.NotFoundError{
+		fmt.Errorf("index file missing data for cloud %v and product name %q",
+			imageConstraint.CloudSpec, prodSpecId)}
 }
 
 // To keep the metadata concise, attributes on ImageMetadata which have the same value for each
@@ -461,7 +463,7 @@ func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*Imag
 func (indexRef *indexReference) getCloudMetadataWithFormat(imageConstraint *ImageConstraint, format string) (*cloudImageMetadata, error) {
 	productFilesPath, err := indexRef.getImageIdsPath(imageConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("error finding product files path %s", err.Error())
+		return nil, err
 	}
 	data, url, err := fetchData(indexRef.baseURL, productFilesPath)
 	if err != nil {
