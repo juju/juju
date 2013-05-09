@@ -96,6 +96,8 @@ respawn
 normal exit 0
 {{range $k, $v := .Env}}env {{$k}}={{$v|printf "%q"}}
 {{end}}
+{{range $k, $v := .Limit}}limit {{$k}} {{$v}}
+{{end}}
 exec {{.Cmd}}{{if .Out}} >> {{.Out}} 2>&1{{end}}
 `[1:]))
 
@@ -107,6 +109,8 @@ type Conf struct {
 	Desc string
 	// Env holds the environment variables that will be set when the command runs.
 	Env map[string]string
+	// Limit holds the ulimit values that will be set when the command runs.
+	Limit map[string]string
 	// Cmd is the command (with arguments) that will be run.
 	// The command will be restarted if it exits with a non-zero exit code.
 	Cmd string
