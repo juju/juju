@@ -23,6 +23,54 @@ type CloudSpec struct {
 	Endpoint string
 }
 
+// ImageConstraint defines criteria used to find an image.
+type ImageConstraint struct {
+	CloudSpec
+	Release string
+	Arches  []string
+	Stream  string // may be "", typically "release", "daily" etc
+	// the ids may be expensive to generate so cache them.
+	cachedIds []string
+}
+
+// NewImageConstraint creates a ImageConstraint.
+func NewImageConstraint(region, endpoint, release string, arches []string, stream string) ImageConstraint {
+	return ImageConstraint{
+		CloudSpec: CloudSpec {
+			Endpoint: endpoint,
+			Region: region,
+		},
+		Release: release,
+		Arches:    arches,
+		Stream:  stream,
+	}
+}
+
+// Generates a string slice representing product ids formed similarly to an ISCSI qualified name (IQN).
+func (ic *ImageConstraint) Ids() ([]string, error) {
+	if ic.cachedIds != nil {
+		return ic.cachedIds, nil
+	}
+	stream := ic.Stream
+	if stream != "" {
+		stream = "." + stream
+	}
+	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
+	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
+	err := updateDistroInfo()
+	if err != nil {
+		return nil, err
+	}
+	if version, ok := releaseVersions[ic.Release]; ok {
+		ic.cachedIds = make([]string, len(ic.Arches))
+		for i, arch := range ic.Arches {
+			ic.cachedIds[i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
+		}
+		return ic.cachedIds, nil
+	}
+	return nil, fmt.Errorf("Invalid Ubuntu release %q", ic.Release)
+}
+
 // releaseVersions provides a mapping between Ubuntu series names and version numbers.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
@@ -32,24 +80,6 @@ var releaseVersions = map[string]string{
 	"quantal": "12.10",
 	"raring":  "13.04",
 	"saucy":   "13.10",
-}
-
-// Product spec is used to define the required characteristics of an Ubuntu image.
-type ProductSpec struct {
-	Release string
-	Arches  []string
-	Stream  string // may be "", typically "release", "daily" etc
-	// the names may be expensive to generate so cache them.
-	cachedNames []string
-}
-
-// NewProductSpec creates a ProductSpec.
-func NewProductSpec(release string, arches []string, stream string) ProductSpec {
-	return ProductSpec{
-		Release: release,
-		Arches:  arches,
-		Stream:  stream,
-	}
 }
 
 // updateDistroInfo updates releaseVersions from /usr/share/distro-info/ubuntu.csv if possible..
@@ -78,31 +108,6 @@ func updateDistroInfo() error {
 		releaseVersions[parts[2]] = releaseInfo[0]
 	}
 	return nil
-}
-
-// Generates a string slice representing product ids formed similarly to an ISCSI qualified name (IQN).
-func (ps *ProductSpec) Names() ([]string, error) {
-	if ps.cachedNames != nil {
-		return ps.cachedNames, nil
-	}
-	stream := ps.Stream
-	if stream != "" {
-		stream = "." + stream
-	}
-	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
-	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
-	err := updateDistroInfo()
-	if err != nil {
-		return nil, err
-	}
-	if version, ok := releaseVersions[ps.Release]; ok {
-		ps.cachedNames = make([]string, len(ps.Arches))
-		for i, arch := range ps.Arches {
-			ps.cachedNames[i] = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, arch)
-		}
-		return ps.cachedNames, nil
-	}
-	return nil, fmt.Errorf("Invalid Ubuntu release %q", ps.Release)
 }
 
 // The following structs define the data model used in the JSON image metadata files.
@@ -184,8 +189,8 @@ const (
 
 // GetImageIdMetadata returns a list of images for the specified cloud matching the product criteria.
 // The base URL locations are as specified - the first location which has a file is the one used.
-func GetImageIdMetadata(baseURLs []string, indexPath string, cloudSpec *CloudSpec, prodSpec *ProductSpec) ([]*ImageMetadata, error) {
-	prodNames, err := prodSpec.Names()
+func GetImageIdMetadata(baseURLs []string, indexPath string, imageConstraint *ImageConstraint) ([]*ImageMetadata, error) {
+	prodIds, err := imageConstraint.Ids()
 	if err != nil {
 		return nil, err
 	}
@@ -198,7 +203,7 @@ func GetImageIdMetadata(baseURLs []string, indexPath string, cloudSpec *CloudSpe
 			}
 			return nil, err
 		}
-		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(cloudSpec, prodNames, "products:1.0")
+		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(&imageConstraint.CloudSpec, prodIds, "products:1.0")
 		if err != nil {
 			return nil, err
 		}
@@ -259,7 +264,7 @@ func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, err
 
 // getImageIdsPath returns the path to the metadata file containing image ids for the specified
 // cloud and product.
-func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodNames []string) (string, error) {
+func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodIds []string) (string, error) {
 	var containsImageIds bool
 	for _, metadata := range indexRef.Indexes {
 		if metadata.DataType != imageIds {
@@ -275,7 +280,7 @@ func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodNames 
 		}
 		var prodSpecMatches bool
 		for _, pid := range metadata.ProductIds {
-			if containsString(prodNames, pid) {
+			if containsString(prodIds, pid) {
 				prodSpecMatches = true
 				break
 			}
@@ -288,7 +293,7 @@ func (indexRef *indexReference) getImageIdsPath(cloudSpec *CloudSpec, prodNames 
 		return "", fmt.Errorf("index file missing %q data", imageIds)
 	}
 	return "", fmt.Errorf(
-		"index file missing data for cloud %v and product name(s) %q", cloudSpec, strings.Join(prodNames, ","))
+		"index file missing data for cloud %v and product name(s) %q", cloudSpec, strings.Join(prodIds, ","))
 }
 
 // utility function to see if element exists in values slice.
@@ -447,13 +452,13 @@ type imageKey struct {
 
 // findMatchingImages updates matchingImages with image metadata records from images which belong to the
 // specified region. If an image already exists in matchingImages, it is not overwritten.
-func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, region string) []*ImageMetadata {
+func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, imageConstraint *ImageConstraint) []*ImageMetadata {
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, im := range matchingImages {
 		imagesMap[imageKey{im.VType, im.Arch, im.Storage}] = im
 	}
 	for _, im := range images {
-		if region != im.RegionName {
+		if imageConstraint.Region != im.RegionName {
 			continue
 		}
 		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Storage}]; !ok {
@@ -464,8 +469,8 @@ func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*Imag
 }
 
 // getCloudMetadataWithFormat loads the entire cloud image metadata encoded using the specified format.
-func (indexRef *indexReference) getCloudMetadataWithFormat(cloudSpec *CloudSpec, prodNames []string, format string) (*cloudImageMetadata, error) {
-	productFilesPath, err := indexRef.getImageIdsPath(cloudSpec, prodNames)
+func (indexRef *indexReference) getCloudMetadataWithFormat(cloudSpec *CloudSpec, prodIds []string, format string) (*cloudImageMetadata, error) {
+	productFilesPath, err := indexRef.getImageIdsPath(cloudSpec, prodIds)
 	if err != nil {
 		return nil, fmt.Errorf("error finding product files path %s", err.Error())
 	}
@@ -493,17 +498,17 @@ func parseCloudImageMetadata(data []byte, format, url string) (*cloudImageMetada
 // getLatestImageIdMetadataWithFormat loads the image metadata for the given cloud and order the images
 // starting with the most recent, and returns images which match the product criteria, choosing from the
 // latest versions first. The result is a list of images matching the criteria, but differing on type of storage etc.
-func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(cloudSpec *CloudSpec, prodNames []string, format string) ([]*ImageMetadata, error) {
-	imageMetadata, err := indexRef.getCloudMetadataWithFormat(cloudSpec, prodNames, format)
+func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(cloudSpec *CloudSpec, prodIds []string, format string) ([]*ImageMetadata, error) {
+	imageMetadata, err := indexRef.getCloudMetadataWithFormat(cloudSpec, prodIds, format)
 	if err != nil {
 		return nil, err
 	}
-	return getLatestImageIdMetadata(imageMetadata, prodNames, cloudSpec.Region)
+	return getLatestImageIdMetadata(imageMetadata, prodIds, cloudSpec.Region)
 }
 
-func getLatestImageIdMetadata(imageMetadata *cloudImageMetadata, prodNames []string, region string) ([]*ImageMetadata, error) {
+func getLatestImageIdMetadata(imageMetadata *cloudImageMetadata, prodIds []string, imageConstraint *ImageConstraint) ([]*ImageMetadata, error) {
 	var matchingImages []*ImageMetadata
-	for _, prodName := range prodNames {
+	for _, prodName := range prodIds {
 		metadataCatalog, ok := imageMetadata.Products[prodName]
 		if !ok {
 			continue
@@ -516,19 +521,19 @@ func getLatestImageIdMetadata(imageMetadata *cloudImageMetadata, prodNames []str
 		}
 		sort.Sort(bv)
 		for _, imageCollVersion := range bv {
-			matchingImages = findMatchingImages(matchingImages, imageCollVersion.imageCollection.Images, region)
+			matchingImages = findMatchingImages(matchingImages, imageCollVersion.imageCollection.Images, imageConstraint)
 		}
 	}
 	return matchingImages, nil
 }
 
 // GetLatestImageIdMetadata is provided so it can be call by tests outside the simplestreams package.
-func GetLatestImageIdMetadata(data []byte, prodNames []string, region string) ([]*ImageMetadata, error) {
+func GetLatestImageIdMetadata(data []byte, prodIds []string, region string) ([]*ImageMetadata, error) {
 	imagemetadata, err := parseCloudImageMetadata(data, "products:1.0", "<unknown>")
 	if err != nil {
 		return nil, err
 	}
-	return getLatestImageIdMetadata(imagemetadata, prodNames, region)
+	return getLatestImageIdMetadata(imagemetadata, prodIds, region)
 }
 
 type imageCollectionVersion struct {
