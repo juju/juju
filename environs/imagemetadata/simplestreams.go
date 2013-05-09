@@ -289,10 +289,10 @@ func (indexRef *indexReference) getImageIdsPath(ic *ImageConstraint) (string, er
 		}
 	}
 	if !containsImageIds {
-		return "", fmt.Errorf("index file missing %q data", imageIds)
+		return "", &environs.NotFoundError{fmt.Errorf("index file missing %q data", imageIds)}
 	}
-	return "", fmt.Errorf(
-		"index file missing data for cloud %v and product name(s) %q", ic.CloudSpec, strings.Join(prodIds, ","))
+	return "", &environs.NotFoundError{
+		fmt.Errorf("index file missing data for cloud %v and product name(s) %q", ic.CloudSpec, prodIds)}
 }
 
 // utility function to see if element exists in values slice.
@@ -470,7 +470,7 @@ func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*Imag
 func (indexRef *indexReference) getCloudMetadataWithFormat(ic *ImageConstraint, format string) (*cloudImageMetadata, error) {
 	productFilesPath, err := indexRef.getImageIdsPath(ic)
 	if err != nil {
-		return nil, fmt.Errorf("error finding product files path %s", err.Error())
+		return nil, err
 	}
 	data, url, err := fetchData(indexRef.baseURL, productFilesPath)
 	if err != nil {
