@@ -15,15 +15,20 @@ type ConfigSuite struct {
 
 // Ensure any environment variables a user may have set locally are reset.
 var envVars = map[string]string{
-	"OS_USERNAME":     "",
-	"OS_PASSWORD":     "",
-	"OS_TENANT_NAME":  "",
-	"OS_AUTH_URL":     "",
-	"OS_REGION_NAME":  "",
-	"NOVA_USERNAME":   "",
-	"NOVA_PASSWORD":   "",
-	"NOVA_PROJECT_ID": "",
-	"NOVA_REGION":     "",
+	"AWS_SECRET_ACCESS_KEY": "",
+	"EC2_SECRET_KEYS":       "",
+	"NOVA_API_KEY":          "",
+	"NOVA_PASSWORD":         "",
+	"NOVA_PROJECT_ID":       "",
+	"NOVA_REGION":           "",
+	"NOVA_USERNAME":         "",
+	"OS_ACCESS_KEY":         "",
+	"OS_AUTH_URL":           "",
+	"OS_PASSWORD":           "",
+	"OS_REGION_NAME":        "",
+	"OS_SECRET_KEY":         "",
+	"OS_TENANT_NAME":        "",
+	"OS_USERNAME":           "",
 }
 
 var _ = Suite(&ConfigSuite{})
