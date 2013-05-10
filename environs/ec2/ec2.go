@@ -63,9 +63,6 @@ type environ struct {
 	s3Unlocked            *s3.S3
 	storageUnlocked       *storage
 	publicStorageUnlocked *storage // optional.
-	// An ordered list of paths in which to find the simplestreams index files used to
-	// look up image ids.
-	imageBaseURLs []string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -349,19 +346,8 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-
-	if e.imageBaseURLs != nil {
-		return e.imageBaseURLs, nil
-	}
-	// Add the simplestreams base URL off the public bucket.
-	publicBucketURL := e.publicStorageUnlocked.bucket.URL("")
-	e.imageBaseURLs = append(e.imageBaseURLs, publicBucketURL)
-	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
-
-	return e.imageBaseURLs, nil
+	// Use the default simplestreams base URL.
+	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
