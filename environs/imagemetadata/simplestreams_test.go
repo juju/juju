@@ -41,10 +41,10 @@ func Test(t *testing.T) {
 			t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, ImageConstraint{
-				CloudSpec: testData.validCloudSpec,
-				Release: "quantal",
-				Arch: "amd64",
-			})
+			CloudSpec: testData.validCloudSpec,
+			Release:   "quantal",
+			Arch:      "amd64",
+		})
 	}
 	registerSimpleStreamsTests()
 	TestingT(t)
@@ -184,8 +184,8 @@ var indexData = []jujutest.FileContent{
 func registerSimpleStreamsTests() {
 	Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
-			baseURL:        "test:",
-			validImageConstraint:  NewImageConstraint(
+			baseURL: "test:",
+			validImageConstraint: NewImageConstraint(
 				"us-east-1", "http://ec2.us-east-1.amazonaws.com", "quantal", "amd64", ""),
 		},
 	})
@@ -193,7 +193,7 @@ func registerSimpleStreamsTests() {
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint ImageConstraint) {
 	Suite(&liveSimplestreamsSuite{
-		baseURL:        baseURL,
+		baseURL:              baseURL,
 		validImageConstraint: validImageConstraint,
 	})
 }
@@ -204,7 +204,7 @@ type simplestreamsSuite struct {
 
 type liveSimplestreamsSuite struct {
 	coretesting.LoggingSuite
-	baseURL        string
+	baseURL              string
 	validImageConstraint ImageConstraint
 }
 
@@ -267,9 +267,9 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	c.Assert(err, IsNil)
 	ic := ImageConstraint{
 		CloudSpec: s.validImageConstraint.CloudSpec,
-		Release: "precise",
-		Arch: "bad",
-		Stream: "spec",
+		Release:   "precise",
+		Arch:      "bad",
+		Stream:    "spec",
 	}
 	_, err = indexRef.getImageIdsPath(&ic)
 	c.Assert(err, NotNil)
