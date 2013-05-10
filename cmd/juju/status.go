@@ -10,9 +10,9 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"strings"
+	"sync"
 )
 
 type StatusCommand struct {
@@ -44,8 +44,6 @@ type statusContext struct {
 	machines  map[string]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
-	statuses  map[string]params.Status
-	infos     map[string]string
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -60,9 +58,6 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if ctxt.services, ctxt.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
-		return err
-	}
-	if ctx.statuses, ctx.infos, err = fetchAllStatuses(conn.State); err != nil {
 		return err
 	}
 	ctxt.instances, err = fetchAllInstances(conn.Environ)
@@ -83,7 +78,6 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 // fetchAllInstances returns a map from instance id to instance.
 func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Instance, error) {
-	defer utils.Timeit("fetchAllInstances()")()
 	m := make(map[state.InstanceId]environs.Instance)
 	insts, err := env.AllInstances()
 	if err != nil {
@@ -97,7 +91,6 @@ func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Inst
 
 // fetchAllMachines returns a map from machine id to machine.
 func fetchAllMachines(st *state.State) (map[string]*state.Machine, error) {
-	defer utils.Timeit("fetchAllMachines()")()
 	v := make(map[string]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -134,21 +127,39 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 }
 
 func (ctxt *statusContext) processMachines() map[string]machineStatus {
-	defer utils.Timeit("processMachines()")()
 	machinesMap := make(map[string]machineStatus)
-	for _, m := range ctxt.machines {
-		machinesMap[m.Id()] = ctxt.processMachine(m)
+	type machineInfo struct {
+		Id     string
+		Status machineStatus
 	}
+	res := make(chan machineInfo, 100)
+	var wg sync.WaitGroup
+	// Start up the aggregation goroutine
+	go func() {
+		for mi := range res {
+			machinesMap[mi.Id] = mi.Status
+		}
+	}()
+	// Now send out requests for every machine
+	for _, m := range ctxt.machines {
+		wg.Add(1)
+		go func(thisM *state.Machine) {
+			res <- machineInfo{thisM.Id(), ctxt.processMachine(thisM)}
+			wg.Done()
+		}(m)
+	}
+	// Wait until they have all been completed
+	wg.Wait()
+	close(res)
 	return machinesMap
 }
 
 func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
-	defer utils.Timeit("processMachine()")()
 	status.Life,
 		status.AgentVersion,
 		status.AgentState,
 		status.AgentStateInfo,
-		status.Err = ctxt.processAgent(machine)
+		status.Err = processAgent(machine)
 	status.Series = machine.Series()
 	instid, ok := machine.InstanceId()
 	if ok {
@@ -175,9 +186,26 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 
 func (ctxt *statusContext) processServices() map[string]serviceStatus {
 	servicesMap := make(map[string]serviceStatus)
-	for _, s := range ctxt.services {
-		servicesMap[s.Name()] = ctxt.processService(s)
+	type serviceInfo struct {
+		Name   string
+		Status serviceStatus
 	}
+	res := make(chan serviceInfo)
+	go func() {
+		for si := range res {
+			servicesMap[si.Name] = si.Status
+		}
+	}()
+	var wg sync.WaitGroup
+	for _, s := range ctxt.services {
+		wg.Add(1)
+		go func(thisS *state.Service) {
+			res <- serviceInfo{thisS.Name(), ctxt.processService(thisS)}
+			wg.Done()
+		}(s)
+	}
+	wg.Wait()
+	close(res)
 	return servicesMap
 }
 
@@ -200,9 +228,26 @@ func (ctxt *statusContext) processService(service *state.Service) (status servic
 
 func (ctxt *statusContext) processUnits(units map[string]*state.Unit) map[string]unitStatus {
 	unitsMap := make(map[string]unitStatus)
-	for _, unit := range units {
-		unitsMap[unit.Name()] = ctxt.processUnit(unit)
+	type unitInfo struct {
+		Name   string
+		Status unitStatus
 	}
+	res := make(chan unitInfo)
+	go func() {
+		for ui := range res {
+			unitsMap[ui.Name] = ui.Status
+		}
+	}()
+	var wg sync.WaitGroup
+	for _, unit := range units {
+		wg.Add(1)
+		go func(thisUnit *state.Unit) {
+			res <- unitInfo{thisUnit.Name(), ctxt.processUnit(thisUnit)}
+			wg.Done()
+		}(unit)
+	}
+	wg.Wait()
+	close(res)
 	return unitsMap
 }
 
@@ -215,7 +260,7 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 		status.AgentVersion,
 		status.AgentState,
 		status.AgentStateInfo,
-		status.Err = ctxt.processAgent(unit)
+		status.Err = processAgent(unit)
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
@@ -278,18 +323,12 @@ type stateAgent interface {
 
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
-func (ctxt *statusContext) processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
-	defer utils.Timeit("processAgent()")()
+func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
 	life = processLife(entity)
 	if t, err := entity.AgentTools(); err == nil {
 		version = t.Binary.Number.String()
 	}
-	toc := utils.Timeit("processAgent.entity.Status()")
-	queryInfo = false
-	globalKey := "m#" + entity.Id()
-	if status, ok := ctxt.statuses[
 	status, info, err = entity.Status()
-	toc()
 	if err != nil {
 		return
 	}
@@ -298,9 +337,7 @@ func (ctxt *statusContext) processAgent(entity stateAgent) (life string, version
 		// in enquiring about the agent liveness.
 		return
 	}
-	toc = utils.Timeit("processAgent.entity.AgentAlive()")
 	agentAlive, err := entity.AgentAlive()
-	toc()
 	if err != nil {
 		return
 	}
