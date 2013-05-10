@@ -124,7 +124,7 @@ func (s *MainSuite) TestRunMain(c *C) {
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
-		code:    2,
+		code:    1,
 		out:     "error: unrecognized command: juju discombobulate\n",
 	}, {
 		summary: "unknown option before command",
