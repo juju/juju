@@ -1,6 +1,8 @@
 package cmd_test
 
 import (
+	"fmt"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
@@ -112,4 +114,78 @@ func (s *SuperCommandSuite) TestLogging(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Matches, `^.* ERROR command failed: BAM!
 error: BAM!
 `)
+}
+
+func (s *SuperCommandSuite) TestMissingCallback(c *C) {
+	var (
+		calledName string
+		calledArgs []string
+	)
+
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		calledName = subcommand
+		calledArgs = args
+		return nil
+	}
+
+	super := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:            "jujutest",
+		Log:             &cmd.Log{},
+		MissingCallback: callback,
+	})
+
+	ctx := testing.Context(c)
+	code := cmd.Main(super, ctx, []string{"foo", "bar", "baz", "--debug"})
+	c.Assert(code, Equals, 0)
+	c.Assert(testing.Stdout(ctx), Equals, "")
+	c.Assert(testing.Stderr(ctx), Equals, "")
+	c.Assert(calledName, Equals, "foo")
+	c.Assert(calledArgs, DeepEquals, []string{"bar", "baz", "--debug"})
+}
+
+func (s *SuperCommandSuite) TestMissingCallbackErrors(c *C) {
+	var (
+		calledName string
+		calledArgs []string
+	)
+
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		calledName = subcommand
+		calledArgs = args
+		return fmt.Errorf("command not found %q", subcommand)
+	}
+
+	super := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:            "jujutest",
+		Log:             &cmd.Log{},
+		MissingCallback: callback,
+	})
+
+	ctx := testing.Context(c)
+	code := cmd.Main(super, ctx, []string{"foo", "bar", "baz", "--debug"})
+	c.Assert(code, Equals, 1)
+	c.Assert(testing.Stdout(ctx), Equals, "")
+	c.Assert(testing.Stderr(ctx), Equals, "error: command not found \"foo\"\n")
+	c.Assert(calledName, Equals, "foo")
+	c.Assert(calledArgs, DeepEquals, []string{"bar", "baz", "--debug"})
+}
+
+func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *C) {
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		fmt.Fprintf(ctx.Stdout, "this is std out")
+		fmt.Fprintf(ctx.Stderr, "this is std err")
+		return nil
+	}
+
+	super := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:            "jujutest",
+		Log:             &cmd.Log{},
+		MissingCallback: callback,
+	})
+
+	ctx := testing.Context(c)
+	code := cmd.Main(super, ctx, []string{"foo", "bar", "baz", "--debug"})
+	c.Assert(code, Equals, 0)
+	c.Assert(testing.Stdout(ctx), Equals, "this is std out")
+	c.Assert(testing.Stderr(ctx), Equals, "this is std err")
 }
