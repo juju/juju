@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The dummy provider implements an environment provider for testing
 // purposes, registered with environs under the name "dummy".
 //
