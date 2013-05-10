@@ -111,18 +111,36 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 	if err != nil {
 		return nil, nil, err
 	}
-	for _, s := range services {
-		svcMap[s.Name()] = s
-		units, err := s.AllUnits()
-		if err != nil {
-			return nil, nil, err
-		}
-		svcUnitMap := make(map[string]*state.Unit)
-		for _, u := range units {
-			svcUnitMap[u.Name()] = u
-		}
-		unitMap[s.Name()] = svcUnitMap
+	type serviceUnits struct {
+		service *state.Service
+		unitMap map[string]*state.Unit
 	}
+	res := make(chan serviceUnits)
+	errChan := make(chan error, 100)
+	var wg sync.WaitGroup
+	go func() {
+		for su := range res {
+			svcMap[su.service.Name()] = su.service
+			unitMap[su.service.Name()] = su.unitMap
+		}
+	}()
+	for _, service := range services {
+		wg.Add(1)
+		go func(s *state.Service) {
+			units, err := s.AllUnits()
+			if err != nil {
+				errChan <- err
+			}
+			svcUnitMap := make(map[string]*state.Unit)
+			for _, u := range units {
+				svcUnitMap[u.Name()] = u
+			}
+			res <- serviceUnits{s, svcUnitMap}
+			wg.Done()
+		}(service)
+	}
+	wg.Wait()
+	close(res)
 	return svcMap, unitMap, nil
 }
 
