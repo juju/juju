@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"strings"
 )
@@ -43,6 +44,8 @@ type statusContext struct {
 	machines  map[string]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
+	statuses  map[string]params.Status
+	infos     map[string]string
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -57,6 +60,9 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 	if ctxt.services, ctxt.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
+		return err
+	}
+	if ctx.statuses, ctx.infos, err = fetchAllStatuses(conn.State); err != nil {
 		return err
 	}
 	ctxt.instances, err = fetchAllInstances(conn.Environ)
@@ -77,6 +83,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 
 // fetchAllInstances returns a map from instance id to instance.
 func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Instance, error) {
+	defer utils.Timeit("fetchAllInstances()")()
 	m := make(map[state.InstanceId]environs.Instance)
 	insts, err := env.AllInstances()
 	if err != nil {
@@ -90,6 +97,7 @@ func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Inst
 
 // fetchAllMachines returns a map from machine id to machine.
 func fetchAllMachines(st *state.State) (map[string]*state.Machine, error) {
+	defer utils.Timeit("fetchAllMachines()")()
 	v := make(map[string]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -126,6 +134,7 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 }
 
 func (ctxt *statusContext) processMachines() map[string]machineStatus {
+	defer utils.Timeit("processMachines()")()
 	machinesMap := make(map[string]machineStatus)
 	for _, m := range ctxt.machines {
 		machinesMap[m.Id()] = ctxt.processMachine(m)
@@ -134,11 +143,12 @@ func (ctxt *statusContext) processMachines() map[string]machineStatus {
 }
 
 func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+	defer utils.Timeit("processMachine()")()
 	status.Life,
 		status.AgentVersion,
 		status.AgentState,
 		status.AgentStateInfo,
-		status.Err = processAgent(machine)
+		status.Err = ctxt.processAgent(machine)
 	status.Series = machine.Series()
 	instid, ok := machine.InstanceId()
 	if ok {
@@ -205,7 +215,7 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 		status.AgentVersion,
 		status.AgentState,
 		status.AgentStateInfo,
-		status.Err = processAgent(unit)
+		status.Err = ctxt.processAgent(unit)
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
@@ -268,12 +278,18 @@ type stateAgent interface {
 
 // processAgent retrieves version and status information from the given entity
 // and sets the destination version, status and info values accordingly.
-func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
+func (ctxt *statusContext) processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
+	defer utils.Timeit("processAgent()")()
 	life = processLife(entity)
 	if t, err := entity.AgentTools(); err == nil {
 		version = t.Binary.Number.String()
 	}
+	toc := utils.Timeit("processAgent.entity.Status()")
+	queryInfo = false
+	globalKey := "m#" + entity.Id()
+	if status, ok := ctxt.statuses[
 	status, info, err = entity.Status()
+	toc()
 	if err != nil {
 		return
 	}
@@ -282,7 +298,9 @@ func processAgent(entity stateAgent) (life string, version string, status params
 		// in enquiring about the agent liveness.
 		return
 	}
+	toc = utils.Timeit("processAgent.entity.AgentAlive()")
 	agentAlive, err := entity.AgentAlive()
+	toc()
 	if err != nil {
 		return
 	}
