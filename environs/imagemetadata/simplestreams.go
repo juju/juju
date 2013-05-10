@@ -36,9 +36,9 @@ type ImageConstraint struct {
 // NewImageConstraint creates a ImageConstraint.
 func NewImageConstraint(region, endpoint, release, arch, stream string) ImageConstraint {
 	return ImageConstraint{
-		CloudSpec: CloudSpec {
+		CloudSpec: CloudSpec{
 			Endpoint: endpoint,
-			Region: region,
+			Region:   region,
 		},
 		Release: release,
 		Arch:    arch,
