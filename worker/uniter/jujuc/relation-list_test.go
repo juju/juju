@@ -33,27 +33,27 @@ var relationListTests = []struct {
 	}, {
 		summary: "no default relation, bad arg",
 		relid:   -1,
-		args:    []string{"bad"},
+		args:    []string{"-r", "bad"},
 		code:    2,
-		out:     `invalid relation id`,
+		out:     `invalid value "bad" for flag -r: invalid relation id`,
 	}, {
 		summary: "no default relation, unknown arg",
 		relid:   -1,
-		args:    []string{"unknown:123"},
+		args:    []string{"-r", "unknown:123"},
 		code:    2,
-		out:     "unknown relation id",
+		out:     `invalid value "unknown:123" for flag -r: unknown relation id`,
 	}, {
 		summary: "default relation, bad arg",
 		relid:   1,
-		args:    []string{"bad"},
+		args:    []string{"-r", "bad"},
 		code:    2,
-		out:     `invalid relation id`,
+		out:     `invalid value "bad" for flag -r: invalid relation id`,
 	}, {
 		summary: "default relation, unknown arg",
 		relid:   1,
-		args:    []string{"unknown:123"},
+		args:    []string{"-r", "unknown:123"},
 		code:    2,
-		out:     "unknown relation id",
+		out:     `invalid value "unknown:123" for flag -r: unknown relation id`,
 	}, {
 		summary: "default relation, no members",
 		relid:   1,
@@ -66,7 +66,7 @@ var relationListTests = []struct {
 		summary:  "alternative relation, members",
 		members0: []string{"pew", "pow", "paw"},
 		relid:    1,
-		args:     []string{"ignored:0"},
+		args:     []string{"-r", "ignored:0"},
 		out:      "paw\npew\npow",
 	}, {
 		summary: "explicit smart formatting 1",
@@ -132,7 +132,7 @@ func (s *RelationListSuite) TestRelationList(c *C) {
 
 func (s *RelationListSuite) TestRelationListHelp(c *C) {
 	template := `
-usage: relation-list [options] %s
+usage: relation-list [options]
 purpose: list relation units
 
 options:
@@ -140,13 +140,15 @@ options:
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
+-r  (= %s)
+    specify a relation by id
 %s`[1:]
 
 	for relid, t := range map[int]struct {
 		usage, doc string
 	}{
-		-1: {"<id>", ""},
-		0:  {"[<id>]", "\nCurrent default relation id is \"peer0:0\".\n"},
+		-1: {"", "\n-r must be specified when not in a relation hook\n"},
+		0:  {"peer0:0", ""},
 	} {
 		c.Logf("test relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")

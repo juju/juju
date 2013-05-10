@@ -18,15 +18,20 @@ type ConfigSuite struct {
 
 // Ensure any environment variables a user may have set locally are reset.
 var envVars = map[string]string{
-	"OS_USERNAME":     "",
-	"OS_PASSWORD":     "",
-	"OS_TENANT_NAME":  "",
-	"OS_AUTH_URL":     "",
-	"OS_REGION_NAME":  "",
-	"NOVA_USERNAME":   "",
-	"NOVA_PASSWORD":   "",
-	"NOVA_PROJECT_ID": "",
-	"NOVA_REGION":     "",
+	"AWS_SECRET_ACCESS_KEY": "",
+	"EC2_SECRET_KEYS":       "",
+	"NOVA_API_KEY":          "",
+	"NOVA_PASSWORD":         "",
+	"NOVA_PROJECT_ID":       "",
+	"NOVA_REGION":           "",
+	"NOVA_USERNAME":         "",
+	"OS_ACCESS_KEY":         "",
+	"OS_AUTH_URL":           "",
+	"OS_PASSWORD":           "",
+	"OS_REGION_NAME":        "",
+	"OS_SECRET_KEY":         "",
+	"OS_TENANT_NAME":        "",
+	"OS_USERNAME":           "",
 }
 
 var _ = Suite(&ConfigSuite{})
@@ -52,6 +57,8 @@ type configTest struct {
 	tenantName    string
 	authMode      string
 	authURL       string
+	accessKey     string
+	secretKey     string
 	firewallMode  config.FirewallMode
 	err           string
 }
@@ -127,6 +134,12 @@ func (t configTest) check(c *C) {
 	}
 	if t.authMode != "" {
 		c.Assert(ecfg.authMode(), Equals, t.authMode)
+	}
+	if t.accessKey != "" {
+		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
+	}
+	if t.secretKey != "" {
+		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
 	}
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
@@ -267,6 +280,36 @@ var configTests = []configTest{
 			"auth-mode": "invalid-mode",
 		},
 		err: ".*invalid authorization mode.*",
+	}, {
+		summary: "keypair authorization mode",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"access-key": "MyAccessKey",
+			"secret-key": "MySecretKey",
+		},
+		authMode:  "keypair",
+		accessKey: "MyAccessKey",
+		secretKey: "MySecretKey",
+	}, {
+		summary: "keypair authorization mode without access key",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"secret-key": "MySecretKey",
+		},
+		envVars: map[string]string{
+			"OS_USERNAME": "",
+		},
+		err: "required environment variable not set for credentials attribute: User",
+	}, {
+		summary: "keypair authorization mode without secret key",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"access-key": "MyAccessKey",
+		},
+		envVars: map[string]string{
+			"OS_PASSWORD": "",
+		},
+		err: "required environment variable not set for credentials attribute: Secrets",
 	}, {
 		summary: "invalid auth-url format",
 		config: attrs{

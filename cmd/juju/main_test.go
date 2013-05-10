@@ -71,13 +71,20 @@ func syncToolsHelpText() string {
 	return helpText(&SyncToolsCommand{}, "juju sync-tools")
 }
 
-var runMainTests = []struct {
-	summary string
-	args    []string
-	code    int
-	out     string
-}{
-	{
+func (s *MainSuite) TestRunMain(c *C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	// The test array structure needs to be inline here as some of the
+	// expected values below use deployHelpText().  This constructs the deploy
+	// command and runs gets the help for it.  When the deploy command is
+	// setting the flags (which is needed for the help text) it is accessing
+	// config.JujuHome(), which panics if SetJujuHome has not been called.
+	// The FakeHome from testing does this.
+	for i, t := range []struct {
+		summary string
+		args    []string
+		code    int
+		out     string
+	}{{
 		summary: "no params shows help",
 		args:    []string{},
 		code:    0,
@@ -148,11 +155,7 @@ var runMainTests = []struct {
 		code:    0,
 		out:     version.Current.String() + "\n",
 	},
-}
-
-func (s *MainSuite) TestRunMain(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
-	for i, t := range runMainTests {
+	} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, Equals, t.out)
@@ -213,6 +216,7 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
 	"get",
@@ -233,6 +237,7 @@ var commandNames = []string{
 	"ssh",
 	"stat", // alias for status
 	"status",
+	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
