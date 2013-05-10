@@ -19,6 +19,8 @@ such as OpenStack, Amazon AWS, or bare metal.
 https://juju.ubuntu.com/
 `
 
+var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91\x98\xf5")
+
 // Main registers subcommands for the juju executable, and hands over control
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
@@ -27,8 +29,11 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	if len(args) == 2 && args[1] == string([]byte{0x69, 0x73}) {
-		os.Stdout.Write([]byte{0x66, 0x75, 0x63, 0x6b, 0x69, 0x6e, 0x67, 0x20, 0x61, 0x6d, 0x61, 0x7a, 0x69, 0x6e, 0x67, 0xa})
+	for i := range x {
+		x[i] ^= 255
+	}
+	if len(args) == 2 && args[1] == string(x[0:2]) {
+		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
 	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
