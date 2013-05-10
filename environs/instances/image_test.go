@@ -40,37 +40,37 @@ var jsonImagesContent = `
            "usee1pi": {
              "root_store": "instance",
              "virt": "pv",
-             "crsn": "us-east-1",
+             "region": "us-east-1",
              "id": "ami-00000011"
            },
            "usww1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "us-west-1",
+             "region": "us-west-1",
              "id": "ami-00000016"
            },
            "apne1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "ap-northeast-1",
+             "region": "ap-northeast-1",
              "id": "ami-00000026"
            },
            "apne1he": {
              "root_store": "ebs",
              "virt": "hvm",
-             "crsn": "ap-northeast-1",
+             "region": "ap-northeast-1",
              "id": "ami-00000087"
            },
            "test1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "test",
+             "region": "test",
              "id": "ami-00000033"
            },
            "test1he": {
              "root_store": "ebs",
              "virt": "hvm",
-             "crsn": "test",
+             "region": "test",
              "id": "ami-00000035"
            }
          },
@@ -82,7 +82,7 @@ var jsonImagesContent = `
            "apne1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "ap-northeast-1",
+             "region": "ap-northeast-1",
              "id": "ami-00000008"
            }
          },
@@ -101,19 +101,19 @@ var jsonImagesContent = `
            "apne1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "ap-northeast-1",
+             "region": "ap-northeast-1",
              "id": "ami-00000023"
            },
            "test1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "test",
+             "region": "test",
              "id": "ami-00000034"
            },
            "armo1pe": {
              "root_store": "ebs",
              "virt": "pv",
-             "crsn": "arm-only",
+             "region": "arm-only",
              "id": "ami-00000036"
            }
          },
@@ -220,9 +220,8 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
-		prodSpec := imagemetadata.NewProductSpec("precise", t.arches, "")
-		names, _ := prodSpec.Names()
-		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), names, t.region)
+		ic := imagemetadata.NewImageConstraint("test", "ep", "raring", t.arches, "")
+		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), &ic)
 		c.Assert(err, IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {

@@ -57,7 +57,7 @@ func init() {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
 }
 
-var indexData = []jujutest.FileContent{
+var imageData = []jujutest.FileContent{
 	{
 		"/streams/v1/index.json", `
 		{
@@ -156,7 +156,7 @@ var indexData = []jujutest.FileContent{
        "id": "ami-26745464"
       },
       "usww2pe": {
-       "root_store": "ebs",
+       "root_store": "instance",
        "virt": "pv",
        "id": "ami-442ea684",
        "region": "us-east-1",
@@ -239,7 +239,7 @@ func (s *liveSimplestreamsSuite) TearDownSuite(c *C) {
 
 func (s *simplestreamsSuite) SetUpSuite(c *C) {
 	s.liveSimplestreamsSuite.SetUpSuite(c)
-	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(indexData)
+	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(imageData)
 }
 
 func (s *simplestreamsSuite) TearDownSuite(c *C) {
@@ -427,11 +427,13 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 	c.Assert(imageConstraint.cachedIds, DeepEquals, ids)
 }
 
+var ebs = "ebs"
 var getImageIdMetadataTests = []struct {
-	region string
-	series string
-	arches []string
-	images []*ImageMetadata
+	region  string
+	series  string
+	arches  []string
+	images  []*ImageMetadata
+	storage *string
 }{
 	{
 		region: "us-east-1",
@@ -452,7 +454,7 @@ var getImageIdMetadataTests = []struct {
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
-				Storage:    "ebs",
+				Storage:    "instance",
 			},
 			{
 				Id:         "ami-442ea699",
@@ -483,7 +485,7 @@ var getImageIdMetadataTests = []struct {
 				Arch:       "amd64",
 				RegionName: "us-east-1",
 				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
-				Storage:    "ebs",
+				Storage:    "instance",
 			},
 		},
 	},
@@ -502,12 +504,29 @@ var getImageIdMetadataTests = []struct {
 			},
 		},
 	},
+	{
+		region:  "us-east-1",
+		series:  "precise",
+		arches:  []string{"amd64"},
+		storage: &ebs,
+		images: []*ImageMetadata{
+			{
+				Id:         "ami-442ea674",
+				VType:      "hvm",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Storage:    "ebs",
+			},
+		},
+	},
 }
 
 func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
 	for i, t := range getImageIdMetadataTests {
 		c.Logf("test %d", i)
 		imageConstraint := NewImageConstraint(t.region, "http://ec2.us-east-1.amazonaws.com", "precise", t.arches, "")
+		imageConstraint.Storage = t.storage
 		images, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &imageConstraint)
 		if !c.Check(err, IsNil) {
 			continue

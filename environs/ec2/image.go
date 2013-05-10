@@ -2,15 +2,9 @@ package ec2
 
 import (
 	"fmt"
-	"io"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"net/http"
 )
-
-// imagesHost holds the address of the images http server.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var baseImagesUrl = "http://cloud-images.ubuntu.com/eightprotons"
 
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
 // any other instance type's cpuPower. It is used when no explicit CpuPower
@@ -19,21 +13,26 @@ var baseImagesUrl = "http://cloud-images.ubuntu.com/eightprotons"
 const defaultCpuPower = 100
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
-	imageFileUrl := baseImagesUrl + "/streams/v1/com.ubuntu.cloud:released:aws.js"
-	resp, err := http.Get(imageFileUrl)
-	var r io.Reader
-	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			err = fmt.Errorf("%s", resp.Status)
-		}
-		if err == nil {
-			r = resp.Body
-		}
+	ec2Region := allRegions[ic.Region]
+	imageConstraint := imagemetadata.NewImageConstraint(ic.Region, ec2Region.EC2Endpoint, ic.Series, ic.Arches, "")
+	ebs := ebsStorage
+	imageConstraint.Storage = &ebs
+	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
+	if err != nil {
+		return nil, err
+	}
+	var images []instances.Image
+	for _, imageMetadata := range matchingImages {
+		im := *imageMetadata
+		images = append(images, instances.Image{
+			Id:    im.Id,
+			VType: im.VType,
+			Arch:  im.Arch,
+		})
 	}
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
@@ -52,5 +51,9 @@ func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec
 		itWithCost.Cost = cost
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
-	return instances.FindInstanceSpec(r, ic, itypesWithCosts)
+	spec, err := instances.FindInstanceSpec(images, ic, itypesWithCosts)
+	if err != nil {
+		return nil, err
+	}
+	return spec, nil
 }

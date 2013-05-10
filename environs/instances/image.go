@@ -82,7 +82,6 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 			}
 		}
 	}
-
 	// if no matching image is found for whatever reason, use the default if one is specified.
 	if ic.DefaultImageId != "" && len(matchingTypes) > 0 {
 		spec := &InstanceSpec{

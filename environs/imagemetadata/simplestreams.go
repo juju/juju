@@ -29,6 +29,8 @@ type ImageConstraint struct {
 	Release string
 	Arches  []string
 	Stream  string // may be "", typically "release", "daily" etc
+	// Optional constraint attributes.
+	Storage *string
 	// the ids may be expensive to generate so cache them.
 	cachedIds []string
 }
@@ -181,8 +183,10 @@ type indexMetadata struct {
 	ProductIds       []string    `json:"products"`
 }
 
+// This needs to be a var so we can override it for testing.
+var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
+
 const (
-	DefaultBaseURL   = "http://cloud-images.ubuntu.com/releases"
 	DefaultIndexPath = "streams/v1/index.json"
 	imageIds         = "image-ids"
 )
@@ -201,6 +205,9 @@ func GetImageIdMetadata(baseURLs []string, indexPath string, ic *ImageConstraint
 		}
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0")
 		if err != nil {
+			if _, ok := err.(*environs.NotFoundError); ok {
+				continue
+			}
 			return nil, err
 		}
 		if len(metadata) > 0 {
@@ -457,6 +464,9 @@ func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*Imag
 	}
 	for _, im := range images {
 		if ic.Region != im.RegionName {
+			continue
+		}
+		if ic.Storage != nil && *ic.Storage != im.Storage {
 			continue
 		}
 		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Storage}]; !ok {

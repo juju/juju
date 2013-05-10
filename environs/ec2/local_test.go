@@ -26,149 +26,6 @@ type ProviderSuite struct{}
 
 var _ = Suite(&ProviderSuite{})
 
-var testImagesContent = []jujutest.FileContent{{
-	"/streams/v1/com.ubuntu.cloud:released:aws.js", `
-{
- "content_id": "com.ubuntu.cloud:released:aws",
- "products": {
-   "com.ubuntu.cloud:server:12.04:amd64": {
-     "release": "precise",
-     "version": "12.04",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "test",
-             "id": "ami-20800c10"
-           }
-         },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:12.04:i386": {
-     "release": "precise",
-     "version": "12.04",
-     "arch": "i386",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "test",
-             "id": "ami-00000034"
-           }
-         },
-         "pubname": "ubuntu-precise-12.04-i386-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:12.10:amd64": {
-     "release": "quantal",
-     "version": "12.10",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "test",
-             "id": "ami-40f97070"
-           }
-         },
-         "pubname": "ubuntu-quantal-12.10-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:12.10:i386": {
-     "release": "quantal",
-     "version": "12.10",
-     "arch": "i386",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "test",
-             "id": "ami-01000034"
-           }
-         },
-         "pubname": "ubuntu-quantal-12.10-i386-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:13.04:ad64m": {
-     "release": "raring",
-     "version": "13.04",
-     "arch": "amd64",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "test",
-             "id": "ami-40f97070"
-           }
-         },
-         "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
-         "label": "release"
-       }
-     }
-   },
-   "com.ubuntu.cloud:server:13.04:i386": {
-     "release": "raring",
-     "version": "13.04",
-     "arch": "i386",
-     "versions": {
-       "20121218": {
-         "items": {
-           "test1pe": {
-             "root_store": "ebs",
-             "virt": "pv",
-             "crsn": "test",
-             "id": "ami-40f97070"
-           }
-         },
-         "pubname": "ubuntu-raring-13.04-i386-server-20121218",
-         "label": "release"
-       }
-     }
-   }
- },
- "_aliases": {
-   "crsn": {
-     "us-east-1": {
-       "region": "us-east-1",
-       "endpoint": "http://ec2.us-east-1.amazonaws.com"
-     }
-   }
- },
- "format": "products:1.0"
-}
-`},
-}
-
-// testInstanceTypeContent holds the cost in USDe-3/hour for each of the
-// few available instance types in  the convenient fictional "test" region.
-var testInstanceTypeContent = map[string]uint64{
-	"m1.small":  60,
-	"m1.medium": 120,
-	"m1.large":  240,
-	"m1.xlarge": 480,
-	"t1.micro":  020,
-}
-
 func (s *ProviderSuite) TestMetadata(c *C) {
 	metadataContent := []jujutest.FileContent{
 		{"/2011-01-01/meta-data/instance-id", "dummy.instance.id"},
@@ -250,8 +107,9 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
+	ec2.UseTestImageData(ec2.TestImagesData)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
+	ec2.UseTestRegionData(ec2.TestRegions)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -265,6 +123,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
+	ec2.UseTestRegionData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -344,8 +203,9 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
+	ec2.UseTestImageData(ec2.TestImagesData)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
+	ec2.UseTestRegionData(ec2.TestRegions)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -355,6 +215,7 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
+	ec2.UseTestRegionData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -515,8 +376,9 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
+	ec2.UseTestImageData(ec2.TestImagesData)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
+	ec2.UseTestRegionData(ec2.TestRegions)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -525,6 +387,7 @@ func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
+	ec2.UseTestRegionData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 

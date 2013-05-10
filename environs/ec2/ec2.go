@@ -433,7 +433,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	arches := scfg.possibleTools.Arches()
 	storage := ebsStorage
-	spec, err := findInstanceSpec(&instances.InstanceConstraint{
+	baseURLs, err := e.getImageBaseURLs()
+	if err != nil {
+		return nil, err
+	}
+	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      scfg.series,
 		Arches:      arches,
