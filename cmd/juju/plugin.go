@@ -16,11 +16,11 @@ import (
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	plugin := &PluginCommand{name: "juju-" + subcommand}
 
-	f := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	plugin.SetFlags(f)
-	cmd.ParseArgs(plugin, f, args)
-	plugin.Init(f.Args())
+	flags := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
+	flags.SetOutput(ioutil.Discard)
+	plugin.SetFlags(flags)
+	cmd.ParseArgs(plugin, flags, args)
+	plugin.Init(flags.Args())
 	return plugin.Run(ctx)
 }
 
@@ -59,7 +59,7 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command.Stdin = ctx.Stdin
 	command.Stdout = ctx.Stdout
 	command.Stderr = ctx.Stderr
-
+	// todo catch the return code, and error if non-zero
 	return command.Run()
 }
 

@@ -56,6 +56,25 @@ func (suite *PluginSuite) TestRunPluginExising(c *C) {
 	c.Assert(testing.Stderr(ctx), Equals, "")
 }
 
+func (suite *PluginSuite) TestRunPluginExisingJujuEnv(c *C) {
+	suite.makePlugin("foo", 0755)
+	os.Setenv("JUJU_ENV", "omg")
+	ctx := testing.Context(c)
+	err := RunPlugin(ctx, "foo", []string{"some params"})
+	c.Assert(err, IsNil)
+	c.Assert(testing.Stdout(ctx), Equals, "foo omg some params\n")
+	c.Assert(testing.Stderr(ctx), Equals, "")
+}
+
+func (suite *PluginSuite) TestRunPluginExisingDashE(c *C) {
+	suite.makePlugin("foo", 0755)
+	ctx := testing.Context(c)
+	err := RunPlugin(ctx, "foo", []string{"-e plugins-rock some params"})
+	c.Assert(err, IsNil)
+	c.Assert(testing.Stdout(ctx), Equals, "foo plugins-rock some params\n")
+	c.Assert(testing.Stderr(ctx), Equals, "")
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
 	filename := testing.HomePath("juju-" + name)
