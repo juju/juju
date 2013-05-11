@@ -75,8 +75,23 @@ func (suite *PluginSuite) TestRunPluginExisingDashE(c *C) {
 	c.Assert(testing.Stderr(ctx), Equals, "")
 }
 
+func (suite *PluginSuite) TestRunPluginWithFailing(c *C) {
+	suite.makeFailingPlugin("foo", 2)
+	ctx := testing.Context(c)
+	err := RunPlugin(ctx, "foo", []string{"some params"})
+	c.Assert(err, ErrorMatches, "exit status 2")
+	c.Assert(testing.Stdout(ctx), Equals, "failing\n")
+	c.Assert(testing.Stderr(ctx), Equals, "")
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
 	filename := testing.HomePath("juju-" + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
+}
+
+func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
+	content := fmt.Sprintf("#!/bin/bash\necho failing\nexit %d", exitStatus)
+	filename := testing.HomePath("juju-" + name)
+	ioutil.WriteFile(filename, []byte(content), 0755)
 }

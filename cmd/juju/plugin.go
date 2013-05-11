@@ -59,7 +59,7 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	command.Stdin = ctx.Stdin
 	command.Stdout = ctx.Stdout
 	command.Stderr = ctx.Stderr
-	// todo catch the return code, and error if non-zero
+	// And run it!
 	return command.Run()
 }
 
