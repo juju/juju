@@ -1,6 +1,8 @@
 package main
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 
 	. "launchpad.net/gocheck"
@@ -28,4 +30,25 @@ func (suite *PluginSuite) TearDownTest(c *C) {
 func (*PluginSuite) TestFindPlugins(c *C) {
 	plugins := findPlugins()
 	c.Assert(plugins, DeepEquals, []string{})
+}
+
+func (suite *PluginSuite) TestFindPluginsOrder(c *C) {
+	suite.makePlugin("foo", 0744)
+	suite.makePlugin("bar", 0654)
+	suite.makePlugin("baz", 0645)
+	plugins := findPlugins()
+	c.Assert(plugins, DeepEquals, []string{"juju-bar", "juju-baz", "juju-foo"})
+}
+
+func (suite *PluginSuite) TestFindPluginsIgnoreNotExec(c *C) {
+	suite.makePlugin("foo", 0644)
+	suite.makePlugin("bar", 0666)
+	plugins := findPlugins()
+	c.Assert(plugins, DeepEquals, []string{})
+}
+
+func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
+	content := fmt.Sprintf("#!/bin/bash\necho %s", name)
+	filename := testing.HomePath("juju-" + name)
+	ioutil.WriteFile(filename, []byte(content), perm)
 }

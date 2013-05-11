@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 
 	"launchpad.net/juju-core/cmd"
 )
@@ -47,5 +48,6 @@ func findPlugins() []string {
 			}
 		}
 	}
+	sort.Strings(plugins)
 	return plugins
 }
