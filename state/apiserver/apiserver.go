@@ -4,7 +4,6 @@
 package apiserver
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
@@ -59,7 +58,7 @@ type srvClient struct {
 	root *srvRoot
 }
 
-func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
+func newStateServer(srv *Server) *srvRoot {
 	r := &srvRoot{
 		srv:      srv,
 		watchers: newWatchers(),

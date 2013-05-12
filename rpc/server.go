@@ -188,7 +188,7 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) err
 		transformErrors = func(err error) error { return err }
 	}
 	rootValue := reflect.ValueOf(root)
-	// Check that we can get the methods ok.
+	// Check that rootValue is ok to use as an RPC server type.
 	_, err := methods(rootValue.Type())
 	if err != nil {
 		return err
@@ -203,14 +203,20 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) err
 	return nil
 }
 
+// Dead returns a channel that is closed when the connection completes.
+func (conn *Conn) Dead() <-chan struct{} {
+	return conn.tomb.Dead()
+}
+
 // Wait waits until the rpc connection has been dropped or closed
 // and all client and server requests have terminated.
+// The underlying codec will be closed.
 func (conn *Conn) Wait() error {
 	return conn.tomb.Wait()
 }
 
-// Close closes the connection. It does not wait
-// for requests to terminate.
+// Close closes the connection and its underlying codec.  It does not
+// wait for requests to terminate.
 func (conn *Conn) Close() error {
 	conn.clientMutex.Lock()
 	conn.closing = true
@@ -219,8 +225,8 @@ func (conn *Conn) Close() error {
 }
 
 // ErrorCoder represents an any error that has an associated
-// error code. An error code is a short string that describes the
-// class of error.
+// error code. An error code is a short string that represents the
+// kind of an error.
 type ErrorCoder interface {
 	ErrorCode() string
 }
@@ -234,10 +240,12 @@ type Killer interface {
 // input reads messages from the connection and handles them
 // appropriately.
 func (conn *Conn) input() {
-	err := conn.input0()
+	err := conn.loop()
+	log.Infof("Conn.loop finished with err %v", err)
 	conn.terminateClientRequests(err)
 	conn.srvMutex.Lock()
 	if conn.rootValue.IsValid() {
+		log.Infof("killing rootValue")
 		if killer, ok := conn.rootValue.Interface().(Killer); ok {
 			killer.Kill()
 		}
@@ -248,16 +256,13 @@ func (conn *Conn) input() {
 	conn.tomb.Done()
 }
 
-// input0 implements the bulk of Conn.input.
-func (conn *Conn) input0() error {
+// loop implements the bulk of Conn.input.
+func (conn *Conn) loop() error {
 	var hdr Header
 	for {
 		hdr = Header{}
 		err := conn.codec.ReadHeader(&hdr)
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
 			return err
 		}
 		if hdr.IsRequest() {
@@ -266,9 +271,6 @@ func (conn *Conn) input0() error {
 			err = conn.handleResponse(&hdr)
 		}
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
 			return err
 		}
 	}

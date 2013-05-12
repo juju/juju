@@ -387,6 +387,7 @@ func (w *EntityWatcher) loop() error {
 		// the watcher will die with all resources cleaned up.
 		defer w.wg.Done()
 		<-w.tomb.Dying()
+		log.Infof("entity watcher sees dying")
 		if err := callWatch("Stop"); err != nil {
 			log.Errorf("state/api: error trying to stop watcher: %v", err)
 		}
@@ -394,8 +395,10 @@ func (w *EntityWatcher) loop() error {
 	for {
 		select {
 		case <-w.tomb.Dying():
+			log.Infof("entity watcher is dying")
 			return tomb.ErrDying
 		case w.out <- struct{}{}:
+			log.Infof("entity watcher sent on out")
 			// Note that because the change notification
 			// contains no information, there's no point in
 			// calling Next again until we have sent a notification
