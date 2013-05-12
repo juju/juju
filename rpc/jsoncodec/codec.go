@@ -65,6 +65,12 @@ func New(conn JSONConn) rpc.Codec {
 	return c
 }
 
+// New returns an rpc codec that uses conn to send and receive
+// messages.
+func NewWS(conn *websocket.Conn) rpc.Codec {
+	return New(NewWSJSONConn(conn))
+}
+
 // inMsg holds an incoming message.  We don't know the type of the
 // parameters or response yet, so we delay parsing by storing them
 // in a RawMessage.

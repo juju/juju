@@ -7,16 +7,16 @@ import (
 	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
 	"crypto/x509"
-	"encoding/json"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/utils"
 	"time"
 )
 
 type State struct {
-	client *rpc.Client
+	client *rpc.Conn
 	conn   *websocket.Conn
 }
 
@@ -77,7 +77,7 @@ func Open(info *Info) (*State, error) {
 	}
 	log.Infof("state/api: connection established")
 
-	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
+	client := rpc.NewClient(jsoncodec.NewWS(conn))
 	st := &State{
 		client: client,
 		conn:   conn,
@@ -97,64 +97,17 @@ func (s *State) call(objType, id, request string, params, response interface{}) 
 }
 
 func (s *State) Close() error {
-	return s.client.Close()
+	err1 := s.client.Close()
+	err2 := s.client.Wait()
+	if err1 == nil {
+		err1 = err2
+	}
+	return err1
 }
 
 // RPCClient returns the RPC client for the state, so that testing
 // functions can tickle parts of the API that the conventional entry
 // points don't reach. This is exported for testing purposes only.
-func (s *State) RPCClient() *rpc.Client {
+func (s *State) RPCClient() *rpc.Conn {
 	return s.client
-}
-
-type clientReq struct {
-	RequestId uint64
-	Type      string
-	Id        string
-	Request   string
-	Params    interface{}
-}
-
-type clientResp struct {
-	RequestId uint64
-	Error     string
-	ErrorCode string
-	Response  json.RawMessage
-}
-
-type clientCodec struct {
-	conn *websocket.Conn
-	resp clientResp
-}
-
-func (c *clientCodec) Close() error {
-	return c.conn.Close()
-}
-
-func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
-	return websocket.JSON.Send(c.conn, &clientReq{
-		RequestId: req.RequestId,
-		Type:      req.Type,
-		Id:        req.Id,
-		Request:   req.Request,
-		Params:    p,
-	})
-}
-
-func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
-	c.resp = clientResp{}
-	if err := websocket.JSON.Receive(c.conn, &c.resp); err != nil {
-		return err
-	}
-	resp.RequestId = c.resp.RequestId
-	resp.Error = c.resp.Error
-	resp.ErrorCode = c.resp.ErrorCode
-	return nil
-}
-
-func (c *clientCodec) ReadResponseBody(body interface{}) error {
-	if body == nil {
-		return nil
-	}
-	return json.Unmarshal(c.resp.Response, body)
 }
