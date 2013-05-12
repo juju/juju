@@ -24,7 +24,6 @@ type srvRoot struct {
 	admin    *srvAdmin
 	client   *srvClient
 	srv      *Server
-	conn     *rpc.Conn
 	watchers *watchers
 
 	user authUser
@@ -63,7 +62,6 @@ type srvClient struct {
 func newStateServer(srv *Server, conn *websocket.Conn) *srvRoot {
 	r := &srvRoot{
 		srv:      srv,
-		conn:     conn,
 		watchers: newWatchers(),
 	}
 	r.admin = &srvAdmin{
