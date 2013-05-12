@@ -1,19 +1,24 @@
 package jsoncodec
+
 import (
 	"code.google.com/p/go.net/websocket"
+	"encoding/json"
+	"io"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 )
 
-// wsJSONConn sends and receives messages to an underlying connection
+// JSONConn sends and receives messages to an underlying connection
 // in JSON format.
-type wsJSONConn interface {
+type JSONConn interface {
 	// Send sends a message.
 	Send(msg interface{}) error
 	// Receive receives a message into msg.
 	Receive(msg interface{}) error
 	Close() error
 }
+
+var logRequests = true
 
 type wsJSONConn struct {
 	conn *websocket.Conn
@@ -39,12 +44,12 @@ func NewWSJSONConn(conn *websocket.Conn) JSONConn {
 
 // codec implements rpc.Codec for a connection.
 type codec struct {
-	msgs chan serverReq
+	msgs chan inMsg
 	// msg holds the message that's just been read by
 	// ReadHeader, so that the body can be read
 	// by ReadBody.
-	msg inMsg
-	conn Conn
+	msg   inMsg
+	conn  JSONConn
 	dying chan struct{}
 }
 
@@ -52,8 +57,8 @@ type codec struct {
 // messages.
 func New(conn JSONConn) rpc.Codec {
 	c := &codec{
-		msgs: make(chan serverReq),
-		conn: conn,
+		msgs:  make(chan inMsg),
+		conn:  conn,
 		dying: make(chan struct{}),
 	}
 	go c.readRequests()
@@ -77,10 +82,10 @@ type inMsg struct {
 // outMsg holds an outgoing message.
 type outMsg struct {
 	RequestId uint64
-	Type      string	`json:",omitempty"`
-	Id        string	`json:",omitempty"`
-	Request   string	`json:",omitempty"`
-	Params    interface{}	`json:",omitempty"`
+	Type      string      `json:",omitempty"`
+	Id        string      `json:",omitempty"`
+	Request   string      `json:",omitempty"`
+	Params    interface{} `json:",omitempty"`
 	Error     string      `json:",omitempty"`
 	ErrorCode string      `json:",omitempty"`
 	Response  interface{} `json:",omitempty"`
@@ -88,13 +93,13 @@ type outMsg struct {
 
 func (c *codec) readRequests() {
 	defer close(c.msgs)
-	var req serverReq
+	var req inMsg
 	for {
 		var err error
-		req = serverReq{} // avoid any potential cross-message contamination.
+		req = inMsg{} // avoid any potential cross-message contamination.
 		if logRequests {
 			var m json.RawMessage
-			err = c.conn.Receive(c.conn, &m)
+			err = c.conn.Receive(&m)
 			if err == nil {
 				log.Debugf("rpc/wsjson: <- %s", m)
 				err = json.Unmarshal(m, &req)
@@ -102,7 +107,7 @@ func (c *codec) readRequests() {
 				log.Debugf("rpc/wsjson: <- error: %v", err)
 			}
 		} else {
-			err = c.conn.Receive(c.conn, &req)
+			err = c.conn.Receive(&req)
 		}
 		if err == io.EOF {
 			break
@@ -111,12 +116,13 @@ func (c *codec) readRequests() {
 			log.Errorf("rpc/wsjson: error receiving request: %v", err)
 			break
 		}
-		c <- req
+		c.msgs <- req
 	}
 }
 
 func (c *codec) Close() error {
 	close(c.dying)
+	return nil
 }
 
 func (c *codec) ReadHeader(hdr *rpc.Header) error {
@@ -132,7 +138,7 @@ func (c *codec) ReadHeader(hdr *rpc.Header) error {
 	if !ok {
 		c.conn.Close()
 		// Wait for readRequests to see the closed connection and quit.
-		for _ = range msgs {
+		for _ = range c.msgs {
 		}
 		return io.EOF
 	}
@@ -166,10 +172,10 @@ func (c *codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 		ErrorCode: hdr.ErrorCode,
 		Response:  body,
 
+		Type:    hdr.Type,
+		Id:      hdr.Id,
 		Request: hdr.Request,
-		Params: hdr.Params,
-		Error: hdr.Error,
-		ErrorCode: hdr.ErrorCode,
+		Params:  body,
 	}
 	if logRequests {
 		data, err := json.Marshal(r)
