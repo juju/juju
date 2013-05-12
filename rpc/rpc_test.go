@@ -186,7 +186,7 @@ func (*suite) TestRPC(c *C) {
 	closeClient(c, client, srvDone)
 }
 
-func (root *Root) testCall(c *C, client *rpc.Client, narg, nret int, retErr, testErr bool) {
+func (root *Root) testCall(c *C, conn *rpc.Conn, narg, nret int, retErr, testErr bool) {
 	root.calls = nil
 	root.returnErr = testErr
 	e := ""
@@ -196,7 +196,7 @@ func (root *Root) testCall(c *C, client *rpc.Client, narg, nret int, retErr, tes
 	method := fmt.Sprintf("Call%dr%d%s", narg, nret, e)
 	c.Logf("test call %s", method)
 	var r stringVal
-	err := client.Call("SimpleMethods", "a99", method, stringVal{"arg"}, &r)
+	err := conn.Call("SimpleMethods", "a99", method, stringVal{"arg"}, &r)
 	root.mu.Lock()
 	defer root.mu.Unlock()
 	expectCall := callInfo{
@@ -210,7 +210,7 @@ func (root *Root) testCall(c *C, client *rpc.Client, narg, nret int, retErr, tes
 	c.Assert(*root.calls[0], Equals, expectCall)
 	switch {
 	case retErr && testErr:
-		c.Assert(err, DeepEquals, &rpc.ServerError{
+		c.Assert(err, DeepEquals, &rpc.RequestError{
 			Message: fmt.Sprintf("error calling %s", method),
 		})
 		c.Assert(r, Equals, stringVal{})
@@ -276,7 +276,7 @@ func (*suite) TestErrorCode(c *C) {
 	}
 	client, srvDone := newRPCClientServer(c, root, nil)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
-	c.Assert(err, ErrorMatches, `server error: message \(code\)`)
+	c.Assert(err, ErrorMatches, `request error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
 	closeClient(c, client, srvDone)
 }
@@ -297,7 +297,7 @@ func (*suite) TestTransformErrors(c *C) {
 	}
 	client, srvDone := newRPCClientServer(c, root, tfErr)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
-	c.Assert(err, DeepEquals, &rpc.ServerError{
+	c.Assert(err, DeepEquals, &rpc.RequestError{
 		Message: "transformed: message",
 		Code:    "transformed: code",
 	})
@@ -308,7 +308,7 @@ func (*suite) TestTransformErrors(c *C) {
 
 	root.errorInst = nil
 	err = client.Call("ErrorMethods", "", "Call", nil, nil)
-	c.Assert(err, DeepEquals, &rpc.ServerError{
+	c.Assert(err, DeepEquals, &rpc.RequestError{
 		Message: "transformed: no error methods",
 	})
 
@@ -409,13 +409,13 @@ func (*suite) TestBadCall(c *C) {
 	client, srvDone := newRPCClientServer(c, root, nil)
 
 	err := client.Call("BadSomething", "a0", "No", nil, nil)
-	c.Assert(err, ErrorMatches, `server error: unknown object type "BadSomething"`)
+	c.Assert(err, ErrorMatches, `request error: unknown object type "BadSomething"`)
 
 	err = client.Call("SimpleMethods", "xx", "No", nil, nil)
-	c.Assert(err, ErrorMatches, `server error: no such request "No" on SimpleMethods`)
+	c.Assert(err, ErrorMatches, `request error: no such request "No" on SimpleMethods`)
 
 	err = client.Call("SimpleMethods", "xx", "Call0r0", nil, nil)
-	c.Assert(err, ErrorMatches, "server error: unknown SimpleMethods id")
+	c.Assert(err, ErrorMatches, "request error: unknown SimpleMethods id")
 
 	closeClient(c, client, srvDone)
 }
@@ -435,10 +435,10 @@ func (*suite) TestContinueAfterReadBodyError(c *C) {
 		X: map[string]int{"hello": 65},
 	}
 	err := client.Call("SimpleMethods", "a0", "SliceArg", arg0, &ret)
-	c.Assert(err, ErrorMatches, `server error: json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, ErrorMatches, `request error: json: cannot unmarshal object into Go value of type \[\]string`)
 
 	err = client.Call("SimpleMethods", "a0", "SliceArg", arg0, &ret)
-	c.Assert(err, ErrorMatches, `server error: json: cannot unmarshal object into Go value of type \[\]string`)
+	c.Assert(err, ErrorMatches, `request error: json: cannot unmarshal object into Go value of type \[\]string`)
 
 	arg1 := struct {
 		X []string
@@ -493,10 +493,7 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 // newRPCClientServer starts an RPC server serving a connection from a
 // single client.  When the server has finished serving the connection,
 // it sends a value on the returned channel.
-func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.Client, <-chan error) {
-	srv, err := rpc.NewServer(root, tfErr)
-	c.Assert(err, IsNil)
-
+func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.Conn, <-chan error) {
 	l, err := net.Listen("tcp", "127.0.0.1:0")
 	c.Assert(err, IsNil)
 
@@ -508,17 +505,22 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.C
 			return
 		}
 		defer l.Close()
-		err = srv.ServeCodec(NewJSONServerCodec(conn), root)
+		rpcConn, err := rpc.NewServer(NewJSONCodec(conn, false), root, tfErr)
+		if err != nil {
+			srvDone <- err
+			return
+		}
+		err = rpcConn.Wait()
 		c.Logf("server status: %v", err)
 		srvDone <- err
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
-	client := rpc.NewClientWithCodec(NewJSONClientCodec(conn))
+	client := rpc.NewClient(NewJSONCodec(conn, true))
 	return client, srvDone
 }
 
-func closeClient(c *C, client *rpc.Client, srvDone <-chan error) {
+func closeClient(c *C, client *rpc.Conn, srvDone <-chan error) {
 	client.Close()
 	err := chanReadError(c, srvDone, "server done")
 	c.Assert(err, IsNil)
@@ -538,54 +540,46 @@ type decoder interface {
 	Decode(e interface{}) error
 }
 
-func (c *generalServerCodec) ReadRequestHeader(req *rpc.Request) error {
-	return c.dec.Decode(req)
-}
-
-func (c *generalServerCodec) ReadRequestBody(argp interface{}) error {
-	if v := reflect.ValueOf(argp); v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
-		panic(fmt.Errorf("ReadRequestBody bad destination; want *struct got %T", argp))
-	}
-	return c.dec.Decode(argp)
-}
-
-func (c *generalServerCodec) WriteResponse(resp *rpc.Response, x interface{}) error {
-	if reflect.ValueOf(x).Kind() != reflect.Struct {
-		panic(fmt.Errorf("WriteResponse bad result; want struct got %T (%#v)", x, x))
-	}
-	if err := c.enc.Encode(resp); err != nil {
-		return err
-	}
-	return c.enc.Encode(x)
-}
-
-type generalClientCodec struct {
+type generalCodec struct {
+	isClient bool
 	io.Closer
 	enc encoder
 	dec decoder
 }
 
-func (c *generalClientCodec) WriteRequest(req *rpc.Request, x interface{}) error {
+func (c *generalCodec) WriteMessage(hdr *rpc.Header, x interface{}) error {
 	if reflect.ValueOf(x).Kind() != reflect.Struct {
 		panic(fmt.Errorf("WriteRequest bad param; want struct got %T (%#v)", x, x))
 	}
-	log.Infof("send client request header: %#v", req)
-	if err := c.enc.Encode(req); err != nil {
+	if hdr.IsRequest() != c.isClient {
+		panic(fmt.Errorf("codec isClient %v; header wrong type %#v", c.isClient, hdr))
+	}
+	log.Infof("send header: %#v", hdr)
+	if err := c.enc.Encode(hdr); err != nil {
 		return err
 	}
-	log.Infof("send client request body: %#v", x)
+	log.Infof("send body: %#v", x)
 	return c.enc.Encode(x)
 }
 
-func (c *generalClientCodec) ReadResponseHeader(resp *rpc.Response) error {
-	err := c.dec.Decode(resp)
-	log.Infof("got response header %#v", resp)
-	return err
+func (c *generalCodec) ReadHeader(hdr *rpc.Header) error {
+	err := c.dec.Decode(hdr)
+	if err != nil {
+		return err
+	}
+	log.Infof("got header %#v", hdr)
+	if hdr.IsRequest() == c.isClient {
+		panic(fmt.Errorf("codec isClient %v; read wrong type %#v", c.isClient, hdr))
+	}
+	return nil
 }
 
-func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
+func (c *generalCodec) ReadBody(r interface{}, isRequest bool) error {
 	if v := reflect.ValueOf(r); v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
 		panic(fmt.Errorf("ReadResponseBody bad destination; want *struct got %T", r))
+	}
+	if isRequest == c.isClient {
+		panic(fmt.Errorf("codec isClient %v; read wrong body type %#v", c.isClient))
 	}
 	var m json.RawMessage
 	err := c.dec.Decode(&m)
@@ -598,18 +592,11 @@ func (c *generalClientCodec) ReadResponseBody(r interface{}) error {
 	return err
 }
 
-func NewJSONServerCodec(c io.ReadWriteCloser) rpc.ServerCodec {
-	return &generalServerCodec{
-		Closer: c,
-		enc:    json.NewEncoder(c),
-		dec:    json.NewDecoder(c),
-	}
-}
-
-func NewJSONClientCodec(c io.ReadWriteCloser) rpc.ClientCodec {
-	return &generalClientCodec{
-		Closer: c,
-		enc:    json.NewEncoder(c),
-		dec:    json.NewDecoder(c),
+func NewJSONCodec(c io.ReadWriteCloser, isClient bool) rpc.Codec {
+	return &generalCodec{
+		isClient: isClient,
+		Closer:   c,
+		enc:      json.NewEncoder(c),
+		dec:      json.NewDecoder(c),
 	}
 }
