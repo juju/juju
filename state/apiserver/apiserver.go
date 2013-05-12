@@ -24,7 +24,7 @@ type srvRoot struct {
 	admin    *srvAdmin
 	client   *srvClient
 	srv      *Server
-	conn     *websocket.Conn
+	conn     *rpc.Conn
 	watchers *watchers
 
 	user authUser

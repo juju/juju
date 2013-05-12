@@ -81,6 +81,7 @@ func (srv *Server) run(lis net.Listener) {
 		if srv.tomb.Err() != tomb.ErrStillAlive {
 			return
 		}
+		conn := rpc.NewServer(
 		if err := srv.serveConn(conn); err != nil {
 			log.Errorf("state/api: error serving RPCs: %v", err)
 		}
@@ -95,8 +96,7 @@ func (srv *Server) Addr() string {
 }
 
 func (srv *Server) serveConn(conn *websocket.Conn) error {
-	msgs := make(chan serverReq)
-	go readRequests(conn, msgs)
+	srv.conn = 
 	defer func() {
 		conn.Close()
 		// Wait for readRequests to see the closed connection and quit.
