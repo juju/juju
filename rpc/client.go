@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"errors"
+	"io"
 	"launchpad.net/juju-core/log"
 )
 
@@ -83,17 +84,17 @@ func (conn *Conn) send(call *Call) {
 	defer conn.sending.Unlock()
 
 	// Register this call.
-	conn.clientMutex.Lock()
-	if conn.shutdown || conn.closing {
+	conn.mutex.Lock()
+	if conn.closing {
 		call.Error = ErrShutdown
-		conn.clientMutex.Unlock()
+		conn.mutex.Unlock()
 		call.done()
 		return
 	}
 	conn.reqId++
 	reqId := conn.reqId
 	conn.clientPending[reqId] = call
-	conn.clientMutex.Unlock()
+	conn.mutex.Unlock()
 
 	// Encode and send the request.
 	hdr := &Header{
@@ -107,10 +108,10 @@ func (conn *Conn) send(call *Call) {
 		params = struct{}{}
 	}
 	if err := conn.codec.WriteMessage(hdr, params); err != nil {
-		conn.clientMutex.Lock()
+		conn.mutex.Lock()
 		call = conn.clientPending[reqId]
 		delete(conn.clientPending, reqId)
-		conn.clientMutex.Unlock()
+		conn.mutex.Unlock()
 		if call != nil {
 			call.Error = err
 			call.done()
@@ -120,10 +121,10 @@ func (conn *Conn) send(call *Call) {
 
 func (conn *Conn) handleResponse(hdr *Header) error {
 	reqId := hdr.RequestId
-	conn.clientMutex.Lock()
+	conn.mutex.Lock()
 	call := conn.clientPending[reqId]
 	delete(conn.clientPending, reqId)
-	conn.clientMutex.Unlock()
+	conn.mutex.Unlock()
 
 	var err error
 	switch {
@@ -159,5 +160,24 @@ func (call *Call) done() {
 		// We don't want to block here.  It is the caller's responsibility to make
 		// sure the channel has enough buffer space. See comment in Go().
 		log.Errorf("rpc: discarding Call reply due to insufficient Done chan capacity")
+	}
+}
+
+// terminateClientRequests terminates any outstanding RPC calls, causing them to
+// return an error.  The read error that caused the connection to
+// terminate is provided in readErr.
+func (conn *Conn) terminateClientRequests(readErr error) {
+	conn.sending.Lock()
+	defer conn.sending.Unlock()
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+
+	for _, call := range conn.clientPending {
+		call.Error = readErr
+		call.done()
+	}
+	conn.clientPending = nil
+	if readErr != io.EOF && !conn.closing {
+		log.Errorf("rpc: protocol error: %v", readErr)
 	}
 }

@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"reflect"
@@ -331,7 +332,7 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	go func() {
 		var r stringVal
 		err := client.Call("DelayedMethods", "1", "Delay", nil, &r)
-		c.Check(err, FitsTypeOf, &net.OpError{})
+		c.Check(err, Equals, rpc.ErrShutdown)
 		done <- struct{}{}
 	}()
 	chanRead(c, ready, "DelayedMethods.Delay ready")
@@ -510,9 +511,8 @@ func newRPCClientServer(c *C, root interface{}, tfErr func(error) error) (*rpc.C
 			srvDone <- err
 			return
 		}
-		err = rpcConn.Wait()
-		c.Logf("server status: %v", err)
-		srvDone <- err
+		<-rpcConn.Dead()
+		srvDone <- rpcConn.Close()
 	}()
 	conn, err := net.Dial("tcp", l.Addr().String())
 	c.Assert(err, IsNil)
@@ -526,12 +526,6 @@ func closeClient(c *C, client *rpc.Conn, srvDone <-chan error) {
 	c.Assert(err, IsNil)
 }
 
-type generalServerCodec struct {
-	io.Closer
-	enc encoder
-	dec decoder
-}
-
 type encoder interface {
 	Encode(e interface{}) error
 }
@@ -540,30 +534,25 @@ type decoder interface {
 	Decode(e interface{}) error
 }
 
-type generalCodec struct {
+// testCodec wraps an rpc.Codec with extra error checking code.
+type testCodec struct {
 	isClient bool
-	io.Closer
-	enc encoder
-	dec decoder
+	rpc.Codec
 }
 
-func (c *generalCodec) WriteMessage(hdr *rpc.Header, x interface{}) error {
+func (c *testCodec) WriteMessage(hdr *rpc.Header, x interface{}) error {
 	if reflect.ValueOf(x).Kind() != reflect.Struct {
 		panic(fmt.Errorf("WriteRequest bad param; want struct got %T (%#v)", x, x))
 	}
 	if hdr.IsRequest() != c.isClient {
 		panic(fmt.Errorf("codec isClient %v; header wrong type %#v", c.isClient, hdr))
 	}
-	log.Infof("send header: %#v", hdr)
-	if err := c.enc.Encode(hdr); err != nil {
-		return err
-	}
-	log.Infof("send body: %#v", x)
-	return c.enc.Encode(x)
+	log.Infof("send header: %#v; body: %#v", hdr, x)
+	return c.Codec.WriteMessage(hdr, x)
 }
 
-func (c *generalCodec) ReadHeader(hdr *rpc.Header) error {
-	err := c.dec.Decode(hdr)
+func (c *testCodec) ReadHeader(hdr *rpc.Header) error {
+	err := c.Codec.ReadHeader(hdr)
 	if err != nil {
 		return err
 	}
@@ -574,15 +563,16 @@ func (c *generalCodec) ReadHeader(hdr *rpc.Header) error {
 	return nil
 }
 
-func (c *generalCodec) ReadBody(r interface{}, isRequest bool) error {
+func (c *testCodec) ReadBody(r interface{}, isRequest bool) error {
 	if v := reflect.ValueOf(r); v.Kind() != reflect.Ptr || v.Elem().Kind() != reflect.Struct {
 		panic(fmt.Errorf("ReadResponseBody bad destination; want *struct got %T", r))
 	}
 	if isRequest == c.isClient {
 		panic(fmt.Errorf("codec isClient %v; read wrong body type %#v", c.isClient))
 	}
+	// Note: this will need to change if we want to test a non-JSON codec.
 	var m json.RawMessage
-	err := c.dec.Decode(&m)
+	err := c.Codec.ReadBody(&m, isRequest)
 	if err != nil {
 		return err
 	}
@@ -593,10 +583,8 @@ func (c *generalCodec) ReadBody(r interface{}, isRequest bool) error {
 }
 
 func NewJSONCodec(c io.ReadWriteCloser, isClient bool) rpc.Codec {
-	return &generalCodec{
+	return &testCodec{
 		isClient: isClient,
-		Closer:   c,
-		enc:      json.NewEncoder(c),
-		dec:      json.NewDecoder(c),
+		Codec:    jsoncodec.NewRWC(c),
 	}
 }

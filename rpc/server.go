@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/tomb"
 	"reflect"
 	"sync"
 )
@@ -78,19 +77,23 @@ type Conn struct {
 	// codec holds the underlying RPC connection.
 	codec Codec
 
-	// tomb is used to wait for the connection
-	// to terminate in an orderly fashion.
-	tomb tomb.Tomb
-
 	// srvPending represents the currently server requests.
 	srvPending sync.WaitGroup
 
-	// sending guards the write side of the codec,
-	// also including request below.
+	// sending guards the write side of the codec - it ensures
+	// that codec.WriteMessage is not called concurrently.
 	sending sync.Mutex
 
-	// srcMutex guards rootValue and transformErrors.
-	srvMutex sync.Mutex
+	// dead is closed when the input loop terminates.
+	dead chan struct{}
+
+	// inputLoopError holds the error that caused
+	// the input loop to terminate. It is valid to read
+	// only after dead has been closed.
+	inputLoopError error
+
+	// mutex guards the following values.
+	mutex sync.Mutex
 
 	// rootValue holds the value to use to serve RPC requests, if any.
 	rootValue reflect.Value
@@ -98,23 +101,23 @@ type Conn struct {
 	// transformErrors is used to transform returned errors.
 	transformErrors func(error) error
 
-	// clientMutex protects the following fields.
-	clientMutex sync.Mutex
-
 	// reqId holds the latest client request id.
 	reqId uint64
 
 	// clientPending holds all pending client requests.
 	clientPending map[uint64]*Call
 
-	closing  bool
-	shutdown bool
+	// closing is set when the connection is shutting
+	// down via Close. When this is set, no more
+	// local or remote requests will be initiated.
+	closing bool
 }
 
 func newConn(codec Codec) *Conn {
 	return &Conn{
 		codec:         codec,
 		clientPending: make(map[uint64]*Call),
+		dead:          make(chan struct{}),
 	}
 }
 
@@ -193,8 +196,8 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) err
 	if err != nil {
 		return err
 	}
-	conn.srvMutex.Lock()
-	defer conn.srvMutex.Unlock()
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
 	if conn.transformErrors != nil {
 		return errors.New("RPC connection is already serving requests")
 	}
@@ -203,25 +206,49 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) err
 	return nil
 }
 
-// Dead returns a channel that is closed when the connection completes.
+// Dead returns a channel that is closed when the connection
+// has been closed or the underlying transport has received
+// an error. There may still be outstanding requests.
 func (conn *Conn) Dead() <-chan struct{} {
-	return conn.tomb.Dead()
+	return conn.dead
 }
 
-// Wait waits until the rpc connection has been dropped or closed
-// and all client and server requests have terminated.
-// The underlying codec will be closed.
-func (conn *Conn) Wait() error {
-	return conn.tomb.Wait()
-}
-
-// Close closes the connection and its underlying codec.  It does not
-// wait for requests to terminate.
+// Close closes the connection and its underlying codec;
+// it returns when all requests have been terminated.
 func (conn *Conn) Close() error {
-	conn.clientMutex.Lock()
+	conn.mutex.Lock()
+	if conn.closing {
+		conn.mutex.Unlock()
+		return errors.New("already closed")
+	}
 	conn.closing = true
-	conn.clientMutex.Unlock()
-	return conn.codec.Close()
+	conn.mutex.Unlock()
+
+	err := ErrShutdown
+	select {
+	case <-conn.dead:
+		// The input loop has already shut down,
+		// so we deliver its error to the client requests.
+		if err = conn.inputLoopError; err == io.EOF {
+			err = io.ErrUnexpectedEOF
+		}
+	default:
+	}
+
+	// Now we've set closing, we know that no more requests can be
+	// started, so we're free to stop all the existing requests.
+	conn.terminateClientRequests(err)
+	conn.terminateServerRequests()
+
+	// Closing the codec should cause the input loop to terminate.
+	// TODO(rog) what should we do with the error from closing the codec?
+	_ = conn.codec.Close()
+
+	<-conn.dead
+	if err = conn.inputLoopError; err == io.EOF {
+		err = nil
+	}
+	return err
 }
 
 // ErrorCoder represents an any error that has an associated
@@ -242,18 +269,8 @@ type Killer interface {
 func (conn *Conn) input() {
 	err := conn.loop()
 	log.Infof("Conn.loop finished with err %v", err)
-	conn.terminateClientRequests(err)
-	conn.srvMutex.Lock()
-	if conn.rootValue.IsValid() {
-		log.Infof("killing rootValue")
-		if killer, ok := conn.rootValue.Interface().(Killer); ok {
-			killer.Kill()
-		}
-	}
-	conn.srvMutex.Unlock()
-	conn.tomb.Kill(err)
-	conn.srvPending.Wait()
-	conn.tomb.Done()
+	conn.inputLoopError = err
+	close(conn.dead)
 }
 
 // loop implements the bulk of Conn.input.
@@ -277,31 +294,16 @@ func (conn *Conn) loop() error {
 	panic("unreachable")
 }
 
-// terminateClientRequests terminates any outstanding RPC calls, causing them to
-// return an error.  The read error that caused the connection to
-// terminate is provided in readErr.
-func (conn *Conn) terminateClientRequests(readErr error) {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
-	conn.clientMutex.Lock()
-	defer conn.clientMutex.Unlock()
-	conn.shutdown = true
-	closing := conn.closing
-	if readErr == io.EOF {
-		if closing {
-			readErr = ErrShutdown
-		} else {
-			readErr = io.ErrUnexpectedEOF
+func (conn *Conn) terminateServerRequests() {
+	conn.mutex.Lock()
+	if conn.rootValue.IsValid() {
+		log.Infof("killing rootValue")
+		if killer, ok := conn.rootValue.Interface().(Killer); ok {
+			killer.Kill()
 		}
 	}
-	for _, call := range conn.clientPending {
-		call.Error = readErr
-		call.done()
-	}
-	conn.clientPending = nil
-	if readErr != io.EOF && !closing {
-		log.Errorf("rpc: protocol error: %v", readErr)
-	}
+	conn.mutex.Unlock()
+	conn.srvPending.Wait()
 }
 
 func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
@@ -342,8 +344,17 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// up the problem and abort.
 		return conn.writeErrorResponse(hdr.RequestId, err)
 	}
-	conn.srvPending.Add(1)
-	go conn.runRequest(hdr.RequestId, hdr.Id, o, a, arg)
+	conn.mutex.Lock()
+	closing := conn.closing
+	if !closing {
+		conn.srvPending.Add(1)
+		go conn.runRequest(hdr.RequestId, hdr.Id, o, a, arg)
+	}
+	conn.mutex.Unlock()
+	if closing {
+		// We're closing down - no new requests may be initiated.
+		return conn.writeErrorResponse(hdr.RequestId, ErrShutdown)
+	}
 	return nil
 }
 
@@ -367,8 +378,8 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 }
 
 func (conn *Conn) isServing() bool {
-	conn.srvMutex.Lock()
-	defer conn.srvMutex.Unlock()
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
 	return conn.transformErrors != nil
 }
 

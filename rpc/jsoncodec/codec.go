@@ -1,7 +1,6 @@
 package jsoncodec
 
 import (
-	"code.google.com/p/go.net/websocket"
 	"encoding/json"
 	"io"
 	"launchpad.net/juju-core/log"
@@ -19,28 +18,6 @@ type JSONConn interface {
 }
 
 var logRequests = true
-
-type wsJSONConn struct {
-	conn *websocket.Conn
-}
-
-func (conn wsJSONConn) Send(msg interface{}) error {
-	return websocket.JSON.Send(conn.conn, msg)
-}
-
-func (conn wsJSONConn) Receive(msg interface{}) error {
-	return websocket.JSON.Receive(conn.conn, msg)
-}
-
-func (conn wsJSONConn) Close() error {
-	return conn.conn.Close()
-}
-
-// NewWSJSONConn returns a JSONConn that reads and
-// writes JSON messages to the given websocket connection.
-func NewWSJSONConn(conn *websocket.Conn) JSONConn {
-	return wsJSONConn{conn}
-}
 
 // codec implements rpc.Codec for a connection.
 type codec struct {
@@ -63,12 +40,6 @@ func New(conn JSONConn) rpc.Codec {
 	}
 	go c.readRequests()
 	return c
-}
-
-// New returns an rpc codec that uses conn to send and receive
-// messages.
-func NewWS(conn *websocket.Conn) rpc.Codec {
-	return New(NewWSJSONConn(conn))
 }
 
 // inMsg holds an incoming message.  We don't know the type of the
@@ -127,6 +98,12 @@ func (c *codec) readRequests() {
 }
 
 func (c *codec) Close() error {
+	// Possible BUG(rog): this does not cause the underlying
+	// connection to be closed - if an RPC client has a huge amount
+	// of outstanding requests and is not reading them, we might
+	// block writing a message and Close won't unblock it.  This
+	// might just conceivably lead to a DOS vulnerability by causing
+	// rpc.Conn.Close to block indefinitely.
 	close(c.dying)
 	return nil
 }
