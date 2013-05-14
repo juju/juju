@@ -97,12 +97,7 @@ func (s *State) call(objType, id, request string, params, response interface{}) 
 }
 
 func (s *State) Close() error {
-	err1 := s.client.Close()
-	err2 := s.client.Wait()
-	if err1 == nil {
-		err1 = err2
-	}
-	return err1
+	return s.client.Close()
 }
 
 // RPCClient returns the RPC client for the state, so that testing

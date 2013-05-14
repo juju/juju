@@ -82,15 +82,8 @@ type Conn struct {
 
 	// sending guards the write side of the codec - it ensures
 	// that codec.WriteMessage is not called concurrently.
+	// It also guards shutdown.
 	sending sync.Mutex
-
-	// dead is closed when the input loop terminates.
-	dead chan struct{}
-
-	// inputLoopError holds the error that caused
-	// the input loop to terminate. It is valid to read
-	// only after dead has been closed.
-	inputLoopError error
 
 	// mutex guards the following values.
 	mutex sync.Mutex
@@ -107,10 +100,21 @@ type Conn struct {
 	// clientPending holds all pending client requests.
 	clientPending map[uint64]*Call
 
-	// closing is set when the connection is shutting
-	// down via Close. When this is set, no more
-	// local or remote requests will be initiated.
+	// closing is set when the connection is shutting down via
+	// Close.  When this is set, no more client or server requests
+	// will be initiated.
 	closing bool
+
+	// shutdown is set when the input loop terminates. When this
+	// is set, no more client requests will be sent to the server.
+	shutdown bool
+
+	// dead is closed when the input loop terminates.
+	dead chan struct{}
+
+	// inputLoopError holds the error that caused the input loop to
+	// terminate prematurely.  It is set before dead is closed.
+	inputLoopError error
 }
 
 func newConn(codec Codec) *Conn {
@@ -224,20 +228,13 @@ func (conn *Conn) Close() error {
 	conn.closing = true
 	conn.mutex.Unlock()
 
-	err := ErrShutdown
-	select {
-	case <-conn.dead:
-		// The input loop has already shut down,
-		// so we deliver its error to the client requests.
-		if err = conn.inputLoopError; err == io.EOF {
-			err = io.ErrUnexpectedEOF
-		}
-	default:
-	}
-
 	// Now we've set closing, we know that no more requests can be
 	// started, so we're free to stop all the existing requests.
-	conn.terminateClientRequests(err)
+
+	// Terminate server requests so that we can wait for them to
+	// terminate and send replies before closing the connection.
+	// Client requests will be terminated when the input loop
+	// finishes.
 	conn.terminateServerRequests()
 
 	// Closing the codec should cause the input loop to terminate.
@@ -245,10 +242,18 @@ func (conn *Conn) Close() error {
 	_ = conn.codec.Close()
 
 	<-conn.dead
-	if err = conn.inputLoopError; err == io.EOF {
-		err = nil
+	return conn.inputLoopError
+}
+
+func (conn *Conn) terminateServerRequests() {
+	conn.mutex.Lock()
+	if conn.rootValue.IsValid() {
+		if killer, ok := conn.rootValue.Interface().(Killer); ok {
+			killer.Kill()
+		}
 	}
-	return err
+	conn.mutex.Unlock()
+	conn.srvPending.Wait()
 }
 
 // ErrorCoder represents an any error that has an associated
@@ -268,8 +273,24 @@ type Killer interface {
 // appropriately.
 func (conn *Conn) input() {
 	err := conn.loop()
-	log.Infof("Conn.loop finished with err %v", err)
-	conn.inputLoopError = err
+	conn.sending.Lock()
+	defer conn.sending.Unlock()
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+
+	if conn.closing || err == io.EOF {
+		err = ErrShutdown
+	} else {
+		// Make the error available for Conn.Close to see.
+		conn.inputLoopError = err
+	}
+	// Terminate all client requests.
+	for _, call := range conn.clientPending {
+		call.Error = err
+		call.done()
+	}
+	conn.clientPending = nil
+	conn.shutdown = true
 	close(conn.dead)
 }
 
@@ -292,18 +313,6 @@ func (conn *Conn) loop() error {
 		}
 	}
 	panic("unreachable")
-}
-
-func (conn *Conn) terminateServerRequests() {
-	conn.mutex.Lock()
-	if conn.rootValue.IsValid() {
-		log.Infof("killing rootValue")
-		if killer, ok := conn.rootValue.Interface().(Killer); ok {
-			killer.Kill()
-		}
-	}
-	conn.mutex.Unlock()
-	conn.srvPending.Wait()
 }
 
 func (conn *Conn) readBody(resp interface{}, isRequest bool) error {

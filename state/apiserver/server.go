@@ -18,10 +18,10 @@ import (
 
 // Server holds the server side of the API.
 type Server struct {
-	tomb   tomb.Tomb
-	wg     sync.WaitGroup
-	state  *state.State
-	addr   net.Addr
+	tomb  tomb.Tomb
+	wg    sync.WaitGroup
+	state *state.State
+	addr  net.Addr
 }
 
 // Serve serves the given state by accepting requests on the given
@@ -107,9 +107,9 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 		log.Infof("Server.serveConn saw dying")
 	}
 	log.Infof("closing conn")
-	conn.Close()
-	log.Infof("waiting for conn")
-	return conn.Wait()
+	err = conn.Close()
+	log.Infof("closed conn: %v", err)
+	return err
 }
 
 var logRequests = true

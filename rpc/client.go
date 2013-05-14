@@ -5,7 +5,6 @@ package rpc
 
 import (
 	"errors"
-	"io"
 	"launchpad.net/juju-core/log"
 )
 
@@ -85,7 +84,7 @@ func (conn *Conn) send(call *Call) {
 
 	// Register this call.
 	conn.mutex.Lock()
-	if conn.closing {
+	if conn.closing || conn.shutdown {
 		call.Error = ErrShutdown
 		conn.mutex.Unlock()
 		call.done()
@@ -163,21 +162,16 @@ func (call *Call) done() {
 	}
 }
 
-// terminateClientRequests terminates any outstanding RPC calls, causing them to
-// return an error.  The read error that caused the connection to
-// terminate is provided in readErr.
-func (conn *Conn) terminateClientRequests(readErr error) {
+// terminateClientRequests terminates any outstanding RPC calls, causing
+// them to return an error. 
+func (conn *Conn) terminateClientRequests() {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
 
-	for _, call := range conn.clientPending {
-		call.Error = readErr
-		call.done()
-	}
-	conn.clientPending = nil
-	if readErr != io.EOF && !conn.closing {
-		log.Errorf("rpc: protocol error: %v", readErr)
+	err := conn.inputLoopError
+	if err == nil {
+		err = ErrShutdown
 	}
 }

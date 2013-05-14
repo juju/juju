@@ -1094,10 +1094,6 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 
 	c.Logf("error is %v", w.Err())
 
-we get unexpected EOF here, which kinda seems
-reasonable because the server has just gone away
-unexpectedly. but if we change the expected error,
-is there a possible race?
 	c.Assert(api.ErrCode(w.Err()), Equals, api.CodeStopped)
 }
 
