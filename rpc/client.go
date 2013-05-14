@@ -39,45 +39,6 @@ func (e *RequestError) ErrorCode() string {
 	return e.Code
 }
 
-// Call invokes the named action on the object of the given type with
-// the given id.  The returned values will be stored in response, which
-// should be a pointer.  If the action fails remotely, the returned
-// error will be of type RequestError.  The params value may be nil if
-// no parameters are provided; the response value may be nil to indicate
-// that any result should be discarded.
-func (conn *Conn) Call(objType, id, action string, params, response interface{}) error {
-	call := <-conn.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
-	return call.Error
-}
-
-// Go invokes the request asynchronously.  It returns the Call structure representing
-// the invocation.  The done channel will signal when the call is complete by returning
-// the same Call object.  If done is nil, Go will allocate a new channel.
-// If non-nil, done must be buffered or Go will deliberately panic.
-func (conn *Conn) Go(objType, id, request string, args, response interface{}, done chan *Call) *Call {
-	if done == nil {
-		done = make(chan *Call, 1)
-	} else {
-		// If caller passes done != nil, it must arrange that
-		// done has enough buffer for the number of simultaneous
-		// RPCs that will be using that channel.  If the channel
-		// is totally unbuffered, it's best not to run at all.
-		if cap(done) == 0 {
-			panic("launchpad.net/juju-core/rpc: done channel is unbuffered")
-		}
-	}
-	call := &Call{
-		Type:     objType,
-		Id:       id,
-		Request:  request,
-		Params:   args,
-		Response: response,
-		Done:     done,
-	}
-	conn.send(call)
-	return call
-}
-
 func (conn *Conn) send(call *Call) {
 	conn.sending.Lock()
 	defer conn.sending.Unlock()
@@ -174,4 +135,43 @@ func (conn *Conn) terminateClientRequests() {
 	if err == nil {
 		err = ErrShutdown
 	}
+}
+
+// Call invokes the named action on the object of the given type with
+// the given id.  The returned values will be stored in response, which
+// should be a pointer.  If the action fails remotely, the returned
+// error will be of type RequestError.  The params value may be nil if
+// no parameters are provided; the response value may be nil to indicate
+// that any result should be discarded.
+func (conn *Conn) Call(objType, id, action string, params, response interface{}) error {
+	call := <-conn.Go(objType, id, action, params, response, make(chan *Call, 1)).Done
+	return call.Error
+}
+
+// Go invokes the request asynchronously.  It returns the Call structure representing
+// the invocation.  The done channel will signal when the call is complete by returning
+// the same Call object.  If done is nil, Go will allocate a new channel.
+// If non-nil, done must be buffered or Go will deliberately panic.
+func (conn *Conn) Go(objType, id, request string, args, response interface{}, done chan *Call) *Call {
+	if done == nil {
+		done = make(chan *Call, 1)
+	} else {
+		// If caller passes done != nil, it must arrange that
+		// done has enough buffer for the number of simultaneous
+		// RPCs that will be using that channel.  If the channel
+		// is totally unbuffered, it's best not to run at all.
+		if cap(done) == 0 {
+			panic("launchpad.net/juju-core/rpc: done channel is unbuffered")
+		}
+	}
+	call := &Call{
+		Type:     objType,
+		Id:       id,
+		Request:  request,
+		Params:   args,
+		Response: response,
+		Done:     done,
+	}
+	conn.send(call)
+	return call
 }

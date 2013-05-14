@@ -12,10 +12,10 @@ import (
 	"sync"
 )
 
-// A Codec implements reading and writing of RPC messages
-// in an RPC session. The RPC code calls WriteMessage to
-// write a message to the connection and calls
-// ReadHeader and ReadBody in pairs to read messages.
+// A Codec implements reading and writing of RPC messages in an RPC
+// session.  The RPC code calls WriteMessage to write a message to the
+// connection and calls ReadHeader and ReadBody in pairs to read
+// messages.
 type Codec interface {
 	// ReadHeader reads a message header into hdr.
 	ReadHeader(hdr *Header) error
@@ -36,10 +36,9 @@ type Codec interface {
 	Close() error
 }
 
-// Header is a header written before every RPC call.
-// Since RPC requests can be initiated from either side,
-// the header may represent a request from the other
-// side or a response to an outstanding request.
+// Header is a header written before every RPC call.  Since RPC requests
+// can be initiated from either side, the header may represent a request
+// from the other side or a response to an outstanding request.
 type Header struct {
 	// RequestId holds the sequence number of the request.
 	RequestId uint64
@@ -60,24 +59,24 @@ type Header struct {
 	ErrorCode string
 }
 
-// IsRequest returns whether the header represents
-// an RPC request. If it is not a request, it is a response.
+// IsRequest returns whether the header represents an RPC request.  If
+// it is not a request, it is a response.
 func (hdr *Header) IsRequest() bool {
 	return hdr.Type != "" || hdr.Request != ""
 }
 
-// Note that we use "client request" and "server request" to name requests
-// initiated locally and remotely respectively.
+// Note that we use "client request" and "server request" to name
+// requests initiated locally and remotely respectively.
 
-// Conn represents an RPC endpoint. It can both initiate
-// and receive RPC requests. There may be multiple outstanding
-// Calls associated with a single Client, and a Client may be used by
-// multiple goroutines simultaneously.
+// Conn represents an RPC endpoint.  It can both initiate and receive
+// RPC requests.  There may be multiple outstanding Calls associated
+// with a single Client, and a Client may be used by multiple goroutines
+// simultaneously.
 type Conn struct {
 	// codec holds the underlying RPC connection.
 	codec Codec
 
-	// srvPending represents the currently server requests.
+	// srvPending represents the current server requests.
 	srvPending sync.WaitGroup
 
 	// sending guards the write side of the codec - it ensures
@@ -151,13 +150,12 @@ func NewServer(codec Codec, rootValue interface{}, transformErrors func(error) e
 	return conn, nil
 }
 
-// Serve serves RPC requests on the connection by invoking
-// methods on rootValue.
+// Serve serves RPC requests on the connection by invoking methods on
+// rootValue.
 //
-// The server executes each client request by calling a method on
-// root to obtain an object to act on; then it invokes an
-// method on that object with the request parameters, possibly
-// returning some result.
+// The server executes each client request by calling a method on root
+// to obtain an object to act on; then it invokes an method on that
+// object with the request parameters, possibly returning some result.
 //
 // Methods on the root value are of the form:
 //
@@ -167,8 +165,8 @@ func NewServer(codec Codec, rootValue interface{}, transformErrors func(error) e
 // id is some identifier for the object and O is the type of the
 // returned object.
 //
-// Methods defined on O may defined in one of the following
-// forms, where T and R must be struct types.
+// Methods defined on O may defined in one of the following forms, where
+// T and R must be struct types.
 //
 //	Method()
 //	Method() R
@@ -185,11 +183,6 @@ func NewServer(codec Codec, rootValue interface{}, transformErrors func(error) e
 // returns nil.
 //
 // It is an error if the connection is already serving requests.
-//
-// If an error is encountered reading the connection and root implements
-// the Killer interface, its Kill method will be called.
-// The connection will then terminate only when all its outstanding calls have
-// completed.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) error {
 	if transformErrors == nil {
 		transformErrors = func(err error) error { return err }
@@ -217,8 +210,12 @@ func (conn *Conn) Dead() <-chan struct{} {
 	return conn.dead
 }
 
-// Close closes the connection and its underlying codec;
-// it returns when all requests have been terminated.
+// Close closes the connection and its underlying codec; it returns when
+// all requests have been terminated.
+//
+// If the connection is serving requests, and the root value implements
+// the Killer interface, its Kill method.  The codec will then be closed
+// only when all its outstanding server calls have completed.
 func (conn *Conn) Close() error {
 	conn.mutex.Lock()
 	if conn.closing {
@@ -226,16 +223,18 @@ func (conn *Conn) Close() error {
 		return errors.New("already closed")
 	}
 	conn.closing = true
+	// Kill server requests if appropriate.  Client requests will be
+	// terminated when the input loop finishes.
+	if conn.rootValue.IsValid() {
+		if killer, ok := conn.rootValue.Interface().(Killer); ok {
+			killer.Kill()
+		}
+	}
 	conn.mutex.Unlock()
 
-	// Now we've set closing, we know that no more requests can be
-	// started, so we're free to stop all the existing requests.
-
-	// Terminate server requests so that we can wait for them to
-	// terminate and send replies before closing the connection.
-	// Client requests will be terminated when the input loop
-	// finishes.
-	conn.terminateServerRequests()
+	// Wait for any outstanding server requests to complete
+	// and write their replies before closing the codec.
+	conn.srvPending.Wait()
 
 	// Closing the codec should cause the input loop to terminate.
 	// TODO(rog) what should we do with the error from closing the codec?
@@ -243,17 +242,6 @@ func (conn *Conn) Close() error {
 
 	<-conn.dead
 	return conn.inputLoopError
-}
-
-func (conn *Conn) terminateServerRequests() {
-	conn.mutex.Lock()
-	if conn.rootValue.IsValid() {
-		if killer, ok := conn.rootValue.Interface().(Killer); ok {
-			killer.Kill()
-		}
-	}
-	conn.mutex.Unlock()
-	conn.srvPending.Wait()
 }
 
 // ErrorCoder represents an any error that has an associated
