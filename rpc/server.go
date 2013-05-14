@@ -12,7 +12,7 @@ import (
 	"sync"
 )
 
-// A Codec implements reading and writing of RPC messages in an RPC
+// A Codec implements reading and writing of messages in an RPC
 // session.  The RPC code calls WriteMessage to write a message to the
 // connection and calls ReadHeader and ReadBody in pairs to read
 // messages.
@@ -214,8 +214,9 @@ func (conn *Conn) Dead() <-chan struct{} {
 // all requests have been terminated.
 //
 // If the connection is serving requests, and the root value implements
-// the Killer interface, its Kill method.  The codec will then be closed
-// only when all its outstanding server calls have completed.
+// the Killer interface, its Kill method will be called.  The codec will
+// then be closed only when all its outstanding server calls have
+// completed.
 func (conn *Conn) Close() error {
 	conn.mutex.Lock()
 	if conn.closing {
@@ -282,7 +283,7 @@ func (conn *Conn) input() {
 	close(conn.dead)
 }
 
-// loop implements the bulk of Conn.input.
+// loop implements the looping part of Conn.input.
 func (conn *Conn) loop() error {
 	var hdr Header
 	for {

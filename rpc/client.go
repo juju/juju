@@ -123,20 +123,6 @@ func (call *Call) done() {
 	}
 }
 
-// terminateClientRequests terminates any outstanding RPC calls, causing
-// them to return an error. 
-func (conn *Conn) terminateClientRequests() {
-	conn.sending.Lock()
-	defer conn.sending.Unlock()
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-
-	err := conn.inputLoopError
-	if err == nil {
-		err = ErrShutdown
-	}
-}
-
 // Call invokes the named action on the object of the given type with
 // the given id.  The returned values will be stored in response, which
 // should be a pointer.  If the action fails remotely, the returned
