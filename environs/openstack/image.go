@@ -32,7 +32,8 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	if err != nil {
 		return nil, err
 	}
-	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
+	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
+	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

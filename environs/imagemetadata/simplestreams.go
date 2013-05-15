@@ -187,23 +187,35 @@ type indexMetadata struct {
 var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
 const (
-	DefaultIndexPath = "streams/v1/index.json"
+	DefaultIndexPath = "streams/v1/index"
+	signedSuffix     = ".sjson"
+	unsignedSuffix   = ".json"
 	imageIds         = "image-ids"
 )
 
 // GetImageIdMetadata returns a list of images for the specified cloud matching the constraint.
 // The base URL locations are as specified - the first location which has a file is the one used.
-func GetImageIdMetadata(baseURLs []string, indexPath string, ic *ImageConstraint) ([]*ImageMetadata, error) {
+// Signed data is preferred, but if there is no signed data available and onlySigned is false,
+// then unsigned data is used.
+func GetImageIdMetadata(baseURLs []string, indexPath string, ic *ImageConstraint, onlySigned bool) ([]*ImageMetadata, error) {
+	metadata, err := getMaybeSignedImageIdMetadata(baseURLs, indexPath+signedSuffix, ic, true)
+	if (err == nil && len(metadata) > 0) || onlySigned {
+		return metadata, err
+	}
+	return getMaybeSignedImageIdMetadata(baseURLs, indexPath+unsignedSuffix, ic, false)
+}
+
+func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *ImageConstraint, requireSigned bool) ([]*ImageMetadata, error) {
 	var metadata []*ImageMetadata
 	for _, baseURL := range baseURLs {
-		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0")
+		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if _, ok := err.(*environs.NotFoundError); ok {
 				continue
 			}
 			return nil, err
 		}
-		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0")
+		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
 			if _, ok := err.(*environs.NotFoundError); ok {
 				continue
@@ -218,8 +230,8 @@ func GetImageIdMetadata(baseURLs []string, indexPath string, ic *ImageConstraint
 }
 
 // fetchData gets all the data from the given path relative to the given base URL.
-func fetchData(baseURL, path string) ([]byte, string, error) {
-	dataURL := baseURL
+func fetchData(baseURL, path string, requireSigned bool) (data []byte, dataURL string, err error) {
+	dataURL = baseURL
 	if !strings.HasSuffix(dataURL, "/") {
 		dataURL += "/"
 	}
@@ -236,15 +248,19 @@ func fetchData(baseURL, path string) ([]byte, string, error) {
 		return nil, dataURL, fmt.Errorf("cannot access URL %s, %s", dataURL, resp.Status)
 	}
 
-	data, err := ioutil.ReadAll(resp.Body)
+	if requireSigned {
+		data, err = DecodeCheckSignature(resp.Body)
+	} else {
+		data, err = ioutil.ReadAll(resp.Body)
+	}
 	if err != nil {
-		return nil, dataURL, fmt.Errorf("cannot read URL data, %s", err.Error())
+		return nil, dataURL, fmt.Errorf("cannot read URL data, %v", err)
 	}
 	return data, dataURL, nil
 }
 
-func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, error) {
-	data, url, err := fetchData(baseURL, indexPath)
+func getIndexWithFormat(baseURL, indexPath, format string, requireSigned bool) (*indexReference, error) {
+	data, url, err := fetchData(baseURL, indexPath, requireSigned)
 	if err != nil {
 		if _, ok := err.(*environs.NotFoundError); ok {
 			return nil, err
@@ -254,7 +270,7 @@ func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, err
 	var indices indices
 	err = json.Unmarshal(data, &indices)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %s: %s", url, err.Error())
+		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %s: %v", url, err)
 	}
 	if indices.Format != format {
 		return nil, fmt.Errorf("unexpected index file format %q, expected %s at URL %s", indices.Format, format, url)
@@ -477,12 +493,12 @@ func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*Imag
 }
 
 // getCloudMetadataWithFormat loads the entire cloud image metadata encoded using the specified format.
-func (indexRef *indexReference) getCloudMetadataWithFormat(ic *ImageConstraint, format string) (*cloudImageMetadata, error) {
+func (indexRef *indexReference) getCloudMetadataWithFormat(ic *ImageConstraint, format string, requireSigned bool) (*cloudImageMetadata, error) {
 	productFilesPath, err := indexRef.getImageIdsPath(ic)
 	if err != nil {
 		return nil, err
 	}
-	data, url, err := fetchData(indexRef.baseURL, productFilesPath)
+	data, url, err := fetchData(indexRef.baseURL, productFilesPath, requireSigned)
 	if err != nil {
 		return nil, fmt.Errorf("cannot read product data, %v", err)
 	}
@@ -506,8 +522,8 @@ func parseCloudImageMetadata(data []byte, format, url string) (*cloudImageMetada
 // getLatestImageIdMetadataWithFormat loads the image metadata for the given cloud and order the images
 // starting with the most recent, and returns images which match the product criteria, choosing from the
 // latest versions first. The result is a list of images matching the criteria, but differing on type of storage etc.
-func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(ic *ImageConstraint, format string) ([]*ImageMetadata, error) {
-	imageMetadata, err := indexRef.getCloudMetadataWithFormat(ic, format)
+func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(ic *ImageConstraint, format string, requireSigned bool) ([]*ImageMetadata, error) {
+	imageMetadata, err := indexRef.getCloudMetadataWithFormat(ic, format, requireSigned)
 	if err != nil {
 		return nil, err
 	}

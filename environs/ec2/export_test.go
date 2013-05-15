@@ -78,7 +78,9 @@ func UseTestImageData(content []jujutest.FileContent) {
 	if content != nil {
 		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
 		imagemetadata.DefaultBaseURL = "test:"
+		signedImageDataOnly = false
 	} else {
+		signedImageDataOnly = true
 		testRoundTripper.Sub = nil
 		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
