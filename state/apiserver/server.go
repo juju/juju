@@ -84,7 +84,6 @@ func (srv *Server) run(lis net.Listener) {
 		if err := srv.serveConn(conn); err != nil {
 			log.Errorf("state/api: error serving RPCs: %v", err)
 		}
-		log.Infof("serveConn done")
 	})
 	// The error from http.Serve is not interesting.
 	http.Serve(lis, handler)
@@ -104,12 +103,8 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():
-		log.Infof("Server.serveConn saw dying")
 	}
-	log.Infof("closing conn")
-	err := conn.Close()
-	log.Infof("closed conn: %v", err)
-	return err
+	return conn.Close()
 }
 
 var logRequests = true
