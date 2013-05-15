@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Code shared by the CLI and API for the ServiceExpose function.
 
 package statecmd
