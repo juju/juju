@@ -1,3 +1,6 @@
+// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The store package is capable of storing and updating charms in a MongoDB
 // database, as well as maintaining further information about them such as
 // the VCS revision the charm was loaded from and the URLs for the charms.

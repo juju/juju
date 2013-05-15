@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The version package implements version parsing.
 // It also acts as guardian of the current client Juju version number.
 package version

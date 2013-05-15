@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The state package enables reading, observing, and changing
 // the state stored in MongoDB of a whole environment
 // managed by juju.
