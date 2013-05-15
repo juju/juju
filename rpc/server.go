@@ -179,8 +179,7 @@ func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) err
 	}
 	rootValue := reflect.ValueOf(root)
 	// Check that rootValue is ok to use as an RPC server type.
-	_, err := methods(rootValue.Type())
-	if err != nil {
+	if _, err := methods(rootValue.Type()); err != nil {
 		return err
 	}
 	conn.mutex.Lock()

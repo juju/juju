@@ -86,10 +86,10 @@ func (c *codec) ReadHeader(hdr *rpc.Header) error {
 		var m json.RawMessage
 		err = c.conn.Receive(&m)
 		if err == nil {
-			log.Debugf("rpc/wsjson: <- %s", m)
+			log.Debugf("rpc/jsoncodec: <- %s", m)
 			err = json.Unmarshal(m, &c.msg)
 		} else {
-			log.Debugf("rpc/wsjson: <- error: %v (closing %v)", err, c.isClosing())
+			log.Debugf("rpc/jsoncodec: <- error: %v (closing %v)", err, c.isClosing())
 		}
 	} else {
 		err = c.conn.Receive(&c.msg)
@@ -148,10 +148,10 @@ func (c *codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	if logRequests {
 		data, err := json.Marshal(r)
 		if err != nil {
-			log.Debugf("api: -> marshal error: %v", err)
+			log.Debugf("rpc/jsoncodec: -> marshal error: %v", err)
 			return err
 		}
-		log.Debugf("api: -> %s", data)
+		log.Debugf("rpc/jsoncodec: -> %s", data)
 	}
 	return c.conn.Send(r)
 }
