@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The presence package implements an interface for observing liveness
 // of arbitrary keys (agents, processes, etc) on top of MongoDB.
 // The design works by periodically updating the database so that
