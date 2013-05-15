@@ -96,18 +96,18 @@ func (srv *Server) Addr() string {
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn) error {
-	codec := jsoncodec.NewWS(wsConn)
-	conn, err := rpc.NewServer(codec, newStateServer(srv), serverError)
-	if err != nil {
+	conn := rpc.NewConn(jsoncodec.NewWS(wsConn))
+	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
 		return err
 	}
+	conn.Start()
 	select {
 	case <-conn.Dead():
 	case <-srv.tomb.Dying():
 		log.Infof("Server.serveConn saw dying")
 	}
 	log.Infof("closing conn")
-	err = conn.Close()
+	err := conn.Close()
 	log.Infof("closed conn: %v", err)
 	return err
 }

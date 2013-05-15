@@ -116,42 +116,31 @@ type Conn struct {
 	inputLoopError error
 }
 
-func newConn(codec Codec) *Conn {
+// NewConn creates a new connection that uses the given codec for
+// transport, but it does not start it. Conn.Start must be called before
+// any requests are sent or received.
+func NewConn(codec Codec) *Conn {
 	return &Conn{
 		codec:         codec,
 		clientPending: make(map[uint64]*Call),
-		dead:          make(chan struct{}),
 	}
 }
 
-// NewClient returns an RPC endpoint that uses the given codec for
-// transport.  It does not serve any methods (the Serve method can be
-// called later if desired). Other than the fact that NewClient does not
-// serve requests, there is no necessary assocation of the Conn
-// with the client side of a connection - both ends may well
-// call NewServer if they wish.
-func NewClient(codec Codec) *Conn {
-	conn := newConn(codec)
-	go conn.input()
-	return conn
-}
-
-// NewServer returns an RPC endpoint that uses the given codec
-// for transport. It serves the methods from the given value,
-// transforming any returned error values with transformErrors.
-// See Conn.Serve for a description of how RPC requests
-// cause methods to be called,
-func NewServer(codec Codec, rootValue interface{}, transformErrors func(error) error) (*Conn, error) {
-	conn := newConn(codec)
-	if err := conn.Serve(rootValue, transformErrors); err != nil {
-		return nil, err
+// Start starts the RPC connection running.  It has no effect if it has
+// already been called.  By default, a connection serves no methods.
+// See Conn.Serve for a description of how to serve methods on a Conn.
+func (conn *Conn) Start() {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.dead == nil {
+		conn.dead = make(chan struct{})
+		go conn.input()
 	}
-	go conn.input()
-	return conn, nil
 }
 
 // Serve serves RPC requests on the connection by invoking methods on
-// rootValue.
+// rootValue. Note that it does not start the connection running,
+// though it may be called once the connection is already started.
 //
 // The server executes each client request by calling a method on root
 // to obtain an object to act on; then it invokes an method on that
@@ -182,7 +171,8 @@ func NewServer(codec Codec, rootValue interface{}, transformErrors func(error) e
 // with specified codes.  There will be a panic if transformErrors
 // returns nil.
 //
-// It is an error if the connection is already serving requests.
+// It is an error if the connection is already serving requests
+// or if the root value implements no RPC methods.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) error {
 	if transformErrors == nil {
 		transformErrors = func(err error) error { return err }

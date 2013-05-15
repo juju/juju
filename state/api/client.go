@@ -77,7 +77,8 @@ func Open(info *Info) (*State, error) {
 	}
 	log.Infof("state/api: connection established")
 
-	client := rpc.NewClient(jsoncodec.NewWS(conn))
+	client := rpc.NewConn(jsoncodec.NewWS(conn))
+	client.Start()
 	st := &State{
 		client: client,
 		conn:   conn,

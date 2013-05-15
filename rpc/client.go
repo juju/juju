@@ -45,6 +45,9 @@ func (conn *Conn) send(call *Call) {
 
 	// Register this call.
 	conn.mutex.Lock()
+	if conn.dead == nil {
+		panic("rpc: call made when connection not started")
+	}
 	if conn.closing || conn.shutdown {
 		call.Error = ErrShutdown
 		conn.mutex.Unlock()
