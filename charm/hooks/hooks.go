@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // hooks provides types and constants that define the hooks known to Juju.
 package hooks
 

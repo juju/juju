@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cloudinit_test
 
 import (
@@ -129,7 +132,6 @@ start jujud-machine-0
 		},
 		setEnvConfig: true,
 		expectScripts: `
-apt-get upgrade -y
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -249,10 +251,7 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		err = goyaml.Unmarshal(data, &x)
 		c.Assert(err, IsNil)
 
-		// TODO(dimitern) raring does apt-get upgrade differently, due to LP bug #1103881
-		if test.cfg.Tools.Series != "raring" {
-			c.Check(x["apt_upgrade"], Equals, true)
-		}
+		c.Check(x["apt_upgrade"], Equals, true)
 		c.Check(x["apt_update"], Equals, true)
 
 		scripts := getScripts(x)

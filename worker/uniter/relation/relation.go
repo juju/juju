@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // relation implements persistent local storage of a unit's relation state, and
 // translation of relation changes into hooks that need to be run.
 package relation
