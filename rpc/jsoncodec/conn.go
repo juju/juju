@@ -3,20 +3,14 @@ package jsoncodec
 import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
-	"io"
 	"launchpad.net/juju-core/rpc"
+	"net"
 )
 
-// NewWS returns an rpc codec that uses conn to send and receive
-// messages.
+// NewWS returns an rpc codec that uses the given websocket
+// connection to send and receive messages.
 func NewWS(conn *websocket.Conn) rpc.Codec {
-	return New(NewWSJSONConn(conn))
-}
-
-// NewRWC returns an rpc codec that uses rwc to send and receive
-// messages.
-func NewRWC(rwc io.ReadWriteCloser) rpc.Codec {
-	return New(NewRWCJSONConn(rwc))
+	return New(wsJSONConn{conn})
 }
 
 type wsJSONConn struct {
@@ -35,36 +29,30 @@ func (conn wsJSONConn) Close() error {
 	return conn.conn.Close()
 }
 
-// NewWSJSONConn returns a JSONConn that reads and
-// writes JSON messages to the given websocket connection.
-func NewWSJSONConn(conn *websocket.Conn) JSONConn {
-	return wsJSONConn{conn}
+// NewNet returns an rpc codec that uses the given net
+// connection to send and receive messages.
+func NewNet(conn net.Conn) rpc.Codec {
+	return New(&netConn{
+		enc:  json.NewEncoder(conn),
+		dec:  json.NewDecoder(conn),
+		conn: conn,
+	})
 }
 
-type rwcConn struct {
+type netConn struct {
 	enc  *json.Encoder
 	dec  *json.Decoder
-	conn io.ReadWriteCloser
+	conn net.Conn
 }
 
-func (conn *rwcConn) Send(msg interface{}) error {
+func (conn *netConn) Send(msg interface{}) error {
 	return conn.enc.Encode(msg)
 }
 
-func (conn *rwcConn) Receive(msg interface{}) error {
+func (conn *netConn) Receive(msg interface{}) error {
 	return conn.dec.Decode(msg)
 }
 
-func (conn *rwcConn) Close() error {
+func (conn *netConn) Close() error {
 	return conn.conn.Close()
-}
-
-// NewRWCJSONConn returns a JSONConn that reads and
-// writes JSON messages to the given ReadWriteCloser.
-func NewRWCJSONConn(rwc io.ReadWriteCloser) JSONConn {
-	return &rwcConn{
-		enc:  json.NewEncoder(rwc),
-		dec:  json.NewDecoder(rwc),
-		conn: rwc,
-	}
 }

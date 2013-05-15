@@ -1,10 +1,13 @@
+// The jsoncodec package provides a JSON codec for the rpc package.
 package jsoncodec
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
+	"sync"
 )
 
 // JSONConn sends and receives messages to an underlying connection
@@ -21,25 +24,20 @@ var logRequests = true
 
 // codec implements rpc.Codec for a connection.
 type codec struct {
-	msgs chan inMsg
-	// msg holds the message that's just been read by
-	// ReadHeader, so that the body can be read
-	// by ReadBody.
-	msg   inMsg
-	conn  JSONConn
-	dying chan struct{}
+	// msg holds the message that's just been read by ReadHeader, so
+	// that the body can be read by ReadBody.
+	msg     inMsg
+	conn    JSONConn
+	mu      sync.Mutex
+	closing bool
 }
 
 // New returns an rpc codec that uses conn to send and receive
 // messages.
 func New(conn JSONConn) rpc.Codec {
-	c := &codec{
-		msgs:  make(chan inMsg),
-		conn:  conn,
-		dying: make(chan struct{}),
+	return &codec{
+		conn: conn,
 	}
-	go c.readRequests()
-	return c
 }
 
 // inMsg holds an incoming message.  We don't know the type of the
@@ -68,62 +66,41 @@ type outMsg struct {
 	Response  interface{} `json:",omitempty"`
 }
 
-func (c *codec) readRequests() {
-	defer close(c.msgs)
-	var req inMsg
-	for {
-		var err error
-		req = inMsg{} // avoid any potential cross-message contamination.
-		if logRequests {
-			var m json.RawMessage
-			err = c.conn.Receive(&m)
-			if err == nil {
-				log.Debugf("rpc/wsjson: <- %s", m)
-				err = json.Unmarshal(m, &req)
-			} else {
-				log.Debugf("rpc/wsjson: <- error: %v", err)
-			}
-		} else {
-			err = c.conn.Receive(&req)
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Errorf("rpc/wsjson: error receiving request: %v", err)
-			break
-		}
-		c.msgs <- req
-	}
+func (c *codec) Close() error {
+	c.mu.Lock()
+	c.closing = true
+	c.mu.Unlock()
+	return c.conn.Close()
 }
 
-func (c *codec) Close() error {
-	// Possible BUG(rog): this does not cause the underlying
-	// connection to be closed - if an RPC client has a huge amount
-	// of outstanding requests and is not reading them, we might
-	// block writing a message and Close won't unblock it.  This
-	// might just conceivably lead to a DOS vulnerability by causing
-	// rpc.Conn.Close to block indefinitely.
-	close(c.dying)
-	return nil
+func (c *codec) isClosing() bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	return c.closing
 }
 
 func (c *codec) ReadHeader(hdr *rpc.Header) error {
-	// We don't read the connection directly here because we want to
-	// be able to shut down cleanly without getting spurious errors
-	// from closing the connection while we're reading a message.
-	// If the codec is closed,
-	var ok bool
-	select {
-	case c.msg, ok = <-c.msgs:
-	case <-c.dying:
-	}
-	if !ok {
-		c.conn.Close()
-		// Wait for readRequests to see the closed connection and quit.
-		for _ = range c.msgs {
+	c.msg = inMsg{} // avoid any potential cross-message contamination.
+	var err error
+	if logRequests {
+		var m json.RawMessage
+		err = c.conn.Receive(&m)
+		if err == nil {
+			log.Debugf("rpc/wsjson: <- %s", m)
+			err = json.Unmarshal(m, &c.msg)
+		} else {
+			log.Debugf("rpc/wsjson: <- error: %v (closing %v)", err, c.isClosing())
 		}
-		return io.EOF
+	} else {
+		err = c.conn.Receive(&c.msg)
+	}
+	if err != nil {
+		// If we've closed the connection, we may get a spurious error,
+		// so ignore it.
+		if c.isClosing() || err == io.EOF {
+			return io.EOF
+		}
+		return fmt.Errorf("error receiving message: %v", err)
 	}
 	hdr.RequestId = c.msg.RequestId
 	hdr.Type = c.msg.Type
@@ -144,6 +121,11 @@ func (c *codec) ReadBody(body interface{}, isRequest bool) error {
 	} else {
 		rawBody = c.msg.Response
 	}
+	if len(rawBody) == 0 {
+		// If the response or params are omitted, it's
+		// equivalent to an empty object.
+		return nil
+	}
 	return json.Unmarshal(rawBody, body)
 }
 
@@ -151,14 +133,17 @@ func (c *codec) WriteMessage(hdr *rpc.Header, body interface{}) error {
 	r := &outMsg{
 		RequestId: hdr.RequestId,
 
-		Error:     hdr.Error,
-		ErrorCode: hdr.ErrorCode,
-		Response:  body,
-
 		Type:    hdr.Type,
 		Id:      hdr.Id,
 		Request: hdr.Request,
-		Params:  body,
+
+		Error:     hdr.Error,
+		ErrorCode: hdr.ErrorCode,
+	}
+	if hdr.IsRequest() {
+		r.Params = body
+	} else {
+		r.Response = body
 	}
 	if logRequests {
 		data, err := json.Marshal(r)
