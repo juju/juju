@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc_test
 
 import (
@@ -88,11 +91,17 @@ func (s *JujuLogSuite) TestRequiresMessage(c *C) {
 func (s *JujuLogSuite) TestLogInitMissingLevel(c *C) {
 	com := newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"-l"}, "flag needs an argument.*")
+
+	com = newJujuLogCommand(c)
+	testing.TestInit(c, com, []string{"--log-level"}, "flag needs an argument.*")
 }
 
 func (s *JujuLogSuite) TestLogInitMissingMessage(c *C) {
 	com := newJujuLogCommand(c)
 	testing.TestInit(c, com, []string{"-l", "FATAL"}, "no message specified")
+
+	com = newJujuLogCommand(c)
+	testing.TestInit(c, com, []string{"--log-level", "FATAL"}, "no message specified")
 }
 
 func (s *JujuLogSuite) TestLogDeprecation(c *C) {

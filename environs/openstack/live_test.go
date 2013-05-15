@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack_test
 
 import (
@@ -60,18 +63,11 @@ func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.Im
 	Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{
-			TestConfig: jujutest.TestConfig{config},
-			Attempt:    *openstack.ShortAttempt,
-			// TODO: Bug #1133263, once the infrastructure is set up,
-			//       enable The state tests on openstack
-			CanOpenState: false,
-			// TODO: Bug #1133272, enabling this requires mapping from
-			//       'series' to an image id, when we have support, set
-			//       this flag to True.
-			HasProvisioner: false,
+			TestConfig:     jujutest.TestConfig{config},
+			Attempt:        *openstack.ShortAttempt,
+			CanOpenState:   true,
+			HasProvisioner: true,
 		},
-		testImageId: testImageDetails.ImageId,
-		testFlavor:  testImageDetails.Flavor,
 	})
 }
 
@@ -82,8 +78,6 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 	jujutest.LiveTests
 	cred                   *identity.Credentials
-	testImageId            string
-	testFlavor             string
 	writeablePublicStorage environs.Storage
 }
 
@@ -102,6 +96,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 		"auth-url":          t.cred.URL,
 	})
 	t.LiveTests.SetUpSuite(c)
+	openstack.SetFakeToolsStorage(true)
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to
 	// the public storage bucket so that we can upload files for testing.
@@ -118,9 +113,9 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		return
 	}
 	if t.writeablePublicStorage != nil {
-		err := openstack.DeleteStorageContent(t.writeablePublicStorage)
-		c.Check(err, IsNil)
+		envtesting.RemoveFakeTools(c, t.writeablePublicStorage)
 	}
+	openstack.SetFakeToolsStorage(false)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }

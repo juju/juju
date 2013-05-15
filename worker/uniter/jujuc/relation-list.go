@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc
 
 import (
@@ -19,15 +22,12 @@ func NewRelationListCommand(ctx Context) cmd.Command {
 }
 
 func (c *RelationListCommand) Info() *cmd.Info {
-	args := "<id>"
-	doc := ""
-	if r, found := c.ctx.HookRelation(); found {
-		args = "[<id>]"
-		doc = fmt.Sprintf("Current default relation id is %q.", r.FakeId())
+	doc := "-r must be specified when not in a relation hook"
+	if _, found := c.ctx.HookRelation(); found {
+		doc = ""
 	}
 	return &cmd.Info{
 		Name:    "relation-list",
-		Args:    args,
 		Purpose: "list relation units",
 		Doc:     doc,
 	}
@@ -35,16 +35,10 @@ func (c *RelationListCommand) Info() *cmd.Info {
 
 func (c *RelationListCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
 }
 
 func (c *RelationListCommand) Init(args []string) (err error) {
-	v := newRelationIdValue(c.ctx, &c.RelationId)
-	if len(args) > 0 {
-		if err := v.Set(args[0]); err != nil {
-			return err
-		}
-		args = args[1:]
-	}
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
 	}

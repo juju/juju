@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package testing
 
 import (
@@ -52,6 +55,15 @@ func (r *Repo) Dir(name string) *charm.Dir {
 // named name.
 func (r *Repo) ClonedDirPath(dst, name string) string {
 	return clone(dst, r.DirPath(name))
+}
+
+// RenamedClonedDirPath returns the path to a new copy of the default
+// charm directory named name, but renames it to newName.
+func (r *Repo) RenamedClonedDirPath(dst, name, newName string) string {
+	newDst := clone(dst, r.DirPath(name))
+	renamedDst := filepath.Join(filepath.Dir(newDst), newName)
+	check(os.Rename(newDst, renamedDst))
+	return renamedDst
 }
 
 // ClonedDir returns an actual charm.Dir based on a new copy of the charm directory

@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package tools_test
 
 import (
@@ -52,6 +55,16 @@ func (s *StorageSuite) TearDownTest(c *C) {
 func (s *StorageSuite) TestStorageName(c *C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
 	path := tools.StorageName(vers)
+	c.Assert(path, Equals, "tools/juju-1.2.3-precise-amd64.tgz")
+}
+
+func (s *StorageSuite) TestSetToolPrefix(c *C) {
+	vers := version.MustParseBinary("1.2.3-precise-amd64")
+	tools.SetToolPrefix("test_prefix/juju-")
+	path := tools.StorageName(vers)
+	c.Assert(path, Equals, "test_prefix/juju-1.2.3-precise-amd64.tgz")
+	tools.SetToolPrefix(tools.DefaultToolPrefix)
+	path = tools.StorageName(vers)
 	c.Assert(path, Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 

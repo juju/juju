@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -61,7 +64,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		return err
 	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
-	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKeyToHome)
+	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
 	if err != nil {
 		return err
 	}

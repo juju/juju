@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package config
 
 import (
@@ -27,6 +30,8 @@ func SetJujuHome(newJujuHome string) string {
 
 // JujuHome returns the current juju home.
 func JujuHome() string {
+	jujuHomeMu.Lock()
+	defer jujuHomeMu.Unlock()
 	if jujuHome == "" {
 		panic("juju home hasn't been initialized")
 	}

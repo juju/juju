@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package upstart_test
 
 import (
@@ -179,13 +182,13 @@ func (s *UpstartSuite) assertInstall(c *C, conf *upstart.Conf, expectEnd string)
 
 func (s *UpstartSuite) TestInstallSimple(c *C) {
 	conf := s.dummyConf(c)
-	s.assertInstall(c, conf, "\nexec do something\n")
+	s.assertInstall(c, conf, "\n\nexec do something\n")
 }
 
 func (s *UpstartSuite) TestInstallOutput(c *C) {
 	conf := s.dummyConf(c)
 	conf.Out = "/some/output/path"
-	s.assertInstall(c, conf, "\nexec do something >> /some/output/path 2>&1\n")
+	s.assertInstall(c, conf, "\n\nexec do something >> /some/output/path 2>&1\n")
 }
 
 func (s *UpstartSuite) TestInstallEnv(c *C) {
@@ -193,6 +196,18 @@ func (s *UpstartSuite) TestInstallEnv(c *C) {
 	conf.Env = map[string]string{"FOO": "bar baz", "QUX": "ping pong"}
 	s.assertInstall(c, conf, `env FOO="bar baz"
 env QUX="ping pong"
+
+
+exec do something
+`)
+}
+
+func (s *UpstartSuite) TestInstallLimit(c *C) {
+	conf := s.dummyConf(c)
+	conf.Limit = map[string]string{"nofile": "65000 65000", "nproc": "20000 20000"}
+	s.assertInstall(c, conf, `
+limit nofile 65000 65000
+limit nproc 20000 20000
 
 exec do something
 `)

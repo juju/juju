@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -125,7 +128,9 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	defer st.Close()
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobManageEnviron, state.JobServeAPI})
+	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{
+		state.JobManageEnviron, state.JobServeAPI, state.JobHostUnits,
+	})
 }
 
 func testOpenState(c *C, info *state.Info, expectErr error) {

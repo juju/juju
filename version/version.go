@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The version package implements version parsing.
 // It also acts as guardian of the current client Juju version number.
 package version
@@ -17,7 +20,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.9.15"
+const version = "1.11.0"
 
 // CurrentNumber returns the version number.
 func CurrentNumber() Number {

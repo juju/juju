@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -32,6 +35,7 @@ func (c *dummySSHCommand) Run(ctx *cmd.Context) error {
 // debug-log is implemented by invoking juju ssh with the correct arguments.
 // This test checks for the expected invocation.
 func (s *DebugLogSuite) TestDebugLogInvokesSSHCommand(c *C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
 	debugLogCmd, err := runDebugLog(c)
 	c.Assert(err, IsNil)
 	debugCmd := debugLogCmd.sshCmd.(*dummySSHCommand)

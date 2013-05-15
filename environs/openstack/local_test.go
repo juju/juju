@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack_test
 
 import (
@@ -90,7 +93,7 @@ func registerLocalTests() {
 	cred := &identity.Credentials{
 		User:       "fred",
 		Secrets:    "secret",
-		Region:     "some region",
+		Region:     "some-region",
 		TenantName: "some tenant",
 	}
 	config := makeTestConfig(cred)
@@ -100,9 +103,7 @@ func registerLocalTests() {
 	config["default-instance-type"] = "m1.small"
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
-			cred:        cred,
-			testImageId: "1",
-			testFlavor:  "m1.small",
+			cred: cred,
 			LiveTests: jujutest.LiveTests{
 				TestConfig: jujutest.TestConfig{config},
 			},
@@ -132,7 +133,7 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	s.Server.Config.Handler = s.Mux
 	cred.URL = s.Server.URL
 	c.Logf("Started service at: %v", s.Server.URL)
-	s.Service = openstackservice.New(cred)
+	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
 	openstack.ShortTimeouts(true)
 }
@@ -156,9 +157,11 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
+	openstack.UseTestImageData(s.Env, false)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *C) {
+	openstack.RemoveTestImageData(s.Env)
 	s.LiveTests.TearDownSuite(c)
 	s.srv.stop()
 	s.LoggingSuite.TearDownSuite(c)
@@ -181,9 +184,10 @@ func (s *localLiveSuite) TearDownTest(c *C) {
 type localServerSuite struct {
 	coretesting.LoggingSuite
 	jujutest.Tests
-	cred *identity.Credentials
-	srv  localServer
-	env  environs.Environ
+	cred                   *identity.Credentials
+	srv                    localServer
+	env                    environs.Environ
+	writeablePublicStorage environs.Storage
 }
 
 func (s *localServerSuite) SetUpSuite(c *C) {
@@ -204,12 +208,19 @@ func (s *localServerSuite) SetUpTest(c *C) {
 		"auth-url": s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)
-	writeablePublicStorage := openstack.WritablePublicStorage(s.Env)
-	envtesting.UploadFakeTools(c, writeablePublicStorage)
+	s.writeablePublicStorage = openstack.WritablePublicStorage(s.Env)
+	envtesting.UploadFakeTools(c, s.writeablePublicStorage)
 	s.env = s.Tests.Env
+	openstack.UseTestImageData(s.env, false)
 }
 
 func (s *localServerSuite) TearDownTest(c *C) {
+	if s.env != nil {
+		openstack.RemoveTestImageData(s.env)
+	}
+	if s.writeablePublicStorage != nil {
+		envtesting.RemoveFakeTools(c, s.writeablePublicStorage)
+	}
 	s.Tests.TearDownTest(c)
 	s.srv.stop()
 	s.LoggingSuite.TearDownTest(c)
@@ -356,24 +367,24 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
-func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
-	policy := t.env.AssignmentPolicy()
+func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+	policy := s.env.AssignmentPolicy()
 	c.Assert(policy, Equals, state.AssignNew)
 
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := environs.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := openstack.LoadState(t.env)
+	stateData, err := openstack.LoadState(s.env)
 	c.Assert(err, IsNil)
 	c.Assert(stateData.StateInstances, HasLen, 1)
 
-	insts, err := t.env.Instances(stateData.StateInstances)
+	insts, err := s.env.Instances(stateData.StateInstances)
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
 
-	info, apiInfo, err := t.env.StateInfo()
+	info, apiInfo, err := s.env.StateInfo()
 	c.Assert(err, IsNil)
 	c.Assert(info, NotNil)
 
@@ -387,69 +398,67 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	// check that a new instance will be started with a machine agent,
 	// and without a provisioning agent.
-	series := t.env.Config().DefaultSeries()
+	series := s.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, err := s.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 
-	err = t.env.Destroy(append(insts, inst1))
+	err = s.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
-	_, err = openstack.LoadState(t.env)
+	_, err = openstack.LoadState(s.env)
 	c.Assert(err, NotNil)
 }
 
-func (s *localServerSuite) TestFindInstanceSpec(c *C) {
-	list, err := environs.FindAvailableTools(s.Env, version.Current.Major)
+func (s *localServerSuite) TestFindImageSpecPrivateStorage(c *C) {
+	openstack.UseTestImageData(s.env, true)
+	openstack.SetDefaultInstanceType(s.Env, "")
+	openstack.SetDefaultImageId(s.Env, "")
+	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
 	c.Assert(err, IsNil)
-	imageId, flavorId, tools, err := openstack.FindInstanceSpec(s.Env, list)
-	c.Assert(err, IsNil)
-	c.Check(imageId, Equals, "1")
-	c.Check(flavorId, Equals, "2")
-	c.Check(list.URLs()[tools.Binary], Equals, tools.URL)
-
-	// Extra tests for series/arch forcing while default-image-id is only option.
-	c.Check(tools.Arch, Equals, "amd64")
-	c.Check(tools.Series, Equals, "precise")
+	c.Assert(spec.Image.Id, Equals, "id-y")
+	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
 }
 
-func (s *localServerSuite) TestFindInstanceSpecNoTools(c *C) {
-	_, _, _, err := openstack.FindInstanceSpec(s.Env, nil)
-	c.Check(err, ErrorMatches, "no matching tools available")
-	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
+	openstack.SetDefaultInstanceType(s.Env, "")
+	openstack.SetDefaultImageId(s.Env, "")
+	spec, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "mem=512M")
+	c.Assert(err, IsNil)
+	c.Assert(spec.Image.Id, Equals, "1")
+	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
 }
 
-func (s *localServerSuite) TestFindInstanceSpecBadFlavor(c *C) {
-	cfg, err := s.Env.Config().Apply(map[string]interface{}{
-		"default-instance-type": "blobby",
-	})
+// If no suitable image is found, use the default if specified.
+func (s *localServerSuite) TestFindImageSpecDefaultImage(c *C) {
+	openstack.SetDefaultImageId(s.Env, "1234")
+	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "")
 	c.Assert(err, IsNil)
-	err = s.Env.SetConfig(cfg)
-	c.Assert(err, IsNil)
-	_, _, _, err = openstack.FindInstanceSpec(s.Env, nil)
-	c.Check(err, ErrorMatches, `flavor "blobby" not found`)
-	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+	c.Assert(spec.Image.Id, Equals, "1234")
+	c.Assert(spec.InstanceTypeName, Not(Equals), "")
 }
 
-func (s *localServerSuite) TestFindInstanceSpecNoFlavor(c *C) {
-	cfg, err := s.Env.Config().Apply(map[string]interface{}{
-		"default-instance-type": "",
-	})
+// If no matching instance type is found, use the default flavor if specified.
+func (s *localServerSuite) TestFindImageSpecDefaultFlavor(c *C) {
+	openstack.SetDefaultImageId(s.Env, "1234")
+	openstack.SetDefaultInstanceType(s.Env, "m1.small")
+	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
 	c.Assert(err, IsNil)
-	err = s.Env.SetConfig(cfg)
-	c.Assert(err, IsNil)
-	_, _, _, err = openstack.FindInstanceSpec(s.Env, nil)
-	c.Check(err, ErrorMatches, "no default-instance-type set")
+	c.Assert(spec.Image.Id, Equals, "1234")
+	c.Assert(spec.InstanceTypeName, Equals, "m1.small")
 }
 
-func (s *localServerSuite) TestFindInstanceSpecNoImageId(c *C) {
-	cfg, err := s.Env.Config().Apply(map[string]interface{}{
-		"default-image-id": "",
-	})
-	c.Assert(err, IsNil)
-	err = s.Env.SetConfig(cfg)
-	c.Assert(err, IsNil)
-	_, _, _, err = openstack.FindInstanceSpec(s.Env, nil)
-	c.Check(err, ErrorMatches, "no default-image-id set")
+// An error occurs if no matching instance type is found and the default flavor is invalid.
+func (s *localServerSuite) TestFindImageBadDefaultFlavor(c *C) {
+	openstack.SetDefaultInstanceType(s.Env, "bad.flavor")
+	_, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "mem=8G")
+	c.Assert(err, ErrorMatches, `no instance types in some-region matching constraints "mem=8192M", and default bad.flavor is invalid`)
+}
+
+// An error occurs if no suitable image is found and the default not specified.
+func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
+	openstack.SetDefaultImageId(s.Env, "")
+	_, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
+	c.Assert(err, ErrorMatches, `no "raring" images in some-region with arches \[amd64\], and no default specified`)
 }

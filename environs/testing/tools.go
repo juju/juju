@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package testing
 
 import (
@@ -71,6 +74,20 @@ func MustUploadFakeTools(storage environs.Storage) {
 	}
 }
 
+// RemoveFakeTools deletes the fake tools from the supplied storage.
+func RemoveFakeTools(c *C, storage environs.Storage) {
+	toolsVersion := version.Current
+	name := tools.StorageName(toolsVersion)
+	err := storage.Remove(name)
+	c.Check(err, IsNil)
+	if version.Current.Series != config.DefaultSeries {
+		toolsVersion.Series = config.DefaultSeries
+		name := tools.StorageName(toolsVersion)
+		err := storage.Remove(name)
+		c.Check(err, IsNil)
+	}
+}
+
 // RemoveTools deletes all tools from the supplied storage.
 func RemoveTools(c *C, storage environs.Storage) {
 	names, err := storage.List("tools/juju-")
@@ -78,7 +95,7 @@ func RemoveTools(c *C, storage environs.Storage) {
 	c.Logf("removing files: %v", names)
 	for _, name := range names {
 		err = storage.Remove(name)
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 	}
 }
 

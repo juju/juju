@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -71,11 +74,23 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
 		return err
 	}
-	// TODO: we need to be able to customize machine jobs, not just hardcode these.
-	m, err := st.InjectMachine(
-		version.Current.Series, instanceId,
-		state.JobManageEnviron, state.JobServeAPI,
-	)
+	// TODO(fwereade): we need to be able to customize machine jobs,
+	// not just hardcode these values; in particular, JobHostUnits
+	// on a machine, like this one, that is running JobManageEnviron
+	// (not to mention the actual state server itself...) will allow
+	// a malicious or compromised unit to trivially access to the
+	// user's environment credentials. However, given that this point
+	// is currently moot (see Upgrader in this package), the pseudo-
+	// local provider mode (in which everything is deployed with
+	// `--force-machine 0`) offers enough value to enough people that
+	// JobHostUnits is currently always enabled. This will one day
+	// have to change, but it's strictly less important than fixing
+	// Upgrader, and it's a capability we'll always want to have
+	// available for the aforementioned use case.
+	jobs := []state.MachineJob{
+		state.JobManageEnviron, state.JobServeAPI, state.JobHostUnits,
+	}
+	m, err := st.InjectMachine(version.Current.Series, instanceId, jobs...)
 	if err != nil {
 		return err
 	}

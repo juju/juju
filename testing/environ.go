@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package testing
 
 import (
@@ -41,9 +44,16 @@ const MultipleEnvConfig = EnvDefault + MultipleEnvConfigNoDefault
 
 const SampleCertName = "erewhemos"
 
+type TestFile struct {
+	Name, Data string
+}
+
 type FakeHome struct {
-	oldHome     string
-	oldJujuHome string
+	oldHomeEnv     string
+	oldJujuEnv     string
+	oldJujuHomeEnv string
+	oldJujuHome    string
+	files          []TestFile
 }
 
 // MakeFakeHomeNoEnvironments creates a new temporary directory through the
@@ -55,8 +65,6 @@ type FakeHome struct {
 // dir.
 func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 	fake := MakeEmptyFakeHome(c)
-	err := os.Mkdir(config.JujuHome(), 0755)
-	c.Assert(err, IsNil)
 
 	for _, name := range certNames {
 		err := ioutil.WriteFile(config.JujuHomePath(name+"-cert.pem"), []byte(CACert), 0600)
@@ -65,7 +73,7 @@ func MakeFakeHomeNoEnvironments(c *C, certNames ...string) *FakeHome {
 		c.Assert(err, IsNil)
 	}
 
-	err = os.Mkdir(HomePath(".ssh"), 0777)
+	err := os.Mkdir(HomePath(".ssh"), 0777)
 	c.Assert(err, IsNil)
 	err = ioutil.WriteFile(HomePath(".ssh", "id_rsa.pub"), []byte("auth key\n"), 0666)
 	c.Assert(err, IsNil)
@@ -91,11 +99,23 @@ func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
 }
 
 func MakeEmptyFakeHome(c *C) *FakeHome {
-	oldHome := os.Getenv("HOME")
+	oldHomeEnv := os.Getenv("HOME")
+	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
+	oldJujuEnv := os.Getenv("JUJU_ENV")
 	fakeHome := c.MkDir()
 	os.Setenv("HOME", fakeHome)
-	oldJujuHome := config.SetJujuHome(filepath.Join(fakeHome, ".juju"))
-	return &FakeHome{oldHome, oldJujuHome}
+	os.Setenv("JUJU_HOME", "")
+	os.Setenv("JUJU_ENV", "")
+	jujuHome := filepath.Join(fakeHome, ".juju")
+	err := os.Mkdir(jujuHome, 0755)
+	c.Assert(err, IsNil)
+	oldJujuHome := config.SetJujuHome(jujuHome)
+	return &FakeHome{
+		oldHomeEnv:     oldHomeEnv,
+		oldJujuEnv:     oldJujuEnv,
+		oldJujuHomeEnv: oldJujuHomeEnv,
+		oldJujuHome:    oldJujuHome,
+		files:          []TestFile{}}
 }
 
 func HomePath(names ...string) string {
@@ -105,7 +125,50 @@ func HomePath(names ...string) string {
 
 func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("HOME", h.oldHome)
+	os.Setenv("JUJU_ENV", h.oldJujuEnv)
+	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
+	os.Setenv("HOME", h.oldHomeEnv)
+}
+
+func (h *FakeHome) AddFiles(c *C, files []TestFile) {
+	for _, f := range files {
+		path := HomePath(f.Name)
+		err := os.MkdirAll(filepath.Dir(path), 0700)
+		c.Assert(err, IsNil)
+		err = ioutil.WriteFile(path, []byte(f.Data), 0666)
+		c.Assert(err, IsNil)
+		h.files = append(h.files, f)
+	}
+}
+
+// FileContents returns the test file contents for the
+// given specified path (which may be relative, so
+// we compare with the base filename only).
+func (h *FakeHome) FileContents(c *C, path string) string {
+	for _, f := range h.files {
+		if filepath.Base(f.Name) == filepath.Base(path) {
+			return f.Data
+		}
+	}
+	c.Fatalf("path attribute holds unknown test file: %q", path)
+	panic("unreachable")
+}
+
+// FileExists returns if the given relative file path exists
+// in the fake home.
+func (h *FakeHome) FileExists(path string) bool {
+	for _, f := range h.files {
+		if f.Name == path {
+			return true
+		}
+	}
+	return false
+}
+
+func MakeFakeHomeWithFiles(c *C, files []TestFile) *FakeHome {
+	fake := MakeEmptyFakeHome(c)
+	fake.AddFiles(c, files)
+	return fake
 }
 
 func MakeSampleHome(c *C) *FakeHome {

@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cloudinit
 
 import (
@@ -15,6 +18,11 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"path"
+)
+
+const (
+	maxMongoFiles = 65000
+	maxAgentFiles = 20000
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -106,12 +114,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
-	// TODO(dimitern) this is needed for raring, due to LP bug #1103881
-	if cfg.Tools.Series == "raring" {
-		addScripts(c, "apt-get upgrade -y")
-	} else {
-		c.SetAptUpgrade(true)
-	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
 
@@ -184,9 +186,9 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 
 	// general options
+	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
-
 	return c, nil
 }
 
@@ -267,8 +269,11 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, tag, args str
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    fmt.Sprintf("juju %s agent", tag),
-		Cmd:     cmd,
-		Out:     logPath,
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
+		},
+		Cmd: cmd,
+		Out: logPath,
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
@@ -290,6 +295,10 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 	conf := &upstart.Conf{
 		Service: *svc,
 		Desc:    "juju state database",
+		Limit: map[string]string{
+			"nofile": fmt.Sprintf("%d %d", maxMongoFiles, maxMongoFiles),
+			"nproc":  fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
+		},
 		Cmd: "/usr/bin/mongod" +
 			" --auth" +
 			" --dbpath=/var/lib/juju/db" +
@@ -299,6 +308,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --bind_ip 0.0.0.0" +
 			" --port " + fmt.Sprint(cfg.MongoPort) +
 			" --noprealloc" +
+			" --syslog" +
 			" --smallfiles",
 	}
 	cmds, err := conf.InstallCommands()

@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc
 
 import (
@@ -39,7 +42,6 @@ If no key is given, or if the key is "-", all keys and values will be printed.
 }
 
 func (c *RelationGetCommand) SetFlags(f *gnuflag.FlagSet) {
-	// TODO FWER implement --format shell lp:1033511
 	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
 	f.Var(newRelationIdValue(c.ctx, &c.RelationId), "r", "specify a relation by id")
 }

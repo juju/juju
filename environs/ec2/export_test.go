@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package ec2
 
 import (
@@ -80,7 +83,7 @@ func UseTestImageData(content []jujutest.FileContent) {
 
 // UseTestInstanceTypeData causes the given instance type
 // cost data to be served for the "test" region.
-func UseTestInstanceTypeData(content map[string]uint64) {
+func UseTestInstanceTypeData(content instanceTypeCost) {
 	if content != nil {
 		allRegionCosts["test"] = content
 	} else {

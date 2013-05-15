@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package params_test
 
 import (
@@ -61,7 +64,7 @@ var marshalTestCases = []struct {
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
 			Ports: []params.Port{
-				params.Port{
+				{
 					Protocol: "http",
 					Number:   80},
 			},
@@ -79,8 +82,8 @@ var marshalTestCases = []struct {
 		Entity: &params.RelationInfo{
 			Key: "Benji",
 			Endpoints: []params.Endpoint{
-				params.Endpoint{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
-				params.Endpoint{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
+				{ServiceName: "logging", Relation: charm.Relation{Name: "logging-directory", Role: "requirer", Interface: "logging", Optional: false, Limit: 1, Scope: "container"}},
+				{ServiceName: "wordpress", Relation: charm.Relation{Name: "logging-dir", Role: "provider", Interface: "logging", Optional: false, Limit: 0, Scope: "container"}}},
 		},
 	},
 	json: `["relation","change",{"Key":"Benji", "Endpoints": [{"ServiceName":"logging", "Relation":{"Name":"logging-directory", "Role":"requirer", "Interface":"logging", "Optional":false, "Limit":1, "Scope":"container"}}, {"ServiceName":"wordpress", "Relation":{"Name":"logging-dir", "Role":"provider", "Interface":"logging", "Optional":false, "Limit":0, "Scope":"container"}}]}]`,

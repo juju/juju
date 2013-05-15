@@ -1,69 +1,53 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack
 
 import (
+	"bufio"
 	"fmt"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/environs/instances"
 )
 
-// instanceSpec specifies a particular kind of instance.
-type instanceSpec struct {
-	flavorId string
-	imageId  string
-	tools    *state.Tools
-}
-
-func findInstanceSpec(e *environ, possibleTools tools.List) (*instanceSpec, error) {
-	// TODO(wallyworld/fwereade) - we want to search for an image based on the
-	// series, possible arches, and region, as http://cloud-images.ubuntu.com
-	// allows for ec2, but there's nothing to support that yet. Instead, we
-	// require that the user configure a default-image-id, and assume/require
-	// that it be a precise-amd64 image, on the basis that (1) most charms are
-	// precise and (2) we need an amd64 image because we don't currently supply
-	// tools for other arches.
-	// Thus, we require at this point that tools be available for precise/amd64.
-	imageId := e.ecfg().defaultImageId()
-	if imageId == "" {
-		return nil, fmt.Errorf("no default-image-id set")
-	}
-
-	// TODO(wallyworld/fwereade) - we should be using constraints, but we're not;
-	// we require that the user enter an default-instance-type appropriate to her
-	// cloud.
-	flavorName := e.ecfg().defaultInstanceType()
-	if flavorName == "" {
-		return nil, fmt.Errorf("no default-instance-type set")
-	}
-	log.Warningf("environs/openstack: ignoring constraints, using default-instance-type flavor %q", flavorName)
-	flavors, err := e.nova().ListFlavors()
+// findInstanceSpec returns an image and instance type satisfying the constraint.
+// The instance type comes from querying the flavors supported by the deployment.
+func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	// first construct all available instance types from the supported flavors.
+	nova := e.nova()
+	flavors, err := nova.ListFlavorsDetail()
 	if err != nil {
 		return nil, err
 	}
-	var flavorId string
+	allInstanceTypes := []instances.InstanceType{}
 	for _, flavor := range flavors {
-		if flavor.Name == flavorName {
-			flavorId = flavor.Id
-			break
+		instanceType := instances.InstanceType{
+			Id:       flavor.Id,
+			Name:     flavor.Name,
+			Arches:   ic.Arches,
+			Mem:      uint64(flavor.RAM),
+			CpuCores: uint64(flavor.VCPUs),
+			Cost:     uint64(flavor.RAM),
 		}
-	}
-	if flavorId == "" {
-		return nil, &environs.NotFoundError{fmt.Errorf("flavor %q not found", flavorName)}
+		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	log.Warningf("environs/openstack: forcing precise/amd64 tools for image %q", imageId)
-	possibleTools, err = possibleTools.Match(tools.Filter{
-		Arch:   "amd64",
-		Series: "precise",
-	})
+	// look first in the control bucket and then the public bucket to find the release files containing the
+	// metadata for available images. The format of the data in the files is found at
+	// https://help.ubuntu.com/community/UEC/Images.
+	var spec *instances.InstanceSpec
+	releasesFile := fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", ic.Series)
+	r, err := e.Storage().Get(releasesFile)
 	if err != nil {
-		return nil, &environs.NotFoundError{err}
+		r, err = e.PublicStorage().Get(releasesFile)
 	}
-	tools := possibleTools[0]
-	return &instanceSpec{
-		imageId:  imageId,
-		flavorId: flavorId,
-		tools:    tools,
-	}, nil
+	var br *bufio.Reader
+	if err == nil {
+		defer r.Close()
+		br = bufio.NewReader(r)
+	}
+	spec, err = instances.FindInstanceSpec(br, ic, allInstanceTypes)
+	if err != nil {
+		return nil, err
+	}
+	return spec, nil
 }

@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -357,6 +360,24 @@ func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, erro
 	return newcfg, orig.assertUnchangedOp(), nil
 }
 
+func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
+	asserts := make([]txn.Op, 0, len(relations))
+	// All relations must still exist and their endpoints are implemented by the charm.
+	for _, rel := range relations {
+		if ep, err := rel.Endpoint(s.doc.Name); err != nil {
+			return nil, err
+		} else if !ep.ImplementedBy(ch) {
+			return nil, fmt.Errorf("cannot upgrade service %q to charm %q: would break relation %q", s, ch, rel)
+		}
+		asserts = append(asserts, txn.Op{
+			C:      s.st.relations.Name,
+			Id:     rel.doc.Key,
+			Assert: txn.DocExists,
+		})
+	}
+	return asserts, nil
+}
+
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
@@ -417,14 +438,29 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	// Get all relations - we need to check them later.
+	relations, err := s.Relations()
+	if err != nil {
+		return nil, err
+	}
+	// Make sure the relation count does not change.
+	sameRelCount := D{{"relationcount", len(relations)}}
+
 	ops = append(ops, peerOps...)
 	// Update the relation count as well.
 	ops = append(ops, txn.Op{
 		C:      s.st.services.Name,
 		Id:     s.doc.Name,
-		Assert: txn.DocExists,
+		Assert: append(isAliveDoc, sameRelCount...),
 		Update: D{{"$inc", D{{"relationcount", len(newPeers)}}}},
 	})
+	// Check relations to ensure no active relations are removed.
+	relOps, err := s.checkRelationsOps(ch, relations)
+	if err != nil {
+		return nil, err
+	}
+	ops = append(ops, relOps...)
 
 	// And finally, decrement the old settings.
 	return append(ops, decOps...), nil
@@ -461,8 +497,6 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			if err != nil {
 				return err
 			}
-			// TODO(fwereade) check that the service's endpoint in each of
-			// its existing relations is still implemented by the new charm.
 		}
 
 		if err := s.st.runner.Run(ops, "", nil); err == nil {
