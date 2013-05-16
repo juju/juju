@@ -18,6 +18,7 @@ import (
 	"reflect"
 	"sort"
 	"strings"
+	"sync"
 )
 
 // CloudSpec uniquely defines a specific cloud deployment.
@@ -32,8 +33,6 @@ type ImageConstraint struct {
 	Release string
 	Arch    string
 	Stream  string // may be "", typically "release", "daily" etc
-	// the id may be expensive to generate so cache it.
-	cachedId string
 }
 
 // NewImageConstraint creates a ImageConstraint.
@@ -51,24 +50,15 @@ func NewImageConstraint(region, endpoint, release, arch, stream string) ImageCon
 
 // Generates a string representing a product id formed similarly to an ISCSI qualified name (IQN).
 func (ic *ImageConstraint) Id() (string, error) {
-	if ic.cachedId != "" {
-		return ic.cachedId, nil
-	}
 	stream := ic.Stream
 	if stream != "" {
 		stream = "." + stream
 	}
-	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
-	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
-	err := updateDistroInfo()
+	version, err := releaseVersion(ic.Release)
 	if err != nil {
 		return "", err
 	}
-	if version, ok := releaseVersions[ic.Release]; ok {
-		ic.cachedId = fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, ic.Arch)
-		return ic.cachedId, nil
-	}
-	return "", fmt.Errorf("Invalid Ubuntu release %q", ic.Release)
+	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, ic.Arch), nil
 }
 
 // releaseVersions provides a mapping between Ubuntu series names and version numbers.
@@ -80,6 +70,30 @@ var releaseVersions = map[string]string{
 	"quantal": "12.10",
 	"raring":  "13.04",
 	"saucy":   "13.10",
+}
+
+var (
+	releaseVersionsMutex   sync.Mutex
+	updatedReleaseVersions bool
+)
+
+func releaseVersion(release string) (string, error) {
+	releaseVersionsMutex.Lock()
+	defer releaseVersionsMutex.Unlock()
+	if vers, ok := releaseVersions[release]; ok {
+		return vers, nil
+	}
+	if !updatedReleaseVersions {
+		err := updateDistroInfo()
+		updatedReleaseVersions = true
+		if err != nil {
+			return "", err
+		}
+	}
+	if vers, ok := releaseVersions[release]; ok {
+		return vers, nil
+	}
+	return "", &environs.NotFoundError{fmt.Errorf("invalid Ubuntu release %q", release)}
 }
 
 // updateDistroInfo updates releaseVersions from /usr/share/distro-info/ubuntu.csv if possible..
@@ -103,6 +117,10 @@ func updateDistroInfo() error {
 		}
 		// lines are of the form: "12.04 LTS,Precise Pangolin,precise,2011-10-13,2012-04-26,2017-04-26"
 		parts := strings.Split(line, ",")
+		// Ignore any malformed lines.
+		if len(parts) < 3 {
+			continue
+		}
 		// the numeric version may contain a LTS moniker so strip that out.
 		releaseInfo := strings.Split(parts[0], " ")
 		releaseVersions[parts[2]] = releaseInfo[0]
@@ -145,8 +163,7 @@ type imageCollection struct {
 	Endpoint   string                    `json:"endpoint"`
 }
 
-// This is the only struct we need to export. The goal of this package is to provide a list of
-// ImageMetadata records matching the supplied region, arch etc.
+// ImageMetadata holds information about a particular cloud image.
 type ImageMetadata struct {
 	Id          string `json:"id"`
 	Storage     string `json:"root_store"`
@@ -185,9 +202,9 @@ const (
 	imageIds         = "image-ids"
 )
 
-// GetImageIdMetadata returns a list of images for the specified cloud matching the product criteria.
+// Fetch returns a list of images for the specified cloud matching the product criteria.
 // The base URL locations are as specified - the first location which has a file is the one used.
-func GetImageIdMetadata(baseURLs []string, indexPath string, imageConstraint *ImageConstraint) ([]*ImageMetadata, error) {
+func Fetch(baseURLs []string, indexPath string, imageConstraint *ImageConstraint) ([]*ImageMetadata, error) {
 	var metadata []*ImageMetadata
 	for _, baseURL := range baseURLs {
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0")
@@ -215,6 +232,7 @@ func GetImageIdMetadata(baseURLs []string, indexPath string, imageConstraint *Im
 }
 
 // fetchData gets all the data from the given path relative to the given base URL.
+// It returns the data found and the full URL used.
 func fetchData(baseURL, path string) ([]byte, string, error) {
 	dataURL := baseURL
 	if !strings.HasSuffix(dataURL, "/") {
@@ -223,19 +241,19 @@ func fetchData(baseURL, path string) ([]byte, string, error) {
 	dataURL += path
 	resp, err := http.Get(dataURL)
 	if err != nil {
-		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("invalid URL %s", dataURL)}
+		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("invalid URL %q", dataURL)}
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("cannot find URL %s", dataURL)}
+		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("cannot find URL %q", dataURL)}
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, dataURL, fmt.Errorf("cannot access URL %s, %s", dataURL, resp.Status)
+		return nil, dataURL, fmt.Errorf("cannot access URL %q, %q", dataURL, resp.Status)
 	}
 
 	data, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return nil, dataURL, fmt.Errorf("cannot read URL data, %s", err.Error())
+		return nil, dataURL, fmt.Errorf("cannot read URL data, %v", err)
 	}
 	return data, dataURL, nil
 }
@@ -251,10 +269,10 @@ func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, err
 	var indices indices
 	err = json.Unmarshal(data, &indices)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %s: %s", url, err.Error())
+		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %q: %v", url, err)
 	}
 	if indices.Format != format {
-		return nil, fmt.Errorf("unexpected index file format %q, expected %s at URL %s", indices.Format, format, url)
+		return nil, fmt.Errorf("unexpected index file format %q, expected %q at URL %q", indices.Format, format, url)
 	}
 	return &indexReference{
 		indices: indices,
@@ -475,10 +493,10 @@ func (indexRef *indexReference) getCloudMetadataWithFormat(imageConstraint *Imag
 	var imageMetadata cloudImageMetadata
 	err = json.Unmarshal(data, &imageMetadata)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unmarshal JSON image metadata at URL %s: %s", url, err.Error())
+		return nil, fmt.Errorf("cannot unmarshal JSON image metadata at URL %q: %v", url, err)
 	}
 	if imageMetadata.Format != format {
-		return nil, fmt.Errorf("unexpected index file format %q, expected %q at URL %s", imageMetadata.Format, format, url)
+		return nil, fmt.Errorf("unexpected index file format %q, expected %q at URL %q", imageMetadata.Format, format, url)
 	}
 	imageMetadata.applyAliases()
 	imageMetadata.denormaliseImageMetadata()

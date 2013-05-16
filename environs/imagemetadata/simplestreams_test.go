@@ -301,13 +301,13 @@ func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdMetadataExists(c *C) {
-	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
+	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdMetadataMultipleBaseURLsExists(c *C) {
-	im, err := GetImageIdMetadata([]string{"http://bad", s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
+	im, err := Fetch([]string{"http://bad", s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
@@ -333,7 +333,7 @@ func (s *simplestreamsSuite) assertImageMetadataContents(c *C, im []*ImageMetada
 }
 
 func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
-	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
+	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
 	c.Assert(err, IsNil)
 	s.assertImageMetadataContents(c, im)
 }
@@ -406,7 +406,6 @@ func (s *productSpecSuite) TestNameWithDefaultStream(c *C) {
 	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
 	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud:server:12.04:amd64")
-	c.Assert(prodSpec.cachedId, Equals, prodSpecId)
 }
 
 func (s *productSpecSuite) TestId(c *C) {
@@ -414,7 +413,6 @@ func (s *productSpecSuite) TestId(c *C) {
 	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
 	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
-	c.Assert(prodSpec.cachedId, Equals, prodSpecId)
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
@@ -422,5 +420,4 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
 	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud.daily:server:10.04:amd64")
-	c.Assert(prodSpec.cachedId, Equals, prodSpecId)
 }
