@@ -35,7 +35,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	if err != nil {
 		return nil, err
 	}
-	matchingImages, err := imagemetadata.GetImageIdMetadata(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
+	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
 	if err != nil {
 		return nil, err
 	}
