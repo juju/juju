@@ -7,9 +7,9 @@ import (
 	"net"
 )
 
-// NewWS returns an rpc codec that uses the given websocket
+// NewWebsocket returns an rpc codec that uses the given websocket
 // connection to send and receive messages.
-func NewWS(conn *websocket.Conn) rpc.Codec {
+func NewWebsocket(conn *websocket.Conn) rpc.Codec {
 	return New(wsJSONConn{conn})
 }
 

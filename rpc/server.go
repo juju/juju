@@ -227,9 +227,9 @@ func (conn *Conn) Close() error {
 	conn.srvPending.Wait()
 
 	// Closing the codec should cause the input loop to terminate.
-	// TODO(rog) what should we do with the error from closing the codec?
-	_ = conn.codec.Close()
-
+	if err := conn.codec.Close(); err != nil {
+		log.Infof("rpc: error closing codec: %v", err)
+	}
 	<-conn.dead
 	return conn.inputLoopError
 }
@@ -301,7 +301,7 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
-	o, a, err := conn.findRequest(hdr)
+	obtain, act, err := conn.findRequest(hdr)
 	if err != nil {
 		if err := conn.readBody(nil, true); err != nil {
 			return err
@@ -310,8 +310,8 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	}
 	var argp interface{}
 	var arg reflect.Value
-	if a.arg != nil {
-		v := reflect.New(a.arg)
+	if act.arg != nil {
+		v := reflect.New(act.arg)
 		arg = v.Elem()
 		argp = v.Interface()
 	}
@@ -335,7 +335,7 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(hdr.RequestId, hdr.Id, o, a, arg)
+		go conn.runRequest(hdr.RequestId, hdr.Id, obtain, act, arg)
 	}
 	conn.mutex.Unlock()
 	if closing {
@@ -390,9 +390,9 @@ func (conn *Conn) findRequest(hdr *Header) (*obtainer, *action, error) {
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) {
+func (conn *Conn) runRequest(reqId uint64, objId string, obtain *obtainer, act *action, arg reflect.Value) {
 	defer conn.srvPending.Done()
-	rv, err := conn.runRequest0(reqId, objId, o, a, arg)
+	rv, err := conn.runRequest0(reqId, objId, obtain, act, arg)
 	if err != nil {
 		err = conn.writeErrorResponse(reqId, err)
 	} else {
@@ -414,10 +414,10 @@ func (conn *Conn) runRequest(reqId uint64, objId string, o *obtainer, a *action,
 	}
 }
 
-func (conn *Conn) runRequest0(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) (reflect.Value, error) {
-	obj, err := o.call(conn.rootValue, objId)
+func (conn *Conn) runRequest0(reqId uint64, objId string, obtain *obtainer, act *action, arg reflect.Value) (reflect.Value, error) {
+	obj, err := obtain.call(conn.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return a.call(obj, arg)
+	return act.call(obj, arg)
 }

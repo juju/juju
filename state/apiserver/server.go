@@ -95,7 +95,7 @@ func (srv *Server) Addr() string {
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn) error {
-	conn := rpc.NewConn(jsoncodec.NewWS(wsConn))
+	conn := rpc.NewConn(jsoncodec.NewWebsocket(wsConn))
 	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
 		return err
 	}

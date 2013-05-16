@@ -59,26 +59,26 @@ func methods(rootType reflect.Type) (*serverMethods, error) {
 		action: make(map[reflect.Type]map[string]*action),
 	}
 	for i := 0; i < rootType.NumMethod(); i++ {
-		m := rootType.Method(i)
-		o := methodToObtainer(m)
-		if o == nil {
-			log.Infof("rpc: discarding obtainer method %#v", m)
+		rootMethod := rootType.Method(i)
+		obtain := methodToObtainer(rootMethod)
+		if obtain == nil {
+			log.Infof("rpc: discarding obtainer method %#v", rootMethod)
 			continue
 		}
 		actions := make(map[string]*action)
-		for i := 0; i < o.ret.NumMethod(); i++ {
-			m := o.ret.Method(i)
-			if a := methodToAction(m); a != nil {
-				actions[m.Name] = a
+		for i := 0; i < obtain.ret.NumMethod(); i++ {
+			obtainMethod := obtain.ret.Method(i)
+			if act := methodToAction(obtainMethod); act != nil {
+				actions[obtainMethod.Name] = act
 			} else {
-				log.Infof("rpc: discarding action method %#v", m)
+				log.Infof("rpc: discarding action method %#v", obtainMethod)
 			}
 		}
 		if len(actions) > 0 {
-			methods.action[o.ret] = actions
-			methods.obtain[m.Name] = o
+			methods.action[obtain.ret] = actions
+			methods.obtain[rootMethod.Name] = obtain
 		} else {
-			log.Infof("rpc: discarding obtainer %v because its result has no methods", m.Name)
+			log.Infof("rpc: discarding obtainer %v because its result has no methods", rootMethod.Name)
 		}
 	}
 	if len(methods.obtain) == 0 {
