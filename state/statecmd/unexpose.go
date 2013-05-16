@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The statecmd package is a temporary package
 // to put code that's used by both cmd/juju and state/api.
 package statecmd

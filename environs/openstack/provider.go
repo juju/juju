@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // Stub provider for OpenStack, using goose will be implemented here
 
 package openstack
@@ -540,6 +543,10 @@ func (e *environ) client(ecfg *environConfig, authModeCfg AuthMode) client.Authe
 		authMode = identity.AuthLegacy
 	case AuthUserPass:
 		authMode = identity.AuthUserPass
+	case AuthKeyPair:
+		authMode = identity.AuthKeyPair
+		cred.User = ecfg.accessKey()
+		cred.Secrets = ecfg.secretKey()
 	}
 	return client.NewClient(cred, authMode, nil)
 }

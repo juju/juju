@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack_test
 
 import (
@@ -130,7 +133,7 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	s.Server.Config.Handler = s.Mux
 	cred.URL = s.Server.URL
 	c.Logf("Started service at: %v", s.Server.URL)
-	s.Service = openstackservice.New(cred)
+	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
 	openstack.ShortTimeouts(true)
 }
