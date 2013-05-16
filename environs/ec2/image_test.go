@@ -146,7 +146,7 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		series: "bad",
 		arches: both,
-		err:    `Invalid Ubuntu release "bad"`,
+		err:    `invalid Ubuntu release "bad"`,
 	}, {
 		series: "precise",
 		arches: []string{"arm"},

@@ -28,7 +28,7 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 	imageConstraint := imagemetadata.NewImageConstraint(ic.Region, ec2Region.EC2Endpoint, ic.Series, ic.Arches, "")
 	ebs := ebsStorage
 	imageConstraint.Storage = &ebs
-	matchingImages, err := imagemetadata.GetImageIdMetadata(
+	matchingImages, err := imagemetadata.Fetch(
 		baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err

@@ -323,8 +323,8 @@ func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 	c.Assert(path, Equals, "streams/v1/image_metadata.json")
 }
 
-func (s *simplestreamsSuite) TestGetImageIdMetadataNoSignedMetadata(c *C) {
-	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, true)
+func (s *simplestreamsSuite) TestFetchNoSignedMetadata(c *C) {
+	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, true)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) == 0, Equals, true)
 }
@@ -343,14 +343,14 @@ func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *C) {
 	s.assertGetMetadata(c)
 }
 
-func (s *liveSimplestreamsSuite) TestGetImageIdMetadataExists(c *C) {
-	im, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
+func (s *liveSimplestreamsSuite) TestFetchExists(c *C) {
+	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
 
-func (s *liveSimplestreamsSuite) TestGetImageIdMetadataMultipleBaseURLsExists(c *C) {
-	im, err := GetImageIdMetadata([]string{"http://127.0.0.1", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
+func (s *liveSimplestreamsSuite) TestFetchMultipleBaseURLsExists(c *C) {
+	im, err := Fetch([]string{"http://127.0.0.1", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
@@ -423,7 +423,6 @@ func (s *productSpecSuite) TestIdWithDefaultStream(c *C) {
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
-	c.Assert(imageConstraint.cachedIds, DeepEquals, ids)
 }
 
 func (s *productSpecSuite) TestId(c *C) {
@@ -431,7 +430,6 @@ func (s *productSpecSuite) TestId(c *C) {
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
-	c.Assert(imageConstraint.cachedIds, DeepEquals, ids)
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *C) {
@@ -441,7 +439,6 @@ func (s *productSpecSuite) TestIdMultiArch(c *C) {
 	c.Assert(ids, DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
-	c.Assert(imageConstraint.cachedIds, DeepEquals, ids)
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
@@ -449,11 +446,10 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
-	c.Assert(imageConstraint.cachedIds, DeepEquals, ids)
 }
 
 var ebs = "ebs"
-var getImageIdMetadataTests = []struct {
+var fetchTests = []struct {
 	region  string
 	series  string
 	arches  []string
@@ -547,12 +543,12 @@ var getImageIdMetadataTests = []struct {
 	},
 }
 
-func (s *simplestreamsSuite) TestGetImageIdMetadata(c *C) {
-	for i, t := range getImageIdMetadataTests {
+func (s *simplestreamsSuite) TestFetch(c *C) {
+	for i, t := range fetchTests {
 		c.Logf("test %d", i)
 		imageConstraint := NewImageConstraint(t.region, "https://ec2.us-east-1.amazonaws.com", "precise", t.arches, "")
 		imageConstraint.Storage = t.storage
-		images, err := GetImageIdMetadata([]string{s.baseURL}, DefaultIndexPath, &imageConstraint, s.requireSigned)
+		images, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &imageConstraint, s.requireSigned)
 		if !c.Check(err, IsNil) {
 			continue
 		}
