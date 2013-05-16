@@ -365,6 +365,12 @@ var TestImagesData = []jujutest.FileContent{
              "virt": "pv",
              "region": "test",
              "id": "ami-02000034"
+           },
+           "test2pe": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "test",
+             "id": "ami-02000035"
            }
          },
          "pubname": "ubuntu-raring-13.04-i386-server-20121218",

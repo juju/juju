@@ -427,11 +427,13 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		return nil, err
 	}
 	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
-		Region:      e.ecfg().region(),
-		Series:      scfg.series,
-		Arches:      arches,
-		Constraints: scfg.constraints,
-		Storage:     &storage,
+		Region:              e.ecfg().region(),
+		Series:              scfg.series,
+		Arches:              arches,
+		Constraints:         scfg.constraints,
+		DefaultInstanceType: e.ecfg().defaultInstanceType(),
+		DefaultImageId:      e.ecfg().defaultImageId(),
+		Storage:             &storage,
 	})
 	if err != nil {
 		return nil, err

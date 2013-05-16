@@ -766,6 +766,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		Constraints:         scfg.constraints,
 		DefaultInstanceType: e.ecfg().defaultInstanceType(),
 		DefaultImageId:      e.ecfg().defaultImageId(),
+		OverrideImageId:     e.ecfg().overrideImageId(),
 	})
 	if err != nil {
 		return nil, err

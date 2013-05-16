@@ -167,6 +167,12 @@ var publicBucketImagesData = `
              "virt": "pv",
              "region": "another-region",
              "id": "2"
+           },
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
@@ -258,6 +264,7 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 		Constraints:         constraints.MustParse(cons),
 		DefaultInstanceType: env.ecfg().defaultInstanceType(),
 		DefaultImageId:      env.ecfg().defaultImageId(),
+		OverrideImageId:     env.ecfg().overrideImageId(),
 	})
 	return
 }
@@ -279,6 +286,11 @@ func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
 func SetDefaultImageId(e environs.Environ, defaultId string) {
 	ecfg := e.(*environ).ecfg()
 	ecfg.attrs["default-image-id"] = defaultId
+}
+
+func SetOverrideImageId(e environs.Environ, overrideId string) {
+	ecfg := e.(*environ).ecfg()
+	ecfg.attrs["override-image-id"] = overrideId
 }
 
 // ImageDetails specify parameters used to start a test machine for the live tests.

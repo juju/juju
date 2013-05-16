@@ -12,19 +12,23 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"access-key":           schema.String(),
-		"secret-key":           schema.String(),
-		"region":               schema.String(),
-		"control-bucket":       schema.String(),
-		"public-bucket":        schema.String(),
-		"public-bucket-region": schema.String(),
+		"access-key":            schema.String(),
+		"secret-key":            schema.String(),
+		"region":                schema.String(),
+		"control-bucket":        schema.String(),
+		"public-bucket":         schema.String(),
+		"public-bucket-region":  schema.String(),
+		"default-image-id":      schema.String(),
+		"default-instance-type": schema.String(),
 	},
 	schema.Defaults{
-		"access-key":           "",
-		"secret-key":           "",
-		"region":               "us-east-1",
-		"public-bucket":        "juju-dist",
-		"public-bucket-region": "us-east-1",
+		"access-key":            "",
+		"secret-key":            "",
+		"region":                "us-east-1",
+		"public-bucket":         "juju-dist",
+		"public-bucket-region":  "us-east-1",
+		"default-image-id":      "",
+		"default-instance-type": "",
 	},
 )
 
@@ -55,6 +59,14 @@ func (c *environConfig) accessKey() string {
 
 func (c *environConfig) secretKey() string {
 	return c.attrs["secret-key"].(string)
+}
+
+func (c *environConfig) defaultImageId() string {
+	return c.attrs["default-image-id"].(string)
+}
+
+func (c *environConfig) defaultInstanceType() string {
+	return c.attrs["default-instance-type"].(string)
 }
 
 func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

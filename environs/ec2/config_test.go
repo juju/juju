@@ -38,16 +38,18 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 // when mutated by the mutate function, or that the parse matches the
 // given error.
 type configTest struct {
-	config        attrs
-	change        attrs
-	region        string
-	cbucket       string
-	pbucket       string
-	pbucketRegion string
-	accessKey     string
-	secretKey     string
-	firewallMode  config.FirewallMode
-	err           string
+	config              attrs
+	change              attrs
+	region              string
+	cbucket             string
+	pbucket             string
+	pbucketRegion       string
+	accessKey           string
+	secretKey           string
+	defaultImageId      string
+	defaultInstanceType string
+	firewallMode        config.FirewallMode
+	err                 string
 }
 
 type attrs map[string]interface{}
@@ -124,6 +126,12 @@ func (t configTest) check(c *C) {
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
+	}
+	if t.defaultImageId != "" {
+		c.Assert(ecfg.defaultImageId(), Equals, t.defaultImageId)
+	}
+	if t.defaultInstanceType != "" {
+		c.Assert(ecfg.defaultInstanceType(), Equals, t.defaultInstanceType)
 	}
 
 	// check storage buckets are configured correctly
@@ -245,6 +253,16 @@ var configTests = []configTest{
 		config: attrs{
 			"admin-secret": "Futumpsh",
 		},
+	}, {
+		config: attrs{
+			"default-image-id": "image-id",
+		},
+		defaultImageId: "image-id",
+	}, {
+		config: attrs{
+			"default-instance-type": "instance-type",
+		},
+		defaultInstanceType: "instance-type",
 	}, {
 		config:       attrs{},
 		firewallMode: config.FwInstance,

@@ -25,6 +25,7 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket":         schema.String(),
 		"public-bucket-url":     schema.String(),
 		"default-image-id":      schema.String(),
+		"override-image-id":     schema.String(),
 		"default-instance-type": schema.String(),
 		"use-floating-ip":       schema.Bool(),
 	},
@@ -41,6 +42,7 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket":         "juju-dist",
 		"public-bucket-url":     "",
 		"default-image-id":      "",
+		"override-image-id":     "",
 		"default-instance-type": "",
 		"use-floating-ip":       false,
 	},
@@ -97,6 +99,10 @@ func (c *environConfig) publicBucketURL() string {
 
 func (c *environConfig) defaultImageId() string {
 	return c.attrs["default-image-id"].(string)
+}
+
+func (c *environConfig) overrideImageId() string {
+	return c.attrs["override-image-id"].(string)
 }
 
 func (c *environConfig) defaultInstanceType() string {
