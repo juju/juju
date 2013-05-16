@@ -6,11 +6,12 @@ package main
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
 
 type UnexposeSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&UnexposeSuite{})
@@ -28,11 +29,11 @@ func (s *UnexposeSuite) assertExposed(c *C, service string, expected bool) {
 }
 
 func (s *UnexposeSuite) TestUnexpose(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	testing.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
-	s.assertService(c, "some-service-name", curl, 1, 0)
+	s.AssertService(c, "some-service-name", curl, 1, 0)
 
 	err = runExpose(c, "some-service-name")
 	c.Assert(err, IsNil)
