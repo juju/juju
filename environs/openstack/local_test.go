@@ -423,8 +423,6 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
-	openstack.SetDefaultInstanceType(s.Env, "")
-	openstack.SetOverrideImageId(s.Env, "")
 	openstack.SetDefaultImageId(s.Env, "")
 	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
 	c.Assert(err, IsNil)
@@ -432,11 +430,9 @@ func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
 }
 
-// If no suitable image is found, use the override if specified.
-func (s *localServerSuite) TestFindImageSpecOverrideWhenNoImage(c *C) {
-	openstack.SetOverrideImageId(s.Env, "1234")
-	// Since no images are found, invalid default is ignored.
-	openstack.SetDefaultImageId(s.Env, "5678")
+// If no suitable image is found, use the default if specified.
+func (s *localServerSuite) TestFindImageSpecDefaultWhenNoImage(c *C) {
+	openstack.SetDefaultImageId(s.Env, "1234")
 	spec, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, "1234")
@@ -445,8 +441,6 @@ func (s *localServerSuite) TestFindImageSpecOverrideWhenNoImage(c *C) {
 
 // If multiple images are found, use the default if specified.
 func (s *localServerSuite) TestFindImageSpecDefaultImage(c *C) {
-	// Since images are found, invalid override is ignored.
-	openstack.SetOverrideImageId(s.Env, "5678")
 	openstack.SetDefaultImageId(s.Env, "1")
 	spec, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "")
 	c.Assert(err, IsNil)
@@ -454,28 +448,18 @@ func (s *localServerSuite) TestFindImageSpecDefaultImage(c *C) {
 	c.Assert(spec.InstanceTypeName, Not(Equals), "")
 }
 
-// If multiple instance types found, use the default flavor if specified.
-func (s *localServerSuite) TestFindImageSpecDefaultFlavor(c *C) {
-	openstack.SetOverrideImageId(s.Env, "")
-	openstack.SetDefaultImageId(s.Env, "1")
-	openstack.SetDefaultInstanceType(s.Env, "m1.small")
-	spec, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "")
-	c.Assert(err, IsNil)
-	c.Assert(spec.Image.Id, Equals, "1")
-	c.Assert(spec.InstanceTypeName, Equals, "m1.small")
-}
+//// If multiple instance types found, use the default flavor if specified.
+//func (s *localServerSuite) TestFindImageSpecDefaultFlavor(c *C) {
+//	openstack.SetDefaultImageId(s.Env, "1")
+//	spec, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "")
+//	c.Assert(err, IsNil)
+//	c.Assert(spec.Image.Id, Equals, "1")
+//	c.Assert(spec.InstanceTypeName, Equals, "m1.small")
+//}
 
-// An error occurs if multiple matching instance types found and the default flavor is invalid.
-func (s *localServerSuite) TestFindImageBadDefaultFlavor(c *C) {
-	openstack.SetDefaultInstanceType(s.Env, "bad.flavor")
-	_, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "")
-	c.Assert(err, ErrorMatches, `invalid default instance type name "bad.flavor"`)
-}
-
-// An error occurs if no suitable image is found and the override not specified.
+// An error occurs if no suitable image is found and the default not specified.
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	openstack.SetDefaultImageId(s.Env, "")
-	openstack.SetOverrideImageId(s.Env, "")
 	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\], and no override specified`)
+	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\], and no default specified`)
 }

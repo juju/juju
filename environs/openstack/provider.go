@@ -760,13 +760,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:              e.ecfg().region(),
-		Series:              scfg.series,
-		Arches:              arches,
-		Constraints:         scfg.constraints,
-		DefaultInstanceType: e.ecfg().defaultInstanceType(),
-		DefaultImageId:      e.ecfg().defaultImageId(),
-		OverrideImageId:     e.ecfg().overrideImageId(),
+		Region:      e.ecfg().region(),
+		Series:      scfg.series,
+		Arches:      arches,
+		Constraints: scfg.constraints,
+		// TODO (wallyworld): re-implement as constraints
+		DefaultImageId: e.ecfg().defaultImageId(),
 	})
 	if err != nil {
 		return nil, err

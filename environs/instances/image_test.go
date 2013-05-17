@@ -137,7 +137,6 @@ type instanceSpecTestParams struct {
 	constraints         string
 	instanceTypes       []InstanceType
 	defaultImageId      string
-	overrideImageId     string
 	defaultInstanceType string
 	imageId             string
 	instanceTypeId      string
@@ -159,15 +158,23 @@ func (p *instanceSpecTestParams) init() {
 var pv = "pv"
 var findInstanceSpecTests = []instanceSpecTestParams{
 	{
-		desc:            "image exists in metadata, don't use override",
-		region:          "test",
-		overrideImageId: "1234",
-		imageId:         "ami-00000033",
+		desc:    "image exists in metadata",
+		region:  "test",
+		imageId: "ami-00000033",
 		instanceTypes: []InstanceType{
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &pv, Mem: 512},
 		},
 		instanceTypeId:   "1",
 		instanceTypeName: "it-1",
+	},
+	{
+		desc:           "images exist, invalid default image id",
+		region:         "test",
+		defaultImageId: "1234",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"arm"}, VType: &pv, Mem: 512},
+		},
+		err: `invalid default image id "1234"`,
 	},
 	{
 		desc:           "multiple images exists in metadata, use default",
@@ -190,15 +197,10 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		err: `invalid default image id "1234"`,
 	},
 	{
-		desc:            "no image exists in metadata, use supplied override",
-		region:          "invalid-region",
-		overrideImageId: "1234",
-		imageId:         "1234",
-	},
-	{
-		desc:   "no image exists in metadata, no override supplied",
-		region: "invalid-region",
-		err:    `no "precise" images in invalid-region with arches \[amd64 arm\], and no override specified`,
+		desc:    "no image exists in metadata, no default supplied",
+		region:  "invalid-region",
+		imageId: "1234",
+		err:     `no "precise" images in invalid-region with arches \[amd64 arm\], and no default specified`,
 	},
 	{
 		desc:          "no valid instance types",
@@ -235,12 +237,11 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			})
 		}
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
-			Series:          "precise",
-			Region:          t.region,
-			Arches:          t.arches,
-			Constraints:     constraints.MustParse(t.constraints),
-			DefaultImageId:  t.defaultImageId,
-			OverrideImageId: t.overrideImageId,
+			Series:         "precise",
+			Region:         t.region,
+			Arches:         t.arches,
+			Constraints:    constraints.MustParse(t.constraints),
+			DefaultImageId: t.defaultImageId,
 		}, t.instanceTypes)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)

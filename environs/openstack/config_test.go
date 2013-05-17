@@ -41,27 +41,25 @@ var _ = Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary             string
-	config              attrs
-	change              attrs
-	envVars             map[string]string
-	region              string
-	controlBucket       string
-	publicBucket        string
-	pbucketURL          string
-	defaultImageId      string
-	overrideImageId     string
-	defaultInstanceType string
-	useFloatingIP       bool
-	username            string
-	password            string
-	tenantName          string
-	authMode            string
-	authURL             string
-	accessKey           string
-	secretKey           string
-	firewallMode        config.FirewallMode
-	err                 string
+	summary        string
+	config         attrs
+	change         attrs
+	envVars        map[string]string
+	region         string
+	controlBucket  string
+	publicBucket   string
+	pbucketURL     string
+	defaultImageId string
+	useFloatingIP  bool
+	username       string
+	password       string
+	tenantName     string
+	authMode       string
+	authURL        string
+	accessKey      string
+	secretKey      string
+	firewallMode   config.FirewallMode
+	err            string
 }
 
 type attrs map[string]interface{}
@@ -166,12 +164,6 @@ func (t configTest) check(c *C) {
 	}
 	if t.defaultImageId != "" {
 		c.Assert(ecfg.defaultImageId(), Equals, t.defaultImageId)
-	}
-	if t.overrideImageId != "" {
-		c.Assert(ecfg.overrideImageId(), Equals, t.overrideImageId)
-	}
-	if t.defaultInstanceType != "" {
-		c.Assert(ecfg.defaultInstanceType(), Equals, t.defaultInstanceType)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 }
@@ -369,18 +361,6 @@ var configTests = []configTest{
 			"default-image-id": "image-id",
 		},
 		defaultImageId: "image-id",
-	}, {
-		summary: "override image id",
-		config: attrs{
-			"override-image-id": "image-id",
-		},
-		overrideImageId: "image-id",
-	}, {
-		summary: "default instance type",
-		config: attrs{
-			"default-instance-type": "instance-type",
-		},
-		defaultInstanceType: "instance-type",
 	}, {
 		summary: "default use floating ip",
 		// Do not use floating IP's by default.

@@ -101,7 +101,6 @@ var getInstanceTypesTest = []struct {
 	info           string
 	cons           string
 	itypesToUse    []InstanceType
-	defaultType    string
 	expectedItypes []string
 	arches         []string
 }{
@@ -127,11 +126,6 @@ var getInstanceTypesTest = []struct {
 		cons:           "cpu-power=100 arch=arm",
 		expectedItypes: []string{"m1.small", "m1.medium", "c1.medium"},
 		arches:         []string{"arm"},
-	}, {
-		info:           "default type",
-		cons:           "mem=512M",
-		defaultType:    "c1.medium",
-		expectedItypes: []string{"c1.medium"},
 	},
 	{
 		info: "fallback instance type, enough memory for mongodb",
@@ -154,11 +148,10 @@ var getInstanceTypesTest = []struct {
 	},
 }
 
-func constraint(region, cons, defaultInstanceType string) *InstanceConstraint {
+func constraint(region, cons string) *InstanceConstraint {
 	return &InstanceConstraint{
-		Region:              region,
-		Constraints:         constraints.MustParse(cons),
-		DefaultInstanceType: defaultInstanceType,
+		Region:      region,
+		Constraints: constraints.MustParse(cons),
 	}
 }
 
@@ -169,7 +162,7 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 		if itypesToUse == nil {
 			itypesToUse = instanceTypes
 		}
-		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons, t.defaultType), itypesToUse)
+		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), itypesToUse)
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -185,13 +178,10 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 }
 
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *C) {
-	_, err := getMatchingInstanceTypes(constraint("test", "cpu-power=9001", ""), nil)
+	_, err := getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), nil)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
-	_, err = getMatchingInstanceTypes(constraint("test", "cpu-power=200", "foo"), instanceTypes)
-	c.Check(err, ErrorMatches, `invalid default instance type name "foo"`)
-
-	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G", ""), instanceTypes)
+	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes)
 	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
 }
 

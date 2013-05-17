@@ -6,19 +6,16 @@ package instances
 import (
 	"fmt"
 	"launchpad.net/juju-core/constraints"
-	"sort"
 )
 
 // InstanceConstraint constrains the possible instances that may be
 // chosen by the environment provider.
 type InstanceConstraint struct {
-	Region              string
-	Series              string
-	Arches              []string
-	Constraints         constraints.Value
-	DefaultInstanceType string // the instance type to use if multiple matching ones are found
-	DefaultImageId      string // the image to use if multiple matching ones are found
-	OverrideImageId     string // ignore any known, published images, use this image
+	Region         string
+	Series         string
+	Arches         []string
+	Constraints    constraints.Value
+	DefaultImageId string // the image to use if multiple matching ones are found
 	// Optional filtering criteria not supported by all providers. These attributes are not specified
 	// by the user as a constraint but rather passed in by the provider implementation to restrict the
 	// choice of available images.
@@ -43,7 +40,6 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 		return nil, err
 	}
 
-	sort.Sort(byArch(possibleImages))
 	for _, itype := range matchingTypes {
 		typeMatch := false
 		for _, image := range possibleImages {
@@ -58,18 +54,18 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 			return nil, fmt.Errorf("invalid default image id %q", ic.DefaultImageId)
 		}
 	}
-	// if no matching image is found for whatever reason, use the override if one is specified.
-	if ic.OverrideImageId != "" && len(matchingTypes) > 0 {
+	// if no matching image is found for whatever reason, use the default if one is specified.
+	if ic.DefaultImageId != "" && len(matchingTypes) > 0 {
 		spec := &InstanceSpec{
 			InstanceTypeId:   matchingTypes[0].Id,
 			InstanceTypeName: matchingTypes[0].Name,
-			Image:            Image{Id: ic.OverrideImageId, Arch: ic.Arches[0]},
+			Image:            Image{Id: ic.DefaultImageId, Arch: ic.Arches[0]},
 		}
 		return spec, nil
 	}
 
 	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
-		return nil, fmt.Errorf("no %q images in %s with arches %s, and no override specified",
+		return nil, fmt.Errorf("no %q images in %s with arches %s, and no default specified",
 			ic.Series, ic.Region, ic.Arches)
 	}
 
@@ -101,14 +97,4 @@ func (image Image) match(itype InstanceType) bool {
 		}
 	}
 	return false
-}
-
-// byArch is used to sort a slice of images by architecture preference, such
-// that amd64 images come earlier than i386 ones.
-type byArch []Image
-
-func (ba byArch) Len() int      { return len(ba) }
-func (ba byArch) Swap(i, j int) { ba[i], ba[j] = ba[j], ba[i] }
-func (ba byArch) Less(i, j int) bool {
-	return ba[i].Arch == "amd64" && ba[j].Arch != "amd64"
 }

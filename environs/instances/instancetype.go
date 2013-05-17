@@ -70,16 +70,16 @@ const minMemoryHeuristic = 1024
 func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []InstanceType) ([]InstanceType, error) {
 	cons := ic.Constraints
 	region := ic.Region
-	defaultInstanceTypeName := ic.DefaultInstanceType
+	//	defaultInstanceTypeName := ic.DefaultInstanceType
 	var itypes []InstanceType
 	var defaultInstanceType *InstanceType
 
 	// Iterate over allInstanceTypes, finding matching ones and recording the default if any.
 	for _, itype := range allInstanceTypes {
-		if itype.Name == defaultInstanceTypeName {
-			itcopy := itype
-			defaultInstanceType = &itcopy
-		}
+		//		if itype.Name == defaultInstanceTypeName {
+		//			itcopy := itype
+		//			defaultInstanceType = &itcopy
+		//		}
 		itype, ok := itype.match(cons)
 		if !ok {
 			continue
@@ -90,9 +90,9 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 	// If there is more than one instance type matching the constraints, use the specified
 	// default instance type, if any.
 	if len(itypes) > 0 {
-		if defaultInstanceTypeName != "" && defaultInstanceType == nil {
-			return nil, fmt.Errorf("invalid default instance type name %q", defaultInstanceTypeName)
-		}
+		//		if defaultInstanceTypeName != "" && defaultInstanceType == nil {
+		//			return nil, fmt.Errorf("invalid default instance type name %q", defaultInstanceTypeName)
+		//		}
 		if defaultInstanceType != nil {
 			itypes = []InstanceType{*defaultInstanceType}
 		}

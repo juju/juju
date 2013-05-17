@@ -167,7 +167,13 @@ var publicBucketImagesData = `
              "virt": "pv",
              "region": "another-region",
              "id": "2"
-           },
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20121111": {
+         "items": {
            "inst3": {
              "root_store": "ebs",
              "virt": "pv",
@@ -175,7 +181,7 @@ var publicBucketImagesData = `
              "id": "3"
            }
          },
-         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
          "label": "release"
        }
      }
@@ -258,13 +264,11 @@ func RemoveTestImageData(e environs.Environ) {
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
 	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
-		Series:              series,
-		Arches:              []string{arch},
-		Region:              env.ecfg().region(),
-		Constraints:         constraints.MustParse(cons),
-		DefaultInstanceType: env.ecfg().defaultInstanceType(),
-		DefaultImageId:      env.ecfg().defaultImageId(),
-		OverrideImageId:     env.ecfg().overrideImageId(),
+		Series:         series,
+		Arches:         []string{arch},
+		Region:         env.ecfg().region(),
+		Constraints:    constraints.MustParse(cons),
+		DefaultImageId: env.ecfg().defaultImageId(),
 	})
 	return
 }
@@ -278,19 +282,9 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env.ecfg().attrs["use-floating-ip"] = val
 }
 
-func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["default-instance-type"] = defaultInstanceType
-}
-
 func SetDefaultImageId(e environs.Environ, defaultId string) {
 	ecfg := e.(*environ).ecfg()
 	ecfg.attrs["default-image-id"] = defaultId
-}
-
-func SetOverrideImageId(e environs.Environ, overrideId string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["override-image-id"] = overrideId
 }
 
 // ImageDetails specify parameters used to start a test machine for the live tests.
