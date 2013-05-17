@@ -214,7 +214,7 @@ var imageData = []jujutest.FileContent{
 func registerSimpleStreamsTests() {
 	Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
-			baseURL: "test:",
+			baseURL:       "test:",
 			requireSigned: false,
 			validImageConstraint: ImageConstraint{
 				CloudSpec: CloudSpec{
