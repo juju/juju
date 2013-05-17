@@ -24,7 +24,7 @@ type liveTestData struct {
 var liveUrls = map[string]liveTestData{
 	"ec2": {
 		baseURL:        DefaultBaseURL,
-		validCloudSpec: CloudSpec{"us-east-1", "http://ec2.us-east-1.amazonaws.com"},
+		validCloudSpec: CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 	},
 	"canonistack": {
 		baseURL:        "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
@@ -45,7 +45,7 @@ func Test(t *testing.T) {
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, ImageConstraint{
 			CloudSpec: testData.validCloudSpec,
-			Release:   "quantal",
+			Series:    "quantal",
 			Arch:      "amd64",
 		})
 	}
@@ -70,7 +70,7 @@ var indexData = []jujutest.FileContent{
 		   "clouds": [
 			{
 			 "region": "us-east-1",
-			 "endpoint": "http://ec2.us-east-1.amazonaws.com"
+			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
 			}
 		   ],
 		   "cloudname": "aws",
@@ -86,7 +86,7 @@ var indexData = []jujutest.FileContent{
 		   "clouds": [
 			{
 			 "region": "us-east-1",
-			 "endpoint": "http://ec2.us-east-1.amazonaws.com"
+			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
 			}
 		   ],
 		   "cloudname": "aws",
@@ -138,7 +138,7 @@ var indexData = []jujutest.FileContent{
        "virt": "hvm",
        "id": "ami-442ea674",
        "region": "us-east-1",
-       "endpoint": "http://ec2.us-east-1.amazonaws.com"
+       "endpoint": "https://ec2.us-east-1.amazonaws.com"
       },
       "usww3he": {
        "root_store": "ebs",
@@ -162,7 +162,7 @@ var indexData = []jujutest.FileContent{
        "virt": "pv",
        "id": "ami-442ea684",
        "region": "us-east-1",
-       "endpoint": "http://ec2.us-east-1.amazonaws.com"
+       "endpoint": "https://ec2.us-east-1.amazonaws.com"
       }
      },
      "pubname": "ubuntu-quantal-12.10-amd64-server-20111111",
@@ -175,7 +175,7 @@ var indexData = []jujutest.FileContent{
   "crsn": {
    "uswest3": {
     "region": "us-west-3",
-    "endpoint": "http://ec2.us-west-3.amazonaws.com"
+    "endpoint": "https://ec2.us-west-3.amazonaws.com"
    }
   }
  },
@@ -188,8 +188,14 @@ func registerSimpleStreamsTests() {
 	Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
 			baseURL: "test:",
-			validImageConstraint: NewImageConstraint(
-				"us-east-1", "http://ec2.us-east-1.amazonaws.com", "quantal", "amd64", ""),
+			validImageConstraint: ImageConstraint{
+				CloudSpec: CloudSpec{
+					Region:   "us-east-1",
+					Endpoint: "https://ec2.us-east-1.amazonaws.com",
+				},
+				Series: "quantal",
+				Arch:   "amd64",
+			},
 		},
 	})
 }
@@ -270,7 +276,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	c.Assert(err, IsNil)
 	ic := ImageConstraint{
 		CloudSpec: s.validImageConstraint.CloudSpec,
-		Release:   "precise",
+		Series:    "precise",
 		Arch:      "bad",
 		Stream:    "spec",
 	}
@@ -319,14 +325,14 @@ func (s *simplestreamsSuite) assertImageMetadataContents(c *C, im []*ImageMetada
 			Id:         "ami-442ea674",
 			VType:      "hvm",
 			RegionName: "us-east-1",
-			Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+			Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 			Storage:    "ebs",
 		},
 		{
 			Id:         "ami-442ea684",
 			VType:      "pv",
 			RegionName: "us-east-1",
-			Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+			Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 			Storage:    "ebs",
 		},
 	})
@@ -351,7 +357,7 @@ func (s *simplestreamsSuite) TestMetadataCatalog(c *C) {
 	c.Check(len(metadata.Aliases), Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.10:amd64"]
 	c.Check(len(metadataCatalog.Images), Equals, 2)
-	c.Check(metadataCatalog.Release, Equals, "quantal")
+	c.Check(metadataCatalog.Series, Equals, "quantal")
 	c.Check(metadataCatalog.Version, Equals, "12.10")
 	c.Check(metadataCatalog.Arch, Equals, "amd64")
 	c.Check(metadataCatalog.RegionName, Equals, "au-east-1")
@@ -369,7 +375,7 @@ func (s *simplestreamsSuite) TestImageCollection(c *C) {
 	c.Check(im.Storage, Equals, "ebs")
 	c.Check(im.VType, Equals, "hvm")
 	c.Check(im.RegionName, Equals, "us-east-1")
-	c.Check(im.Endpoint, Equals, "http://ec2.us-east-1.amazonaws.com")
+	c.Check(im.Endpoint, Equals, "https://ec2.us-east-1.amazonaws.com")
 }
 
 func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *C) {
@@ -394,7 +400,7 @@ func (s *simplestreamsSuite) TestImageMetadataDealiasing(c *C) {
 	ic := metadataCatalog.Images["20121218"]
 	im := ic.Images["usww3he"]
 	c.Check(im.RegionName, Equals, "us-west-3")
-	c.Check(im.Endpoint, Equals, "http://ec2.us-west-3.amazonaws.com")
+	c.Check(im.Endpoint, Equals, "https://ec2.us-west-3.amazonaws.com")
 }
 
 type productSpecSuite struct{}
@@ -402,21 +408,32 @@ type productSpecSuite struct{}
 var _ = Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestNameWithDefaultStream(c *C) {
-	prodSpec := NewImageConstraint("region", "ep", "precise", "amd64", "")
+	prodSpec := ImageConstraint{
+		Series: "precise",
+		Arch:   "amd64",
+	}
 	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
 	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud:server:12.04:amd64")
 }
 
 func (s *productSpecSuite) TestId(c *C) {
-	prodSpec := NewImageConstraint("region", "ep", "precise", "amd64", "daily")
+	prodSpec := ImageConstraint{
+		Series: "precise",
+		Arch:   "amd64",
+		Stream: "daily",
+	}
 	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
 	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud.daily:server:12.04:amd64")
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
-	prodSpec := NewImageConstraint("region", "ep", "lucid", "amd64", "daily")
+	prodSpec := ImageConstraint{
+		Series: "lucid",
+		Arch:   "amd64",
+		Stream: "daily",
+	}
 	prodSpecId, err := prodSpec.Id()
 	c.Assert(err, IsNil)
 	c.Assert(prodSpecId, Equals, "com.ubuntu.cloud.daily:server:10.04:amd64")

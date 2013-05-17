@@ -30,22 +30,9 @@ type CloudSpec struct {
 // ImageConstraint defines criteria used to find an image.
 type ImageConstraint struct {
 	CloudSpec
-	Release string
-	Arch    string
-	Stream  string // may be "", typically "release", "daily" etc
-}
-
-// NewImageConstraint creates a ImageConstraint.
-func NewImageConstraint(region, endpoint, release, arch, stream string) ImageConstraint {
-	return ImageConstraint{
-		CloudSpec: CloudSpec{
-			Endpoint: endpoint,
-			Region:   region,
-		},
-		Release: release,
-		Arch:    arch,
-		Stream:  stream,
-	}
+	Series string
+	Arch   string
+	Stream string // may be "", typically "release", "daily" etc
 }
 
 // Generates a string representing a product id formed similarly to an ISCSI qualified name (IQN).
@@ -54,18 +41,18 @@ func (ic *ImageConstraint) Id() (string, error) {
 	if stream != "" {
 		stream = "." + stream
 	}
-	version, err := releaseVersion(ic.Release)
+	version, err := seriesVersion(ic.Series)
 	if err != nil {
 		return "", err
 	}
 	return fmt.Sprintf("com.ubuntu.cloud%s:server:%s:%s", stream, version, ic.Arch), nil
 }
 
-// releaseVersions provides a mapping between Ubuntu series names and version numbers.
+// seriesVersions provides a mapping between Ubuntu series names and version numbers.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
 // On non-Ubuntu systems, these values provide a nice fallback option.
-var releaseVersions = map[string]string{
+var seriesVersions = map[string]string{
 	"precise": "12.04",
 	"quantal": "12.10",
 	"raring":  "13.04",
@@ -73,36 +60,36 @@ var releaseVersions = map[string]string{
 }
 
 var (
-	releaseVersionsMutex   sync.Mutex
-	updatedReleaseVersions bool
+	seriesVersionsMutex   sync.Mutex
+	updatedseriesVersions bool
 )
 
-func releaseVersion(release string) (string, error) {
-	releaseVersionsMutex.Lock()
-	defer releaseVersionsMutex.Unlock()
-	if vers, ok := releaseVersions[release]; ok {
+func seriesVersion(series string) (string, error) {
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
+	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	if !updatedReleaseVersions {
+	if !updatedseriesVersions {
 		err := updateDistroInfo()
-		updatedReleaseVersions = true
+		updatedseriesVersions = true
 		if err != nil {
 			return "", err
 		}
 	}
-	if vers, ok := releaseVersions[release]; ok {
+	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	return "", &environs.NotFoundError{fmt.Errorf("invalid Ubuntu release %q", release)}
+	return "", &environs.NotFoundError{fmt.Errorf("invalid series %q", series)}
 }
 
-// updateDistroInfo updates releaseVersions from /usr/share/distro-info/ubuntu.csv if possible..
+// updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
 func updateDistroInfo() error {
-	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
+	// We need to find the series version eg 12.04 from the series eg precise. Use the information found in
 	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
 	f, err := os.Open("/usr/share/distro-info/ubuntu.csv")
 	if err != nil {
-		// On non-Ubuntu systems this file won't exist butr that's expected.
+		// On non-Ubuntu systems this file won't exist but that's expected.
 		return nil
 	}
 	defer f.Close()
@@ -122,8 +109,8 @@ func updateDistroInfo() error {
 			continue
 		}
 		// the numeric version may contain a LTS moniker so strip that out.
-		releaseInfo := strings.Split(parts[0], " ")
-		releaseVersions[parts[2]] = releaseInfo[0]
+		seriesInfo := strings.Split(parts[0], " ")
+		seriesVersions[parts[2]] = seriesInfo[0]
 	}
 	return nil
 }
@@ -149,7 +136,7 @@ type cloudImageMetadata struct {
 type imagesByVersion map[string]*imageCollection
 
 type imageMetadataCatalog struct {
-	Release    string          `json:"release"`
+	Series     string          `json:"release"`
 	Version    string          `json:"version"`
 	Arch       string          `json:"arch"`
 	RegionName string          `json:"region"`
@@ -285,7 +272,7 @@ func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, err
 func (indexRef *indexReference) getImageIdsPath(imageConstraint *ImageConstraint) (string, error) {
 	prodSpecId, err := imageConstraint.Id()
 	if err != nil {
-		return "", fmt.Errorf("cannot resolve Ubuntu version %q: %v", imageConstraint.Release, err)
+		return "", fmt.Errorf("cannot resolve Ubuntu version %q: %v", imageConstraint.Series, err)
 	}
 	var containsImageIds bool
 	for _, metadata := range indexRef.Indexes {
@@ -513,7 +500,7 @@ func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(imageConstrai
 	}
 	prodSpecId, err := imageConstraint.Id()
 	if err != nil {
-		return nil, fmt.Errorf("cannot resolve Ubuntu version %q: %v", imageConstraint.Release, err)
+		return nil, fmt.Errorf("cannot resolve Ubuntu version %q: %v", imageConstraint.Series, err)
 	}
 	metadataCatalog, ok := imageMetadata.Products[prodSpecId]
 	if !ok {
