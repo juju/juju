@@ -50,7 +50,7 @@ func Test(t *testing.T) {
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, ImageConstraint{
 			CloudSpec: testData.validCloudSpec,
-			Release:   "quantal",
+			Series:    "quantal",
 			Arches:    []string{"amd64"},
 		}, testData.requireSigned)
 	}
@@ -214,10 +214,16 @@ var imageData = []jujutest.FileContent{
 func registerSimpleStreamsTests() {
 	Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
-			baseURL:       "test:",
+			baseURL: "test:",
 			requireSigned: false,
-			validImageConstraint: NewImageConstraint(
-				"us-east-1", "https://ec2.us-east-1.amazonaws.com", "precise", []string{"amd64", "arm"}, ""),
+			validImageConstraint: ImageConstraint{
+				CloudSpec: CloudSpec{
+					Region:   "us-east-1",
+					Endpoint: "https://ec2.us-east-1.amazonaws.com",
+				},
+				Series: "precise",
+				Arches: []string{"amd64", "arm"},
+			},
 		},
 	})
 }
@@ -307,7 +313,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	c.Assert(err, IsNil)
 	ic := ImageConstraint{
 		CloudSpec: s.validImageConstraint.CloudSpec,
-		Release:   "precise",
+		Series:    "precise",
 		Arches:    []string{"bad"},
 		Stream:    "spec",
 	}
@@ -368,7 +374,7 @@ func (s *simplestreamsSuite) TestMetadataCatalog(c *C) {
 	c.Check(len(metadata.Aliases), Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Images), Equals, 2)
-	c.Check(metadataCatalog.Release, Equals, "precise")
+	c.Check(metadataCatalog.Series, Equals, "precise")
 	c.Check(metadataCatalog.Version, Equals, "12.04")
 	c.Check(metadataCatalog.Arch, Equals, "amd64")
 	c.Check(metadataCatalog.RegionName, Equals, "au-east-1")
@@ -419,21 +425,32 @@ type productSpecSuite struct{}
 var _ = Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "precise", []string{"amd64"}, "")
+	imageConstraint := ImageConstraint{
+		Series: "precise",
+		Arches: []string{"amd64"},
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestId(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "precise", []string{"amd64"}, "daily")
+	imageConstraint := ImageConstraint{
+		Series: "precise",
+		Arches: []string{"amd64"},
+		Stream: "daily",
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "precise", []string{"amd64", "i386"}, "daily")
+	imageConstraint := ImageConstraint{
+		Series: "precise",
+		Arches: []string{"amd64", "i386"},
+		Stream: "daily",
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{
@@ -442,7 +459,11 @@ func (s *productSpecSuite) TestIdMultiArch(c *C) {
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "lucid", []string{"amd64"}, "daily")
+	imageConstraint := ImageConstraint{
+		Series: "lucid",
+		Arches: []string{"amd64"},
+		Stream: "daily",
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
@@ -546,7 +567,11 @@ var fetchTests = []struct {
 func (s *simplestreamsSuite) TestFetch(c *C) {
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
-		imageConstraint := NewImageConstraint(t.region, "https://ec2.us-east-1.amazonaws.com", "precise", t.arches, "")
+		imageConstraint := ImageConstraint{
+			CloudSpec: CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"},
+			Series:    "precise",
+			Arches:    t.arches,
+		}
 		imageConstraint.Storage = t.storage
 		images, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &imageConstraint, s.requireSigned)
 		if !c.Check(err, IsNil) {

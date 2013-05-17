@@ -30,7 +30,11 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	imageConstraint := imagemetadata.NewImageConstraint(ic.Region, e.ecfg().authURL(), ic.Series, ic.Arches, "")
+	imageConstraint := imagemetadata.ImageConstraint{
+		CloudSpec: imagemetadata.CloudSpec{ic.Region, e.ecfg().authURL()},
+		Series:    ic.Series,
+		Arches:    ic.Arches,
+	}
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
