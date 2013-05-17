@@ -21,7 +21,11 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]
-	imageConstraint := imagemetadata.NewImageConstraint(ic.Region, ec2Region.EC2Endpoint, ic.Series, ic.Arches, "")
+	imageConstraint := imagemetadata.ImageConstraint{
+		CloudSpec: imagemetadata.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
+		Series:    ic.Series,
+		Arches:    ic.Arches,
+	}
 	ebs := ebsStorage
 	imageConstraint.Storage = &ebs
 	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)

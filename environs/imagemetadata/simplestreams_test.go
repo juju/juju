@@ -24,7 +24,7 @@ type liveTestData struct {
 var liveUrls = map[string]liveTestData{
 	"ec2": {
 		baseURL:        DefaultBaseURL,
-		validCloudSpec: CloudSpec{"us-east-1", "http://ec2.us-east-1.amazonaws.com"},
+		validCloudSpec: CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"},
 	},
 	"canonistack": {
 		baseURL:        "https://swift.canonistack.canonical.com/v1/AUTH_a48765cc0e864be980ee21ae26aaaed4/simplestreams/data",
@@ -45,7 +45,7 @@ func Test(t *testing.T) {
 		}
 		registerLiveSimpleStreamsTests(testData.baseURL, ImageConstraint{
 			CloudSpec: testData.validCloudSpec,
-			Release:   "quantal",
+			Series:    "quantal",
 			Arches:    []string{"amd64"},
 		})
 	}
@@ -70,7 +70,7 @@ var imageData = []jujutest.FileContent{
 		   "clouds": [
 			{
 			 "region": "us-east-1",
-			 "endpoint": "http://ec2.us-east-1.amazonaws.com"
+			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
 			}
 		   ],
 		   "cloudname": "aws",
@@ -87,7 +87,7 @@ var imageData = []jujutest.FileContent{
 		   "clouds": [
 			{
 			 "region": "us-east-1",
-			 "endpoint": "http://ec2.us-east-1.amazonaws.com"
+			 "endpoint": "https://ec2.us-east-1.amazonaws.com"
 			}
 		   ],
 		   "cloudname": "aws",
@@ -123,11 +123,11 @@ var imageData = []jujutest.FileContent{
    "version": "12.04",
    "arch": "amd64",
    "region": "au-east-1",
-   "endpoint": "http://somewhere",
+   "endpoint": "https://somewhere",
    "versions": {
     "20121218": {
      "region": "au-east-2",
-     "endpoint": "http://somewhere-else",
+     "endpoint": "https://somewhere-else",
      "items": {
       "usww1pe": {
        "root_store": "ebs",
@@ -139,7 +139,7 @@ var imageData = []jujutest.FileContent{
        "virt": "hvm",
        "id": "ami-442ea674",
        "region": "us-east-1",
-       "endpoint": "http://ec2.us-east-1.amazonaws.com"
+       "endpoint": "https://ec2.us-east-1.amazonaws.com"
       },
       "usww3he": {
        "root_store": "ebs",
@@ -163,7 +163,7 @@ var imageData = []jujutest.FileContent{
        "virt": "pv",
        "id": "ami-442ea684",
        "region": "us-east-1",
-       "endpoint": "http://ec2.us-east-1.amazonaws.com"
+       "endpoint": "https://ec2.us-east-1.amazonaws.com"
       }
      },
      "pubname": "ubuntu-precise-12.04-amd64-server-20111111",
@@ -176,7 +176,7 @@ var imageData = []jujutest.FileContent{
    "version": "12.04",
    "arch": "arm",
    "region": "us-east-1",
-   "endpoint": "http://ec2.us-east-1.amazonaws.com",
+   "endpoint": "https://ec2.us-east-1.amazonaws.com",
    "versions": {
     "20121219": {
      "items": {
@@ -196,7 +196,7 @@ var imageData = []jujutest.FileContent{
   "crsn": {
    "uswest3": {
     "region": "us-west-3",
-    "endpoint": "http://ec2.us-west-3.amazonaws.com"
+    "endpoint": "https://ec2.us-west-3.amazonaws.com"
    }
   }
  },
@@ -209,8 +209,14 @@ func registerSimpleStreamsTests() {
 	Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
 			baseURL: "test:",
-			validImageConstraint: NewImageConstraint(
-				"us-east-1", "http://ec2.us-east-1.amazonaws.com", "precise", []string{"amd64", "arm"}, ""),
+			validImageConstraint: ImageConstraint{
+				CloudSpec: CloudSpec{
+					Region:   "us-east-1",
+					Endpoint: "https://ec2.us-east-1.amazonaws.com",
+				},
+				Series: "precise",
+				Arches: []string{"amd64", "arm"},
+			},
 		},
 	})
 }
@@ -291,7 +297,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 	c.Assert(err, IsNil)
 	ic := ImageConstraint{
 		CloudSpec: s.validImageConstraint.CloudSpec,
-		Release:   "precise",
+		Series:    "precise",
 		Arches:    []string{"bad"},
 		Stream:    "spec",
 	}
@@ -328,7 +334,7 @@ func (s *liveSimplestreamsSuite) TestGetImageIdMetadataExists(c *C) {
 }
 
 func (s *liveSimplestreamsSuite) TestGetImageIdMetadataMultipleBaseURLsExists(c *C) {
-	im, err := Fetch([]string{"http://bad", s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
+	im, err := Fetch([]string{"https://bad", s.baseURL}, DefaultIndexPath, &s.validImageConstraint)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }
@@ -346,25 +352,25 @@ func (s *simplestreamsSuite) TestMetadataCatalog(c *C) {
 	c.Check(len(metadata.Aliases), Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	c.Check(len(metadataCatalog.Images), Equals, 2)
-	c.Check(metadataCatalog.Release, Equals, "precise")
+	c.Check(metadataCatalog.Series, Equals, "precise")
 	c.Check(metadataCatalog.Version, Equals, "12.04")
 	c.Check(metadataCatalog.Arch, Equals, "amd64")
 	c.Check(metadataCatalog.RegionName, Equals, "au-east-1")
-	c.Check(metadataCatalog.Endpoint, Equals, "http://somewhere")
+	c.Check(metadataCatalog.Endpoint, Equals, "https://somewhere")
 	c.Check(len(metadataCatalog.Images) > 0, Equals, true)
 }
 
 func (s *simplestreamsSuite) TestImageCollection(c *C) {
 	ic := s.assertGetImageCollections(c, "20121218")
 	c.Check(ic.RegionName, Equals, "au-east-2")
-	c.Check(ic.Endpoint, Equals, "http://somewhere-else")
+	c.Check(ic.Endpoint, Equals, "https://somewhere-else")
 	c.Assert(len(ic.Images) > 0, Equals, true)
 	im := ic.Images["usww2he"]
 	c.Check(im.Id, Equals, "ami-442ea674")
 	c.Check(im.Storage, Equals, "ebs")
 	c.Check(im.VType, Equals, "hvm")
 	c.Check(im.RegionName, Equals, "us-east-1")
-	c.Check(im.Endpoint, Equals, "http://ec2.us-east-1.amazonaws.com")
+	c.Check(im.Endpoint, Equals, "https://ec2.us-east-1.amazonaws.com")
 }
 
 func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *C) {
@@ -389,7 +395,7 @@ func (s *simplestreamsSuite) TestImageMetadataDealiasing(c *C) {
 	ic := metadataCatalog.Images["20121218"]
 	im := ic.Images["usww3he"]
 	c.Check(im.RegionName, Equals, "us-west-3")
-	c.Check(im.Endpoint, Equals, "http://ec2.us-west-3.amazonaws.com")
+	c.Check(im.Endpoint, Equals, "https://ec2.us-west-3.amazonaws.com")
 }
 
 type productSpecSuite struct{}
@@ -397,21 +403,32 @@ type productSpecSuite struct{}
 var _ = Suite(&productSpecSuite{})
 
 func (s *productSpecSuite) TestIdWithDefaultStream(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "precise", []string{"amd64"}, "")
+	imageConstraint := ImageConstraint{
+		Series: "precise",
+		Arches: []string{"amd64"},
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestId(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "precise", []string{"amd64"}, "daily")
+	imageConstraint := ImageConstraint{
+		Series: "precise",
+		Arches: []string{"amd64"},
+		Stream: "daily",
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "precise", []string{"amd64", "i386"}, "daily")
+	imageConstraint := ImageConstraint{
+		Series: "precise",
+		Arches: []string{"amd64", "i386"},
+		Stream: "daily",
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{
@@ -420,7 +437,11 @@ func (s *productSpecSuite) TestIdMultiArch(c *C) {
 }
 
 func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
-	imageConstraint := NewImageConstraint("region", "ep", "lucid", []string{"amd64"}, "daily")
+	imageConstraint := ImageConstraint{
+		Series: "lucid",
+		Arches: []string{"amd64"},
+		Stream: "daily",
+	}
 	ids, err := imageConstraint.Ids()
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
@@ -444,7 +465,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "ebs",
 			},
 			{
@@ -452,7 +473,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "instance",
 			},
 			{
@@ -460,7 +481,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "pv",
 				Arch:       "arm",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "ebs",
 			},
 		},
@@ -475,7 +496,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "ebs",
 			},
 			{
@@ -483,7 +504,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "pv",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "instance",
 			},
 		},
@@ -498,7 +519,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "pv",
 				Arch:       "arm",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "ebs",
 			},
 		},
@@ -514,7 +535,7 @@ var getImageIdMetadataTests = []struct {
 				VType:      "hvm",
 				Arch:       "amd64",
 				RegionName: "us-east-1",
-				Endpoint:   "http://ec2.us-east-1.amazonaws.com",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "ebs",
 			},
 		},
@@ -524,7 +545,11 @@ var getImageIdMetadataTests = []struct {
 func (s *simplestreamsSuite) TestFetch(c *C) {
 	for i, t := range getImageIdMetadataTests {
 		c.Logf("test %d", i)
-		imageConstraint := NewImageConstraint(t.region, "http://ec2.us-east-1.amazonaws.com", "precise", t.arches, "")
+		imageConstraint := ImageConstraint{
+			CloudSpec: CloudSpec{t.region, "https://ec2.us-east-1.amazonaws.com"},
+			Series:    "precise",
+			Arches:    t.arches,
+		}
 		imageConstraint.Storage = t.storage
 		images, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &imageConstraint)
 		if !c.Check(err, IsNil) {
