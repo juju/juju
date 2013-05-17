@@ -218,7 +218,11 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
-		ic := imagemetadata.NewImageConstraint(t.region, "ep", "precise", t.arches, "")
+		ic := imagemetadata.ImageConstraint{
+			CloudSpec: imagemetadata.CloudSpec{t.region, "ep"},
+			Series:    "precise",
+			Arches:    t.arches,
+		}
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), &ic)
 		c.Assert(err, IsNil)
 		var images []Image

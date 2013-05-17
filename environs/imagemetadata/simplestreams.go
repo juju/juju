@@ -30,24 +30,11 @@ type CloudSpec struct {
 // ImageConstraint defines criteria used to find an image.
 type ImageConstraint struct {
 	CloudSpec
-	Release string
-	Arches  []string
-	Stream  string // may be "", typically "release", "daily" etc
+	Series string
+	Arches []string
+	Stream string // may be "", typically "release", "daily" etc
 	// Optional constraint attributes.
 	Storage *string
-}
-
-// NewImageConstraint creates a ImageConstraint.
-func NewImageConstraint(region, endpoint, release string, arches []string, stream string) ImageConstraint {
-	return ImageConstraint{
-		CloudSpec: CloudSpec{
-			Endpoint: endpoint,
-			Region:   region,
-		},
-		Release: release,
-		Arches:  arches,
-		Stream:  stream,
-	}
 }
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -56,7 +43,7 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	if stream != "" {
 		stream = "." + stream
 	}
-	version, err := releaseVersion(ic.Release)
+	version, err := seriesVersion(ic.Series)
 	if err != nil {
 		return nil, err
 	}
@@ -67,11 +54,11 @@ func (ic *ImageConstraint) Ids() ([]string, error) {
 	return ids, nil
 }
 
-// releaseVersions provides a mapping between Ubuntu series names and version numbers.
+// seriesVersions provides a mapping between Ubuntu series names and version numbers.
 // The values here are current as of the time of writing. On Ubuntu systems, we update
 // these values from /usr/share/distro-info/ubuntu.csv to ensure we have the latest values.
 // On non-Ubuntu systems, these values provide a nice fallback option.
-var releaseVersions = map[string]string{
+var seriesVersions = map[string]string{
 	"precise": "12.04",
 	"quantal": "12.10",
 	"raring":  "13.04",
@@ -79,36 +66,36 @@ var releaseVersions = map[string]string{
 }
 
 var (
-	releaseVersionsMutex   sync.Mutex
-	updatedReleaseVersions bool
+	seriesVersionsMutex   sync.Mutex
+	updatedseriesVersions bool
 )
 
-func releaseVersion(release string) (string, error) {
-	releaseVersionsMutex.Lock()
-	defer releaseVersionsMutex.Unlock()
-	if vers, ok := releaseVersions[release]; ok {
+func seriesVersion(series string) (string, error) {
+	seriesVersionsMutex.Lock()
+	defer seriesVersionsMutex.Unlock()
+	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	if !updatedReleaseVersions {
+	if !updatedseriesVersions {
 		err := updateDistroInfo()
-		updatedReleaseVersions = true
+		updatedseriesVersions = true
 		if err != nil {
 			return "", err
 		}
 	}
-	if vers, ok := releaseVersions[release]; ok {
+	if vers, ok := seriesVersions[series]; ok {
 		return vers, nil
 	}
-	return "", fmt.Errorf("invalid Ubuntu release %q", release)
+	return "", fmt.Errorf("invalid series %q", series)
 }
 
-// updateDistroInfo updates releaseVersions from /usr/share/distro-info/ubuntu.csv if possible..
+// updateDistroInfo updates seriesVersions from /usr/share/distro-info/ubuntu.csv if possible..
 func updateDistroInfo() error {
-	// We need to find the release version eg 12.04 from the series eg precise. Use the information found in
+	// We need to find the series version eg 12.04 from the series eg precise. Use the information found in
 	// /usr/share/distro-info/ubuntu.csv provided by distro-info-data package.
 	f, err := os.Open("/usr/share/distro-info/ubuntu.csv")
 	if err != nil {
-		// On non-Ubuntu systems this file won't exist butr that's expected.
+		// On non-Ubuntu systems this file won't exist but that's expected.
 		return nil
 	}
 	defer f.Close()
@@ -128,8 +115,8 @@ func updateDistroInfo() error {
 			continue
 		}
 		// the numeric version may contain a LTS moniker so strip that out.
-		releaseInfo := strings.Split(parts[0], " ")
-		releaseVersions[parts[2]] = releaseInfo[0]
+		seriesInfo := strings.Split(parts[0], " ")
+		seriesVersions[parts[2]] = seriesInfo[0]
 	}
 	return nil
 }
@@ -155,7 +142,7 @@ type cloudImageMetadata struct {
 type imagesByVersion map[string]*imageCollection
 
 type imageMetadataCatalog struct {
-	Release    string          `json:"release"`
+	Series     string          `json:"release"`
 	Version    string          `json:"version"`
 	Arch       string          `json:"arch"`
 	RegionName string          `json:"region"`

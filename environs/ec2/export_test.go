@@ -187,7 +187,7 @@ var TestImagesData = []jujutest.FileContent{
 		   "clouds": [
 			{
 			 "region": "test",
-			 "endpoint": "http://ec2.endpoint.com"
+			 "endpoint": "https://ec2.endpoint.com"
 			}
 		   ],
 		   "cloudname": "aws",
@@ -399,6 +399,6 @@ var TestInstanceTypeCosts = instanceTypeCost{
 var TestRegions = map[string]aws.Region{
 	"test": aws.Region{
 		Name:        "test",
-		EC2Endpoint: "http://ec2.endpoint.com",
+		EC2Endpoint: "https://ec2.endpoint.com",
 	},
 }
