@@ -485,7 +485,8 @@ func (s *localServerSuite) TestDeleteAll(c *C) {
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	storage := s.Env.Storage()
-	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
+	// 6*26 = 156 items
+	for _, a := range []byte("abcdef") {
 		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
 			content := []byte{a, b}
 			name := string(content)
