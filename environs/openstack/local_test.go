@@ -481,6 +481,8 @@ func (s *localServerSuite) TestDeleteAll(c *C) {
 	c.Assert(string(allContent), Equals, "a")
 	err = openstack.DeleteStorageContent(storage)
 	c.Assert(err, IsNil)
+	_, err = storage.Get("a")
+	c.Assert(err, NotNil)
 }
 
 func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
@@ -502,4 +504,6 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	c.Assert(string(allContent), Equals, "ab")
 	err = openstack.DeleteStorageContent(storage)
 	c.Assert(err, IsNil)
+	_, err = storage.Get("ab")
+	c.Assert(err, NotNil)
 }
