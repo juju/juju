@@ -4,7 +4,9 @@
 package openstack_test
 
 import (
+	"bytes"
 	"fmt"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/testservices/hook"
@@ -461,4 +463,42 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	openstack.SetDefaultImageId(s.Env, "")
 	_, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
 	c.Assert(err, ErrorMatches, `no "raring" images in some-region with arches \[amd64\], and no default specified`)
+}
+
+func (s *localServerSuite) TestDeleteAll(c *C) {
+	storage := s.Env.Storage()
+	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
+		content := []byte{a}
+		name := string(content)
+		err := storage.Put(name, bytes.NewBuffer(content),
+			int64(len(content)))
+		c.Assert(err, IsNil)
+	}
+	reader, err := storage.Get("a")
+	c.Assert(err, IsNil)
+	allContent, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Assert(string(allContent), Equals, "a")
+	err = openstack.DeleteStorageContent(storage)
+	c.Assert(err, IsNil)
+}
+
+func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
+	storage := s.Env.Storage()
+	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
+		for _, b := range []byte("abcdefghijklmnopqrstuvwxyz") {
+			content := []byte{a, b}
+			name := string(content)
+			err := storage.Put(name, bytes.NewBuffer(content),
+				int64(len(content)))
+			c.Assert(err, IsNil)
+		}
+	}
+	reader, err := storage.Get("ab")
+	c.Assert(err, IsNil)
+	allContent, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Assert(string(allContent), Equals, "ab")
+	err = openstack.DeleteStorageContent(storage)
+	c.Assert(err, IsNil)
 }
