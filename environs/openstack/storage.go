@@ -101,7 +101,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 
 // Spawn this many goroutines to issue requests for deleting items from the
 // server. If only Openstack had a delete many request.
-var maxConcurrentDeletes = 100
+const maxConcurrentDeletes = 8
 
 func (s *storage) deleteAll() error {
 	names, err := s.List("")
