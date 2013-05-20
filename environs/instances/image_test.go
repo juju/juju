@@ -131,15 +131,15 @@ var jsonImagesContent = `
 `
 
 type instanceSpecTestParams struct {
-	desc                string
-	region              string
-	arches              []string
-	constraints         string
-	instanceTypes       []InstanceType
-	imageId             string
-	instanceTypeId      string
-	instanceTypeName    string
-	err                 string
+	desc             string
+	region           string
+	arches           []string
+	constraints      string
+	instanceTypes    []InstanceType
+	imageId          string
+	instanceTypeId   string
+	instanceTypeName string
+	err              string
 }
 
 func (p *instanceSpecTestParams) init() {
@@ -166,9 +166,9 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		instanceTypeName: "it-1",
 	},
 	{
-		desc:           "multiple images exists in metadata, use most recent",
-		region:         "test",
-		imageId:        "ami-00000035",
+		desc:    "multiple images exists in metadata, use most recent",
+		region:  "test",
+		imageId: "ami-00000035",
 		instanceTypes: []InstanceType{
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &hvm, Mem: 512},
 		},
@@ -176,9 +176,9 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		instanceTypeName: "it-1",
 	},
 	{
-		desc:    "no image exists in metadata",
-		region:  "invalid-region",
-		err:     `no "precise" images in invalid-region with arches \[amd64 arm\]`,
+		desc:   "no image exists in metadata",
+		region: "invalid-region",
+		err:    `no "precise" images in invalid-region with arches \[amd64 arm\]`,
 	},
 	{
 		desc:          "no valid instance types",
@@ -215,10 +215,10 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			})
 		}
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
-			Series:         "precise",
-			Region:         t.region,
-			Arches:         t.arches,
-			Constraints:    constraints.MustParse(t.constraints),
+			Series:      "precise",
+			Region:      t.region,
+			Arches:      t.arches,
+			Constraints: constraints.MustParse(t.constraints),
 		}, t.instanceTypes)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)

@@ -11,10 +11,10 @@ import (
 // InstanceConstraint constrains the possible instances that may be
 // chosen by the environment provider.
 type InstanceConstraint struct {
-	Region         string
-	Series         string
-	Arches         []string
-	Constraints    constraints.Value
+	Region      string
+	Series      string
+	Arches      []string
+	Constraints constraints.Value
 	// Optional filtering criteria not supported by all providers. These attributes are not specified
 	// by the user as a constraint but rather passed in by the provider implementation to restrict the
 	// choice of available images.

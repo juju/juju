@@ -41,25 +41,25 @@ var _ = Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary        string
-	config         attrs
-	change         attrs
-	envVars        map[string]string
-	region         string
-	controlBucket  string
-	publicBucket   string
-	pbucketURL     string
+	summary         string
+	config          attrs
+	change          attrs
+	envVars         map[string]string
+	region          string
+	controlBucket   string
+	publicBucket    string
+	pbucketURL      string
 	fallbackImageId string
-	useFloatingIP  bool
-	username       string
-	password       string
-	tenantName     string
-	authMode       string
-	authURL        string
-	accessKey      string
-	secretKey      string
-	firewallMode   config.FirewallMode
-	err            string
+	useFloatingIP   bool
+	username        string
+	password        string
+	tenantName      string
+	authMode        string
+	authURL         string
+	accessKey       string
+	secretKey       string
+	firewallMode    config.FirewallMode
+	err             string
 }
 
 type attrs map[string]interface{}

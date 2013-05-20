@@ -264,10 +264,10 @@ func RemoveTestImageData(e environs.Environ) {
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
 	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
-		Series:         series,
-		Arches:         []string{arch},
-		Region:         env.ecfg().region(),
-		Constraints:    constraints.MustParse(cons),
+		Series:      series,
+		Arches:      []string{arch},
+		Region:      env.ecfg().region(),
+		Constraints: constraints.MustParse(cons),
 	})
 	return
 }
