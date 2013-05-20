@@ -224,6 +224,7 @@ var commandNames = []string{
 	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
+	"image-metadata",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation

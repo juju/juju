@@ -149,8 +149,7 @@ func (s *ImageMetadataSuite) TestImageMetadataBadArgs(c *C) {
 	for i, t := range errTests {
 		c.Logf("test: %d", i)
 		ctx := testing.Context(c)
-		code := cmd.Main(
-			&ImageMetadataCommand{}, ctx, t.args)
+		code := cmd.Main(&ImageMetadataCommand{}, ctx, t.args)
 		c.Check(code, Equals, 2)
 	}
 }

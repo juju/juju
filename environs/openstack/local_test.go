@@ -429,8 +429,8 @@ func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
 }
 
-// An error occurs if no suitable image is found.
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
+	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }

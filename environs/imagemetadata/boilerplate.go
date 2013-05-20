@@ -19,7 +19,7 @@ const (
 
 func Boilerplate(series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
 	now := time.Now()
-	id := imageData{
+	imparams := imageMetadataParams{
 		Id:            im.Id,
 		Arch:          im.Arch,
 		Region:        cloudSpec.Region,
@@ -31,23 +31,23 @@ func Boilerplate(series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]stri
 	}
 
 	var err error
-	id.Version, err = seriesVersion(series)
+	imparams.Version, err = seriesVersion(series)
 	if err != nil {
 		return nil, fmt.Errorf("invalid series %q", series)
 	}
 
-	err = writeIndexJson(id)
+	err = writeJsonFile(imparams, indexFileName, indexBoilerplate)
 	if err != nil {
 		return nil, err
 	}
-	err = writeProductJson(id)
+	err = writeJsonFile(imparams, imageFileName, productBoilerplate)
 	if err != nil {
 		return nil, err
 	}
 	return []string{indexFileName, imageFileName}, nil
 }
 
-type imageData struct {
+type imageMetadataParams struct {
 	Region        string
 	URL           string
 	Updated       string
@@ -60,28 +60,14 @@ type imageData struct {
 	ImageFileName string
 }
 
-func writeIndexJson(idata imageData) error {
-	t := template.Must(template.New("").Parse(indexBoilerplate))
+func writeJsonFile(imparams imageMetadataParams, filename, boilerplate string) error {
+	t := template.Must(template.New("").Parse(boilerplate))
 	var metadata bytes.Buffer
-	if err := t.Execute(&metadata, idata); err != nil {
-		panic(fmt.Errorf("cannot generate index metdata: %v", err))
+	if err := t.Execute(&metadata, imparams); err != nil {
+		panic(fmt.Errorf("cannot generate %s metdata: %v", filename, err))
 	}
 	data := metadata.Bytes()
-	path := config.JujuHomePath(indexFileName)
-	if err := ioutil.WriteFile(path, data, 0666); err != nil {
-		return err
-	}
-	return nil
-}
-
-func writeProductJson(idata imageData) error {
-	t := template.Must(template.New("").Parse(productBoilerplate))
-	var metadata bytes.Buffer
-	if err := t.Execute(&metadata, idata); err != nil {
-		panic(fmt.Errorf("cannot generate image metdata: %v", err))
-	}
-	data := metadata.Bytes()
-	path := config.JujuHomePath(imageFileName)
+	path := config.JujuHomePath(filename)
 	if err := ioutil.WriteFile(path, data, 0666); err != nil {
 		return err
 	}

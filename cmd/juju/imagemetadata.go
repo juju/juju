@@ -72,7 +72,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 	}
 	files, err := imagemetadata.Boilerplate(c.Series, &im, &cloudSpec)
 	if err != nil {
-		return fmt.Errorf("Boilerplate image metadata files could not be created: %v", err)
+		return fmt.Errorf("boilerplate image metadata files could not be created: %v", err)
 	}
 	fmt.Fprintf(
 		out,
