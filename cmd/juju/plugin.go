@@ -70,15 +70,16 @@ type PluginDescription struct {
 	description string
 }
 
-func PluginHelpTopic() string {
-	output := &bytes.Buffer{}
-
-	fmt.Fprintf(output, `Juju Plugins
+const PluginTopicText = `Juju Plugins
 
 Plugins are implemented as stand-alone executable files somewhere in the user's PATH.
 The executable command must be of the format juju-<plugin name>.
 
-`)
+`
+
+func PluginHelpTopic() string {
+	output := &bytes.Buffer{}
+	fmt.Fprintf(output, PluginTopicText)
 
 	existingPlugins := GetPluginDescriptions()
 

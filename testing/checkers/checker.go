@@ -2,6 +2,7 @@ package checkers
 
 import (
 	"fmt"
+	"strings"
 	"time"
 
 	. "launchpad.net/gocheck"
@@ -60,4 +61,60 @@ func (checker *durationLessThanChecker) Check(params []interface{}, names []stri
 		return false, "expected value type must be time.Duration"
 	}
 	return obtained.Nanoseconds() < expected.Nanoseconds(), ""
+}
+
+// HasPrefix checker for checking strings
+
+func stringOrStringer(value interface{}) (string, bool) {
+	result, isString := value.(string)
+	if !isString {
+		if stringer, isStringer := value.(fmt.Stringer); isStringer {
+			result, isString = stringer.String(), true
+		}
+	}
+	return result, isString
+}
+
+type hasPrefixChecker struct {
+	*CheckerInfo
+}
+
+var HasPrefix Checker = &hasPrefixChecker{
+	&CheckerInfo{Name: "HasPrefix", Params: []string{"obtained", "expected"}},
+}
+
+func (checker *hasPrefixChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	expected, ok := params[1].(string)
+	if !ok {
+		return false, "expected must be a string"
+	}
+
+	obtained, isString := stringOrStringer(params[0])
+	if isString {
+		return strings.HasPrefix(obtained, expected), ""
+	}
+
+	return false, "Obtained value is not a string and has no .String()"
+}
+
+type hasSuffixChecker struct {
+	*CheckerInfo
+}
+
+var HasSuffix Checker = &hasSuffixChecker{
+	&CheckerInfo{Name: "HasSuffix", Params: []string{"obtained", "expected"}},
+}
+
+func (checker *hasSuffixChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	expected, ok := params[1].(string)
+	if !ok {
+		return false, "expected must be a string"
+	}
+
+	obtained, isString := stringOrStringer(params[0])
+	if isString {
+		return strings.HasSuffix(obtained, expected), ""
+	}
+
+	return false, "Obtained value is not a string and has no .String()"
 }

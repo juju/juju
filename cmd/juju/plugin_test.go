@@ -115,6 +115,12 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 	c.Assert(results[4].description, Equals, "slow description")
 }
 
+func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *C) {
+	output := badrun(c, 0, "help", "plugins")
+	c.Assert(output, checkers.HasPrefix, PluginTopicText)
+	c.Assert(output, checkers.HasSuffix, "\n\nNo plugins found.\n")
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
 	filename := testing.HomePath("juju-" + name)
