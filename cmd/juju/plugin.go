@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -9,12 +8,11 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
-	"syscall"
-	"time"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 )
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
@@ -67,14 +65,9 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	return command.Run()
 }
 
-// DescriptionTimeout is how long we wait before killing the processes started
-// to find the descriptions for the plugins.
-var DescriptionTimeout = 1.0 * time.Second
-
 type PluginDescription struct {
 	name        string
 	description string
-	err         error
 }
 
 // GetPluginDescriptions runs each plugin with "--description".  If the plugin
@@ -97,38 +90,14 @@ func GetPluginDescriptions() []PluginDescription {
 			defer func() {
 				description <- result
 			}()
+			output, err := cmd.CombinedOutput()
 
-			var output bytes.Buffer
-			cmd.Stdout = &output
-			cmd.Stderr = &output
-
-			if err := cmd.Start(); err != nil {
-				result.err = err
-				return
-			}
-
-			done := make(chan struct{})
-
-			go func() {
-				select {
-				case <-done:
-					// everything is ok
-				case <-time.After(DescriptionTimeout):
-					result.description = "error: plugin took too long to respond"
-					// Not killing fast enough.
-					result.err = cmd.Process.Kill()
-					fmt.Printf("%s killed: err: %#v\n", plugin, result.err)
-					//result.err = cmd.Process.Signal(syscall.SIGINT)
-					_ = syscall.SIGINT
-				}
-			}()
-			defer close(done)
-			result.err = cmd.Wait()
-			if result.err == nil {
-				// TODO: trim to only get the first line
-				result.description = strings.SplitN(output.String(), "\n", 2)[0]
+			if err == nil {
+				// trim to only get the first line
+				result.description = strings.SplitN(string(output), "\n", 2)[0]
 			} else {
-				fmt.Println(result.err)
+				result.description = fmt.Sprintf("error occurred running '%s --description'", plugin)
+				log.Errorf("'%s --description': %s", plugin, err)
 			}
 		}(plugin, cmd)
 	}
@@ -136,17 +105,12 @@ func GetPluginDescriptions() []PluginDescription {
 	// gather the results at the end.
 	for _ = range plugins {
 		result := <-description
-		fmt.Printf("%#v\n", result)
 		resultMap[result.name] = result
 	}
-	fmt.Printf("%#v\n", resultMap)
-	fmt.Printf("%#v\n", plugins)
 	// plugins array is already sorted, use this to get the results in order
 	for _, plugin := range plugins {
 		results = append(results, resultMap[plugin])
 	}
-
-	fmt.Printf("%#v\n", results)
 	return results
 }
 
