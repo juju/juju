@@ -24,7 +24,6 @@ var configChecker = schema.StrictFieldMap(
 		"control-bucket":    schema.String(),
 		"public-bucket":     schema.String(),
 		"public-bucket-url": schema.String(),
-		"fallback-image-id": schema.String(),
 		"use-floating-ip":   schema.Bool(),
 	},
 	schema.Defaults{
@@ -39,7 +38,6 @@ var configChecker = schema.StrictFieldMap(
 		"control-bucket":    "",
 		"public-bucket":     "juju-dist",
 		"public-bucket-url": "",
-		"fallback-image-id": "",
 		"use-floating-ip":   false,
 	},
 )

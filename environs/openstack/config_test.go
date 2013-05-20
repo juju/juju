@@ -41,25 +41,24 @@ var _ = Suite(&ConfigSuite{})
 // baseConfigResult when mutated by the mutate function, or that the
 // parse matches the given error.
 type configTest struct {
-	summary         string
-	config          attrs
-	change          attrs
-	envVars         map[string]string
-	region          string
-	controlBucket   string
-	publicBucket    string
-	pbucketURL      string
-	fallbackImageId string
-	useFloatingIP   bool
-	username        string
-	password        string
-	tenantName      string
-	authMode        string
-	authURL         string
-	accessKey       string
-	secretKey       string
-	firewallMode    config.FirewallMode
-	err             string
+	summary       string
+	config        attrs
+	change        attrs
+	envVars       map[string]string
+	region        string
+	controlBucket string
+	publicBucket  string
+	pbucketURL    string
+	useFloatingIP bool
+	username      string
+	password      string
+	tenantName    string
+	authMode      string
+	authURL       string
+	accessKey     string
+	secretKey     string
+	firewallMode  config.FirewallMode
+	err           string
 }
 
 type attrs map[string]interface{}
@@ -352,12 +351,6 @@ var configTests = []configTest{
 	}, {
 		summary:  "default auth mode based on environment",
 		authMode: string(AuthUserPass),
-	}, {
-		summary: "fallback image id",
-		config: attrs{
-			"fallback-image-id": "image-id",
-		},
-		fallbackImageId: "image-id",
 	}, {
 		summary: "default use floating ip",
 		// Do not use floating IP's by default.
