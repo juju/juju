@@ -103,15 +103,15 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 
 	c.Assert(results, HasLen, 5)
 	c.Check(elapsed, checkers.DurationLessThan, expectedDuration)
-	c.Assert(results[0].name, Equals, "juju-bar")
+	c.Assert(results[0].name, Equals, "bar")
 	c.Assert(results[0].description, Equals, "bar description")
-	c.Assert(results[1].name, Equals, "juju-baz")
+	c.Assert(results[1].name, Equals, "baz")
 	c.Assert(results[1].description, Equals, "baz description")
-	c.Assert(results[2].name, Equals, "juju-error")
+	c.Assert(results[2].name, Equals, "error")
 	c.Assert(results[2].description, Equals, "error occurred running 'juju-error --description'")
-	c.Assert(results[3].name, Equals, "juju-foo")
+	c.Assert(results[3].name, Equals, "foo")
 	c.Assert(results[3].description, Equals, "foo description")
-	c.Assert(results[4].name, Equals, "juju-slow")
+	c.Assert(results[4].name, Equals, "slow")
 	c.Assert(results[4].description, Equals, "slow description")
 }
 

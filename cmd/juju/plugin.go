@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -70,6 +71,35 @@ type PluginDescription struct {
 	description string
 }
 
+func PluginHelpTopic() string {
+	output := &bytes.Buffer{}
+
+	fmt.Fprintf(output, `Juju Plugins
+
+Plugins are implemented as stand-alone executable files somewhere in the user's PATH.
+The executable command must be of the format juju-<plugin name>.
+
+`)
+
+	existingPlugins := GetPluginDescriptions()
+
+	if len(existingPlugins) == 0 {
+		fmt.Fprintf(output, "No plugins found.\n")
+	} else {
+		longest := 0
+		for _, plugin := range existingPlugins {
+			if len(plugin.name) > longest {
+				longest = len(plugin.name)
+			}
+		}
+		for _, plugin := range existingPlugins {
+			fmt.Fprintf(output, "%-*s  %s\n", longest, plugin.name, plugin.description)
+		}
+	}
+
+	return output.String()
+}
+
 // GetPluginDescriptions runs each plugin with "--description".  If the plugin
 // takes longer than DescriptionTimeout to return, the subprocess is killed
 // and the description becomes an error message.
@@ -109,7 +139,10 @@ func GetPluginDescriptions() []PluginDescription {
 	}
 	// plugins array is already sorted, use this to get the results in order
 	for _, plugin := range plugins {
-		results = append(results, resultMap[plugin])
+		// Strip the 'juju-' off the start of the plugin name in the results
+		result := resultMap[plugin]
+		result.name = result.name[5:]
+		results = append(results, result)
 	}
 	return results
 }

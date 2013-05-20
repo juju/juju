@@ -74,7 +74,11 @@ func (c *SuperCommand) init() {
 }
 
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
-	c.subcmds["help"].(*helpCommand).addTopic(name, short, long)
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long))
+}
+
+func (c *SuperCommand) AddHelpTopicCallback(name, short string, longCallback func() string) {
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, longCallback)
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -260,11 +264,11 @@ func echo(s string) func() string {
 	return func() string { return s }
 }
 
-func (c *helpCommand) addTopic(name, short, long string) {
+func (c *helpCommand) addTopic(name, short string, long func() string) {
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
-	c.topics[name] = topic{short, echo(long)}
+	c.topics[name] = topic{short, long}
 }
 
 func (c *helpCommand) globalOptions() string {
