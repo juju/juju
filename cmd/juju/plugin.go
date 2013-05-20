@@ -18,7 +18,6 @@ import (
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	plugin := &PluginCommand{name: "juju-" + subcommand}
-
 	flags := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
@@ -114,12 +113,12 @@ func GetPluginDescriptions() []PluginDescription {
 
 	// exec the command, and wait only for the timeout before killing the process
 	for _, plugin := range plugins {
-		cmd := exec.Command(plugin, "--description")
-		go func(plugin string, cmd *exec.Cmd) {
+		go func(plugin string) {
 			result := PluginDescription{name: plugin}
 			defer func() {
 				description <- result
 			}()
+			cmd := exec.Command(plugin, "--description")
 			output, err := cmd.CombinedOutput()
 
 			if err == nil {
@@ -129,10 +128,10 @@ func GetPluginDescriptions() []PluginDescription {
 				result.description = fmt.Sprintf("error occurred running '%s --description'", plugin)
 				log.Errorf("'%s --description': %s", plugin, err)
 			}
-		}(plugin, cmd)
+		}(plugin)
 	}
 	resultMap := map[string]PluginDescription{}
-	// gather the results at the end.
+	// gather the results at the end
 	for _ = range plugins {
 		result := <-description
 		resultMap[result.name] = result

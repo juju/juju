@@ -3,10 +3,12 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/log"
+	"os/exec"
 	"sort"
 	"strings"
+
+	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/log"
 )
 
 type topic struct {
@@ -346,6 +348,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 			return nil
 		}
 	}
+	// If the topic is a registered subcommand, then run the help command with it
 	if helpcmd, ok := c.super.subcmds[c.topic]; ok {
 		info := helpcmd.Info()
 		info.Name = fmt.Sprintf("%s %s", c.super.Name, info.Name)
@@ -354,10 +357,26 @@ func (c *helpCommand) Run(ctx *Context) error {
 		ctx.Stdout.Write(info.Help(f))
 		return nil
 	}
+	// Look to see if the topic is a registered topic.
 	topic, ok := c.topics[c.topic]
-	if !ok {
-		return fmt.Errorf("unknown command or topic for %s", c.topic)
+	if ok {
+		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
+		return nil
 	}
-	fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
-	return nil
+	// If we have a missing callback, call that with --help
+	if c.super.missingCallback != nil {
+		subcmd := &missingCommand{
+			callback: c.super.missingCallback,
+			name:     c.topic,
+			args:     []string{"--", "--help"},
+		}
+		err := subcmd.Run(ctx)
+		_, execError := err.(*exec.Error)
+		// exec.Error results are for when the executable isn't found, in
+		// those cases, drop through.
+		if !execError {
+			return err
+		}
+	}
+	return fmt.Errorf("unknown command or topic for %s", c.topic)
 }
