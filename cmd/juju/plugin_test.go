@@ -91,6 +91,7 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 	suite.makeFullPlugin("foo", 0, 0.1)
 	suite.makeFullPlugin("bar", 0, 0.15)
 	suite.makeFullPlugin("baz", 0, 0.3)
+	suite.makeFullPlugin("error", 1, 0.1)
 	suite.makeFullPlugin("slow", 0, 0.2)
 
 	start := time.Now()
@@ -100,16 +101,18 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 	// 300 for baz above + 50ms wiggle room
 	expectedDuration := 350 * time.Millisecond
 
-	c.Assert(results, HasLen, 4)
+	c.Assert(results, HasLen, 5)
 	c.Check(elapsed, checkers.DurationLessThan, expectedDuration)
 	c.Assert(results[0].name, Equals, "juju-bar")
 	c.Assert(results[0].description, Equals, "bar description")
 	c.Assert(results[1].name, Equals, "juju-baz")
 	c.Assert(results[1].description, Equals, "baz description")
-	c.Assert(results[2].name, Equals, "juju-foo")
-	c.Assert(results[2].description, Equals, "foo description")
-	c.Assert(results[3].name, Equals, "juju-slow")
-	c.Assert(results[3].description, Equals, "slow description")
+	c.Assert(results[2].name, Equals, "juju-error")
+	c.Assert(results[2].description, Equals, "error occurred running 'juju-error --description'")
+	c.Assert(results[3].name, Equals, "juju-foo")
+	c.Assert(results[3].description, Equals, "foo description")
+	c.Assert(results[4].name, Equals, "juju-slow")
+	c.Assert(results[4].description, Equals, "slow description")
 }
 
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
