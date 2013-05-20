@@ -15,7 +15,6 @@ type InstanceConstraint struct {
 	Series         string
 	Arches         []string
 	Constraints    constraints.Value
-	DefaultImageId string // the image to use if multiple matching ones are found
 	// Optional filtering criteria not supported by all providers. These attributes are not specified
 	// by the user as a constraint but rather passed in by the provider implementation to restrict the
 	// choice of available images.
@@ -41,31 +40,15 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	}
 
 	for _, itype := range matchingTypes {
-		typeMatch := false
 		for _, image := range possibleImages {
 			if image.match(itype) {
-				typeMatch = true
-				if ic.DefaultImageId == "" || ic.DefaultImageId == image.Id {
-					return &InstanceSpec{itype.Id, itype.Name, image}, nil
-				}
+				return &InstanceSpec{itype.Id, itype.Name, image}, nil
 			}
 		}
-		if typeMatch && ic.DefaultImageId != "" {
-			return nil, fmt.Errorf("invalid default image id %q", ic.DefaultImageId)
-		}
-	}
-	// if no matching image is found for whatever reason, use the default if one is specified.
-	if ic.DefaultImageId != "" && len(matchingTypes) > 0 {
-		spec := &InstanceSpec{
-			InstanceTypeId:   matchingTypes[0].Id,
-			InstanceTypeName: matchingTypes[0].Name,
-			Image:            Image{Id: ic.DefaultImageId, Arch: ic.Arches[0]},
-		}
-		return spec, nil
 	}
 
 	if len(possibleImages) == 0 || len(matchingTypes) == 0 {
-		return nil, fmt.Errorf("no %q images in %s with arches %s, and no default specified",
+		return nil, fmt.Errorf("no %q images in %s with arches %s",
 			ic.Series, ic.Region, ic.Arches)
 	}
 

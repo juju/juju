@@ -268,7 +268,6 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 		Arches:         []string{arch},
 		Region:         env.ecfg().region(),
 		Constraints:    constraints.MustParse(cons),
-		DefaultImageId: env.ecfg().defaultImageId(),
 	})
 	return
 }
@@ -280,17 +279,6 @@ func GetImageURLs(e environs.Environ) ([]string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
-}
-
-func SetDefaultImageId(e environs.Environ, defaultId string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["default-image-id"] = defaultId
-}
-
-// ImageDetails specify parameters used to start a test machine for the live tests.
-type ImageDetails struct {
-	Flavor  string
-	ImageId string
 }
 
 type BootstrapState struct {

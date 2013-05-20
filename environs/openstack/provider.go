@@ -81,10 +81,6 @@ openstack:
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  # The attributes below allow user specified defaults to be used if a suitable image
-  # or instance type cannot be found.
-  # default-image-id: <fallback image id>
-  # default-instance-type: <fallback flavor name>
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -110,8 +106,6 @@ hpcloud:
   auth-url: https://yourkeystoneurl:35357/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: "75845"
-  default-instance-type: "standard.xsmall"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -764,8 +758,6 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 		Series:      scfg.series,
 		Arches:      arches,
 		Constraints: scfg.constraints,
-		// TODO (wallyworld): re-implement as constraints
-		DefaultImageId: e.ecfg().defaultImageId(),
 	})
 	if err != nil {
 		return nil, err

@@ -47,12 +47,11 @@ func (s *specSuite) TearDownSuite(c *C) {
 }
 
 var findInstanceSpecTests = []struct {
-	series       string
-	arches       []string
-	cons         string
-	defaultImage string
-	itype        string
-	image        string
+	series string
+	arches []string
+	cons   string
+	itype  string
+	image  string
 }{
 	{
 		series: "precise",
@@ -118,12 +117,6 @@ var findInstanceSpecTests = []struct {
 		cons:   "arch=amd64",
 		itype:  "cc1.4xlarge",
 		image:  "ami-01000035",
-	}, {
-		series:       "raring",
-		arches:       both,
-		itype:        "m1.small",
-		defaultImage: "ami-02000035",
-		image:        "ami-02000035",
 	},
 }
 
@@ -132,12 +125,11 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 		c.Logf("test %d", i)
 		storage := ebsStorage
 		spec, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
-			Region:         "test",
-			Series:         t.series,
-			Arches:         t.arches,
-			Constraints:    constraints.MustParse(t.cons),
-			DefaultImageId: t.defaultImage,
-			Storage:        &storage,
+			Region:      "test",
+			Series:      t.series,
+			Arches:      t.arches,
+			Constraints: constraints.MustParse(t.cons),
+			Storage:     &storage,
 		})
 		c.Assert(err, IsNil)
 		c.Check(spec.InstanceTypeName, Equals, t.itype)
@@ -146,11 +138,10 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 }
 
 var findInstanceSpecErrorTests = []struct {
-	series         string
-	arches         []string
-	cons           string
-	defaultImageId string
-	err            string
+	series string
+	arches []string
+	cons   string
+	err    string
 }{
 	{
 		series: "bad",
@@ -159,12 +150,7 @@ var findInstanceSpecErrorTests = []struct {
 	}, {
 		series: "precise",
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
-	}, {
-		series:         "precise",
-		arches:         both,
-		defaultImageId: "bad",
-		err:            `invalid default image id "bad"`,
+		err:    `no "precise" images in test with arches \[arm\]`,
 	}, {
 		series: "raring",
 		arches: both,
@@ -177,11 +163,10 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
-			Region:         "test",
-			Series:         t.series,
-			Arches:         t.arches,
-			Constraints:    constraints.MustParse(t.cons),
-			DefaultImageId: t.defaultImageId,
+			Region:      "test",
+			Series:      t.series,
+			Arches:      t.arches,
+			Constraints: constraints.MustParse(t.cons),
 		})
 		c.Check(err, ErrorMatches, t.err)
 	}

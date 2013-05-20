@@ -49,7 +49,7 @@ type configTest struct {
 	controlBucket  string
 	publicBucket   string
 	pbucketURL     string
-	defaultImageId string
+	fallbackImageId string
 	useFloatingIP  bool
 	username       string
 	password       string
@@ -161,9 +161,6 @@ func (t configTest) check(c *C) {
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
-	}
-	if t.defaultImageId != "" {
-		c.Assert(ecfg.defaultImageId(), Equals, t.defaultImageId)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 }
@@ -356,11 +353,11 @@ var configTests = []configTest{
 		summary:  "default auth mode based on environment",
 		authMode: string(AuthUserPass),
 	}, {
-		summary: "default image id",
+		summary: "fallback image id",
 		config: attrs{
-			"default-image-id": "image-id",
+			"fallback-image-id": "image-id",
 		},
-		defaultImageId: "image-id",
+		fallbackImageId: "image-id",
 	}, {
 		summary: "default use floating ip",
 		// Do not use floating IP's by default.
