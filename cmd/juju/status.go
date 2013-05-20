@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils/set"
 	"strings"
-	"sync"
 )
 
 type StatusCommand struct {
@@ -111,64 +110,26 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 	if err != nil {
 		return nil, nil, err
 	}
-	type serviceUnits struct {
-		service *state.Service
-		unitMap map[string]*state.Unit
-	}
-	res := make(chan serviceUnits)
-	errChan := make(chan error, 100)
-	var wg sync.WaitGroup
-	go func() {
-		for su := range res {
-			svcMap[su.service.Name()] = su.service
-			unitMap[su.service.Name()] = su.unitMap
+	for _, s := range services {
+		svcMap[s.Name()] = s
+		units, err := s.AllUnits()
+		if err != nil {
+			return nil, nil, err
 		}
-	}()
-	for _, service := range services {
-		wg.Add(1)
-		go func(s *state.Service) {
-			units, err := s.AllUnits()
-			if err != nil {
-				errChan <- err
-			}
-			svcUnitMap := make(map[string]*state.Unit)
-			for _, u := range units {
-				svcUnitMap[u.Name()] = u
-			}
-			res <- serviceUnits{s, svcUnitMap}
-			wg.Done()
-		}(service)
+		svcUnitMap := make(map[string]*state.Unit)
+		for _, u := range units {
+			svcUnitMap[u.Name()] = u
+		}
+		unitMap[s.Name()] = svcUnitMap
 	}
-	wg.Wait()
-	close(res)
 	return svcMap, unitMap, nil
 }
 
 func (ctxt *statusContext) processMachines() map[string]machineStatus {
 	machinesMap := make(map[string]machineStatus)
-	type machineInfo struct {
-		Id     string
-		Status machineStatus
-	}
-	res := make(chan machineInfo, 100)
-	var wg sync.WaitGroup
-	// Start up the aggregation goroutine
-	go func() {
-		for mi := range res {
-			machinesMap[mi.Id] = mi.Status
-		}
-	}()
-	// Now send out requests for every machine
 	for _, m := range ctxt.machines {
-		wg.Add(1)
-		go func(thisM *state.Machine) {
-			res <- machineInfo{thisM.Id(), ctxt.processMachine(thisM)}
-			wg.Done()
-		}(m)
+		machinesMap[m.Id()] = ctxt.processMachine(m)
 	}
-	// Wait until they have all been completed
-	wg.Wait()
-	close(res)
 	return machinesMap
 }
 
@@ -204,26 +165,9 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 
 func (ctxt *statusContext) processServices() map[string]serviceStatus {
 	servicesMap := make(map[string]serviceStatus)
-	type serviceInfo struct {
-		Name   string
-		Status serviceStatus
-	}
-	res := make(chan serviceInfo)
-	go func() {
-		for si := range res {
-			servicesMap[si.Name] = si.Status
-		}
-	}()
-	var wg sync.WaitGroup
 	for _, s := range ctxt.services {
-		wg.Add(1)
-		go func(thisS *state.Service) {
-			res <- serviceInfo{thisS.Name(), ctxt.processService(thisS)}
-			wg.Done()
-		}(s)
+		servicesMap[s.Name()] = ctxt.processService(s)
 	}
-	wg.Wait()
-	close(res)
 	return servicesMap
 }
 
@@ -246,26 +190,9 @@ func (ctxt *statusContext) processService(service *state.Service) (status servic
 
 func (ctxt *statusContext) processUnits(units map[string]*state.Unit) map[string]unitStatus {
 	unitsMap := make(map[string]unitStatus)
-	type unitInfo struct {
-		Name   string
-		Status unitStatus
-	}
-	res := make(chan unitInfo)
-	go func() {
-		for ui := range res {
-			unitsMap[ui.Name] = ui.Status
-		}
-	}()
-	var wg sync.WaitGroup
 	for _, unit := range units {
-		wg.Add(1)
-		go func(thisUnit *state.Unit) {
-			res <- unitInfo{thisUnit.Name(), ctxt.processUnit(thisUnit)}
-			wg.Done()
-		}(unit)
+		unitsMap[unit.Name()] = ctxt.processUnit(unit)
 	}
-	wg.Wait()
-	close(res)
 	return unitsMap
 }
 
