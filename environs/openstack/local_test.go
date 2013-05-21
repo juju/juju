@@ -115,6 +115,9 @@ func registerLocalTests() {
 			TestConfig: jujutest.TestConfig{config},
 		},
 	})
+	Suite(&publicBucketSuite{
+		cred: cred,
+	})
 }
 
 // localServer is used to spin up a local Openstack service double.
@@ -433,4 +436,45 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
+}
+
+// publicBucketSuite contains tests to ensure the public bucket is correctly set up.
+type publicBucketSuite struct {
+	cred *identity.Credentials
+	srv  localServer
+	env environs.Environ
+}
+
+func (s *publicBucketSuite) SetUpTest(c *C) {
+	s.srv.start(c, s.cred)
+}
+
+func (s *publicBucketSuite) TearDownTest(c *C) {
+	err := s.env.Destroy(nil)
+	c.Check(err, IsNil)
+	s.srv.stop()
+}
+
+func (s *publicBucketSuite) TestPublicBucketFromEnv(c *C) {
+	config := makeTestConfig(s.cred)
+	config["public-bucket-url"] = "http://127.0.0.1/public-bucket"
+	var err error
+	s.env, err = environs.NewFromAttrs(config)
+	c.Assert(err, IsNil)
+	url, err := s.env.PublicStorage().URL("")
+	c.Assert(err, IsNil)
+	c.Assert(url, Equals, "http://127.0.0.1/public-bucket/juju-dist/")
+}
+
+func (s *publicBucketSuite) TestPublicBucketFromKeystone(c *C) {
+	config := makeTestConfig(s.cred)
+	config["public-bucket-url"] = ""
+	var err error
+	s.env, err = environs.NewFromAttrs(config)
+	c.Assert(err, IsNil)
+	url, err := s.env.PublicStorage().URL("")
+	c.Assert(err, IsNil)
+	swiftURL, err := openstack.GetSwiftURL(s.env)
+	c.Assert(err, IsNil)
+	c.Assert(url, Equals, fmt.Sprintf("%s/juju-dist/", swiftURL))
 }

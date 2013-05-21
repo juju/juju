@@ -276,6 +276,10 @@ func GetImageURLs(e environs.Environ) ([]string, error) {
 	return e.(*environ).getImageBaseURLs()
 }
 
+func GetSwiftURL(e environs.Environ) (string, error) {
+	return e.(*environ).client.MakeServiceURL("object-store", nil)
+}
+
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
