@@ -301,7 +301,6 @@ func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error)
 		return func() {}, err
 	}
 
-	c.Check(api.ErrCode(err), Equals, api.CodeHasAssignedUnits)
 	c.Check(err.Error(), Matches, `machine 1 has unit "wordpress/0" assigned`)
 	return func() {}, nil
 }
@@ -1058,8 +1057,7 @@ func (s *suite) TestMachineEnsureDead(c *C) {
 	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
-	life := stm.Life()
-	c.Assert(life, Equals, state.Alive)
+	c.Assert(stm.Life(), Equals, state.Alive)
 
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
@@ -1067,8 +1065,51 @@ func (s *suite) TestMachineEnsureDead(c *C) {
 	err = stm.Refresh()
 	c.Assert(err, IsNil)
 
-	life = stm.Life()
-	c.Assert(life, Equals, state.Dead)
+	c.Assert(stm.Life(), Equals, state.Dead)
+}
+
+func (s *suite) TestMachineEnsureDeadWithAssignedUnit(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(stm)
+	c.Assert(err, IsNil)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	c.Assert(stm.Life(), Equals, state.Alive)
+
+	err = m.EnsureDead()
+	c.Assert(api.ErrCode(err), Equals, api.CodeHasAssignedUnits)
+	c.Assert(err, ErrorMatches, `machine 0 has unit "wordpress/0" assigned`)
+
+	err = stm.Refresh()
+	c.Assert(err, IsNil)
+
+	c.Assert(stm.Life(), Equals, state.Alive)
+
+	// Once no unit is assigned, lifecycle can advance.
+	err = unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+
+	c.Assert(stm.Life(), Equals, state.Alive)
+
+	err = stm.Refresh()
+	c.Assert(err, IsNil)
+
+	c.Assert(stm.Life(), Equals, state.Dead)
 }
 
 func (s *suite) TestMachineSetAgentAlive(c *C) {
@@ -1374,11 +1415,14 @@ var errorTransformTests = []struct {
 	err:  apiserver.ErrUnknownWatcher,
 	code: api.CodeNotFound,
 }, {
-	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?!
+	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?! nah..
 	code: api.CodeNotAssigned,
 }, {
 	err:  apiserver.ErrStoppedWatcher,
 	code: api.CodeStopped,
+}, {
+	err:  &state.HasAssignedUnitsError{"42", []string{"a"}},
+	code: api.CodeHasAssignedUnits,
 }, {
 	err:  errors.New("an error"),
 	code: "",
