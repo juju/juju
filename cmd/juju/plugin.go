@@ -151,7 +151,7 @@ func GetPluginDescriptions() []PluginDescription {
 	for _, plugin := range plugins {
 		// Strip the 'juju-' off the start of the plugin name in the results
 		result := resultMap[plugin]
-		result.name = result.name[5:]
+		result.name = result.name[len(JujuPluginPrefix):]
 		results = append(results, result)
 	}
 	return results

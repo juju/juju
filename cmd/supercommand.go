@@ -78,10 +78,16 @@ func (c *SuperCommand) init() {
 	}
 }
 
+// AddHelpTopic adds a new help topic with the description being the short
+// param, and the full text being the long param.  The description is shown in
+// 'help topics', and the full text is shown when the command 'help <name>' is
+// called.
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
 	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long))
 }
 
+// AddHelpTopicCallback adds a new help topic with the description being the
+// short param, and the full text being defined by the callback function.
 func (c *SuperCommand) AddHelpTopicCallback(name, short string, longCallback func() string) {
 	c.subcmds["help"].(*helpCommand).addTopic(name, short, longCallback)
 }
