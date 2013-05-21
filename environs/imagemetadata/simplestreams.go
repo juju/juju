@@ -218,14 +218,14 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 	for _, baseURL := range baseURLs {
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
-			if _, ok := err.(*environs.NotFoundError); ok {
+			if environs.IsNotFoundError(err) {
 				continue
 			}
 			return nil, err
 		}
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
-			if _, ok := err.(*environs.NotFoundError); ok {
+			if environs.IsNotFoundError(err) {
 				continue
 			}
 			return nil, err
@@ -271,7 +271,7 @@ func fetchData(baseURL, path string, requireSigned bool) (data []byte, dataURL s
 func getIndexWithFormat(baseURL, indexPath, format string, requireSigned bool) (*indexReference, error) {
 	data, url, err := fetchData(baseURL, indexPath, requireSigned)
 	if err != nil {
-		if _, ok := err.(*environs.NotFoundError); ok {
+		if environs.IsNotFoundError(err) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot read index data, %v", err)
