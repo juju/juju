@@ -42,6 +42,8 @@ func serverError(err error) error {
 		code = api.CodeNotFound
 	case state.IsNotAssigned(err):
 		code = api.CodeNotAssigned
+	case state.IsHasAssignedUnitsError(err):
+		code = api.CodeHasAssignedUnits
 	}
 	if code != "" {
 		return &api.Error{

@@ -29,7 +29,8 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
-// SetStatus holds the parameters for making the SetStatus call for a machine or unit.
+// SetStatus holds the parameters for Machine.SetStatus and
+// Unit.SetStatus.
 type SetStatus struct {
 	Status Status
 	Info   string
@@ -349,7 +350,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
-	Life        string
+	Life        Life
 	Constraints constraints.Value
 	Config      map[string]interface{}
 }

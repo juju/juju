@@ -73,8 +73,7 @@ var operationPermTests = []struct {
 }, {
 	about: "Machine.SetPassword",
 	op:    opMachine1SetPassword,
-	// Machine 0 should be allowed to change the password for machine
-	// 1, because it's managing the environment.
+	// Machine 0 is allowed because it is an environment manager.
 	allow: []string{"machine-0", "machine-1"},
 }, {
 	about: "Machine.SetAgentAlive",
@@ -87,7 +86,7 @@ var operationPermTests = []struct {
 }, {
 	about: "Machine.SetStatus",
 	op:    opMachine1SetStatus,
-	// Machine 0 needs to set the status of a machine when provisioning.
+	// Machine 0 is allowed because it is an environment manager.
 	allow: []string{"machine-0", "machine-1"},
 }, {
 	about: "Unit.SetPassword (on principal unit)",
@@ -285,9 +284,9 @@ func opMachine1SetAgentAlive(c *C, st *api.State, mst *state.State) (func(), err
 	if err != nil {
 		return func() {}, err
 	}
-	return func() {
-		pinger.Stop()
-	}, nil
+	err = pinger.Stop()
+	c.Check(err, IsNil)
+	return func() {}, nil
 }
 
 func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -302,7 +301,8 @@ func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error)
 		return func() {}, err
 	}
 
-	c.Check(err, ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
+	c.Check(api.ErrCode(err), Equals, api.CodeHasAssignedUnits)
+	c.Check(err.Error(), Matches, `machine 1 has unit "wordpress/0" assigned`)
 	return func() {}, nil
 }
 
@@ -312,12 +312,20 @@ func opMachine1SetStatus(c *C, st *api.State, mst *state.State) (func(), error) 
 		c.Check(m, IsNil)
 		return func() {}, err
 	}
+	stm, err := mst.Machine("1")
+	c.Check(err, IsNil)
+
+	orgStatus, orgInfo, err := stm.Status()
+	c.Check(err, IsNil)
+
 	err = m.SetStatus(params.StatusStopped, "blah")
 	if err != nil {
 		return func() {}, err
 	}
+
 	return func() {
-		setDefaultStatus(c, m)
+		err := m.SetStatus(orgStatus, orgInfo)
+		c.Check(err, IsNil)
 	}, nil
 }
 
@@ -643,6 +651,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
+		setDefaultStatus(c, m)
 		add(m)
 
 		err = wu.AssignToMachine(m)

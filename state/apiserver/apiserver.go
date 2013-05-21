@@ -183,14 +183,14 @@ func (r *srvRoot) Pinger(id string) (*srvResource, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	rr := r.resources.get(id)
-	if rr == nil {
+	pinger := r.resources.get(id)
+	if pinger == nil {
 		return nil, errUnknownPinger
 	}
-	if _, ok := rr.r.(*presence.Pinger); !ok {
+	if _, ok := pinger.resource.(*presence.Pinger); !ok {
 		return nil, errUnknownPinger
 	}
-	return rr, nil
+	return pinger, nil
 }
 
 // EntityWatcher returns an object that provides
@@ -201,28 +201,32 @@ func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return srvEntityWatcher{}, err
 	}
-	rr := r.resources.get(id)
-	if rr == nil {
+	watcher := r.resources.get(id)
+	if watcher == nil {
 		return srvEntityWatcher{}, errUnknownWatcher
 	}
-	if _, ok := rr.r.(*state.EntityWatcher); !ok {
+	if _, ok := watcher.resource.(*state.EntityWatcher); !ok {
 		return srvEntityWatcher{}, errUnknownWatcher
 	}
-	return srvEntityWatcher{rr}, nil
+	return srvEntityWatcher{watcher}, nil
 }
 
+// AllWatcher returns an object that provides API access to methods on
+// a state/multiwatcher.Watcher, which watches any changes to the
+// state. Each client has its own current set of watchers, stored in
+// r.resources.
 func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
 	if err := r.requireClient(); err != nil {
 		return srvClientAllWatcher{}, err
 	}
-	rr := r.resources.get(id)
-	if rr == nil {
+	watcher := r.resources.get(id)
+	if watcher == nil {
 		return srvClientAllWatcher{}, errUnknownWatcher
 	}
-	if _, ok := rr.r.(*multiwatcher.Watcher); !ok {
+	if _, ok := watcher.resource.(*multiwatcher.Watcher); !ok {
 		return srvClientAllWatcher{}, errUnknownWatcher
 	}
-	return srvClientAllWatcher{rr}, nil
+	return srvClientAllWatcher{watcher}, nil
 
 }
 
@@ -243,15 +247,15 @@ type tagger interface {
 	Tag() string
 }
 
-// authOwner returns true only if the authenticated user's tag
-// matches the given entity's tag.
+// authOwner returns whether the authenticated user's tag matches the
+// given entity's tag.
 func (r *srvRoot) authOwner(entity tagger) bool {
 	authUser := r.user.authenticator()
 	return authUser.Tag() == entity.Tag()
 }
 
-// authEnvironManager returns true only if the authenticated user is
-// the environment manager.
+// authEnvironManager returns whether the authenticated user is a
+// machine with running the ManageEnviron job.
 func (r *srvRoot) authEnvironManager() bool {
 	authUser := r.user.authenticator()
 	return isMachineWithJob(authUser, state.JobManageEnviron)
@@ -265,11 +269,11 @@ type srvEntityWatcher struct {
 // entity being watched since the most recent call to Next
 // or the Watch call that created the EntityWatcher.
 func (w srvEntityWatcher) Next() error {
-	ew := w.r.(*state.EntityWatcher)
-	if _, ok := <-ew.Changes(); ok {
+	watcher := w.resource.(*state.EntityWatcher)
+	if _, ok := <-watcher.Changes(); ok {
 		return nil
 	}
-	err := ew.Err()
+	err := watcher.Err()
 	if err == nil {
 		err = errStoppedWatcher
 	}
@@ -305,14 +309,14 @@ type srvClientAllWatcher struct {
 }
 
 func (aw srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
-	deltas, err := aw.r.(*multiwatcher.Watcher).Next()
+	deltas, err := aw.resource.(*multiwatcher.Watcher).Next()
 	return params.AllWatcherNextResults{
 		Deltas: deltas,
 	}, err
 }
 
 func (aw srvClientAllWatcher) Stop() error {
-	return aw.r.(*multiwatcher.Watcher).Stop()
+	return aw.resource.(*multiwatcher.Watcher).Stop()
 }
 
 // ServiceSet implements the server side of Client.ServerSet.
@@ -680,9 +684,9 @@ type resources struct {
 // srvResource holds the details of a resource. It also implements the
 // Stop RPC method for all resources.
 type srvResource struct {
-	rs *resources
-	r  resource
-	id string
+	rs       *resources
+	resource resource
+	id       string
 }
 
 // Stop stops the given resource. It causes any outstanding
@@ -690,7 +694,7 @@ type srvResource struct {
 // Any subsequent Next calls will return a CodeNotFound
 // error because the resource will no longer exist.
 func (r *srvResource) Stop() error {
-	err := r.r.Stop()
+	err := r.resource.Stop()
 	r.rs.mu.Lock()
 	defer r.rs.mu.Unlock()
 	delete(r.rs.rs, r.id)
@@ -718,9 +722,9 @@ func (rs *resources) register(r resource) *srvResource {
 	defer rs.mu.Unlock()
 	rs.maxId++
 	sr := &srvResource{
-		rs: rs,
-		id: strconv.FormatUint(rs.maxId, 10),
-		r:  r,
+		rs:       rs,
+		id:       strconv.FormatUint(rs.maxId, 10),
+		resource: r,
 	}
 	rs.rs[sr.id] = sr
 	return sr
@@ -730,7 +734,7 @@ func (rs *resources) stopAll() {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	for _, r := range rs.rs {
-		if err := r.r.Stop(); err != nil {
+		if err := r.resource.Stop(); err != nil {
 			log.Errorf("state/api: error stopping %T resource: %v", r, err)
 		}
 	}

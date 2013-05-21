@@ -349,7 +349,7 @@ func (m *Machine) SetAgentAlive() (*Pinger, error) {
 // It does nothing otherwise. EnsureDead will fail if the machine has
 // principal units assigned, or if the machine has JobManageEnviron.
 // If the machine has assigned units, EnsureDead will return
-// a HasAssignedUnitsError.
+// a CodeHasAssignedUnits error.
 func (m *Machine) EnsureDead() error {
 	return m.st.call("Machine", m.id, "EnsureDead", nil, nil)
 }
@@ -367,11 +367,15 @@ func (m *Machine) Life() params.Life {
 	return m.doc.Life
 }
 
+// Pinger periodically reports that a specific key is alive, so that
+// watchers interested on that fact can react appropriately.
 type Pinger struct {
 	st *State
 	id string
 }
 
+// Stop stops the p's periodical ping. Watchers will not notice p has
+// stopped pinging until the previous ping times out.
 func (p *Pinger) Stop() error {
 	return p.st.call("Pinger", p.id, "Stop", nil, nil)
 }
