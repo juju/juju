@@ -201,7 +201,7 @@ func (u *Upgrader) run() error {
 			tools, err := environs.FindExactTools(environ, required)
 			if err != nil {
 				log.Errorf("upgrader error finding tools for %v: %v", required, err)
-				if _, missing := err.(*environs.NotFoundError); !missing {
+				if !environs.IsNotFoundError(err) {
 					return err
 				}
 				noDelay()
