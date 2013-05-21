@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"os"
@@ -15,7 +16,7 @@ import (
 )
 
 type UpgradeCharmErrorsSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&UpgradeCharmErrorsSuite{})
@@ -35,7 +36,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidArgs(c *C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *C) {
-	testing.Charms.ClonedDirPath(s.seriesPath, "riak")
+	testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 
@@ -54,16 +55,15 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *C) {
 }
 
 func (s *UpgradeCharmErrorsSuite) TestCannotBumpRevisionWithBundle(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "riak")
+	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
-
 	err = runUpgradeCharm(c, "riak")
 	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/riak-7": not a directory`)
 }
 
 func (s *UpgradeCharmErrorsSuite) deployService(c *C) {
-	testing.Charms.ClonedDirPath(s.seriesPath, "riak")
+	testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 }
@@ -90,7 +90,7 @@ func (s *UpgradeCharmErrorsSuite) TestInvalidRevision(c *C) {
 }
 
 type UpgradeCharmSuccessSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 	path string
 	riak *state.Service
 }
@@ -98,8 +98,8 @@ type UpgradeCharmSuccessSuite struct {
 var _ = Suite(&UpgradeCharmSuccessSuite{})
 
 func (s *UpgradeCharmSuccessSuite) SetUpTest(c *C) {
-	s.repoSuite.SetUpTest(c)
-	s.path = testing.Charms.ClonedDirPath(s.seriesPath, "riak")
+	s.RepoSuite.SetUpTest(c)
+	s.path = testing.Charms.ClonedDirPath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 	s.riak, err = s.State.Service("riak")
@@ -117,7 +117,7 @@ func (s *UpgradeCharmSuccessSuite) assertUpgraded(c *C, revision int, forced boo
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, revision)
 	c.Assert(force, Equals, forced)
-	s.assertCharmUploaded(c, ch.URL())
+	s.AssertCharmUploaded(c, ch.URL())
 	return ch.URL()
 }
 
@@ -153,7 +153,7 @@ func (s *UpgradeCharmSuccessSuite) TestUpgradesWithBundle(c *C) {
 	buf := &bytes.Buffer{}
 	err = dir.BundleTo(buf)
 	c.Assert(err, IsNil)
-	bundlePath := path.Join(s.seriesPath, "riak.charm")
+	bundlePath := path.Join(s.SeriesPath, "riak.charm")
 	err = ioutil.WriteFile(bundlePath, buf.Bytes(), 0644)
 	c.Assert(err, IsNil)
 
@@ -185,7 +185,7 @@ peers:
 `)
 
 func (s *UpgradeCharmSuccessSuite) TestSwitch(c *C) {
-	myriakPath := testing.Charms.RenamedClonedDirPath(s.seriesPath, "riak", "myriak")
+	myriakPath := testing.Charms.RenamedClonedDirPath(s.SeriesPath, "riak", "myriak")
 	err := ioutil.WriteFile(path.Join(myriakPath, "metadata.yaml"), myriakMeta, 0644)
 	c.Assert(err, IsNil)
 
