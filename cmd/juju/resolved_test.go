@@ -5,13 +5,14 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 )
 
 type ResolvedSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&ResolvedSuite{})
@@ -70,7 +71,7 @@ var resolvedTests = []struct {
 }
 
 func (s *ResolvedSuite) TestResolved(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "dummy")
+	testing.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
 	c.Assert(err, IsNil)
 
