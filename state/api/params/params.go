@@ -29,6 +29,22 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// SetStatus holds the parameters for Machine.SetStatus and
+// Unit.SetStatus.
+type SetStatus struct {
+	Status Status
+	Info   string
+}
+
+// Life describes the lifecycle state of an entity ("alive", "dying"
+// or "dead").
+type Life string
+
+// LifeResults holds the results of a Life call.
+type LifeResults struct {
+	Life Life
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName string
@@ -121,11 +137,17 @@ type Creds struct {
 // Machine holds details of a machine.
 type Machine struct {
 	InstanceId string
+	Life       Life
 }
 
 // EntityWatcherId holds the id of an EntityWatcher.
 type EntityWatcherId struct {
 	EntityWatcherId string
+}
+
+// PingerId holds the id of a Pinger.
+type PingerId struct {
+	PingerId string
 }
 
 // AllWatcherId holds the id of an AllWatcher.
@@ -328,7 +350,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
-	Life        string
+	Life        Life
 	Constraints constraints.Value
 	Config      map[string]interface{}
 }
