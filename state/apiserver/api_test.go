@@ -73,6 +73,21 @@ var operationPermTests = []struct {
 }, {
 	about: "Machine.SetPassword",
 	op:    opMachine1SetPassword,
+	// Machine 0 should be allowed to change the password for machine
+	// 1, because it's managing the environment.
+	allow: []string{"machine-0", "machine-1"},
+}, {
+	about: "Machine.SetAgentAlive",
+	op:    opMachine1SetAgentAlive,
+	allow: []string{"machine-1"},
+}, {
+	about: "Machine.EnsureDead",
+	op:    opMachine1EnsureDead,
+	allow: []string{"machine-1"},
+}, {
+	about: "Machine.SetStatus",
+	op:    opMachine1SetStatus,
+	// Machine 0 needs to set the status of a machine when provisioning.
 	allow: []string{"machine-0", "machine-1"},
 }, {
 	about: "Unit.SetPassword (on principal unit)",
@@ -257,6 +272,52 @@ func opMachine1SetPassword(c *C, st *api.State, mst *state.State) (func(), error
 	}
 	return func() {
 		setDefaultPassword(c, m)
+	}, nil
+}
+
+func opMachine1SetAgentAlive(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	pinger, err := m.SetAgentAlive()
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		pinger.Stop()
+	}, nil
+}
+
+func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	err = m.EnsureDead()
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+		// We expect this for any entity other than machine-1.
+		return func() {}, err
+	}
+
+	c.Check(err, ErrorMatches, `machine 1 has unit "wordpress/0" assigned`)
+	return func() {}, nil
+}
+
+func opMachine1SetStatus(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	err = m.SetStatus(params.StatusStopped, "blah")
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		setDefaultStatus(c, m)
 	}, nil
 }
 
@@ -502,14 +563,17 @@ var scenarioStatus = &api.Status{
 //  instance-id="i-machine-0"
 //  nonce="fake_nonce"
 //  jobs=manage-environ
+//  status=started, info=""
 // machine-1
 //  instance-id="i-machine-1"
 //  nonce="fake_nonce"
 //  jobs=host-units
+//  status=started, info=""
 // machine-2
 //  instance-id="i-machine-2"
 //  nonce="fake_nonce"
 //  jobs=host-units
+//  status=started, info=""
 // service-wordpress
 // service-logging
 // unit-wordpress-0
@@ -549,6 +613,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
+	setDefaultStatus(c, m)
 	add(m)
 
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
@@ -617,6 +682,15 @@ type apiAuthenticator interface {
 
 func setDefaultPassword(c *C, e apiAuthenticator) {
 	err := e.SetPassword(e.Tag() + " password")
+	c.Assert(err, IsNil)
+}
+
+type setStatuser interface {
+	SetStatus(status params.Status, info string) error
+}
+
+func setDefaultStatus(c *C, entity setStatuser) {
+	err := entity.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 }
 
@@ -935,6 +1009,110 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	instId, ok = m.InstanceId()
 	c.Check(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
+}
+
+func (s *suite) TestMachineLife(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	life := m.Life()
+	c.Assert(string(life), Equals, "alive")
+
+	err = stm.EnsureDead()
+	c.Assert(err, IsNil)
+
+	life = m.Life()
+	c.Assert(string(life), Equals, "alive")
+
+	err = m.Refresh()
+	c.Assert(err, IsNil)
+
+	life = m.Life()
+	c.Assert(string(life), Equals, "dead")
+}
+
+func (s *suite) TestMachineEnsureDead(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	life := stm.Life()
+	c.Assert(life, Equals, state.Alive)
+
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+
+	err = stm.Refresh()
+	c.Assert(err, IsNil)
+
+	life = stm.Life()
+	c.Assert(life, Equals, state.Dead)
+}
+
+func (s *suite) TestMachineSetAgentAlive(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	alive, err := stm.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	pinger, err := m.SetAgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(pinger, NotNil)
+
+	s.State.Sync()
+	alive, err = stm.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
+
+	err = pinger.Stop()
+	c.Assert(err, IsNil)
+}
+
+func (s *suite) TestMachineSetStatus(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	status, info, err := stm.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.StatusPending)
+	c.Assert(info, Equals, "")
+
+	err = m.SetStatus(params.StatusStarted, "blah")
+	c.Assert(err, IsNil)
+
+	status, info, err = stm.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.StatusStarted)
+	c.Assert(info, Equals, "blah")
 }
 
 func (s *suite) TestMachineRefresh(c *C) {

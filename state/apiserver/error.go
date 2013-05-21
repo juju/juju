@@ -15,6 +15,7 @@ var (
 	errPerm           = errors.New("permission denied")
 	errNotLoggedIn    = errors.New("not logged in")
 	errUnknownWatcher = errors.New("unknown watcher id")
+	errUnknownPinger  = errors.New("unknown pinger id")
 	errStoppedWatcher = errors.New("watcher has been stopped")
 )
 
