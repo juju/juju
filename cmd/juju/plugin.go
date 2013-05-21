@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/log"
 )
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
@@ -30,7 +31,8 @@ type PluginCommand struct {
 	args []string
 }
 
-// PluginCommand implements this solely to implement cmd.Command
+// Info is just a stub so that PluginCommand implements cmd.Command.
+// Since this is never actually called, we can happily return nil.
 func (*PluginCommand) Info() *cmd.Info {
 	return nil
 }
@@ -41,13 +43,13 @@ func (c *PluginCommand) Init(args []string) error {
 }
 
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
-
 	env := c.EnvName
 	if env == "" {
 		// Passing through the empty string reads the default environments.yaml file.
 		environments, err := environs.ReadEnvirons("")
 		if err != nil {
-			return fmt.Errorf("couldn't read the environment")
+			log.Errorf("could not read the environments.yaml file: %s", err)
+			return fmt.Errorf("could not read the environments.yaml file")
 		}
 		env = environments.Default
 	}
