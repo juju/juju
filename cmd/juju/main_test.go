@@ -72,7 +72,7 @@ func syncToolsHelpText() string {
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
-	defer testing.MakeEmptyFakeHome(c).Restore()
+	defer testing.MakeSampleHome(c).Restore()
 	// The test array structure needs to be inline here as some of the
 	// expected values below use deployHelpText().  This constructs the deploy
 	// command and runs gets the help for it.  When the deploy command is

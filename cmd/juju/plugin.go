@@ -14,15 +14,24 @@ import (
 	"launchpad.net/juju-core/log"
 )
 
+const JujuPluginPrefix = "juju-"
+
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
-	plugin := &PluginCommand{name: "juju-" + subcommand}
+	plugin := &PluginCommand{name: JujuPluginPrefix + subcommand}
 
 	flags := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
 	cmd.ParseArgs(plugin, flags, args)
 	plugin.Init(flags.Args())
-	return plugin.Run(ctx)
+	err := plugin.Run(ctx)
+	_, execError := err.(*exec.Error)
+	// exec.Error results are for when the executable isn't found, in
+	// those cases, drop through.
+	if !execError {
+		return err
+	}
+	return fmt.Errorf("unrecognized command: juju %s", subcommand)
 }
 
 type PluginCommand struct {
@@ -65,11 +74,13 @@ func (c *PluginCommand) Run(ctx *cmd.Context) error {
 	return command.Run()
 }
 
+// findPlugins searches the current PATH for executable files that start with
+// JujuPluginPrefix.
 func findPlugins() []string {
 	path := os.Getenv("PATH")
 	plugins := []string{}
 	for _, name := range filepath.SplitList(path) {
-		fullpath := filepath.Join(name, "juju-*")
+		fullpath := filepath.Join(name, JujuPluginPrefix+"*")
 		matches, err := filepath.Glob(fullpath)
 		// If this errors we don't care and continue
 		if err != nil {
