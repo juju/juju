@@ -165,7 +165,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 	client := version.Current.Number
 	available, err := environs.FindAvailableTools(env, client.Major)
 	if err != nil {
-		if _, missing := err.(*environs.NotFoundError); !missing {
+		if !environs.IsNotFoundError(err) {
 			return nil, err
 		}
 		if !c.UploadTools {
