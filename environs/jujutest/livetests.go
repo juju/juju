@@ -365,7 +365,11 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	mw0 := newMachineToolWaiter(m0)
 	defer mw0.Stop()
 
-	mtools0 := waitAgentTools(c, mw0, version.Current)
+	// If the series has not been specified, we expect the most recent Ubuntu LTS release to be used.
+	expectedVersion := version.Current
+	expectedVersion.Series = config.DefaultSeries
+
+	mtools0 := waitAgentTools(c, mw0, expectedVersion)
 
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
@@ -396,7 +400,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(ok, Equals, true)
 	uw := newUnitToolWaiter(unit)
 	defer uw.Stop()
-	utools := waitAgentTools(c, uw, version.Current)
+	utools := waitAgentTools(c, uw, expectedVersion)
 
 	// Check that we can upgrade the environment.
 	newVersion := utools.Binary
@@ -550,8 +554,12 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number)
+	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, IsNil)
+	// tools.Upload always returns tools for the series on which the tests are running.
+	// We are only interested in checking the version.Number below so need to fake the
+	// upgraded tools series to match that of newVersion.
+	upgradeTools.Series = newVersion.Series
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
@@ -718,9 +726,9 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 
 	current := version.Current
 	other := current
-	other.Series = "precise"
+	other.Series = "quantal"
 	if current == other {
-		other.Series = "quantal"
+		other.Series = "precise"
 	}
 
 	cfg := t.Env.Config()

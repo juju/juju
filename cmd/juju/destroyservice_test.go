@@ -5,12 +5,13 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
 
 type DestroyServiceSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&DestroyServiceSuite{})
@@ -22,7 +23,7 @@ func runDestroyService(c *C, args ...string) error {
 
 func (s *DestroyServiceSuite) TestSuccess(c *C) {
 	// Destroy a service that exists.
-	testing.Charms.BundlePath(s.seriesPath, "riak")
+	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 	err = runDestroyService(c, "riak")
