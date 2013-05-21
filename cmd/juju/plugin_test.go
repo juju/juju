@@ -9,7 +9,7 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	. "launchpad.net/juju-core/testing/checkers"
 )
 
 type PluginSuite struct {
@@ -102,7 +102,7 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 	expectedDuration := 350 * time.Millisecond
 
 	c.Assert(results, HasLen, 5)
-	c.Check(elapsed, checkers.DurationLessThan, expectedDuration)
+	c.Check(elapsed, DurationLessThan, expectedDuration)
 	c.Assert(results[0].name, Equals, "bar")
 	c.Assert(results[0].description, Equals, "bar description")
 	c.Assert(results[1].name, Equals, "baz")
@@ -117,8 +117,8 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 
 func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *C) {
 	output := badrun(c, 0, "help", "plugins")
-	c.Assert(output, checkers.HasPrefix, PluginTopicText)
-	c.Assert(output, checkers.HasSuffix, "\n\nNo plugins found.\n")
+	c.Assert(output, HasPrefix, PluginTopicText)
+	c.Assert(output, HasSuffix, "\n\nNo plugins found.\n")
 }
 
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
