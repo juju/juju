@@ -442,7 +442,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 type publicBucketSuite struct {
 	cred *identity.Credentials
 	srv  localServer
-	env environs.Environ
+	env  environs.Environ
 }
 
 func (s *publicBucketSuite) SetUpTest(c *C) {
