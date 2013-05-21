@@ -121,6 +121,19 @@ func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *C) {
 	c.Assert(output, HasSuffix, "\n\nNo plugins found.\n")
 }
 
+func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *C) {
+	suite.makeFullPlugin("foo", 0, 0)
+	suite.makeFullPlugin("bar", 0, 0)
+	output := badrun(c, 0, "help", "plugins")
+	c.Assert(output, HasPrefix, PluginTopicText)
+	expectedPlugins := `
+
+bar  bar description
+foo  foo description
+`
+	c.Assert(output, HasSuffix, expectedPlugins)
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
 	filename := testing.HomePath("juju-" + name)
