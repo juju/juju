@@ -152,13 +152,13 @@ func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *C) {
 
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
-	filename := testing.HomePath("juju-" + name)
+	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
 
 func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
 	content := fmt.Sprintf("#!/bin/bash\necho failing\nexit %d", exitStatus)
-	filename := testing.HomePath("juju-" + name)
+	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), 0755)
 }
 
