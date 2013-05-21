@@ -1,13 +1,17 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
 
 type DestroyMachineSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&DestroyMachineSuite{})
@@ -19,7 +23,7 @@ func runDestroyMachine(c *C, args ...string) error {
 
 func (s *DestroyMachineSuite) TestDestroyMachine(c *C) {
 	// Create a machine running a unit.
-	testing.Charms.BundlePath(s.seriesPath, "riak")
+	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err := runDeploy(c, "local:riak", "riak")
 	c.Assert(err, IsNil)
 
