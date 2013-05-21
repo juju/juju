@@ -5,11 +5,12 @@ package main
 
 import (
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
 
 type AddRelationSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&AddRelationSuite{})
@@ -126,16 +127,16 @@ var addRelationTests = []struct {
 }
 
 func (s *AddRelationSuite) TestAddRelation(c *C) {
-	testing.Charms.BundlePath(s.seriesPath, "wordpress")
+	testing.Charms.BundlePath(s.SeriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "mysql")
+	testing.Charms.BundlePath(s.SeriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "riak")
+	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
 	c.Assert(err, IsNil)
-	testing.Charms.BundlePath(s.seriesPath, "logging")
+	testing.Charms.BundlePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
 	c.Assert(err, IsNil)
 
