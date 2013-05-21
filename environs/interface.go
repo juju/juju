@@ -88,6 +88,14 @@ type NotFoundError struct {
 	error
 }
 
+// IsNotFoundError returns true if err is a NotFoundError.
+func IsNotFoundError(err error) bool {
+	if _, ok := err.(*NotFoundError); ok {
+		return true
+	}
+	return false
+}
+
 // A StorageReader can retrieve and list files from a storage provider.
 type StorageReader interface {
 	// Get opens the given storage file and returns a ReadCloser
