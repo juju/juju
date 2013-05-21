@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack
 
 import (
@@ -96,26 +99,39 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
+// Spawn this many goroutines to issue requests for deleting items from the
+// server. If only Openstack had a delete many request.
+const maxConcurrentDeletes = 8
+
 func (s *storage) deleteAll() error {
 	names, err := s.List("")
 	if err != nil {
 		return err
 	}
 	// Remove all the objects in parallel so that we incur less round-trips.
-	// If we're in danger of having hundreds of objects,
-	// we'll want to change this to limit the number
-	// of concurrent operations.
-	if len(names) > 100 {
-		return fmt.Errorf("Too many files to remove: %d", len(names))
+	// start with a goroutine feeding all the names that need to be deleted
+	toDelete := make(chan string)
+	go func() {
+		for _, name := range names {
+			toDelete <- name
+		}
+		close(toDelete)
+	}()
+	// Now spawn up to N routines to actually issue the requests
+	maxRoutines := len(names)
+	if maxConcurrentDeletes < maxRoutines {
+		maxRoutines = maxConcurrentDeletes
 	}
 	var wg sync.WaitGroup
-	wg.Add(len(names))
+	wg.Add(maxRoutines)
+	// make a channel long enough to buffer all possible errors
 	errc := make(chan error, len(names))
-	for _, name := range names {
-		name := name
+	for i := 0; i < maxRoutines; i++ {
 		go func() {
-			if err := s.Remove(name); err != nil {
-				errc <- err
+			for name := range toDelete {
+				if err := s.Remove(name); err != nil {
+					errc <- err
+				}
 			}
 			wg.Done()
 		}()
