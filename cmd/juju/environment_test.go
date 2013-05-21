@@ -6,12 +6,13 @@ package main
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	"strings"
 )
 
 type GetEnvironmentSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&GetEnvironmentSuite{})
@@ -68,7 +69,7 @@ func (s *GetEnvironmentSuite) TestAllValues(c *C) {
 }
 
 type SetEnvironmentSuite struct {
-	repoSuite
+	jujutesting.RepoSuite
 }
 
 var _ = Suite(&SetEnvironmentSuite{})

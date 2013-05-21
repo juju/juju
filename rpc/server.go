@@ -4,6 +4,7 @@
 package rpc
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/log"
@@ -11,20 +12,34 @@ import (
 	"sync"
 )
 
-// A ServerCodec implements reading of RPC requests and writing of RPC
-// responses for the server side of an RPC session.  The server calls
-// ReadRequestHeader and ReadRequestBody in pairs to read requests from
-// the connection, and it calls WriteResponse to write a response back.
-// The params argument to ReadRequestBody will always be of struct type.
-// The result argument to WriteResponse will always be a non-nil pointer to a struct.
-type ServerCodec interface {
-	ReadRequestHeader(req *Request) error
-	ReadRequestBody(params interface{}) error
-	WriteResponse(resp *Response, result interface{}) error
+// A Codec implements reading and writing of messages in an RPC
+// session.  The RPC code calls WriteMessage to write a message to the
+// connection and calls ReadHeader and ReadBody in pairs to read
+// messages.
+type Codec interface {
+	// ReadHeader reads a message header into hdr.
+	ReadHeader(hdr *Header) error
+
+	// ReadBody reads a message body into the given body value.  The
+	// isRequest parameter specifies whether the message being read
+	// is a request; if not, it's a response.  The body value will
+	// be a non-nil struct pointer, or nil to signify that the body
+	// should be read and discarded.
+	ReadBody(body interface{}, isRequest bool) error
+
+	// WriteMessage writes a message with the given header and body.
+	// The body will always be a struct.
+	WriteMessage(hdr *Header, body interface{}) error
+
+	// Close closes the codec. It may be called concurrently
+	// and should cause the Read methods to unblock.
+	Close() error
 }
 
-// Request is a header written before every RPC call.
-type Request struct {
+// Header is a header written before every RPC call.  Since RPC requests
+// can be initiated from either side, the header may represent a request
+// from the other side or a response to an outstanding request.
+type Header struct {
 	// RequestId holds the sequence number of the request.
 	RequestId uint64
 
@@ -36,12 +51,6 @@ type Request struct {
 
 	// Request holds the action to invoke on the remote object.
 	Request string
-}
-
-// Response is a header written before every RPC return.
-type Response struct {
-	// RequestId echoes that of the request.
-	RequestId uint64
 
 	// Error holds the error, if any.
 	Error string
@@ -50,178 +59,365 @@ type Response struct {
 	ErrorCode string
 }
 
-// codecServer represents an active server instance.
-type codecServer struct {
-	*Server
-	codec ServerCodec
+// IsRequest returns whether the header represents an RPC request.  If
+// it is not a request, it is a response.
+func (hdr *Header) IsRequest() bool {
+	return hdr.Type != "" || hdr.Request != ""
+}
 
-	// pending represents the currently pending requests.
-	pending sync.WaitGroup
+// Note that we use "client request" and "server request" to name
+// requests initiated locally and remotely respectively.
 
-	// root holds the root value being served.
-	root reflect.Value
+// Conn represents an RPC endpoint.  It can both initiate and receive
+// RPC requests.  There may be multiple outstanding Calls associated
+// with a single Client, and a Client may be used by multiple goroutines
+// simultaneously.
+type Conn struct {
+	// codec holds the underlying RPC connection.
+	codec Codec
 
-	// sending guards the write side of the codec.
+	// srvPending represents the current server requests.
+	srvPending sync.WaitGroup
+
+	// sending guards the write side of the codec - it ensures
+	// that codec.WriteMessage is not called concurrently.
+	// It also guards shutdown.
 	sending sync.Mutex
+
+	// mutex guards the following values.
+	mutex sync.Mutex
+
+	// rootValue holds the value to use to serve RPC requests, if any.
+	rootValue reflect.Value
+
+	// transformErrors is used to transform returned errors.
+	transformErrors func(error) error
+
+	// reqId holds the latest client request id.
+	reqId uint64
+
+	// clientPending holds all pending client requests.
+	clientPending map[uint64]*Call
+
+	// closing is set when the connection is shutting down via
+	// Close.  When this is set, no more client or server requests
+	// will be initiated.
+	closing bool
+
+	// shutdown is set when the input loop terminates. When this
+	// is set, no more client requests will be sent to the server.
+	shutdown bool
+
+	// dead is closed when the input loop terminates.
+	dead chan struct{}
+
+	// inputLoopError holds the error that caused the input loop to
+	// terminate prematurely.  It is set before dead is closed.
+	inputLoopError error
+}
+
+// NewConn creates a new connection that uses the given codec for
+// transport, but it does not start it. Conn.Start must be called before
+// any requests are sent or received.
+func NewConn(codec Codec) *Conn {
+	return &Conn{
+		codec:         codec,
+		clientPending: make(map[uint64]*Call),
+	}
+}
+
+// Start starts the RPC connection running.  It has no effect if it has
+// already been called.  By default, a connection serves no methods.
+// See Conn.Serve for a description of how to serve methods on a Conn.
+func (conn *Conn) Start() {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.dead == nil {
+		conn.dead = make(chan struct{})
+		go conn.input()
+	}
+}
+
+// Serve serves RPC requests on the connection by invoking methods on
+// rootValue. Note that it does not start the connection running,
+// though it may be called once the connection is already started.
+//
+// The server executes each client request by calling a method on root
+// to obtain an object to act on; then it invokes an method on that
+// object with the request parameters, possibly returning some result.
+//
+// Methods on the root value are of the form:
+//
+//      M(id string) (O, error)
+//
+// where M is an exported name, conventionally naming the object type,
+// id is some identifier for the object and O is the type of the
+// returned object.
+//
+// Methods defined on O may defined in one of the following forms, where
+// T and R must be struct types.
+//
+//	Method()
+//	Method() R
+//	Method() (R, error)
+//	Method() error
+//	Method(T)
+//	Method(T) R
+//	Method(T) (R, error)
+//	Method(T) error
+//
+// If transformErrors is non-nil, it will be called on all returned
+// non-nil errors, for example to transform the errors into ServerErrors
+// with specified codes.  There will be a panic if transformErrors
+// returns nil.
+//
+// It is an error if the connection is already serving requests
+// or if the root value implements no RPC methods.
+func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) error {
+	if transformErrors == nil {
+		transformErrors = func(err error) error { return err }
+	}
+	rootValue := reflect.ValueOf(root)
+	// Check that rootValue is ok to use as an RPC server type.
+	if _, err := methods(rootValue.Type()); err != nil {
+		return err
+	}
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	if conn.transformErrors != nil {
+		return errors.New("RPC connection is already serving requests")
+	}
+	conn.rootValue = rootValue
+	conn.transformErrors = transformErrors
+	return nil
+}
+
+// Dead returns a channel that is closed when the connection
+// has been closed or the underlying transport has received
+// an error. There may still be outstanding requests.
+func (conn *Conn) Dead() <-chan struct{} {
+	return conn.dead
+}
+
+// Close closes the connection and its underlying codec; it returns when
+// all requests have been terminated.
+//
+// If the connection is serving requests, and the root value implements
+// the Killer interface, its Kill method will be called.  The codec will
+// then be closed only when all its outstanding server calls have
+// completed.
+func (conn *Conn) Close() error {
+	conn.mutex.Lock()
+	if conn.closing {
+		conn.mutex.Unlock()
+		return errors.New("already closed")
+	}
+	conn.closing = true
+	// Kill server requests if appropriate.  Client requests will be
+	// terminated when the input loop finishes.
+	if conn.rootValue.IsValid() {
+		if killer, ok := conn.rootValue.Interface().(Killer); ok {
+			killer.Kill()
+		}
+	}
+	conn.mutex.Unlock()
+
+	// Wait for any outstanding server requests to complete
+	// and write their replies before closing the codec.
+	conn.srvPending.Wait()
+
+	// Closing the codec should cause the input loop to terminate.
+	if err := conn.codec.Close(); err != nil {
+		log.Infof("rpc: error closing codec: %v", err)
+	}
+	<-conn.dead
+	return conn.inputLoopError
 }
 
 // ErrorCoder represents an any error that has an associated
-// error code. An error code is a short string that describes the
-// class of error.
+// error code. An error code is a short string that represents the
+// kind of an error.
 type ErrorCoder interface {
 	ErrorCode() string
 }
 
-// Killer represents a type that can be asked to
-// abort any outstanding requests. The Kill
-// method should return immediately.
+// Killer represents a type that can be asked to abort any outstanding
+// requests.  The Kill method should return immediately.
 type Killer interface {
 	Kill()
 }
 
-// ServeCodec runs the server on a single connection.  ServeCodec
-// blocks, serving the connection until the client hangs up.  The caller
-// typically invokes ServeCodec in a go statement.  The given
-// root value, which must be the same type as that passed to
-// NewServer, is used to invoke the RPC requests. If rootValue
-// nil, the original root value passed to NewServer will
-// be used instead.
-//
-// ServeCodec stops serving requests when it receives an error
-// reading a request. Before returning, if rootValue implements
-// the Killer interface, its Kill method will be called.
-// ServeCodec will then return only when all its outstanding calls have
-// completed.
-func (srv *Server) ServeCodec(codec ServerCodec, root interface{}) error {
-	csrv := &codecServer{
-		Server: srv,
-		codec:  codec,
-		root:   reflect.ValueOf(root),
+// input reads messages from the connection and handles them
+// appropriately.
+func (conn *Conn) input() {
+	err := conn.loop()
+	conn.sending.Lock()
+	defer conn.sending.Unlock()
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+
+	if conn.closing || err == io.EOF {
+		err = ErrShutdown
+	} else {
+		// Make the error available for Conn.Close to see.
+		conn.inputLoopError = err
 	}
-	if csrv.root.Type() != srv.root.Type() {
-		panic(fmt.Errorf("rpc: unexpected type of root value; got %s, want %s", csrv.root.Type(), srv.root.Type()))
+	// Terminate all client requests.
+	for _, call := range conn.clientPending {
+		call.Error = err
+		call.done()
 	}
-	defer csrv.pending.Wait()
-	err := csrv.serve()
-	if killer, ok := root.(Killer); ok {
-		killer.Kill()
-	}
-	return err
+	conn.clientPending = nil
+	conn.shutdown = true
+	close(conn.dead)
 }
 
-func (csrv *codecServer) serve() error {
-	var req Request
+// loop implements the looping part of Conn.input.
+func (conn *Conn) loop() error {
+	var hdr Header
 	for {
-		req = Request{}
-		err := csrv.codec.ReadRequestHeader(&req)
+		hdr = Header{}
+		err := conn.codec.ReadHeader(&hdr)
 		if err != nil {
-			if err == io.EOF {
-				return nil
-			}
 			return err
 		}
-		o, a, err := csrv.findRequest(&req)
-		if err != nil {
-			_ = csrv.codec.ReadRequestBody(&struct{}{})
-			resp := &Response{
-				RequestId: req.RequestId,
-			}
-			csrv.setError(resp, err)
-			if err := csrv.codec.WriteResponse(resp, struct{}{}); err != nil {
-				return err
-			}
-			continue
-		}
-		var argp interface{}
-		var arg reflect.Value
-		if a.arg != nil {
-			v := reflect.New(a.arg)
-			arg = v.Elem()
-			argp = v.Interface()
+		if hdr.IsRequest() {
+			err = conn.handleRequest(&hdr)
 		} else {
-			argp = &struct{}{}
+			err = conn.handleResponse(&hdr)
 		}
-		if err := csrv.codec.ReadRequestBody(argp); err != nil {
-			// If we get EOF, we know the connection is a
-			// goner, so don't try to respond.
-			if err == io.EOF {
-				return nil
-			}
-			if err == io.ErrUnexpectedEOF {
-				return err
-			}
-			// An error reading the body often indicates bad
-			// request parameters rather than an issue with
-			// the connection itself, so we reply with an
-			// error rather than tearing down the connection
-			// unless it's obviously a connection issue.  If
-			// the error is actually a framing or syntax
-			// problem, then the next ReadHeader should pick
-			// up the problem and abort.
-			resp := &Response{
-				RequestId: req.RequestId,
-			}
-			csrv.setError(resp, err)
-			if err := csrv.codec.WriteResponse(resp, struct{}{}); err != nil {
-				return err
-			}
-			continue
+		if err != nil {
+			return err
 		}
-		csrv.pending.Add(1)
-		go csrv.runRequest(req.RequestId, req.Id, o, a, arg)
 	}
 	panic("unreachable")
 }
 
-func (csrv *codecServer) findRequest(req *Request) (*obtainer, *action, error) {
-	o := csrv.obtain[req.Type]
-	if o == nil {
-		return nil, nil, fmt.Errorf("unknown object type %q", req.Type)
+func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
+	if resp == nil {
+		resp = &struct{}{}
 	}
-	a := csrv.action[o.ret][req.Request]
+	return conn.codec.ReadBody(resp, isRequest)
+}
+
+func (conn *Conn) handleRequest(hdr *Header) error {
+	obtain, act, err := conn.findRequest(hdr)
+	if err != nil {
+		if err := conn.readBody(nil, true); err != nil {
+			return err
+		}
+		return conn.writeErrorResponse(hdr.RequestId, err)
+	}
+	var argp interface{}
+	var arg reflect.Value
+	if act.arg != nil {
+		v := reflect.New(act.arg)
+		arg = v.Elem()
+		argp = v.Interface()
+	}
+	if err := conn.readBody(argp, true); err != nil {
+		// If we get EOF, we know the connection is a
+		// goner, so don't try to respond.
+		if err == io.EOF || err == io.ErrUnexpectedEOF {
+			return err
+		}
+		// An error reading the body often indicates bad
+		// request parameters rather than an issue with
+		// the connection itself, so we reply with an
+		// error rather than tearing down the connection
+		// unless it's obviously a connection issue.  If
+		// the error is actually a framing or syntax
+		// problem, then the next ReadHeader should pick
+		// up the problem and abort.
+		return conn.writeErrorResponse(hdr.RequestId, err)
+	}
+	conn.mutex.Lock()
+	closing := conn.closing
+	if !closing {
+		conn.srvPending.Add(1)
+		go conn.runRequest(hdr.RequestId, hdr.Id, obtain, act, arg)
+	}
+	conn.mutex.Unlock()
+	if closing {
+		// We're closing down - no new requests may be initiated.
+		return conn.writeErrorResponse(hdr.RequestId, ErrShutdown)
+	}
+	return nil
+}
+
+func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
+	conn.sending.Lock()
+	defer conn.sending.Unlock()
+	hdr := &Header{
+		RequestId: reqId,
+	}
+	err = conn.transformErrors(err)
+	if err, ok := err.(ErrorCoder); ok {
+		hdr.ErrorCode = err.ErrorCode()
+	} else {
+		hdr.ErrorCode = ""
+	}
+	hdr.Error = err.Error()
+	if err := conn.codec.WriteMessage(hdr, struct{}{}); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (conn *Conn) isServing() bool {
+	conn.mutex.Lock()
+	defer conn.mutex.Unlock()
+	return conn.transformErrors != nil
+}
+
+func (conn *Conn) findRequest(hdr *Header) (*obtainer, *action, error) {
+	if !conn.isServing() {
+		return nil, nil, fmt.Errorf("no service")
+	}
+	m, err := methods(conn.rootValue.Type())
+	if err != nil {
+		panic("failed to get methods")
+	}
+	o := m.obtain[hdr.Type]
+	if o == nil {
+		return nil, nil, fmt.Errorf("unknown object type %q", hdr.Type)
+	}
+	a := m.action[o.ret][hdr.Request]
 	if a == nil {
-		return nil, nil, fmt.Errorf("no such request %q on %s", req.Request, req.Type)
+		return nil, nil, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
 	}
 	return o, a, nil
 }
 
-func (csrv *codecServer) setError(resp *Response, err error) {
-	err = csrv.transformErrors(err)
-	resp.Error = err.Error()
-	if err, ok := err.(ErrorCoder); ok {
-		resp.ErrorCode = err.ErrorCode()
-	} else {
-		resp.ErrorCode = ""
-	}
-}
-
 // runRequest runs the given request and sends the reply.
-func (csrv *codecServer) runRequest(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) {
-	defer csrv.pending.Done()
-	rv, err := csrv.runRequest0(reqId, objId, o, a, arg)
-	csrv.sending.Lock()
-	defer csrv.sending.Unlock()
-	var rvi interface{}
-	resp := &Response{
-		RequestId: reqId,
+func (conn *Conn) runRequest(reqId uint64, objId string, obtain *obtainer, act *action, arg reflect.Value) {
+	defer conn.srvPending.Done()
+	rv, err := conn.runRequest0(reqId, objId, obtain, act, arg)
+	if err != nil {
+		err = conn.writeErrorResponse(reqId, err)
+	} else {
+		var rvi interface{}
+		hdr := &Header{
+			RequestId: reqId,
+		}
+		conn.sending.Lock()
+		defer conn.sending.Unlock()
+		if rv.IsValid() {
+			rvi = rv.Interface()
+		} else {
+			rvi = struct{}{}
+		}
+		err = conn.codec.WriteMessage(hdr, rvi)
 	}
 	if err != nil {
-		csrv.setError(resp, err)
-		rvi = struct{}{}
-	} else if rv.IsValid() {
-		rvi = rv.Interface()
-	} else {
-		rvi = struct{}{}
-	}
-	if err := csrv.codec.WriteResponse(resp, rvi); err != nil {
-		log.Errorf("rpc: error writing response %#v: %v", rvi, err)
+		log.Errorf("rpc: error writing response: %v", err)
 	}
 }
 
-func (csrv *codecServer) runRequest0(reqId uint64, objId string, o *obtainer, a *action, arg reflect.Value) (reflect.Value, error) {
-	obj, err := o.call(csrv.root, objId)
+func (conn *Conn) runRequest0(reqId uint64, objId string, obtain *obtainer, act *action, arg reflect.Value) (reflect.Value, error) {
+	obj, err := obtain.call(conn.rootValue, objId)
 	if err != nil {
 		return reflect.Value{}, err
 	}
-	return a.call(obj, arg)
+	return act.call(obj, arg)
 }
