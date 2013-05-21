@@ -6,10 +6,9 @@ package apiserver
 import (
 	"code.google.com/p/go.net/websocket"
 	"crypto/tls"
-	"encoding/json"
-	"io"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
 	"net"
@@ -17,17 +16,17 @@ import (
 	"sync"
 )
 
+// Server holds the server side of the API.
 type Server struct {
-	tomb   tomb.Tomb
-	wg     sync.WaitGroup
-	state  *state.State
-	addr   net.Addr
-	rpcSrv *rpc.Server
+	tomb  tomb.Tomb
+	wg    sync.WaitGroup
+	state *state.State
+	addr  net.Addr
 }
 
-// Serve serves the given state by accepting requests
-// on the given listener, using the given certificate
-// and key (in PEM format) for authentication.
+// Serve serves the given state by accepting requests on the given
+// listener, using the given certificate and key (in PEM format) for
+// authentication.
 func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	lis, err := net.Listen("tcp", addr)
 	if err != nil {
@@ -42,7 +41,8 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 		state: s,
 		addr:  lis.Addr(),
 	}
-	srv.rpcSrv, err = rpc.NewServer(&srvRoot{}, serverError)
+	// TODO(rog) check that *srvRoot is a valid type for using
+	// as an RPC server.
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})
@@ -55,8 +55,8 @@ func (srv *Server) Dead() <-chan struct{} {
 	return srv.tomb.Dead()
 }
 
-// Stop stops the server and returns when all requests that
-// it is running have completed.
+// Stop stops the server and returns when all running requests
+// have completed.
 func (srv *Server) Stop() error {
 	srv.tomb.Kill(nil)
 	return srv.tomb.Wait()
@@ -94,113 +94,17 @@ func (srv *Server) Addr() string {
 	return srv.addr.String()
 }
 
-func (srv *Server) serveConn(conn *websocket.Conn) error {
-	msgs := make(chan serverReq)
-	go readRequests(conn, msgs)
-	defer func() {
-		conn.Close()
-		// Wait for readRequests to see the closed connection and quit.
-		for _ = range msgs {
-		}
-	}()
-	return srv.rpcSrv.ServeCodec(&serverCodec{
-		srv:  srv,
-		conn: conn,
-		msgs: msgs,
-	}, newStateServer(srv, conn))
+func (srv *Server) serveConn(wsConn *websocket.Conn) error {
+	conn := rpc.NewConn(jsoncodec.NewWebsocket(wsConn))
+	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
+		return err
+	}
+	conn.Start()
+	select {
+	case <-conn.Dead():
+	case <-srv.tomb.Dying():
+	}
+	return conn.Close()
 }
 
 var logRequests = true
-
-func readRequests(conn *websocket.Conn, c chan<- serverReq) {
-	defer close(c)
-	var req serverReq
-	for {
-		var err error
-		req = serverReq{} // avoid any potential cross-message contamination.
-		if logRequests {
-			var m json.RawMessage
-			err = websocket.JSON.Receive(conn, &m)
-			if err == nil {
-				log.Debugf("api: <- %s", m)
-				err = json.Unmarshal(m, &req)
-			} else {
-				log.Debugf("api: <- error: %v", err)
-			}
-		} else {
-			err = websocket.JSON.Receive(conn, &req)
-		}
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			log.Errorf("api: error receiving request: %v", err)
-			break
-		}
-		c <- req
-	}
-}
-
-type serverReq struct {
-	RequestId uint64
-	Type      string
-	Id        string
-	Request   string
-	Params    json.RawMessage
-}
-
-type serverResp struct {
-	RequestId uint64
-	Error     string      `json:",omitempty"`
-	ErrorCode string      `json:",omitempty"`
-	Response  interface{} `json:",omitempty"`
-}
-
-type serverCodec struct {
-	srv  *Server
-	conn *websocket.Conn
-	msgs <-chan serverReq
-	req  serverReq
-}
-
-func (c *serverCodec) ReadRequestHeader(req *rpc.Request) error {
-	var ok bool
-	select {
-	case c.req, ok = <-c.msgs:
-		if !ok {
-			return io.EOF
-		}
-	case <-c.srv.tomb.Dying():
-		return io.EOF
-	}
-	req.RequestId = c.req.RequestId
-	req.Type = c.req.Type
-	req.Id = c.req.Id
-	req.Request = c.req.Request
-	return nil
-}
-
-func (c *serverCodec) ReadRequestBody(body interface{}) error {
-	if body == nil {
-		return nil
-	}
-	return json.Unmarshal(c.req.Params, body)
-}
-
-func (c *serverCodec) WriteResponse(resp *rpc.Response, body interface{}) error {
-	r := &serverResp{
-		RequestId: resp.RequestId,
-		Error:     resp.Error,
-		ErrorCode: resp.ErrorCode,
-		Response:  body,
-	}
-	if logRequests {
-		data, err := json.Marshal(r)
-		if err != nil {
-			log.Debugf("api: -> marshal error: %v", err)
-			return err
-		}
-		log.Debugf("api: -> %s", data)
-	}
-	return websocket.JSON.Send(c.conn, r)
-}
