@@ -225,7 +225,7 @@ type missingCommand struct {
 	args     []string
 }
 
-// Missing commands only need to supply Init for the interface, but this is
+// Missing commands only need to supply Info for the interface, but this is
 // never called.
 func (c *missingCommand) Info() *Info {
 	return nil
