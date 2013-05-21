@@ -80,7 +80,7 @@ func DecodeCheckSignature(r io.Reader) ([]byte, error) {
 	}
 	b, _ := clearsign.Decode(data)
 	if b == nil {
-		return nil, &NotPGPSigned{}
+		return nil, &NotPGPSignedError{}
 	}
 	keyring, err := openpgp.ReadArmoredKeyRing(bytes.NewBufferString(simpleStreamSigningKey))
 	if err != nil {
@@ -94,9 +94,9 @@ func DecodeCheckSignature(r io.Reader) ([]byte, error) {
 	return b.Plaintext, nil
 }
 
-// NotPGPSigned is used when PGP text does not contain an inline signature.
-type NotPGPSigned struct{}
+// NotPGPSignedError is used when PGP text does not contain an inline signature.
+type NotPGPSignedError struct{}
 
-func (*NotPGPSigned) Error() string {
+func (*NotPGPSignedError) Error() string {
 	return "no PGP signature embedded in plain text data"
 }

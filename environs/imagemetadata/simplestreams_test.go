@@ -665,13 +665,13 @@ func (s *signingSuite) TestDecodeCheckInvalidSignature(c *C) {
 	r := bytes.NewReader([]byte(invalidClearsignInput + testSig))
 	_, err := DecodeCheckSignature(r)
 	c.Assert(err, Not(IsNil))
-	_, ok := err.(*NotPGPSigned)
+	_, ok := err.(*NotPGPSignedError)
 	c.Assert(ok, Equals, false)
 }
 
 func (s *signingSuite) TestDecodeCheckMissingSignature(c *C) {
 	r := bytes.NewReader([]byte("foo"))
 	_, err := DecodeCheckSignature(r)
-	_, ok := err.(*NotPGPSigned)
+	_, ok := err.(*NotPGPSignedError)
 	c.Assert(ok, Equals, true)
 }
