@@ -134,6 +134,22 @@ foo  foo description
 	c.Assert(output, HasSuffix, expectedPlugins)
 }
 
+func (suite *PluginSuite) TestHelpPluginName(c *C) {
+	suite.makeFullPlugin("foo", 0, 0)
+	output := badrun(c, 0, "help", "foo")
+	expectedHelp := `foo longer help
+
+something useful
+`
+	c.Assert(output, Matches, expectedHelp)
+}
+
+func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *C) {
+	output := badrun(c, 0, "help", "foo")
+	expectedHelp := "error: unknown command or topic for foo\n"
+	c.Assert(output, Matches, expectedHelp)
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
 	filename := testing.HomePath("juju-" + name)
