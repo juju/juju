@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
