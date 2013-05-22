@@ -46,6 +46,7 @@ func Main(args []string) {
 		MissingCallback: RunPlugin,
 	})
 	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
+	juju.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	// Creation commands.
 	juju.Register(&BootstrapCommand{})
