@@ -60,9 +60,5 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		itWithCost.Cost = cost
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
-	spec, err := instances.FindInstanceSpec(images, ic, itypesWithCosts)
-	if err != nil {
-		return nil, err
-	}
-	return spec, nil
+	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
 }
