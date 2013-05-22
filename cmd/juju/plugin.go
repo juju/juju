@@ -110,9 +110,9 @@ func PluginHelpTopic() string {
 	return output.String()
 }
 
-// GetPluginDescriptions runs each plugin with "--description".  If the plugin
-// takes longer than DescriptionTimeout to return, the subprocess is killed
-// and the description becomes an error message.
+// GetPluginDescriptions runs each plugin with "--description".  The calls to
+// the plugins are run in parallel, so the function should only take as long
+// as the longest call.
 func GetPluginDescriptions() []PluginDescription {
 	plugins := findPlugins()
 	results := []PluginDescription{}
