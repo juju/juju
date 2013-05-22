@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"launchpad.net/goose/identity"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"net/url"
+	"os"
 )
 
 var configChecker = schema.StrictFieldMap(
@@ -25,6 +27,10 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket":     schema.String(),
 		"public-bucket-url": schema.String(),
 		"use-floating-ip":   schema.Bool(),
+		// These next keys are deprecated and ignored. We keep them them in the schema
+		// so existing configs do not error.
+		"default-image-id":      schema.String(),
+		"default-instance-type": schema.String(),
 	},
 	schema.Defaults{
 		"username":          "",
@@ -39,6 +45,10 @@ var configChecker = schema.StrictFieldMap(
 		"public-bucket":     "juju-dist",
 		"public-bucket-url": "",
 		"use-floating-ip":   false,
+		// These next keys are deprecated and ignored. We keep them them in the schema
+		// so existing configs do not error.
+		"default-image-id":      "",
+		"default-instance-type": "",
 	},
 )
 
@@ -116,6 +126,26 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
+
+	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
+	// even if they are not running with --debug.
+	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != "" {
+		msg := fmt.Sprintf(
+			"config attribute %q is deprecated and ignored, use simplestreams metadata instead", "default-image-id")
+		log.Warningf(msg)
+		if !log.Debug {
+			fmt.Fprintln(os.Stderr, msg)
+		}
+	}
+	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != "" {
+		msg := fmt.Sprintf(
+			"config attribute %q is deprecated and ignored", "default-instance-type")
+		log.Warningf(msg)
+		if !log.Debug {
+			fmt.Fprintln(os.Stderr, msg)
+		}
+	}
+
 	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
 	if err != nil {
 		return nil, err
