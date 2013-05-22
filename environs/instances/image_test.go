@@ -158,15 +158,23 @@ func (p *instanceSpecTestParams) init() {
 var pv = "pv"
 var findInstanceSpecTests = []instanceSpecTestParams{
 	{
-		desc:           "image exists in metadata",
-		region:         "test",
-		defaultImageId: "1234",
-		imageId:        "ami-00000033",
+		desc:    "image exists in metadata",
+		region:  "test",
+		imageId: "ami-00000033",
 		instanceTypes: []InstanceType{
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &pv, Mem: 512},
 		},
 		instanceTypeId:   "1",
 		instanceTypeName: "it-1",
+	},
+	{
+		desc:           "images exist, invalid default image id",
+		region:         "test",
+		defaultImageId: "1234",
+		instanceTypes: []InstanceType{
+			{Id: "1", Name: "it-1", Arches: []string{"arm"}, VType: &pv, Mem: 512},
+		},
+		err: `invalid default image id "1234"`,
 	},
 	{
 		desc:           "no image exists in metadata, use supplied default",
@@ -184,38 +192,13 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		desc:          "no valid instance types",
 		region:        "test",
 		instanceTypes: []InstanceType{},
-		err:           `no instance types in test matching constraints "", and no default specified`,
+		err:           `no instance types in test matching constraints ""`,
 	},
 	{
 		desc:          "no compatible instance types",
 		region:        "arm-only",
 		instanceTypes: []InstanceType{{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 2048}},
 		err:           `no "precise" images in arm-only matching instance types \[it-1\]`,
-	},
-	{
-		desc:        "fallback instance type, enough memory for mongodb",
-		region:      "test",
-		constraints: "mem=8G",
-		instanceTypes: []InstanceType{
-			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, VType: &pv, Mem: 4096},
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, VType: &pv, Mem: 2048},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &pv, Mem: 512},
-		},
-		imageId:          "ami-00000033",
-		instanceTypeId:   "2",
-		instanceTypeName: "it-2",
-	},
-	{
-		desc:        "fallback instance type, not enough memory for mongodb",
-		region:      "test",
-		constraints: "mem=4G",
-		instanceTypes: []InstanceType{
-			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, VType: &pv, Mem: 256},
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &pv, Mem: 512},
-		},
-		imageId:          "ami-00000033",
-		instanceTypeId:   "1",
-		instanceTypeName: "it-1",
 	},
 }
 

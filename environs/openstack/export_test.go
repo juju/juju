@@ -171,6 +171,18 @@ var publicBucketImagesData = `
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
          "label": "release"
+       },
+       "20121111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
+         "label": "release"
        }
      }
    },

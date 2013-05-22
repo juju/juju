@@ -62,9 +62,12 @@ func filterArches(src, filter []string) (dst []string) {
 	return dst
 }
 
+// minMemoryHeuristic is the assumed minimum amount of memory (in MB) we prefer in order to run a server (1GB)
+const minMemoryHeuristic = 1024
+
 // getMatchingInstanceTypes returns all instance types matching ic.Constraints and available
 // in ic.Region, sorted by increasing region-specific cost (if known).
-func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []InstanceType) ([]InstanceType, error) {
+func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []InstanceType) ([]InstanceType, error) {
 	cons := ic.Constraints
 	region := ic.Region
 	defaultInstanceTypeName := ic.DefaultInstanceType
@@ -72,7 +75,7 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []Instanc
 	var defaultInstanceType *InstanceType
 
 	// Iterate over allInstanceTypes, finding matching ones and recording the default if any.
-	for _, itype := range allinstanceTypes {
+	for _, itype := range allInstanceTypes {
 		if itype.Name == defaultInstanceTypeName {
 			itcopy := itype
 			defaultInstanceType = &itcopy
@@ -83,23 +86,58 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allinstanceTypes []Instanc
 		}
 		itypes = append(itypes, itype)
 	}
+
+	// If there is more than one instance type matching the constraints, use the specified
+	// default instance type, if any.
+	if len(itypes) > 0 {
+		if defaultInstanceTypeName != "" && defaultInstanceType == nil {
+			return nil, fmt.Errorf("invalid default instance type name %q", defaultInstanceTypeName)
+		}
+		if defaultInstanceType != nil {
+			itypes = []InstanceType{*defaultInstanceType}
+		}
+	}
+
+	if len(itypes) == 0 {
+		// No matching instance types were found, so the fallback is to:
+		// 1. Sort by memory and find the smallest matching both the required architecture
+		//    and our own heuristic: minimum amount of memory required to run a realistic server, or
+		// 2. Sort by memory in reverse order and return the largest one, which will hopefully work,
+		//    albeit not the best match
+		archCons := constraints.Value{Arch: ic.Constraints.Arch}
+		for _, itype := range allInstanceTypes {
+			itype, ok := itype.match(archCons)
+			if !ok {
+				continue
+			}
+			itypes = append(itypes, itype)
+		}
+		sort.Sort(byMemory(itypes))
+		var fallbackType *InstanceType
+		// 1. check for smallest instance type that can realistically run a server
+		for _, itype := range itypes {
+			if itype.Mem >= minMemoryHeuristic {
+				itcopy := itype
+				fallbackType = &itcopy
+				break
+			}
+		}
+		if fallbackType == nil && len(itypes) > 0 {
+			// 2. just get the one with the largest memory
+			fallbackType = &itypes[len(itypes)-1]
+		}
+		if fallbackType != nil {
+			itypes = []InstanceType{*fallbackType}
+		}
+	}
 	// If we have matching instance types, we can return those, sorted by cost.
 	if len(itypes) > 0 {
 		sort.Sort(byCost(itypes))
 		return itypes, nil
 	}
 
-	// No matches, so return the default if specified.
-	if defaultInstanceType != nil {
-		return []InstanceType{*defaultInstanceType}, nil
-	}
-
 	// No luck, so report the error.
-	suffix := "and no default specified"
-	if defaultInstanceTypeName != "" {
-		suffix = fmt.Sprintf("and default %s is invalid", defaultInstanceTypeName)
-	}
-	return nil, fmt.Errorf("no instance types in %s matching constraints %q, %s", region, cons, suffix)
+	return nil, fmt.Errorf("no instance types in %s matching constraints %q", region, cons)
 }
 
 // byCost is used to sort a slice of instance types by Cost.
@@ -109,4 +147,13 @@ func (bc byCost) Len() int           { return len(bc) }
 func (bc byCost) Less(i, j int) bool { return bc[i].Cost < bc[j].Cost }
 func (bc byCost) Swap(i, j int) {
 	bc[i], bc[j] = bc[j], bc[i]
+}
+
+//byMemory is used to sort a slice of instance types by the amount of RAM they have.
+type byMemory []InstanceType
+
+func (s byMemory) Len() int      { return len(s) }
+func (s byMemory) Swap(i, j int) { s[i], s[j] = s[j], s[i] }
+func (s byMemory) Less(i, j int) bool {
+	return s[i].Mem < s[j].Mem
 }
