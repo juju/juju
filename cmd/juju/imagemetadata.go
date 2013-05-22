@@ -16,6 +16,7 @@ import (
 // ImageMetadataCommand is used to write out a boilerplate environments.yaml file.
 type ImageMetadataCommand struct {
 	cmd.CommandBase
+	Name     string
 	Series   string
 	Arch     string
 	ImageId  string
@@ -33,9 +34,10 @@ func (c *ImageMetadataCommand) Info() *cmd.Info {
 func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "s", "precise", "the Ubuntu series")
 	f.StringVar(&c.Arch, "a", "amd64", "the image achitecture")
+	f.StringVar(&c.Name, "n", "", "the cloud name")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
-	f.StringVar(&c.Endpoint, "e", "", "the cloud endpoint")
+	f.StringVar(&c.Endpoint, "e", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {
@@ -70,7 +72,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}
-	files, err := imagemetadata.Boilerplate(c.Series, &im, &cloudSpec)
+	files, err := imagemetadata.Boilerplate(c.Name, c.Series, &im, &cloudSpec)
 	if err != nil {
 		return fmt.Errorf("boilerplate image metadata files could not be created: %v", err)
 	}

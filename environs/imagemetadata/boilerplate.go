@@ -13,11 +13,17 @@ import (
 )
 
 const (
-	indexFileName = "index.json"
-	imageFileName = "imagemetadata.json"
+	defaultIndexFileName = "index.json"
+	defaultImageFileName = "imagemetadata.json"
 )
 
-func Boilerplate(series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
+func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
+	indexFileName := defaultIndexFileName
+	imageFileName := defaultImageFileName
+	if name != "" {
+		indexFileName = fmt.Sprintf("%s-%s", name, indexFileName)
+		imageFileName = fmt.Sprintf("%s-%s", name, imageFileName)
+	}
 	now := time.Now()
 	imparams := imageMetadataParams{
 		Id:            im.Id,
