@@ -200,15 +200,16 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	return cmds, nil
 }
 
-// OpenAPIState tries to open the state using the given Conf.  If it
+// OpenState tries to open the state using the given Conf.  If it
 // returns a non-empty newPassword, the password used to connect
 // to the state should be changed accordingly - the caller should write the
 // configuration with StateInfo.Password set to newPassword, then
 // set the entity's password accordingly.
-func (c *Conf) OpenAPIState() (st *api.State, newPassword string, err error) {
-	info := *c.APIInfo
+func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
+	info := *c.StateInfo
+	opts := state.DefaultDialOpts()
 	if info.Password != "" {
-		st, err := api.Open(&info)
+		st, err := state.Open(&info, opts)
 		if err == nil {
 			return st, "", nil
 		}
@@ -221,7 +222,7 @@ func (c *Conf) OpenAPIState() (st *api.State, newPassword string, err error) {
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	st, err = api.Open(&info)
+	st, err = state.Open(&info, opts)
 	if err != nil {
 		return nil, "", err
 	}
@@ -233,9 +234,4 @@ func (c *Conf) OpenAPIState() (st *api.State, newPassword string, err error) {
 		return nil, "", err
 	}
 	return st, password, nil
-}
-
-// OpenState tries to open the state using the given Conf.
-func (c *Conf) OpenState() (st *state.State, err error) {
-	return state.Open(c.StateInfo, state.DefaultDialOpts())
 }
