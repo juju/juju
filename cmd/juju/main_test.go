@@ -268,6 +268,7 @@ var topicNames = []string{
 	"basics",
 	"commands",
 	"global-options",
+	"plugins",
 	"topics",
 }
 
