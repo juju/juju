@@ -34,7 +34,7 @@ func (c *ImageMetadataCommand) Info() *cmd.Info {
 func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Series, "s", "precise", "the Ubuntu series")
 	f.StringVar(&c.Arch, "a", "amd64", "the image achitecture")
-	f.StringVar(&c.Name, "n", "", "the cloud name")
+	f.StringVar(&c.Name, "n", "", "the cloud name, as a prefix for the generated file names")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
 	f.StringVar(&c.Endpoint, "e", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
