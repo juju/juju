@@ -448,10 +448,10 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 }
 
 var getImageIdMetadataTests = []struct {
-	region  string
-	series  string
-	arches  []string
-	images  []*ImageMetadata
+	region string
+	series string
+	arches []string
+	images []*ImageMetadata
 }{
 	{
 		region: "us-east-1",
@@ -523,9 +523,9 @@ var getImageIdMetadataTests = []struct {
 		},
 	},
 	{
-		region:  "us-east-1",
-		series:  "precise",
-		arches:  []string{"amd64"},
+		region: "us-east-1",
+		series: "precise",
+		arches: []string{"amd64"},
 		images: []*ImageMetadata{
 			{
 				Id:         "ami-442ea674",
