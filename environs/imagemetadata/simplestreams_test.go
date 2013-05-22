@@ -469,13 +469,11 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
 }
 
-var ebs = "ebs"
 var fetchTests = []struct {
-	region  string
-	series  string
-	arches  []string
-	images  []*ImageMetadata
-	storage *string
+	region string
+	series string
+	arches []string
+	images []*ImageMetadata
 }{
 	{
 		region: "us-east-1",
@@ -547,10 +545,9 @@ var fetchTests = []struct {
 		},
 	},
 	{
-		region:  "us-east-1",
-		series:  "precise",
-		arches:  []string{"amd64"},
-		storage: &ebs,
+		region: "us-east-1",
+		series: "precise",
+		arches: []string{"amd64"},
 		images: []*ImageMetadata{
 			{
 				Id:         "ami-442ea674",
@@ -559,6 +556,14 @@ var fetchTests = []struct {
 				RegionName: "us-east-1",
 				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
 				Storage:    "ebs",
+			},
+			{
+				Id:         "ami-442ea684",
+				VType:      "pv",
+				Arch:       "amd64",
+				RegionName: "us-east-1",
+				Endpoint:   "https://ec2.us-east-1.amazonaws.com",
+				Storage:    "instance",
 			},
 		},
 	},
@@ -572,7 +577,6 @@ func (s *simplestreamsSuite) TestFetch(c *C) {
 			Series:    "precise",
 			Arches:    t.arches,
 		}
-		imageConstraint.Storage = t.storage
 		images, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &imageConstraint, s.requireSigned)
 		if !c.Check(err, IsNil) {
 			continue
