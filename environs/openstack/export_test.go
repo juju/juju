@@ -239,13 +239,13 @@ func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	WritablePublicStorage(e).Put(imagemetadata.DefaultIndexPath, bytes.NewReader(data), int64(len(data)))
+	WritablePublicStorage(e).Put(imagemetadata.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
 	WritablePublicStorage(e).Put(
 		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
-	WritablePublicStorage(e).Remove(imagemetadata.DefaultIndexPath)
+	WritablePublicStorage(e).Remove(imagemetadata.DefaultIndexPath + ".json")
 	WritablePublicStorage(e).Remove(productMetadatafile)
 }
 

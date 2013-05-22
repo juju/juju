@@ -9,6 +9,10 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 )
 
+// signedImageDataOnly is defined here to allow tests to override the content.
+// If true, only inline PGP signed image metadata will be used.
+var signedImageDataOnly = true
+
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
 // any other instance type's cpuPower. It is used when no explicit CpuPower
 // constraint exists, preventing the smallest instance from being chosen unless
@@ -26,7 +30,8 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		Series:    ic.Series,
 		Arches:    ic.Arches,
 	}
-	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
+	matchingImages, err := imagemetadata.Fetch(
+		baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
