@@ -366,7 +366,7 @@ func (s *ContextRelationSuite) SetUpTest(c *C) {
 
 func (s *ContextRelationSuite) TestChangeMembers(c *C) {
 	ctx := uniter.NewContextRelation(s.ru, nil)
-	c.Assert(ctx.UnitNames(), HasLen, 0)
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{})
 
 	// Check the units and settings after a simple update.
 	ctx.UpdateMembers(uniter.SettingsMap{

@@ -213,7 +213,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	err := r.Join()
 	c.Assert(err, IsNil)
 	ctx := r.Context()
-	c.Assert(ctx.UnitNames(), HasLen, 0)
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{})
 
 	// Check preparing an invalid hook changes nothing.
 	changed := hook.Info{
@@ -226,7 +226,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	}
 	_, err = r.PrepareHook(changed)
 	c.Assert(err, ErrorMatches, `inappropriate "relation-changed" for "u/1": unit has not joined`)
-	c.Assert(ctx.UnitNames(), HasLen, 0)
+	c.Assert(ctx.UnitNames(), DeepEquals, []string{})
 	c.Assert(s.dir.State().Members, HasLen, 0)
 
 	// Check preparing a valid hook updates the context, but not persistent
