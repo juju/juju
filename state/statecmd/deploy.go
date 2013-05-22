@@ -10,6 +10,11 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
+// ServiceDeploy deploys a service to the environment from the given repository.
+// The connection, charm URL, and repository will be provided by the caller,
+// since these values already exist in the calling locations and can be 
+// defaulted in different scenarios (i.e.: only the charmstore will be used 
+// when called from the websocket API).
 func ServiceDeploy(st *state.State, args params.ServiceDeploy, conn *juju.Conn, curl *charm.URL, repo charm.Repository) error {
 	if args.ServiceName != "" && !state.IsServiceName(args.ServiceName) {
 		return fmt.Errorf("invalid service name %q", args.ServiceName)
@@ -45,10 +50,10 @@ func ServiceDeploy(st *state.State, args params.ServiceDeploy, conn *juju.Conn, 
 		serviceName = curl.Name
 	}
 	deployArgs := juju.DeployServiceParams{
-		Charm:       charm,
-		ServiceName: serviceName,
-		NumUnits:    args.NumUnits,
-		// BUG(lp:1162122): --config has no tests.
+		Charm:          charm,
+		ServiceName:    serviceName,
+		NumUnits:       args.NumUnits,
+		Config:         args.Config,
 		ConfigYAML:     args.ConfigYAML,
 		Constraints:    args.Constraints,
 		ForceMachineId: args.ForceMachineId,

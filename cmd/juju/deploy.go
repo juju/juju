@@ -132,9 +132,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	args := params.ServiceDeploy{
-		ServiceName:    c.ServiceName,
-		CharmUrl:       c.CharmName,
-		NumUnits:       c.NumUnits,
+		ServiceName: c.ServiceName,
+		CharmUrl:    c.CharmName,
+		NumUnits:    c.NumUnits,
+		// BUG(lp:1162122): --config has no tests.
 		ConfigYAML:     string(configYAML),
 		Constraints:    c.Constraints,
 		BumpRevision:   c.BumpRevision,

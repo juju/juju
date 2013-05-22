@@ -34,6 +34,7 @@ type ServiceDeploy struct {
 	ServiceName    string
 	CharmUrl       string
 	NumUnits       int
+	Config         map[string]string
 	ConfigYAML     string // Takes precedence over config if both are present.
 	Constraints    constraints.Value
 	BumpRevision   bool
