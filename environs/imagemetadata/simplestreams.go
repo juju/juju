@@ -184,18 +184,38 @@ type indexMetadata struct {
 }
 
 const (
+	DefaultBaseURL   = "http://cloud-images.ubuntu.com/releases"
 	DefaultIndexPath = "streams/v1/index.json"
 	imageIds         = "image-ids"
 )
 
 // Fetch returns a list of images for the specified cloud matching the product criteria.
-// The index file location is as specified. The usual file location is DefaultIndexPath.
-func Fetch(baseURL, indexPath string, imageConstraint *ImageConstraint) ([]*ImageMetadata, error) {
-	indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0")
-	if err != nil {
-		return nil, err
+// The base URL locations are as specified - the first location which has a file is the one used.
+func Fetch(baseURLs []string, indexPath string, imageConstraint *ImageConstraint) ([]*ImageMetadata, error) {
+	var metadata []*ImageMetadata
+	for _, baseURL := range baseURLs {
+		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0")
+		if err != nil {
+			if environs.IsNotFoundError(err) {
+				continue
+			}
+			return nil, err
+		}
+		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(imageConstraint, "products:1.0")
+		if err != nil {
+			if environs.IsNotFoundError(err) {
+				continue
+			}
+			return nil, err
+		}
+		if len(metadata) > 0 {
+			break
+		}
 	}
-	return indexRef.getLatestImageIdMetadataWithFormat(imageConstraint, "products:1.0")
+	if len(metadata) == 0 {
+		return nil, fmt.Errorf("no suitable image metadata found at URLs %q", strings.Join(baseURLs, ","))
+	}
+	return metadata, nil
 }
 
 // fetchData gets all the data from the given path relative to the given base URL.
@@ -208,10 +228,13 @@ func fetchData(baseURL, path string) ([]byte, string, error) {
 	dataURL += path
 	resp, err := http.Get(dataURL)
 	if err != nil {
-		return nil, dataURL, err
+		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("invalid URL %q", dataURL)}
 	}
 	defer resp.Body.Close()
-	if resp.StatusCode != 200 {
+	if resp.StatusCode == http.StatusNotFound {
+		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("cannot find URL %q", dataURL)}
+	}
+	if resp.StatusCode != http.StatusOK {
 		return nil, dataURL, fmt.Errorf("cannot access URL %q, %q", dataURL, resp.Status)
 	}
 
@@ -225,6 +248,9 @@ func fetchData(baseURL, path string) ([]byte, string, error) {
 func getIndexWithFormat(baseURL, indexPath, format string) (*indexReference, error) {
 	data, url, err := fetchData(baseURL, indexPath)
 	if err != nil {
+		if environs.IsNotFoundError(err) {
+			return nil, err
+		}
 		return nil, fmt.Errorf("cannot read index data, %v", err)
 	}
 	var indices indices
@@ -273,9 +299,11 @@ func (indexRef *indexReference) getImageIdsPath(imageConstraint *ImageConstraint
 		}
 	}
 	if !containsImageIds {
-		return "", fmt.Errorf("index file missing %q data", imageIds)
+		return "", &environs.NotFoundError{fmt.Errorf("index file missing %q data", imageIds)}
 	}
-	return "", fmt.Errorf("index file missing data for cloud %v", imageConstraint.CloudSpec)
+	return "", &environs.NotFoundError{
+		fmt.Errorf("index file missing data for cloud %v and product name %q",
+			imageConstraint.CloudSpec, prodSpecId)}
 }
 
 // To keep the metadata concise, attributes on ImageMetadata which have the same value for each
@@ -443,7 +471,7 @@ func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*Imag
 func (indexRef *indexReference) getCloudMetadataWithFormat(imageConstraint *ImageConstraint, format string) (*cloudImageMetadata, error) {
 	productFilesPath, err := indexRef.getImageIdsPath(imageConstraint)
 	if err != nil {
-		return nil, fmt.Errorf("error finding product files path %v", err)
+		return nil, err
 	}
 	data, url, err := fetchData(indexRef.baseURL, productFilesPath)
 	if err != nil {
@@ -476,7 +504,7 @@ func (indexRef *indexReference) getLatestImageIdMetadataWithFormat(imageConstrai
 	}
 	metadataCatalog, ok := imageMetadata.Products[prodSpecId]
 	if !ok {
-		return nil, fmt.Errorf("no image metadata for %s", prodSpecId)
+		return nil, &environs.NotFoundError{fmt.Errorf("no image metadata for %s", prodSpecId)}
 	}
 	var bv byVersionDesc = make(byVersionDesc, len(metadataCatalog.Images))
 	i := 0

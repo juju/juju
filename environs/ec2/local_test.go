@@ -15,12 +15,14 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"regexp"
+	"strings"
 )
 
 type ProviderSuite struct{}
@@ -378,6 +380,15 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	case !match && found:
 		c.Errorf("%q found but not expected in %v", pkg, pkgs)
 	}
+}
+
+func (s *localServerSuite) TestGetImageURLs(c *C) {
+	urls, err := ec2.GetImageURLs(s.env)
+	c.Assert(err, IsNil)
+	c.Assert(len(urls), Equals, 2)
+	// The public bucket URL ends with "/public-tools".
+	c.Check(strings.HasSuffix(urls[0], "/public-tools/"), Equals, true)
+	c.Assert(urls[1], Equals, imagemetadata.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
