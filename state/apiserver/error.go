@@ -15,6 +15,7 @@ var (
 	errPerm           = errors.New("permission denied")
 	errNotLoggedIn    = errors.New("not logged in")
 	errUnknownWatcher = errors.New("unknown watcher id")
+	errUnknownPinger  = errors.New("unknown pinger id")
 	errStoppedWatcher = errors.New("watcher has been stopped")
 )
 
@@ -41,6 +42,8 @@ func serverError(err error) error {
 		code = api.CodeNotFound
 	case state.IsNotAssigned(err):
 		code = api.CodeNotAssigned
+	case state.IsHasAssignedUnitsError(err):
+		code = api.CodeHasAssignedUnits
 	}
 	if code != "" {
 		return &api.Error{
