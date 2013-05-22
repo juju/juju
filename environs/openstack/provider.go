@@ -104,6 +104,8 @@ hpcloud:
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
   auth-url: https://yourkeystoneurl:35357/v2.0/
+  # URL denoting a public container holding the juju tools.
+  public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
   # The following are used for userpass authentication (the default)

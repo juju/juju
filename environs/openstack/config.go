@@ -129,7 +129,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 
 	// Check for deprecated fields and log a warning. We also print to stderr to ensure the user sees the message
 	// even if they are not running with --debug.
-	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil {
+	if defaultImageId := cfg.AllAttrs()["default-image-id"]; defaultImageId != nil && defaultImageId.(string) != "" {
 		msg := fmt.Sprintf(
 			"config attribute %q (%v) is deprecated and ignored, use simplestreams metadata instead",
 			"default-image-id", defaultImageId)
@@ -138,7 +138,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			fmt.Fprintln(os.Stderr, msg)
 		}
 	}
-	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil {
+	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
 		msg := fmt.Sprintf(
 			"config attribute %q (%v) is deprecated and ignored", "default-instance-type", defaultInstanceType)
 		log.Warningf(msg)
