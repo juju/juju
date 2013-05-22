@@ -134,17 +134,11 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 			"config attribute %q (%v) is deprecated and ignored, use simplestreams metadata instead",
 			"default-image-id", defaultImageId)
 		log.Warningf(msg)
-		if !log.Debug {
-			fmt.Fprintln(os.Stderr, msg)
-		}
 	}
 	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
 		msg := fmt.Sprintf(
 			"config attribute %q (%v) is deprecated and ignored", "default-instance-type", defaultInstanceType)
 		log.Warningf(msg)
-		if !log.Debug {
-			fmt.Fprintln(os.Stderr, msg)
-		}
 	}
 
 	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
