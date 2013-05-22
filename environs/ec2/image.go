@@ -4,16 +4,10 @@
 package ec2
 
 import (
-	"bufio"
 	"fmt"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"net/http"
 )
-
-// imagesHost holds the address of the images http server.
-// It is a variable so that tests can change it to refer to a local
-// server when needed.
-var imagesHost = "http://cloud-images.ubuntu.com"
 
 // defaultCpuPower is larger the smallest instance's cpuPower, and no larger than
 // any other instance type's cpuPower. It is used when no explicit CpuPower
@@ -22,21 +16,32 @@ var imagesHost = "http://cloud-images.ubuntu.com"
 const defaultCpuPower = 100
 
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
-func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
-	path := fmt.Sprintf("/query/%s/server/released.current.txt", ic.Series)
-	resp, err := http.Get(imagesHost + path)
-	var r *bufio.Reader
-	if err == nil {
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			err = fmt.Errorf("%s", resp.Status)
+	ec2Region := allRegions[ic.Region]
+	imageConstraint := imagemetadata.ImageConstraint{
+		CloudSpec: imagemetadata.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
+		Series:    ic.Series,
+		Arches:    ic.Arches,
+	}
+	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
+	if err != nil {
+		return nil, err
+	}
+	var images []instances.Image
+	for _, imageMetadata := range matchingImages {
+		// For now, we only want images with "ebs" storage.
+		if imageMetadata.Storage != ebsStorage {
+			continue
 		}
-		if err == nil {
-			r = bufio.NewReader(resp.Body)
-		}
+		im := *imageMetadata
+		images = append(images, instances.Image{
+			Id:    im.Id,
+			VType: im.VType,
+			Arch:  im.Arch,
+		})
 	}
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
@@ -55,5 +60,5 @@ func findInstanceSpec(ic *instances.InstanceConstraint) (*instances.InstanceSpec
 		itWithCost.Cost = cost
 		itypesWithCosts = append(itypesWithCosts, itWithCost)
 	}
-	return instances.FindInstanceSpec(r, ic, itypesWithCosts)
+	return instances.FindInstanceSpec(images, ic, itypesWithCosts)
 }

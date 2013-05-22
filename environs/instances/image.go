@@ -4,12 +4,9 @@
 package instances
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"launchpad.net/juju-core/constraints"
 	"sort"
-	"strings"
 )
 
 // InstanceConstraint constrains the possible instances that may be
@@ -45,7 +42,7 @@ const minMemoryHeuristic = 1024
 // For more information on the image availability file format, see https://help.ubuntu.com/community/UEC/Images.
 // allInstanceTypes provides information on every known available instance type (name, memory, cpu cores etc) on
 // which instances can be run.
-func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
+func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanceTypes []InstanceType) (*InstanceSpec, error) {
 	matchingTypes, err := getMatchingInstanceTypes(ic, allInstanceTypes)
 	if err != nil {
 		// There are no instance types matching the supplied constraints. If the user has specifically
@@ -80,16 +77,11 @@ func FindInstanceSpec(r *bufio.Reader, ic *InstanceConstraint, allInstanceTypes 
 		}
 	}
 
-	var possibleImages []Image
-	if r != nil {
-		possibleImages, err = getImages(r, ic)
-		if err == nil {
-			for _, itype := range matchingTypes {
-				for _, image := range possibleImages {
-					if image.match(itype) {
-						return &InstanceSpec{itype.Id, itype.Name, image}, nil
-					}
-				}
+	sort.Sort(byArch(possibleImages))
+	for _, itype := range matchingTypes {
+		for _, image := range possibleImages {
+			if image.match(itype) {
+				return &InstanceSpec{itype.Id, itype.Name, image}, nil
 			}
 		}
 	}
@@ -124,23 +116,6 @@ func (s byMemory) Less(i, j int) bool {
 	return s[i].Mem < s[j].Mem
 }
 
-// Columns in the file returned from the images server.
-const (
-	colSeries = iota
-	colServer
-	colDaily
-	colDate
-	colStorage
-	colArch
-	colRegion
-	colImageId
-	_
-	_
-	colVtype
-	colMax
-	// + more that we don't care about.
-)
-
 // Image holds the attributes that vary amongst relevant images for
 // a given series in a given region.
 type Image struct {
@@ -162,43 +137,6 @@ func (image Image) match(itype InstanceType) bool {
 		}
 	}
 	return false
-}
-
-// getImages returns the latest released ubuntu server images for the
-// supplied series in the supplied region.
-// See https://help.ubuntu.com/community/UEC/Images
-func getImages(r *bufio.Reader, ic *InstanceConstraint) ([]Image, error) {
-	var images []Image
-	for {
-		line, _, err := r.ReadLine()
-		if err == io.EOF {
-			if len(images) == 0 {
-				return nil, fmt.Errorf("no %q images in %s with arches %v", ic.Series, ic.Region, ic.Arches)
-			}
-			sort.Sort(byArch(images))
-			return images, nil
-		} else if err != nil {
-			return nil, err
-		}
-		f := strings.Split(string(line), "\t")
-		if len(f) < colMax {
-			continue
-		}
-		if f[colRegion] != ic.Region {
-			continue
-		}
-		if ic.Storage != nil && f[colStorage] != *ic.Storage {
-			continue
-		}
-		if len(filterArches([]string{f[colArch]}, ic.Arches)) != 0 {
-			images = append(images, Image{
-				Id:    f[colImageId],
-				Arch:  f[colArch],
-				VType: f[colVtype],
-			})
-		}
-	}
-	panic("unreachable")
 }
 
 // byArch is used to sort a slice of images by architecture preference, such

@@ -161,7 +161,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
-	openstack.UseTestImageData(s.Env, false)
+	openstack.UseTestImageData(s.Env, s.cred)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *C) {
@@ -215,7 +215,7 @@ func (s *localServerSuite) SetUpTest(c *C) {
 	s.writeablePublicStorage = openstack.WritablePublicStorage(s.Env)
 	envtesting.UploadFakeTools(c, s.writeablePublicStorage)
 	s.env = s.Tests.Env
-	openstack.UseTestImageData(s.env, false)
+	openstack.UseTestImageData(s.env, s.cred)
 }
 
 func (s *localServerSuite) TearDownTest(c *C) {
@@ -426,16 +426,6 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 	c.Assert(urls[2], Equals, imagemetadata.DefaultBaseURL)
 }
 
-func (s *localServerSuite) TestFindImageSpecPrivateStorage(c *C) {
-	openstack.UseTestImageData(s.env, true)
-	openstack.SetDefaultInstanceType(s.Env, "")
-	openstack.SetDefaultImageId(s.Env, "")
-	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
-	c.Assert(err, IsNil)
-	c.Assert(spec.Image.Id, Equals, "id-y")
-	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
-}
-
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 	openstack.SetDefaultInstanceType(s.Env, "")
 	openstack.SetDefaultImageId(s.Env, "")
@@ -448,7 +438,7 @@ func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 // If no suitable image is found, use the default if specified.
 func (s *localServerSuite) TestFindImageSpecDefaultImage(c *C) {
 	openstack.SetDefaultImageId(s.Env, "1234")
-	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "")
+	spec, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, "1234")
 	c.Assert(spec.InstanceTypeName, Not(Equals), "")
@@ -458,7 +448,7 @@ func (s *localServerSuite) TestFindImageSpecDefaultImage(c *C) {
 func (s *localServerSuite) TestFindImageSpecDefaultFlavor(c *C) {
 	openstack.SetDefaultImageId(s.Env, "1234")
 	openstack.SetDefaultInstanceType(s.Env, "m1.small")
-	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
+	spec, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, "1234")
 	c.Assert(spec.InstanceTypeName, Equals, "m1.small")
@@ -474,8 +464,8 @@ func (s *localServerSuite) TestFindImageBadDefaultFlavor(c *C) {
 // An error occurs if no suitable image is found and the default not specified.
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	openstack.SetDefaultImageId(s.Env, "")
-	_, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `no "raring" images in some-region with arches \[amd64\], and no default specified`)
+	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
+	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\], and no default specified`)
 }
 
 func (s *localServerSuite) TestDeleteAll(c *C) {
