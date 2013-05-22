@@ -7,11 +7,15 @@ import (
 	"time"
 )
 
+// RestartDelay holds the length of time that a task
+// will wait between exiting and restarting.
+var RestartDelay = 3 * time.Second
+
 // Task is implemented by a running task.
 type Task interface {
 	// Kill asks the task to stop without necessarily
 	// waiting for it to do so.
-	Kill() error
+	Kill()
 	// Wait waits for the task to exit and returns any
 	// error encountered when it was running.
 	Wait() error
@@ -106,6 +110,12 @@ func (runner *Runner) Kill() {
 	runner.tomb.Kill(nil)
 }
 
+// Stop kills the runner and waits for it to exit.
+func (runner *Runner) Stop() error {
+	runner.Kill()
+	return runner.Wait()
+}
+
 func (runner *Runner) run() error {
 	type taskInfo struct {
 		start        func() (Task, error)
@@ -138,7 +148,10 @@ loop:
 				info.start = req.start
 				info.restartDelay = 0
 			} else {
-				tasks[req.id] = &taskInfo{start: req.start}
+				tasks[req.id] = &taskInfo{
+					start: req.start,
+					restartDelay: RestartDelay,
+				}
 				go runner.runTask(0, req.id, req.start)
 			}
 		case id := <-runner.stopc:
@@ -173,7 +186,7 @@ loop:
 				break
 			}
 			go runner.runTask(taskInfo.restartDelay, info.id, taskInfo.start)
-			taskInfo.restartDelay = 3 * time.Second
+			taskInfo.restartDelay = RestartDelay
 		}
 	}
 	for _, info := range tasks {
