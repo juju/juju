@@ -33,8 +33,6 @@ type ImageConstraint struct {
 	Series string
 	Arches []string
 	Stream string // may be "", typically "release", "daily" etc
-	// Optional constraint attributes.
-	Storage *string
 }
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -464,18 +462,15 @@ type imageKey struct {
 	storage string
 }
 
-// findMatchingImages updates matchingImages with image metadata records from images which belong to the
+// appendMatchingImages updates matchingImages with image metadata records from images which belong to the
 // specified region. If an image already exists in matchingImages, it is not overwritten.
-func findMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, ic *ImageConstraint) []*ImageMetadata {
+func appendMatchingImages(matchingImages []*ImageMetadata, images map[string]*ImageMetadata, ic *ImageConstraint) []*ImageMetadata {
 	imagesMap := make(map[imageKey]*ImageMetadata, len(matchingImages))
 	for _, im := range matchingImages {
 		imagesMap[imageKey{im.VType, im.Arch, im.Storage}] = im
 	}
 	for _, im := range images {
 		if ic.Region != im.RegionName {
-			continue
-		}
-		if ic.Storage != nil && *ic.Storage != im.Storage {
 			continue
 		}
 		if _, ok := imagesMap[imageKey{im.VType, im.Arch, im.Storage}]; !ok {
@@ -542,7 +537,7 @@ func getLatestImageIdMetadata(imageMetadata *cloudImageMetadata, ic *ImageConstr
 		}
 		sort.Sort(bv)
 		for _, imageCollVersion := range bv {
-			matchingImages = findMatchingImages(matchingImages, imageCollVersion.imageCollection.Images, ic)
+			matchingImages = appendMatchingImages(matchingImages, imageCollVersion.imageCollection.Images, ic)
 		}
 	}
 	return matchingImages, nil

@@ -26,14 +26,16 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		Series:    ic.Series,
 		Arches:    ic.Arches,
 	}
-	ebs := ebsStorage
-	imageConstraint.Storage = &ebs
 	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint)
 	if err != nil {
 		return nil, err
 	}
 	var images []instances.Image
 	for _, imageMetadata := range matchingImages {
+		// For now, we only want images with "ebs" storage.
+		if imageMetadata.Storage != ebsStorage {
+			continue
+		}
 		im := *imageMetadata
 		images = append(images, instances.Image{
 			Id:    im.Id,
