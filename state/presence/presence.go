@@ -315,7 +315,7 @@ type pingInfo struct {
 func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
 	beings := make([]beingInfo, 0)
 	err := w.beings.Find(bson.D{{}}).All(&beings)
-	if err != nil && err == mgo.ErrNotFound {
+	if err != nil {
 		return nil, err
 	}
 	beingInfos := make(map[int64]beingInfo, len(beings))
