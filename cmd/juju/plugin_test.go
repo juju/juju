@@ -89,11 +89,11 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *C) {
 }
 
 func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
-	suite.makeFullPlugin(PluginParams{Name: "foo", Sleep: 0.1})
-	suite.makeFullPlugin(PluginParams{Name: "bar", Sleep: 0.15})
-	suite.makeFullPlugin(PluginParams{Name: "baz", Sleep: 0.3})
-	suite.makeFullPlugin(PluginParams{Name: "error", ExitStatus: 1, Sleep: 0.1})
-	suite.makeFullPlugin(PluginParams{Name: "slow", Sleep: 0.2})
+	suite.makeFullPlugin(PluginParams{Name: "foo", Sleep: 100 * time.Millisecond})
+	suite.makeFullPlugin(PluginParams{Name: "bar", Sleep: 150 * time.Millisecond})
+	suite.makeFullPlugin(PluginParams{Name: "baz", Sleep: 300 * time.Millisecond})
+	suite.makeFullPlugin(PluginParams{Name: "error", ExitStatus: 1, Sleep: 100 * time.Millisecond})
+	suite.makeFullPlugin(PluginParams{Name: "slow", Sleep: 200 * time.Millisecond})
 
 	start := time.Now()
 	results := GetPluginDescriptions()
@@ -166,13 +166,13 @@ func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
 type PluginParams struct {
 	Name       string
 	ExitStatus int
-	Sleep      float64
+	Sleep      time.Duration
 }
 
 const pluginTemplate = `#!/bin/bash
 
 if [ "$1" = "--description" ]; then
-  sleep {{.Sleep}}
+  sleep {{.Sleep.Seconds}}
   echo "{{.Name}} description"
   exit {{.ExitStatus}}
 fi
