@@ -331,6 +331,55 @@ func (m *Machine) InstanceId() (string, bool) {
 	return m.doc.InstanceId, m.doc.InstanceId != ""
 }
 
+// SetAgentAlive signals that the agent for machine m is alive. It
+// returns the started pinger.
+func (m *Machine) SetAgentAlive() (*Pinger, error) {
+	var id params.PingerId
+	err := m.st.call("Machine", m.id, "SetAgentAlive", nil, &id)
+	if err != nil {
+		return nil, err
+	}
+	return &Pinger{
+		st: m.st,
+		id: id.PingerId,
+	}, nil
+}
+
+// EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
+// It does nothing otherwise. EnsureDead will fail if the machine has
+// principal units assigned, or if the machine has JobManageEnviron.
+// If the machine has assigned units, EnsureDead will return
+// a CodeHasAssignedUnits error.
+func (m *Machine) EnsureDead() error {
+	return m.st.call("Machine", m.id, "EnsureDead", nil, nil)
+}
+
+// SetStatus sets the status of the machine.
+func (m *Machine) SetStatus(status params.Status, info string) error {
+	return m.st.call("Machine", m.id, "SetStatus", &params.SetStatus{
+		Status: status,
+		Info:   info,
+	}, nil)
+}
+
+// Life returns whether the machine is "alive", "dying" or "dead".
+func (m *Machine) Life() params.Life {
+	return m.doc.Life
+}
+
+// Pinger periodically reports that a specific key is alive, so that
+// watchers interested on that fact can react appropriately.
+type Pinger struct {
+	st *State
+	id string
+}
+
+// Stop stops the p's periodical ping. Watchers will not notice p has
+// stopped pinging until the previous ping times out.
+func (p *Pinger) Stop() error {
+	return p.st.call("Pinger", p.id, "Stop", nil, nil)
+}
+
 // SetPassword sets the password for the machine's agent.
 func (m *Machine) SetPassword(password string) error {
 	return m.st.call("Machine", m.id, "SetPassword", &params.Password{

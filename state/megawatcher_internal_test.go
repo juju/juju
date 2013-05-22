@@ -83,7 +83,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		Name:        "wordpress",
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
-		Life:        Alive.String(),
+		Life:        params.Life(Alive.String()),
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      map[string]interface{}{"blog-title": "boring"},
 	})
@@ -100,7 +100,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	add(&params.ServiceInfo{
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
-		Life:     Alive.String(),
+		Life:     params.Life(Alive.String()),
 		Config:   map[string]interface{}{},
 	})
 
@@ -410,7 +410,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				Exposed:  true,
 				CharmURL: "local:series/series-wordpress-3",
-				Life:     Alive.String(),
+				Life:     params.Life(Alive.String()),
 				Config:   map[string]interface{}{},
 			},
 		},
@@ -436,7 +436,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:        "wordpress",
 				CharmURL:    "local:series/series-wordpress-3",
-				Life:        Alive.String(),
+				Life:        params.Life(Alive.String()),
 				Constraints: constraints.MustParse("mem=99M"),
 				Config:      map[string]interface{}{"blog-title": "boring"},
 			},
@@ -467,7 +467,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
-				Life:     Alive.String(),
+				Life:     params.Life(Alive.String()),
 				Config:   map[string]interface{}{"blog-title": "boring"},
 			},
 		},
