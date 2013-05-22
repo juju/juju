@@ -32,7 +32,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	if !execError {
 		return err
 	}
-	return fmt.Errorf("unrecognized command: juju %s", subcommand)
+	return &cmd.UnrecognizedCommand{subcommand}
 }
 
 type PluginCommand struct {

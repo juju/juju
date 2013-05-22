@@ -1,10 +1,11 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"strings"
+	"text/template"
 	"time"
 
 	. "launchpad.net/gocheck"
@@ -88,11 +89,11 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *C) {
 }
 
 func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
-	suite.makeFullPlugin("foo", 0, 0.1)
-	suite.makeFullPlugin("bar", 0, 0.15)
-	suite.makeFullPlugin("baz", 0, 0.3)
-	suite.makeFullPlugin("error", 1, 0.1)
-	suite.makeFullPlugin("slow", 0, 0.2)
+	suite.makeFullPlugin(PluginParams{Name: "foo", Sleep: 0.1})
+	suite.makeFullPlugin(PluginParams{Name: "bar", Sleep: 0.15})
+	suite.makeFullPlugin(PluginParams{Name: "baz", Sleep: 0.3})
+	suite.makeFullPlugin(PluginParams{Name: "error", ExitStatus: 1, Sleep: 0.1})
+	suite.makeFullPlugin(PluginParams{Name: "slow", Sleep: 0.2})
 
 	start := time.Now()
 	results := GetPluginDescriptions()
@@ -122,8 +123,8 @@ func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *C) {
 }
 
 func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *C) {
-	suite.makeFullPlugin("foo", 0, 0)
-	suite.makeFullPlugin("bar", 0, 0)
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	suite.makeFullPlugin(PluginParams{Name: "bar"})
 	output := badrun(c, 0, "help", "plugins")
 	c.Assert(output, HasPrefix, PluginTopicText)
 	expectedPlugins := `
@@ -135,7 +136,7 @@ foo  foo description
 }
 
 func (suite *PluginSuite) TestHelpPluginName(c *C) {
-	suite.makeFullPlugin("foo", 0, 0)
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "help", "foo")
 	expectedHelp := `foo longer help
 
@@ -162,29 +163,36 @@ func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
 	ioutil.WriteFile(filename, []byte(content), 0755)
 }
 
+type PluginParams struct {
+	Name       string
+	ExitStatus int
+	Sleep      float64
+}
+
 const pluginTemplate = `#!/bin/bash
 
 if [ "$1" = "--description" ]; then
-  sleep sleep-time
-  echo "plugin-name description"
-  exit exit-status
+  sleep {{.Sleep}}
+  echo "{{.Name}} description"
+  exit {{.ExitStatus}}
 fi
 
 if [ "$1" = "--help" ]; then
-  echo "plugin-name longer help"
+  echo "{{.Name}} longer help"
   echo ""
   echo "something useful"
-  exit exit-status
+  exit {{.ExitStatus}}
 fi
 
-echo plugin-name $*
-exit exit-status
+echo {{.Name}} $*
+exit {{.ExitStatus}}
 `
 
-func (suite *PluginSuite) makeFullPlugin(name string, exitStatus int, sleepTime float64) {
-	content := strings.Replace(pluginTemplate, "plugin-name", name, -1)
-	content = strings.Replace(content, "sleep-time", fmt.Sprintf("%f", sleepTime), -1)
-	content = strings.Replace(content, "exit-status", fmt.Sprintf("%d", exitStatus), -1)
-	filename := testing.HomePath("juju-" + name)
-	ioutil.WriteFile(filename, []byte(content), 0755)
+func (suite *PluginSuite) makeFullPlugin(params PluginParams) {
+	// Create a new template and parse the plugin into it.
+	t := template.Must(template.New("plugin").Parse(pluginTemplate))
+	content := &bytes.Buffer{}
+	t.Execute(content, params)
+	filename := testing.HomePath("juju-" + params.Name)
+	ioutil.WriteFile(filename, content.Bytes(), 0755)
 }

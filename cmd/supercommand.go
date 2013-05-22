@@ -6,7 +6,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"os/exec"
 	"sort"
 	"strings"
 
@@ -17,6 +16,14 @@ import (
 type topic struct {
 	short string
 	long  func() string
+}
+
+type UnrecognizedCommand struct {
+	Name string
+}
+
+func (e *UnrecognizedCommand) Error() string {
+	return fmt.Sprintf("unrecognized command: %s", e.Name)
 }
 
 // MissingCallback defines a function that will be used by the SuperCommand if
@@ -188,14 +195,15 @@ func (c *SuperCommand) Init(args []string) error {
 	if c.subcmd, found = c.subcmds[args[0]]; !found {
 		if c.missingCallback != nil {
 			c.subcmd = &missingCommand{
-				callback: c.missingCallback,
-				name:     args[0],
-				args:     args[1:],
+				callback:  c.missingCallback,
+				superName: c.Name,
+				name:      args[0],
+				args:      args[1:],
 			}
 			// Yes return here, no Init called on missing Command.
 			return nil
 		}
-		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, args[0])
+		return fmt.Errorf("unrecognized command: %s %s", c.Name, args[0])
 	}
 	args = args[1:]
 	c.subcmd.SetFlags(c.flags)
@@ -232,9 +240,10 @@ func (c *SuperCommand) Run(ctx *Context) error {
 
 type missingCommand struct {
 	CommandBase
-	callback MissingCallback
-	name     string
-	args     []string
+	callback  MissingCallback
+	superName string
+	name      string
+	args      []string
 }
 
 // Missing commands only need to supply Info for the interface, but this is
@@ -244,7 +253,12 @@ func (c *missingCommand) Info() *Info {
 }
 
 func (c *missingCommand) Run(ctx *Context) error {
-	return c.callback(ctx, c.name, c.args)
+	err := c.callback(ctx, c.name, c.args)
+	_, isUnrecognized := err.(*UnrecognizedCommand)
+	if !isUnrecognized {
+		return err
+	}
+	return &UnrecognizedCommand{c.superName + " " + c.name}
 }
 
 type helpCommand struct {
@@ -375,15 +389,14 @@ func (c *helpCommand) Run(ctx *Context) error {
 	// If we have a missing callback, call that with --help
 	if c.super.missingCallback != nil {
 		subcmd := &missingCommand{
-			callback: c.super.missingCallback,
-			name:     c.topic,
-			args:     []string{"--", "--help"},
+			callback:  c.super.missingCallback,
+			superName: c.super.Name,
+			name:      c.topic,
+			args:      []string{"--", "--help"},
 		}
 		err := subcmd.Run(ctx)
-		_, execError := err.(*exec.Error)
-		// exec.Error results are for when the executable isn't found, in
-		// those cases, drop through.
-		if !execError {
+		_, isUnrecognized := err.(*UnrecognizedCommand)
+		if !isUnrecognized {
 			return err
 		}
 	}
