@@ -40,9 +40,10 @@ func Main(args []string) {
 		os.Exit(0)
 	}
 	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "juju",
-		Doc:  jujuDoc,
-		Log:  &cmd.Log{},
+		Name:            "juju",
+		Doc:             jujuDoc,
+		Log:             &cmd.Log{},
+		MissingCallback: RunPlugin,
 	})
 	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
 
