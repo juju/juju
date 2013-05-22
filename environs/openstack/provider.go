@@ -418,44 +418,54 @@ func (e *environ) Storage() environs.Storage {
 	return storage
 }
 
+// publicBucketURL gets the public bucket URL, either from env or keystone catalog.
+func (e *environ) publicBucketURL() string {
+	ecfg := e.ecfg()
+	publicBucketURL := ecfg.publicBucketURL()
+	if publicBucketURL == "" {
+		// No public bucket in env, so authenticate and look in keystone catalog.
+		if !e.client.IsAuthenticated() {
+			e.client.Authenticate()
+		}
+		var err error
+		publicBucketURL, err = e.client.MakeServiceURL("juju-tools", nil)
+		if err != nil {
+			return ""
+		}
+	}
+	return publicBucketURL
+}
+
 func (e *environ) PublicStorage() environs.StorageReader {
 	e.publicStorageMutex.Lock()
 	defer e.publicStorageMutex.Unlock()
+	ecfg := e.ecfg()
+	// If public storage has already been determined, return that instance.
 	publicStorage := e.publicStorageUnlocked
+	if publicStorage == nil && ecfg.publicBucket() == "" {
+		// If there is no public bucket name, then there can be no public storage.
+		e.publicStorageUnlocked = environs.EmptyStorage
+		publicStorage = e.publicStorageUnlocked
+	}
 	if publicStorage != nil {
 		return publicStorage
 	}
-	ecfg := e.ecfg()
-	if ecfg.publicBucket() != "" {
-		// Determine the public bucket URL, either from env or keystone catalog.
-		var err error
-		publicBucketURL := ecfg.publicBucketURL()
-		if publicBucketURL == "" {
-			// No public bucket in env, so authenticate and look in keystone catalog.
-			if !e.client.IsAuthenticated() {
-				e.client.Authenticate()
-			}
-			publicBucketURL, err = e.client.MakeServiceURL("juju-tools", nil)
-		}
-		if publicBucketURL == "" || err != nil {
-			// No public bucket URL is specified, so we will instead create the public bucket
-			// using the user's credentials on the authenticated client.
-			e.publicStorageUnlocked = &storage{
-				containerName: ecfg.publicBucket(),
-				// this is possibly just a hack - if the ACL is swift.Private,
-				// the machine won't be able to get the tools (401 error)
-				containerACL: swift.PublicRead,
-				swift:        swift.New(e.client)}
-		} else {
-			pc := client.NewPublicClient(publicBucketURL, nil)
-			e.publicStorageUnlocked = &storage{
-				containerName: ecfg.publicBucket(),
-				containerACL:  swift.PublicRead,
-				swift:         swift.New(pc)}
-		}
-	}
-	if e.publicStorageUnlocked == nil {
-		e.publicStorageUnlocked = environs.EmptyStorage
+	// If there is a public bucket URL defined, create a public storage using that,
+	// otherwise create the public bucket using the user's credentials on the authenticated client.
+	publicBucketURL := e.publicBucketURL()
+	if publicBucketURL == "" {
+		e.publicStorageUnlocked = &storage{
+			containerName: ecfg.publicBucket(),
+			// this is possibly just a hack - if the ACL is swift.Private,
+			// the machine won't be able to get the tools (401 error)
+			containerACL: swift.PublicRead,
+			swift:        swift.New(e.client)}
+	} else {
+		pc := client.NewPublicClient(publicBucketURL, nil)
+		e.publicStorageUnlocked = &storage{
+			containerName: ecfg.publicBucket(),
+			containerACL:  swift.PublicRead,
+			swift:         swift.New(pc)}
 	}
 	publicStorage = e.publicStorageUnlocked
 	return publicStorage
