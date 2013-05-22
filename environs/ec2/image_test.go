@@ -150,7 +150,7 @@ var findInstanceSpecErrorTests = []struct {
 	}, {
 		series: "precise",
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
+		err:    `no "precise" images in test with arches \[arm\]`,
 	}, {
 		series: "raring",
 		arches: both,

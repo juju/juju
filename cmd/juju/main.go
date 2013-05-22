@@ -73,6 +73,7 @@ func Main(args []string) {
 
 	// Configuration commands.
 	juju.Register(&InitCommand{})
+	juju.Register(&ImageMetadataCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&GetConstraintsCommand{})

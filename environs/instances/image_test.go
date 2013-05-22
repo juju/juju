@@ -58,12 +58,6 @@ var jsonImagesContent = `
              "region": "ap-northeast-1",
              "id": "ami-00000026"
            },
-           "apne1he": {
-             "root_store": "ebs",
-             "virt": "hvm",
-             "region": "ap-northeast-1",
-             "id": "ami-00000087"
-           },
            "test1pe": {
              "root_store": "ebs",
              "virt": "pv",
@@ -87,6 +81,12 @@ var jsonImagesContent = `
              "virt": "pv",
              "region": "ap-northeast-1",
              "id": "ami-00000008"
+           },
+           "test2he": {
+             "root_store": "ebs",
+             "virt": "hvm",
+             "region": "test",
+             "id": "ami-00000036"
            }
          },
          "pubname": "ubuntu-precise-12.04-amd64-server-20121118",
@@ -131,17 +131,15 @@ var jsonImagesContent = `
 `
 
 type instanceSpecTestParams struct {
-	desc                string
-	region              string
-	arches              []string
-	constraints         string
-	instanceTypes       []InstanceType
-	defaultImageId      string
-	defaultInstanceType string
-	imageId             string
-	instanceTypeId      string
-	instanceTypeName    string
-	err                 string
+	desc             string
+	region           string
+	arches           []string
+	constraints      string
+	instanceTypes    []InstanceType
+	imageId          string
+	instanceTypeId   string
+	instanceTypeName string
+	err              string
 }
 
 func (p *instanceSpecTestParams) init() {
@@ -168,25 +166,19 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		instanceTypeName: "it-1",
 	},
 	{
-		desc:           "images exist, invalid default image id",
-		region:         "test",
-		defaultImageId: "1234",
+		desc:    "multiple images exists in metadata, use most recent",
+		region:  "test",
+		imageId: "ami-00000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"arm"}, VType: &pv, Mem: 512},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &hvm, Mem: 512},
 		},
-		err: `invalid default image id "1234"`,
+		instanceTypeId:   "1",
+		instanceTypeName: "it-1",
 	},
 	{
-		desc:           "no image exists in metadata, use supplied default",
-		region:         "invalid-region",
-		defaultImageId: "1234",
-		imageId:        "1234",
-	},
-	{
-		desc:    "no image exists in metadata, no default supplied",
-		region:  "invalid-region",
-		imageId: "1234",
-		err:     `no "precise" images in invalid-region with arches \[amd64 arm\], and no default specified`,
+		desc:   "no image exists in metadata",
+		region: "invalid-region",
+		err:    `no "precise" images in invalid-region with arches \[amd64 arm\]`,
 	},
 	{
 		desc:          "no valid instance types",
@@ -223,11 +215,10 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			})
 		}
 		spec, err := FindInstanceSpec(images, &InstanceConstraint{
-			Series:         "precise",
-			Region:         t.region,
-			Arches:         t.arches,
-			Constraints:    constraints.MustParse(t.constraints),
-			DefaultImageId: t.defaultImageId,
+			Series:      "precise",
+			Region:      t.region,
+			Arches:      t.arches,
+			Constraints: constraints.MustParse(t.constraints),
 		}, t.instanceTypes)
 		if t.err != "" {
 			c.Check(err, ErrorMatches, t.err)

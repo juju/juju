@@ -264,12 +264,10 @@ func RemoveTestImageData(e environs.Environ) {
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
 	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
-		Series:              series,
-		Arches:              []string{arch},
-		Region:              env.ecfg().region(),
-		Constraints:         constraints.MustParse(cons),
-		DefaultInstanceType: env.ecfg().defaultInstanceType(),
-		DefaultImageId:      env.ecfg().defaultImageId(),
+		Series:      series,
+		Arches:      []string{arch},
+		Region:      env.ecfg().region(),
+		Constraints: constraints.MustParse(cons),
 	})
 	return
 }
@@ -281,22 +279,6 @@ func GetImageURLs(e environs.Environ) ([]string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
-}
-
-func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["default-instance-type"] = defaultInstanceType
-}
-
-func SetDefaultImageId(e environs.Environ, defaultId string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["default-image-id"] = defaultId
-}
-
-// ImageDetails specify parameters used to start a test machine for the live tests.
-type ImageDetails struct {
-	Flavor  string
-	ImageId string
 }
 
 type BootstrapState struct {

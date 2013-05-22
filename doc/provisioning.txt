@@ -14,7 +14,7 @@ Series
 ------
 
 Individual charms are released for different possible target series; juju
-should guarantee that charms for series X are only ever run on series X [0].
+should guarantee that charms for series X are only ever run on series X.
 Every service, unit, and machine has a series that's set at creation time and
 subsequently immutable. Units take their series from their service, and can
 only be assigned to machines with matching series.
@@ -104,10 +104,3 @@ config pair that really isn't satsifiable. In that case, the user can try
 (say) `juju resolved 14 --constraints "mem=2G cpu-power=400"`, which allows
 her to completely replace the machine's constraints as well as marking the
 machine for reprovisioning attention.
-
-
-[0] This is a little harder than it sounds -- in particular, openstack
-    environments don't necessarily have image series information available,
-    and may rely on the user to set a "default-image-id" config key that
-    happens to have the "right" series.
-
