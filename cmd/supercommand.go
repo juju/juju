@@ -17,23 +17,29 @@ type topic struct {
 	long  func() string
 }
 
+// MissingCallback defines a function that will be used by the SuperCommand if
+// the requested subcommand isn't found.
+type MissingCallback func(ctx *Context, subcommand string, args []string) error
+
 // SuperCommandParams provides a way to have default parameter to the
 // `NewSuperCommand` call.
 type SuperCommandParams struct {
-	Name    string
-	Purpose string
-	Doc     string
-	Log     *Log
+	Name            string
+	Purpose         string
+	Doc             string
+	Log             *Log
+	MissingCallback MissingCallback
 }
 
 // NewSuperCommand creates and initializes a new `SuperCommand`, and returns
 // the fully initialized structure.
 func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 	command := &SuperCommand{
-		Name:    params.Name,
-		Purpose: params.Purpose,
-		Doc:     params.Doc,
-		Log:     params.Log}
+		Name:            params.Name,
+		Purpose:         params.Purpose,
+		Doc:             params.Doc,
+		Log:             params.Log,
+		missingCallback: params.MissingCallback}
 	command.init()
 	return command
 }
@@ -44,14 +50,15 @@ func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 // its selected subcommand.
 type SuperCommand struct {
 	CommandBase
-	Name     string
-	Purpose  string
-	Doc      string
-	Log      *Log
-	subcmds  map[string]Command
-	flags    *gnuflag.FlagSet
-	subcmd   Command
-	showHelp bool
+	Name            string
+	Purpose         string
+	Doc             string
+	Log             *Log
+	subcmds         map[string]Command
+	flags           *gnuflag.FlagSet
+	subcmd          Command
+	showHelp        bool
+	missingCallback MissingCallback
 }
 
 // Because Go doesn't have constructors that initialize the object into a
@@ -167,6 +174,15 @@ func (c *SuperCommand) Init(args []string) error {
 	found := false
 	// Look for the command.
 	if c.subcmd, found = c.subcmds[args[0]]; !found {
+		if c.missingCallback != nil {
+			c.subcmd = &missingCommand{
+				callback: c.missingCallback,
+				name:     args[0],
+				args:     args[1:],
+			}
+			// Yes return here, no Init called on missing Command.
+			return nil
+		}
 		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, args[0])
 	}
 	args = args[1:]
@@ -200,6 +216,23 @@ func (c *SuperCommand) Run(ctx *Context) error {
 		log.Infof("command finished")
 	}
 	return err
+}
+
+type missingCommand struct {
+	CommandBase
+	callback MissingCallback
+	name     string
+	args     []string
+}
+
+// Missing commands only need to supply Info for the interface, but this is
+// never called.
+func (c *missingCommand) Info() *Info {
+	return nil
+}
+
+func (c *missingCommand) Run(ctx *Context) error {
+	return c.callback(ctx, c.name, c.args)
 }
 
 type helpCommand struct {
