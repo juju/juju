@@ -121,11 +121,10 @@ func (runner *Runner) run() error {
 		start        func() (Task, error)
 		task         Task
 		restartDelay time.Duration
+		stopping     bool
 	}
 	// tasks holds the current set of tasks.  All tasks with a
-	// running goroutine have an entry here, even if they are being
-	// stopped.  Entries that have been stopped will have a nil
-	// start field.
+	// running goroutine have an entry here.
 	tasks := make(map[string]*taskInfo)
 	var finalError error
 loop:
@@ -135,47 +134,48 @@ loop:
 			break loop
 		case req := <-runner.startc:
 			info := tasks[req.id]
-			if info != nil && info.start != nil {
-				// The task is already around; no need to do anything.
-				break
-			}
-			if info != nil {
-				// The task previously existed and is
-				// currently being stopped.  When it
-				// eventually does stop, we'll restart
-				// it immediately with the new start
-				// function.
-				info.start = req.start
-				info.restartDelay = 0
-			} else {
+			if info == nil {
 				tasks[req.id] = &taskInfo{
-					start: req.start,
+					start:        req.start,
 					restartDelay: RestartDelay,
 				}
 				go runner.runTask(0, req.id, req.start)
+				break
 			}
+			if !info.stopping {
+				// The task is already running, so leave it alone
+				break
+			}
+			// The task previously existed and is currently
+			// being stopped.  When it eventually does stop,
+			// we'll restart it immediately with the new
+			// start function.
+			info.start = req.start
+			info.restartDelay = 0
 		case id := <-runner.stopc:
 			info := tasks[id]
-			if info == nil || info.start == nil {
-				// The task doesn't exist or is already being stopped.
+			if info == nil {
+				// The task doesn't exist so nothing to do.
 				break
 			}
 			if info.task != nil {
 				info.task.Kill()
 				info.task = nil
 			}
+			info.stopping = true
 			info.start = nil
 		case info := <-runner.startedc:
 			tasks[info.id].task = info.task
 		case info := <-runner.donec:
 			taskInfo := tasks[info.id]
-			if taskInfo.start != nil && info.err == nil {
+			if !taskInfo.stopping && info.err == nil {
 				info.err = errors.New("unexpected quit")
 			}
 			if info.err != nil {
 				log.Errorf("tasks: task %q: %v", info.id, info.err)
 				if runner.isFatal(info.err) {
 					finalError = info.err
+					delete(tasks, info.id)
 					break loop
 				}
 			}
