@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"net/url"
-	"os"
 )
 
 var configChecker = schema.StrictFieldMap(
