@@ -207,6 +207,11 @@ func (e *HasAssignedUnitsError) Error() string {
 	return fmt.Sprintf("machine %s has unit %q assigned", e.MachineId, e.UnitNames[0])
 }
 
+func IsHasAssignedUnitsError(err error) bool {
+	_, ok := err.(*HasAssignedUnitsError)
+	return ok
+}
+
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
 // than the supplied value. If the machine already has that lifecycle
 // value, or a later one, no changes will be made to remote state. If

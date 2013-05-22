@@ -34,6 +34,7 @@ const (
 	CodeUnitHasSubordinates = "unit has subordinates"
 	CodeNotAssigned         = "not assigned"
 	CodeStopped             = "stopped"
+	CodeHasAssignedUnits    = "machine has assigned units"
 )
 
 // ErrCode returns the error code associated with
