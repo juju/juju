@@ -202,6 +202,27 @@ func (s *DeploySuite) TestSubordinateCharm(c *C) {
 	s.AssertService(c, "logging", curl, 0, 0)
 }
 
+func (s *DeploySuite) TestConfigMap(c *C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	args := params.ServiceDeploy{
+		CharmUrl: "local:dummy",
+		Config: map[string]string{
+			"skill-level": "1",
+		},
+		NumUnits: 1,
+	}
+	err := s.runDeploy(c, args)
+	c.Assert(err, IsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	s.AssertService(c, "dummy", curl, 1, 0)
+	svc, err := s.State.Service("dummy")
+	c.Assert(err, IsNil)
+	cfg, err := svc.Config()
+	c.Assert(err, IsNil)
+	skill, _ := cfg.Get("skill-level")
+	c.Assert(skill, Equals, int64(1))
+}
+
 func (s *DeploySuite) TestConstraints(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	args := params.ServiceDeploy{
