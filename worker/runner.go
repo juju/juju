@@ -92,8 +92,8 @@ func (runner *Runner) StartWorker(id string, startFunc func() (Worker, error)) e
 	case runner.startc <- startReq{id, startFunc}:
 		return nil
 	case <-runner.tomb.Dead():
-		return ErrDead
 	}
+	return ErrDead
 }
 
 // StopWorker stops the worker associated with the given id.
@@ -105,8 +105,8 @@ func (runner *Runner) StopWorker(id string) error {
 	case runner.stopc <- id:
 		return nil
 	case <-runner.tomb.Dead():
-		return ErrDead
 	}
+	return ErrDead
 }
 
 func (runner *Runner) Wait() error {
