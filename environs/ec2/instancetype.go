@@ -4,12 +4,13 @@
 package ec2
 
 import (
+	"launchpad.net/goamz/aws"
 	"launchpad.net/juju-core/environs/instances"
 )
 
 // Type of virtualisation used.
 var (
-	paravirtual = "paravirtual"
+	paravirtual = "pv"
 	hvm         = "hvm"
 )
 
@@ -18,6 +19,9 @@ var (
 	amd64 = []string{"amd64"}
 	both  = []string{"amd64", "i386"}
 )
+
+// allRegions is defined here to allow tests to override the content.
+var allRegions = aws.Regions
 
 // allInstanceTypes holds the relevant attributes of every known
 // instance type.

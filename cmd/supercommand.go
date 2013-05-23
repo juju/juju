@@ -6,10 +6,11 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/log"
 	"sort"
 	"strings"
+
+	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/log"
 )
 
 type topic struct {
@@ -17,23 +18,37 @@ type topic struct {
 	long  func() string
 }
 
+type UnrecognizedCommand struct {
+	Name string
+}
+
+func (e *UnrecognizedCommand) Error() string {
+	return fmt.Sprintf("unrecognized command: %s", e.Name)
+}
+
+// MissingCallback defines a function that will be used by the SuperCommand if
+// the requested subcommand isn't found.
+type MissingCallback func(ctx *Context, subcommand string, args []string) error
+
 // SuperCommandParams provides a way to have default parameter to the
 // `NewSuperCommand` call.
 type SuperCommandParams struct {
-	Name    string
-	Purpose string
-	Doc     string
-	Log     *Log
+	Name            string
+	Purpose         string
+	Doc             string
+	Log             *Log
+	MissingCallback MissingCallback
 }
 
 // NewSuperCommand creates and initializes a new `SuperCommand`, and returns
 // the fully initialized structure.
 func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 	command := &SuperCommand{
-		Name:    params.Name,
-		Purpose: params.Purpose,
-		Doc:     params.Doc,
-		Log:     params.Log}
+		Name:            params.Name,
+		Purpose:         params.Purpose,
+		Doc:             params.Doc,
+		Log:             params.Log,
+		missingCallback: params.MissingCallback}
 	command.init()
 	return command
 }
@@ -44,14 +59,15 @@ func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 // its selected subcommand.
 type SuperCommand struct {
 	CommandBase
-	Name     string
-	Purpose  string
-	Doc      string
-	Log      *Log
-	subcmds  map[string]Command
-	flags    *gnuflag.FlagSet
-	subcmd   Command
-	showHelp bool
+	Name            string
+	Purpose         string
+	Doc             string
+	Log             *Log
+	subcmds         map[string]Command
+	flags           *gnuflag.FlagSet
+	subcmd          Command
+	showHelp        bool
+	missingCallback MissingCallback
 }
 
 // Because Go doesn't have constructors that initialize the object into a
@@ -69,8 +85,18 @@ func (c *SuperCommand) init() {
 	}
 }
 
+// AddHelpTopic adds a new help topic with the description being the short
+// param, and the full text being the long param.  The description is shown in
+// 'help topics', and the full text is shown when the command 'help <name>' is
+// called.
 func (c *SuperCommand) AddHelpTopic(name, short, long string) {
-	c.subcmds["help"].(*helpCommand).addTopic(name, short, long)
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, echo(long))
+}
+
+// AddHelpTopicCallback adds a new help topic with the description being the
+// short param, and the full text being defined by the callback function.
+func (c *SuperCommand) AddHelpTopicCallback(name, short string, longCallback func() string) {
+	c.subcmds["help"].(*helpCommand).addTopic(name, short, longCallback)
 }
 
 // Register makes a subcommand available for use on the command line. The
@@ -167,7 +193,17 @@ func (c *SuperCommand) Init(args []string) error {
 	found := false
 	// Look for the command.
 	if c.subcmd, found = c.subcmds[args[0]]; !found {
-		return fmt.Errorf("unrecognized command: %s %s", c.Info().Name, args[0])
+		if c.missingCallback != nil {
+			c.subcmd = &missingCommand{
+				callback:  c.missingCallback,
+				superName: c.Name,
+				name:      args[0],
+				args:      args[1:],
+			}
+			// Yes return here, no Init called on missing Command.
+			return nil
+		}
+		return fmt.Errorf("unrecognized command: %s %s", c.Name, args[0])
 	}
 	args = args[1:]
 	c.subcmd.SetFlags(c.flags)
@@ -202,6 +238,29 @@ func (c *SuperCommand) Run(ctx *Context) error {
 	return err
 }
 
+type missingCommand struct {
+	CommandBase
+	callback  MissingCallback
+	superName string
+	name      string
+	args      []string
+}
+
+// Missing commands only need to supply Info for the interface, but this is
+// never called.
+func (c *missingCommand) Info() *Info {
+	return nil
+}
+
+func (c *missingCommand) Run(ctx *Context) error {
+	err := c.callback(ctx, c.name, c.args)
+	_, isUnrecognized := err.(*UnrecognizedCommand)
+	if !isUnrecognized {
+		return err
+	}
+	return &UnrecognizedCommand{c.superName + " " + c.name}
+}
+
 type helpCommand struct {
 	CommandBase
 	super  *SuperCommand
@@ -230,11 +289,11 @@ func echo(s string) func() string {
 	return func() string { return s }
 }
 
-func (c *helpCommand) addTopic(name, short, long string) {
+func (c *helpCommand) addTopic(name, short string, long func() string) {
 	if _, found := c.topics[name]; found {
 		panic(fmt.Sprintf("help topic already added: %s", name))
 	}
-	c.topics[name] = topic{short, echo(long)}
+	c.topics[name] = topic{short, long}
 }
 
 func (c *helpCommand) globalOptions() string {
@@ -312,6 +371,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 			return nil
 		}
 	}
+	// If the topic is a registered subcommand, then run the help command with it
 	if helpcmd, ok := c.super.subcmds[c.topic]; ok {
 		info := helpcmd.Info()
 		info.Name = fmt.Sprintf("%s %s", c.super.Name, info.Name)
@@ -320,10 +380,25 @@ func (c *helpCommand) Run(ctx *Context) error {
 		ctx.Stdout.Write(info.Help(f))
 		return nil
 	}
+	// Look to see if the topic is a registered topic.
 	topic, ok := c.topics[c.topic]
-	if !ok {
-		return fmt.Errorf("unknown command or topic for %s", c.topic)
+	if ok {
+		fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
+		return nil
 	}
-	fmt.Fprintf(ctx.Stdout, "%s\n", strings.TrimSpace(topic.long()))
-	return nil
+	// If we have a missing callback, call that with --help
+	if c.super.missingCallback != nil {
+		subcmd := &missingCommand{
+			callback:  c.super.missingCallback,
+			superName: c.super.Name,
+			name:      c.topic,
+			args:      []string{"--", "--help"},
+		}
+		err := subcmd.Run(ctx)
+		_, isUnrecognized := err.(*UnrecognizedCommand)
+		if !isUnrecognized {
+			return err
+		}
+	}
+	return fmt.Errorf("unknown command or topic for %s", c.topic)
 }

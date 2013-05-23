@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
@@ -80,10 +81,6 @@ openstack:
   # auth-url: https://yourkeystoneurl:443/v2.0/
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  # The attributes below allow user specified defaults to be used if a suitable image
-  # or instance type cannot be found.
-  # default-image-id: <fallback image id>
-  # default-instance-type: <fallback flavor name>
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -107,10 +104,10 @@ hpcloud:
   control-bucket: juju-{{rand}}
   # Not required if env variable OS_AUTH_URL is set
   auth-url: https://yourkeystoneurl:35357/v2.0/
+  # URL denoting a public container holding the juju tools.
+  public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
   # override if your workstation is running a different series to which you are deploying
   # default-series: precise
-  default-image-id: "75845"
-  default-instance-type: "standard.xsmall"
   # The following are used for userpass authentication (the default)
   auth-mode: userpass
   # Usually set via the env variable OS_USERNAME, but can be specified here
@@ -264,10 +261,16 @@ type environ struct {
 	name string
 
 	ecfgMutex             sync.Mutex
+	publicStorageMutex    sync.Mutex
+	imageBaseMutex        sync.Mutex
 	ecfgUnlocked          *environConfig
+	client                client.AuthenticatingClient
 	novaUnlocked          *nova.Client
 	storageUnlocked       environs.Storage
-	publicStorageUnlocked environs.Storage // optional.
+	publicStorageUnlocked environs.StorageReader // optional.
+	// An ordered list of paths in which to find the simplestreams index files used to
+	// look up image ids.
+	imageBaseURLs []string
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -415,13 +418,57 @@ func (e *environ) Storage() environs.Storage {
 	return storage
 }
 
-func (e *environ) PublicStorage() environs.StorageReader {
-	e.ecfgMutex.Lock()
-	defer e.ecfgMutex.Unlock()
-	if e.publicStorageUnlocked == nil {
-		return environs.EmptyStorage
+// publicBucketURL gets the public bucket URL, either from env or keystone catalog.
+func (e *environ) publicBucketURL() string {
+	ecfg := e.ecfg()
+	publicBucketURL := ecfg.publicBucketURL()
+	if publicBucketURL == "" {
+		// No public bucket in env, so authenticate and look in keystone catalog.
+		if !e.client.IsAuthenticated() {
+			e.client.Authenticate()
+		}
+		var err error
+		publicBucketURL, err = e.client.MakeServiceURL("juju-tools", nil)
+		if err != nil {
+			return ""
+		}
 	}
-	return e.publicStorageUnlocked
+	return publicBucketURL
+}
+
+func (e *environ) PublicStorage() environs.StorageReader {
+	e.publicStorageMutex.Lock()
+	defer e.publicStorageMutex.Unlock()
+	ecfg := e.ecfg()
+	// If public storage has already been determined, return that instance.
+	publicStorage := e.publicStorageUnlocked
+	if publicStorage == nil && ecfg.publicBucket() == "" {
+		// If there is no public bucket name, then there can be no public storage.
+		e.publicStorageUnlocked = environs.EmptyStorage
+		publicStorage = e.publicStorageUnlocked
+	}
+	if publicStorage != nil {
+		return publicStorage
+	}
+	// If there is a public bucket URL defined, create a public storage using that,
+	// otherwise create the public bucket using the user's credentials on the authenticated client.
+	publicBucketURL := e.publicBucketURL()
+	if publicBucketURL == "" {
+		e.publicStorageUnlocked = &storage{
+			containerName: ecfg.publicBucket(),
+			// this is possibly just a hack - if the ACL is swift.Private,
+			// the machine won't be able to get the tools (401 error)
+			containerACL: swift.PublicRead,
+			swift:        swift.New(e.client)}
+	} else {
+		pc := client.NewPublicClient(publicBucketURL, nil)
+		e.publicStorageUnlocked = &storage{
+			containerName: ecfg.publicBucket(),
+			containerACL:  swift.PublicRead,
+			swift:         swift.New(pc)}
+	}
+	publicStorage = e.publicStorageUnlocked
+	return publicStorage
 }
 
 func (e *environ) Bootstrap(cons constraints.Value) error {
@@ -439,7 +486,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if _, notFound := err.(*environs.NotFoundError); !notFound {
+	if !environs.IsNotFoundError(err) {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
@@ -528,7 +575,7 @@ func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
 
-func (e *environ) client(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
+func (e *environ) authClient(ecfg *environConfig, authModeCfg AuthMode) client.AuthenticatingClient {
 	cred := &identity.Credentials{
 		User:       ecfg.username(),
 		Secrets:    ecfg.password(),
@@ -551,10 +598,6 @@ func (e *environ) client(ecfg *environConfig, authModeCfg AuthMode) client.Authe
 	return client.NewClient(cred, authMode, nil)
 }
 
-func (e *environ) publicClient(ecfg *environConfig) client.Client {
-	return client.NewPublicClient(ecfg.publicBucketURL(), nil)
-}
-
 func (e *environ) SetConfig(cfg *config.Config) error {
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
@@ -569,38 +612,51 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
-	client := e.client(ecfg, authModeCfg)
-	e.novaUnlocked = nova.New(client)
+	e.client = e.authClient(ecfg, authModeCfg)
+	e.novaUnlocked = nova.New(e.client)
 
-	// create new storage instances, existing instances continue
+	// create new control storage instance, existing instances continue
 	// to reference their existing configuration.
+	// public storage instance creation is deferred until needed since authenticated
+	// access to the identity service is required so that any juju-tools endpoint can be used.
 	e.storageUnlocked = &storage{
 		containerName: ecfg.controlBucket(),
 		// this is possibly just a hack - if the ACL is swift.Private,
 		// the machine won't be able to get the tools (401 error)
 		containerACL: swift.PublicRead,
-		swift:        swift.New(client)}
-	if ecfg.publicBucket() != "" {
-		// If no public bucket URL is specified, we will instead create the public bucket
-		// using the user's credentials on the authenticated client.
-		if ecfg.publicBucketURL() == "" {
-			e.publicStorageUnlocked = &storage{
-				containerName: ecfg.publicBucket(),
-				// this is possibly just a hack - if the ACL is swift.Private,
-				// the machine won't be able to get the tools (401 error)
-				containerACL: swift.PublicRead,
-				swift:        swift.New(client)}
-		} else {
-			e.publicStorageUnlocked = &storage{
-				containerName: ecfg.publicBucket(),
-				containerACL:  swift.PublicRead,
-				swift:         swift.New(e.publicClient(ecfg))}
-		}
-	} else {
-		e.publicStorageUnlocked = nil
-	}
-
+		swift:        swift.New(e.client)}
+	e.publicStorageUnlocked = nil
 	return nil
+}
+
+// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) getImageBaseURLs() ([]string, error) {
+	e.imageBaseMutex.Lock()
+	defer e.imageBaseMutex.Unlock()
+
+	if e.imageBaseURLs != nil {
+		return e.imageBaseURLs, nil
+	}
+	if !e.client.IsAuthenticated() {
+		err := e.client.Authenticate()
+		if err != nil {
+			return nil, err
+		}
+	}
+	// Add the simplestreams base URL off the public bucket.
+	jujuToolsURL, err := e.PublicStorage().URL("")
+	if err == nil {
+		e.imageBaseURLs = append(e.imageBaseURLs, jujuToolsURL)
+	}
+	// Add the simplestreams base URL from keystone if it is defined.
+	productStreamsURL, err := e.client.MakeServiceURL("product-streams", nil)
+	if err == nil {
+		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
+	}
+	// Add the default simplestreams base URL.
+	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
+
+	return e.imageBaseURLs, nil
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
@@ -725,12 +781,10 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
-		Region:              e.ecfg().region(),
-		Series:              scfg.series,
-		Arches:              arches,
-		Constraints:         scfg.constraints,
-		DefaultInstanceType: e.ecfg().defaultInstanceType(),
-		DefaultImageId:      e.ecfg().defaultImageId(),
+		Region:      e.ecfg().region(),
+		Series:      scfg.series,
+		Arches:      arches,
+		Constraints: scfg.constraints,
 	})
 	if err != nil {
 		return nil, err

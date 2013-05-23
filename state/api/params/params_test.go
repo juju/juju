@@ -46,7 +46,7 @@ var marshalTestCases = []struct {
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:series/name",
-			Life:        state.Dying.String(),
+			Life:        params.Life(state.Dying.String()),
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
 			Config: map[string]interface{}{
 				"hello": "goodbye",

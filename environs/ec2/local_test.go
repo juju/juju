@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
@@ -26,33 +27,6 @@ import (
 type ProviderSuite struct{}
 
 var _ = Suite(&ProviderSuite{})
-
-var testImagesContent = []jujutest.FileContent{{
-	Name: "/query/precise/server/released.current.txt",
-	Content: "" +
-		"precise\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-20800c10\taki-98e26fa8\t\tparavirtual\n" +
-		"precise\tserver\trelease\t20121017\tebs\ti386\ttest\tami-00000034\tparavirtual\n",
-}, {
-	Name: "/query/quantal/server/released.current.txt",
-	Content: "" +
-		"quantal\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
-		"quantal\tserver\trelease\t20121017\tebs\ti386\ttest\tami-01000034\taki-98e26fa8\t\tparavirtual\n",
-}, {
-	Name: "/query/raring/server/released.current.txt",
-	Content: "" +
-		"raring\tserver\trelease\t20121017\tebs\tamd64\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n" +
-		"raring\tserver\trelease\t20121017\tebs\ti386\ttest\tami-40f97070\taki-98e26fa8\t\tparavirtual\n",
-}}
-
-// testInstanceTypeContent holds the cost in USDe-3/hour for each of the
-// few available instance types in  the convenient fictional "test" region.
-var testInstanceTypeContent = map[string]uint64{
-	"m1.small":  60,
-	"m1.medium": 120,
-	"m1.large":  240,
-	"m1.xlarge": 480,
-	"t1.micro":  020,
-}
 
 func (s *ProviderSuite) TestMetadata(c *C) {
 	metadataContent := []jujutest.FileContent{
@@ -135,8 +109,9 @@ type localLiveSuite struct {
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
+	ec2.UseTestImageData(ec2.TestImagesData)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
+	ec2.UseTestRegionData(ec2.TestRegions)
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
@@ -150,6 +125,7 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
+	ec2.UseTestRegionData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -229,8 +205,9 @@ type localServerSuite struct {
 
 func (t *localServerSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
+	ec2.UseTestImageData(ec2.TestImagesData)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
+	ec2.UseTestRegionData(ec2.TestRegions)
 	t.Tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -240,6 +217,7 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
+	ec2.UseTestRegionData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
@@ -380,6 +358,13 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	}
 }
 
+func (s *localServerSuite) TestGetImageURLs(c *C) {
+	urls, err := ec2.GetImageURLs(s.env)
+	c.Assert(err, IsNil)
+	c.Assert(len(urls), Equals, 1)
+	c.Assert(urls[0], Equals, imagemetadata.DefaultBaseURL)
+}
+
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if
 type localNonUSEastSuite struct {
@@ -391,8 +376,9 @@ type localNonUSEastSuite struct {
 
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	ec2.UseTestImageData(testImagesContent)
-	ec2.UseTestInstanceTypeData(testInstanceTypeContent)
+	ec2.UseTestImageData(ec2.TestImagesData)
+	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
+	ec2.UseTestRegionData(ec2.TestRegions)
 	t.tests.SetUpSuite(c)
 	ec2.ShortTimeouts(true)
 }
@@ -401,6 +387,7 @@ func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	ec2.ShortTimeouts(false)
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
+	ec2.UseTestRegionData(nil)
 	t.LoggingSuite.TearDownSuite(c)
 }
 

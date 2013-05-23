@@ -98,33 +98,53 @@ var instanceTypes = []InstanceType{
 }
 
 var getInstanceTypesTest = []struct {
-	info   string
-	cons   string
-	itypes []string
-	arches []string
+	info           string
+	cons           string
+	itypesToUse    []InstanceType
+	expectedItypes []string
+	arches         []string
 }{
 	{
 		info: "cpu-cores",
 		cons: "cpu-cores=2",
-		itypes: []string{
+		expectedItypes: []string{
 			"c1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge",
 			"cc2.8xlarge",
 		},
 	}, {
-		info:   "cpu-power",
-		cons:   "cpu-power=2000",
-		itypes: []string{"c1.xlarge", "cc1.4xlarge", "cc2.8xlarge"},
+		info:           "cpu-power",
+		cons:           "cpu-power=2000",
+		expectedItypes: []string{"c1.xlarge", "cc1.4xlarge", "cc2.8xlarge"},
 	}, {
 		info: "mem",
 		cons: "mem=4G",
-		itypes: []string{
+		expectedItypes: []string{
 			"m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
-		info:   "arches filtered by constraint",
-		cons:   "cpu-power=100 arch=arm",
-		itypes: []string{"m1.small", "m1.medium", "c1.medium"},
-		arches: []string{"arm"},
+		info:           "arches filtered by constraint",
+		cons:           "cpu-power=100 arch=arm",
+		expectedItypes: []string{"m1.small", "m1.medium", "c1.medium"},
+		arches:         []string{"arm"},
+	},
+	{
+		info: "fallback instance type, enough memory for mongodb",
+		cons: "mem=8G",
+		itypesToUse: []InstanceType{
+			{Id: "3", Name: "it-3", Arches: []string{"amd64"}, Mem: 4096},
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 2048},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-2"},
+	},
+	{
+		info: "fallback instance type, not enough memory for mongodb",
+		cons: "mem=4G",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", Arches: []string{"amd64"}, Mem: 256},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, Mem: 512},
+		},
+		expectedItypes: []string{"it-1"},
 	},
 }
 
@@ -138,7 +158,11 @@ func constraint(region, cons string) *InstanceConstraint {
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 	for i, t := range getInstanceTypesTest {
 		c.Logf("test %d: %s", i, t.info)
-		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), instanceTypes)
+		itypesToUse := t.itypesToUse
+		if itypesToUse == nil {
+			itypesToUse = instanceTypes
+		}
+		itypes, err := getMatchingInstanceTypes(constraint("test", t.cons), itypesToUse)
 		c.Assert(err, IsNil)
 		names := make([]string, len(itypes))
 		for i, itype := range itypes {
@@ -149,16 +173,16 @@ func (s *instanceTypeSuite) TestGetMatchingInstanceTypes(c *C) {
 			}
 			names[i] = itype.Name
 		}
-		c.Check(names, DeepEquals, t.itypes)
+		c.Check(names, DeepEquals, t.expectedItypes)
 	}
 }
 
 func (s *instanceTypeSuite) TestGetMatchingInstanceTypesErrors(c *C) {
-	_, err := getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), instanceTypes)
-	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001", and no default specified`)
+	_, err := getMatchingInstanceTypes(constraint("test", "cpu-power=9001"), nil)
+	c.Check(err, ErrorMatches, `no instance types in test matching constraints "cpu-power=9001"`)
 
-	_, err = getMatchingInstanceTypes(constraint("test", "arch=arm mem=8G"), instanceTypes)
-	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=arm mem=8192M", and no default specified`)
+	_, err = getMatchingInstanceTypes(constraint("test", "arch=i386 mem=8G"), instanceTypes)
+	c.Check(err, ErrorMatches, `no instance types in test matching constraints "arch=i386 mem=8192M"`)
 }
 
 var instanceTypeMatchTests = []struct {

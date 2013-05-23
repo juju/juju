@@ -40,11 +40,13 @@ func Main(args []string) {
 		os.Exit(0)
 	}
 	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "juju",
-		Doc:  jujuDoc,
-		Log:  &cmd.Log{},
+		Name:            "juju",
+		Doc:             jujuDoc,
+		Log:             &cmd.Log{},
+		MissingCallback: RunPlugin,
 	})
 	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
+	juju.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	// Creation commands.
 	juju.Register(&BootstrapCommand{})
@@ -71,6 +73,7 @@ func Main(args []string) {
 
 	// Configuration commands.
 	juju.Register(&InitCommand{})
+	juju.Register(&ImageMetadataCommand{})
 	juju.Register(&GetCommand{})
 	juju.Register(&SetCommand{})
 	juju.Register(&GetConstraintsCommand{})

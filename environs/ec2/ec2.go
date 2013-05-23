@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
@@ -257,7 +258,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if _, notFound := err.(*environs.NotFoundError); !notFound {
+	if !environs.IsNotFoundError(err) {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
@@ -346,6 +347,12 @@ func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
 	return state.AssignNew
 }
 
+// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) getImageBaseURLs() ([]string, error) {
+	// Use the default simplestreams base URL.
+	return []string{imagemetadata.DefaultBaseURL}, nil
+}
+
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
@@ -415,7 +422,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	}
 	arches := scfg.possibleTools.Arches()
 	storage := ebsStorage
-	spec, err := findInstanceSpec(&instances.InstanceConstraint{
+	baseURLs, err := e.getImageBaseURLs()
+	if err != nil {
+		return nil, err
+	}
+	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
 		Series:      scfg.series,
 		Arches:      arches,

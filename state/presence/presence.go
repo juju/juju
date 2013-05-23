@@ -413,7 +413,7 @@ func (w *Watcher) sync() error {
 	return nil
 }
 
-// A Pinger periodically reports that a specific key is alive, so that
+// Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
 	mu       sync.Mutex
