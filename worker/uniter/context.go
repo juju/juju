@@ -307,7 +307,6 @@ func (ctx *ContextRelation) FakeId() string {
 }
 
 func (ctx *ContextRelation) UnitNames() (units []string) {
-	units = []string{}
 	for unit := range ctx.members {
 		units = append(units, unit)
 	}
