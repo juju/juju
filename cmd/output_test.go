@@ -81,6 +81,7 @@ var outputTests = map[string][]struct {
 		{"hello", `"hello"` + "\n"},
 		{"\n\n\n", `"\n\n\n"` + "\n"},
 		{"foo: bar", `"foo: bar"` + "\n"},
+		{[]string{}, `[]` + "\n"},
 		{[]string{"blam", "dink"}, `["blam","dink"]` + "\n"},
 		{defaultValue, `{"Juju":1,"Puppet":false}` + "\n"},
 	},
