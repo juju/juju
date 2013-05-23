@@ -149,7 +149,7 @@ func (r *ContextRelation) Settings() (jujuc.Settings, error) {
 }
 
 func (r *ContextRelation) UnitNames() []string {
-	s := []string{}
+	var s []string // initially nil to match the true context.
 	for name := range r.units {
 		s = append(s, name)
 	}
