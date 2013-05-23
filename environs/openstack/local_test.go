@@ -13,6 +13,7 @@ import (
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -22,6 +23,7 @@ import (
 	"launchpad.net/juju-core/version"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 )
 
 type ProviderSuite struct{}
@@ -101,8 +103,6 @@ func registerLocalTests() {
 	config := makeTestConfig(cred)
 	config["agent-version"] = version.CurrentNumber().String()
 	config["authorized-keys"] = "fakekey"
-	config["default-image-id"] = "1"
-	config["default-instance-type"] = "m1.small"
 	Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			cred: cred,
@@ -116,6 +116,9 @@ func registerLocalTests() {
 		Tests: jujutest.Tests{
 			TestConfig: jujutest.TestConfig{config},
 		},
+	})
+	Suite(&publicBucketSuite{
+		cred: cred,
 	})
 }
 
@@ -159,7 +162,7 @@ func (s *localLiveSuite) SetUpSuite(c *C) {
 	c.Logf("Running live tests using openstack service test double")
 	s.srv.start(c, s.cred)
 	s.LiveTests.SetUpSuite(c)
-	openstack.UseTestImageData(s.Env, false)
+	openstack.UseTestImageData(s.Env, s.cred)
 }
 
 func (s *localLiveSuite) TearDownSuite(c *C) {
@@ -213,7 +216,7 @@ func (s *localServerSuite) SetUpTest(c *C) {
 	s.writeablePublicStorage = openstack.WritablePublicStorage(s.Env)
 	envtesting.UploadFakeTools(c, s.writeablePublicStorage)
 	s.env = s.Tests.Env
-	openstack.UseTestImageData(s.env, false)
+	openstack.UseTestImageData(s.env, s.cred)
 }
 
 func (s *localServerSuite) TearDownTest(c *C) {
@@ -413,56 +416,28 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
-func (s *localServerSuite) TestFindImageSpecPrivateStorage(c *C) {
-	openstack.UseTestImageData(s.env, true)
-	openstack.SetDefaultInstanceType(s.Env, "")
-	openstack.SetDefaultImageId(s.Env, "")
+func (s *localServerSuite) TestGetImageURLs(c *C) {
+	urls, err := openstack.GetImageURLs(s.env)
+	c.Assert(err, IsNil)
+	c.Assert(len(urls), Equals, 3)
+	// The public bucket URL ends with "/juju-dist/".
+	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), Equals, true)
+	// The product-streams URL ends with "/imagemetadata".
+	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), Equals, true)
+	c.Assert(urls[2], Equals, imagemetadata.DefaultBaseURL)
+}
+
+func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, "id-y")
 	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
 }
 
-func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
-	openstack.SetDefaultInstanceType(s.Env, "")
-	openstack.SetDefaultImageId(s.Env, "")
-	spec, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "mem=512M")
-	c.Assert(err, IsNil)
-	c.Assert(spec.Image.Id, Equals, "1")
-	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
-}
-
-// If no suitable image is found, use the default if specified.
-func (s *localServerSuite) TestFindImageSpecDefaultImage(c *C) {
-	openstack.SetDefaultImageId(s.Env, "1234")
-	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "")
-	c.Assert(err, IsNil)
-	c.Assert(spec.Image.Id, Equals, "1234")
-	c.Assert(spec.InstanceTypeName, Not(Equals), "")
-}
-
-// If no matching instance type is found, use the default flavor if specified.
-func (s *localServerSuite) TestFindImageSpecDefaultFlavor(c *C) {
-	openstack.SetDefaultImageId(s.Env, "1234")
-	openstack.SetDefaultInstanceType(s.Env, "m1.small")
-	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
-	c.Assert(err, IsNil)
-	c.Assert(spec.Image.Id, Equals, "1234")
-	c.Assert(spec.InstanceTypeName, Equals, "m1.small")
-}
-
-// An error occurs if no matching instance type is found and the default flavor is invalid.
-func (s *localServerSuite) TestFindImageBadDefaultFlavor(c *C) {
-	openstack.SetDefaultInstanceType(s.Env, "bad.flavor")
-	_, err := openstack.FindInstanceSpec(s.Env, "precise", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `no instance types in some-region matching constraints "mem=8192M", and default bad.flavor is invalid`)
-}
-
-// An error occurs if no suitable image is found and the default not specified.
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
-	openstack.SetDefaultImageId(s.Env, "")
-	_, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=8G")
-	c.Assert(err, ErrorMatches, `no "raring" images in some-region with arches \[amd64\], and no default specified`)
+	// An error occurs if no suitable image is found.
+	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
+	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
 func (s *localServerSuite) TestDeleteAll(c *C) {
@@ -506,4 +481,45 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	c.Assert(err, IsNil)
 	_, err = storage.Get("ab")
 	c.Assert(err, NotNil)
+}
+
+// publicBucketSuite contains tests to ensure the public bucket is correctly set up.
+type publicBucketSuite struct {
+	cred *identity.Credentials
+	srv  localServer
+	env  environs.Environ
+}
+
+func (s *publicBucketSuite) SetUpTest(c *C) {
+	s.srv.start(c, s.cred)
+}
+
+func (s *publicBucketSuite) TearDownTest(c *C) {
+	err := s.env.Destroy(nil)
+	c.Check(err, IsNil)
+	s.srv.stop()
+}
+
+func (s *publicBucketSuite) TestPublicBucketFromEnv(c *C) {
+	config := makeTestConfig(s.cred)
+	config["public-bucket-url"] = "http://127.0.0.1/public-bucket"
+	var err error
+	s.env, err = environs.NewFromAttrs(config)
+	c.Assert(err, IsNil)
+	url, err := s.env.PublicStorage().URL("")
+	c.Assert(err, IsNil)
+	c.Assert(url, Equals, "http://127.0.0.1/public-bucket/juju-dist/")
+}
+
+func (s *publicBucketSuite) TestPublicBucketFromKeystone(c *C) {
+	config := makeTestConfig(s.cred)
+	config["public-bucket-url"] = ""
+	var err error
+	s.env, err = environs.NewFromAttrs(config)
+	c.Assert(err, IsNil)
+	url, err := s.env.PublicStorage().URL("")
+	c.Assert(err, IsNil)
+	swiftURL, err := openstack.GetSwiftURL(s.env)
+	c.Assert(err, IsNil)
+	c.Assert(url, Equals, fmt.Sprintf("%s/juju-dist/", swiftURL))
 }
