@@ -38,6 +38,9 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 	err := s.runDeploy(c, args)
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
+	// Note that this tests the automatic creation of a service name (dummy) 
+	// from the charm URL.  This functionality will be going away soon as 
+	// ServiceName becomes a required argument.
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
@@ -176,6 +179,16 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "dummy", curl, 13, 0)
+}
+
+func (s *DeploySuite) TestNumUnitsZero(c *C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	args := params.ServiceDeploy{
+		CharmUrl: "local:dummy",
+		NumUnits: 0,
+	}
+	err := s.runDeploy(c, args)
+	c.Assert(err, ErrorMatches, "must deploy at least one unit")
 }
 
 func (s *DeploySuite) TestSubordinateCharm(c *C) {
