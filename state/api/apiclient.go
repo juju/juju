@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -265,6 +266,18 @@ func (st *State) Machine(id string) (*Machine, error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// WatchMachines returns a LifecycleWatcher that notifies of changes to
+// the lifecycles of the machines in the environment.
+func (st *State) WatchMachines() *LifecycleWatcher {
+	return newLifecycleWatcher(st, "WatchMachines")
+}
+
+// WatchEnvironConfig returns a watcher for observing changes
+// to the environment configuration.
+func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
+	return newEnvironConfigWatcher(st)
 }
 
 // Unit represents the state of a service unit.
@@ -549,6 +562,137 @@ func (w *EntityWatcher) loop() error {
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
 func (w *EntityWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+type LifecycleWatcher struct {
+	commonWatcher
+	st        *State
+	watchCall string
+	out       chan []string
+}
+
+func newLifecycleWatcher(st *State, watchCall string) *LifecycleWatcher {
+	w := &LifecycleWatcher{
+		st:        st,
+		watchCall: watchCall,
+		out:       make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *LifecycleWatcher) loop() error {
+	var result params.LifecycleWatchResults
+	if err := w.st.call("State", "", w.watchCall, nil, &result); err != nil {
+		return err
+	}
+	changes := result.Ids
+	w.newResult = func() interface{} { return new(params.LifecycleWatchResults) }
+	w.call = func(request string, newResult interface{}) error {
+		return w.st.call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
+	}
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	// Watch calls Next internally at the server-side, so we expect
+	// changes right away.
+	out := w.out
+	for {
+		select {
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			// We have received changes, so send them out.
+			changes = data.(*params.LifecycleWatchResults).Ids
+			out = w.out
+		case out <- changes:
+			// Wait until we have new changes to send.
+			out = nil
+		}
+	}
+	panic("unreachable")
+}
+
+// Changes returns a channel that receives a list of ids of watched
+// entites whose lifecycle has changed.
+func (w *LifecycleWatcher) Changes() <-chan []string {
+	return w.out
+}
+
+type EnvironConfigWatcher struct {
+	commonWatcher
+	st  *State
+	out chan *config.Config
+}
+
+func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
+	w := &EnvironConfigWatcher{
+		st:  st,
+		out: make(chan *config.Config),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (w *EnvironConfigWatcher) loop() error {
+	var result params.EnvironConfigWatchResults
+	if err := w.st.call("State", "", "WatchEnvironConfig", nil, &result); err != nil {
+		return err
+	}
+
+	envConfig, err := config.New(result.Config)
+	if err != nil {
+		return err
+	}
+	w.newResult = func() interface{} { return new(params.EnvironConfigWatchResults) }
+	w.call = func(request string, newResult interface{}) error {
+		return w.st.call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
+	}
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	// Watch calls Next internally at the server-side, so we expect
+	// changes right away.
+	out := w.out
+	for {
+		select {
+		case data, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
+			}
+			// We have received changes, so send them out.
+			envConfig, err = config.New(data.(*params.EnvironConfigWatchResults).Config)
+			if err != nil {
+				// This should never happen, if we're talking to a compatible API server.
+				log.Errorf("state/api: error reading environ config: %v", err)
+				return err
+			}
+			out = w.out
+		case out <- envConfig:
+			// Wait until we have new changes to send.
+			out = nil
+		}
+	}
+	panic("unreachable")
+}
+
+// Changes returns a channel that receives the new environment
+// configuration when it has changed.
+func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 	return w.out
 }
 
