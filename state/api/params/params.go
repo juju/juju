@@ -36,6 +36,24 @@ type SetStatus struct {
 	Info   string
 }
 
+// StatusResults holds the results for Machine.Status and Unit.Status.
+type StatusResults struct {
+	Status Status
+	Info   string
+}
+
+// SetProvisioned holds the parameters for Machine.SetProvisioned.
+type SetProvisioned struct {
+	InstanceId string
+	Nonce      string
+}
+
+// ConstraintsResults holds the results for Machine.Constraints and
+// Service.Constraints.
+type ConstraintsResults struct {
+	Constraints constraints.Value
+}
+
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
@@ -47,12 +65,14 @@ type LifeResults struct {
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
-	ServiceName string
-	CharmUrl    string
-	NumUnits    int
-	Config      map[string]string
-	ConfigYAML  string // Takes precedence over config if both are present.
-	Constraints constraints.Value
+	ServiceName    string
+	CharmUrl       string
+	NumUnits       int
+	Config         map[string]string
+	ConfigYAML     string // Takes precedence over config if both are present.
+	Constraints    constraints.Value
+	BumpRevision   bool
+	ForceMachineId string
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -136,8 +156,10 @@ type Creds struct {
 
 // Machine holds details of a machine.
 type Machine struct {
+	Id         string
 	InstanceId string
 	Life       Life
+	Series     string
 }
 
 // EntityWatcherId holds the id of an EntityWatcher.
@@ -148,6 +170,33 @@ type EntityWatcherId struct {
 // PingerId holds the id of a Pinger.
 type PingerId struct {
 	PingerId string
+}
+
+// LifecycleWatchResults holds the results of API calls
+// that watch the lifecycle of a set of objects.
+// It is used both for the initial Watch request
+// and for subsequent Next requests.
+type LifecycleWatchResults struct {
+	// LifeCycleWatcherId holds the id of the newly
+	// created watcher. It will be empty for a Next
+	// request.
+	LifecycleWatcherId string
+
+	// Ids holds the list of entity ids.
+	// For a Watch request, it holds all entity ids being
+	// watched; for a Next request, it holds the ids of those
+	// that have changed.
+	Ids []string
+}
+
+// EnvironConfigWatchResults holds the result of
+// State.WatchEnvironConfig(): id of the created EnvironConfigWatcher,
+// along with the current environment configuration. It is also used
+// for the result of EnvironConfigWatcher.Next(), when it contains the
+// changed config (EnvironConfigWatcherId will be empty in this case).
+type EnvironConfigWatchResults struct {
+	EnvironConfigWatcherId string
+	Config                 map[string]interface{}
 }
 
 // AllWatcherId holds the id of an AllWatcher.
@@ -223,6 +272,11 @@ type Port struct {
 
 func (p Port) String() string {
 	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
+// AllMachinesResults holds the results of the AllMachines call.
+type AllMachinesResults struct {
+	Machines []*Machine
 }
 
 // Delta holds details of a change to the environment.
