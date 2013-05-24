@@ -72,7 +72,7 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		Machines map[string]machineStatus `json:"machines"`
 		Services map[string]serviceStatus `json:"services"`
 	}{
-		Machines: ctxt.processMachines(),
+		Machines: ctxt.processMachines(conn.State),
 		Services: ctxt.processServices(),
 	}
 	return c.out.Write(ctx, result)
@@ -128,21 +128,31 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 	return svcMap, unitMap, nil
 }
 
-func (ctxt *statusContext) processMachines() map[string]machineStatus {
+func (ctxt *statusContext) processMachines(st *state.State) map[string]machineStatus {
 	machinesMap := make(map[string]machineStatus)
 	for _, m := range ctxt.machines {
-		machinesMap[m.Id()] = ctxt.processMachine(m)
+		machinesMap[m.Id()] = ctxt.processMachine(st, m)
 	}
 	return machinesMap
 }
 
-func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+func (ctxt *statusContext) processMachine(st *state.State, machine *state.Machine) (status machineStatus) {
 	status.Life,
 		status.AgentVersion,
 		status.AgentState,
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
 	status.Series = machine.Series()
+	// If the machine constraints are different from the env constraints, display them.
+	mCons, err := machine.Constraints()
+	if err == nil {
+		envCons, err := st.EnvironConstraints()
+		if err == nil && envCons.String() != mCons.String() {
+			status.Constraints = mCons.String()
+		}
+	} else {
+		status.Constraints = fmt.Sprintf("error finding constraints: %v", err)
+	}
 	instid, ok := machine.InstanceId()
 	if ok {
 		status.InstanceId = instid
@@ -320,6 +330,7 @@ type machineStatus struct {
 	InstanceState  string           `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
 	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
 	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
+	Constraints    string           `json:"constraints,omitempty" yaml:"constraints,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
