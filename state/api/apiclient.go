@@ -399,15 +399,34 @@ type commonWatcher struct {
 	wg   sync.WaitGroup
 	in   chan interface{}
 
-	// These fields must be set by the embedding watcher.
+	// These fields must be set by the embedding watcher, before
+	// calling init().
+
+	// newResult must return a pointer to a value of the type returned
+	// by the watcher's Next call.
 	newResult func() interface{}
-	call      func(method string, result interface{}) error
+
+	// call should invoke the given API method, placing the call's
+	// returned value in result (if any).
+	call func(method string, result interface{}) error
 }
 
+// init must be called to initialize an embedded commonWatcher's
+// fields. Make sure newResult and call fields are set beforehand.
 func (w *commonWatcher) init() {
 	w.in = make(chan interface{})
+	if w.newResult == nil {
+		panic("newResult must me set")
+	}
+	if w.call == nil {
+		panic("call must be set")
+	}
 }
 
+// commonLoop implements the loop structure common to the client
+// watchers. It should be started in a separate goroutine by any
+// watcher that embeds commonWatcher. It kills the commonWatcher's
+// tomb when an error occurs.
 func (w *commonWatcher) commonLoop() {
 	defer close(w.in)
 	w.wg.Add(1)
@@ -498,12 +517,12 @@ func (w *EntityWatcher) loop() error {
 	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
-	w.commonWatcher.init()
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
 		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, result)
 	}
+	w.commonWatcher.init()
 	go w.commonLoop()
 
 	// Watch calls Next internally at the server-side, so we expect
@@ -521,15 +540,14 @@ func (w *EntityWatcher) loop() error {
 			out = w.out
 		case out <- struct{}{}:
 			// Wait until we have new changes to send.
-			// Note: This particular watcher does not send any
-			// actual data, just a notification of a change,
-			// hence the empty struct.
 			out = nil
 		}
 	}
 	panic("unreachable")
 }
 
+// Changes returns a channel that receives a value when a given entity
+// changes in some way.
 func (w *EntityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
