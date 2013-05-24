@@ -109,15 +109,6 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	if serviceName == "" {
 		serviceName = curl.Name
 	}
-	deployArgs := juju.DeployServiceParams{
-		Charm:       charm,
-		ServiceName: serviceName,
-		NumUnits:    args.NumUnits,
-		// BUG(lp:1162122): Config/ConfigYAML have no tests.
-		Config:      args.Config,
-		ConfigYAML:  args.ConfigYAML,
-		Constraints: args.Constraints,
-	}
 	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
 }
 
