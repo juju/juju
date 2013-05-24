@@ -150,6 +150,33 @@ type PingerId struct {
 	PingerId string
 }
 
+// LifecycleWatchResults holds the results of API calls
+// that watch the lifecycle of a set of objects.
+// It is used both for the initial Watch request
+// and for subsequent Next requests.
+type LifecycleWatchResults struct {
+	// LifeCycleWatcherId holds the id of the newly
+	// created watcher. It will be empty for a Next
+	// request.
+	LifecycleWatcherId string
+
+	// Ids holds the list of entity ids.
+	// For a Watch request, it holds all entity ids being
+	// watched; for a Next request, it holds the ids of those
+	// that have changed.
+	Ids []string
+}
+
+// EnvironConfigWatchResults holds the result of
+// State.WatchEnvironConfig(): id of the created EnvironConfigWatcher,
+// along with the current environment configuration. It is also used
+// for the result of EnvironConfigWatcher.Next(), when it contains the
+// changed config (EnvironConfigWatcherId will be empty in this case).
+type EnvironConfigWatchResults struct {
+	EnvironConfigWatcherId string
+	Config                 map[string]interface{}
+}
+
 // AllWatcherId holds the id of an AllWatcher.
 type AllWatcherId struct {
 	AllWatcherId string
