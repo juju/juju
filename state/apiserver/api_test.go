@@ -689,8 +689,12 @@ type apiAuthenticator interface {
 }
 
 func setDefaultPassword(c *C, e apiAuthenticator) {
-	err := e.SetPassword(e.Tag() + " password")
+	err := e.SetPassword(defaultPassword(e))
 	c.Assert(err, IsNil)
+}
+
+func defaultPassword(e apiAuthenticator) string {
+	return e.Tag() + " password"
 }
 
 type setStatuser interface {
@@ -1213,6 +1217,53 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	err = stm.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(stm.PasswordValid("foo"), Equals, true)
+}
+
+func (s *suite) TestMachineSetPasswordInMongo(c *C) {
+	allowStateAccess := map[state.MachineJob]bool{
+		state.JobManageEnviron: true,
+		state.JobServeAPI:      true,
+		state.JobHostUnits:     false,
+	}
+
+	for job, canOpenState := range allowStateAccess {
+		stm, err := s.State.AddMachine("series", job)
+		c.Assert(err, IsNil)
+		setDefaultPassword(c, stm)
+
+		st := s.openAs(c, stm.Tag())
+		defer st.Close()
+		m, err := st.Machine(stm.Id())
+		c.Assert(err, IsNil)
+
+		// Sanity check to start with.
+		err = s.tryOpenState(c, m, defaultPassword(stm))
+		c.Assert(state.IsUnauthorizedError(err), Equals, true, Commentf("%v", err))
+
+		err = m.SetPassword("foo")
+		c.Assert(err, IsNil)
+
+		err = s.tryOpenState(c, m, "foo")
+		if canOpenState {
+			c.Assert(err, IsNil)
+		} else {
+			c.Assert(state.IsUnauthorizedError(err), Equals, true, Commentf("%v", err))
+		}
+	}
+}
+
+func (s *suite) tryOpenState(c *C, e apiAuthenticator, password string) error {
+	stateInfo := s.StateInfo(c)
+	stateInfo.Tag = e.Tag()
+	stateInfo.Password = password
+	st, err := state.Open(stateInfo, state.DialOpts{
+		Timeout:    25 * time.Millisecond,
+		RetryDelay: 0,
+	})
+	if err == nil {
+		st.Close()
+	}
+	return err
 }
 
 func (s *suite) TestMachineTag(c *C) {
