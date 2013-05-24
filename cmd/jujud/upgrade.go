@@ -82,6 +82,10 @@ func (u *Upgrader) String() string {
 	return "upgrader"
 }
 
+func (u *Upgrader) Kill() {
+	u.tomb.Kill(nil)
+}
+
 func (u *Upgrader) Stop() error {
 	u.tomb.Kill(nil)
 	return u.tomb.Wait()
