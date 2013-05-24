@@ -65,42 +65,6 @@ type srvState struct {
 	root *srvRoot
 }
 
-// WatchMachines registers a srvLifecycleWatcher that notifies of
-// changes to the lifecycles of the machines in the environment. The
-// result contains the id of the registered watcher and the initial
-// list of machine ids.
-func (s *srvState) WatchMachines() (params.LifecycleWatchResults, error) {
-	watcher := s.root.srv.state.WatchMachines()
-	// To save an extra round-trip to call Next after Watch, we check
-	// for initial changes.
-	initial, ok := <-watcher.Changes()
-	if !ok {
-		return params.LifecycleWatchResults{}, statewatcher.MustErr(watcher)
-	}
-	return params.LifecycleWatchResults{
-		LifecycleWatcherId: s.root.resources.register(watcher).id,
-		Ids:                initial,
-	}, nil
-}
-
-// WatchEnvironConfig registers a srvEnvironConfigWatcher for
-// observing changes to the environment configuration. The result
-// contains the id of the registered watcher and the current
-// environment configuration.
-func (s *srvState) WatchEnvironConfig() (params.EnvironConfigWatchResults, error) {
-	watcher := s.root.srv.state.WatchEnvironConfig()
-	// To save an extra round-trip to call Next after Watch, we check
-	// for initial changes.
-	initial, ok := <-watcher.Changes()
-	if !ok {
-		return params.EnvironConfigWatchResults{}, statewatcher.MustErr(watcher)
-	}
-	return params.EnvironConfigWatchResults{
-		EnvironConfigWatcherId: s.root.resources.register(watcher).id,
-		Config:                 initial.AllAttrs(),
-	}, nil
-}
-
 func newStateServer(srv *Server) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
@@ -650,6 +614,50 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	return a.root.user.login(a.root.srv.state, c.AuthTag, c.Password)
 }
 
+// WatchMachines registers a srvLifecycleWatcher that notifies of
+// changes to the lifecycles of the machines in the environment. The
+// result contains the id of the registered watcher and the initial
+// list of machine ids.
+func (s *srvState) WatchMachines() (params.LifecycleWatchResults, error) {
+	if !s.root.authEnvironManager() {
+		return params.LifecycleWatchResults{}, errPerm
+	}
+	watcher := s.root.srv.state.WatchMachines()
+	// The watcher always sends an initial value on the channel,
+	// so we send that as the result of the watch request.
+	// This saves the client a round trip.
+	initial, ok := <-watcher.Changes()
+	if !ok {
+		return params.LifecycleWatchResults{}, statewatcher.MustErr(watcher)
+	}
+	return params.LifecycleWatchResults{
+		LifecycleWatcherId: s.root.resources.register(watcher).id,
+		Ids:                initial,
+	}, nil
+}
+
+// WatchEnvironConfig registers a srvEnvironConfigWatcher for
+// observing changes to the environment configuration. The result
+// contains the id of the registered watcher and the current
+// environment configuration.
+func (s *srvState) WatchEnvironConfig() (params.EnvironConfigWatchResults, error) {
+	if !s.root.authEnvironManager() {
+		return params.EnvironConfigWatchResults{}, errPerm
+	}
+	watcher := s.root.srv.state.WatchEnvironConfig()
+	// The watcher always sends an initial value on the channel,
+	// so we send that as the result of the watch request.
+	// This saves the client a round trip.
+	initial, ok := <-watcher.Changes()
+	if !ok {
+		return params.EnvironConfigWatchResults{}, statewatcher.MustErr(watcher)
+	}
+	return params.EnvironConfigWatchResults{
+		EnvironConfigWatcherId: s.root.resources.register(watcher).id,
+		Config:                 initial.AllAttrs(),
+	}, nil
+}
+
 // Get retrieves all the details of a machine.
 func (m *srvMachine) Get() (info params.Machine) {
 	instId, _ := m.m.InstanceId()
@@ -687,7 +695,7 @@ func (m *srvMachine) SetAgentAlive() (params.PingerId, error) {
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or Dying.
 // It does nothing otherwise. See machine.EnsureDead().
 func (m *srvMachine) EnsureDead() error {
-	if !m.root.authOwner(m.m) {
+	if !m.root.authOwner(m.m) && !m.root.authEnvironManager() {
 		return errPerm
 	}
 	return m.m.EnsureDead()

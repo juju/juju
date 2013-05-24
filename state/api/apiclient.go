@@ -599,8 +599,8 @@ func (w *LifecycleWatcher) loop() error {
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// Watch calls Next internally at the server-side, so we expect
-	// changes right away.
+	// The first watch call returns the initial result value which we
+	// try to send immediately.
 	out := w.out
 	for {
 		select {
@@ -656,7 +656,9 @@ func (w *EnvironConfigWatcher) loop() error {
 	if err != nil {
 		return err
 	}
-	w.newResult = func() interface{} { return new(params.EnvironConfigWatchResults) }
+	w.newResult = func() interface{} {
+		return new(params.EnvironConfigWatchResults)
+	}
 	w.call = func(request string, newResult interface{}) error {
 		return w.st.call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
 	}
@@ -674,11 +676,10 @@ func (w *EnvironConfigWatcher) loop() error {
 				// at this point, so just return.
 				return nil
 			}
-			// We have received changes, so send them out.
 			envConfig, err = config.New(data.(*params.EnvironConfigWatchResults).Config)
 			if err != nil {
 				// This should never happen, if we're talking to a compatible API server.
-				log.Errorf("state/api: error reading environ config: %v", err)
+				log.Errorf("state/api: error reading environ config from watcher: %v", err)
 				return err
 			}
 			out = w.out

@@ -83,7 +83,8 @@ var operationPermTests = []struct {
 }, {
 	about: "Machine.EnsureDead",
 	op:    opMachine1EnsureDead,
-	allow: []string{"machine-1"},
+	// Machine 0 is allowed because it is an environment manager.
+	allow: []string{"machine-0", "machine-1"},
 }, {
 	about: "Machine.SetStatus",
 	op:    opMachine1SetStatus,
@@ -1331,8 +1332,12 @@ func (s *suite) TestMachineWatch(c *C) {
 func (s *suite) TestStateWatchMachines(c *C) {
 	stMachines := make([]*state.Machine, 3)
 	var err error
-	for i := 0; i < len(stMachines); i++ {
-		stMachines[i], err = s.State.AddMachine("series", state.JobHostUnits)
+	for i := range stMachines {
+		job := state.JobHostUnits
+		if i == 0 {
+			job = state.JobManageEnviron
+		}
+		stMachines[i], err = s.State.AddMachine("series", job)
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, stMachines[i])
 	}
@@ -1355,7 +1360,7 @@ func (s *suite) TestStateWatchMachines(c *C) {
 	}
 
 	// Trigger a change.
-	m, err := st.Machine(stMachines[0].Id())
+	m, err := st.Machine(stMachines[1].Id())
 	c.Assert(err, IsNil)
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
@@ -1363,7 +1368,7 @@ func (s *suite) TestStateWatchMachines(c *C) {
 	// Next event.
 	ids, ok = chanReadStrings(c, machinesWatcher.Changes(), "machines watcher")
 	c.Assert(ok, Equals, true)
-	c.Assert(ids, DeepEquals, []string{"0"})
+	c.Assert(ids, DeepEquals, []string{"1"})
 
 	// Check the watcher stops cleanly.
 	err = machinesWatcher.Stop()
@@ -1374,7 +1379,7 @@ func (s *suite) TestStateWatchMachines(c *C) {
 }
 
 func (s *suite) TestStateWatchEnvironConfig(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1426,8 +1431,8 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
-	// Setup state - add entites to watch.
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	// Set up state - add entities to watch.
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
