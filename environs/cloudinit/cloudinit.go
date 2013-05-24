@@ -238,14 +238,16 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 		APIPort:         cfg.APIPort,
 		MachineNonce:    cfg.MachineNonce,
 	}
+	c.OldPassword = cfg.StateInfo.Password
+
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.Tag = tag
 	c.StateInfo.Password = ""
-	c.OldPassword = cfg.StateInfo.Password
 
 	c.APIInfo.Addrs = cfg.apiHostAddrs()
 	c.APIInfo.Tag = tag
 	c.APIInfo.Password = ""
+
 
 	return c
 }
