@@ -391,9 +391,105 @@ func (m *Machine) Watch() *EntityWatcher {
 	return newEntityWatcher(m.st, "Machine", m.id)
 }
 
+// commonWatcher implements common watcher logic in one place to
+// reduce code duplication, but it's not in fact a complete watcher;
+// it's intended for embedding.
+type commonWatcher struct {
+	tomb tomb.Tomb
+	wg   sync.WaitGroup
+	in   chan interface{}
+
+	// These fields must be set by the embedding watcher, before
+	// calling init().
+
+	// newResult must return a pointer to a value of the type returned
+	// by the watcher's Next call.
+	newResult func() interface{}
+
+	// call should invoke the given API method, placing the call's
+	// returned value in result (if any).
+	call func(method string, result interface{}) error
+}
+
+// init must be called to initialize an embedded commonWatcher's
+// fields. Make sure newResult and call fields are set beforehand.
+func (w *commonWatcher) init() {
+	w.in = make(chan interface{})
+	if w.newResult == nil {
+		panic("newResult must me set")
+	}
+	if w.call == nil {
+		panic("call must be set")
+	}
+}
+
+// commonLoop implements the loop structure common to the client
+// watchers. It should be started in a separate goroutine by any
+// watcher that embeds commonWatcher. It kills the commonWatcher's
+// tomb when an error occurs.
+func (w *commonWatcher) commonLoop() {
+	defer close(w.in)
+	w.wg.Add(1)
+	go func() {
+		// When the watcher has been stopped, we send a Stop request
+		// to the server, which will remove the watcher and return a
+		// CodeStopped error to any currently outstanding call to
+		// Next. If a call to Next happens just after the watcher has
+		// been stopped, we'll get a CodeNotFound error; Either way
+		// we'll return, wait for the stop request to complete, and
+		// the watcher will die with all resources cleaned up.
+		defer w.wg.Done()
+		<-w.tomb.Dying()
+		if err := w.call("Stop", nil); err != nil {
+			log.Errorf("state/api: error trying to stop watcher: %v", err)
+		}
+	}()
+	w.wg.Add(1)
+	go func() {
+		// Because Next blocks until there are changes, we need to
+		// call it in a separate goroutine, so the watcher can be
+		// stopped normally.
+		defer w.wg.Done()
+		for {
+			result := w.newResult()
+			err := w.call("Next", &result)
+			if err != nil {
+				if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {
+					if w.tomb.Err() != tomb.ErrStillAlive {
+						// The watcher has been stopped at the client end, so we're
+						// expecting one of the above two kinds of error.
+						// We might see the same errors if the server itself
+						// has been shut down, in which case we leave them
+						// untouched.
+						err = tomb.ErrDying
+					}
+				}
+				// Something went wrong, just report the error and bail out.
+				w.tomb.Kill(err)
+				return
+			}
+			select {
+			case <-w.tomb.Dying():
+				return
+			case w.in <- result:
+				// Report back the result we just got.
+			}
+		}
+	}()
+	w.wg.Wait()
+}
+
+func (w *commonWatcher) Stop() error {
+	w.tomb.Kill(nil)
+	return w.tomb.Wait()
+}
+
+func (w *commonWatcher) Err() error {
+	return w.tomb.Err()
+}
+
 type EntityWatcher struct {
-	tomb  tomb.Tomb
-	wg    sync.WaitGroup
+	commonWatcher
 	st    *State
 	etype string
 	eid   string
@@ -421,63 +517,39 @@ func (w *EntityWatcher) loop() error {
 	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
-	callWatch := func(request string) error {
-		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
+	// No results for this watcher type.
+	w.newResult = func() interface{} { return nil }
+	w.call = func(request string, result interface{}) error {
+		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, result)
 	}
-	w.wg.Add(1)
-	go func() {
-		// When the EntityWatcher has been stopped, we send a
-		// Stop request to the server, which will remove the
-		// watcher and return a CodeStopped error to any
-		// currently outstanding call to Next.  If a call to
-		// Next happens just after the watcher has been stopped,
-		// we'll get a CodeNotFound error; Either way we'll
-		// return, wait for the stop request to complete, and
-		// the watcher will die with all resources cleaned up.
-		defer w.wg.Done()
-		<-w.tomb.Dying()
-		if err := callWatch("Stop"); err != nil {
-			log.Errorf("state/api: error trying to stop watcher: %v", err)
-		}
-	}()
+	w.commonWatcher.init()
+	go w.commonLoop()
+
+	// Watch calls Next internally at the server-side, so we expect
+	// changes right away.
+	out := w.out
 	for {
 		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case w.out <- struct{}{}:
-			// Note that because the change notification
-			// contains no information, there's no point in
-			// calling Next again until we have sent a notification
-			// on w.out.
-		}
-		if err := callWatch("Next"); err != nil {
-			if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {
-				if w.tomb.Err() != tomb.ErrStillAlive {
-					// The watcher has been stopped at the client end, so we're
-					// expecting one of the above two kinds of error.
-					// We might see the same errors if the server itself
-					// has been shut down, in which case we leave them
-					// untouched.
-					err = tomb.ErrDying
-				}
+		case _, ok := <-w.in:
+			if !ok {
+				// The tomb is already killed with the correct error
+				// at this point, so just return.
+				return nil
 			}
-			return err
+			// We have received changes, so send them out.
+			out = w.out
+		case out <- struct{}{}:
+			// Wait until we have new changes to send.
+			out = nil
 		}
 	}
 	panic("unreachable")
 }
 
+// Changes returns a channel that receives a value when a given entity
+// changes in some way.
 func (w *EntityWatcher) Changes() <-chan struct{} {
 	return w.out
-}
-
-func (w *EntityWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-func (w *EntityWatcher) Err() error {
-	return w.tomb.Err()
 }
 
 // Refresh refreshes the contents of the Unit from the underlying

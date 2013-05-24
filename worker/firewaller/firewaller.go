@@ -553,7 +553,12 @@ func (fw *Firewaller) Err() (reason error) {
 	return fw.tomb.Err()
 }
 
-// Wait waits for the Firewaller to exit.
+// Kill implements worker.Worker.Kill.
+func (fw *Firewaller) Kill() {
+	fw.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
 func (fw *Firewaller) Wait() error {
 	return fw.tomb.Wait()
 }

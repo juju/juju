@@ -37,6 +37,8 @@ func (s *DeployerSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
+var _ = (*deployer.Deployer)(nil)
+
 func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)

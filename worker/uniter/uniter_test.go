@@ -99,6 +99,8 @@ func (s *UniterSuite) ResetContext(c *C) {
 	c.Assert(err, IsNil)
 }
 
+var _ worker.Worker = (*uniter.Uniter)(nil)
+
 type uniterTest struct {
 	summary string
 	steps   []stepper
