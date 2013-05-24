@@ -45,9 +45,6 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 		err = unit.Remove()
 		c.Assert(err, IsNil)
 	}
-	// TODO: Calling Refresh is required due to LP bug #1152717 - remove when fixed.
-	err = service.Refresh()
-	c.Assert(err, IsNil)
 	err = service.Destroy()
 	c.Assert(err, IsNil)
 
@@ -55,10 +52,16 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 	c.Assert(state.IsNotFound(err), Equals, true)
 }
 
+// Most (if not all) of the permission tests below aim to test
+// end-to-end operations execution through the API, but do not care
+// about the results. They only test that a call is succeeds or fails
+// (usually due to "permission denied"). There are separate test cases
+// testing each individual API call data flow later on.
+
 var operationPermTests = []struct {
 	about string
 	// op performs the operation to be tested using the given state
-	// connection.  It returns a function that should be used to
+	// connection. It returns a function that should be used to
 	// undo any changes made by the operation.
 	op    func(c *C, st *api.State, mst *state.State) (reset func(), err error)
 	allow []string
@@ -491,8 +494,6 @@ func opClientServiceSetYAML(c *C, st *api.State, mst *state.State) (func(), erro
 }
 
 func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only shows that the call is made without error, ensuring the
-	// signatures match.
 	_, err := st.Client().ServiceGet("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -501,8 +502,6 @@ func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only shows that the call is made without error, ensuring the
-	// signatures match.
 	err := st.Client().ServiceExpose("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -515,8 +514,6 @@ func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
 	err := st.Client().ServiceUnexpose("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -564,8 +561,6 @@ func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 }
 
 func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
 	// We are cheating and using a local repo only.
 
 	// Set the CharmStore to the test repository.
@@ -605,8 +600,6 @@ func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(),
 }
 
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
 	err := st.Client().ServiceDestroy("non-existent")
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
@@ -615,15 +608,11 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 }
 
 func opClientGetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
 	_, err := st.Client().GetServiceConstraints("wordpress")
 	return func() {}, err
 }
 
 func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
-	// This test only checks that the call is made without error, ensuring the
-	// signatures match.
 	nullConstraints := constraints.Value{}
 	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
@@ -1104,17 +1093,10 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
-	// Normal users can't access Machines...
-	m, err := s.APIState.Machine(stm.Id())
-	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
-	c.Assert(m, IsNil)
-
-	// ... so login as the machine.
 	st := s.openAs(c, stm.Tag())
 	defer st.Close()
 
-	m, err = st.Machine(stm.Id())
+	m, err := st.Machine(stm.Id())
 	c.Assert(err, IsNil)
 
 	instId, ok := m.InstanceId()
@@ -1135,6 +1117,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Check(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 }
+
 func (s *suite) TestMachineSetProvisioned(c *C) {
 	// TODO (dimitern): If we change the permissions for
 	// Machine.SetProvisioned to be laxer, change this test accordingly.
