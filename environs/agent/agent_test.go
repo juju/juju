@@ -17,7 +17,7 @@ import (
 	stdtesting "testing"
 )
 
-type suite struct{
+type suite struct {
 	coretesting.LoggingSuite
 }
 

@@ -248,7 +248,6 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 	c.APIInfo.Tag = tag
 	c.APIInfo.Password = ""
 
-
 	return c
 }
 
