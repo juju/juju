@@ -574,7 +574,15 @@ func (m *srvMachine) SetPassword(p params.Password) error {
 	if !m.root.authOwner(m.m) && !m.root.authEnvironManager() {
 		return errPerm
 	}
-	return setPassword(m.m, p.Password)
+	if err := setPassword(m.m, p.Password); err != nil {
+		return err
+	}
+	// Grant access to the mongo state if the machine requires it.
+	if isMachineWithJob(m.m, state.JobManageEnviron) ||
+		isMachineWithJob(m.m, state.JobServeAPI) {
+		return m.m.SetMongoPassword(p.Password)
+	}
+	return nil
 }
 
 // Get retrieves all the details of a unit.
