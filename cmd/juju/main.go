@@ -50,6 +50,7 @@ func Main(args []string) {
 
 	// Creation commands.
 	juju.Register(&BootstrapCommand{})
+	juju.Register(&CreateMachineCommand{})
 	juju.Register(&DeployCommand{})
 	juju.Register(&AddRelationCommand{})
 	juju.Register(&AddUnitCommand{})

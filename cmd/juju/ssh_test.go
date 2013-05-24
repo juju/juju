@@ -120,7 +120,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 	var machines = make([]*state.Machine, n)
 	for i := 0; i < n; i++ {
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned

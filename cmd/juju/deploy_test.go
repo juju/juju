@@ -83,7 +83,7 @@ func (s *DeploySuite) TestCharmBundle(c *C) {
 
 func (s *DeploySuite) TestForceMachine(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine("precise", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = runDeploy(c, "--force-machine", machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
@@ -105,7 +105,7 @@ func (s *DeploySuite) TestForceMachineInvalid(c *C) {
 	err = runDeploy(c, "--force-machine", "abc", "local:dummy", "portlandia")
 	c.Assert(err, ErrorMatches, `invalid machine id "abc"`)
 
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	machine, err := s.State.AddMachine("precise", nil, state.JobHostUnits)
 	err = runDeploy(c, "--force-machine", machine.Id(), "-n", "5", "local:dummy", "portlandia")
 	c.Assert(err, ErrorMatches, `force-machine cannot be used for multiple units`)
 

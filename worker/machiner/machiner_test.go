@@ -55,7 +55,7 @@ func (s *MachinerSuite) TestNotFound(c *C) {
 }
 
 func (s *MachinerSuite) TestRunStop(c *C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	mr := machiner.NewMachiner(s.State, m.Id())
@@ -66,7 +66,7 @@ func (s *MachinerSuite) TestRunStop(c *C) {
 }
 
 func (s *MachinerSuite) TestStartSetsStatus(c *C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	status, info, err := m.Status()
@@ -90,7 +90,7 @@ func (s *MachinerSuite) TestStartSetsStatus(c *C) {
 }
 
 func (s *MachinerSuite) TestSetsStatusWhenDying(c *C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()
@@ -99,7 +99,7 @@ func (s *MachinerSuite) TestSetsStatusWhenDying(c *C) {
 }
 
 func (s *MachinerSuite) TestSetDead(c *C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	mr := machiner.NewMachiner(s.State, m.Id())
 	defer mr.Stop()

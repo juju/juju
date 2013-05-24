@@ -209,6 +209,7 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"bootstrap",
+	"create-machine",
 	"debug-log",
 	"deploy",
 	"destroy-environment",

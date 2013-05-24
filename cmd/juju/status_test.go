@@ -727,7 +727,7 @@ type addMachine struct {
 }
 
 func (am addMachine) step(c *C, ctx *context) {
-	m, err := ctx.st.AddMachine("series", am.job)
+	m, err := ctx.st.AddMachine("series", nil, am.job)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, am.machineId)
 }

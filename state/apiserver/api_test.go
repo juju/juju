@@ -614,7 +614,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 	setDefaultPassword(c, u)
 	add(u)
 
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("series", nil, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
 	err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
@@ -644,7 +644,7 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		setDefaultPassword(c, wu)
 		add(wu)
 
-		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
 		err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
@@ -907,7 +907,7 @@ func (s *suite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := service.AddUnit()
 	c.Assert(err, IsNil)
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	environment, err := s.State.Environment()
 	c.Assert(err, IsNil)
@@ -957,7 +957,7 @@ func (s *suite) TestClientAnnotationsBadEntity(c *C) {
 }
 
 func (s *suite) TestMachineLogin(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("machine-password")
 	c.Assert(err, IsNil)
@@ -983,7 +983,7 @@ func (s *suite) TestMachineLogin(c *C) {
 }
 
 func (s *suite) TestMachineInstanceId(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1020,7 +1020,7 @@ func (s *suite) TestMachineInstanceId(c *C) {
 }
 
 func (s *suite) TestMachineLife(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1047,7 +1047,7 @@ func (s *suite) TestMachineLife(c *C) {
 }
 
 func (s *suite) TestMachineEnsureDead(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1069,7 +1069,7 @@ func (s *suite) TestMachineEnsureDead(c *C) {
 }
 
 func (s *suite) TestMachineEnsureDeadWithAssignedUnit(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1113,7 +1113,7 @@ func (s *suite) TestMachineEnsureDeadWithAssignedUnit(c *C) {
 }
 
 func (s *suite) TestMachineSetAgentAlive(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1141,7 +1141,7 @@ func (s *suite) TestMachineSetAgentAlive(c *C) {
 }
 
 func (s *suite) TestMachineSetStatus(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1167,7 +1167,7 @@ func (s *suite) TestMachineSetStatus(c *C) {
 
 func (s *suite) TestMachineRefresh(c *C) {
 	// Add a machine and get its instance id (it's empty at first).
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	oldId, _ := stm.InstanceId()
 	c.Assert(oldId, Equals, state.InstanceId(""))
@@ -1198,7 +1198,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 }
 
 func (s *suite) TestMachineSetPassword(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1218,7 +1218,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 func (s *suite) TestMachineTag(c *C) {
 	c.Assert(api.MachineTag("2"), Equals, "machine-2")
 
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, "machine-0")
@@ -1229,7 +1229,7 @@ func (s *suite) TestMachineTag(c *C) {
 }
 
 func (s *suite) TestMachineWatch(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
@@ -1283,7 +1283,7 @@ func (s *suite) TestServerStopsOutstandingWatchMethod(c *C) {
 	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
@@ -1365,7 +1365,7 @@ func (s *suite) TestUnitRefresh(c *C) {
 }
 
 func (s *suite) TestErrors(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 	st := s.openAs(c, stm.Tag())
@@ -1457,7 +1457,7 @@ func (s *suite) TestStop(c *C) {
 	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
 
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	stm, err := s.State.AddMachine("series", nil, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce")
 	c.Assert(err, IsNil)
@@ -1693,7 +1693,7 @@ func (s *suite) TestNoRelation(c *C) {
 func (s *suite) TestClientWatchAll(c *C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
-	m, err := s.State.AddMachine("series", state.JobManageEnviron)
+	m, err := s.State.AddMachine("series", nil, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	err = m.SetProvisioned("i-0", state.BootstrapNonce)
 	c.Assert(err, IsNil)
