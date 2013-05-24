@@ -461,8 +461,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
 			panic(err)
 		}
-		// TODO(rog) use hash of password when the juju API connection
-		// logic is done.
 		_, err = st.AddUser("admin", password)
 		if err != nil {
 			panic(err)

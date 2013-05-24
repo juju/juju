@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/tomb"
-	"sync"
 	"time"
 )
 
@@ -199,47 +198,18 @@ func RunAgentLoop(c *agent.Conf, a Agent) error {
 	}, a.Tomb().Dying())
 }
 
-// This mutex ensures that we can have two concurrent workers
-// opening the same state without a problem with the
-// password changing.
-var openStateMutex sync.Mutex
-
-func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error) {
-	openStateMutex.Lock()
-	defer openStateMutex.Unlock()
-
-	st, newPassword, err0 := c.OpenState()
-	if err0 != nil {
-		return nil, nil, err0
+func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
+	st, err := c.OpenState()
+	if err != nil {
+		return nil, nil, err
 	}
-	defer func() {
-		if err != nil {
-			st.Close()
-		}
-	}()
 	entity, err := a.Entity(st)
 	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
 		err = worker.ErrTerminateAgent
 	}
 	if err != nil {
+		st.Close()
 		return nil, nil, err
-	}
-	if newPassword != "" {
-		// Ensure we do not lose changes made by another
-		// worker by re-reading the configuration and changing
-		// only the password.
-		c1, err := agent.ReadConf(c.DataDir, c.Tag())
-		if err != nil {
-			return nil, nil, err
-		}
-		c1.StateInfo.Password = newPassword
-		if err := c1.Write(); err != nil {
-			return nil, nil, err
-		}
-		if err := entity.SetMongoPassword(c1.StateInfo.Password); err != nil {
-			return nil, nil, err
-		}
-		c.StateInfo.Password = newPassword
 	}
 	return st, entity, nil
 }

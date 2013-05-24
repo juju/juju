@@ -328,13 +328,23 @@ type openSuite struct {
 
 var _ = Suite(&openSuite{})
 
-func (s *openSuite) TestOpenStateNormal(c *C) {
+func (s *openSuite) TestOpenState(c *C) {
 	conf := agent.Conf{
 		StateInfo: s.StateInfo(c),
 	}
 	conf.OldPassword = "irrelevant"
+	st, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	st.Close()
+}
 
-	st, newPassword, err := conf.OpenState()
+func (s *openSuite) TestOpenAPINormal(c *C) {
+	conf := agent.Conf{
+		APIInfo: s.APIInfo(c),
+	}
+	conf.OldPassword = "irrelevant"
+
+	st, newPassword, err := conf.OpenAPI()
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Equals, "")
@@ -343,12 +353,12 @@ func (s *openSuite) TestOpenStateNormal(c *C) {
 
 func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	conf := agent.Conf{
-		StateInfo: s.StateInfo(c),
+		APIInfo: s.APIInfo(c),
 	}
-	conf.OldPassword = conf.StateInfo.Password
-	conf.StateInfo.Password = "not the right password"
+	conf.OldPassword = conf.APIInfo.Password
+	conf.APIInfo.Password = "not the right password"
 
-	st, newPassword, err := conf.OpenState()
+	st, newPassword, err := conf.OpenAPI()
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")
@@ -356,17 +366,17 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	p, err := utils.RandomPassword()
 	c.Assert(err, IsNil)
 	c.Assert(newPassword, HasLen, len(p))
-	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
+	c.Assert(conf.OldPassword, Equals, s.APIInfo(c).Password)
 }
 
 func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	conf := agent.Conf{
-		StateInfo: s.StateInfo(c),
+		APIInfo: s.APIInfo(c),
 	}
-	conf.OldPassword = conf.StateInfo.Password
-	conf.StateInfo.Password = ""
+	conf.OldPassword = conf.APIInfo.Password
+	conf.APIInfo.Password = ""
 
-	st, newPassword, err := conf.OpenState()
+	st, newPassword, err := conf.OpenAPI()
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")
@@ -374,5 +384,5 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	p, err := utils.RandomPassword()
 	c.Assert(err, IsNil)
 	c.Assert(newPassword, HasLen, len(p))
-	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
+	c.Assert(conf.OldPassword, Equals, s.APIInfo(c).Password)
 }
