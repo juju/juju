@@ -487,25 +487,11 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	if args.NumUnits == 0 {
 		args.NumUnits = 1
 	}
-	charm, err := conn.PutCharm(curl, CharmStore, false)
-	if err != nil {
-		return err
-	}
 	serviceName := args.ServiceName
 	if serviceName == "" {
 		serviceName = curl.Name
 	}
-	deployArgs := juju.DeployServiceParams{
-		Charm:       charm,
-		ServiceName: serviceName,
-		NumUnits:    args.NumUnits,
-		// BUG(lp:1162122): Config/ConfigYAML have no tests.
-		Config:      args.Config,
-		ConfigYAML:  args.ConfigYAML,
-		Constraints: args.Constraints,
-	}
-	_, err = conn.DeployService(deployArgs)
-	return err
+	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
 }
 
 // AddServiceUnits adds a given number of units to a service.
