@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"path/filepath"
 	"time"
 )
@@ -39,6 +40,8 @@ func (s *UpgraderSuite) TestUpgraderStop(c *C) {
 	err := u.Stop()
 	c.Assert(err, IsNil)
 }
+
+var _ worker.Worker = (*Upgrader)(nil)
 
 var (
 	v200     = version.MustParse("2.0.0")

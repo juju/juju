@@ -62,6 +62,10 @@ func (d *Deployer) String() string {
 	return "deployer for " + d.tag
 }
 
+func (d *Deployer) Kill() {
+	d.tomb.Kill(nil)
+}
+
 func (d *Deployer) Stop() error {
 	d.tomb.Kill(nil)
 	return d.tomb.Wait()

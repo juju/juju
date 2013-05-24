@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"strings"
 	stdtesting "testing"
@@ -37,6 +38,8 @@ var veryShortAttempt = utils.AttemptStrategy{
 	Total: 1 * time.Second,
 	Delay: 80 * time.Millisecond,
 }
+
+var _ worker.Worker = (*provisioner.Provisioner)(nil)
 
 func (s *ProvisionerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
