@@ -614,6 +614,24 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	return a.root.user.login(a.root.srv.state, c.AuthTag, c.Password)
 }
 
+// AllMachines returns all machines in the environment ordered by id.
+func (s *srvState) AllMachines() (params.AllMachinesResults, error) {
+	if !s.root.authEnvironManager() {
+		return params.AllMachinesResults{}, errPerm
+	}
+	machines, err := s.root.srv.state.AllMachines()
+	if err != nil {
+		return params.AllMachinesResults{}, err
+	}
+	results := params.AllMachinesResults{
+		Machines: make([]*params.Machine, len(machines)),
+	}
+	for i, m := range machines {
+		results.Machines[i] = stateMachineToParams(m)
+	}
+	return results, nil
+}
+
 // WatchMachines registers a srvLifecycleWatcher that notifies of
 // changes to the lifecycles of the machines in the environment. The
 // result contains the id of the registered watcher and the initial
@@ -659,11 +677,9 @@ func (s *srvState) WatchEnvironConfig() (params.EnvironConfigWatchResults, error
 }
 
 // Get retrieves all the details of a machine.
-func (m *srvMachine) Get() (info params.Machine) {
-	instId, _ := m.m.InstanceId()
-	info.InstanceId = string(instId)
-	info.Life = params.Life(m.m.Life().String())
-	return
+func (m *srvMachine) Get() params.Machine {
+	machine := stateMachineToParams(m.m)
+	return *machine
 }
 
 func (m *srvMachine) Watch() (params.EntityWatcherId, error) {
@@ -699,6 +715,57 @@ func (m *srvMachine) EnsureDead() error {
 		return errPerm
 	}
 	return m.m.EnsureDead()
+}
+
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
+func (m *srvMachine) Remove() error {
+	if !m.root.authEnvironManager() {
+		return errPerm
+	}
+	return m.m.Remove()
+}
+
+// Constraints returns the exact constraints that should apply when
+// provisioning an instance for the machine.
+func (m *srvMachine) Constraints() (params.ConstraintsResults, error) {
+	if !m.root.authEnvironManager() {
+		return params.ConstraintsResults{}, errPerm
+	}
+	constraints, err := m.m.Constraints()
+	if err != nil {
+		return params.ConstraintsResults{}, err
+	}
+	return params.ConstraintsResults{
+		Constraints: constraints,
+	}, nil
+}
+
+// SetProvisioned sets the provider specific machine id and nonce for
+// this machine. Once set, the instance id cannot be changed.
+func (m *srvMachine) SetProvisioned(args params.SetProvisioned) error {
+	if !m.root.authEnvironManager() {
+		return errPerm
+	}
+	return m.m.SetProvisioned(
+		state.InstanceId(args.InstanceId),
+		args.Nonce,
+	)
+}
+
+// Status returns the status of the machine.
+func (m *srvMachine) Status() (params.StatusResults, error) {
+	if !m.root.authEnvironManager() {
+		return params.StatusResults{}, errPerm
+	}
+	status, info, err := m.m.Status()
+	if err != nil {
+		return params.StatusResults{}, err
+	}
+	return params.StatusResults{
+		Status: status,
+		Info:   info,
+	}, nil
 }
 
 // SetStatus sets the status of the machine.
@@ -896,4 +963,17 @@ func (rs *resources) stopAll() {
 		}
 	}
 	rs.rs = make(map[string]*srvResource)
+}
+
+func stateMachineToParams(stm *state.Machine) *params.Machine {
+	if stm == nil {
+		return nil
+	}
+	instId, _ := stm.InstanceId()
+	return &params.Machine{
+		Id:         stm.Id(),
+		InstanceId: string(instId),
+		Life:       params.Life(stm.Life().String()),
+		Series:     stm.Series(),
+	}
 }
