@@ -72,18 +72,43 @@ var operationPermTests = []struct {
 	op:    opGetMachine1,
 	deny:  []string{"user-admin", "user-other"},
 }, {
+	about: "Machine.SetAgentAlive",
+	op:    opMachine1SetAgentAlive,
+	allow: []string{"machine-1"},
+}, {
 	about: "Machine.SetPassword",
 	op:    opMachine1SetPassword,
 	// Machine 0 is allowed because it is an environment manager.
 	allow: []string{"machine-0", "machine-1"},
 }, {
-	about: "Machine.SetAgentAlive",
-	op:    opMachine1SetAgentAlive,
-	allow: []string{"machine-1"},
+	about: "Machine.SetMongoPassword",
+	op:    opMachine1SetMongoPassword,
+	allow: []string{"machine-0"},
+}, {
+	about: "Machine.SetProvisioned",
+	op:    opMachine1SetProvisioned,
+	allow: []string{"machine-0"},
+}, {
+	about: "Machine.Constraints",
+	op:    opMachine1Constraints,
+	// TODO (dimitern): revisit this and relax the restrictions as
+	// needed once all agents/tasks are using the API.
+	allow: []string{"machine-0"},
+}, {
+	about: "Machine.Remove",
+	op:    opMachine1Remove,
+	allow: []string{"machine-0"},
 }, {
 	about: "Machine.EnsureDead",
 	op:    opMachine1EnsureDead,
-	allow: []string{"machine-1"},
+	// Machine 0 is allowed because it is an environment manager.
+	allow: []string{"machine-0", "machine-1"},
+}, {
+	about: "Machine.Status",
+	op:    opMachine1Status,
+	// TODO (dimitern): revisit this and relax the restrictions as
+	// needed once all agents/tasks are using the API.
+	allow: []string{"machine-0"},
 }, {
 	about: "Machine.SetStatus",
 	op:    opMachine1SetStatus,
@@ -97,6 +122,10 @@ var operationPermTests = []struct {
 	about: "Unit.SetPassword (on subordinate unit)",
 	op:    opUnitSetPassword("logging/0"),
 	allow: []string{"unit-logging-0", "unit-wordpress-0"},
+}, {
+	about: "State.AllMachines",
+	op:    opStateAllMachines,
+	allow: []string{"machine-0"},
 }, {
 	about: "Client.Status",
 	op:    opClientStatus,
@@ -290,6 +319,63 @@ func opMachine1SetAgentAlive(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
+func opMachine1SetMongoPassword(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	err = m.SetMongoPassword("another password")
+	if err != nil {
+		return func() {}, err
+	}
+	return func() {
+		setDefaultPassword(c, m)
+	}, nil
+}
+
+func opMachine1SetProvisioned(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	err = m.SetProvisioned("foo", "bar")
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+		// We expect this for any entity other than machine-0.
+		return func() {}, err
+	}
+
+	c.Check(err.Error(), Matches, `cannot set instance id of machine "1": already set`)
+	return func() {}, nil
+}
+
+func opMachine1Constraints(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	_, err = m.Constraints()
+	return func() {}, err
+}
+
+func opMachine1Remove(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	err = m.Remove()
+	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+		// We expect this for any entity other than machine-0.
+		return func() {}, err
+	}
+
+	c.Check(err.Error(), Matches, "cannot remove machine 1: machine is not dead")
+	return func() {}, nil
+}
+
 func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error) {
 	m, err := st.Machine("1")
 	if err != nil {
@@ -304,6 +390,16 @@ func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error)
 
 	c.Check(err.Error(), Matches, `machine 1 has unit "wordpress/0" assigned`)
 	return func() {}, nil
+}
+
+func opMachine1Status(c *C, st *api.State, mst *state.State) (func(), error) {
+	m, err := st.Machine("1")
+	if err != nil {
+		c.Check(m, IsNil)
+		return func() {}, err
+	}
+	_, _, err = m.Status()
+	return func() {}, err
 }
 
 func opMachine1SetStatus(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -544,6 +640,17 @@ func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
 	return func() {}, err
 }
 
+func opStateAllMachines(c *C, st *api.State, mst *state.State) (func(), error) {
+	machines, err := st.AllMachines()
+	if err != nil {
+		c.Check(machines, IsNil)
+	} else {
+		c.Check(machines, HasLen, 3)
+	}
+
+	return func() {}, err
+}
+
 // scenarioStatus describes the expected state
 // of the juju environment set up by setUpScenario.
 var scenarioStatus = &api.Status{
@@ -577,6 +684,7 @@ var scenarioStatus = &api.Status{
 //  nonce="fake_nonce"
 //  jobs=host-units
 //  status=started, info=""
+//  constraints=mem=1G
 // machine-2
 //  instance-id="i-machine-2"
 //  nonce="fake_nonce"
@@ -648,6 +756,10 @@ func (s *suite) setUpScenario(c *C) (entities []string) {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
+		if i == 1 {
+			err = m.SetConstraints(constraints.MustParse("mem=1G"))
+			c.Assert(err, IsNil)
+		}
 		err = m.SetProvisioned(state.InstanceId("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
@@ -1023,6 +1135,122 @@ func (s *suite) TestMachineInstanceId(c *C) {
 	c.Check(ok, Equals, true)
 	c.Assert(instId, Equals, "foo")
 }
+func (s *suite) TestMachineSetProvisioned(c *C) {
+	// TODO (dimitern): If we change the permissions for
+	// Machine.SetProvisioned to be laxer, change this test accordingly.
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	instId, ok := stm.InstanceId()
+	c.Assert(instId, Equals, state.InstanceId(""))
+	c.Assert(ok, Equals, false)
+	c.Assert(stm.CheckProvisioned("fake_nonce"), Equals, false)
+
+	err = m.SetProvisioned("foo", "fake_nonce")
+	c.Assert(err, IsNil)
+
+	instId, ok = stm.InstanceId()
+	c.Assert(instId, Equals, state.InstanceId(""))
+	c.Assert(ok, Equals, false)
+
+	err = stm.Refresh()
+	c.Assert(err, IsNil)
+
+	instId, ok = stm.InstanceId()
+	c.Assert(ok, Equals, true)
+	c.Assert(instId, Equals, state.InstanceId("foo"))
+	c.Assert(stm.CheckProvisioned("fake_nonce"), Equals, true)
+}
+
+func (s *suite) TestMachineSeries(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	c.Assert(m.Series(), Equals, "series")
+}
+
+func (s *suite) TestMachineConstraints(c *C) {
+	// TODO (dimitern): If we change the permissions for
+	// Machine.Constraints to be laxer, change this test accordingly.
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+	machineConstraints := constraints.MustParse("mem=1G")
+
+	err = stm.SetConstraints(machineConstraints)
+	c.Assert(err, IsNil)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	cons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, machineConstraints)
+}
+
+func (s *suite) TestMachineRemove(c *C) {
+	// TODO (dimitern): If we change the permissions for
+	// Machine.Remove to be laxer, change this test accordingly.
+	stm0, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm0)
+
+	stm1, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm1)
+
+	st := s.openAs(c, stm0.Tag())
+	defer st.Close()
+
+	m0, err := st.Machine(stm0.Id())
+	c.Assert(err, IsNil)
+	m1, err := st.Machine(stm1.Id())
+	c.Assert(err, IsNil)
+
+	c.Assert(stm0.Life(), Equals, state.Alive)
+	c.Assert(stm1.Life(), Equals, state.Alive)
+
+	err = m0.Remove()
+	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
+	err = m1.Remove()
+	c.Assert(err, ErrorMatches, "cannot remove machine 1: machine is not dead")
+
+	err = stm0.EnsureDead()
+	c.Assert(err, ErrorMatches, "machine 0 is required by the environment")
+	err = stm1.EnsureDead()
+	c.Assert(err, IsNil)
+
+	err = stm0.Refresh()
+	c.Assert(err, IsNil)
+	err = stm1.Refresh()
+	c.Assert(err, IsNil)
+
+	c.Assert(stm0.Life(), Equals, state.Alive)
+	c.Assert(stm1.Life(), Equals, state.Dead)
+
+	err = m1.Remove()
+	c.Assert(err, IsNil)
+
+	err = stm1.Refresh()
+	c.Assert(state.IsNotFound(err), Equals, true)
+}
 
 func (s *suite) TestMachineLife(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -1145,6 +1373,28 @@ func (s *suite) TestMachineSetAgentAlive(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *suite) TestMachineStatus(c *C) {
+	// TODO (dimitern): If we change the permissions for
+	// Machine.Status to be laxer, change this test accordingly.
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	err = stm.SetStatus(params.StatusStopped, "blah")
+	c.Assert(err, IsNil)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	status, info, err := m.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.StatusStopped)
+	c.Assert(info, Equals, "blah")
+}
+
 func (s *suite) TestMachineSetStatus(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -1218,6 +1468,40 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	err = stm.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(stm.PasswordValid("foo"), Equals, true)
+}
+
+func (s *suite) TestMachineSetMongoPassword(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+	m, err := st.Machine(stm.Id())
+	c.Assert(err, IsNil)
+
+	err = m.SetMongoPassword("foo")
+	c.Assert(err, IsNil)
+
+	testingDialOpts := state.DialOpts{
+		Timeout:    100 * time.Millisecond,
+		RetryDelay: 0,
+	}
+	testingStateInfo := &state.Info{
+		Addrs:    []string{coretesting.MgoAddr},
+		CACert:   []byte(coretesting.CACert),
+		Tag:      stm.Tag(),
+		Password: "bar",
+	}
+	// Check that we cannot log in with the wrong password.
+	st1, err := state.Open(testingStateInfo, testingDialOpts)
+	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+
+	// Check that we can log in with the correct password.
+	testingStateInfo.Password = "foo"
+	st1, err = state.Open(testingStateInfo, testingDialOpts)
+	c.Assert(err, IsNil)
+	st1.Close()
 }
 
 func (s *suite) TestMachineSetPasswordInMongo(c *C) {
@@ -1326,6 +1610,42 @@ func (s *suite) TestMachineWatch(c *C) {
 	c.Assert(ok, Equals, false)
 	ok = chanReadEmpty(c, w1.Changes(), "watcher 1")
 	c.Assert(ok, Equals, false)
+}
+
+func (s *suite) TestStateAllMachines(c *C) {
+	stMachines := make([]*state.Machine, 3)
+	var err error
+	for i := 0; i < len(stMachines); i++ {
+		job := state.JobHostUnits
+		if i == 0 {
+			job = state.JobManageEnviron
+		}
+		stMachines[i], err = s.State.AddMachine("series", job)
+		c.Assert(err, IsNil)
+		setDefaultPassword(c, stMachines[i])
+	}
+	// TODO (dimitern): If we change the permissions for
+	// State.AllMachines to be laxer, change this test accordingly.
+	st := s.openAs(c, stMachines[0].Tag())
+	defer st.Close()
+
+	ids, err := st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(ids, HasLen, 3)
+	for i := 0; i < len(ids); i++ {
+		c.Assert(ids[i].Id(), Equals, fmt.Sprintf("%d", i))
+	}
+
+	err = stMachines[1].EnsureDead()
+	c.Assert(err, IsNil)
+	err = stMachines[1].Remove()
+	c.Assert(err, IsNil)
+
+	ids, err = st.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(ids, HasLen, 2)
+	c.Assert(ids[0].Id(), Equals, "0")
+	c.Assert(ids[1].Id(), Equals, "2")
 }
 
 func (s *suite) TestStateWatchMachines(c *C) {

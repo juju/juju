@@ -36,6 +36,29 @@ type SetStatus struct {
 	Info   string
 }
 
+// StatusResults holds the results for Machine.Status and Unit.Status.
+type StatusResults struct {
+	Status Status
+	Info   string
+}
+
+// SetMongoPassword holds the parameters for Machine.SetMongoPassword.
+type SetMongoPassword struct {
+	Password string
+}
+
+// SetProvisioned holds the parameters for Machine.SetProvisioned.
+type SetProvisioned struct {
+	InstanceId string
+	Nonce      string
+}
+
+// ConstraintsResults holds the results for Machine.Constraints and
+// Service.Constraints.
+type ConstraintsResults struct {
+	Constraints constraints.Value
+}
+
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
@@ -136,8 +159,10 @@ type Creds struct {
 
 // Machine holds details of a machine.
 type Machine struct {
+	Id         string
 	InstanceId string
 	Life       Life
+	Series     string
 }
 
 // EntityWatcherId holds the id of an EntityWatcher.
@@ -244,6 +269,11 @@ type Port struct {
 
 func (p Port) String() string {
 	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
+
+// AllMachinesResults holds the results of the AllMachines call.
+type AllMachinesResults struct {
+	Machines []*Machine
 }
 
 // Delta holds details of a change to the environment.

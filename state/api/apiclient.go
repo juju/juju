@@ -268,6 +268,25 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return m, nil
 }
 
+// AllMachines returns all machines in the environment
+// ordered by id.
+func (st *State) AllMachines() ([]*Machine, error) {
+	var results params.AllMachinesResults
+	err := st.call("State", "", "AllMachines", nil, &results)
+	if err != nil {
+		return nil, err
+	}
+	machines := make([]*Machine, len(results.Machines))
+	for i, m := range results.Machines {
+		machines[i] = &Machine{
+			st:  st,
+			id:  m.Id,
+			doc: *m,
+		}
+	}
+	return machines, nil
+}
+
 // WatchMachines returns a LifecycleWatcher that notifies of changes to
 // the lifecycles of the machines in the environment.
 func (st *State) WatchMachines() *LifecycleWatcher {
@@ -367,6 +386,51 @@ func (m *Machine) EnsureDead() error {
 	return m.st.call("Machine", m.id, "EnsureDead", nil, nil)
 }
 
+// Remove removes the machine from state. It will fail if the machine
+// is not Dead.
+func (m *Machine) Remove() error {
+	return m.st.call("Machine", m.id, "Remove", nil, nil)
+}
+
+// SetMongoPassword sets the password the agent responsible for the
+// machine should use to communicate with the state servers. Previous
+// passwords are invalidated.
+func (m *Machine) SetMongoPassword(password string) error {
+	return m.st.call("Machine", m.id, "SetMongoPassword", &params.SetMongoPassword{
+		Password: password,
+	}, nil)
+}
+
+// Constraints returns the exact constraints that should apply when
+// provisioning an instance for the machine.
+func (m *Machine) Constraints() (constraints.Value, error) {
+	var results params.ConstraintsResults
+	err := m.st.call("Machine", m.id, "Constraints", nil, &results)
+	if err != nil {
+		return constraints.Value{}, err
+	}
+	return results.Constraints, nil
+}
+
+// SetProvisioned sets the provider specific machine id and nonce for
+// this machine. Once set, the instance id cannot be changed.
+func (m *Machine) SetProvisioned(id, nonce string) error {
+	return m.st.call("Machine", m.id, "SetProvisioned", &params.SetProvisioned{
+		InstanceId: id,
+		Nonce:      nonce,
+	}, nil)
+}
+
+// Status returns the status of the machine.
+func (m *Machine) Status() (params.Status, string, error) {
+	var results params.StatusResults
+	err := m.st.call("Machine", m.id, "Status", nil, &results)
+	if err != nil {
+		return "", "", err
+	}
+	return results.Status, results.Info, nil
+}
+
 // SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string) error {
 	return m.st.call("Machine", m.id, "SetStatus", &params.SetStatus{
@@ -378,6 +442,11 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 // Life returns whether the machine is "alive", "dying" or "dead".
 func (m *Machine) Life() params.Life {
 	return m.doc.Life
+}
+
+// Series returns the operating system series running on the machine.
+func (m *Machine) Series() string {
+	return m.doc.Series
 }
 
 // Pinger periodically reports that a specific key is alive, so that
