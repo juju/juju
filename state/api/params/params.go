@@ -42,11 +42,6 @@ type StatusResults struct {
 	Info   string
 }
 
-// SetMongoPassword holds the parameters for Machine.SetMongoPassword.
-type SetMongoPassword struct {
-	Password string
-}
-
 // SetProvisioned holds the parameters for Machine.SetProvisioned.
 type SetProvisioned struct {
 	InstanceId string

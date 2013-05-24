@@ -84,10 +84,6 @@ var operationPermTests = []struct {
 	// Machine 0 is allowed because it is an environment manager.
 	allow: []string{"machine-0", "machine-1"},
 }, {
-	about: "Machine.SetMongoPassword",
-	op:    opMachine1SetMongoPassword,
-	allow: []string{"machine-0"},
-}, {
 	about: "Machine.SetProvisioned",
 	op:    opMachine1SetProvisioned,
 	allow: []string{"machine-0"},
@@ -322,21 +318,6 @@ func opMachine1SetAgentAlive(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
-func opMachine1SetMongoPassword(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	err = m.SetMongoPassword("another password")
-	if err != nil {
-		return func() {}, err
-	}
-	return func() {
-		setDefaultPassword(c, m)
-	}, nil
-}
-
 func opMachine1SetProvisioned(c *C, st *api.State, mst *state.State) (func(), error) {
 	m, err := st.Machine("1")
 	if err != nil {
@@ -375,7 +356,7 @@ func opMachine1Remove(c *C, st *api.State, mst *state.State) (func(), error) {
 		return func() {}, err
 	}
 
-	c.Check(err.Error(), Matches, "cannot remove machine 1: machine is not dead")
+	c.Check(err, ErrorMatches, "cannot remove machine 1: machine is not dead")
 	return func() {}, nil
 }
 
@@ -636,7 +617,6 @@ func opStateAllMachines(c *C, st *api.State, mst *state.State) (func(), error) {
 	} else {
 		c.Check(machines, HasLen, 3)
 	}
-
 	return func() {}, err
 }
 
@@ -1167,7 +1147,7 @@ func (s *suite) TestMachineSeries(c *C) {
 }
 
 func (s *suite) TestMachineConstraints(c *C) {
-	// TODO (dimitern): If we change the permissions for
+	// NOTE (dimitern): If we change the permissions for
 	// Machine.Constraints to be laxer, change this test accordingly.
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
@@ -1451,40 +1431,6 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	err = stm.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(stm.PasswordValid("foo"), Equals, true)
-}
-
-func (s *suite) TestMachineSetMongoPassword(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
-	c.Assert(err, IsNil)
-	setDefaultPassword(c, stm)
-
-	st := s.openAs(c, stm.Tag())
-	defer st.Close()
-	m, err := st.Machine(stm.Id())
-	c.Assert(err, IsNil)
-
-	err = m.SetMongoPassword("foo")
-	c.Assert(err, IsNil)
-
-	testingDialOpts := state.DialOpts{
-		Timeout:    100 * time.Millisecond,
-		RetryDelay: 0,
-	}
-	testingStateInfo := &state.Info{
-		Addrs:    []string{coretesting.MgoAddr},
-		CACert:   []byte(coretesting.CACert),
-		Tag:      stm.Tag(),
-		Password: "bar",
-	}
-	// Check that we cannot log in with the wrong password.
-	st1, err := state.Open(testingStateInfo, testingDialOpts)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
-
-	// Check that we can log in with the correct password.
-	testingStateInfo.Password = "foo"
-	st1, err = state.Open(testingStateInfo, testingDialOpts)
-	c.Assert(err, IsNil)
-	st1.Close()
 }
 
 func (s *suite) TestMachineSetPasswordInMongo(c *C) {

@@ -753,16 +753,6 @@ func (m *srvMachine) SetProvisioned(args params.SetProvisioned) error {
 	)
 }
 
-// SetMongoPassword sets the password the agent responsible for the machine
-// should use to communicate with the state servers.  Previous passwords
-// are invalidated.
-func (m *srvMachine) SetMongoPassword(args params.SetMongoPassword) error {
-	if !m.root.authEnvironManager() {
-		return errPerm
-	}
-	return m.m.SetMongoPassword(args.Password)
-}
-
 // Status returns the status of the machine.
 func (m *srvMachine) Status() (params.StatusResults, error) {
 	if !m.root.authEnvironManager() {

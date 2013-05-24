@@ -392,15 +392,6 @@ func (m *Machine) Remove() error {
 	return m.st.call("Machine", m.id, "Remove", nil, nil)
 }
 
-// SetMongoPassword sets the password the agent responsible for the
-// machine should use to communicate with the state servers. Previous
-// passwords are invalidated.
-func (m *Machine) SetMongoPassword(password string) error {
-	return m.st.call("Machine", m.id, "SetMongoPassword", &params.SetMongoPassword{
-		Password: password,
-	}, nil)
-}
-
 // Constraints returns the exact constraints that should apply when
 // provisioning an instance for the machine.
 func (m *Machine) Constraints() (constraints.Value, error) {
