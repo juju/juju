@@ -348,7 +348,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	info := s.StateInfo(c)
 	info.Tag = ent.Tag()
 	info.Password = "initial"
-	testOpenState(c, info, state.Unauthorizedf("unauth"))
+	testOpenState(c, info, state.Unauthorizedf(""))
 
 	// Read the configuration and check that we can connect with it.
 	c.Assert(refreshConfig(conf), IsNil)

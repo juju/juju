@@ -10,7 +10,9 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -44,20 +46,49 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (*agent.Conf, *BootstrapCommand, error) {
-	conf := &agent.Conf{
-		DataDir: s.dataDir,
+var (
+	testPassword     = "my-admin-secret"
+	testPasswordHash = utils.PasswordHash("my-admin-secret")
+)
+
+func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf *agent.Conf, cmd *BootstrapCommand, err error) {
+	bootConf := &agent.Conf{
+		DataDir:     s.dataDir,
+		OldPassword: testPasswordHash,
 		StateInfo: &state.Info{
 			Tag:    "bootstrap",
 			Addrs:  []string{testing.MgoAddr},
 			CACert: []byte(testing.CACert),
 		},
+		APIInfo: &api.Info{
+			Tag:    "bootstrap",
+			Addrs:  []string{"0.1.2.3:1234"},
+			CACert: []byte(testing.CACert),
+		},
 	}
-	err := conf.Write()
+	err = bootConf.Write()
 	c.Assert(err, IsNil)
-	cmd := &BootstrapCommand{}
+
+	machineConf = &agent.Conf{
+		DataDir:     s.dataDir,
+		OldPassword: testPasswordHash,
+		StateInfo: &state.Info{
+			Tag:    "machine-0",
+			Addrs:  []string{testing.MgoAddr},
+			CACert: []byte(testing.CACert),
+		},
+		APIInfo: &api.Info{
+			Tag:    "machine-0",
+			Addrs:  []string{"0.1.2.3:1234"},
+			CACert: []byte(testing.CACert),
+		},
+	}
+	err = machineConf.Write()
+	c.Assert(err, IsNil)
+
+	cmd = &BootstrapCommand{}
 	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
-	return conf, cmd, err
+	return machineConf, cmd, err
 }
 
 func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
@@ -67,8 +98,9 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 	c.Assert(err, IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:  []string{testing.MgoAddr},
-		CACert: []byte(testing.CACert),
+		Addrs:    []string{testing.MgoAddr},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash,
 	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -93,8 +125,9 @@ func (s *BootstrapSuite) TestSetConstraints(c *C) {
 	c.Assert(err, IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:  []string{testing.MgoAddr},
-		CACert: []byte(testing.CACert),
+		Addrs:    []string{testing.MgoAddr},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash,
 	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -121,8 +154,9 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	c.Assert(err, IsNil)
 
 	st, err := state.Open(&state.Info{
-		Addrs:  []string{testing.MgoAddr},
-		CACert: []byte(testing.CACert),
+		Addrs:    []string{testing.MgoAddr},
+		CACert:   []byte(testing.CACert),
+		Password: testPasswordHash,
 	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -133,47 +167,72 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	})
 }
 
-func testOpenState(c *C, info *state.Info, expectErr error) {
+func testOpenState(c *C, info *state.Info, expectErrType error) {
 	st, err := state.Open(info, state.DefaultDialOpts())
 	if st != nil {
 		st.Close()
 	}
-	if expectErr != nil {
-		c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	if expectErrType != nil {
+		c.Assert(err, FitsTypeOf, expectErrType)
 	} else {
 		c.Assert(err, IsNil)
 	}
 }
 
 func (s *BootstrapSuite) TestInitialPassword(c *C) {
-	conf, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
-	c.Assert(err, IsNil)
-	conf.OldPassword = "foo"
-	err = conf.Write()
+	machineConf, cmd, err := s.initBootstrapCommand(c, "--env-config", testConfig)
 	c.Assert(err, IsNil)
 
 	err = cmd.Run(nil)
 	c.Assert(err, IsNil)
 
-	// Check that we cannot now connect to the state
-	// without a password.
+	// Check that we cannot now connect to the state without a
+	// password.
 	info := &state.Info{
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
 	}
-	testOpenState(c, info, state.Unauthorizedf("some auth problem"))
+	testOpenState(c, info, state.Unauthorizedf(""))
 
-	info.Tag, info.Password = "machine-0", "foo"
-	testOpenState(c, info, nil)
-
-	info.Tag = ""
+	// Check we can log in to mongo as admin.
+	info.Tag, info.Password = "", testPasswordHash
 	st, err := state.Open(info, state.DefaultDialOpts())
+	c.Assert(err, IsNil)
+	// Reset password so the tests can continue to use the same server.
+	defer st.Close()
+	defer st.SetAdminMongoPassword("")
+
+	// Check that the admin user has been given an appropriate
+	// password
+	u, err := st.User("admin")
+	c.Assert(err, IsNil)
+	c.Assert(u.PasswordValid(testPassword), Equals, true)
+
+	// Check that the machine configuration has been given a new
+	// password and that we can connect to mongo as that machine
+	// and that the in-mongo password also verifies correctly.
+
+	machineConf1, err := agent.ReadConf(machineConf.DataDir, "machine-0")
+	c.Assert(err, IsNil)
+
+	c.Assert(machineConf1.OldPassword, Equals, "")
+	c.Assert(machineConf1.APIInfo.Password, Not(Equals), "")
+	c.Assert(machineConf1.StateInfo.Password, Equals, machineConf1.APIInfo.Password)
+
+	// Check that no other information has been lost.
+	machineConf.OldPassword = ""
+	machineConf.APIInfo.Password = machineConf1.APIInfo.Password
+	machineConf.StateInfo.Password = machineConf1.StateInfo.Password
+	c.Assert(machineConf1, DeepEquals, machineConf)
+
+	info.Tag, info.Password = "machine-0", machineConf1.StateInfo.Password
+	st, err = state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
 
-	// Reset password so the tests can continue to use the same server.
-	err = st.SetAdminMongoPassword("")
+	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
+	c.Assert(m.PasswordValid(machineConf1.StateInfo.Password), Equals, true)
 }
 
 var base64ConfigTests = []struct {

@@ -55,7 +55,7 @@ func (*BootstrapSuite) TestMissingEnvironment(c *C) {
 	c.Assert(strippedErr, Matches, ".*No juju environment configuration file exists.*")
 }
 
-func (s *BootstrapSuite) TestTests(c *C) {
+func (s *BootstrapSuite) TestBootstrapState(c *C) {
 	uploadTools = mockUploadTools
 	defer func() { uploadTools = tools.Upload }()
 	for i, test := range bootstrapTests {

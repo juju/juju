@@ -11,8 +11,10 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -54,14 +56,6 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return err
-	}
-	instanceId, err := provider.InstanceId()
-	if err != nil {
-		return err
-	}
 
 	// There is no entity that's created at init time.
 	c.Conf.StateInfo.Tag = ""
@@ -72,6 +66,38 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	defer st.Close()
 
 	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
+		return err
+	}
+	if err := c.configureBootstrapMachine(st, cfg); err != nil {
+		return err
+	}
+
+	// Set up initial authentication.
+	u, err := st.AddUser("admin", "")
+	if err != nil {
+		return err
+	}
+
+	// Note that at bootstrap time, the password is set to
+	// the hash of its actual value. The first time a client
+	// connects to mongo, it changes the mongo password
+	// to the original password.
+	if err := u.SetPasswordHash(c.Conf.OldPassword); err != nil {
+		return err
+	}
+	if err := st.SetAdminMongoPassword(c.Conf.OldPassword); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (c *BootstrapCommand) configureBootstrapMachine(st *state.State, cfg *config.Config) error {
+	provider, err := environs.Provider(cfg.Type())
+	if err != nil {
+		return err
+	}
+	instanceId, err := provider.InstanceId()
+	if err != nil {
 		return err
 	}
 	// TODO(fwereade): we need to be able to customize machine jobs,
@@ -94,25 +120,28 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
-	// Set up initial authentication.
-	u, err := st.AddUser("admin", "")
+	// Read the machine agent's password and change it to
+	// a new password (other agents will change their password
+	// via the API connection).
+	mconf, err := agent.ReadConf(c.Conf.DataDir, m.Tag())
 	if err != nil {
 		return err
 	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-
-	if err := u.SetPasswordHash(c.Conf.OldPassword); err != nil {
+	newPassword, err := utils.RandomPassword()
+	if err != nil {
 		return err
 	}
-	if err := m.SetMongoPassword(c.Conf.OldPassword); err != nil {
+	mconf.StateInfo.Password = newPassword
+	mconf.APIInfo.Password = newPassword
+	mconf.OldPassword = ""
+
+	if err := mconf.Write(); err != nil {
 		return err
 	}
-	if err := st.SetAdminMongoPassword(c.Conf.OldPassword); err != nil {
+	if err := m.SetMongoPassword(newPassword); err != nil {
+		return err
+	}
+	if err := m.SetPassword(newPassword); err != nil {
 		return err
 	}
 	return nil
