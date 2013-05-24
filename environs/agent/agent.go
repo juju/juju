@@ -236,6 +236,19 @@ func (c *Conf) OpenAPI() (st *api.State, newPassword string, err error) {
 }
 
 // OpenState tries to open the state using the given Conf.
-func (c *Conf) OpenState() (st *state.State, err error) {
-	return state.Open(c.StateInfo, state.DefaultDialOpts())
+func (c *Conf) OpenState() (*state.State, error) {
+	info := *c.StateInfo
+	if info.Password != "" {
+		st, err := state.Open(&info, state.DefaultDialOpts())
+		if err == nil {
+			return st, nil
+		}
+		// TODO(rog) remove this fallback behaviour when
+		// all initial connections are via the API.
+		if !state.IsUnauthorizedError(err) {
+			return nil, err
+		}
+	}
+	info.Password = c.OldPassword
+	return state.Open(&info, state.DefaultDialOpts())
 }

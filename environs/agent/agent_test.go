@@ -17,7 +17,9 @@ import (
 	stdtesting "testing"
 )
 
-type suite struct{}
+type suite struct{
+	coretesting.LoggingSuite
+}
 
 func Test(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -328,13 +330,39 @@ type openSuite struct {
 
 var _ = Suite(&openSuite{})
 
-func (s *openSuite) TestOpenState(c *C) {
+func (s *openSuite) TestOpenStateNormal(c *C) {
 	conf := agent.Conf{
 		StateInfo: s.StateInfo(c),
 	}
 	conf.OldPassword = "irrelevant"
 	st, err := conf.OpenState()
 	c.Assert(err, IsNil)
+	st.Close()
+}
+
+func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
+	conf := agent.Conf{
+		StateInfo: s.StateInfo(c),
+	}
+	conf.OldPassword = conf.StateInfo.Password
+	conf.StateInfo.Password = "not the right password"
+
+	st, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	st.Close()
+}
+
+func (s *openSuite) TestOpenStateNoPassword(c *C) {
+	conf := agent.Conf{
+		StateInfo: s.StateInfo(c),
+	}
+	conf.OldPassword = conf.StateInfo.Password
+	conf.StateInfo.Password = ""
+
+	st, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
 	st.Close()
 }
 
@@ -351,7 +379,7 @@ func (s *openSuite) TestOpenAPINormal(c *C) {
 	c.Assert(st, NotNil)
 }
 
-func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
+func (s *openSuite) TestOpenAPIFallbackPassword(c *C) {
 	conf := agent.Conf{
 		APIInfo: s.APIInfo(c),
 	}
@@ -369,7 +397,7 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	c.Assert(conf.OldPassword, Equals, s.APIInfo(c).Password)
 }
 
-func (s *openSuite) TestOpenStateNoPassword(c *C) {
+func (s *openSuite) TestOpenAPINoPassword(c *C) {
 	conf := agent.Conf{
 		APIInfo: s.APIInfo(c),
 	}
