@@ -114,7 +114,7 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uui
 const lineBufferSize = 4096
 
 var apiAddrs = []string{"a1:123", "a2:123"}
-var expectedApiAddresses = strings.Join(apiAddrs, " ")
+var expectedApiAddrs = strings.Join(apiAddrs, " ")
 
 var runHookTests = []struct {
 	summary string
@@ -169,7 +169,7 @@ var runHookTests = []struct {
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
-			"JUJU_API_ADDRESSES": expectedApiAddresses,
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
 		},
 	}, {
 		summary: "check shell environment for relation-broken hook context",
@@ -177,7 +177,7 @@ var runHookTests = []struct {
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
-			"JUJU_API_ADDRESSES": expectedApiAddresses,
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
 			"JUJU_RELATION":      "db",
 			"JUJU_RELATION_ID":   "db:1",
 			"JUJU_REMOTE_UNIT":   "",
@@ -189,7 +189,7 @@ var runHookTests = []struct {
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
 			"JUJU_UNIT_NAME":     "u/0",
-			"JUJU_API_ADDRESSES": expectedApiAddresses,
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
 			"JUJU_RELATION":      "db",
 			"JUJU_RELATION_ID":   "db:1",
 			"JUJU_REMOTE_UNIT":   "r/1",
