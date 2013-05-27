@@ -36,7 +36,6 @@ const (
 	CodeNotAssigned         = "not assigned"
 	CodeStopped             = "stopped"
 	CodeHasAssignedUnits    = "machine has assigned units"
-	CodeTimeout             = "timeout"
 )
 
 // ErrCode returns the error code associated with
