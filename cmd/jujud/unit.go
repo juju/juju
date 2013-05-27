@@ -69,13 +69,15 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 // RunOnce runs a unit agent once.
 func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
 	unit := e.(*state.Unit)
+	conf := a.Conf
+	apiAddrs := conf.Conf.APIInfo.Addrs
 	tasks := []task{
-		uniter.NewUniter(st, unit.Name(), a.Conf.DataDir),
+		uniter.NewUniter(st, unit.Name(), conf.DataDir, apiAddrs),
 		NewUpgrader(st, unit, a.Conf.DataDir),
 	}
 	if unit.IsPrincipal() {
 		tasks = append(tasks,
-			newDeployer(st, unit.WatchSubordinateUnits(), a.Conf.DataDir))
+			newDeployer(st, unit.WatchSubordinateUnits(), conf.DataDir, apiAddrs))
 	}
 	return runTasks(a.tomb.Dying(), tasks...)
 }
