@@ -55,7 +55,7 @@ type SimpleContext struct {
 	// unit is deployed.
 	stateAddrs []string
 
-	// apiAddrs specifies the API server addresses.
+	// apiAddrs contains the API server addresses.
 	apiAddrs []string
 }
 
