@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"time"
 )
 
@@ -45,6 +46,18 @@ func (s *suite) TestStateAllMachines(c *C) {
 	c.Assert(ids, HasLen, 2)
 	c.Assert(ids[0].Id(), Equals, "0")
 	c.Assert(ids[1].Id(), Equals, "2")
+}
+
+func (s *suite) TestPing(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	err = st.Ping()
+	c.Assert(err, IsNil)
 }
 
 func (s *suite) TestStateWatchMachines(c *C) {
@@ -141,4 +154,46 @@ func (s *suite) TestStateWatchEnvironConfig(c *C) {
 
 	_, ok = chanReadConfig(c, envConfigWatcher.Changes(), "environ config watcher")
 	c.Assert(ok, Equals, false)
+}
+
+func (s *suite) TestSetDeadline(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	st := s.openAs(c, stm.Tag())
+	defer func() {
+		st.Close()
+	}()
+
+	// First try a ping without a deadline
+	err = st.Ping()
+	c.Assert(err, IsNil)
+
+	// Set a very short deadline.
+	err = st.SetDeadline(time.Now())
+	c.Assert(err, IsNil)
+
+	// Try a ping, should fail immediately with a timeout.
+	err = st.Ping()
+	c.Assert(err, NotNil)
+	c.Assert(api.IsTimeout(err), Equals, true)
+
+	// Now the connection is shut down, so reestablish.
+	st.Close()
+	st = s.openAs(c, stm.Tag())
+
+	// Set a longer deadline.
+	err = st.SetDeadline(time.Now().Add(10 * time.Second))
+	c.Assert(err, IsNil)
+
+	err = st.Ping()
+	c.Assert(err, IsNil)
+
+	// Set no deadline (default).
+	err = st.SetDeadline(time.Time{})
+	c.Assert(err, IsNil)
+
+	err = st.Ping()
+	c.Assert(err, IsNil)
 }

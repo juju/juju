@@ -5,6 +5,7 @@ package api
 
 import (
 	"launchpad.net/juju-core/rpc"
+	"net"
 )
 
 // Error is the type of error returned by any call
@@ -35,6 +36,7 @@ const (
 	CodeNotAssigned         = "not assigned"
 	CodeStopped             = "stopped"
 	CodeHasAssignedUnits    = "machine has assigned units"
+	CodeTimeout             = "timeout"
 )
 
 // ErrCode returns the error code associated with
@@ -45,6 +47,14 @@ func ErrCode(err error) string {
 		return err.ErrorCode()
 	}
 	return ""
+}
+
+// IsTimeout returns if the given error is an net.OPError timeout error.
+func IsTimeout(err error) bool {
+	if err, ok := err.(*net.OpError); ok {
+		return err.Timeout()
+	}
+	return false
 }
 
 // clientError maps errors returned from an RPC call into local errors with
