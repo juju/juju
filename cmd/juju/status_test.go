@@ -158,7 +158,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		addMachine{"0", nil, state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
@@ -250,7 +250,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"test pending and missing machines",
-		addMachine{"0", nil, state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
 			"machine 0 reports pending",
 			M{
@@ -281,7 +281,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"add two services and expose one, then add 2 more machines and some units",
-		addMachine{"0", nil, state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"dummy"},
@@ -314,10 +314,10 @@ var statusTests = []testCase{
 			},
 		},
 
-		addMachine{"1", nil, state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
-		addMachine{"2", nil, state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		expect{
@@ -375,15 +375,15 @@ var statusTests = []testCase{
 			},
 		},
 
-		addMachine{"3", nil, state.JobHostUnits},
+		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
 		setMachineStatus{"3", params.StatusStopped, "Really?"},
-		addMachine{"4", nil, state.JobHostUnits},
+		addMachine{machineId: "4", job: state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.StatusError, "Beware the red toys"},
 		ensureDyingUnit{"dummy-service/0"},
-		addMachine{"5", nil, state.JobHostUnits},
+		addMachine{machineId: "5", job: state.JobHostUnits},
 		ensureDeadMachine{"5"},
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
@@ -444,7 +444,7 @@ var statusTests = []testCase{
 		"add a dying service",
 		addCharm{"dummy"},
 		addService{"dummy-service", "dummy"},
-		addMachine{"0", nil, state.JobHostUnits},
+		addMachine{machineId: "0", job: state.JobHostUnits},
 		addUnit{"dummy-service", "0"},
 		ensureDyingService{"dummy-service"},
 		expect{
@@ -476,7 +476,7 @@ var statusTests = []testCase{
 	// Relation tests
 	test(
 		"complex scenario with multiple related services",
-		addMachine{"0", nil, state.JobManageEnviron},
+		addMachine{machineId: "0", job:state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -485,7 +485,7 @@ var statusTests = []testCase{
 
 		addService{"project", "wordpress"},
 		setServiceExposed{"project", true},
-		addMachine{"1", nil, state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
@@ -493,7 +493,7 @@ var statusTests = []testCase{
 
 		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
-		addMachine{"2", nil, state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -501,14 +501,14 @@ var statusTests = []testCase{
 
 		addService{"varnish", "varnish"},
 		setServiceExposed{"varnish", true},
-		addMachine{"3", nil, state.JobHostUnits},
+		addMachine{machineId: "3", job: state.JobHostUnits},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addUnit{"varnish", "3"},
 
 		addService{"private", "wordpress"},
 		setServiceExposed{"private", true},
-		addMachine{"4", nil, state.JobHostUnits},
+		addMachine{machineId: "4", job: state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.StatusStarted, ""},
 		addUnit{"private", "4"},
@@ -586,7 +586,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"simple peer scenario",
-		addMachine{"0", nil, state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"riak"},
@@ -594,17 +594,17 @@ var statusTests = []testCase{
 
 		addService{"riak", "riak"},
 		setServiceExposed{"riak", true},
-		addMachine{"1", nil, state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
 		setUnitStatus{"riak/0", params.StatusStarted, ""},
-		addMachine{"2", nil, state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
 		setUnitStatus{"riak/1", params.StatusStarted, ""},
-		addMachine{"3", nil, state.JobHostUnits},
+		addMachine{machineId: "3", job: state.JobHostUnits},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
@@ -649,7 +649,7 @@ var statusTests = []testCase{
 	// Subordinate tests
 	test(
 		"one service with one subordinate service",
-		addMachine{"0", nil, state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -658,7 +658,7 @@ var statusTests = []testCase{
 
 		addService{"wordpress", "wordpress"},
 		setServiceExposed{"wordpress", true},
-		addMachine{"1", nil, state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -666,7 +666,7 @@ var statusTests = []testCase{
 
 		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
-		addMachine{"2", nil, state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
