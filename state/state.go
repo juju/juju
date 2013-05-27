@@ -198,9 +198,16 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the
+// supplied series. The machine's constraints will be taken from the
+// environment constraints.
+func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine(series, nil, "", "", jobs)
+}
+
+// AddMachine adds a new machine configured to run the supplied jobs on the
 // supplied series. The machine's constraints will be taken from the result of
-// merging extraCons with the environment constraints.
-func (st *State) AddMachine(series string, extraCons *constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
+// merging extraCons with the enviroinment constraints.
+func (st *State) AddMachineWithConstraints(series string, extraCons *constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
 	return st.addMachine(series, extraCons, "", "", jobs)
 }
 

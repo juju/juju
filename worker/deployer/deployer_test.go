@@ -37,9 +37,11 @@ func (s *DeployerSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
+var _ = (*deployer.Deployer)(nil)
+
 func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = m.SetProvisioned("i-exist", "fake_nonce")
 	c.Assert(err, IsNil)
@@ -91,7 +93,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 
 func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
