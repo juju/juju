@@ -9,6 +9,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -130,13 +131,14 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 
 func (ctxt *statusContext) processMachines(st *state.State) map[string]machineStatus {
 	machinesMap := make(map[string]machineStatus)
+	envCons, _ := st.EnvironConstraints()
 	for _, m := range ctxt.machines {
-		machinesMap[m.Id()] = ctxt.processMachine(st, m)
+		machinesMap[m.Id()] = ctxt.processMachine(st, m, envCons)
 	}
 	return machinesMap
 }
 
-func (ctxt *statusContext) processMachine(st *state.State, machine *state.Machine) (status machineStatus) {
+func (ctxt *statusContext) processMachine(st *state.State, machine *state.Machine, envCons constraints.Value) (status machineStatus) {
 	status.Life,
 		status.AgentVersion,
 		status.AgentState,
@@ -146,8 +148,7 @@ func (ctxt *statusContext) processMachine(st *state.State, machine *state.Machin
 	// If the machine constraints are different from the env constraints, display them.
 	mCons, err := machine.Constraints()
 	if err == nil {
-		envCons, err := st.EnvironConstraints()
-		if err == nil && envCons.String() != mCons.String() {
+		if envCons.String() != mCons.String() {
 			status.Constraints = mCons.String()
 		}
 	} else {

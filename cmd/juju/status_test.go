@@ -476,7 +476,7 @@ var statusTests = []testCase{
 	// Relation tests
 	test(
 		"complex scenario with multiple related services",
-		addMachine{machineId: "0", job:state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"wordpress"},
