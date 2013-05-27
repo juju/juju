@@ -86,7 +86,7 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 func (s *UnitSuite) TestRunStop(c *C) {
 	unit, conf, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir, conf.APIInfo.Addrs)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()

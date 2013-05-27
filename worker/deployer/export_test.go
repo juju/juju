@@ -3,20 +3,15 @@
 
 package deployer
 
-type fakeAddresser struct{}
-
-func (*fakeAddresser) Addresses() []string {
-	return []string{"s1:123", "s2:123"}
-}
-
 func NewTestSimpleContext(deployerTag, initDir, dataDir, logDir, syslogConfigDir string) *SimpleContext {
 	return &SimpleContext{
-		addresser:       &fakeAddresser{},
 		caCert:          []byte("test-cert"),
 		deployerTag:     deployerTag,
 		initDir:         initDir,
 		dataDir:         dataDir,
 		logDir:          logDir,
 		syslogConfigDir: syslogConfigDir,
+		stateAddrs:      []string{"s1:123", "s2:123"},
+		apiAddrs:        []string{"a1:123", "a2:123"},
 	}
 }

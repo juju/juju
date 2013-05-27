@@ -1082,7 +1082,7 @@ func (s startUniter) step(c *C, ctx *context) {
 	if ctx.uniter != nil {
 		panic("don't start two uniters!")
 	}
-	ctx.uniter = uniter.NewUniter(ctx.st, "u/0", ctx.dataDir)
+	ctx.uniter = uniter.NewUniter(ctx.st, "u/0", ctx.dataDir, []string{})
 }
 
 type waitUniterDead struct {
