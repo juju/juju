@@ -380,7 +380,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 
 	// Add a new machine, assign the units to it
 	// and set its password.
-	m, err := st.AddMachine("series", nil, state.JobHostUnits)
+	m, err := st.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	unit, err := st.Unit(s.unit.Name())
 	c.Assert(err, IsNil)

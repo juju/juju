@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
 	"reflect"
 	stdtesting "testing"
@@ -27,6 +28,8 @@ type FirewallerSuite struct {
 	op    <-chan dummy.Operation
 	charm *state.Charm
 }
+
+var _ worker.Worker = (*firewaller.Firewaller)(nil)
 
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
@@ -305,7 +308,7 @@ func (s *FirewallerSuite) TestStartWithState(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
-	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	inst := s.startInstance(c, m)
 
@@ -332,7 +335,7 @@ func (s *FirewallerSuite) TestStartWithPartialState(c *C) {
 }
 
 func (s *FirewallerSuite) TestStartWithUnexposedService(c *C) {
-	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	inst := s.startInstance(c, m)
 
@@ -611,7 +614,7 @@ func (s *FirewallerSuite) TestGlobalModeStartWithUnexposedService(c *C) {
 	restore := s.setGlobalMode(c)
 	defer restore(c)
 
-	m, err := s.State.AddMachine("series", nil, state.JobHostUnits)
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	s.startInstance(c, m)
 

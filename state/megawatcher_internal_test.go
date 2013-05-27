@@ -61,7 +61,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	add := func(e params.EntityInfo) {
 		entities = append(entities, e)
 	}
-	m, err := s.State.AddMachine("series", nil, JobManageEnviron)
+	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
 	err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
@@ -120,7 +120,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		c.Assert(err, IsNil)
 		c.Assert(wu.Tag(), Equals, fmt.Sprintf("unit-wordpress-%d", i))
 
-		m, err := s.State.AddMachine("series", nil, JobHostUnits)
+		m, err := s.State.AddMachine("series", JobHostUnits)
 		c.Assert(err, IsNil)
 		c.Assert(m.Tag(), Equals, fmt.Sprintf("machine-%d", i+1))
 
@@ -247,7 +247,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "machine is added if it's in backing but not in Store",
 		setUp: func(c *C, st *State) {
-			m, err := st.AddMachine("series", nil, JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.SetStatus(params.StatusError, "failure")
 			c.Assert(err, IsNil)
@@ -273,7 +273,7 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 		setUp: func(c *C, st *State) {
-			m, err := st.AddMachine("series", nil, JobManageEnviron)
+			m, err := st.AddMachine("series", JobManageEnviron)
 			c.Assert(err, IsNil)
 			err = m.SetProvisioned("i-0", "bootstrap_nonce")
 			c.Assert(err, IsNil)
@@ -320,7 +320,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, IsNil)
 			err = u.OpenPort("tcp", 12345)
 			c.Assert(err, IsNil)
-			m, err := st.AddMachine("series", nil, JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, IsNil)
 			err = u.AssignToMachine(m)
 			c.Assert(err, IsNil)
@@ -533,7 +533,7 @@ var allWatcherChangedTests = []struct {
 	}, {
 		about: "annotation is added if it's in backing but not in Store",
 		setUp: func(c *C, st *State) {
-			m, err := st.AddMachine("series", nil, JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.SetAnnotations(map[string]string{"foo": "bar", "arble": "baz"})
 			c.Assert(err, IsNil)
@@ -559,7 +559,7 @@ var allWatcherChangedTests = []struct {
 			},
 		}},
 		setUp: func(c *C, st *State) {
-			m, err := st.AddMachine("series", nil, JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.SetAnnotations(map[string]string{
 				"arble":  "khroomph",
@@ -668,7 +668,7 @@ var allWatcherChangedTests = []struct {
 			StatusInfo: "failure",
 		}},
 		setUp: func(c *C, st *State) {
-			m, err := st.AddMachine("series", nil, JobHostUnits)
+			m, err := st.AddMachine("series", JobHostUnits)
 			c.Assert(err, IsNil)
 			err = m.SetStatus(params.StatusStarted, "")
 			c.Assert(err, IsNil)
@@ -857,11 +857,11 @@ func (s *storeManagerStateSuite) TestChanged(c *C) {
 // with the state-based backing. Most of the logic is tested elsewhere -
 // this just tests end-to-end.
 func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
-	m0, err := s.State.AddMachine("series", nil, JobManageEnviron)
+	m0, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m0.Id(), Equals, "0")
 
-	m1, err := s.State.AddMachine("series", nil, JobHostUnits)
+	m1, err := s.State.AddMachine("series", JobHostUnits)
 	c.Assert(err, IsNil)
 	c.Assert(m1.Id(), Equals, "1")
 
@@ -891,7 +891,7 @@ func (s *storeManagerStateSuite) TestStateWatcher(c *C) {
 	c.Assert(err, IsNil)
 	err = m1.Remove()
 	c.Assert(err, IsNil)
-	m2, err := s.State.AddMachine("series", nil, JobManageEnviron)
+	m2, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m2.Id(), Equals, "2")
 	s.State.StartSync()

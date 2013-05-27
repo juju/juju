@@ -52,6 +52,7 @@ func (s *RepoSuite) AssertService(c *C, name string, expectCurl *charm.URL, unit
 	c.Assert(ch.URL(), DeepEquals, expectCurl)
 	s.AssertCharmUploaded(c, expectCurl)
 	units, err := svc.AllUnits()
+	c.Logf("Service units: %+v", units)
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, unitCount)
 	s.AssertUnitMachines(c, units)

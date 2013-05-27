@@ -22,7 +22,6 @@ type CreateMachineCommand struct {
 func (c *CreateMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "create-machine",
-		Args:    "<machine> ...",
 		Purpose: "create machines",
 		Doc:     "Machines are created in a clean state and ready to have units deployed.",
 	}
@@ -49,7 +48,7 @@ func (c *CreateMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	m, err := conn.State.AddMachine(conf.DefaultSeries(), &c.Constraints, state.JobHostUnits)
+	m, err := conn.State.AddMachineWithConstraints(conf.DefaultSeries(), &c.Constraints, state.JobHostUnits)
 	log.Infof("created machine %v", m)
 	return err
 }

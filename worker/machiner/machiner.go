@@ -36,6 +36,10 @@ func (mr *Machiner) String() string {
 	return fmt.Sprintf("machiner %s", mr.id)
 }
 
+func (mr *Machiner) Kill() {
+	mr.tomb.Kill(nil)
+}
+
 func (mr *Machiner) Stop() error {
 	mr.tomb.Kill(nil)
 	return mr.tomb.Wait()

@@ -167,6 +167,14 @@ func (u *Uniter) init(name string) (err error) {
 	return nil
 }
 
+func (u *Uniter) Kill() {
+	u.tomb.Kill(nil)
+}
+
+func (u *Uniter) Wait() error {
+	return u.tomb.Wait()
+}
+
 func (u *Uniter) Stop() error {
 	u.tomb.Kill(nil)
 	return u.Wait()
@@ -178,10 +186,6 @@ func (u *Uniter) String() string {
 
 func (u *Uniter) Dead() <-chan struct{} {
 	return u.tomb.Dead()
-}
-
-func (u *Uniter) Wait() error {
-	return u.tomb.Wait()
 }
 
 // writeState saves uniter state with the supplied values, and infers the appropriate

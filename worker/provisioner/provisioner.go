@@ -134,7 +134,12 @@ func (p *Provisioner) Err() (reason error) {
 	return p.tomb.Err()
 }
 
-// Wait waits for the Provisioner to exit.
+// Kill implements worker.Worker.Kill.
+func (p *Provisioner) Kill() {
+	p.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
 func (p *Provisioner) Wait() error {
 	return p.tomb.Wait()
 }
