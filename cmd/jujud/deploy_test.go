@@ -90,7 +90,7 @@ func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string,
 		c.Check(st.CACert(), DeepEquals, expectInfo.CACert)
 		c.Check(deployerTag, Equals, expectInfo.Tag)
 		c.Check(dataDir, Equals, expectDataDir)
-		c.Check(apiAddrs, Equals, expectedApiAddrs)
+		c.Check(apiAddrs, DeepEquals, expectedApiAddrs)
 		ctx.st = st
 		close(ctx.inited)
 		return ctx
