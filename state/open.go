@@ -283,6 +283,11 @@ func (st *State) Addresses() (addrs []string) {
 	return append(addrs, st.info.Addrs...)
 }
 
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() (addrs []string) {
+	return append(addrs, st.info.Addrs...)
+}
+
 // CACert returns the certificate used to validate the state connection.
 func (st *State) CACert() (cert []byte) {
 	return append(cert, st.info.CACert...)

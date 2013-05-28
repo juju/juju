@@ -52,7 +52,6 @@ type Uniter struct {
 	sf           *StateFile
 	rand         *rand.Rand
 	hookLock     *fslock.Lock
-	apiAddrs     []string
 
 	ranConfigChanged bool
 }
@@ -60,12 +59,10 @@ type Uniter struct {
 // NewUniter creates a new Uniter which will install, run, and upgrade a
 // charm on behalf of the named unit, by executing hooks and operations
 // provoked by changes in st.
-func NewUniter(st *state.State, name string, dataDir string,
-	apiAddrs []string) *Uniter {
+func NewUniter(st *state.State, name string, dataDir string) *Uniter {
 	u := &Uniter{
-		st:       st,
-		dataDir:  dataDir,
-		apiAddrs: apiAddrs,
+		st:      st,
+		dataDir: dataDir,
 	}
 	go func() {
 		defer u.tomb.Done()
@@ -319,7 +316,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
-	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit, ctxRelations, u.apiAddrs)
+	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
+		ctxRelations, u.st.APIAddresses())
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {

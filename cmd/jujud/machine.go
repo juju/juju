@@ -108,16 +108,16 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
 	log.Infof("jobs for machine agent: %v", m.Jobs())
-	conf := a.Conf
+	dataDir := a.Conf.DataDir
 	tasks := []task{
-		NewUpgrader(st, m, conf.DataDir),
+		NewUpgrader(st, m, dataDir),
 		machiner.NewMachiner(st, m.Id()),
 	}
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
 			tasks = append(tasks,
-				newDeployer(st, m.WatchPrincipalUnits(), conf.DataDir, conf.Conf.APIInfo.Addrs))
+				newDeployer(st, m.WatchPrincipalUnits(), dataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st, a.MachineId),

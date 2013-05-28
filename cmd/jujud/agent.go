@@ -249,14 +249,14 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *state.State, dataDir string, deployerName string, apiAddrs []string) deployer.Context {
+var newDeployContext = func(st *state.State, dataDir string, deployerName string) deployer.Context {
 	// TODO: pick context kind based on entity name? (once we have a
 	// container context for principal units, that is; for now, there
 	// is no distinction between principal and subordinate deployments)
-	return deployer.NewSimpleContext(dataDir, st.CACert(), deployerName, st.Addresses(), apiAddrs)
+	return deployer.NewSimpleContext(dataDir, st.CACert(), deployerName, st)
 }
 
-func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string, apiAddrs []string) *deployer.Deployer {
-	ctx := newDeployContext(st, dataDir, w.Tag(), apiAddrs)
+func newDeployer(st *state.State, w *state.UnitsWatcher, dataDir string) *deployer.Deployer {
+	ctx := newDeployContext(st, dataDir, w.Tag())
 	return deployer.NewDeployer(st, ctx, w)
 }
