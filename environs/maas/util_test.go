@@ -69,9 +69,9 @@ func (s *UtilSuite) TestUserData(c *C) {
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
 		DataDir:     jujuDataDir,
-		MongoPort:   mgoPort,
 		Config:      envConfig,
-		APIPort:     apiPort,
+		MongoPort:   envConfig.StatePort(),
+		APIPort:     envConfig.APIPort(),
 		StateServer: true,
 	}
 	script1 := "script1"

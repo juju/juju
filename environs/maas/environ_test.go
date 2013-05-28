@@ -5,6 +5,7 @@ package maas
 
 import (
 	"encoding/base64"
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/goyaml"
@@ -372,9 +373,12 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
-
 	c.Assert(err, IsNil)
-	c.Assert(stateInfo.Addrs, DeepEquals, []string{hostname + mgoPortSuffix})
+
+	config := env.Config()
+	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	c.Assert(stateInfo.Addrs, DeepEquals, []string{hostname + statePortSuffix})
 	c.Assert(apiInfo.Addrs, DeepEquals, []string{hostname + apiPortSuffix})
 }
 

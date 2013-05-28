@@ -56,6 +56,8 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	passwordHash := utils.PasswordHash(password)
 	mcfg.APIInfo = &api.Info{Password: passwordHash, CACert: caCert}
 	mcfg.StateInfo = &state.Info{Password: passwordHash, CACert: caCert}
+	mcfg.MongoPort = cfg.StatePort()
+	mcfg.APIPort = cfg.APIPort()
 	mcfg.Constraints = cons
 	if mcfg.Config, err = BootstrapConfig(cfg); err != nil {
 		return err

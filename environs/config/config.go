@@ -32,8 +32,8 @@ const (
 	// DefaultSeries returns the most recent Ubuntu LTS release name.
 	DefaultSeries string = "precise"
 
-	// DefaultMgoPort is the default port the state server is listening on.
-	DefaultMgoPort int = 37017
+	// DefaultStatePort is the default port the state server is listening on.
+	DefaultStatePort int = 37017
 
 	// DefaultApiPort is the default port the API server is listening on.
 	DefaultApiPort int = 17070
@@ -246,8 +246,8 @@ func (c *Config) DefaultSeries() string {
 	return c.asString("default-series")
 }
 
-// MgoPort returns the state server port for the environment.
-func (c *Config) MgoPort() int {
+// StatePort returns the state server port for the environment.
+func (c *Config) StatePort() int {
 	return c.asInt("state-port")
 }
 
@@ -378,7 +378,7 @@ var defaults = schema.Defaults{
 	"ca-private-key":            schema.Omit,
 	"ca-private-key-path":       "",
 	"ssl-hostname-verification": true,
-	"state-port":                DefaultMgoPort,
+	"state-port":                DefaultStatePort,
 	"api-port":                  DefaultApiPort,
 }
 

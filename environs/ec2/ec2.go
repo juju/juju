@@ -265,8 +265,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
 		series:        config.DefaultSeries(),
-		mgoPort:       config.MgoPort(),
-		apiPort:       config.APIPort(),
 		constraints:   cons,
 		possibleTools: possibleTools,
 		stateServer:   true,
@@ -298,8 +296,6 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	}
 	config := e.Config()
 	cert, hasCert := config.CACert()
-	mgoPortSuffix := fmt.Sprintf(":%d", config.MgoPort())
-	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
 	if !hasCert {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
@@ -319,7 +315,9 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+				stateAddrs = append(stateAddrs, name+statePortSuffix)
 				apiAddrs = append(apiAddrs, name+apiPortSuffix)
 			}
 		}
@@ -358,13 +356,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err != nil {
 		return nil, err
 	}
-	config := e.Config()
 	return e.startInstance(&startInstanceParams{
 		machineId:     machineId,
 		machineNonce:  machineNonce,
 		series:        series,
-		mgoPort:       config.MgoPort(),
-		apiPort:       config.APIPort(),
 		constraints:   cons,
 		info:          info,
 		apiInfo:       apiInfo,
@@ -379,8 +374,6 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 		StateServer:  scfg.stateServer,
 		StateInfo:    scfg.info,
 		APIInfo:      scfg.apiInfo,
-		MongoPort:    scfg.mgoPort,
-		APIPort:      scfg.apiPort,
 		DataDir:      "/var/lib/juju",
 		Tools:        tools,
 	}
@@ -404,8 +397,6 @@ type startInstanceParams struct {
 	machineId     string
 	machineNonce  string
 	series        string
-	mgoPort       int
-	apiPort       int
 	constraints   constraints.Value
 	info          *state.Info
 	apiInfo       *api.Info
@@ -449,7 +440,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	groups, err := e.setUpGroups(scfg.machineId, scfg.mgoPort, scfg.apiPort)
+	config := e.Config()
+	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -822,7 +814,7 @@ func (inst *instance) Ports(machineId string) ([]params.Port, error) {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string, mgoPort, apiPort int) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.SecurityGroup, error) {
 	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
@@ -834,8 +826,8 @@ func (e *environ) setUpGroups(machineId string, mgoPort, apiPort int) ([]ec2.Sec
 			},
 			{
 				Protocol:  "tcp",
-				FromPort:  mgoPort,
-				ToPort:    mgoPort,
+				FromPort:  statePort,
+				ToPort:    statePort,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{

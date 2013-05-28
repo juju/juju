@@ -83,8 +83,7 @@ func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fa
 	e0 := *expectInfo
 	expectInfo = &e0
 	orig := newDeployContext
-	newDeployContext = func(st *state.State, dataDir string,
-		deployerTag string) deployer.Context {
+	newDeployContext = func(st *state.State, dataDir string, deployerTag string) deployer.Context {
 		c.Check(st.Addresses(), DeepEquals, expectInfo.Addrs)
 		c.Check(st.CACert(), DeepEquals, expectInfo.CACert)
 		c.Check(deployerTag, Equals, expectInfo.Tag)
