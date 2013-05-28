@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"time"
 )
 
@@ -141,4 +142,39 @@ func (s *suite) TestStateWatchEnvironConfig(c *C) {
 
 	_, ok = chanReadConfig(c, envConfigWatcher.Changes(), "environ config watcher")
 	c.Assert(ok, Equals, false)
+}
+
+var testPingPeriod = 100 * time.Millisecond
+
+func (s *suite) TestConnectionBrokenDetection(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
+	c.Assert(err, IsNil)
+	setDefaultPassword(c, stm)
+
+	origPingPeriod := api.PingPeriod
+	api.PingPeriod = testPingPeriod
+	defer func() {
+		api.PingPeriod = origPingPeriod
+	}()
+
+	st := s.openAs(c, stm.Tag())
+	defer st.Close()
+
+	// Connection still alive
+	select {
+	case <-time.After(testPingPeriod):
+	case <-st.Broken():
+		c.Fatalf("connection should be alive still")
+	}
+
+	// Close the connection and see if we detect this
+	go st.Close()
+
+	// Check it's detected
+	select {
+	case <-time.After(testPingPeriod + time.Second):
+		c.Fatalf("connection not closed as expected")
+	case <-st.Broken():
+		return
+	}
 }
