@@ -12,8 +12,8 @@ import (
 
 // ServiceDeploy deploys a service to the environment from the given repository.
 // The connection, charm URL, and repository will be provided by the caller,
-// since these values already exist in the calling locations and can be 
-// defaulted in different scenarios (i.e.: only the charmstore will be used 
+// since these values already exist in the calling locations and can be
+// defaulted in different scenarios (i.e.: only the charmstore will be used
 // when called from the websocket API).
 func ServiceDeploy(st *state.State, args params.ServiceDeploy, conn *juju.Conn, curl *charm.URL, repo charm.Repository) error {
 	if args.ServiceName != "" && !state.IsServiceName(args.ServiceName) {
