@@ -38,8 +38,8 @@ func (s *DeploySuite) TestCharmDir(c *C) {
 	err := s.runDeploy(c, args)
 	c.Assert(err, IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
-	// Note that this tests the automatic creation of a service name (dummy) 
-	// from the charm URL.  This functionality will be going away soon as 
+	// Note that this tests the automatic creation of a service name (dummy)
+	// from the charm URL.  This functionality will be going away soon as
 	// ServiceName becomes a required argument.
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
