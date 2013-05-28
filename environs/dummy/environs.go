@@ -433,6 +433,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if _, ok := e.Config().CACert(); !ok {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
+	if err := environs.VerifyStorage(e.Storage()); err != nil {
+		return fmt.Errorf("Provider storage is not writeable.")
+	}
 
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {

@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"io"
+	"strings"
 )
 
 // EmptyStorage holds a StorageReader object that contains no files and
@@ -24,4 +25,12 @@ func (s emptyStorage) URL(name string) (string, error) {
 
 func (s emptyStorage) List(prefix string) ([]string, error) {
 	return nil, nil
+}
+
+func VerifyStorage(storage Storage) error {
+	verify_content := "storage writing verified: ok"
+	reader := strings.NewReader(verify_content)
+	err := storage.Put("bootstrap-verify", reader,
+		int64(len(verify_content)))
+	return err
 }

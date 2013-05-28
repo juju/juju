@@ -258,6 +258,12 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
+
+	err = environs.VerifyStorage(e.Storage())
+	if err != nil {
+		return fmt.Errorf("Provider storage is not writeable.")
+	}
+
 	if !environs.IsNotFoundError(err) {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
