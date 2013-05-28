@@ -3,10 +3,7 @@
 
 package api
 
-import (
-	"launchpad.net/juju-core/rpc"
-	"net"
-)
+import "launchpad.net/juju-core/rpc"
 
 // Error is the type of error returned by any call
 // to the state API.
@@ -46,14 +43,6 @@ func ErrCode(err error) string {
 		return err.ErrorCode()
 	}
 	return ""
-}
-
-// IsTimeout returns if the given error is an net.OPError timeout error.
-func IsTimeout(err error) bool {
-	if err, ok := err.(*net.OpError); ok {
-		return err.Timeout()
-	}
-	return false
 }
 
 // clientError maps errors returned from an RPC call into local errors with

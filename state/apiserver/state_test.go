@@ -48,18 +48,6 @@ func (s *suite) TestStateAllMachines(c *C) {
 	c.Assert(ids[1].Id(), Equals, "2")
 }
 
-func (s *suite) TestPing(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	setDefaultPassword(c, stm)
-
-	st := s.openAs(c, stm.Tag())
-	defer st.Close()
-
-	err = st.Ping()
-	c.Assert(err, IsNil)
-}
-
 func (s *suite) TestStateWatchMachines(c *C) {
 	stMachines := make([]*state.Machine, 3)
 	var err error
@@ -156,44 +144,32 @@ func (s *suite) TestStateWatchEnvironConfig(c *C) {
 	c.Assert(ok, Equals, false)
 }
 
-func (s *suite) TestSetDeadline(c *C) {
+func (s *suite) TestConnectionHealthDetection(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
 	st := s.openAs(c, stm.Tag())
-	defer func() {
+
+	// Connection still alive
+	select {
+	case <-time.After(50 * time.Millisecond):
+	case <-st.Closed():
+		c.Fatalf("connection should be alive still")
+	}
+
+	// Close the connection and see if we detect this
+	go func() {
 		st.Close()
 	}()
 
-	// First try a ping without a deadline
-	err = st.Ping()
-	c.Assert(err, IsNil)
-
-	// Set a very short deadline.
-	err = st.SetDeadline(time.Now())
-	c.Assert(err, IsNil)
-
-	// Try a ping, should fail immediately with a timeout.
-	err = st.Ping()
-	c.Assert(err, NotNil)
-	c.Assert(api.IsTimeout(err), Equals, true)
-
-	// Now the connection is shut down, so reestablish.
-	st.Close()
-	st = s.openAs(c, stm.Tag())
-
-	// Set a longer deadline.
-	err = st.SetDeadline(time.Now().Add(10 * time.Second))
-	c.Assert(err, IsNil)
-
-	err = st.Ping()
-	c.Assert(err, IsNil)
-
-	// Set no deadline (default).
-	err = st.SetDeadline(time.Time{})
-	c.Assert(err, IsNil)
-
-	err = st.Ping()
-	c.Assert(err, IsNil)
+	// Check it's detected
+	for {
+		select {
+		case <-time.After(api.PingFrequency + time.Second):
+			c.Fatalf("connection not closed as expected")
+		case <-st.Closed():
+			return
+		}
+	}
 }

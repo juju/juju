@@ -15,11 +15,6 @@ func (st *State) Login(tag, password string) error {
 	}, nil)
 }
 
-// Ping sends a server ping request, which returns no data, but can be used to ensure the connection is still alive.
-func (st *State) Ping() error {
-	return st.call("State", "", "Ping", nil, nil)
-}
-
 // Client returns an object that can be used
 // to access client-specific functionality.
 func (st *State) Client() *Client {

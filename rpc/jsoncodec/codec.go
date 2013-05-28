@@ -7,7 +7,6 @@ import (
 	"io"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
-	"net"
 	"sync"
 )
 
@@ -100,10 +99,6 @@ func (c *codec) ReadHeader(hdr *rpc.Header) error {
 		// so ignore it.
 		if c.isClosing() || err == io.EOF {
 			return io.EOF
-		}
-		// Handle network errors (like timeouts).
-		if err, ok := err.(*net.OpError); ok {
-			return err
 		}
 		return fmt.Errorf("error receiving message: %v", err)
 	}
