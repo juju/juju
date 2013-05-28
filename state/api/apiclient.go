@@ -98,11 +98,11 @@ func Open(info *Info) (*State, error) {
 		}
 	}
 	st.broken = make(chan struct{})
-	go st.healthMonitor()
+	go st.heartbeatMonitor()
 	return st, nil
 }
 
-func (s *State) healthMonitor() {
+func (s *State) heartbeatMonitor() {
 	ping := func() error {
 		return s.call("State", "", "Ping", nil, nil)
 	}
