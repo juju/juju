@@ -934,25 +934,25 @@ func destroyErr(desc string, ids, errs []string) error {
 // AssignUnit places the unit on a machine. Depending on the policy, and the
 // state of the environment, this may lead to new instances being launched
 // within the environment.
-func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
+func (st *State) AssignUnit(u *Unit, policy config.AssignmentPolicy) (err error) {
 	if !u.IsPrincipal() {
 		return fmt.Errorf("subordinate unit %q cannot be assigned directly to a machine", u)
 	}
 	defer utils.ErrorContextf(&err, "cannot assign unit %q to machine", u)
 	var m *Machine
 	switch policy {
-	case AssignLocal:
+	case config.AssignLocal:
 		m, err = st.Machine("0")
 		if err != nil {
 			return err
 		}
 		return u.AssignToMachine(m)
-	case AssignUnused:
+	case config.AssignUnused:
 		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
 			return err
 		}
 		return u.AssignToNewMachine()
-	case AssignNew:
+	case config.AssignNew:
 		return u.AssignToNewMachine()
 	}
 	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))

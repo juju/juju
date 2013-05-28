@@ -291,10 +291,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
-	// TODO store AssignmentPolicy in state, thus removing the need for this
-	// to use conn.Environ (so the method can be moved off Conn, and into
-	// State.
-	policy := conn.Environ.AssignmentPolicy()
+	policy := conn.Environ.Config().DefaultAssignmentPolicy()
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()

@@ -17,24 +17,6 @@ import (
 	"time"
 )
 
-// AssignmentPolicy controls what machine a unit will be assigned to.
-type AssignmentPolicy string
-
-const (
-	// AssignLocal indicates that all service units should be assigned
-	// to machine 0.
-	AssignLocal AssignmentPolicy = "local"
-
-	// AssignUnused indicates that every service unit should be assigned
-	// to a dedicated machine, and that new machines should be launched
-	// if required.
-	AssignUnused AssignmentPolicy = "unused"
-
-	// AssignNew indicates that every service unit should be assigned to a new
-	// dedicated machine.  A new machine will be launched for each new unit.
-	AssignNew AssignmentPolicy = "new"
-)
-
 // ResolvedMode describes the way state transition errors
 // are resolved.
 type ResolvedMode string

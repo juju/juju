@@ -212,9 +212,6 @@ type Environ interface {
 	// same remote environment may become invalid
 	Destroy(insts []Instance) error
 
-	// AssignmentPolicy returns the environment's unit assignment policy.
-	AssignmentPolicy() state.AssignmentPolicy
-
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.

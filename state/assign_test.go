@@ -6,6 +6,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"strconv"
@@ -556,7 +557,7 @@ func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	// Check nonsensical policy
-	fail := func() { s.State.AssignUnit(unit, state.AssignmentPolicy("random")) }
+	fail := func() { s.State.AssignUnit(unit, config.AssignmentPolicy("random")) }
 	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, NotNil)
@@ -570,7 +571,7 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
 	c.Assert(err, IsNil)
 
 	for i := 0; i < 2; i++ {
-		err = s.State.AssignUnit(unit, state.AssignLocal)
+		err = s.State.AssignUnit(unit, config.AssignLocal)
 		c.Assert(err, IsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
@@ -585,7 +586,7 @@ func (s *AssignSuite) TestAssignUnitNewPolicy(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 
-	err = s.State.AssignUnit(unit, state.AssignNew)
+	err = s.State.AssignUnit(unit, config.AssignNew)
 	c.Assert(err, IsNil)
 	assertMachineCount(c, s.State, 2)
 }
@@ -598,7 +599,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	for i := 0; i < 10; i++ {
 		unit, err := s.wordpress.AddUnit()
 		c.Assert(err, IsNil)
-		err = s.State.AssignUnit(unit, state.AssignUnused)
+		err = s.State.AssignUnit(unit, config.AssignUnused)
 		c.Assert(err, IsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
@@ -644,7 +645,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 	for _ = range unused {
 		unit, err := s.wordpress.AddUnit()
 		c.Assert(err, IsNil)
-		err = s.State.AssignUnit(unit, state.AssignUnused)
+		err = s.State.AssignUnit(unit, config.AssignUnused)
 		c.Assert(err, IsNil)
 		mid, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
@@ -674,7 +675,7 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicyConcurrently(c *C) {
 			// Start the AssignUnit at different times
 			// to increase the likeliness of a race.
 			time.Sleep(time.Duration(i) * time.Millisecond / 2)
-			err := s.State.AssignUnit(u, state.AssignUnused)
+			err := s.State.AssignUnit(u, config.AssignUnused)
 			done <- result{u, err}
 		}()
 	}
@@ -704,8 +705,8 @@ func (s *AssignSuite) TestAssignUnitWithSubordinate(c *C) {
 
 	// Check cannot assign subordinates to machines
 	subUnit := s.addSubordinate(c, unit)
-	for _, policy := range []state.AssignmentPolicy{
-		state.AssignLocal, state.AssignNew, state.AssignUnused,
+	for _, policy := range []config.AssignmentPolicy{
+		config.AssignLocal, config.AssignNew, config.AssignUnused,
 	} {
 		err = s.State.AssignUnit(subUnit, policy)
 		c.Assert(err, ErrorMatches, `subordinate unit "logging/0" cannot be assigned directly to a machine`)
