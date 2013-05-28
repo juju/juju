@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -279,13 +280,24 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 }
 
 // Addresses returns the list of addresses used to connect to the state.
-func (st *State) Addresses() (addrs []string) {
-	return append(addrs, st.info.Addrs...)
+func (st *State) Addresses() []string {
+	return st.db.Session.LiveServers()
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (st *State) APIAddresses() (addrs []string) {
-	return append(addrs, st.info.Addrs...)
+	config, err := st.EnvironConfig()
+	if err != nil {
+		panic(err)
+	}
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	mgoAddrs := st.Addresses()
+	apiAddrs := make([]string, 0, len(mgoAddrs))
+	for _, stateAddr := range mgoAddrs {
+		i := strings.LastIndex(stateAddr, ":")
+		apiAddrs = append(apiAddrs, stateAddr[:i]+apiPortSuffix)
+	}
+	return apiAddrs
 }
 
 // CACert returns the certificate used to validate the state connection.
