@@ -12,31 +12,34 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-// CreateMachineCommand starts a new machine and registers it in the environment.
-type CreateMachineCommand struct {
+// AddMachineCommand starts a new machine and registers it in the environment.
+type AddMachineCommand struct {
 	EnvCommandBase
+	// If specified, use this series, else use the environment default-series
+	Series string
 	// If specified, these constraints are merged with those already in the environment.
 	Constraints constraints.Value
 }
 
-func (c *CreateMachineCommand) Info() *cmd.Info {
+func (c *AddMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "create-machine",
-		Purpose: "create machines",
+		Name:    "add-machine",
+		Purpose: "start a new, empty machine",
 		Doc:     "Machines are created in a clean state and ready to have units deployed.",
 	}
 }
 
-func (c *CreateMachineCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	f.StringVar(&c.Series, "series", "", "the Ubuntu series")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 }
 
-func (c *CreateMachineCommand) Init(args []string) error {
+func (c *AddMachineCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *CreateMachineCommand) Run(_ *cmd.Context) error {
+func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
@@ -48,7 +51,11 @@ func (c *CreateMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 
-	m, err := conn.State.AddMachineWithConstraints(conf.DefaultSeries(), &c.Constraints, state.JobHostUnits)
+	series := c.Series
+	if series == "" {
+		series = conf.DefaultSeries()
+	}
+	m, err := conn.State.AddMachineWithConstraints(series, c.Constraints, state.JobHostUnits)
 	log.Infof("created machine %v", m)
 	return err
 }

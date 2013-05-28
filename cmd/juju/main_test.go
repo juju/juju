@@ -206,10 +206,10 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 }
 
 var commandNames = []string{
+	"add-machine",
 	"add-relation",
 	"add-unit",
 	"bootstrap",
-	"create-machine",
 	"debug-log",
 	"deploy",
 	"destroy-environment",

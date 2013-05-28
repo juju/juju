@@ -153,28 +153,19 @@ func (s *StateSuite) TestAddMachines(c *C) {
 }
 
 func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
-	origEnvConstraints, err := s.State.EnvironConstraints()
-	c.Assert(err, IsNil)
-	defer func() {
-		err := s.State.SetEnvironConstraints(origEnvConstraints)
-		c.Assert(err, IsNil)
-	}()
-	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
+	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
 	c.Assert(err, IsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
-	m0, err := s.State.AddMachineWithConstraints("series", &extraCons, oneJob...)
+	m, err := s.State.AddMachineWithConstraints("series", extraCons, oneJob...)
 	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	expectedCons := constraints.MustParse("cpu-cores=4 mem=4G")
-	check := func(m *state.Machine, id, series string, jobs []state.MachineJob) {
-		c.Assert(m.Id(), Equals, id)
-		c.Assert(m.Series(), Equals, series)
-		c.Assert(m.Jobs(), DeepEquals, jobs)
-		mcons, err := m.Constraints()
-		c.Assert(err, IsNil)
-		c.Assert(mcons, DeepEquals, expectedCons)
-	}
-	check(m0, "0", "series", oneJob)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, expectedCons)
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {

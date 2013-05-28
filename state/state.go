@@ -201,13 +201,13 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, nil, "", "", jobs)
+	return st.addMachine(series, constraints.Value{}, "", "", jobs)
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the
 // supplied series. The machine's constraints will be taken from the result of
 // merging extraCons with the enviroinment constraints.
-func (st *State) AddMachineWithConstraints(series string, extraCons *constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
+func (st *State) AddMachineWithConstraints(series string, extraCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
 	return st.addMachine(series, extraCons, "", "", jobs)
 }
 
@@ -218,7 +218,7 @@ func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...Mac
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, nil, instanceId, BootstrapNonce, jobs)
+	return st.addMachine(series, constraints.Value{}, instanceId, BootstrapNonce, jobs)
 }
 
 func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
@@ -258,7 +258,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, extraCons *constraints.Value, instanceId InstanceId,
+func (st *State) addMachine(series string, extraCons constraints.Value, instanceId InstanceId,
 	nonce string, jobs []MachineJob) (m *Machine, err error) {
 	defer utils.ErrorContextf(&err, "cannot add a new machine")
 
@@ -266,9 +266,7 @@ func (st *State) addMachine(series string, extraCons *constraints.Value, instanc
 	if err != nil {
 		return nil, err
 	}
-	if extraCons != nil {
-		cons = extraCons.WithFallbacks(cons)
-	}
+	cons = extraCons.WithFallbacks(cons)
 	mdoc := &machineDoc{
 		Series:     series,
 		InstanceId: instanceId,
