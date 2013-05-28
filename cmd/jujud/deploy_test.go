@@ -76,8 +76,7 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 	panic("unreachable")
 }
 
-func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string,
-	expectedApiAddrs []string) (*fakeContext, func()) {
+func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
 	ctx := &fakeContext{
 		inited: make(chan struct{}),
 	}
@@ -85,12 +84,11 @@ func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string,
 	expectInfo = &e0
 	orig := newDeployContext
 	newDeployContext = func(st *state.State, dataDir string,
-		deployerTag string, apiAddrs []string) deployer.Context {
+		deployerTag string) deployer.Context {
 		c.Check(st.Addresses(), DeepEquals, expectInfo.Addrs)
 		c.Check(st.CACert(), DeepEquals, expectInfo.CACert)
 		c.Check(deployerTag, Equals, expectInfo.Tag)
 		c.Check(dataDir, Equals, expectDataDir)
-		c.Check(apiAddrs, DeepEquals, expectedApiAddrs)
 		ctx.st = st
 		close(ctx.inited)
 		return ctx
