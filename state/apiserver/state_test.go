@@ -146,7 +146,7 @@ func (s *suite) TestStateWatchEnvironConfig(c *C) {
 
 var testPingPeriod = 100 * time.Millisecond
 
-func (s *suite) TestConnectionHealthDetection(c *C) {
+func (s *suite) TestConnectionBrokenDetection(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
