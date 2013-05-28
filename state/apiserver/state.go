@@ -13,6 +13,11 @@ type srvState struct {
 	root *srvRoot
 }
 
+// Ping just returns no error and is used by the clients to ensure server connection is still alive.
+func (r *srvState) Ping() error {
+	return nil
+}
+
 // AllMachines returns all machines in the environment ordered by id.
 func (s *srvState) AllMachines() (params.AllMachinesResults, error) {
 	if !s.root.authEnvironManager() {

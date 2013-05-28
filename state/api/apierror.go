@@ -3,9 +3,7 @@
 
 package api
 
-import (
-	"launchpad.net/juju-core/rpc"
-)
+import "launchpad.net/juju-core/rpc"
 
 // Error is the type of error returned by any call
 // to the state API.
