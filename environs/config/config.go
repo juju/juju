@@ -31,6 +31,12 @@ const (
 
 	// DefaultSeries returns the most recent Ubuntu LTS release name.
 	DefaultSeries string = "precise"
+
+	// DefaultMgoPort is the default port the state server is listening on.
+	DefaultMgoPort int = 37017
+
+	// DefaultApiPort is the default port the API server is listening on.
+	DefaultApiPort int = 17070
 )
 
 // Config holds an immutable environment configuration.
@@ -215,9 +221,14 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 	return data, nil
 }
 
-// asString is a private helper method to keep the ugly casting in once place.
+// asString is a private helper method to keep the ugly string casting in once place.
 func (c *Config) asString(name string) string {
 	return c.m[name].(string)
+}
+
+// asInt is a private helper method to keep the ugly int casting in once place.
+func (c *Config) asInt(name string) int {
+	return int(c.m[name].(int64))
 }
 
 // Type returns the environment type.
@@ -233,6 +244,16 @@ func (c *Config) Name() string {
 // DefaultSeries returns the default Ubuntu series for the environment.
 func (c *Config) DefaultSeries() string {
 	return c.asString("default-series")
+}
+
+// MgoPort returns the state server port for the environment.
+func (c *Config) MgoPort() int {
+	return c.asInt("state-port")
+}
+
+// APIPort returns the API server port for the environment.
+func (c *Config) APIPort() int {
+	return c.asInt("api-port")
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -340,6 +361,8 @@ var fields = schema.Fields{
 	"ca-private-key":            schema.String(),
 	"ca-private-key-path":       schema.String(),
 	"ssl-hostname-verification": schema.Bool(),
+	"state-port":                schema.Int(),
+	"api-port":                  schema.Int(),
 }
 
 var defaults = schema.Defaults{
@@ -355,6 +378,8 @@ var defaults = schema.Defaults{
 	"ca-private-key":            schema.Omit,
 	"ca-private-key-path":       "",
 	"ssl-hostname-verification": true,
+	"state-port":                DefaultMgoPort,
+	"api-port":                  DefaultApiPort,
 }
 
 var checker = schema.FieldMap(fields, defaults)
