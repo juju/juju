@@ -144,32 +144,37 @@ func (s *suite) TestStateWatchEnvironConfig(c *C) {
 	c.Assert(ok, Equals, false)
 }
 
+var testPingPeriod = 100 * time.Millisecond
+
 func (s *suite) TestConnectionHealthDetection(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)
 
+	origPingPeriod := api.PingPeriod
+	api.PingPeriod = testPingPeriod
+	defer func() {
+		api.PingPeriod = origPingPeriod
+	}()
+
 	st := s.openAs(c, stm.Tag())
+	defer st.Close()
 
 	// Connection still alive
 	select {
-	case <-time.After(50 * time.Millisecond):
-	case <-st.Closed():
+	case <-time.After(testPingPeriod):
+	case <-st.Broken():
 		c.Fatalf("connection should be alive still")
 	}
 
 	// Close the connection and see if we detect this
-	go func() {
-		st.Close()
-	}()
+	go st.Close()
 
 	// Check it's detected
-	for {
-		select {
-		case <-time.After(api.PingFrequency + time.Second):
-			c.Fatalf("connection not closed as expected")
-		case <-st.Closed():
-			return
-		}
+	select {
+	case <-time.After(testPingPeriod + time.Second):
+		c.Fatalf("connection not closed as expected")
+	case <-st.Broken():
+		return
 	}
 }

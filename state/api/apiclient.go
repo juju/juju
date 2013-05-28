@@ -15,17 +15,17 @@ import (
 	"time"
 )
 
-// PingFrequency defines how often the internal connection health
-// check will run.
-const PingFrequency = 5 * time.Second
+// PingPeriod defines how often the internal connection health check
+// will run. It's a variable so it can be changed in tests.
+var PingPeriod = 5 * time.Second
 
 type State struct {
 	client *rpc.Conn
 	conn   *websocket.Conn
 
-	// closed is a channel that gets closed when the connection is
+	// broken is a channel that gets closed when the connection is
 	// broken.
-	closed chan struct{}
+	broken chan struct{}
 }
 
 // Info encapsulates information about a server holding juju state and
@@ -97,7 +97,7 @@ func Open(info *Info) (*State, error) {
 			return nil, err
 		}
 	}
-	st.closed = make(chan struct{})
+	st.broken = make(chan struct{})
 	go st.healthMonitor()
 	return st, nil
 }
@@ -108,10 +108,10 @@ func (s *State) healthMonitor() {
 	}
 	for {
 		if err := ping(); err != nil {
-			close(s.closed)
+			close(s.broken)
 			return
 		}
-		time.Sleep(PingFrequency)
+		time.Sleep(PingPeriod)
 	}
 }
 
@@ -124,9 +124,9 @@ func (s *State) Close() error {
 	return s.client.Close()
 }
 
-// SetDeadlines set the connection's network read and write deadlines.
-func (s *State) Closed() <-chan struct{} {
-	return s.closed
+// Broken returns a channel that's closed when the connection is broken.
+func (s *State) Broken() <-chan struct{} {
+	return s.broken
 }
 
 // RPCClient returns the RPC client for the state, so that testing
