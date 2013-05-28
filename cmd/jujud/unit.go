@@ -70,7 +70,6 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
 	unit := e.(*state.Unit)
 	dataDir := a.Conf.DataDir
-	apiAddrs := conf.Conf.APIInfo.Addrs
 	tasks := []task{
 		uniter.NewUniter(st, unit.Name(), dataDir),
 		NewUpgrader(st, unit, dataDir),

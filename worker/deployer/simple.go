@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
