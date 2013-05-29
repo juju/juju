@@ -260,11 +260,10 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	config := e.Config()
 	inst, err := e.startInstance(&startInstanceParams{
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
-		series:        config.DefaultSeries(),
+		series:        e.Config().DefaultSeries(),
 		constraints:   cons,
 		possibleTools: possibleTools,
 		stateServer:   true,

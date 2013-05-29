@@ -323,7 +323,7 @@ var configTests = []configTest{
 			"name":       "my-name",
 			"state-port": "illegal",
 		},
-		err: `state-port: expected int or float, got "illegal"`,
+		err: `state-port: expected number, got "illegal"`,
 	}, {
 		about: "Explicit API port",
 		attrs: attrs{
@@ -338,7 +338,7 @@ var configTests = []configTest{
 			"name":     "my-name",
 			"api-port": "illegal",
 		},
-		err: `api-port: expected int or float, got "illegal"`,
+		err: `api-port: expected number, got "illegal"`,
 	},
 }
 

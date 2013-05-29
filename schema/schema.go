@@ -144,7 +144,7 @@ type forceIntC struct{}
 
 func (c forceIntC) Coerce(v interface{}, path []string) (interface{}, error) {
 	if v == nil {
-		return nil, error_{"int or float", v, path}
+		return nil, error_{"number", v, path}
 	}
 	switch reflect.TypeOf(v).Kind() {
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
@@ -152,7 +152,7 @@ func (c forceIntC) Coerce(v interface{}, path []string) (interface{}, error) {
 	case reflect.Float32, reflect.Float64:
 		return int(reflect.ValueOf(v).Float()), nil
 	}
-	return nil, error_{"int or float", v, path}
+	return nil, error_{"number", v, path}
 }
 
 // Float returns a Checker that accepts any float value, and returns

@@ -130,11 +130,11 @@ func (s *S) TestForceInt(c *C) {
 
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, IsNil)
-	c.Assert(err, ErrorMatches, "<path>: expected int or float, got true")
+	c.Assert(err, ErrorMatches, "<path>: expected number, got true")
 
 	out, err = sch.Coerce(nil, aPath)
 	c.Assert(out, IsNil)
-	c.Assert(err, ErrorMatches, "<path>: expected int or float, got nothing")
+	c.Assert(err, ErrorMatches, "<path>: expected number, got nothing")
 }
 
 func (s *S) TestFloat(c *C) {
