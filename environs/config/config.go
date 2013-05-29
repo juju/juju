@@ -169,6 +169,13 @@ func Validate(cfg, old *Config) error {
 				return fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
 			}
 		}
+		for _, attr := range []string{"state-port", "api-port"} {
+			oldValue := old.asInt(attr)
+			newValue := cfg.asInt(attr)
+			if oldValue != newValue {
+				return fmt.Errorf("cannot change %s from %d to %d", attr, oldValue, newValue)
+			}
+		}
 		if _, oldFound := old.AgentVersion(); oldFound {
 			if _, newFound := cfg.AgentVersion(); !newFound {
 				return fmt.Errorf("cannot clear agent-version")

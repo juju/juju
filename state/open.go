@@ -285,7 +285,7 @@ func (st *State) Addresses() []string {
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (st *State) APIAddresses() (addrs []string) {
+func (st *State) APIAddresses() []string {
 	config, err := st.EnvironConfig()
 	if err != nil {
 		panic(err)

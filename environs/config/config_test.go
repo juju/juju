@@ -659,6 +659,32 @@ var validationTests = []validationTest{
 			"firewall-mode": config.FwGlobal,
 		},
 		err: `cannot change firewall-mode from "global" to "instance"`,
+	}, {
+		about: "Cannot change the state-port",
+		new: attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"state-port": 42,
+		},
+		old: attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"state-port": config.DefaultStatePort,
+		},
+		err: `cannot change state-port from 37017 to 42`,
+	}, {
+		about: "Cannot change the api-port",
+		new: attrs{
+			"type":     "my-type",
+			"name":     "my-name",
+			"api-port": 42,
+		},
+		old: attrs{
+			"type":     "my-type",
+			"name":     "my-name",
+			"api-port": config.DefaultApiPort,
+		},
+		err: `cannot change api-port from 17070 to 42`,
 	},
 }
 
