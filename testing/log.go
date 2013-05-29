@@ -34,12 +34,14 @@ func (t *LoggingSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	err = loggo.RegisterWriter("test", &gocheckWriter{c}, loggo.TRACE)
 	c.Assert(err, IsNil)
+	loggo.ResetLogging()
 
 	t.restoreLog = func() {
 		_, _, err := loggo.RemoveWriter("test")
 		c.Assert(err, IsNil)
 		err = loggo.RegisterWriter("default", oldWriter, oldLevel)
 		c.Assert(err, IsNil)
+		loggo.ResetLogging()
 	}
 }
 
