@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -131,11 +130,12 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
+	// TODO (thumper): work out how to pass the logging config to the children
 	debugFlag := ""
 	// TODO: disable debug mode by default when the system is stable.
-	if true || log.Debug {
-		debugFlag = " --debug"
-	}
+	//if true || log.Debug {
+	//	debugFlag = " --debug"
+	//}
 
 	if err := cfg.addLogging(c); err != nil {
 		return nil, err
