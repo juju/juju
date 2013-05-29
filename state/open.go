@@ -291,9 +291,9 @@ func (st *State) APIAddresses() (addrs []string) {
 		panic(err)
 	}
 	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-	mgoAddrs := st.Addresses()
-	apiAddrs := make([]string, 0, len(mgoAddrs))
-	for _, stateAddr := range mgoAddrs {
+	stateAddrs := st.Addresses()
+	apiAddrs := make([]string, 0, len(stateAddrs))
+	for _, stateAddr := range stateAddrs {
 		i := strings.LastIndex(stateAddr, ":")
 		apiAddrs = append(apiAddrs, stateAddr[:i]+apiPortSuffix)
 	}

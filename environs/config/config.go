@@ -361,8 +361,8 @@ var fields = schema.Fields{
 	"ca-private-key":            schema.String(),
 	"ca-private-key-path":       schema.String(),
 	"ssl-hostname-verification": schema.Bool(),
-	"state-port":                schema.Int(),
-	"api-port":                  schema.Int(),
+	"state-port":                schema.ForceInt(),
+	"api-port":                  schema.ForceInt(),
 }
 
 var defaults = schema.Defaults{

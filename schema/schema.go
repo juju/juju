@@ -132,7 +132,30 @@ func (c intC) Coerce(v interface{}, path []string) (interface{}, error) {
 	return reflect.ValueOf(v).Int(), nil
 }
 
-// Int returns a Checker that accepts any float value, and returns
+// ForceInt returns a Checker that accepts any integer or float value, and
+// returns the same value consistently typed as an int. This is required
+// in order to handle the interface{}/float64 type conversion performed by
+// the JSON serializer used as part of the API infrastructure.
+func ForceInt() Checker {
+	return forceIntC{}
+}
+
+type forceIntC struct{}
+
+func (c forceIntC) Coerce(v interface{}, path []string) (interface{}, error) {
+	if v == nil {
+		return nil, error_{"int or float", v, path}
+	}
+	switch reflect.TypeOf(v).Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return int(reflect.ValueOf(v).Int()), nil
+	case reflect.Float32, reflect.Float64:
+		return int(reflect.ValueOf(v).Float()), nil
+	}
+	return nil, error_{"int or float", v, path}
+}
+
+// Float returns a Checker that accepts any float value, and returns
 // the same value consistently typed as a float64.
 func Float() Checker {
 	return floatC{}
