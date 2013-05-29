@@ -228,7 +228,7 @@ func (c *Config) asString(name string) string {
 
 // asInt is a private helper method to keep the ugly int casting in once place.
 func (c *Config) asInt(name string) int {
-	return int(c.m[name].(int64))
+	return c.m[name].(int)
 }
 
 // Type returns the environment type.
