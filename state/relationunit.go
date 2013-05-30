@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"strings"
 )
@@ -289,7 +290,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			}
 			return err
 		}
-		if err := ru.relation.Refresh(); IsNotFound(err) {
+		if err := ru.relation.Refresh(); jujuerrors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err

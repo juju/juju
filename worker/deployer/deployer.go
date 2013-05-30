@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -83,7 +84,7 @@ func (d *Deployer) changed(unitName string) error {
 	var life state.Life
 	responsible := false
 	unit, err := d.st.Unit(unitName)
-	if state.IsNotFound(err) {
+	if errors.IsNotFoundError(err) {
 		life = state.Dead
 	} else if err != nil {
 		return err

@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"errors"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )
@@ -36,9 +37,9 @@ func serverError(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
-	case state.IsUnauthorizedError(err):
+	case jujuerrors.IsUnauthorizedError(err):
 		code = api.CodeUnauthorized
-	case state.IsNotFound(err):
+	case jujuerrors.IsNotFoundError(err):
 		code = api.CodeNotFound
 	case state.IsNotAssigned(err):
 		code = api.CodeNotAssigned

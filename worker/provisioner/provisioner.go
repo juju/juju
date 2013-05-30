@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -219,7 +220,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 	// TODO(niemeyer): ms, err := st.Machines(alive)
 	for _, id := range ids {
 		m, err := p.st.Machine(id)
-		if state.IsNotFound(err) {
+		if jujuerrors.IsNotFoundError(err) {
 			log.Infof("worker/provisioner: machine %q not found in state", m)
 			continue
 		}

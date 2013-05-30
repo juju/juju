@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/environs"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -289,7 +290,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	for _, name := range u.unit.SubordinateNames() {
-		if sub, err := u.st.Unit(name); state.IsNotFound(err) {
+		if sub, err := u.st.Unit(name); jujuerrors.IsNotFoundError(err) {
 			continue
 		} else if err != nil {
 			return nil, err

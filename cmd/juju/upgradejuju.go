@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
@@ -165,7 +166,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 	client := version.Current.Number
 	available, err := environs.FindAvailableTools(env, client.Major)
 	if err != nil {
-		if !environs.IsNotFoundError(err) {
+		if !jujuerrors.IsNotFoundError(err) {
 			return nil, err
 		}
 		if !c.UploadTools {

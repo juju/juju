@@ -12,7 +12,7 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"net/http"
 	"os"
 	"reflect"
@@ -216,14 +216,14 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 	for _, baseURL := range baseURLs {
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
-			if environs.IsNotFoundError(err) {
+			if errors.IsNotFoundError(err) {
 				continue
 			}
 			return nil, err
 		}
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
-			if environs.IsNotFoundError(err) {
+			if errors.IsNotFoundError(err) {
 				continue
 			}
 			return nil, err
@@ -245,11 +245,11 @@ func fetchData(baseURL, path string, requireSigned bool) (data []byte, dataURL s
 	dataURL += path
 	resp, err := http.Get(dataURL)
 	if err != nil {
-		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("invalid URL %q", dataURL)}
+		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode == http.StatusNotFound {
-		return nil, dataURL, &environs.NotFoundError{fmt.Errorf("cannot find URL %q", dataURL)}
+		return nil, dataURL, errors.NotFoundf("cannot find URL %q", dataURL)
 	}
 	if resp.StatusCode != http.StatusOK {
 		return nil, dataURL, fmt.Errorf("cannot access URL %q, %q", dataURL, resp.Status)
@@ -269,7 +269,7 @@ func fetchData(baseURL, path string, requireSigned bool) (data []byte, dataURL s
 func getIndexWithFormat(baseURL, indexPath, format string, requireSigned bool) (*indexReference, error) {
 	data, url, err := fetchData(baseURL, indexPath, requireSigned)
 	if err != nil {
-		if environs.IsNotFoundError(err) {
+		if errors.IsNotFoundError(err) {
 			return nil, err
 		}
 		return nil, fmt.Errorf("cannot read index data, %v", err)
@@ -319,10 +319,9 @@ func (indexRef *indexReference) getImageIdsPath(ic *ImageConstraint) (string, er
 		}
 	}
 	if !containsImageIds {
-		return "", &environs.NotFoundError{fmt.Errorf("index file missing %q data", imageIds)}
+		return "", errors.NotFoundf("index file missing %q data", imageIds)
 	}
-	return "", &environs.NotFoundError{
-		fmt.Errorf("index file missing data for cloud %v and product name(s) %q", ic.CloudSpec, prodIds)}
+	return "", errors.NotFoundf("index file missing data for cloud %v and product name(s) %q", ic.CloudSpec, prodIds)
 }
 
 // utility function to see if element exists in values slice.

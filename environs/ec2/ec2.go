@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -258,7 +259,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if !environs.IsNotFoundError(err) {
+	if !errors.IsNotFoundError(err) {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 

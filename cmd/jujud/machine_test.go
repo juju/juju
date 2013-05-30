@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
@@ -182,7 +183,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	ctx.waitDeployed(c, u1.Name())
 
 	err = u0.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *MachineSuite) TestManageEnviron(c *C) {

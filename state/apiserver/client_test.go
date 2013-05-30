@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -326,7 +327,7 @@ func (s *suite) TestClientServiceDeploy(c *C) {
 		c.Assert(err, IsNil)
 		withRepo(localRepo, func() {
 			_, err = s.State.Service(test.serviceName)
-			c.Assert(state.IsNotFound(err), Equals, true)
+			c.Assert(errors.IsNotFoundError(err), Equals, true)
 			err = s.APIState.Client().ServiceDeploy(
 				test.charmUrl, test.serviceName, test.numUnits, "", test.constraints,
 			)

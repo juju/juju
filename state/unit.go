@@ -9,6 +9,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -156,7 +157,7 @@ func (u *Unit) Life() Life {
 // It an error that satisfies IsNotFound if the tools have not yet been set.
 func (u *Unit) AgentTools() (*Tools, error) {
 	if u.doc.Tools == nil {
-		return nil, NotFoundf("agent tools for unit %q", u)
+		return nil, jujuerrors.NotFoundf("agent tools for unit %q", u)
 	}
 	tools := *u.doc.Tools
 	return &tools, nil
@@ -238,7 +239,7 @@ func (u *Unit) Destroy() (err error) {
 				return err
 			}
 		}
-		if err := unit.Refresh(); IsNotFound(err) {
+		if err := unit.Refresh(); jujuerrors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -280,7 +281,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 
 	// If the unit's machine has an instance id, leave it for the agents.
 	m, err := u.st.Machine(u.doc.MachineId)
-	if IsNotFound(err) {
+	if jujuerrors.IsNotFoundError(err) {
 		return nil, errRefresh
 	} else if err != nil {
 		return nil, err
@@ -371,12 +372,12 @@ func (u *Unit) Remove() (err error) {
 		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
 		}
-		if err := svc.Refresh(); IsNotFound(err) {
+		if err := svc.Refresh(); jujuerrors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err
 		}
-		if err := unit.Refresh(); IsNotFound(err) {
+		if err := unit.Refresh(); jujuerrors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -429,7 +430,7 @@ func (u *Unit) PrivateAddress() (string, bool) {
 func (u *Unit) Refresh() error {
 	err := u.st.units.FindId(u.doc.Name).One(&u.doc)
 	if err == mgo.ErrNotFound {
-		return NotFoundf("unit %q", u)
+		return jujuerrors.NotFoundf("unit %q", u)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh unit %q: %v", u, err)
@@ -671,7 +672,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 	pudoc := unitDoc{}
 	err = u.st.units.Find(D{{"_id", u.doc.Principal}}).One(&pudoc)
 	if err == mgo.ErrNotFound {
-		return "", NotFoundf("principal unit %q of %q", u.doc.Principal, u)
+		return "", jujuerrors.NotFoundf("principal unit %q of %q", u.doc.Principal, u)
 	} else if err != nil {
 		return "", err
 	}
@@ -789,9 +790,9 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	// Get the ops necessary to create a new machine, and the machine doc that
 	// will be added with those operations (which includes the machine id).
 	cons, err := readConstraints(u.st, u.globalKey())
-	if IsNotFound(err) {
+	if jujuerrors.IsNotFoundError(err) {
 		// Lack of constraints indicates lack of unit.
-		return NotFoundf("unit")
+		return jujuerrors.NotFoundf("unit")
 	} else if err != nil {
 		return err
 	}
@@ -898,7 +899,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 	}
 	err = u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, NotFoundf("machine")))
+		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, jujuerrors.NotFoundf("machine")))
 	}
 	u.doc.MachineId = ""
 	return nil
@@ -913,7 +914,7 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
 	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, NotFoundf("machine")))
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, jujuerrors.NotFoundf("machine")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -929,7 +930,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, NotFoundf("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, jujuerrors.NotFoundf("unit"))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -1000,7 +1001,7 @@ func (u *Unit) ClearResolved() error {
 	}}
 	err := u.st.runner.Run(ops, "", nil)
 	if err != nil {
-		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, NotFoundf("unit"))
+		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, jujuerrors.NotFoundf("unit"))
 	}
 	u.doc.Resolved = ResolvedNone
 	return nil

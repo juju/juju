@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -134,7 +135,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
 		return st, nil
-	} else if !IsNotFound(err) {
+	} else if !jujuerrors.IsNotFoundError(err) {
 		return nil, err
 	}
 	log.Infof("state: initializing environment")
@@ -182,31 +183,6 @@ var (
 	logSizeTests = 1000000
 )
 
-// unauthorizedError represents the error that an operation is unauthorized.
-// Use IsUnauthorized() to determine if the error was related to authorization failure.
-type unauthorizedError struct {
-	msg string
-	error
-}
-
-func IsUnauthorizedError(err error) bool {
-	_, ok := err.(*unauthorizedError)
-	return ok
-}
-
-func (e *unauthorizedError) Error() string {
-	if e.error != nil {
-		return fmt.Sprintf("%s: %v", e.msg, e.error.Error())
-	}
-	return e.msg
-}
-
-// Unauthorizedf returns an error for which IsUnauthorizedError returns true.
-// It is mainly used for testing.
-func Unauthorizedf(format string, args ...interface{}) error {
-	return &unauthorizedError{fmt.Sprintf(format, args...), nil}
-}
-
 func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
 		return nil
@@ -214,10 +190,10 @@ func maybeUnauthorized(err error, msg string) error {
 	// Unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
-		return &unauthorizedError{msg, err}
+		return &jujuerrors.UnauthorizedError{err, msg}
 	}
 	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return &unauthorizedError{msg, err}
+		return &jujuerrors.UnauthorizedError{err, msg}
 	}
 	return fmt.Errorf("%s: %v", msg, err)
 }

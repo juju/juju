@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -387,7 +388,7 @@ func (u *Uniter) restoreRelations() error {
 	for id, dir := range dirs {
 		remove := false
 		rel, err := u.st.Relation(id)
-		if state.IsNotFound(err) {
+		if jujuerrors.IsNotFoundError(err) {
 			remove = true
 		} else if err != nil {
 			return err
@@ -433,7 +434,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		// were not previously known anyway.
 		rel, err := u.st.Relation(id)
 		if err != nil {
-			if state.IsNotFound(err) {
+			if jujuerrors.IsNotFoundError(err) {
 				continue
 			}
 			return nil, err

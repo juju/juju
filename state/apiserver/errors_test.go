@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	"errors"
 	. "launchpad.net/gocheck"
+	jujuerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
@@ -15,10 +16,10 @@ var errorTransformTests = []struct {
 	err  error
 	code string
 }{{
-	err:  state.NotFoundf("hello"),
+	err:  jujuerrors.NotFoundf("hello"),
 	code: api.CodeNotFound,
 }, {
-	err:  state.Unauthorizedf("hello"),
+	err:  jujuerrors.Unauthorizedf("hello"),
 	code: api.CodeUnauthorized,
 }, {
 	err:  state.ErrCannotEnterScopeYet,

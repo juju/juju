@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -213,7 +214,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		if err == nil {
 			return st, "", nil
 		}
-		if !state.IsUnauthorizedError(err) {
+		if !errors.IsUnauthorizedError(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password
