@@ -14,16 +14,19 @@ import (
 // Log supplies the necessary functionality for Commands that wish to set up
 // logging.
 type Log struct {
-	Path string
-	// Verbose bool
-	Config string
+	Path    string
+	Verbose bool
+	Debug   bool
+	Config  string
 }
 
 // AddFlags adds appropriate flags to f.
 func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&l.Path, "log-file", "", "path to write log to")
-	//f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
-	//f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
+	// TODO: rename verbose to --show-log
+	f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
+	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
+	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
 	f.StringVar(&l.Config, "log-config", "", "specify log levels for modules")
 }
 
@@ -36,13 +39,22 @@ func (l *Log) Start(ctx *Context) (err error) {
 		if err != nil {
 			return err
 		}
-	} else {
+	} else if l.Verbose || l.Debug {
 		target = ctx.Stderr
 	}
-	writer := loggo.NewSimpleWriter(target, &loggo.DefaultFormatter{})
-	_, err = loggo.ReplaceDefaultWriter(writer)
-	if err != nil {
-		return err
+
+	if target != nil {
+		writer := loggo.NewSimpleWriter(target, &loggo.DefaultFormatter{})
+		_, err = loggo.ReplaceDefaultWriter(writer)
+		if err != nil {
+			return err
+		}
+	} else {
+		loggo.RemoveWriter("default")
+	}
+	if l.Debug {
+		logger := loggo.GetLogger("juju")
+		logger.SetLogLevel(loggo.DEBUG)
 	}
 	loggo.ConfigureLogging(l.Config)
 	return nil

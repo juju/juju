@@ -25,16 +25,21 @@ func (s *LogSuite) TestAddFlags(c *C) {
 	err := f.Parse(false, []string{})
 	c.Assert(err, IsNil)
 	c.Assert(l.Path, Equals, "")
+	c.Assert(l.Verbose, Equals, false)
+	c.Assert(l.Debug, Equals, false)
 	c.Assert(l.Config, Equals, "")
 
-	err = f.Parse(false, []string{"--log-file", "foo", "--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
+	err = f.Parse(false, []string{"--log-file", "foo", "--verbose", "--debug",
+		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
 	c.Assert(err, IsNil)
 	c.Assert(l.Path, Equals, "foo")
+	c.Assert(l.Verbose, Equals, true)
+	c.Assert(l.Debug, Equals, true)
 	c.Assert(l.Config, Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
 }
 
 func (s *LogSuite) TestStderr(c *C) {
-	l := &cmd.Log{Config: "<root>=INFO"}
+	l := &cmd.Log{Verbose: true, Config: "<root>=INFO"}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
