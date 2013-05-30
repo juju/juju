@@ -6,6 +6,7 @@ package environs_test
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 )
@@ -39,7 +40,7 @@ type MockStorage struct {
 
 func (ms *MockStorage) Put(filename string, reader io.Reader, length int64) error {
 	var content []byte
-	_, _ = reader.Read(content)
+	content, _ = ioutil.ReadAll(reader)
 	log_message := fmt.Sprintf(
 		"Put('%s', '%s', %d)", filename, content, length)
 	ms.StorageRequests = append(ms.StorageRequests, log_message)
@@ -47,8 +48,9 @@ func (ms *MockStorage) Put(filename string, reader io.Reader, length int64) erro
 }
 
 func (ms *MockStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, nil
-	//return nil, &NotFoundError{fmt.Errorf("file %q not found", name)}
+	log_message := fmt.Sprintf("Get('%s')", name)
+	ms.StorageRequests = append(ms.StorageRequests, log_message)
+	return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", name)}
 }
 
 func (ms *MockStorage) List(prefix string) ([]string, error) {
@@ -73,5 +75,5 @@ func (s *VerifyStorageSuite) TestVerifyStorage(c *C) {
 	error := environs.VerifyStorage(&storage)
 	c.Assert(error, IsNil)
 	c.Assert(storage.StorageRequests[0], Equals,
-		"Put('bootstrap-verify', '%s', 28)")
+		"Put('bootstrap-verify', 'juju-core storage writing verified: ok', 38)")
 }
