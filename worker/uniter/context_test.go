@@ -191,23 +191,7 @@ var runHookTests = []struct {
 	},
 }
 
-type logRecorder struct {
-	c      *C
-	prefix string
-	lines  []string
-}
-
-func (l *logRecorder) Output(calldepth int, s string) error {
-	if strings.HasPrefix(s, l.prefix) {
-		l.lines = append(l.lines, s[len(l.prefix):])
-	}
-	l.c.Logf("%s", s)
-	return nil
-}
-
 func (s *RunHookSuite) TestRunHook(c *C) {
-	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
-	defer log.SetTarget(log.SetTarget(logger))
 	uuid, err := utils.NewUUID()
 	c.Assert(err, IsNil)
 	for i, t := range runHookTests {
@@ -238,17 +222,9 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			}
 			AssertEnv(c, outPath, charmDir, env, uuid.String())
 		}
-		var expectLog []string
-		if t.spec.stdout != "" {
-			expectLog = append(expectLog, splitLine(t.spec.stdout)...)
-		}
-		if t.spec.stderr != "" {
-			expectLog = append(expectLog, splitLine(t.spec.stderr)...)
-		}
 		if t.spec.background != "" && time.Now().Sub(t0) > 5*time.Second {
 			c.Errorf("background process holding up hook execution")
 		}
-		c.Assert(logger.lines, DeepEquals, expectLog)
 	}
 }
 
