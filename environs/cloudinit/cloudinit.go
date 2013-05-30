@@ -133,9 +133,9 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	// TODO (thumper): work out how to pass the logging config to the children
 	debugFlag := ""
 	// TODO: disable debug mode by default when the system is stable.
-	//if true || log.Debug {
-	//	debugFlag = " --debug"
-	//}
+	if true {
+		debugFlag = " --debug"
+	}
 
 	if err := cfg.addLogging(c); err != nil {
 		return nil, err

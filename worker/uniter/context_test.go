@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
@@ -207,7 +206,6 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			charmDir, outPath = makeCharm(c, spec)
 		}
 		toolsDir := c.MkDir()
-		logger.lines = nil
 		t0 := time.Now()
 		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
 		if t.err == "" {

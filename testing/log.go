@@ -30,21 +30,12 @@ func (t *LoggingSuite) SetUpSuite(c *C)    {}
 func (t *LoggingSuite) TearDownSuite(c *C) {}
 
 func (t *LoggingSuite) SetUpTest(c *C) {
-	oldWriter, oldLevel, err := loggo.RemoveWriter("default")
-	c.Assert(err, IsNil)
-	err = loggo.RegisterWriter("test", &gocheckWriter{c}, loggo.TRACE)
-	c.Assert(err, IsNil)
+	loggo.ResetWriters()
+	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLogging()
-
-	t.restoreLog = func() {
-		_, _, err := loggo.RemoveWriter("test")
-		c.Assert(err, IsNil)
-		err = loggo.RegisterWriter("default", oldWriter, oldLevel)
-		c.Assert(err, IsNil)
-		loggo.ResetLogging()
-	}
 }
 
 func (t *LoggingSuite) TearDownTest(c *C) {
-	t.restoreLog()
+	loggo.ResetLogging()
+	loggo.ResetWriters()
 }
