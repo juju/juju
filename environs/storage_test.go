@@ -33,7 +33,6 @@ func (s *EmptyStorageSuite) TestList(c *C) {
 	c.Assert(err, IsNil)
 }
 
-
 type MockStorage struct {
 	StorageRequests []string
 }
@@ -64,7 +63,6 @@ func (ms *MockStorage) Remove(file string) error {
 func (ms *MockStorage) URL(name string) (string, error) {
 	return "", fmt.Errorf("file %q not found", name)
 }
-
 
 type VerifyStorageSuite struct{}
 
