@@ -33,6 +33,7 @@ func (t *LoggingSuite) SetUpTest(c *C) {
 	loggo.ResetWriters()
 	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLogging()
+	loggo.SetLogLevel("juju", loggo.DEBUG)
 }
 
 func (t *LoggingSuite) TearDownTest(c *C) {
