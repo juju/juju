@@ -56,7 +56,7 @@ var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 // Set Metadata requests to be served by the filecontent supplied.
 func UseTestMetadata(metadata []jujutest.FileContent) {
 	if len(metadata) != 0 {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata)
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata, nil)
 		metadataHost = "test:"
 	} else {
 		testRoundTripper.Sub = nil
