@@ -71,7 +71,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *C) {
 	c.Check(mcfg.StateInfo, DeepEquals, &state.Info{
 		Password: password, CACert: []byte(testing.CACert),
 	})
-	c.Check(mcfg.MongoPort, Equals, cfg.StatePort())
+	c.Check(mcfg.StatePort, Equals, cfg.StatePort())
 	c.Check(mcfg.APIPort, Equals, cfg.APIPort())
 	c.Check(mcfg.Constraints, DeepEquals, cons)
 

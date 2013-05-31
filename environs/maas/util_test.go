@@ -70,7 +70,7 @@ func (s *UtilSuite) TestUserData(c *C) {
 		},
 		DataDir:     jujuDataDir,
 		Config:      envConfig,
-		MongoPort:   envConfig.StatePort(),
+		StatePort:   envConfig.StatePort(),
 		APIPort:     envConfig.APIPort(),
 		StateServer: true,
 	}

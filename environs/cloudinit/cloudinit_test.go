@@ -61,7 +61,7 @@ var cloudinitTests = []cloudinitTest{
 			StateServer:     true,
 			StateServerCert: serverCert,
 			StateServerKey:  serverKey,
-			MongoPort:       37017,
+			StatePort:       37017,
 			APIPort:         17070,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -116,7 +116,7 @@ start jujud-machine-0
 			StateServer:     true,
 			StateServerCert: serverCert,
 			StateServerKey:  serverKey,
-			MongoPort:       37017,
+			StatePort:       37017,
 			APIPort:         17070,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -488,8 +488,8 @@ var verifyTests = []struct {
 		info.Tag = "machine-0"
 		cfg.APIInfo = &info
 	}},
-	{"missing mongo port", func(cfg *cloudinit.MachineConfig) {
-		cfg.MongoPort = 0
+	{"missing state port", func(cfg *cloudinit.MachineConfig) {
+		cfg.StatePort = 0
 	}},
 	{"missing API port", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIPort = 0
@@ -506,7 +506,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 		StateServer:     true,
 		StateServerCert: serverCert,
 		StateServerKey:  serverKey,
-		MongoPort:       1234,
+		StatePort:       1234,
 		APIPort:         1235,
 		MachineId:       "99",
 		Tools:           newSimpleTools("9.9.9-linux-arble"),
