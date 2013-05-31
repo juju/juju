@@ -152,22 +152,42 @@ func (s *StateSuite) TestAddMachines(c *C) {
 	check(m[1], "1", "blahblah", allJobs)
 }
 
+func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
+	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
+	c.Assert(err, IsNil)
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	extraCons := constraints.MustParse("cpu-cores=4")
+	m, err := s.State.AddMachineWithConstraints("series", extraCons, oneJob...)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	expectedCons := constraints.MustParse("cpu-cores=4 mem=4G")
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, expectedCons)
+}
+
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", constraints.Value{}, state.InstanceId("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
-	m, err := s.State.InjectMachine("series", state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	cons := constraints.MustParse("mem=4G")
+	m, err := s.State.InjectMachine("series", cons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mcons)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
