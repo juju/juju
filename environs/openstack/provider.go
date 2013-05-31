@@ -451,8 +451,8 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	if publicStorage != nil {
 		return publicStorage
 	}
-	// If there is a public bucket URL defined, create a public storage using that,
-	// otherwise create the public bucket using the user's credentials on the authenticated client.
+	// If there is a public bucket URL defined, set up a public storage client referencing that URL,
+	// otherwise create a new public bucket using the user's credentials on the authenticated client.
 	publicBucketURL := e.publicBucketURL()
 	if publicBucketURL == "" {
 		e.publicStorageUnlocked = &storage{
