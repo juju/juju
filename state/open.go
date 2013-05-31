@@ -259,7 +259,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 func (st *State) Addresses() ([]string, error) {
 	stateAddrs := st.db.Session.LiveServers()
 	if len(stateAddrs) == 0 {
-		return nil, errors.New("unable to find state addresses")
+		return nil, stderrors.New("unable to find state addresses")
 	}
 	return stateAddrs, nil
 }
