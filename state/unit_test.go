@@ -6,6 +6,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"sort"
@@ -35,7 +36,7 @@ func (s *UnitSuite) SetUpTest(c *C) {
 func (s *UnitSuite) TestUnitNotFound(c *C) {
 	_, err := s.State.Unit("subway/0")
 	c.Assert(err, ErrorMatches, `unit "subway/0" not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *UnitSuite) TestService(c *C) {
@@ -116,7 +117,7 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	err = unit1.Remove()
 	c.Assert(err, IsNil)
 	err = unit1.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
@@ -323,7 +324,7 @@ func (s *UnitSuite) assertUnitLife(c *C, name string, life state.Life) {
 
 func (s *UnitSuite) assertUnitRemoved(c *C, unit *state.Unit) {
 	err := unit.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = unit.Destroy()
 	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
@@ -396,7 +397,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
@@ -709,7 +710,7 @@ func (s *UnitSuite) TestRemove(c *C) {
 	err = s.unit.Remove()
 	c.Assert(err, IsNil)
 	err = s.unit.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	units, err := s.service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -760,9 +761,9 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 	err = mysql0ru.LeaveScope()
 	c.Assert(err, IsNil)
 	err = wordpress.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = rel.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {

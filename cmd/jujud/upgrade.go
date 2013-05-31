@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -205,7 +206,7 @@ func (u *Upgrader) run() error {
 			tools, err := environs.FindExactTools(environ, required)
 			if err != nil {
 				log.Errorf("upgrader error finding tools for %v: %v", required, err)
-				if !environs.IsNotFoundError(err) {
+				if !errors.IsNotFoundError(err) {
 					return err
 				}
 				noDelay()

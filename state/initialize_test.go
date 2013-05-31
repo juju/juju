@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -45,11 +46,11 @@ func (s *InitializeSuite) TearDownTest(c *C) {
 
 func (s *InitializeSuite) TestInitialize(c *C) {
 	_, err := s.State.EnvironConfig()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	_, err = s.State.Annotator("environment-foo")
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	_, err = s.State.EnvironConstraints()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	cfg := state.TestingEnvironConfig(c)
 	initial := cfg.AllAttrs()

@@ -6,6 +6,7 @@ package apiserver_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -182,7 +183,7 @@ func (s *suite) TestMachineRemove(c *C) {
 	c.Assert(err, IsNil)
 
 	err = stm1.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *suite) TestMachineLife(c *C) {
@@ -422,7 +423,7 @@ func (s *suite) TestMachineSetPasswordInMongo(c *C) {
 
 		// Sanity check to start with.
 		err = s.tryOpenState(c, m, defaultPassword(stm))
-		c.Assert(state.IsUnauthorizedError(err), Equals, true, Commentf("%v", err))
+		c.Assert(errors.IsUnauthorizedError(err), Equals, true, Commentf("%v", err))
 
 		err = m.SetPassword("foo")
 		c.Assert(err, IsNil)
@@ -431,7 +432,7 @@ func (s *suite) TestMachineSetPasswordInMongo(c *C) {
 		if canOpenState {
 			c.Assert(err, IsNil)
 		} else {
-			c.Assert(state.IsUnauthorizedError(err), Equals, true, Commentf("%v", err))
+			c.Assert(errors.IsUnauthorizedError(err), Equals, true, Commentf("%v", err))
 		}
 	}
 }

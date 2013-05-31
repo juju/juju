@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -125,7 +126,7 @@ func (m *Machine) Jobs() []MachineJob {
 // It returns an error that satisfies IsNotFound if the tools have not yet been set.
 func (m *Machine) AgentTools() (*Tools, error) {
 	if m.doc.Tools == nil {
-		return nil, NotFoundf("agent tools for machine %v", m)
+		return nil, errors.NotFoundf("agent tools for machine %v", m)
 	}
 	tools := *m.doc.Tools
 	return &tools, nil
@@ -255,7 +256,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		// context of the new state API, but we maintain consistency in the
 		// face of uncertainty.
 		if i != 0 {
-			if m, err = m.st.Machine(m.doc.Id); IsNotFound(err) {
+			if m, err = m.st.Machine(m.doc.Id); errors.IsNotFoundError(err) {
 				return nil
 			} else if err != nil {
 				return err
@@ -336,7 +337,7 @@ func (m *Machine) Refresh() error {
 	doc := machineDoc{}
 	err := m.st.machines.FindId(m.doc.Id).One(&doc)
 	if err == mgo.ErrNotFound {
-		return NotFoundf("machine %v", m)
+		return errors.NotFoundf("machine %v", m)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh machine %v: %v", m, err)

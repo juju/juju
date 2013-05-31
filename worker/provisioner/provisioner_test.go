@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -193,7 +194,7 @@ func (s *ProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool
 func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 	s.waitMachine(c, m, func() bool {
 		err := m.Refresh()
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			return true
 		}
 		c.Assert(err, IsNil)
