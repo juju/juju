@@ -390,15 +390,6 @@ func sortedUnitNames(units []*state.Unit) []string {
 	return names
 }
 
-func (s *MachineSuite) TestSetDirty(c *C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	c.Assert(m.Clean(), Equals, true)
-	m.SetClean(false)
-	c.Assert(err, IsNil)
-	c.Assert(m.Clean(), Equals, false)
-}
-
 func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *C) (*state.Machine, *state.Service, *state.Unit) {
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)

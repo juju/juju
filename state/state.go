@@ -263,6 +263,7 @@ func (st *State) addMachine(series string, instanceId InstanceId, nonce string, 
 		InstanceId: instanceId,
 		Nonce:      nonce,
 		Jobs:       jobs,
+		Clean:      true,
 	}
 	mdoc, ops, err := st.addMachineOps(mdoc, cons)
 	if err != nil {
