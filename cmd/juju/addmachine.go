@@ -31,7 +31,7 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.StringVar(&c.Series, "series", "", "the Ubuntu series")
+	f.StringVar(&c.Series, "series", "", "the charm series")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 }
 
@@ -46,13 +46,12 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	conf, err := conn.State.EnvironConfig()
-	if err != nil {
-		return err
-	}
-
 	series := c.Series
 	if series == "" {
+		conf, err := conn.State.EnvironConfig()
+		if err != nil {
+			return err
+		}
 		series = conf.DefaultSeries()
 	}
 	m, err := conn.State.AddMachineWithConstraints(series, c.Constraints, state.JobHostUnits)

@@ -169,21 +169,25 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", constraints.Value{}, state.InstanceId("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
-	m, err := s.State.InjectMachine("series", state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	cons := constraints.MustParse("mem=4G")
+	m, err := s.State.InjectMachine("series", cons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mcons)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
