@@ -113,6 +113,7 @@ func (s *DeploySuite) TestForceMachineInvalid(c *C) {
 		ForceMachineId: "abc",
 		NumUnits:       1,
 	}
+
 	err = s.runDeploy(c, args)
 	c.Assert(err, ErrorMatches, `invalid machine id "abc"`)
 
