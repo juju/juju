@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -88,28 +89,6 @@ func IsUnitName(name string) bool {
 // IsMachineId returns whether id is a valid machine id.
 func IsMachineId(name string) bool {
 	return validMachine.MatchString(name)
-}
-
-// notFoundError represents the error that something is not found.
-type notFoundError struct {
-	msg string
-}
-
-func (e *notFoundError) Error() string {
-	return e.msg
-}
-
-// NotFoundf returns a error for which IsNotFound returns
-// true. The message for the error is made up from the given
-// arguments formatted as with fmt.Sprintf, with the
-// string " not found" appended.
-func NotFoundf(format string, args ...interface{}) error {
-	return &notFoundError{fmt.Sprintf(format+" not found", args...)}
-}
-
-func IsNotFound(err error) bool {
-	_, ok := err.(*notFoundError)
-	return ok
 }
 
 // State represents the state of an environment
@@ -332,7 +311,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("machine %s", id)
+		return nil, errors.NotFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -495,7 +474,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("charm %q", curl)
+		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -609,7 +588,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("service %q", name)
+		return nil, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -784,7 +763,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
-			if IsNotFound(err) {
+			if errors.IsNotFoundError(err) {
 				return nil, fmt.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
 				return nil, err
@@ -846,7 +825,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("relation %q", key)
+		return nil, errors.NotFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -859,7 +838,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("relation %d", id)
+		return nil, errors.NotFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -875,7 +854,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("unit %q", name)
+		return nil, errors.NotFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
@@ -890,7 +869,7 @@ func (st *State) DestroyUnits(names ...string) (err error) {
 	for _, name := range names {
 		unit, err := st.Unit(name)
 		switch {
-		case IsNotFound(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != Alive:
@@ -913,7 +892,7 @@ func (st *State) DestroyMachines(ids ...string) (err error) {
 	for _, id := range ids {
 		machine, err := st.Machine(id)
 		switch {
-		case IsNotFound(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case machine.Life() != Alive:

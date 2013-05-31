@@ -4,10 +4,11 @@
 package provisioner
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -219,7 +220,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 	// TODO(niemeyer): ms, err := st.Machines(alive)
 	for _, id := range ids {
 		m, err := p.st.Machine(id)
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			log.Infof("worker/provisioner: machine %q not found in state", m)
 			continue
 		}
@@ -365,7 +366,7 @@ func (p *Provisioner) stopInstances(instances []environs.Instance) error {
 	return nil
 }
 
-var errNotProvisioned = errors.New("machine has no instance id set")
+var errNotProvisioned = stderrors.New("machine has no instance id set")
 
 // instanceForMachine returns the environs.Instance that represents this machine's instance.
 func (p *Provisioner) instanceForMachine(m *state.Machine) (environs.Instance, error) {

@@ -8,6 +8,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -41,7 +42,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != 200 {
-		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", name)}
+		return nil, errors.NotFoundf("file %q not found", name)
 	}
 	return resp.Body, nil
 }

@@ -4,11 +4,12 @@
 package state
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	errors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"strings"
 )
@@ -41,12 +42,12 @@ func (ru *RelationUnit) PrivateAddress() (string, bool) {
 
 // ErrCannotEnterScope indicates that a relation unit failed to enter its scope
 // due to either the unit or the relation not being Alive.
-var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is not alive")
+var ErrCannotEnterScope = stderrors.New("cannot enter scope: unit or relation is not alive")
 
 // ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
 // scope due to a required and pre-existing subordinate unit that is not Alive.
 // Once that subordinate has been removed, a new one can be created.
-var ErrCannotEnterScopeYet = errors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
+var ErrCannotEnterScopeYet = stderrors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
 
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
@@ -289,7 +290,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			}
 			return err
 		}
-		if err := ru.relation.Refresh(); IsNotFound(err) {
+		if err := ru.relation.Refresh(); errors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err

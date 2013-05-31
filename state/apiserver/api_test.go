@@ -7,6 +7,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -72,7 +73,7 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 	c.Assert(err, IsNil)
 
 	err = service.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 // apiAuthenticator represents a simple authenticator object with only the
