@@ -170,6 +170,8 @@ func (s *StoreSuite) SetUpTest(c *C) {
 	s.server.downloads = nil
 }
 
+// Uses the TearDownTest from testing.LoggingSuite
+
 func (s *StoreSuite) TearDownSuite(c *C) {
 	charm.CacheDir = s.oldCacheDir
 	s.server.lis.Close()
