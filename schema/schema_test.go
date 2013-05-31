@@ -6,6 +6,7 @@ package schema_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/schema"
+	"math"
 	"testing"
 )
 
@@ -127,6 +128,15 @@ func (s *S) TestForceInt(c *C) {
 	out, err = sch.Coerce(float64(42), aPath)
 	c.Assert(err, IsNil)
 	c.Assert(out, Equals, int(42))
+
+	out, err = sch.Coerce(42.66, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, int(42))
+
+	// If an out of range value is provided, that value is truncated,
+	// generating unexpected results, but no error is raised.
+	out, err = sch.Coerce(float64(math.MaxInt64+1), aPath)
+	c.Assert(err, IsNil)
 
 	out, err = sch.Coerce(true, aPath)
 	c.Assert(out, IsNil)
