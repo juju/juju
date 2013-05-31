@@ -291,7 +291,9 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
-	policy := conn.Environ.Config().DefaultAssignmentPolicy()
+	// Hard code for now till we implement a constraints based approach.
+	// We currently only support AssignNew.
+	policy := state.AssignNew
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()

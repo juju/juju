@@ -5,7 +5,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
 )
 
 type BenchmarkSuite struct {
@@ -45,7 +45,7 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *C) {
 	for i := 0; i < c.N; i++ {
 		unit, err := svc.AddUnit()
 		c.Assert(err, IsNil)
-		err = s.State.AssignUnit(unit, config.AssignUnused)
+		err = s.State.AssignUnit(unit, state.AssignUnused)
 		c.Assert(err, IsNil)
 	}
 }

@@ -52,13 +52,6 @@ var configTests = []configTest{
 			"default-series": "",
 		},
 	}, {
-		about: "Explicit assignment policy",
-		attrs: attrs{
-			"type": "my-type",
-			"name": "my-name",
-			"default-assignment-policy": "unused",
-		},
-	}, {
 		about: "Explicit authorized-keys",
 		attrs: attrs{
 			"type":            "my-type",
@@ -468,12 +461,6 @@ func (test configTest) check(c *C, home *testing.FakeHome) {
 		c.Assert(cfg.DefaultSeries(), Equals, config.DefaultSeries)
 	}
 
-	if policy, _ := test.attrs["default-assignment-policy"].(string); policy != "" {
-		c.Assert(cfg.DefaultAssignmentPolicy(), Equals, config.AssignmentPolicy(policy))
-	} else {
-		c.Assert(cfg.DefaultAssignmentPolicy(), Equals, config.AssignNew)
-	}
-
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
 		c.Assert(cfg.FirewallMode(), Equals, config.FirewallMode(m))
 	}
@@ -536,9 +523,8 @@ func (test configTest) check(c *C, home *testing.FakeHome) {
 
 func (*ConfigSuite) TestConfigAttrs(c *C) {
 	attrs := map[string]interface{}{
-		"type": "my-type",
-		"name": "my-name",
-		"default-assignment-policy": "new",
+		"type":                      "my-type",
+		"name":                      "my-name",
 		"authorized-keys":           "my-keys",
 		"firewall-mode":             string(config.FwDefault),
 		"admin-secret":              "foo",

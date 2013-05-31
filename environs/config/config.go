@@ -33,24 +33,6 @@ const (
 	DefaultSeries string = "precise"
 )
 
-// AssignmentPolicy controls what machine a unit will be assigned to.
-type AssignmentPolicy string
-
-const (
-	// AssignLocal indicates that all service units should be assigned
-	// to machine 0.
-	AssignLocal AssignmentPolicy = "local"
-
-	// AssignUnused indicates that every service unit should be assigned
-	// to a dedicated machine, and that new machines should be launched
-	// if required.
-	AssignUnused AssignmentPolicy = "unused"
-
-	// AssignNew indicates that every service unit should be assigned to a new
-	// dedicated machine.  A new machine will be launched for each new unit.
-	AssignNew AssignmentPolicy = "new"
-)
-
 // Config holds an immutable environment configuration.
 type Config struct {
 	// m holds the attributes that are defined for Config.
@@ -253,11 +235,6 @@ func (c *Config) DefaultSeries() string {
 	return c.asString("default-series")
 }
 
-// DefaultAssignmentPolicy returns the default unit assignment policy.
-func (c *Config) DefaultAssignmentPolicy() AssignmentPolicy {
-	return AssignmentPolicy(c.asString("default-assignment-policy"))
-}
-
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
 func (c *Config) AuthorizedKeys() string {
 	return c.asString("authorized-keys")
@@ -363,7 +340,6 @@ var fields = schema.Fields{
 	"ca-private-key":            schema.String(),
 	"ca-private-key-path":       schema.String(),
 	"ssl-hostname-verification": schema.Bool(),
-	"default-assignment-policy": schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -379,7 +355,6 @@ var defaults = schema.Defaults{
 	"ca-private-key":            schema.Omit,
 	"ca-private-key-path":       "",
 	"ssl-hostname-verification": true,
-	"default-assignment-policy": AssignNew,
 }
 
 var checker = schema.FieldMap(fields, defaults)
