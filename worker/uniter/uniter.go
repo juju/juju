@@ -4,13 +4,13 @@
 package uniter
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
-	jujuerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -277,7 +277,7 @@ func (u *Uniter) deploy(curl *corecharm.URL, reason Op) error {
 
 // errHookFailed indicates that a hook failed to execute, but that the Uniter's
 // operation is not affected by the error.
-var errHookFailed = errors.New("hook execution failed")
+var errHookFailed = stderrors.New("hook execution failed")
 
 // runHook executes the supplied hook.Info in an appropriate hook context. If
 // the hook itself fails to execute, it returns errHookFailed.
@@ -388,7 +388,7 @@ func (u *Uniter) restoreRelations() error {
 	for id, dir := range dirs {
 		remove := false
 		rel, err := u.st.Relation(id)
-		if jujuerrors.IsNotFoundError(err) {
+		if errors.IsNotFoundError(err) {
 			remove = true
 		} else if err != nil {
 			return err
@@ -434,7 +434,7 @@ func (u *Uniter) updateRelations(ids []int) (added []*Relationer, err error) {
 		// were not previously known anyway.
 		rel, err := u.st.Relation(id)
 		if err != nil {
-			if jujuerrors.IsNotFoundError(err) {
+			if errors.IsNotFoundError(err) {
 				continue
 			}
 			return nil, err

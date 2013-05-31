@@ -4,20 +4,20 @@
 package apiserver
 
 import (
-	"errors"
-	jujuerrors "launchpad.net/juju-core/errors"
+	stderrors "errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )
 
 var (
-	errBadId          = errors.New("id not found")
-	errBadCreds       = errors.New("invalid entity name or password")
-	errPerm           = errors.New("permission denied")
-	errNotLoggedIn    = errors.New("not logged in")
-	errUnknownWatcher = errors.New("unknown watcher id")
-	errUnknownPinger  = errors.New("unknown pinger id")
-	errStoppedWatcher = errors.New("watcher has been stopped")
+	errBadId          = stderrors.New("id not found")
+	errBadCreds       = stderrors.New("invalid entity name or password")
+	errPerm           = stderrors.New("permission denied")
+	errNotLoggedIn    = stderrors.New("not logged in")
+	errUnknownWatcher = stderrors.New("unknown watcher id")
+	errUnknownPinger  = stderrors.New("unknown pinger id")
+	errStoppedWatcher = stderrors.New("watcher has been stopped")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -37,9 +37,9 @@ func serverError(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
-	case jujuerrors.IsUnauthorizedError(err):
+	case errors.IsUnauthorizedError(err):
 		code = api.CodeUnauthorized
-	case jujuerrors.IsNotFoundError(err):
+	case errors.IsNotFoundError(err):
 		code = api.CodeNotFound
 	case state.IsNotAssigned(err):
 		code = api.CodeNotAssigned
