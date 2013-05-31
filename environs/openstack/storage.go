@@ -8,7 +8,7 @@ import (
 	"io"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
-	jujuerrors "launchpad.net/juju-core/errors"
+	coreerrors "launchpad.net/juju-core/errors"
 	"sync"
 	"time"
 )
@@ -160,7 +160,7 @@ func (s *storage) deleteAll() error {
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
 	if err != nil && gooseerrors.IsNotFound(err) {
-		return &jujuerrors.NotFoundError{err, ""}, true
+		return &coreerrors.NotFoundError{err, ""}, true
 	}
 	return err, false
 }
