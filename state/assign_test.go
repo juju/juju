@@ -325,6 +325,7 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	// Create a new, unused machine.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
+	c.Assert(machine.Clean(), Equals, true)
 
 	// Check that AssignToUnusedMachine finds the newly created, unused machine.
 	newService, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
@@ -442,7 +443,7 @@ func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
 	c.Assert(machineUnits[0].Name(), Equals, unit.Name())
 }
 
-func (s *AssignSuite) TestAssignToNewMachineSetsDirty(c *C) {
+func (s *AssignSuite) TestAssignToNewMachineMakesDirty(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 

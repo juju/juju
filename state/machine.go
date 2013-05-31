@@ -63,7 +63,7 @@ type machineDoc struct {
 	TxnRevno     int64  `bson:"txn-revno"`
 	Jobs         []MachineJob
 	PasswordHash string
-	Dirty        bool
+	Clean        bool
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -218,22 +218,19 @@ func IsHasAssignedUnitsError(err error) bool {
 // value, or a later one, no changes will be made to remote state. If
 // the machine has any responsibilities that preclude a valid change in
 // lifecycle, it will return an error.
-func (m *Machine) advanceLifecycle(life Life) (err error) {
-	// We need to ensure we are working with the latest representation of this
-	// machine and need so to refresh state since the database may have been
-	// changed from underneath us by another process.
-	err = m.Refresh()
-	if err != nil {
-		return err
-	}
+func (original *Machine) advanceLifecycle(life Life) (err error) {
+	m := original
 	defer func() {
 		if err == nil {
 			// The machine's lifecycle is known to have advanced; it may be
 			// known to have already advanced further than requested, in
 			// which case we set the latest known valid value.
-			if m.doc.Life < life {
-				m.doc.Life = life
+			if m == nil {
+				life = Dead
+			} else if m.doc.Life > life {
+				life = m.doc.Life
 			}
+			original.doc.Life = life
 		}
 	}()
 	// op and
@@ -249,41 +246,59 @@ func (m *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", D{{"$exists", false}}}},
 		}},
 	}
-	// Check that the life change is sane, and collect the assertions
-	// necessary to determine that it remains so.
-	switch life {
-	case Dying:
-		if m.doc.Life != Alive {
-			return nil
+	// 3 atempts: one with original data, one with refreshed data, and a final
+	// one intended to determine the cause of failure of the preceding attempt.
+	for i := 0; i < 3; i++ {
+		// If the transaction was aborted, grab a fresh copy of the machine data.
+		// We don't write to original, because the expectation is that state-
+		// changing methods only set the requested change on the receiver; a case
+		// could perhaps be made that this is not a helpful convention in the
+		// context of the new state API, but we maintain consistency in the
+		// face of uncertainty.
+		if i != 0 {
+			if m, err = m.st.Machine(m.doc.Id); IsNotFound(err) {
+				return nil
+			} else if err != nil {
+				return err
+			}
 		}
-		op.Assert = append(advanceAsserts, isAliveDoc...)
-	case Dead:
-		if m.doc.Life == Dead {
-			return nil
+		// Check that the life change is sane, and collect the assertions
+		// necessary to determine that it remains so.
+		switch life {
+		case Dying:
+			if m.doc.Life != Alive {
+				return nil
+			}
+			op.Assert = append(advanceAsserts, isAliveDoc...)
+		case Dead:
+			if m.doc.Life == Dead {
+				return nil
+			}
+			op.Assert = append(advanceAsserts, notDeadDoc...)
+		default:
+			panic(fmt.Errorf("cannot advance lifecycle to %v", life))
 		}
-		op.Assert = append(advanceAsserts, notDeadDoc...)
-	default:
-		panic(fmt.Errorf("cannot advance lifecycle to %v", life))
-	}
-	// Check that the machine does not have any responsibilities that
-	// prevent a lifecycle change.
-	for _, j := range m.doc.Jobs {
-		if j == JobManageEnviron {
-			// (NOTE: When we enable multiple JobManageEnviron machines,
-			// the restriction will become "there must be at least one
-			// machine with this job".)
-			return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+		// Check that the machine does not have any responsibilities that
+		// prevent a lifecycle change.
+		for _, j := range m.doc.Jobs {
+			if j == JobManageEnviron {
+				// (NOTE: When we enable multiple JobManageEnviron machines,
+				// the restriction will become "there must be at least one
+				// machine with this job".)
+				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			}
 		}
-	}
-	if len(m.doc.Principals) != 0 {
-		return &HasAssignedUnitsError{
-			MachineId: m.doc.Id,
-			UnitNames: m.doc.Principals,
+		if len(m.doc.Principals) != 0 {
+			return &HasAssignedUnitsError{
+				MachineId: m.doc.Id,
+				UnitNames: m.doc.Principals,
+			}
 		}
-	}
-	// Run the transaction...
-	if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
-		return err
+		// Run the transaction...
+		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
+			return err
+		}
+		// ...and retry on abort.
 	}
 	// In very rare circumstances, the final iteration above will have determined
 	// no cause of failure, and attempted a final transaction: if this also failed,
@@ -517,21 +532,5 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 
 // Clean returns true if the machine does not have any deployed units or containers.
 func (m *Machine) Clean() bool {
-	return !m.doc.Dirty
-}
-
-// SetClean sets the dirty flag of the machine.
-func (m *Machine) SetClean(isClean bool) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set dirty state for machine %v", m)
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Assert: notDeadDoc,
-		Update: D{{"$set", D{{"dirty", !isClean}}}},
-	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
-		return onAbort(err, errDead)
-	}
-	m.doc.Dirty = !isClean
-	return nil
+	return m.doc.Clean
 }

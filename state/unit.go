@@ -726,7 +726,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}...)
 	massert := isAliveDoc
 	if unused {
-		massert = append(massert, D{{"dirty", D{{"$ne", true}}}}...)
+		massert = append(massert, D{{"clean", D{{"$ne", false}}}}...)
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -737,13 +737,13 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		C:      u.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: massert,
-		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}, {"$set", D{{"dirty", true}}}},
+		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}, {"$set", D{{"clean", false}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
-		err = m.Refresh()
-		return err
+		m.doc.Clean = false
+		return nil
 	}
 	if err != txn.ErrAborted {
 		return err
@@ -800,7 +800,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Series:     u.doc.Series,
 		Jobs:       []MachineJob{JobHostUnits},
 		Principals: []string{u.doc.Name},
-		Dirty:      true,
+		Clean:      false,
 	}
 	mdoc, ops, err := u.st.addMachineOps(mdoc, cons)
 	if err != nil {
@@ -852,7 +852,7 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", JobHostUnits},
-		{"dirty", D{{"$ne", true}}},
+		{"clean", D{{"$ne", false}}},
 	})
 
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
