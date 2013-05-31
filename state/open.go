@@ -280,24 +280,31 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 }
 
 // Addresses returns the list of addresses used to connect to the state.
-func (st *State) Addresses() []string {
-	return st.db.Session.LiveServers()
+func (st *State) Addresses() ([]string, error) {
+	stateAddrs := st.db.Session.LiveServers()
+	if len(stateAddrs) == 0 {
+		return nil, errors.New("unable to find state addresses")
+	}
+	return stateAddrs, nil
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
-func (st *State) APIAddresses() []string {
+func (st *State) APIAddresses() ([]string, error) {
 	config, err := st.EnvironConfig()
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
-	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-	stateAddrs := st.Addresses()
+	stateAddrs, err := st.Addresses()
+	if err != nil {
+		return nil, err
+	}
 	apiAddrs := make([]string, 0, len(stateAddrs))
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
 	for _, stateAddr := range stateAddrs {
 		i := strings.LastIndex(stateAddr, ":")
 		apiAddrs = append(apiAddrs, stateAddr[:i]+apiPortSuffix)
 	}
-	return apiAddrs
+	return apiAddrs, nil
 }
 
 // CACert returns the certificate used to validate the state connection.

@@ -92,8 +92,14 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, toolsDir)
 
 	// Retrieve addresses from state.
-	stateAddrs := ctx.addresser.Addresses()
-	apiAddrs := ctx.addresser.APIAddresses()
+	stateAddrs, err := ctx.addresser.Addresses()
+	if err != nil {
+		return err
+	}
+	apiAddrs, err := ctx.addresser.APIAddresses()
+	if err != nil {
+		return err
+	}
 
 	stateInfo := state.Info{
 		Addrs:  stateAddrs,
