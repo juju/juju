@@ -5,11 +5,11 @@ package deployer
 
 type fakeAddresser struct{}
 
-func (*fakeAddresser) Addresses() []string {
+func (*fakeAddresser) Addresses() ([]string, error) {
 	return []string{"s1:123", "s2:123"}, nil
 }
 
-func (*fakeAddresser) APIAddresses() []string {
+func (*fakeAddresser) APIAddresses() ([]string, error) {
 	return []string{"a1:123", "a2:123"}, nil
 }
 
