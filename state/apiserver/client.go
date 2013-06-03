@@ -112,6 +112,29 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
 }
 
+// ServiceUpgradeCharm upgrades a service to the given charm URL.
+func (c *srvClient) ServiceUpgradeCharm(args params.ServiceUpgradeCharm) error {
+	state := c.root.srv.state
+	service, err := state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	conf, err := state.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
+	if err != nil {
+		return err
+	}
+	conn, err := juju.NewConnFromState(state)
+	if err != nil {
+		return err
+	}
+	// Set bumpRevision to false when working with the CharmStore.
+	return statecmd.ServiceUpgradeCharm(state, service, conn, curl, CharmStore, args.Force, false)
+}
+
 // AddServiceUnits adds a given number of units to a service.
 func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
 	units, err := statecmd.AddServiceUnits(c.root.srv.state, args)
