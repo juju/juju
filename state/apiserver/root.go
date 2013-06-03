@@ -15,6 +15,7 @@ type srvRoot struct {
 	client    *srvClient
 	state     *srvState
 	srv       *Server
+	machiner  *srvMachiner
 	resources *resources
 
 	user authUser
@@ -32,6 +33,9 @@ func newStateServer(srv *Server) *srvRoot {
 		root: r,
 	}
 	r.state = &srvState{
+		root: r,
+	}
+	r.machiner = &srvMachiner{
 		root: r,
 	}
 	return r
@@ -82,36 +86,17 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
-// Machine returns an object that provides
-// API access to methods on a state.Machine.
-func (r *srvRoot) Machine(id string) (*srvMachine, error) {
+// Machiner returns an object that provides access to the Machiner API
+// facade. Version argument is reserved for future use and currently
+// needs to be empty.
+func (r *srvRoot) Machiner(version string) (*srvMachiner, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	m, err := r.srv.state.Machine(id)
-	if err != nil {
-		return nil, err
+	if version != "" {
+		return nil, errBadVersion
 	}
-	return &srvMachine{
-		root: r,
-		m:    m,
-	}, nil
-}
-
-// Unit returns an object that provides
-// API access to methods on a state.Unit.
-func (r *srvRoot) Unit(name string) (*srvUnit, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	u, err := r.srv.state.Unit(name)
-	if err != nil {
-		return nil, err
-	}
-	return &srvUnit{
-		root: r,
-		u:    u,
-	}, nil
+	return r.machiner, nil
 }
 
 // User returns an object that provides

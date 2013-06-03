@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
@@ -30,65 +29,6 @@ var operationPermTests = []struct {
 	allow []string
 	deny  []string
 }{{
-	about: "Unit.Get",
-	op:    opGetUnitWordpress0,
-	deny:  []string{"user-admin", "user-other"},
-}, {
-	about: "Machine.Get",
-	op:    opGetMachine1,
-	deny:  []string{"user-admin", "user-other"},
-}, {
-	about: "Machine.SetAgentAlive",
-	op:    opMachine1SetAgentAlive,
-	allow: []string{"machine-1"},
-}, {
-	about: "Machine.SetPassword",
-	op:    opMachine1SetPassword,
-	// Machine 0 is allowed because it is an environment manager.
-	allow: []string{"machine-0", "machine-1"},
-}, {
-	about: "Machine.SetProvisioned",
-	op:    opMachine1SetProvisioned,
-	allow: []string{"machine-0"},
-}, {
-	about: "Machine.Constraints",
-	op:    opMachine1Constraints,
-	// TODO (dimitern): revisit this and relax the restrictions as
-	// needed once all agents/tasks are using the API.
-	allow: []string{"machine-0"},
-}, {
-	about: "Machine.Remove",
-	op:    opMachine1Remove,
-	allow: []string{"machine-0"},
-}, {
-	about: "Machine.EnsureDead",
-	op:    opMachine1EnsureDead,
-	// Machine 0 is allowed because it is an environment manager.
-	allow: []string{"machine-0", "machine-1"},
-}, {
-	about: "Machine.Status",
-	op:    opMachine1Status,
-	// TODO (dimitern): revisit this and relax the restrictions as
-	// needed once all agents/tasks are using the API.
-	allow: []string{"machine-0"},
-}, {
-	about: "Machine.SetStatus",
-	op:    opMachine1SetStatus,
-	// Machine 0 is allowed because it is an environment manager.
-	allow: []string{"machine-0", "machine-1"},
-}, {
-	about: "Unit.SetPassword (on principal unit)",
-	op:    opUnitSetPassword("wordpress/0"),
-	allow: []string{"unit-wordpress-0", "machine-1"},
-}, {
-	about: "Unit.SetPassword (on subordinate unit)",
-	op:    opUnitSetPassword("logging/0"),
-	allow: []string{"unit-logging-0", "unit-wordpress-0"},
-}, {
-	about: "State.AllMachines",
-	op:    opStateAllMachines,
-	allow: []string{"machine-0"},
-}, {
 	about: "Client.Status",
 	op:    opClientStatus,
 	allow: []string{"user-admin", "user-other"},
@@ -164,8 +104,7 @@ var operationPermTests = []struct {
 	about: "Client.DestroyRelation",
 	op:    opClientDestroyRelation,
 	allow: []string{"user-admin", "user-other"},
-},
-}
+}}
 
 // allowed returns the set of allowed entities given an allow list and a
 // deny list.  If an allow list is specified, only those entities are
@@ -208,168 +147,6 @@ func (s *suite) TestOperationPerm(c *C) {
 			st.Close()
 		}
 	}
-}
-
-func opGetUnitWordpress0(c *C, st *api.State, mst *state.State) (func(), error) {
-	u, err := st.Unit("wordpress/0")
-	if err != nil {
-		c.Check(u, IsNil)
-	} else {
-		name, ok := u.DeployerTag()
-		c.Check(ok, Equals, true)
-		c.Check(name, Equals, "machine-1")
-	}
-	return func() {}, err
-}
-
-func opUnitSetPassword(unitName string) func(c *C, st *api.State, mst *state.State) (func(), error) {
-	return func(c *C, st *api.State, mst *state.State) (func(), error) {
-		u, err := st.Unit(unitName)
-		if err != nil {
-			c.Check(u, IsNil)
-			return func() {}, err
-		}
-		err = u.SetPassword("another password")
-		if err != nil {
-			return func() {}, err
-		}
-		return func() {
-			setDefaultPassword(c, u)
-		}, nil
-	}
-}
-
-func opGetMachine1(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-	} else {
-		name, ok := m.InstanceId()
-		c.Assert(ok, Equals, true)
-		c.Assert(name, Equals, "i-machine-1")
-	}
-	return func() {}, err
-}
-
-func opMachine1SetPassword(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	err = m.SetPassword("another password")
-	if err != nil {
-		return func() {}, err
-	}
-	return func() {
-		setDefaultPassword(c, m)
-	}, nil
-}
-
-func opMachine1SetAgentAlive(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	pinger, err := m.SetAgentAlive()
-	if err != nil {
-		return func() {}, err
-	}
-	err = pinger.Stop()
-	c.Check(err, IsNil)
-	return func() {}, nil
-}
-
-func opMachine1SetProvisioned(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	err = m.SetProvisioned("foo", "bar")
-	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
-		// We expect this for any entity other than machine-0.
-		return func() {}, err
-	}
-
-	c.Check(err.Error(), Matches, `cannot set instance id of machine "1": already set`)
-	return func() {}, nil
-}
-
-func opMachine1Constraints(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	_, err = m.Constraints()
-	return func() {}, err
-}
-
-func opMachine1Remove(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	err = m.Remove()
-	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
-		// We expect this for any entity other than machine-0.
-		return func() {}, err
-	}
-
-	c.Check(err, ErrorMatches, "cannot remove machine 1: machine is not dead")
-	return func() {}, nil
-}
-
-func opMachine1EnsureDead(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	err = m.EnsureDead()
-	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
-		// We expect this for any entity other than machine-1.
-		return func() {}, err
-	}
-
-	c.Check(err.Error(), Matches, `machine 1 has unit "wordpress/0" assigned`)
-	return func() {}, nil
-}
-
-func opMachine1Status(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	_, _, err = m.Status()
-	return func() {}, err
-}
-
-func opMachine1SetStatus(c *C, st *api.State, mst *state.State) (func(), error) {
-	m, err := st.Machine("1")
-	if err != nil {
-		c.Check(m, IsNil)
-		return func() {}, err
-	}
-	stm, err := mst.Machine("1")
-	c.Check(err, IsNil)
-
-	orgStatus, orgInfo, err := stm.Status()
-	c.Check(err, IsNil)
-
-	err = m.SetStatus(params.StatusStopped, "blah")
-	if err != nil {
-		return func() {}, err
-	}
-
-	return func() {
-		err := m.SetStatus(orgStatus, orgInfo)
-		c.Check(err, IsNil)
-	}, nil
 }
 
 func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
@@ -569,16 +346,6 @@ func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
 	watcher, err := st.Client().WatchAll()
 	if err == nil {
 		watcher.Stop()
-	}
-	return func() {}, err
-}
-
-func opStateAllMachines(c *C, st *api.State, mst *state.State) (func(), error) {
-	machines, err := st.AllMachines()
-	if err != nil {
-		c.Check(machines, IsNil)
-	} else {
-		c.Check(machines, HasLen, 3)
 	}
 	return func() {}, err
 }
