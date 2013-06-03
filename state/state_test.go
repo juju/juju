@@ -18,6 +18,7 @@ import (
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -61,6 +62,22 @@ func (s *StateSuite) TestStateInfo(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(stateAddr, DeepEquals, info.Addrs)
 	c.Assert(s.State.CACert(), DeepEquals, info.CACert)
+}
+
+func (s *StateSuite) TestAPIAddresses(c *C) {
+	config, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	apiPort := strconv.Itoa(config.APIPort())
+	info := state.TestingStateInfo()
+	expectedAddrs := make([]string, 0, len(info.Addrs))
+	for _, stateAddr := range info.Addrs {
+		domain := strings.Split(stateAddr, ":")[0]
+		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
+		expectedAddrs = append(expectedAddrs, expectedAddr)
+	}
+	apiAddrs, err := s.State.APIAddresses()
+	c.Assert(err, IsNil)
+	c.Assert(apiAddrs, DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *C) {

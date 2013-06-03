@@ -266,11 +266,11 @@ func (st *State) Addresses() ([]string, error) {
 
 // APIAddresses returns the list of addresses used to connect to the API.
 func (st *State) APIAddresses() ([]string, error) {
-	config, err := st.EnvironConfig()
+	stateAddrs, err := st.Addresses()
 	if err != nil {
 		return nil, err
 	}
-	stateAddrs, err := st.Addresses()
+	config, err := st.EnvironConfig()
 	if err != nil {
 		return nil, err
 	}
