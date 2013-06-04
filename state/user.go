@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"regexp"
 )
@@ -46,7 +47,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 func (st *State) getUser(name string, udoc *userDoc) error {
 	err := st.users.Find(D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
-		err = NotFoundf("user %q", name)
+		err = errors.NotFoundf("user %q", name)
 	}
 	return err
 }

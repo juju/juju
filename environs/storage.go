@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"launchpad.net/juju-core/errors"
 )
 
 // EmptyStorage holds a StorageReader object that contains no files and
@@ -19,7 +20,7 @@ const VERIFICATION_FILENAME string = "bootstrap-verify"
 const VERIFICATION_CONTENT = "juju-core storage writing verified: ok"
 
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, &NotFoundError{fmt.Errorf("file %q not found", name)}
+	return nil, errors.NotFoundf("file %q", name)
 }
 
 func (s emptyStorage) URL(name string) (string, error) {

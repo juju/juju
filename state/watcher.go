@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
@@ -981,7 +982,7 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	settings, err := readSettings(w.st, key)
 	if err == nil {
 		revno = settings.txnRevno
-	} else if !IsNotFound(err) {
+	} else if !errors.IsNotFoundError(err) {
 		return err
 	}
 	w.st.watcher.Watch(w.st.settings.Name, key, revno, ch)

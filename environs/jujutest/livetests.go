@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -430,7 +431,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 		<-uwatch.Changes()
 		err := unit.Refresh()
 		c.Logf("refreshed; err %v", err)
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			c.Logf("unit has been removed")
 			break
 		}
@@ -445,7 +446,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 		c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
 		time.Sleep(5 * time.Second)
 		err = m1.Refresh()
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			break
 		}
 		c.Assert(err, IsNil)
@@ -523,7 +524,7 @@ func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 			return nil, fmt.Errorf("object is dead")
 		}
 		tools, err := w.tooler.AgentTools()
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			c.Logf("tools not yet set")
 			continue
 		}
@@ -703,7 +704,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	var notFoundError *environs.NotFoundError
+	var notFoundError *errors.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 	c.Assert(err, ErrorMatches, "no matching tools available")
 }

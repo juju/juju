@@ -4,13 +4,14 @@
 package main
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
@@ -91,7 +92,7 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-var errUpToDate = errors.New("no upgrades available")
+var errUpToDate = stderrors.New("no upgrades available")
 
 // Run changes the version proposed for the juju tools.
 func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
@@ -165,7 +166,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 	client := version.Current.Number
 	available, err := environs.FindAvailableTools(env, client.Major)
 	if err != nil {
-		if !environs.IsNotFoundError(err) {
+		if !errors.IsNotFoundError(err) {
 			return nil, err
 		}
 		if !c.UploadTools {

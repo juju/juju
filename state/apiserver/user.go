@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"sync"
@@ -37,7 +38,7 @@ func (u *authUser) login(st *state.State, tag, password string) error {
 	u.mu.Lock()
 	defer u.mu.Unlock()
 	entity, err := st.Authenticator(tag)
-	if err != nil && !state.IsNotFound(err) {
+	if err != nil && !errors.IsNotFoundError(err) {
 		return err
 	}
 	// We return the same error when an entity

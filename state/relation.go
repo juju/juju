@@ -4,12 +4,13 @@
 package state
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
+	errors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"sort"
 	"strconv"
@@ -65,7 +66,7 @@ func (r *Relation) Refresh() error {
 	doc := relationDoc{}
 	err := r.st.relations.FindId(r.doc.Key).One(&doc)
 	if err == mgo.ErrNotFound {
-		return NotFoundf("relation %v", r)
+		return errors.NotFoundf("relation %v", r)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh relation %v: %v", r, err)
@@ -74,7 +75,7 @@ func (r *Relation) Refresh() error {
 		// The relation has been destroyed and recreated. This is *not* the
 		// same relation; if we pretend it is, we run the risk of violating
 		// the lifecycle-only-advances guarantee.
-		return NotFoundf("relation %v", r)
+		return errors.NotFoundf("relation %v", r)
 	}
 	r.doc = doc
 	return nil
@@ -113,7 +114,7 @@ func (r *Relation) Destroy() (err error) {
 		if err := rel.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
 			return err
 		}
-		if err := rel.Refresh(); IsNotFound(err) {
+		if err := rel.Refresh(); errors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -122,7 +123,7 @@ func (r *Relation) Destroy() (err error) {
 	return ErrExcessiveContention
 }
 
-var errAlreadyDying = errors.New("entity is already dying and cannot be destroyed")
+var errAlreadyDying = stderrors.New("entity is already dying and cannot be destroyed")
 
 // destroyOps returns the operations necessary to destroy the relation, and
 // whether those operations will lead to the relation's removal. These

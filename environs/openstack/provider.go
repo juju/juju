@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -450,8 +451,8 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	if publicStorage != nil {
 		return publicStorage
 	}
-	// If there is a public bucket URL defined, create a public storage using that,
-	// otherwise create the public bucket using the user's credentials on the authenticated client.
+	// If there is a public bucket URL defined, set up a public storage client referencing that URL,
+	// otherwise create a new public bucket using the user's credentials on the authenticated client.
 	publicBucketURL := e.publicBucketURL()
 	if publicBucketURL == "" {
 		e.publicStorageUnlocked = &storage{
@@ -486,7 +487,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if !environs.IsNotFoundError(err) {
+	if !coreerrors.IsNotFoundError(err) {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 	err = environs.VerifyStorage(e.Storage())
