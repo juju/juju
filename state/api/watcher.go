@@ -32,19 +32,6 @@ func (watcher *AllWatcher) Stop() error {
 	return watcher.client.st.call("AllWatcher", *watcher.id, "Stop", nil, nil)
 }
 
-// Pinger periodically reports that a specific key is alive, so that
-// watchers interested on that fact can react appropriately.
-type Pinger struct {
-	st *State
-	id string
-}
-
-// Stop stops the p's periodical ping. Watchers will not notice p has
-// stopped pinging until the previous ping times out.
-func (p *Pinger) Stop() error {
-	return p.st.call("Pinger", p.id, "Stop", nil, nil)
-}
-
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;
 // it's intended for embedding.

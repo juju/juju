@@ -83,7 +83,7 @@ func (mm *MachinerMachine) Id() string {
 	return mm.id
 }
 
-// Life returns the (cached) machine's lifecycle state.
+// Life returns the machine's lifecycle value.
 func (mm *MachinerMachine) Life() params.Life {
 	return mm.life
 }

@@ -6,7 +6,6 @@ package apiserver
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/multiwatcher"
-	"launchpad.net/juju-core/state/presence"
 )
 
 // srvRoot represents a single client's connection to the state.
@@ -124,23 +123,6 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 		root: r,
 		u:    u,
 	}, nil
-}
-
-// Pinger returns an object that provides API access to methods on a
-// presence.Pinger. Each client has its own current set of pingers,
-// stored in r.resources.
-func (r *srvRoot) Pinger(id string) (*srvResource, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	pinger := r.resources.get(id)
-	if pinger == nil {
-		return nil, errUnknownPinger
-	}
-	if _, ok := pinger.resource.(*presence.Pinger); !ok {
-		return nil, errUnknownPinger
-	}
-	return pinger, nil
 }
 
 // EntityWatcher returns an object that provides

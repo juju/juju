@@ -177,19 +177,9 @@ type Creds struct {
 	Password string
 }
 
-// Machine holds the id of a machine.
-type Machine struct {
-	Id string
-}
-
 // EntityWatcherId holds the id of an EntityWatcher.
 type EntityWatcherId struct {
 	EntityWatcherId string
-}
-
-// PingerId holds the id of a Pinger.
-type PingerId struct {
-	PingerId string
 }
 
 // LifecycleWatchResults holds the results of API calls
