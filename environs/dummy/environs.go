@@ -101,7 +101,10 @@ type OpClosePorts struct {
 	Ports      []params.Port
 }
 
-type OpPutFile GenericOperation
+type OpPutFile struct {
+	Env      string
+	FileName string
+}
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)

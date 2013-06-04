@@ -124,6 +124,7 @@ func (test bootstrapTest) run(c *C) {
 	}
 	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
 	c.Check(opPutBootstrapVerifyFile.Env, Equals, "peckham")
+	c.Check(opPutBootstrapVerifyFile.FileName, Equals, "bootstrap-verify")
 
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, Equals, "peckham")
