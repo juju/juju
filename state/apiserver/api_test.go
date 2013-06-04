@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"net"
 	stdtesting "testing"
 	"time"
 )
@@ -24,7 +23,6 @@ func TestAll(t *stdtesting.T) {
 
 type suite struct {
 	testing.JujuConnSuite
-	listener net.Listener
 }
 
 var _ = Suite(&suite{})
