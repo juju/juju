@@ -78,6 +78,20 @@ func (mm *MachinerMachine) Refresh() error {
 	return nil
 }
 
+// EnsureDead sets the machine lifecycle to Dead if it is Alive or
+// Dying. It does nothing otherwise.
+func (mm *MachinerMachine) EnsureDead() error {
+	var result params.ErrorResults
+	args := params.Machines{
+		Ids: []string{mm.id},
+	}
+	err := mm.machiner.st.call("Machiner", "", "EnsureDead", args, &result)
+	if err != nil {
+		return err
+	}
+	return result.Errors[0]
+}
+
 // Id returns the machine id.
 func (mm *MachinerMachine) Id() string {
 	return mm.id
