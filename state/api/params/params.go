@@ -77,8 +77,8 @@ type Life string
 
 // MachineLifeResult holds the result of Machiner.Life for a single machine.
 type MachineLifeResult struct {
-	Error *Error
 	Life  Life
+	Error *Error
 }
 
 // MachinesLifeResults holds the results of a Machiner.Life call.

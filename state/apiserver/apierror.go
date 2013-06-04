@@ -13,7 +13,7 @@ import (
 
 var (
 	errBadId          = stderrors.New("id not found")
-	errBadVersion     = stderrors.New("API version not available")
+	errBadVersion     = stderrors.New("API version not supported")
 	errBadCreds       = stderrors.New("invalid entity name or password")
 	errPerm           = stderrors.New("permission denied")
 	errNotLoggedIn    = stderrors.New("not logged in")
