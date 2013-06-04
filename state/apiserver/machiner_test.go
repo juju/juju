@@ -74,13 +74,97 @@ func (s *machinerSuite) TestMachinerFailsWithNotEmptyId(c *C) {
 }
 
 func (s *machinerSuite) TestMachines(c *C) {
+	machiner, err := s.root.Machiner("")
+	c.Assert(err, IsNil)
+
+	// Request the machines in specific order to make sure the
+	// response respects it.
+	args := params.Machines{
+		Ids: []string{"1", "0", "42"},
+	}
+	result, err := machiner.Machines(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Machines[0].Error, IsNil)
+	c.Assert(result.Machines[0].Machine.Id, Equals, "1")
+	c.Assert(result.Machines[1].Error, IsNil)
+	c.Assert(result.Machines[1].Machine.Id, Equals, "0")
+	s.assertError(c, result.Machines[2].Error, api.CodeNotFound, "machine 42 not found")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
+	machiner, err := s.root.Machiner("")
+	c.Assert(err, IsNil)
+
+	err = s.machine0.SetStatus(params.StatusStarted, "blah")
+	c.Assert(err, IsNil)
+	err = s.machine1.SetStatus(params.StatusStopped, "foo")
+	c.Assert(err, IsNil)
+
+	args := params.MachinesSetStatus{
+		Machines: []params.MachineSetStatus{
+			{Id: "1", Status: params.StatusError, Info: "not really"},
+			{Id: "0", Status: params.StatusStopped, Info: "foobar"},
+			{Id: "42", Status: params.StatusStarted, Info: "blah"},
+		}}
+	result, err := machiner.SetStatus(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Errors[0], IsNil)
+	c.Assert(result.Errors[1], IsNil)
+	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
+
+	// Verify
+	status, info, err := s.machine0.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.StatusStopped)
+	c.Assert(info, Equals, "foobar")
+	status, info, err = s.machine1.Status()
+	c.Assert(err, IsNil)
+	c.Assert(status, Equals, params.StatusError)
+	c.Assert(info, Equals, "not really")
 }
 
 func (s *machinerSuite) TestLife(c *C) {
+	machiner, err := s.root.Machiner("")
+	c.Assert(err, IsNil)
+
+	err = s.machine1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(s.machine1.Life(), Equals, state.Dead)
+
+	args := params.Machines{
+		Ids: []string{"1", "0", "42"},
+	}
+	result, err := machiner.Life(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Machines[0].Error, IsNil)
+	c.Assert(string(result.Machines[0].Life), Equals, "dead")
+	c.Assert(result.Machines[1].Error, IsNil)
+	c.Assert(string(result.Machines[1].Life), Equals, "alive")
+	s.assertError(c, result.Machines[2].Error, api.CodeNotFound, "machine 42 not found")
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {
+	machiner, err := s.root.Machiner("")
+	c.Assert(err, IsNil)
+
+	c.Assert(s.machine0.Life(), Equals, state.Alive)
+	c.Assert(s.machine1.Life(), Equals, state.Alive)
+
+	args := params.Machines{
+		Ids: []string{"1", "0", "42"},
+	}
+	result, err := machiner.EnsureDead(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Errors[0], IsNil)
+	s.assertError(c, result.Errors[1], "", "machine 0 is required by the environment")
+	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
+
+	err = s.machine0.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(s.machine0.Life(), Equals, state.Alive)
+	err = s.machine1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(s.machine1.Life(), Equals, state.Dead)
 }

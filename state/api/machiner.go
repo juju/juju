@@ -62,17 +62,17 @@ func (mm *MachinerMachine) Id() string {
 }
 
 // Life returns the machine's lifecycle state.
-func (mm *MachinerMachine) Life() params.Life {
+func (mm *MachinerMachine) Life() (params.Life, error) {
 	var result params.MachinesLifeResults
 	args := params.Machines{
 		Ids: []string{mm.id},
 	}
 	err := mm.machiner.st.call("Machiner", "", "Life", args, &result)
 	if err != nil {
-		panic(err)
+		return "", err
 	}
 	if err := result.Machines[0].Error; err != nil {
-		panic(err)
+		return "", err
 	}
-	return result.Machines[0].Life
+	return result.Machines[0].Life, nil
 }
