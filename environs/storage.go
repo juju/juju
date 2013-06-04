@@ -6,8 +6,8 @@ package environs
 import (
 	"fmt"
 	"io"
-	"strings"
 	"launchpad.net/juju-core/errors"
+	"strings"
 )
 
 // EmptyStorage holds a StorageReader object that contains no files and
