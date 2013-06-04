@@ -41,17 +41,6 @@ type Machines struct {
 	Ids []string
 }
 
-// MachineResult holds a single machine or an error result.
-type MachineResult struct {
-	Error   *Error
-	Machine *Machine
-}
-
-// MachinesResults holds the results of a bulk operation on multiple machines.
-type MachinesResults struct {
-	Machines []MachineResult
-}
-
 // MachineSetStatus holds a machine id, status and extra info.
 type MachineSetStatus struct {
 	Id     string

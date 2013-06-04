@@ -3,36 +3,15 @@
 
 package apiserver
 
-import "launchpad.net/juju-core/state/api/params"
+import (
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+)
 
 // srvMachiner represents the Machiner API facade used by the machiner worker.
 type srvMachiner struct {
-	root *srvRoot
-}
-
-// Machines returns all details of all given machines.
-func (m *srvMachiner) Machines(args params.Machines) (params.MachinesResults, error) {
-	result := params.MachinesResults{
-		Machines: make([]params.MachineResult, len(args.Ids)),
-	}
-	if len(args.Ids) == 0 {
-		return result, nil
-	}
-	for i, id := range args.Ids {
-		machine, err := m.root.srv.state.Machine(id)
-		if err == nil {
-			// Allow only for the owner agent or the environment manager
-			if !m.root.authOwner(machine) && !m.root.authEnvironManager() {
-				err = errPerm
-			} else {
-				result.Machines[i].Machine = &params.Machine{
-					Id: machine.Id(),
-				}
-			}
-		}
-		result.Machines[i].Error = serverErrorToParams(err)
-	}
-	return result, nil
+	st   *state.State
+	auth Authorizer
 }
 
 // SetStatus sets the status of each given machine.
@@ -44,10 +23,10 @@ func (m *srvMachiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 		return result, nil
 	}
 	for i, arg := range args.Machines {
-		machine, err := m.root.srv.state.Machine(arg.Id)
+		machine, err := m.st.Machine(arg.Id)
 		if err == nil {
 			// Allow only for the owner agent or the environment manager
-			if !m.root.authOwner(machine) && !m.root.authEnvironManager() {
+			if !m.auth.AuthOwner(machine) {
 				err = errPerm
 			} else {
 				err = machine.SetStatus(arg.Status, arg.Info)
@@ -72,10 +51,10 @@ func (m *srvMachiner) Life(args params.Machines) (params.MachinesLifeResults, er
 		return result, nil
 	}
 	for i, id := range args.Ids {
-		machine, err := m.root.srv.state.Machine(id)
+		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent or the environment manager
-			if !m.root.authOwner(machine) && !m.root.authEnvironManager() {
+			if !m.auth.AuthOwner(machine) {
 				err = errPerm
 			} else {
 				result.Machines[i].Life = params.Life(machine.Life().String())
@@ -96,10 +75,10 @@ func (m *srvMachiner) EnsureDead(args params.Machines) (params.ErrorResults, err
 		return result, nil
 	}
 	for i, id := range args.Ids {
-		machine, err := m.root.srv.state.Machine(id)
+		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent or the environment manager
-			if !m.root.authOwner(machine) && !m.root.authEnvironManager() {
+			if !m.auth.AuthOwner(machine) {
 				err = errPerm
 			} else {
 				err = machine.EnsureDead()

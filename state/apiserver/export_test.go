@@ -3,7 +3,7 @@
 
 package apiserver
 
-import "fmt"
+import "launchpad.net/juju-core/state"
 
 var (
 	ServerError       = serverError
@@ -16,16 +16,10 @@ var (
 	ErrStoppedWatcher = errStoppedWatcher
 )
 
-type SrvRoot struct {
-	srvRoot
+type SrvMachiner struct {
+	*srvMachiner
 }
 
-func ServerLoginAndGetRoot(srv *Server, tag, password string) (*SrvRoot, error) {
-	if srv.root != nil {
-		if err := srv.root.user.login(srv.state, tag, password); err != nil {
-			return nil, err
-		}
-		return &SrvRoot{*srv.root}, nil
-	}
-	return nil, fmt.Errorf("server root not initialized")
+func NewMachiner(st *state.State, auth Authorizer) *SrvMachiner {
+	return &SrvMachiner{&srvMachiner{st, auth}}
 }

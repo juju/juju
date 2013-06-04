@@ -22,7 +22,6 @@ type Server struct {
 	wg    sync.WaitGroup
 	state *state.State
 	addr  net.Addr
-	root  *srvRoot
 }
 
 // Serve serves the given state by accepting requests on the given
@@ -47,7 +46,6 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	lis = tls.NewListener(lis, &tls.Config{
 		Certificates: []tls.Certificate{tlsCert},
 	})
-	srv.root = newStateServer(srv)
 	go srv.run(lis)
 	return srv, nil
 }
@@ -98,7 +96,7 @@ func (srv *Server) Addr() string {
 
 func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	conn := rpc.NewConn(jsoncodec.NewWebsocket(wsConn))
-	if err := conn.Serve(srv.root, serverError); err != nil {
+	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
 		return err
 	}
 	conn.Start()

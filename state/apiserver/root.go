@@ -36,7 +36,8 @@ func newStateServer(srv *Server) *srvRoot {
 		root: r,
 	}
 	r.machiner = &srvMachiner{
-		root: r,
+		st:   r.srv.state,
+		auth: r,
 	}
 	return r
 }
@@ -240,20 +241,26 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 	return r.client, nil
 }
 
-type tagger interface {
+type Tagger interface {
 	Tag() string
 }
 
-// authOwner returns whether the authenticated user's tag matches the
+// Authorizer interface defines per-method authorization calls.
+type Authorizer interface {
+	AuthOwner(entity Tagger) bool
+	AuthEnvironManager() bool
+}
+
+// AuthOwner returns whether the authenticated user's tag matches the
 // given entity's tag.
-func (r *srvRoot) authOwner(entity tagger) bool {
+func (r *srvRoot) AuthOwner(entity Tagger) bool {
 	authUser := r.user.authenticator()
 	return authUser.Tag() == entity.Tag()
 }
 
-// authEnvironManager returns whether the authenticated user is a
+// AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *srvRoot) authEnvironManager() bool {
+func (r *srvRoot) AuthEnvironManager() bool {
 	authUser := r.user.authenticator()
 	return isMachineWithJob(authUser, state.JobManageEnviron)
 }

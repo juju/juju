@@ -3,7 +3,10 @@
 
 package api
 
-import "launchpad.net/juju-core/state/api/params"
+import (
+	"fmt"
+	"launchpad.net/juju-core/state/api/params"
+)
 
 // Machiner provides access to the Machiner API facade.
 type Machiner struct {
@@ -14,24 +17,38 @@ type Machiner struct {
 // the Machiner facade.
 type MachinerMachine struct {
 	id       string
+	life     params.Life
 	machiner *Machiner
+}
+
+// machineLife requests the lifecycle of the given machine from the server.
+func (m *Machiner) machineLife(id string) (params.Life, error) {
+	var result params.MachinesLifeResults
+	args := params.Machines{
+		Ids: []string{id},
+	}
+	err := m.st.call("Machiner", "", "Life", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if len(result.Machines) != 1 {
+		return "", fmt.Errorf("expected server response, got nothing")
+	}
+	if err := result.Machines[0].Error; err != nil {
+		return "", err
+	}
+	return result.Machines[0].Life, nil
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
 func (m *Machiner) Machine(id string) (*MachinerMachine, error) {
-	var result params.MachinesResults
-	args := params.Machines{
-		Ids: []string{id},
-	}
-	err := m.st.call("Machiner", "", "Machines", args, &result)
+	life, err := m.machineLife(id)
 	if err != nil {
 		return nil, err
 	}
-	if err := result.Machines[0].Error; err != nil {
-		return nil, err
-	}
 	return &MachinerMachine{
-		id:       result.Machines[0].Machine.Id,
+		id:       id,
+		life:     life,
 		machiner: m,
 	}, nil
 }
@@ -51,8 +68,13 @@ func (mm *MachinerMachine) SetStatus(status params.Status, info string) error {
 	return result.Errors[0]
 }
 
-// Refresh is a no-op needed for interface compatibility.
+// Refresh updates the cached local copy of the machine's data.
 func (mm *MachinerMachine) Refresh() error {
+	life, err := mm.machiner.machineLife(mm.id)
+	if err != nil {
+		return err
+	}
+	mm.life = life
 	return nil
 }
 
@@ -61,18 +83,7 @@ func (mm *MachinerMachine) Id() string {
 	return mm.id
 }
 
-// Life returns the machine's lifecycle state.
-func (mm *MachinerMachine) Life() (params.Life, error) {
-	var result params.MachinesLifeResults
-	args := params.Machines{
-		Ids: []string{mm.id},
-	}
-	err := mm.machiner.st.call("Machiner", "", "Life", args, &result)
-	if err != nil {
-		return "", err
-	}
-	if err := result.Machines[0].Error; err != nil {
-		return "", err
-	}
-	return result.Machines[0].Life, nil
+// Life returns the (cached) machine's lifecycle state.
+func (mm *MachinerMachine) Life() params.Life {
+	return mm.life
 }

@@ -66,6 +66,9 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
+			// TODO (dimitern) This a really awkward way of testing -
+			// calling Login again here to reauth on the same
+			// connection. Seems wrong.
 			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)

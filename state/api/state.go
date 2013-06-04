@@ -28,8 +28,8 @@ func (st *State) Machiner() (*Machiner, error) {
 	args := params.Machines{
 		Ids: []string{},
 	}
-	var result params.MachinesResults
-	err := st.call("Machiner", "", "Machines", args, &result)
+	var result params.MachinesLifeResults
+	err := st.call("Machiner", "", "Life", args, &result)
 	if err != nil {
 		return nil, err
 	}

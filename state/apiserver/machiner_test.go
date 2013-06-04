@@ -10,19 +10,32 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
-	coretesting "launchpad.net/juju-core/testing"
 )
 
 type machinerSuite struct {
 	testing.JujuConnSuite
-	server *apiserver.Server
-	root   *apiserver.SrvRoot
+
+	machiner *apiserver.SrvMachiner
 
 	machine0 *state.Machine
 	machine1 *state.Machine
 }
 
 var _ = Suite(&machinerSuite{})
+
+// fakeAuthorizer implements the Authorizer interface.
+type fakeAuthorizer struct {
+	tag     string
+	manager bool
+}
+
+func (fa *fakeAuthorizer) AuthOwner(entity apiserver.Tagger) bool {
+	return entity.Tag() == fa.tag
+}
+
+func (fa *fakeAuthorizer) AuthEnvironManager() bool {
+	return fa.manager
+}
 
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -37,29 +50,14 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, s.machine0)
 
-	// Start the testing API server.
-	s.server, err = apiserver.NewServer(
+	// Create a machiner facades for machine 1.
+	s.machiner = apiserver.NewMachiner(
 		s.State,
-		"localhost:12345",
-		[]byte(coretesting.ServerCert),
-		[]byte(coretesting.ServerKey),
+		&fakeAuthorizer{
+			tag:     state.MachineTag(s.machine1.Id()),
+			manager: false,
+		},
 	)
-	c.Assert(err, IsNil)
-
-	// Login as the machine agent of the created machine and get the root.
-	s.root, err = apiserver.ServerLoginAndGetRoot(
-		s.server,
-		s.machine0.Tag(),
-		defaultPassword(s.machine0))
-	c.Assert(err, IsNil)
-}
-
-func (s *machinerSuite) TearDownTest(c *C) {
-	if s.server != nil {
-		err := s.server.Stop()
-		c.Assert(err, IsNil)
-	}
-	s.JujuConnSuite.TearDownTest(c)
 }
 
 func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp string) {
@@ -68,34 +66,8 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 	c.Assert(err, ErrorMatches, messageRegexp)
 }
 
-func (s *machinerSuite) TestMachinerFailsWithNotEmptyId(c *C) {
-	_, err := s.root.Machiner("blah")
-	c.Assert(err, ErrorMatches, api.CodeBadVersion)
-}
-
-func (s *machinerSuite) TestMachines(c *C) {
-	machiner, err := s.root.Machiner("")
-	c.Assert(err, IsNil)
-
-	// Request the machines in specific order to make sure the
-	// response respects it.
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
-	result, err := machiner.Machines(args)
-	c.Assert(err, IsNil)
-	c.Assert(result.Machines[0].Error, IsNil)
-	c.Assert(result.Machines[0].Machine.Id, Equals, "1")
-	c.Assert(result.Machines[1].Error, IsNil)
-	c.Assert(result.Machines[1].Machine.Id, Equals, "0")
-	s.assertError(c, result.Machines[2].Error, api.CodeNotFound, "machine 42 not found")
-}
-
 func (s *machinerSuite) TestSetStatus(c *C) {
-	machiner, err := s.root.Machiner("")
-	c.Assert(err, IsNil)
-
-	err = s.machine0.SetStatus(params.StatusStarted, "blah")
+	err := s.machine0.SetStatus(params.StatusStarted, "blah")
 	c.Assert(err, IsNil)
 	err = s.machine1.SetStatus(params.StatusStopped, "foo")
 	c.Assert(err, IsNil)
@@ -106,17 +78,18 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 			{Id: "0", Status: params.StatusStopped, Info: "foobar"},
 			{Id: "42", Status: params.StatusStarted, Info: "blah"},
 		}}
-	result, err := machiner.SetStatus(args)
+	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors[0], IsNil)
-	c.Assert(result.Errors[1], IsNil)
+	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
 
-	// Verify
+	// Verify machine 0 - no change.
 	status, info, err := s.machine0.Status()
 	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusStopped)
-	c.Assert(info, Equals, "foobar")
+	c.Assert(status, Equals, params.StatusStarted)
+	c.Assert(info, Equals, "blah")
+	// ...machine 1 is fine thought.
 	status, info, err = s.machine1.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.StatusError)
@@ -124,10 +97,7 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 }
 
 func (s *machinerSuite) TestLife(c *C) {
-	machiner, err := s.root.Machiner("")
-	c.Assert(err, IsNil)
-
-	err = s.machine1.EnsureDead()
+	err := s.machine1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = s.machine1.Refresh()
 	c.Assert(err, IsNil)
@@ -136,29 +106,25 @@ func (s *machinerSuite) TestLife(c *C) {
 	args := params.Machines{
 		Ids: []string{"1", "0", "42"},
 	}
-	result, err := machiner.Life(args)
+	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Machines[0].Error, IsNil)
 	c.Assert(string(result.Machines[0].Life), Equals, "dead")
-	c.Assert(result.Machines[1].Error, IsNil)
-	c.Assert(string(result.Machines[1].Life), Equals, "alive")
+	s.assertError(c, result.Machines[1].Error, api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Machines[2].Error, api.CodeNotFound, "machine 42 not found")
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {
-	machiner, err := s.root.Machiner("")
-	c.Assert(err, IsNil)
-
 	c.Assert(s.machine0.Life(), Equals, state.Alive)
 	c.Assert(s.machine1.Life(), Equals, state.Alive)
 
 	args := params.Machines{
 		Ids: []string{"1", "0", "42"},
 	}
-	result, err := machiner.EnsureDead(args)
+	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], "", "machine 0 is required by the environment")
+	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
 
 	err = s.machine0.Refresh()
