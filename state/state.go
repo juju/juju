@@ -180,14 +180,51 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, constraints.Value{}, "", "", jobs)
+	return st.addMachine(&addMachineParams{series: series, jobs: jobs})
 }
 
 // AddMachine adds a new machine configured to run the supplied jobs on the
 // supplied series. The machine's constraints will be taken from the result of
-// merging extraCons with the enviroinment constraints.
-func (st *State) AddMachineWithConstraints(series string, extraCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, extraCons, "", "", jobs)
+// merging machineCons with the environment constraints.
+func (st *State) AddMachineWithConstraints(series string, machineCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine(&addMachineParams{series: series, machineCons: machineCons, jobs: jobs})
+}
+
+// AddContainerWithConstraints creates a new container of the specified type on the machine with the specified
+// parent id, configured to run the supplied jobs on the supplied series. The container's constraints will be
+// taken from the result of merging machineCons with the environment constraints. If parent id is not supplied, a
+// new machine instance is created.
+func (st *State) AddContainerWithConstraints(
+	parentId string, containerType ContainerType, series string, machineCons constraints.Value,
+	containerCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
+
+	// Ensure any container constraints are compatible with any machine constraints.
+	// ie it makes no sense asking for a 16G container on a machine with 8G.
+	// TODO(wallyworld) - when the actual machine characteristics are made available, we need to check the
+	// container constraints against those rather than the machine constraints which may not fully reflect the
+	// machine itself.
+	if !containerCons.IsCompatible(machineCons) {
+		return nil, fmt.Errorf(
+			"container constraints %q not compatible with machine constraints %q", containerCons, machineCons)
+	}
+
+	// mongo doesn't support atomic transactions spanning documents so we need to create any parent
+	// machine first (if required) and delete it if there's an error.
+	var parent *Machine
+	if parentId == "" && containerType != "" {
+		parent, err = st.AddMachineWithConstraints(series, machineCons, jobs...)
+		if err != nil {
+			return nil, fmt.Errorf("cannot create parent machine for container: %v", err)
+		}
+		parentId = parent.Id()
+	}
+	m, err = st.addMachine(
+		&addMachineParams{series: series, parentId: parentId, containerType: containerType, machineCons: containerCons, jobs: jobs})
+	if err != nil && parent != nil {
+		// The container could not be created so any newly created parent needs to be removed from state.
+		parent.Destroy()
+	}
+	return m, err
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
@@ -197,15 +234,18 @@ func (st *State) InjectMachine(series string, cons constraints.Value, instanceId
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, cons, instanceId, BootstrapNonce, jobs)
+	return st.addMachine(&addMachineParams{series: series, machineCons: cons, instanceId: instanceId, nonce: BootstrapNonce, jobs: jobs})
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(parentId string, mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
 	if len(mdoc.Jobs) == 0 {
 		return nil, nil, fmt.Errorf("no jobs specified")
+	}
+	if parentId != "" && mdoc.ContainerType == "" {
+		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range mdoc.Jobs {
@@ -214,11 +254,21 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 		}
 		jset[j] = true
 	}
-	seq, err := st.sequence("machine")
-	if err != nil {
-		return nil, nil, err
+	if parentId == "" {
+		// we are creating a new machine instance (not a container).
+		seq, err := st.sequence("machine")
+		if err != nil {
+			return nil, nil, err
+		}
+		mdoc.Id = strconv.Itoa(seq)
+	} else {
+		// we are cresting a container so set up a namespaced id.
+		p, err := st.Machine(parentId)
+		if err != nil {
+			return nil, nil, err
+		}
+		mdoc.Id = fmt.Sprintf("%s/%s/%d", parentId, mdoc.ContainerType, p.NumChildren())
 	}
-	mdoc.Id = strconv.Itoa(seq)
 	mdoc.Life = Alive
 	sdoc := statusDoc{
 		Status: params.StatusPending,
@@ -233,26 +283,43 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
+	if parentId != "" {
+		ops = append(ops, updateChildrenRefCountOp(st, parentId, 1))
+	}
 	return mdoc, ops, nil
 }
 
+type addMachineParams struct {
+	series        string
+	machineCons   constraints.Value
+	parentId      string
+	containerType ContainerType
+	instanceId    InstanceId
+	nonce         string
+	jobs          []MachineJob
+}
+
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, extraCons constraints.Value, instanceId InstanceId,
-	nonce string, jobs []MachineJob) (m *Machine, err error) {
-	defer utils.ErrorContextf(&err, "cannot add a new machine")
+func (st *State) addMachine(params *addMachineParams) (m *Machine, err error) {
+	msg := "cannot add a new machine"
+	if params.parentId != "" || params.containerType != "" {
+		msg = "cannot add a new container"
+	}
+	defer utils.ErrorContextf(&err, msg)
 
 	cons, err := st.EnvironConstraints()
 	if err != nil {
 		return nil, err
 	}
-	cons = extraCons.WithFallbacks(cons)
+	cons = params.machineCons.WithFallbacks(cons)
 	mdoc := &machineDoc{
-		Series:     series,
-		InstanceId: instanceId,
-		Nonce:      nonce,
-		Jobs:       jobs,
+		Series:        params.series,
+		ContainerType: string(params.containerType),
+		InstanceId:    params.instanceId,
+		Nonce:         params.nonce,
+		Jobs:          params.jobs,
 	}
-	mdoc, ops, err := st.addMachineOps(mdoc, cons)
+	mdoc, ops, err := st.addMachineOps(params.parentId, mdoc, cons)
 	if err != nil {
 		return nil, err
 	}

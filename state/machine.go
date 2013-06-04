@@ -54,16 +54,18 @@ func (job MachineJob) String() string {
 // machineDoc represents the internal state of a machine in MongoDB.
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
-	Id           string `bson:"_id"`
-	Nonce        string
-	Series       string
-	InstanceId   InstanceId
-	Principals   []string
-	Life         Life
-	Tools        *Tools `bson:",omitempty"`
-	TxnRevno     int64  `bson:"txn-revno"`
-	Jobs         []MachineJob
-	PasswordHash string
+	Id            string `bson:"_id"`
+	Nonce         string
+	Series        string
+	ContainerType string
+	NumChildren   int
+	InstanceId    InstanceId
+	Principals    []string
+	Life          Life
+	Tools         *Tools `bson:",omitempty"`
+	TxnRevno      int64  `bson:"txn-revno"`
+	Jobs          []MachineJob
+	PasswordHash  string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -87,6 +89,16 @@ func (m *Machine) Id() string {
 // Series returns the operating system series running on the machine.
 func (m *Machine) Series() string {
 	return m.doc.Series
+}
+
+// ContainerType returns the type of container hosting this machine.
+func (m *Machine) ContainerType() ContainerType {
+	return ContainerType(m.doc.ContainerType)
+}
+
+// NumChildren returns the number of containers directly running inside this machine.
+func (m *Machine) NumChildren() int {
+	return m.doc.NumChildren
 }
 
 // machineGlobalKey returns the global database key for the identified machine.

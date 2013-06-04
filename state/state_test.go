@@ -127,6 +127,7 @@ func (s *StateSuite) TestAddMachines(c *C) {
 		c.Assert(m.Id(), Equals, id)
 		c.Assert(m.Series(), Equals, series)
 		c.Assert(m.Jobs(), DeepEquals, jobs)
+		c.Assert(m.NumChildren(), Equals, 0)
 	}
 	check(m0, "0", "series", oneJob)
 	m0, err = s.State.Machine("0")
@@ -169,12 +170,97 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, expectedCons)
 }
 
+var emptyCons = constraints.Value{}
+
+func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+
+	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+
+	m, err = s.State.Machine("0")
+	c.Assert(err, IsNil)
+	c.Assert(m.NumChildren(), Equals, 1)
+	m, err = s.State.Machine("0/lxc/0")
+	c.Assert(err, IsNil)
+	c.Assert(m.NumChildren(), Equals, 0)
+}
+
+func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m0, err := s.State.AddMachine("series", oneJob...)
+	c.Assert(err, IsNil)
+	m1, err := s.State.AddMachine("series", oneJob...)
+	c.Assert(err, IsNil)
+
+	// Add first container.
+	m, err := s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "1/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+
+	err = m0.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m0.NumChildren(), Equals, 0)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m1.NumChildren(), Equals, 1)
+	m, err = s.State.Machine("1/lxc/0")
+	c.Assert(err, IsNil)
+	c.Assert(m.NumChildren(), Equals, 0)
+
+	// Add second container.
+	m, err = s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "1/lxc/1")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(m1.NumChildren(), Equals, 2)
+}
+
+func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+
+	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", emptyCons, cons, oneJob...)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mcons)
+}
+
+func (s *StateSuite) TestAddContainerErrors(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+
+	_, err := s.State.AddContainerWithConstraints("10", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	c.Assert(err, ErrorMatches, "cannot add a new container: machine 10 not found")
+	_, err = s.State.AddContainerWithConstraints("10", "", "series", emptyCons, emptyCons, oneJob...)
+	c.Assert(err, ErrorMatches, "cannot add a new container: no container type specified")
+	machineCons := constraints.MustParse("mem=4G")
+	containerCons := constraints.MustParse("mem=8G")
+	_, err = s.State.AddContainerWithConstraints("", state.LXC, "series", machineCons, containerCons, oneJob...)
+	c.Assert(err, ErrorMatches, `container constraints "mem=8192M" not compatible with machine constraints "mem=4096M"`)
+}
+
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", constraints.Value{}, state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", emptyCons, state.InstanceId("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -497,7 +583,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 
 func (s *StateSuite) TestEnvironConstraints(c *C) {
 	// Environ constraints start out empty (for now).
-	cons0 := constraints.Value{}
+	cons0 := emptyCons
 	cons1, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons1, DeepEquals, cons0)

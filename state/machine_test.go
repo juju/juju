@@ -28,6 +28,11 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) ContainerDefaults(c *C) {
+	c.Assert(s.machine.ContainerType(), Equals, "")
+	c.Assert(s.machine.NumChildren(), Equals, 0)
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)

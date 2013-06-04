@@ -358,3 +358,84 @@ func (s *ConstraintsSuite) TestWithFallbacks(c *C) {
 		c.Assert(initial.WithFallbacks(fallbacks), DeepEquals, final)
 	}
 }
+
+var compatibilityTests = []struct {
+	c1         string
+	c2         string
+	compatible bool
+}{
+	{
+		c1:         "",
+		c2:         "",
+		compatible: true,
+	}, {
+		c1:         "arch=amd64",
+		c2:         "arch=amd64",
+		compatible: true,
+	}, {
+		c1:         "arch=amd64",
+		c2:         "arch=i386",
+		compatible: false,
+	}, {
+		c1:         "arch=amd64 mem=4G",
+		c2:         "arch=amd64",
+		compatible: true,
+	}, {
+		c1:         "arch=amd64 cpu-cores=4",
+		c2:         "arch=amd64",
+		compatible: true,
+	}, {
+		c1:         "arch=amd64 cpu-power=10",
+		c2:         "arch=amd64",
+		compatible: true,
+	}, {
+		c1:         "arch=amd64 mem=4G",
+		c2:         "arch=amd64 mem=4G",
+		compatible: true,
+	}, {
+		c1:         "mem=4G",
+		c2:         "",
+		compatible: true,
+	}, {
+		c1:         "cpu-cores=4",
+		c2:         "",
+		compatible: true,
+	}, {
+		c1:         "cpu-power=10",
+		c2:         "",
+		compatible: true,
+	}, {
+		c1:         "mem=4G",
+		c2:         "mem=8G",
+		compatible: true,
+	}, {
+		c1:         "cpu-cores=4",
+		c2:         "cpu-cores=8",
+		compatible: true,
+	}, {
+		c1:         "cpu-power=10",
+		c2:         "cpu-power=20",
+		compatible: true,
+	}, {
+		c1:         "mem=8G",
+		c2:         "mem=4G",
+		compatible: false,
+	}, {
+		c1:         "cpu-cores=8",
+		c2:         "cpu-cores=4",
+		compatible: false,
+	}, {
+		c1:         "cpu-power=20",
+		c2:         "cpu-power=10",
+		compatible: false,
+	},
+}
+
+func (s *ConstraintsSuite) TestIsCompatible(c *C) {
+	for i, t := range compatibilityTests {
+		c.Logf("test %d", i)
+		c1 := constraints.MustParse(t.c1)
+		c2 := constraints.MustParse(t.c2)
+		c.Check(c1.IsCompatible(c2), Equals, t.compatible)
+	}
+}
