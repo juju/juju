@@ -12,6 +12,12 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 )
 
+type errorsSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&errorsSuite{})
+
 var errorTransformTests = []struct {
 	err  error
 	code string
@@ -62,7 +68,7 @@ var errorTransformTests = []struct {
 	code: "",
 }}
 
-func (s *suite) TestErrorTransform(c *C) {
+func (s *errorsSuite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
 		err1 := apiserver.ServerError(t.err)
 		c.Assert(err1.Error(), Equals, t.err.Error())

@@ -21,11 +21,11 @@ func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type suite struct {
+type baseSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&suite{})
+var _ = Suite(&baseSuite{})
 
 func chanReadEmpty(c *C, ch <-chan struct{}, what string) bool {
 	select {
@@ -100,7 +100,7 @@ func setDefaultStatus(c *C, entity setStatuser) {
 	c.Assert(err, IsNil)
 }
 
-func (s *suite) tryOpenState(c *C, e apiAuthenticator, password string) error {
+func (s *baseSuite) tryOpenState(c *C, e apiAuthenticator, password string) error {
 	stateInfo := s.StateInfo(c)
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
@@ -116,7 +116,7 @@ func (s *suite) tryOpenState(c *C, e apiAuthenticator, password string) error {
 
 // openAs connects to the API state as the given entity
 // with the default password for that entity.
-func (s *suite) openAs(c *C, tag string) *api.State {
+func (s *baseSuite) openAs(c *C, tag string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 	info.Tag = tag

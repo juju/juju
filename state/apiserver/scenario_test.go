@@ -69,7 +69,7 @@ var scenarioStatus = &api.Status{
 // just because machine 0 has traditionally been the
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
-func (s *suite) setUpScenario(c *C) (entities []string) {
+func (s *baseSuite) setUpScenario(c *C) (entities []string) {
 	add := func(e state.Tagger) {
 		entities = append(entities, e.Tag())
 	}
