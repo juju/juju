@@ -37,10 +37,10 @@ type MachineConfig struct {
 	StateServerCert []byte
 	StateServerKey  []byte
 
-	// MongoPort specifies the TCP port that will be used
+	// StatePort specifies the TCP port that will be used
 	// by the MongoDB server. It must be non-zero
 	// if StateServer is true.
-	MongoPort int
+	StatePort int
 
 	// APIPort specifies the TCP port that will be used
 	// by the API server. It must be non-zero
@@ -234,7 +234,7 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 		APIInfo:         &apiInfo,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
-		MongoPort:       cfg.MongoPort,
+		StatePort:       cfg.StatePort,
 		APIPort:         cfg.APIPort,
 		MachineNonce:    cfg.MachineNonce,
 	}
@@ -322,7 +322,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(cfg.MongoPort) +
+			" --port " + fmt.Sprint(cfg.StatePort) +
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles",
@@ -351,7 +351,7 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.MongoPort))
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StatePort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
@@ -429,8 +429,8 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
 		}
-		if cfg.MongoPort == 0 {
-			return fmt.Errorf("missing mongo port")
+		if cfg.StatePort == 0 {
+			return fmt.Errorf("missing state port")
 		}
 		if cfg.APIPort == 0 {
 			return fmt.Errorf("missing API port")

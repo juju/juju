@@ -14,6 +14,11 @@ type Client struct {
 	st *State
 }
 
+// MachineInfo holds information about a machine.
+type MachineInfo struct {
+	InstanceId string // blank if not set.
+}
+
 // Status holds information about the status of a juju environment.
 type Status struct {
 	Machines map[string]MachineInfo

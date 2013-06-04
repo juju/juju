@@ -113,6 +113,9 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uui
 // the bufio line reader.
 const lineBufferSize = 4096
 
+var apiAddrs = []string{"a1:123", "a2:123"}
+var expectedApiAddrs = strings.Join(apiAddrs, " ")
+
 var runHookTests = []struct {
 	summary string
 	relid   int
@@ -165,17 +168,19 @@ var runHookTests = []struct {
 		relid:   -1,
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
-			"JUJU_UNIT_NAME": "u/0",
+			"JUJU_UNIT_NAME":     "u/0",
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
 		},
 	}, {
 		summary: "check shell environment for relation-broken hook context",
 		relid:   1,
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
-			"JUJU_UNIT_NAME":   "u/0",
-			"JUJU_RELATION":    "db",
-			"JUJU_RELATION_ID": "db:1",
-			"JUJU_REMOTE_UNIT": "",
+			"JUJU_UNIT_NAME":     "u/0",
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_RELATION":      "db",
+			"JUJU_RELATION_ID":   "db:1",
+			"JUJU_REMOTE_UNIT":   "",
 		},
 	}, {
 		summary: "check shell environment for relation hook context",
@@ -183,10 +188,11 @@ var runHookTests = []struct {
 		remote:  "r/1",
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
-			"JUJU_UNIT_NAME":   "u/0",
-			"JUJU_RELATION":    "db",
-			"JUJU_RELATION_ID": "db:1",
-			"JUJU_REMOTE_UNIT": "r/1",
+			"JUJU_UNIT_NAME":     "u/0",
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_RELATION":      "db",
+			"JUJU_RELATION_ID":   "db:1",
+			"JUJU_REMOTE_UNIT":   "r/1",
 		},
 	},
 }
@@ -528,7 +534,8 @@ type InterfaceSuite struct {
 
 var _ = Suite(&InterfaceSuite{})
 
-func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
+func (s *InterfaceSuite) GetContext(c *C, relId int,
+	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, IsNil)
 	return s.HookContextSuite.GetHookContext(c, uuid.String(), relId, remoteName)
@@ -659,10 +666,12 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, uuid string, relid int, remote string) *uniter.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, uuid string, relid int,
+	remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote,
+		s.relctxs, apiAddrs)
 }

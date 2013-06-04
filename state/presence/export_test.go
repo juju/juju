@@ -20,3 +20,7 @@ var realPeriod = period
 func RealPeriod() {
 	period = realPeriod
 }
+
+func FindAllBeings(w *Watcher) (map[int64]beingInfo, error) {
+	return w.findAllBeings()
+}
