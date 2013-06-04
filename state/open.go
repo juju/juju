@@ -49,10 +49,6 @@ type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
-
-	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
-	RetryDelay time.Duration
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
@@ -60,7 +56,6 @@ type DialOpts struct {
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
 		Timeout:    10 * time.Minute,
-		RetryDelay: 2 * time.Second,
 	}
 }
 
@@ -89,8 +84,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	dial := func(addr net.Addr) (net.Conn, error) {
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Errorf("state: connection failed, paused for %v: %v", opts.RetryDelay, err)
-			time.Sleep(opts.RetryDelay)
+			log.Errorf("state: connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)

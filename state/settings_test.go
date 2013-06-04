@@ -33,7 +33,6 @@ func TestingStateInfo() *Info {
 func TestingDialOpts() DialOpts {
 	return DialOpts{
 		Timeout:    100 * time.Millisecond,
-		RetryDelay: 0,
 	}
 }
 
