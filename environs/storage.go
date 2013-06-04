@@ -16,8 +16,8 @@ var EmptyStorage StorageReader = emptyStorage{}
 
 type emptyStorage struct{}
 
-const VERIFICATION_FILENAME string = "bootstrap-verify"
-const VERIFICATION_CONTENT = "juju-core storage writing verified: ok"
+const verificationFilename string = "bootstrap-verify"
+const verificationContent = "juju-core storage writing verified: ok"
 
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 	return nil, errors.NotFoundf("file %q", name)
@@ -32,8 +32,8 @@ func (s emptyStorage) List(prefix string) ([]string, error) {
 }
 
 func VerifyStorage(storage Storage) error {
-	reader := strings.NewReader(VERIFICATION_CONTENT)
-	err := storage.Put(VERIFICATION_FILENAME, reader,
-		int64(len(VERIFICATION_CONTENT)))
+	reader := strings.NewReader(verificationContent)
+	err := storage.Put(verificationFilename, reader,
+		int64(len(verificationContent)))
 	return err
 }
