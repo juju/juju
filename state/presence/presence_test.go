@@ -461,9 +461,9 @@ func (s *PresenceSuite) TestFindAllBeings(c *C) {
 		done <- true
 	}()
 	assertChange(c, ch, presence.Change{"a", true})
-        results, err := presence.FindAllBeings(w)
-        c.Assert(err, IsNil)
-        c.Assert(results, HasLen, 1)
+	results, err := presence.FindAllBeings(w)
+	c.Assert(err, IsNil)
+	c.Assert(results, HasLen, 1)
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):

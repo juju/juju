@@ -19,5 +19,5 @@ func RealPeriod() {
 }
 
 func FindAllBeings(w *Watcher) (map[int64]beingInfo, error) {
-    return w.findAllBeings()
+	return w.findAllBeings()
 }
