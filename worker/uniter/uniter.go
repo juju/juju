@@ -317,7 +317,12 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 	for id, r := range u.relationers {
 		ctxRelations[id] = r.Context()
 	}
-	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit, ctxRelations)
+	apiAddrs, err := u.st.APIAddresses()
+	if err != nil {
+		return err
+	}
+	hctx := NewHookContext(u.unit, hctxId, u.uuid, relationId, hi.RemoteUnit,
+		ctxRelations, apiAddrs)
 
 	// Prepare server.
 	getCmd := func(ctxId, cmdName string) (cmd.Command, error) {
