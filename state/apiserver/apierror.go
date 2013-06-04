@@ -4,19 +4,22 @@
 package apiserver
 
 import (
-	"errors"
+	stderrors "errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 var (
-	errBadId          = errors.New("id not found")
-	errBadCreds       = errors.New("invalid entity name or password")
-	errPerm           = errors.New("permission denied")
-	errNotLoggedIn    = errors.New("not logged in")
-	errUnknownWatcher = errors.New("unknown watcher id")
-	errUnknownPinger  = errors.New("unknown pinger id")
-	errStoppedWatcher = errors.New("watcher has been stopped")
+	errBadId          = stderrors.New("id not found")
+	errBadVersion     = stderrors.New("API version not supported")
+	errBadCreds       = stderrors.New("invalid entity name or password")
+	errPerm           = stderrors.New("permission denied")
+	errNotLoggedIn    = stderrors.New("not logged in")
+	errUnknownWatcher = stderrors.New("unknown watcher id")
+	errUnknownPinger  = stderrors.New("unknown pinger id")
+	errStoppedWatcher = stderrors.New("watcher has been stopped")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -25,6 +28,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrExcessiveContention: api.CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: api.CodeUnitHasSubordinates,
 	errBadId:                     api.CodeNotFound,
+	errBadVersion:                api.CodeBadVersion,
 	errBadCreds:                  api.CodeUnauthorized,
 	errPerm:                      api.CodeUnauthorized,
 	errNotLoggedIn:               api.CodeUnauthorized,
@@ -36,9 +40,9 @@ func serverError(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
-	case state.IsUnauthorizedError(err):
+	case errors.IsUnauthorizedError(err):
 		code = api.CodeUnauthorized
-	case state.IsNotFound(err):
+	case errors.IsNotFoundError(err):
 		code = api.CodeNotFound
 	case state.IsNotAssigned(err):
 		code = api.CodeNotAssigned
@@ -52,4 +56,15 @@ func serverError(err error) error {
 		}
 	}
 	return err
+}
+
+func serverErrorToParams(err error) *params.Error {
+	if err != nil {
+		err = serverError(err)
+		return &params.Error{
+			Message: err.Error(),
+			Code:    api.ErrCode(err),
+		}
+	}
+	return nil
 }

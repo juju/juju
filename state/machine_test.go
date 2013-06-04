@@ -6,6 +6,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -81,7 +82,7 @@ func (s *MachineSuite) TestRemove(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
@@ -299,7 +300,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 	err = m0.Remove()
 	c.Assert(err, IsNil)
 	err = m0.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {

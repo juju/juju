@@ -5,8 +5,8 @@ package statecmd_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
@@ -55,7 +55,7 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelation(c *C) {
 	c.Assert(err, IsNil)
 
 	// Show that the relation was removed.
-	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
+	c.Assert(errors.IsNotFoundError(rel.Refresh()), Equals, true)
 }
 
 func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
@@ -76,7 +76,7 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
 	c.Assert(err, IsNil)
 
 	// Show that the relation was removed.
-	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
+	c.Assert(errors.IsNotFoundError(rel.Refresh()), Equals, true)
 }
 
 func (s *DestroyRelationSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *C) {
@@ -118,7 +118,7 @@ func (s *DestroyRelationSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *
 	c.Assert(err, IsNil)
 
 	// Show that the relation was removed.
-	c.Assert(state.IsNotFound(rel.Refresh()), Equals, true)
+	c.Assert(errors.IsNotFoundError(rel.Refresh()), Equals, true)
 
 	// And try to destroy it again.
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{

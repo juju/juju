@@ -90,7 +90,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	jobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobServeAPI, state.JobHostUnits,
 	}
-	m, err := st.InjectMachine(version.Current.Series, instanceId, jobs...)
+	m, err := st.InjectMachine(version.Current.Series, c.Constraints, instanceId, jobs...)
 	if err != nil {
 		return err
 	}

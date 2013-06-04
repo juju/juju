@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 )
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
@@ -65,7 +66,7 @@ func removeConstraintsOp(st *State, id string) txn.Op {
 func readConstraints(st *State, id string) (constraints.Value, error) {
 	doc := constraintsDoc{}
 	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		return constraints.Value{}, NotFoundf("constraints")
+		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err
 	}

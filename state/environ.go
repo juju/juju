@@ -6,6 +6,7 @@ package state
 import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/errors"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -30,7 +31,7 @@ func (st *State) Environment() (*Environment, error) {
 	doc := environmentDoc{}
 	err := st.environments.Find(D{{"uuid", D{{"$ne", ""}}}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("environment")
+		return nil, errors.NotFoundf("environment")
 	} else if err != nil {
 		return nil, err
 	}

@@ -6,7 +6,6 @@ package apiserver
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/multiwatcher"
-	"launchpad.net/juju-core/state/presence"
 )
 
 // srvRoot represents a single client's connection to the state.
@@ -15,6 +14,7 @@ type srvRoot struct {
 	client    *srvClient
 	state     *srvState
 	srv       *Server
+	machiner  *srvMachiner
 	resources *resources
 
 	user authUser
@@ -33,6 +33,10 @@ func newStateServer(srv *Server) *srvRoot {
 	}
 	r.state = &srvState{
 		root: r,
+	}
+	r.machiner = &srvMachiner{
+		st:   r.srv.state,
+		auth: r,
 	}
 	return r
 }
@@ -82,36 +86,17 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
-// Machine returns an object that provides
-// API access to methods on a state.Machine.
-func (r *srvRoot) Machine(id string) (*srvMachine, error) {
+// Machiner returns an object that provides access to the Machiner API
+// facade. Version argument is reserved for future use and currently
+// needs to be empty.
+func (r *srvRoot) Machiner(version string) (*srvMachiner, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	m, err := r.srv.state.Machine(id)
-	if err != nil {
-		return nil, err
+	if version != "" {
+		return nil, errBadVersion
 	}
-	return &srvMachine{
-		root: r,
-		m:    m,
-	}, nil
-}
-
-// Unit returns an object that provides
-// API access to methods on a state.Unit.
-func (r *srvRoot) Unit(name string) (*srvUnit, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	u, err := r.srv.state.Unit(name)
-	if err != nil {
-		return nil, err
-	}
-	return &srvUnit{
-		root: r,
-		u:    u,
-	}, nil
+	return r.machiner, nil
 }
 
 // User returns an object that provides
@@ -138,23 +123,6 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 		root: r,
 		u:    u,
 	}, nil
-}
-
-// Pinger returns an object that provides API access to methods on a
-// presence.Pinger. Each client has its own current set of pingers,
-// stored in r.resources.
-func (r *srvRoot) Pinger(id string) (*srvResource, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	pinger := r.resources.get(id)
-	if pinger == nil {
-		return nil, errUnknownPinger
-	}
-	if _, ok := pinger.resource.(*presence.Pinger); !ok {
-		return nil, errUnknownPinger
-	}
-	return pinger, nil
 }
 
 // EntityWatcher returns an object that provides
@@ -255,20 +223,26 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 	return r.client, nil
 }
 
-type tagger interface {
+type Tagger interface {
 	Tag() string
 }
 
-// authOwner returns whether the authenticated user's tag matches the
+// Authorizer interface defines per-method authorization calls.
+type Authorizer interface {
+	AuthOwner(entity Tagger) bool
+	AuthEnvironManager() bool
+}
+
+// AuthOwner returns whether the authenticated user's tag matches the
 // given entity's tag.
-func (r *srvRoot) authOwner(entity tagger) bool {
+func (r *srvRoot) AuthOwner(entity Tagger) bool {
 	authUser := r.user.authenticator()
 	return authUser.Tag() == entity.Tag()
 }
 
-// authEnvironManager returns whether the authenticated user is a
+// AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
-func (r *srvRoot) authEnvironManager() bool {
+func (r *srvRoot) AuthEnvironManager() bool {
 	authUser := r.user.authenticator()
 	return isMachineWithJob(authUser, state.JobManageEnviron)
 }

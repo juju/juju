@@ -10,6 +10,7 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -235,7 +236,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*C) bool {
 func isRemoved(st *state.State, name string) func(*C) bool {
 	return func(c *C) bool {
 		_, err := st.Unit(name)
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			return true
 		}
 		c.Assert(err, IsNil)

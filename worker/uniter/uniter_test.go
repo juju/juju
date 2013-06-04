@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -1482,7 +1483,7 @@ type relationState struct {
 func (s relationState) step(c *C, ctx *context) {
 	err := ctx.relation.Refresh()
 	if s.removed {
-		c.Assert(state.IsNotFound(err), Equals, true)
+		c.Assert(errors.IsNotFoundError(err), Equals, true)
 		return
 	}
 	c.Assert(err, IsNil)
@@ -1495,7 +1496,7 @@ type addSubordinateRelation struct {
 }
 
 func (s addSubordinateRelation) step(c *C, ctx *context) {
-	if _, err := ctx.st.Service("logging"); state.IsNotFound(err) {
+	if _, err := ctx.st.Service("logging"); errors.IsNotFoundError(err) {
 		_, err := ctx.st.AddService("logging", ctx.s.AddTestingCharm(c, "logging"))
 		c.Assert(err, IsNil)
 	}
@@ -1532,7 +1533,7 @@ func (s waitSubordinateExists) step(c *C, ctx *context) {
 		case <-time.After(50 * time.Millisecond):
 			var err error
 			ctx.subordinate, err = ctx.st.Unit(s.name)
-			if state.IsNotFound(err) {
+			if errors.IsNotFoundError(err) {
 				continue
 			}
 			c.Assert(err, IsNil)

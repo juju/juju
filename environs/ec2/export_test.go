@@ -79,7 +79,7 @@ var origImagesUrl = imagemetadata.DefaultBaseURL
 // when the ec2 client asks for image data.
 func UseTestImageData(content []jujutest.FileContent) {
 	if content != nil {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content, nil)
 		imagemetadata.DefaultBaseURL = "test:"
 		signedImageDataOnly = false
 	} else {
@@ -112,7 +112,7 @@ var origMetadataHost = metadataHost
 
 func UseTestMetadata(content []jujutest.FileContent) {
 	if content != nil {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content)
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content, nil)
 		metadataHost = "test:"
 	} else {
 		testRoundTripper.Sub = nil

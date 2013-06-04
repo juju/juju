@@ -7,12 +7,12 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	"net"
 	stdtesting "testing"
 	"time"
 )
@@ -23,7 +23,6 @@ func TestAll(t *stdtesting.T) {
 
 type suite struct {
 	testing.JujuConnSuite
-	listener net.Listener
 }
 
 var _ = Suite(&suite{})
@@ -72,7 +71,7 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 	c.Assert(err, IsNil)
 
 	err = service.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 // apiAuthenticator represents a simple authenticator object with only the

@@ -6,7 +6,6 @@ package apiserver
 import (
 	"fmt"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 // isMachineWithJob returns whether the given entity is a machine that
@@ -37,17 +36,4 @@ func setPassword(e state.TaggedAuthenticator, password string) error {
 		return fmt.Errorf("password is empty")
 	}
 	return e.SetPassword(password)
-}
-
-func stateMachineToParams(stm *state.Machine) *params.Machine {
-	if stm == nil {
-		return nil
-	}
-	instId, _ := stm.InstanceId()
-	return &params.Machine{
-		Id:         stm.Id(),
-		InstanceId: string(instId),
-		Life:       params.Life(stm.Life().String()),
-		Series:     stm.Series(),
-	}
 }

@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/errors"
 	"net/http"
 )
 
@@ -77,7 +78,7 @@ func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []
 }
 
 func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
-	var notFoundError *environs.NotFoundError
+	var notFoundError *errors.NotFoundError
 	r, err := storage.Get(name)
 	c.Assert(r, IsNil)
 	c.Assert(err, FitsTypeOf, notFoundError)

@@ -4,7 +4,7 @@
 package state
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
@@ -12,6 +12,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"sort"
@@ -92,7 +93,7 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-var errRefresh = errors.New("state seems inconsistent, refresh and try again")
+var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
 
 // Destroy ensures that the service and all its relations will be removed at
 // some point; if the service has no units, and no relation involving the
@@ -119,7 +120,7 @@ func (s *Service) Destroy() (err error) {
 				return err
 			}
 		}
-		if err := svc.Refresh(); IsNotFound(err) {
+		if err := svc.Refresh(); errors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -529,7 +530,7 @@ func (s *Service) String() string {
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return NotFoundf("service %q", s)
+		return errors.NotFoundf("service %q", s)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %q: %v", s, err)
@@ -542,7 +543,7 @@ func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
-		return "", NotFoundf("service %q", s)
+		return "", errors.NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
@@ -633,7 +634,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	return s.Unit(name)
 }
 
-var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
+var ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
@@ -814,7 +815,7 @@ func strip(validated map[string]interface{}, unvalidated map[string]string) map[
 	return validated
 }
 
-var ErrSubordinateConstraints = errors.New("constraints do not apply to subordinate services")
+var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
 
 // Constraints returns the current service constraints.
 func (s *Service) Constraints() (constraints.Value, error) {
@@ -854,7 +855,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 		return txn.Op{}, err
 	} else if count == 0 {
 		if !canCreate {
-			return txn.Op{}, NotFoundf("service settings")
+			return txn.Op{}, errors.NotFoundf("service settings")
 		}
 		return txn.Op{
 			C:      st.settingsrefs.Name,

@@ -6,9 +6,9 @@ package openstack
 import (
 	"fmt"
 	"io"
-	"launchpad.net/goose/errors"
+	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/swift"
-	"launchpad.net/juju-core/environs"
+	coreerrors "launchpad.net/juju-core/errors"
 	"sync"
 	"time"
 )
@@ -54,7 +54,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 	for a := shortAttempt.Start(); a.Next(); {
 		r, err = s.swift.GetReader(s.containerName, file)
-		if !errors.IsNotFound(err) {
+		if !gooseerrors.IsNotFound(err) {
 			break
 		}
 	}
@@ -156,11 +156,11 @@ func (s *storage) deleteAll() error {
 	return err
 }
 
-// maybeNotFound returns a environs.NotFoundError if the root cause of the specified error is due to a file or
+// maybeNotFound returns a errors.NotFoundError if the root cause of the specified error is due to a file or
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
-	if err != nil && errors.IsNotFound(err) {
-		return &environs.NotFoundError{err}, true
+	if err != nil && gooseerrors.IsNotFound(err) {
+		return &coreerrors.NotFoundError{err, ""}, true
 	}
 	return err, false
 }
