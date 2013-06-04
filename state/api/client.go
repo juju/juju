@@ -107,11 +107,12 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return c.st.call("Client", "", "ServiceDeploy", params, nil)
 }
 
-// ServiceUpgradeCharm upgrades a service to the given charm URL.
-func (c *Client) ServiceUpgradeCharm(serviceName string, charmUrl string) error {
+// ServiceUpgradeCharm upgrades a service to the given charm.
+func (c *Client) ServiceUpgradeCharm(serviceName string, charmUrl string, force bool) error {
 	args := params.ServiceUpgradeCharm{
 		ServiceName: serviceName,
 		CharmUrl:    charmUrl,
+		Force:       force,
 	}
 	return c.st.call("Client", "", "ServiceUpgradeCharm", args, nil)
 }

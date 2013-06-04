@@ -75,6 +75,7 @@ type ServiceDeploy struct {
 	ForceMachineId string
 }
 
+// ServiceUpgradeCharm upgrades a service to the given charm.
 type ServiceUpgradeCharm struct {
 	ServiceName string
 	CharmUrl    string

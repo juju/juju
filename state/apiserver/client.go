@@ -112,7 +112,7 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
 }
 
-// ServiceUpgradeCharm upgrades a service to the given charm URL.
+// ServiceUpgradeCharm upgrades a service to the given charm.
 func (c *srvClient) ServiceUpgradeCharm(args params.ServiceUpgradeCharm) error {
 	state := c.root.srv.state
 	service, err := state.Service(args.ServiceName)

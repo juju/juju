@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
+// ServiceUpgradeCharm upgrades a service to the given charm.
 func ServiceUpgradeCharm(st *state.State, service *state.Service, conn *juju.Conn, curl *charm.URL, repo charm.Repository, force bool, bumpRevision bool) error {
 	oldURL, _ := service.CharmURL()
 	if *curl == *oldURL {

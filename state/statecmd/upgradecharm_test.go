@@ -78,6 +78,22 @@ func (s *UpgradeCharmSuite) TestUpgradeCharm(c *C) {
 	c.Assert(ch.Revision(), Equals, 8)
 	c.Assert(force, Equals, false)
 	s.AssertCharmUploaded(c, ch.URL())
+
+	// Test force upgrading.
+	args = params.ServiceUpgradeCharm{
+		ServiceName: "riak",
+		CharmUrl:    "local:riak",
+		Force:       true,
+	}
+	err = s.runUpgradeCharm(c, args)
+	c.Assert(err, IsNil)
+	err = s.riak.Refresh()
+	c.Assert(err, IsNil)
+	ch, force, err = s.riak.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(ch.Revision(), Equals, 9)
+	c.Assert(force, Equals, true)
+	s.AssertCharmUploaded(c, ch.URL())
 }
 
 func (s *UpgradeCharmSuite) TestServiceDoesNotExist(c *C) {
