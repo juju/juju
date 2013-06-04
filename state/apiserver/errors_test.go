@@ -73,17 +73,3 @@ func (s *suite) TestErrorTransform(c *C) {
 		}
 	}
 }
-
-func (s *suite) TestErrors(c *C) {
-	stm, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	setDefaultPassword(c, stm)
-	st := s.openAs(c, stm.Tag())
-	defer st.Close()
-	// By testing this single call, we test that the
-	// error transformation function is correctly called
-	// on error returns from the API apiserver. The transformation
-	// function itself is tested below.
-	_, err = st.Machine("99")
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
-}

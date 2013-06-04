@@ -21,57 +21,17 @@ func (st *State) Client() *Client {
 	return &Client{st}
 }
 
-// Machine returns a reference to the machine with the given id.
-func (st *State) Machine(id string) (*Machine, error) {
-	m := &Machine{
-		st: st,
-		id: id,
+// Machiner does nothing at the moment - it will return an object that
+// can be used to access the Machiner API facade in a follow-up.
+func (st *State) Machiner(version string) (interface{}, error) {
+	// Just verify we're allowed to access it.
+	args := params.Machines{
+		Ids: []string{},
 	}
-	if err := m.Refresh(); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Unit returns a unit by name.
-func (st *State) Unit(name string) (*Unit, error) {
-	u := &Unit{
-		st:   st,
-		name: name,
-	}
-	if err := u.Refresh(); err != nil {
-		return nil, err
-	}
-	return u, nil
-}
-
-// AllMachines returns all machines in the environment
-// ordered by id.
-func (st *State) AllMachines() ([]*Machine, error) {
-	var results params.AllMachinesResults
-	err := st.call("State", "", "AllMachines", nil, &results)
+	var result params.MachinesLifeResults
+	err := st.call("Machiner", version, "Life", args, &result)
 	if err != nil {
 		return nil, err
 	}
-	machines := make([]*Machine, len(results.Machines))
-	for i, m := range results.Machines {
-		machines[i] = &Machine{
-			st:  st,
-			id:  m.Id,
-			doc: *m,
-		}
-	}
-	return machines, nil
-}
-
-// WatchMachines returns a LifecycleWatcher that notifies of changes to
-// the lifecycles of the machines in the environment.
-func (st *State) WatchMachines() *LifecycleWatcher {
-	return newLifecycleWatcher(st, "WatchMachines")
-}
-
-// WatchEnvironConfig returns a watcher for observing changes
-// to the environment configuration.
-func (st *State) WatchEnvironConfig() *EnvironConfigWatcher {
-	return newEnvironConfigWatcher(st)
+	return nil, nil
 }

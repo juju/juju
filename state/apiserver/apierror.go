@@ -8,10 +8,12 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 var (
 	errBadId          = stderrors.New("id not found")
+	errBadVersion     = stderrors.New("API version not supported")
 	errBadCreds       = stderrors.New("invalid entity name or password")
 	errPerm           = stderrors.New("permission denied")
 	errNotLoggedIn    = stderrors.New("not logged in")
@@ -26,6 +28,7 @@ var singletonErrorCodes = map[error]string{
 	state.ErrExcessiveContention: api.CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: api.CodeUnitHasSubordinates,
 	errBadId:                     api.CodeNotFound,
+	errBadVersion:                api.CodeBadVersion,
 	errBadCreds:                  api.CodeUnauthorized,
 	errPerm:                      api.CodeUnauthorized,
 	errNotLoggedIn:               api.CodeUnauthorized,
@@ -53,4 +56,15 @@ func serverError(err error) error {
 		}
 	}
 	return err
+}
+
+func serverErrorToParams(err error) *params.Error {
+	if err != nil {
+		err = serverError(err)
+		return &params.Error{
+			Message: err.Error(),
+			Code:    api.ErrCode(err),
+		}
+	}
+	return nil
 }
