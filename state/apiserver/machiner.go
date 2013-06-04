@@ -25,7 +25,7 @@ func (m *srvMachiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 	for i, arg := range args.Machines {
 		machine, err := m.st.Machine(arg.Id)
 		if err == nil {
-			// Allow only for the owner agent or the environment manager
+			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
 				err = errPerm
 			} else {
@@ -53,7 +53,7 @@ func (m *srvMachiner) Life(args params.Machines) (params.MachinesLifeResults, er
 	for i, id := range args.Ids {
 		machine, err := m.st.Machine(id)
 		if err == nil {
-			// Allow only for the owner agent or the environment manager
+			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
 				err = errPerm
 			} else {
@@ -77,7 +77,7 @@ func (m *srvMachiner) EnsureDead(args params.Machines) (params.ErrorResults, err
 	for i, id := range args.Ids {
 		machine, err := m.st.Machine(id)
 		if err == nil {
-			// Allow only for the owner agent or the environment manager
+			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
 				err = errPerm
 			} else {

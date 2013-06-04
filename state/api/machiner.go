@@ -32,7 +32,7 @@ func (m *Machiner) machineLife(id string) (params.Life, error) {
 		return "", err
 	}
 	if len(result.Machines) != 1 {
-		return "", fmt.Errorf("expected server response, got nothing")
+		return "", fmt.Errorf("expected one result, got %d", len(result.Machines))
 	}
 	if err := result.Machines[0].Error; err != nil {
 		return "", err

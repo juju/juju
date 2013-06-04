@@ -44,11 +44,9 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	var err error
 	s.machine0, err = s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	setDefaultPassword(c, s.machine0)
 	// Add another normal machine
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	setDefaultPassword(c, s.machine0)
 
 	// Create a machiner facades for machine 1.
 	s.machiner = apiserver.NewMachiner(
@@ -80,6 +78,7 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, IsNil)
+	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
 	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
@@ -89,7 +88,7 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.StatusStarted)
 	c.Assert(info, Equals, "blah")
-	// ...machine 1 is fine thought.
+	// ...machine 1 is fine though.
 	status, info, err = s.machine1.Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.StatusError)
@@ -108,6 +107,7 @@ func (s *machinerSuite) TestLife(c *C) {
 	}
 	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
+	c.Assert(result.Machines, HasLen, 3)
 	c.Assert(result.Machines[0].Error, IsNil)
 	c.Assert(string(result.Machines[0].Life), Equals, "dead")
 	s.assertError(c, result.Machines[1].Error, api.CodeUnauthorized, "permission denied")
@@ -123,6 +123,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	}
 	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
+	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
 	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
@@ -130,6 +131,20 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	err = s.machine0.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(s.machine0.Life(), Equals, state.Alive)
+	err = s.machine1.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(s.machine1.Life(), Equals, state.Dead)
+
+	// Try it again on a Dead machine; should work.
+	args = params.Machines{
+		Ids: []string{"1"},
+	}
+	result, err = s.machiner.EnsureDead(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Errors, HasLen, 1)
+	c.Assert(result.Errors[0], IsNil)
+
+	// Verify Life is unchanged.
 	err = s.machine1.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
