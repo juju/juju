@@ -32,7 +32,7 @@ func TestingStateInfo() *Info {
 // connecting to the testing state server.
 func TestingDialOpts() DialOpts {
 	return DialOpts{
-		Timeout:    100 * time.Millisecond,
+		Timeout: 100 * time.Millisecond,
 	}
 }
 

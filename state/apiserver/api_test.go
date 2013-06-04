@@ -107,7 +107,7 @@ func (s *suite) tryOpenState(c *C, e apiAuthenticator, password string) error {
 	stateInfo.Tag = e.Tag()
 	stateInfo.Password = password
 	st, err := state.Open(stateInfo, state.DialOpts{
-		Timeout:    25 * time.Millisecond,
+		Timeout: 25 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()

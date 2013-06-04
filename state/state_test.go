@@ -902,7 +902,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
@@ -911,14 +911,14 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
-        // Default mgo retry delay
+	// Default mgo retry delay
 	retryDelay := 500 * time.Millisecond
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
