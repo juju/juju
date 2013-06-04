@@ -211,6 +211,7 @@ var commandNames = []string{
 	"add-unit",
 	"bootstrap",
 	"debug-log",
+	"debug-hooks",
 	"deploy",
 	"destroy-environment",
 	"destroy-machine",
