@@ -37,15 +37,13 @@ func (s *suite) TestStop(c *C) {
 	c.Assert(err, IsNil)
 	defer st.Close()
 
-	machiner, err := st.Machiner()
-	m, err := machiner.Machine(stm.Id())
+	_, err = st.Machiner("")
 	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, stm.Id())
 
 	err = srv.Stop()
 	c.Assert(err, IsNil)
 
-	_, err = st.Machiner()
+	_, err = st.Machiner("")
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {
