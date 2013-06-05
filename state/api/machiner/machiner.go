@@ -16,6 +16,8 @@ type Machiner struct {
 
 // MachinerMachine provides access to state.Machine methods through
 // the Machiner facade.
+// TODO (dimitern) This will be renamed to Machine when Machiner is
+// moved into its own package in a follow-up.
 type MachinerMachine struct {
 	id       string
 	life     params.Life
