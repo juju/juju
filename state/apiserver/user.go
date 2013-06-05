@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	apicommon "launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"sync"
 )
 
@@ -47,7 +47,7 @@ func (u *authUser) login(st *state.State, tag, password string) error {
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
 	if err != nil || !entity.PasswordValid(password) {
-		return apicommon.ErrBadCreds
+		return common.ErrBadCreds
 	}
 	u.entity = entity
 	return nil
