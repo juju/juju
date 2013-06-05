@@ -10,6 +10,7 @@ import (
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"net/rpc"
 	"os"
@@ -65,6 +66,7 @@ func factory(contextId, cmdName string) (cmd.Command, error) {
 }
 
 type ServerSuite struct {
+	testing.LoggingSuite
 	server   *jujuc.Server
 	sockPath string
 	err      chan error
@@ -73,6 +75,7 @@ type ServerSuite struct {
 var _ = Suite(&ServerSuite{})
 
 func (s *ServerSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
 	srv, err := jujuc.NewServer(factory, s.sockPath)
 	c.Assert(err, IsNil)
@@ -87,6 +90,7 @@ func (s *ServerSuite) TearDownTest(c *C) {
 	c.Assert(<-s.err, IsNil)
 	_, err := os.Open(s.sockPath)
 	c.Assert(os.IsNotExist(err), Equals, true)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ServerSuite) Call(c *C, req jujuc.Request) (resp jujuc.Response, err error) {
