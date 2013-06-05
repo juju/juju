@@ -5,61 +5,79 @@ package log_test
 
 import (
 	"bytes"
+	"fmt"
+	"testing"
+	"time"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log"
-	stdlog "log"
-	"testing"
+	"launchpad.net/loggo"
 )
 
 func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type suite struct{}
-
-var _ = Suite(suite{})
-
-func (suite) TestLoggerDebugFlag(c *C) {
-	var buf bytes.Buffer
-	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
-	log.Debug = false
-	input := "Hello World"
-	log.Debugf(input)
-	c.Assert(buf.String(), Equals, "")
-	buf.Reset()
-	log.Debug = true
-	log.Debugf(input)
-	c.Assert(buf.String(), Equals, "JUJU:DEBUG "+input+"\n")
+type testWriter struct {
+	bytes.Buffer
 }
 
-func (suite) TestInfoLogger(c *C) {
-	var buf bytes.Buffer
-	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
+type suite struct {
+	writer    *testWriter
+	oldWriter loggo.Writer
+	oldLevel  loggo.Level
+}
+
+var _ = Suite(&suite{})
+
+func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
+	t.Buffer.WriteString(fmt.Sprintf("%s %s %s", level, module, message))
+}
+
+func (s *suite) SetUpTest(c *C) {
+	var err error
+	s.writer = &testWriter{}
+	s.oldWriter, s.oldLevel, err = loggo.RemoveWriter("default")
+	c.Assert(err, IsNil)
+	err = loggo.RegisterWriter("test", s.writer, loggo.TRACE)
+	c.Assert(err, IsNil)
+	logger := loggo.GetLogger("juju")
+	logger.SetLogLevel(loggo.TRACE)
+}
+
+func (s *suite) TearDownTest(c *C) {
+	_, _, err := loggo.RemoveWriter("test")
+	c.Assert(err, IsNil)
+	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
+	c.Assert(err, IsNil)
+}
+
+func (s *suite) TestLoggerDebug(c *C) {
+	input := "Hello World"
+	log.Debugf(input)
+	c.Assert(s.writer.String(), Equals, "DEBUG juju "+input)
+}
+
+func (s *suite) TestInfoLogger(c *C) {
 	input := "Hello World"
 	log.Infof(input)
-	c.Assert(buf.String(), Equals, "JUJU:INFO "+input+"\n")
+	c.Assert(s.writer.String(), Equals, "INFO juju "+input)
 }
 
-func (suite) TestErrorLogger(c *C) {
-	var buf bytes.Buffer
-	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
+func (s *suite) TestErrorLogger(c *C) {
 	input := "Hello World"
 	log.Errorf(input)
-	c.Assert(buf.String(), Equals, "JUJU:ERROR "+input+"\n")
+	c.Assert(s.writer.String(), Equals, "ERROR juju "+input)
 }
 
-func (suite) TestWarningLogger(c *C) {
-	var buf bytes.Buffer
-	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
+func (s *suite) TestWarningLogger(c *C) {
 	input := "Hello World"
 	log.Warningf(input)
-	c.Assert(buf.String(), Equals, "JUJU:WARNING "+input+"\n")
+	c.Assert(s.writer.String(), Equals, "WARNING juju "+input)
 }
 
-func (suite) TestNoticeLogger(c *C) {
-	var buf bytes.Buffer
-	defer log.SetTarget(log.SetTarget(stdlog.New(&buf, "JUJU:", 0)))
+func (s *suite) TestNoticeLogger(c *C) {
 	input := "Hello World"
 	log.Noticef(input)
-	c.Assert(buf.String(), Equals, "JUJU:NOTICE "+input+"\n")
+	c.Assert(s.writer.String(), Equals, "INFO juju "+input)
 }

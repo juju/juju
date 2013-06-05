@@ -5,10 +5,10 @@ package cmd
 
 import (
 	"io"
-	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/log"
-	stdlog "log"
 	"os"
+
+	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
 )
 
 // Log supplies the necessary functionality for Commands that wish to set up
@@ -17,37 +17,45 @@ type Log struct {
 	Path    string
 	Verbose bool
 	Debug   bool
-	log.Logger
+	Config  string
 }
 
 // AddFlags adds appropriate flags to f.
 func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&l.Path, "log-file", "", "path to write log to")
+	// TODO(thumper): rename verbose to --show-log
 	f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
 	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
-}
-
-func (l *Log) Output(calldepth int, s string) error {
-	return l.Logger.Output(calldepth, s)
+	f.StringVar(&l.Config, "log-config", "", "specify log levels for modules")
 }
 
 // Start starts logging using the given Context.
 func (l *Log) Start(ctx *Context) (err error) {
-	log.Debug = l.Debug
 	var target io.Writer
 	if l.Path != "" {
 		path := ctx.AbsPath(l.Path)
 		target, err = os.OpenFile(path, os.O_WRONLY|os.O_APPEND|os.O_CREATE, 0644)
 		if err != nil {
-			return
+			return err
 		}
 	} else if l.Verbose || l.Debug {
 		target = ctx.Stderr
 	}
+
 	if target != nil {
-		l.Logger = stdlog.New(target, "", stdlog.LstdFlags)
-		log.SetTarget(l)
+		writer := loggo.NewSimpleWriter(target, &loggo.DefaultFormatter{})
+		_, err = loggo.ReplaceDefaultWriter(writer)
+		if err != nil {
+			return err
+		}
+	} else {
+		loggo.RemoveWriter("default")
 	}
-	return
+	if l.Debug {
+		logger := loggo.GetLogger("juju")
+		logger.SetLogLevel(loggo.DEBUG)
+	}
+	loggo.ConfigureLogging(l.Config)
+	return nil
 }
