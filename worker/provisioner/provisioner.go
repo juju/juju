@@ -9,16 +9,18 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 	"sync"
 )
+
+var logger = loggo.GetLogger("juju.provisioner")
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
@@ -103,7 +105,7 @@ func (p *Provisioner) loop() error {
 				return watcher.MustErr(environWatcher)
 			}
 			if err := p.setConfig(cfg); err != nil {
-				log.Errorf("worker/provisioner: loaded invalid environment configuration: %v", err)
+				logger.Error("loaded invalid environment configuration: %v", err)
 			}
 		case ids, ok := <-machinesWatcher.Changes():
 			if !ok {
@@ -221,7 +223,7 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 	for _, id := range ids {
 		m, err := p.st.Machine(id)
 		if errors.IsNotFoundError(err) {
-			log.Infof("worker/provisioner: machine %q not found in state", m)
+			logger.Info("machine %q not found in state", m)
 			continue
 		}
 		if err != nil {
@@ -232,14 +234,14 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 			if _, ok := m.InstanceId(); ok {
 				continue
 			}
-			log.Infof("worker/provisioner: killing dying, unprovisioned machine %q", m)
+			logger.Info("killing dying, unprovisioned machine %q", m)
 			if err := m.EnsureDead(); err != nil {
 				return nil, nil, err
 			}
 			fallthrough
 		case state.Dead:
 			dead = append(dead, m)
-			log.Infof("worker/provisioner: removing dead machine %q", m)
+			logger.Info("removing dead machine %q", m)
 			if err := m.Remove(); err != nil {
 				return nil, nil, err
 			}
@@ -248,16 +250,16 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		if instId, hasInstId := m.InstanceId(); !hasInstId {
 			status, _, err := m.Status()
 			if err != nil {
-				log.Infof("worker/provisioner: cannot get machine %q status: %v", m, err)
+				logger.Info("cannot get machine %q status: %v", m, err)
 				continue
 			}
 			if status == params.StatusPending {
 				pending = append(pending, m)
-				log.Infof("worker/provisioner: found machine %q pending provisioning", m)
+				logger.Info("found machine %q pending provisioning", m)
 				continue
 			}
 		} else {
-			log.Infof("worker/provisioner: machine %v already started as instance %q", m, instId)
+			logger.Info("machine %v already started as instance %q", m, instId)
 		}
 	}
 	return
@@ -299,10 +301,10 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
 		// error; just keep going with the other machines.
-		log.Errorf("worker/provisioner: cannot start instance for machine %q: %v", m, err)
+		logger.Error("cannot start instance for machine %q: %v", m, err)
 		if err1 := m.SetStatus(params.StatusError, err.Error()); err1 != nil {
 			// Something is wrong with this machine, better report it back.
-			log.Errorf("worker/provisioner: cannot set error status for machine %q: %v", m, err1)
+			logger.Error("cannot set error status for machine %q: %v", m, err1)
 			return err1
 		}
 		return nil
@@ -325,7 +327,7 @@ func (p *Provisioner) startMachine(m *state.Machine) error {
 	// populate the local cache
 	p.instances[m.Id()] = inst
 	p.machines[inst.Id()] = m.Id()
-	log.Noticef("worker/provisioner: started machine %s as instance %s", m, inst.Id())
+	logger.Info("started machine %s as instance %s", m, inst.Id())
 	return nil
 }
 
