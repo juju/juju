@@ -23,6 +23,30 @@ import (
 
 var logger = loggo.GetLogger("juju.provisioner")
 
+type Broker interface {
+	// StartInstance asks for a new instance to be created, associated with
+	// the provided machine identifier. The given info describes the juju
+	// state for the new instance to connect to. The nonce, which must be
+	// unique within an environment, is used by juju to protect against the
+	// consequences of multiple instances being started with the same machine
+	// id.
+	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error)
+
+	// StopInstances shuts down the given instances.
+	StopInstances([]environs.Instance) error
+
+	// Instances returns a slice of instances corresponding to the
+	// given instance ids.  If no instances were found, but there
+	// was no other error, it will return ErrNoInstances.  If
+	// some but not all the instances were found, the returned slice
+	// will have some nil slots, and an ErrPartialInstances error
+	// will be returned.
+	Instances(ids []state.InstanceId) ([]environs.Instance, error)
+
+	// AllInstances returns all instances currently known to the broker.
+	AllInstances() ([]environs.Instance, error)
+}
+
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	st        *state.State
