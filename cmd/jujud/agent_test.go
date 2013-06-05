@@ -271,8 +271,10 @@ func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state
 		DataDir:     s.DataDir(),
 		OldPassword: password,
 		StateInfo:   s.StateInfo(c),
+		APIInfo:     s.APIInfo(c),
 	}
 	conf.StateInfo.Tag = tag
+	conf.APIInfo.Tag = tag
 	err = conf.Write()
 	c.Assert(err, IsNil)
 	return conf, tools

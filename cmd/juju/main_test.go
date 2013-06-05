@@ -15,6 +15,7 @@ import (
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/loggo"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -69,6 +70,10 @@ func deployHelpText() string {
 
 func syncToolsHelpText() string {
 	return helpText(&SyncToolsCommand{}, "juju sync-tools")
+}
+
+func (s *MainSuite) TestTearDown(c *C) {
+	loggo.ResetLogging()
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
@@ -188,7 +193,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -201,7 +206,7 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -295,6 +300,7 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 var globalFlags = []string{
 	"--debug .*",
 	"-h, --help .*",
+	"--log-config .*",
 	"--log-file .*",
 	"-v, --verbose .*",
 }
