@@ -6,17 +6,17 @@ package machiner
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	apicommon "launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/common"
 )
 
 // Machiner represents the Machiner API facade used by the machiner worker.
 type Machiner struct {
 	st   *state.State
-	auth apicommon.Authorizer
+	auth common.Authorizer
 }
 
 // New creates a new instance of the Machiner facade.
-func New(st *state.State, authorizer apicommon.Authorizer) *Machiner {
+func New(st *state.State, authorizer common.Authorizer) *Machiner {
 	return &Machiner{st, authorizer}
 }
 
@@ -33,12 +33,12 @@ func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults
 		if err == nil {
 			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
-				err = apicommon.ErrPerm
+				err = common.ErrPerm
 			} else {
 				err = machine.SetStatus(arg.Status, arg.Info)
 			}
 		}
-		result.Errors[i] = apicommon.ServerErrorToParams(err)
+		result.Errors[i] = common.ServerErrorToParams(err)
 	}
 	return result, nil
 }
@@ -61,12 +61,12 @@ func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error
 		if err == nil {
 			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
-				err = apicommon.ErrPerm
+				err = common.ErrPerm
 			} else {
 				result.Machines[i].Life = params.Life(machine.Life().String())
 			}
 		}
-		result.Machines[i].Error = apicommon.ServerErrorToParams(err)
+		result.Machines[i].Error = common.ServerErrorToParams(err)
 	}
 	return result, nil
 }
@@ -85,12 +85,12 @@ func (m *Machiner) EnsureDead(args params.Machines) (params.ErrorResults, error)
 		if err == nil {
 			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
-				err = apicommon.ErrPerm
+				err = common.ErrPerm
 			} else {
 				err = machine.EnsureDead()
 			}
 		}
-		result.Errors[i] = apicommon.ServerErrorToParams(err)
+		result.Errors[i] = common.ServerErrorToParams(err)
 	}
 	return result, nil
 }
