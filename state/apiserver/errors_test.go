@@ -10,7 +10,14 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/testing"
 )
+
+type errorsSuite struct {
+	testing.LoggingSuite
+}
+
+var _ = Suite(&errorsSuite{})
 
 var errorTransformTests = []struct {
 	err  error
@@ -62,7 +69,7 @@ var errorTransformTests = []struct {
 	code: "",
 }}
 
-func (s *suite) TestErrorTransform(c *C) {
+func (s *errorsSuite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
 		err1 := apiserver.ServerError(t.err)
 		c.Assert(err1.Error(), Equals, t.err.Error())

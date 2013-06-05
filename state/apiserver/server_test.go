@@ -13,7 +13,13 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
-func (s *suite) TestStop(c *C) {
+type serverSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&serverSuite{})
+
+func (s *serverSuite) TestStop(c *C) {
 	// Start our own instance of the server so we have
 	// a handle on it to stop it.
 	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
