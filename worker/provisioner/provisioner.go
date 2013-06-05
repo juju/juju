@@ -6,6 +6,8 @@ package provisioner
 import (
 	stderrors "errors"
 	"fmt"
+	"sync"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
@@ -17,7 +19,6 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
-	"sync"
 )
 
 var logger = loggo.GetLogger("juju.provisioner")
