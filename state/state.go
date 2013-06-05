@@ -183,7 +183,7 @@ func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err 
 	return st.addMachine(&addMachineParams{series: series, jobs: jobs})
 }
 
-// AddMachine adds a new machine configured to run the supplied jobs on the
+// AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
 // supplied series. The machine's constraints will be taken from the result of
 // merging machineCons with the environment constraints.
 func (st *State) AddMachineWithConstraints(series string, machineCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {

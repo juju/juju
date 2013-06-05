@@ -742,6 +742,11 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
+	// Add a container: not reported.
+	_, err = s.State.AddContainerWithConstraints(machine.Id(), state.LXC, "series", constraints.Value{}, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+
 	// Make it Dying: reported.
 	err = machine.Destroy()
 	c.Assert(err, IsNil)

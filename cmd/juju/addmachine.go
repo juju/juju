@@ -20,9 +20,9 @@ type AddMachineCommand struct {
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
-	Constraints constraints.Value
-	MachineId            string
-	ContainerType        state.ContainerType
+	Constraints   constraints.Value
+	MachineId     string
+	ContainerType state.ContainerType
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
