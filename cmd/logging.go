@@ -23,7 +23,7 @@ type Log struct {
 // AddFlags adds appropriate flags to f.
 func (l *Log) AddFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&l.Path, "log-file", "", "path to write log to")
-	// TODO: rename verbose to --show-log
+	// TODO(thumper): rename verbose to --show-log
 	f.BoolVar(&l.Verbose, "v", false, "if set, log additional messages")
 	f.BoolVar(&l.Verbose, "verbose", false, "if set, log additional messages")
 	f.BoolVar(&l.Debug, "debug", false, "if set, log debugging messages")
