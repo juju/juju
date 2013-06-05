@@ -21,9 +21,9 @@ func (st *State) Client() *Client {
 	return &Client{st}
 }
 
-// Machiner does nothing at the moment - it will return an object that
-// can be used to access the Machiner API facade in a follow-up.
-func (st *State) Machiner(version string) (interface{}, error) {
+// Machiner returns an object that can be used to access the Machiner
+// API facade.
+func (st *State) Machiner(version string) (*Machiner, error) {
 	// Just verify we're allowed to access it.
 	args := params.Machines{
 		Ids: []string{},
@@ -33,5 +33,5 @@ func (st *State) Machiner(version string) (interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &Machiner{st}, nil
 }
