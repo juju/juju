@@ -14,16 +14,6 @@ type Machiner struct {
 	stcaller common.Caller
 }
 
-// MachinerMachine provides access to state.Machine methods through
-// the Machiner facade.
-// TODO (dimitern) This will be renamed to Machine when Machiner is
-// moved into its own package in a follow-up.
-type MachinerMachine struct {
-	id       string
-	life     params.Life
-	machiner *Machiner
-}
-
 // New creates a new client-side Machiner facade.
 func New(stcaller common.Caller) *Machiner {
 	return &Machiner{stcaller}
@@ -49,63 +39,14 @@ func (m *Machiner) machineLife(id string) (params.Life, error) {
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
-func (m *Machiner) Machine(id string) (*MachinerMachine, error) {
+func (m *Machiner) Machine(id string) (*Machine, error) {
 	life, err := m.machineLife(id)
 	if err != nil {
 		return nil, err
 	}
-	return &MachinerMachine{
+	return &Machine{
 		id:       id,
 		life:     life,
 		machiner: m,
 	}, nil
-}
-
-// SetStatus changes the status of the machine.
-func (mm *MachinerMachine) SetStatus(status params.Status, info string) error {
-	var result params.ErrorResults
-	args := params.MachinesSetStatus{
-		Machines: []params.MachineSetStatus{
-			{Id: mm.id, Status: status, Info: info},
-		},
-	}
-	err := mm.machiner.stcaller.Call("Machiner", "", "SetStatus", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.Errors[0]
-}
-
-// Refresh updates the cached local copy of the machine's data.
-func (mm *MachinerMachine) Refresh() error {
-	life, err := mm.machiner.machineLife(mm.id)
-	if err != nil {
-		return err
-	}
-	mm.life = life
-	return nil
-}
-
-// EnsureDead sets the machine lifecycle to Dead if it is Alive or
-// Dying. It does nothing otherwise.
-func (mm *MachinerMachine) EnsureDead() error {
-	var result params.ErrorResults
-	args := params.Machines{
-		Ids: []string{mm.id},
-	}
-	err := mm.machiner.stcaller.Call("Machiner", "", "EnsureDead", args, &result)
-	if err != nil {
-		return err
-	}
-	return result.Errors[0]
-}
-
-// Id returns the machine id.
-func (mm *MachinerMachine) Id() string {
-	return mm.id
-}
-
-// Life returns the machine's lifecycle value.
-func (mm *MachinerMachine) Life() params.Life {
-	return mm.life
 }
