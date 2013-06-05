@@ -10,10 +10,11 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/testing"
 )
 
 type errorsSuite struct {
-	baseSuite
+	testing.LoggingSuite
 }
 
 var _ = Suite(&errorsSuite{})
