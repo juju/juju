@@ -227,11 +227,6 @@ func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machin
 		if err != nil {
 			return nil, nil, err
 		}
-		// For now, we ignore containers since we don't have a means to create them yet.
-		if m.ContainerType() != "" {
-			log.Infof("worker/provisioner: machine %q is a container which is not yet supported", m)
-			continue
-		}
 		switch m.Life() {
 		case state.Dying:
 			if _, ok := m.InstanceId(); ok {

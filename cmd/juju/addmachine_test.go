@@ -88,10 +88,4 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *C) {
 func (s *AddMachineSuite) TestAddMachineErrors(c *C) {
 	err := runAddMachine(c, ":foo")
 	c.Assert(err, ErrorMatches, `malformed container argument ":foo"`)
-	err = runAddMachine(c, "--container-constraints", "mem=4G")
-	c.Assert(err, ErrorMatches, `container constraints not applicable when no container is specified`)
-	err = runAddMachine(c, "0:/lxc", "--constraints", "mem=4G")
-	c.Assert(err, ErrorMatches, `machine constraints not applicable when parent machine is specified`)
-	err = runAddMachine(c, "/lxc", "--constraints", "mem=4G", "--container-constraints", "mem=8G")
-	c.Assert(err, ErrorMatches, `container constraints "mem=8192M" not compatible with machine constraints "mem=4096M"`)
 }

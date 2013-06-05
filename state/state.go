@@ -195,18 +195,11 @@ func (st *State) AddMachineWithConstraints(series string, machineCons constraint
 // taken from the result of merging machineCons with the environment constraints. If parent id is not supplied, a
 // new machine instance is created.
 func (st *State) AddContainerWithConstraints(
-	parentId string, containerType ContainerType, series string, machineCons constraints.Value,
-	containerCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
+	parentId string, containerType ContainerType, series string, machineCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
 
-	// Ensure any container constraints are compatible with any machine constraints.
-	// ie it makes no sense asking for a 16G container on a machine with 8G.
 	// TODO(wallyworld) - when the actual machine characteristics are made available, we need to check the
-	// container constraints against those rather than the machine constraints which may not fully reflect the
-	// machine itself.
-	if !containerCons.IsCompatible(machineCons) {
-		return nil, fmt.Errorf(
-			"container constraints %q not compatible with machine constraints %q", containerCons, machineCons)
-	}
+	// machine constraints to ensure the container can be created on the specifed machine.
+	// ie it makes no sense asking for a 16G container on a machine with 8G.
 
 	// mongo doesn't support atomic transactions spanning documents so we need to create any parent
 	// machine first (if required) and delete it if there's an error.
@@ -219,7 +212,7 @@ func (st *State) AddContainerWithConstraints(
 		parentId = parent.Id()
 	}
 	m, err = st.addMachine(
-		&addMachineParams{series: series, parentId: parentId, containerType: containerType, machineCons: containerCons, jobs: jobs})
+		&addMachineParams{series: series, parentId: parentId, containerType: containerType, machineCons: machineCons, jobs: jobs})
 	if err != nil && parent != nil {
 		// The container could not be created so any newly created parent needs to be removed from state.
 		parent.Destroy()

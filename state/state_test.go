@@ -194,7 +194,7 @@ var emptyCons = constraints.Value{}
 func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
-	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", emptyCons, oneJob...)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
@@ -217,7 +217,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	// Add first container.
-	m, err := s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	m, err := s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, oneJob...)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
@@ -235,7 +235,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(m.NumChildren(), Equals, 0)
 
 	// Add second container.
-	m, err = s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	m, err = s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, oneJob...)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/1")
 	c.Assert(m.Series(), Equals, "series")
@@ -250,7 +250,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 
-	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", emptyCons, cons, oneJob...)
+	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", cons, oneJob...)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
@@ -264,14 +264,10 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 func (s *StateSuite) TestAddContainerErrors(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
-	_, err := s.State.AddContainerWithConstraints("10", state.LXC, "series", emptyCons, emptyCons, oneJob...)
+	_, err := s.State.AddContainerWithConstraints("10", state.LXC, "series", emptyCons, oneJob...)
 	c.Assert(err, ErrorMatches, "cannot add a new container: machine 10 not found")
-	_, err = s.State.AddContainerWithConstraints("10", "", "series", emptyCons, emptyCons, oneJob...)
+	_, err = s.State.AddContainerWithConstraints("10", "", "series", emptyCons, oneJob...)
 	c.Assert(err, ErrorMatches, "cannot add a new container: no container type specified")
-	machineCons := constraints.MustParse("mem=4G")
-	containerCons := constraints.MustParse("mem=8G")
-	_, err = s.State.AddContainerWithConstraints("", state.LXC, "series", machineCons, containerCons, oneJob...)
-	c.Assert(err, ErrorMatches, `container constraints "mem=8192M" not compatible with machine constraints "mem=4096M"`)
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {

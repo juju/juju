@@ -74,27 +74,6 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	return v1
 }
 
-// IsCompatible returns true if v and v0 have the same arch and the other attributes
-// of v are all less than those of v0.
-func (v Value) IsCompatible(v0 Value) bool {
-	if v.String() == v0.String() {
-		return true
-	}
-	if v.Arch != nil && v0.Arch != nil && *v.Arch != *v0.Arch {
-		return false
-	}
-	if v.CpuCores != nil && v0.CpuCores != nil && *v.CpuCores > *v0.CpuCores {
-		return false
-	}
-	if v.CpuPower != nil && v0.CpuPower != nil && *v.CpuPower > *v0.CpuPower {
-		return false
-	}
-	if v.Mem != nil && v0.Mem != nil && *v.Mem > *v0.Mem {
-		return false
-	}
-	return true
-}
-
 func uintStr(i uint64) string {
 	if i == 0 {
 		return ""

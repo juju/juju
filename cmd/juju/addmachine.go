@@ -20,9 +20,7 @@ type AddMachineCommand struct {
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.
-	MachineConstraints constraints.Value
-	// If specified, these constraints must be compatible with any machine constraints.
-	ContainerConstraints constraints.Value
+	Constraints constraints.Value
 	MachineId            string
 	ContainerType        state.ContainerType
 }
@@ -39,8 +37,7 @@ func (c *AddMachineCommand) Info() *cmd.Info {
 func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.Series, "series", "", "the charm series")
-	f.Var(constraints.ConstraintsValue{&c.MachineConstraints}, "constraints", "additional machine constraints")
-	f.Var(constraints.ConstraintsValue{&c.ContainerConstraints}, "container-constraints", "constraints for the container")
+	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "additional machine constraints")
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
@@ -49,9 +46,6 @@ func (c *AddMachineCommand) Init(args []string) error {
 		return err
 	}
 	if containerSpec == "" {
-		if c.ContainerConstraints.String() != "" {
-			return fmt.Errorf("container constraints not applicable when no container is specified")
-		}
 		return nil
 	}
 	// container arg can either be 'machine/type' or '/type'
@@ -60,9 +54,6 @@ func (c *AddMachineCommand) Init(args []string) error {
 		return fmt.Errorf("malformed container argument %q", containerSpec)
 	}
 	c.MachineId, c.ContainerType = containerSpec[:sep], state.ContainerType(containerSpec[sep+1:])
-	if c.MachineId != "" && c.MachineConstraints.String() != "" {
-		return fmt.Errorf("machine constraints not applicable when parent machine is specified")
-	}
 	for _, supportedType := range state.SupportedContainerTypes {
 		if c.ContainerType == supportedType {
 			return nil
@@ -87,14 +78,14 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 		series = conf.DefaultSeries()
 	}
 	if c.ContainerType == "" {
-		m, err := conn.State.AddMachineWithConstraints(series, c.MachineConstraints, state.JobHostUnits)
+		m, err := conn.State.AddMachineWithConstraints(series, c.Constraints, state.JobHostUnits)
 		if err != nil {
 			log.Infof("created machine %v", m)
 		}
 		return err
 	} else {
 		m, err := conn.State.AddContainerWithConstraints(
-			c.MachineId, c.ContainerType, series, c.MachineConstraints, c.ContainerConstraints, state.JobHostUnits)
+			c.MachineId, c.ContainerType, series, c.Constraints, state.JobHostUnits)
 		if err == nil {
 			log.Infof("created %q container on machine %v", c.ContainerType, m)
 		}
