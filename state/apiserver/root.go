@@ -36,7 +36,7 @@ func newStateServer(srv *Server) *srvRoot {
 	r.state = &srvState{
 		root: r,
 	}
-	r.machiner = machiner.New(r.srv.state, r)
+	r.machiner = machiner.New(r.srv.state, r.resources, r)
 	return r
 }
 

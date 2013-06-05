@@ -53,6 +53,17 @@ type MachinesSetStatus struct {
 	Machines []MachineSetStatus
 }
 
+// MachineWatchResult holds an EntityWatcher id and an error (if any).
+type MachineWatchResult struct {
+	EntityWatcherId string
+	Error           *Error
+}
+
+// MachinesWatchResults holds the parameters for making a Machiner.Watch call.
+type MachinesWatchResults struct {
+	Results []MachineWatchResult
+}
+
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {

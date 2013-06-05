@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machiner"
 	coretesting "launchpad.net/juju-core/testing"
+	"strconv"
 	stdtesting "testing"
 )
 
@@ -22,7 +23,8 @@ func Test(t *stdtesting.T) {
 type machinerSuite struct {
 	testing.JujuConnSuite
 
-	machiner *machiner.Machiner
+	machiner          *machiner.Machiner
+	resourcesRegistry fakeResourceRegistry
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -44,6 +46,15 @@ func (fa *fakeAuthorizer) AuthEnvironManager() bool {
 	return fa.manager
 }
 
+// fakeResourceRegistry implements the common.ResourceRegistry interface.
+type fakeResourceRegistry map[string]common.Resource
+
+func (frr fakeResourceRegistry) Register(resource common.Resource) string {
+	id := strconv.Itoa(len(frr))
+	frr[id] = resource
+	return id
+}
+
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -55,9 +66,14 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
+	// Create the resource registry separately to track invocations to
+	// Register.
+	s.resourcesRegistry = make(fakeResourceRegistry)
+
 	// Create a machiner facades for machine 1.
 	s.machiner = machiner.New(
 		s.State,
+		s.resourcesRegistry,
 		&fakeAuthorizer{
 			tag:     state.MachineTag(s.machine1.Id()),
 			manager: false,
@@ -155,4 +171,24 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
+}
+
+func (s *machinerSuite) TestWatch(c *C) {
+	c.Assert(s.resourcesRegistry, HasLen, 0)
+
+	args := params.Machines{
+		Ids: []string{"1", "0", "42"},
+	}
+	result, err := s.machiner.Watch(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Results, HasLen, 3)
+	c.Assert(result.Results[0].Error, IsNil)
+	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
+
+	// Just verify the resource was registered and stop it.
+	c.Assert(s.resourcesRegistry, HasLen, 1)
+	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
+	err = s.resourcesRegistry["0"].Stop()
+	c.Assert(err, IsNil)
 }

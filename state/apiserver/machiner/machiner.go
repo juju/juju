@@ -7,17 +7,19 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	statewatcher "launchpad.net/juju-core/state/watcher"
 )
 
 // Machiner represents the Machiner API facade used by the machiner worker.
 type Machiner struct {
-	st   *state.State
-	auth common.Authorizer
+	st               *state.State
+	resourceRegistry common.ResourceRegistry
+	auth             common.Authorizer
 }
 
 // New creates a new instance of the Machiner facade.
-func New(st *state.State, authorizer common.Authorizer) *Machiner {
-	return &Machiner{st, authorizer}
+func New(st *state.State, resourceRegistry common.ResourceRegistry, authorizer common.Authorizer) *Machiner {
+	return &Machiner{st, resourceRegistry, authorizer}
 }
 
 // SetStatus sets the status of each given machine.
@@ -44,9 +46,34 @@ func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults
 }
 
 // Watch starts an EntityWatcher for each given machine.
-//func (m *Machiner) Watch(args params.Machines) (params.MachinerWatchResults, error) {
-// TODO (dimitern) implement this once the watchers can handle bulk ops
-//}
+func (m *Machiner) Watch(args params.Machines) (params.MachinesWatchResults, error) {
+	result := params.MachinesWatchResults{
+		Results: make([]params.MachineWatchResult, len(args.Ids)),
+	}
+	if len(args.Ids) == 0 {
+		return result, nil
+	}
+	for i, id := range args.Ids {
+		machine, err := m.st.Machine(id)
+		if err == nil {
+			// Allow only for the owner agent.
+			if !m.auth.AuthOwner(machine) {
+				err = common.ErrPerm
+			} else {
+				watcher := machine.Watch()
+				// To save an extra round-trip to call Next after Watch, we check
+				// for initial changes.
+				if _, ok := <-watcher.Changes(); !ok {
+					err = statewatcher.MustErr(watcher)
+				} else {
+					result.Results[i].EntityWatcherId = m.resourceRegistry.Register(watcher)
+				}
+			}
+		}
+		result.Results[i].Error = common.ServerErrorToParams(err)
+	}
+	return result, nil
+}
 
 // Life returns the lifecycle state of each given machine.
 func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error) {

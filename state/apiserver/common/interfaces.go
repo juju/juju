@@ -13,3 +13,13 @@ type Authorizer interface {
 	AuthOwner(entity Tagger) bool
 	AuthEnvironManager() bool
 }
+
+// Resource represents the interface provided by state watchers.
+type Resource interface {
+	Stop() error
+}
+
+// ResourceRegistry interface defines a way to register resources.
+type ResourceRegistry interface {
+	Register(resource Resource) string
+}
