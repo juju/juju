@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
@@ -23,7 +24,7 @@ import (
 // jobs on the local system.
 type SimpleContext struct {
 
-	// Addrser is used to get the current state server addresses at the time
+	// Addresser is used to get the current state server addresses at the time
 	// the given unit is deployed.
 	addresser Addresser
 
@@ -62,7 +63,8 @@ var _ Context = (*SimpleContext)(nil)
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(dataDir string, CACert []byte, deployerTag string, addresser Addresser) *SimpleContext {
+func NewSimpleContext(dataDir string, CACert []byte, deployerTag string,
+	addresser Addresser) *SimpleContext {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
@@ -89,8 +91,23 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
-	info := state.Info{
-		Addrs:  ctx.addresser.Addresses(),
+	// Retrieve addresses from state.
+	stateAddrs, err := ctx.addresser.Addresses()
+	if err != nil {
+		return err
+	}
+	apiAddrs, err := ctx.addresser.APIAddresses()
+	if err != nil {
+		return err
+	}
+
+	stateInfo := state.Info{
+		Addrs:  stateAddrs,
+		Tag:    tag,
+		CACert: ctx.caCert,
+	}
+	apiInfo := api.Info{
+		Addrs:  apiAddrs,
 		Tag:    tag,
 		CACert: ctx.caCert,
 	}
@@ -98,7 +115,8 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	conf := &agent.Conf{
 		DataDir:     ctx.dataDir,
 		OldPassword: initialPassword,
-		StateInfo:   &info,
+		StateInfo:   &stateInfo,
+		APIInfo:     &apiInfo,
 	}
 	if err := conf.Write(); err != nil {
 		return err
@@ -107,8 +125,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Install an upstart job that runs the unit agent.
 	logPath := path.Join(ctx.logDir, tag+".log")
-	syslogConfigRenderer := syslog.NewForwardConfig(
-		tag, ctx.addresser.Addresses())
+	syslogConfigRenderer := syslog.NewForwardConfig(tag, stateAddrs)
 	syslogConfigRenderer.ConfigDir = ctx.syslogConfigDir
 	syslogConfigRenderer.ConfigFileName = fmt.Sprintf("26-juju-%s.conf", tag)
 	if err := syslogConfigRenderer.Write(); err != nil {

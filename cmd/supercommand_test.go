@@ -8,7 +8,6 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -104,17 +103,12 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
-	target, debug := log.Target(), log.Debug
-	defer func() {
-		log.SetTarget(target)
-		log.Debug = debug
-	}()
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), Matches, `^.* ERROR command failed: BAM!
+	c.Assert(bufferString(ctx.Stderr), Matches, `^.* ERROR .* command failed: BAM!
 error: BAM!
 `)
 }
