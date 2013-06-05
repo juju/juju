@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	apimachiner "launchpad.net/juju-core/state/api/machiner"
+	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
@@ -27,7 +27,7 @@ type machinerSuite struct {
 	st     *api.State
 
 	machine  *state.Machine
-	machiner *apimachiner.Machiner
+	machiner *machiner.Machiner
 }
 
 var _ = Suite(&machinerSuite{})

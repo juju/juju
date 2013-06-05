@@ -5,13 +5,13 @@ package machiner
 
 import (
 	"fmt"
-	apicommon "launchpad.net/juju-core/state/api/common"
+	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // Machiner provides access to the Machiner API facade.
 type Machiner struct {
-	stcaller apicommon.Caller
+	stcaller common.Caller
 }
 
 // MachinerMachine provides access to state.Machine methods through
@@ -25,7 +25,7 @@ type MachinerMachine struct {
 }
 
 // New creates a new client-side Machiner facade.
-func New(stcaller apicommon.Caller) *Machiner {
+func New(stcaller common.Caller) *Machiner {
 	return &Machiner{stcaller}
 }
 

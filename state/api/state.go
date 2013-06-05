@@ -4,7 +4,7 @@
 package api
 
 import (
-	apimachiner "launchpad.net/juju-core/state/api/machiner"
+	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -26,7 +26,7 @@ func (st *State) Client() *Client {
 
 // Machiner returns an object that can be used to access the Machiner
 // API facade.
-func (st *State) Machiner(version string) (*apimachiner.Machiner, error) {
+func (st *State) Machiner(version string) (*machiner.Machiner, error) {
 	// Just verify we're allowed to access it.
 	args := params.Machines{
 		Ids: []string{},
@@ -36,5 +36,5 @@ func (st *State) Machiner(version string) (*apimachiner.Machiner, error) {
 	if err != nil {
 		return nil, err
 	}
-	return apimachiner.New(st), nil
+	return machiner.New(st), nil
 }
