@@ -9,8 +9,8 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	apicommon "launchpad.net/juju-core/state/apiserver/common"
-	apimachiner "launchpad.net/juju-core/state/apiserver/machiner"
+	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/machiner"
 	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )
@@ -22,7 +22,7 @@ func Test(t *stdtesting.T) {
 type machinerSuite struct {
 	testing.JujuConnSuite
 
-	machiner *apimachiner.Machiner
+	machiner *machiner.Machiner
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -30,13 +30,13 @@ type machinerSuite struct {
 
 var _ = Suite(&machinerSuite{})
 
-// fakeAuthorizer implements the apicommon.Authorizer interface.
+// fakeAuthorizer implements the common.Authorizer interface.
 type fakeAuthorizer struct {
 	tag     string
 	manager bool
 }
 
-func (fa *fakeAuthorizer) AuthOwner(entity apicommon.Tagger) bool {
+func (fa *fakeAuthorizer) AuthOwner(entity common.Tagger) bool {
 	return entity.Tag() == fa.tag
 }
 
@@ -56,7 +56,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create a machiner facades for machine 1.
-	s.machiner = apimachiner.New(
+	s.machiner = machiner.New(
 		s.State,
 		&fakeAuthorizer{
 			tag:     state.MachineTag(s.machine1.Id()),
