@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	apicommon "launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -41,25 +41,25 @@ var errorTransformTests = []struct {
 	err:  state.ErrUnitHasSubordinates,
 	code: api.CodeUnitHasSubordinates,
 }, {
-	err:  apicommon.ErrBadId,
+	err:  common.ErrBadId,
 	code: api.CodeNotFound,
 }, {
-	err:  apicommon.ErrBadCreds,
+	err:  common.ErrBadCreds,
 	code: api.CodeUnauthorized,
 }, {
-	err:  apicommon.ErrPerm,
+	err:  common.ErrPerm,
 	code: api.CodeUnauthorized,
 }, {
-	err:  apicommon.ErrNotLoggedIn,
+	err:  common.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
-	err:  apicommon.ErrUnknownWatcher,
+	err:  common.ErrUnknownWatcher,
 	code: api.CodeNotFound,
 }, {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?! nah..
 	code: api.CodeNotAssigned,
 }, {
-	err:  apicommon.ErrStoppedWatcher,
+	err:  common.ErrStoppedWatcher,
 	code: api.CodeStopped,
 }, {
 	err:  &state.HasAssignedUnitsError{"42", []string{"a"}},
@@ -71,7 +71,7 @@ var errorTransformTests = []struct {
 
 func (s *errorsSuite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
-		err1 := apicommon.ServerError(t.err)
+		err1 := common.ServerError(t.err)
 		c.Assert(err1.Error(), Equals, t.err.Error())
 		if t.code != "" {
 			c.Assert(api.ErrCode(err1), Equals, t.code)
