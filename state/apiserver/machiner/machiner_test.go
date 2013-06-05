@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package machiner_test
 
 import (
 	. "launchpad.net/gocheck"
@@ -9,13 +9,20 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver"
+	apicommon "launchpad.net/juju-core/state/apiserver/common"
+	apimachiner "launchpad.net/juju-core/state/apiserver/machiner"
+	coretesting "launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
+
+func Test(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
 
 type machinerSuite struct {
 	testing.JujuConnSuite
 
-	machiner *apiserver.SrvMachiner
+	machiner *apimachiner.Machiner
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -23,13 +30,13 @@ type machinerSuite struct {
 
 var _ = Suite(&machinerSuite{})
 
-// fakeAuthorizer implements the Authorizer interface.
+// fakeAuthorizer implements the apicommon.Authorizer interface.
 type fakeAuthorizer struct {
 	tag     string
 	manager bool
 }
 
-func (fa *fakeAuthorizer) AuthOwner(entity apiserver.Tagger) bool {
+func (fa *fakeAuthorizer) AuthOwner(entity apicommon.Tagger) bool {
 	return entity.Tag() == fa.tag
 }
 
@@ -49,7 +56,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create a machiner facades for machine 1.
-	s.machiner = apiserver.NewMachiner(
+	s.machiner = apimachiner.New(
 		s.State,
 		&fakeAuthorizer{
 			tag:     state.MachineTag(s.machine1.Id()),

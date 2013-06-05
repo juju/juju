@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package common
 
 import (
 	stderrors "errors"
@@ -12,14 +12,14 @@ import (
 )
 
 var (
-	errBadId          = stderrors.New("id not found")
-	errBadVersion     = stderrors.New("API version not supported")
-	errBadCreds       = stderrors.New("invalid entity name or password")
-	errPerm           = stderrors.New("permission denied")
-	errNotLoggedIn    = stderrors.New("not logged in")
-	errUnknownWatcher = stderrors.New("unknown watcher id")
-	errUnknownPinger  = stderrors.New("unknown pinger id")
-	errStoppedWatcher = stderrors.New("watcher has been stopped")
+	ErrBadId          = stderrors.New("id not found")
+	ErrBadVersion     = stderrors.New("API version not supported")
+	ErrBadCreds       = stderrors.New("invalid entity name or password")
+	ErrPerm           = stderrors.New("permission denied")
+	ErrNotLoggedIn    = stderrors.New("not logged in")
+	ErrUnknownWatcher = stderrors.New("unknown watcher id")
+	ErrUnknownPinger  = stderrors.New("unknown pinger id")
+	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -27,16 +27,16 @@ var singletonErrorCodes = map[error]string{
 	state.ErrCannotEnterScope:    api.CodeCannotEnterScope,
 	state.ErrExcessiveContention: api.CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: api.CodeUnitHasSubordinates,
-	errBadId:                     api.CodeNotFound,
-	errBadVersion:                api.CodeBadVersion,
-	errBadCreds:                  api.CodeUnauthorized,
-	errPerm:                      api.CodeUnauthorized,
-	errNotLoggedIn:               api.CodeUnauthorized,
-	errUnknownWatcher:            api.CodeNotFound,
-	errStoppedWatcher:            api.CodeStopped,
+	ErrBadId:                     api.CodeNotFound,
+	ErrBadVersion:                api.CodeBadVersion,
+	ErrBadCreds:                  api.CodeUnauthorized,
+	ErrPerm:                      api.CodeUnauthorized,
+	ErrNotLoggedIn:               api.CodeUnauthorized,
+	ErrUnknownWatcher:            api.CodeNotFound,
+	ErrStoppedWatcher:            api.CodeStopped,
 }
 
-func serverError(err error) error {
+func ServerError(err error) error {
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
@@ -58,9 +58,9 @@ func serverError(err error) error {
 	return err
 }
 
-func serverErrorToParams(err error) *params.Error {
+func ServerErrorToParams(err error) *params.Error {
 	if err != nil {
-		err = serverError(err)
+		err = ServerError(err)
 		return &params.Error{
 			Message: err.Error(),
 			Code:    api.ErrCode(err),

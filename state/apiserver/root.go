@@ -5,6 +5,8 @@ package apiserver
 
 import (
 	"launchpad.net/juju-core/state"
+	apicommon "launchpad.net/juju-core/state/apiserver/common"
+	apimachiner "launchpad.net/juju-core/state/apiserver/machiner"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -14,7 +16,7 @@ type srvRoot struct {
 	client    *srvClient
 	state     *srvState
 	srv       *Server
-	machiner  *srvMachiner
+	machiner  *apimachiner.Machiner
 	resources *resources
 
 	user authUser
@@ -34,10 +36,7 @@ func newStateServer(srv *Server) *srvRoot {
 	r.state = &srvState{
 		root: r,
 	}
-	r.machiner = &srvMachiner{
-		st:   r.srv.state,
-		auth: r,
-	}
+	r.machiner = apimachiner.New(r.srv.state, r)
 	return r
 }
 
@@ -53,7 +52,7 @@ func (r *srvRoot) Kill() {
 func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
-		return nil, errBadId
+		return nil, apicommon.ErrBadId
 	}
 	return r.admin, nil
 }
@@ -65,10 +64,10 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 func (r *srvRoot) requireAgent() error {
 	e := r.user.authenticator()
 	if e == nil {
-		return errNotLoggedIn
+		return apicommon.ErrNotLoggedIn
 	}
 	if !isAgent(e) {
-		return errPerm
+		return apicommon.ErrPerm
 	}
 	return nil
 }
@@ -78,10 +77,10 @@ func (r *srvRoot) requireAgent() error {
 func (r *srvRoot) requireClient() error {
 	e := r.user.authenticator()
 	if e == nil {
-		return errNotLoggedIn
+		return apicommon.ErrNotLoggedIn
 	}
 	if isAgent(e) {
-		return errPerm
+		return apicommon.ErrPerm
 	}
 	return nil
 }
@@ -89,12 +88,12 @@ func (r *srvRoot) requireClient() error {
 // Machiner returns an object that provides access to the Machiner API
 // facade. Version argument is reserved for future use and currently
 // needs to be empty.
-func (r *srvRoot) Machiner(version string) (*srvMachiner, error) {
+func (r *srvRoot) Machiner(version string) (*apimachiner.Machiner, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
 	if version != "" {
-		return nil, errBadVersion
+		return nil, apicommon.ErrBadVersion
 	}
 	return r.machiner, nil
 }
@@ -110,10 +109,10 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// the administrator.
 	e := r.user.authenticator()
 	if e == nil {
-		return nil, errNotLoggedIn
+		return nil, apicommon.ErrNotLoggedIn
 	}
 	if e.Tag() != name {
-		return nil, errPerm
+		return nil, apicommon.ErrPerm
 	}
 	u, err := r.srv.state.User(name)
 	if err != nil {
@@ -135,10 +134,10 @@ func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
 	}
 	watcher := r.resources.get(id)
 	if watcher == nil {
-		return srvEntityWatcher{}, errUnknownWatcher
+		return srvEntityWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	if _, ok := watcher.resource.(*state.EntityWatcher); !ok {
-		return srvEntityWatcher{}, errUnknownWatcher
+		return srvEntityWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	return srvEntityWatcher{watcher}, nil
 }
@@ -153,10 +152,10 @@ func (r *srvRoot) LifecycleWatcher(id string) (srvLifecycleWatcher, error) {
 	}
 	watcher := r.resources.get(id)
 	if watcher == nil {
-		return srvLifecycleWatcher{}, errUnknownWatcher
+		return srvLifecycleWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	if _, ok := watcher.resource.(*state.LifecycleWatcher); !ok {
-		return srvLifecycleWatcher{}, errUnknownWatcher
+		return srvLifecycleWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	return srvLifecycleWatcher{watcher}, nil
 }
@@ -171,10 +170,10 @@ func (r *srvRoot) EnvironConfigWatcher(id string) (srvEnvironConfigWatcher, erro
 	}
 	watcher := r.resources.get(id)
 	if watcher == nil {
-		return srvEnvironConfigWatcher{}, errUnknownWatcher
+		return srvEnvironConfigWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	if _, ok := watcher.resource.(*state.EnvironConfigWatcher); !ok {
-		return srvEnvironConfigWatcher{}, errUnknownWatcher
+		return srvEnvironConfigWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	return srvEnvironConfigWatcher{watcher}, nil
 }
@@ -189,10 +188,10 @@ func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
 	}
 	watcher := r.resources.get(id)
 	if watcher == nil {
-		return srvClientAllWatcher{}, errUnknownWatcher
+		return srvClientAllWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	if _, ok := watcher.resource.(*multiwatcher.Watcher); !ok {
-		return srvClientAllWatcher{}, errUnknownWatcher
+		return srvClientAllWatcher{}, apicommon.ErrUnknownWatcher
 	}
 	return srvClientAllWatcher{watcher}, nil
 
@@ -205,7 +204,7 @@ func (r *srvRoot) State(id string) (*srvState, error) {
 	}
 	if id != "" {
 		// Safeguard id for possible future use.
-		return nil, errBadId
+		return nil, apicommon.ErrBadId
 	}
 	return r.state, nil
 }
@@ -218,24 +217,14 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 	}
 	if id != "" {
 		// Safeguard id for possible future use.
-		return nil, errBadId
+		return nil, apicommon.ErrBadId
 	}
 	return r.client, nil
 }
 
-type Tagger interface {
-	Tag() string
-}
-
-// Authorizer interface defines per-method authorization calls.
-type Authorizer interface {
-	AuthOwner(entity Tagger) bool
-	AuthEnvironManager() bool
-}
-
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity's tag.
-func (r *srvRoot) AuthOwner(entity Tagger) bool {
+func (r *srvRoot) AuthOwner(entity apicommon.Tagger) bool {
 	authUser := r.user.authenticator()
 	return authUser.Tag() == entity.Tag()
 }
