@@ -6,6 +6,8 @@ package apiserver_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 var badLoginTests = []struct {
@@ -30,8 +32,27 @@ var badLoginTests = []struct {
 }}
 
 func (s *suite) TestBadLogin(c *C) {
-	_, info, err := s.APIConn.Environ.StateInfo()
+	// Start our own server so we can control when the first login
+	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
+	// called with user-admin permissions automatically.
+	srv, err := apiserver.NewServer(
+		s.State,
+		"localhost:0",
+		[]byte(coretesting.ServerCert),
+		[]byte(coretesting.ServerKey),
+	)
 	c.Assert(err, IsNil)
+	defer func() {
+		err := srv.Stop()
+		c.Assert(err, IsNil)
+	}()
+
+	info := &api.Info{
+		Tag:      "",
+		Password: "",
+		Addrs:    []string{srv.Addr()},
+		CACert:   []byte(coretesting.CACert),
+	}
 	for i, t := range badLoginTests {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
 		info.Tag = ""
@@ -41,19 +62,18 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, IsNil)
 			defer st.Close()
 
-			_, err = st.Machine("0")
+			_, err = st.Machiner("")
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
-			_, err = st.Unit("foo/0")
-			c.Assert(err, ErrorMatches, "not logged in")
-			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
-
+			// TODO (dimitern) This a really awkward way of testing -
+			// calling Login again here to reauth on the same
+			// connection. Seems wrong.
 			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
-			_, err = st.Machine("0")
+			_, err = st.Machiner("")
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 		}()
