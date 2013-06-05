@@ -284,11 +284,10 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	c.Assert(err, IsNil)
 	defer st.Close()
 
+	// This just verifies we can log in successfully.
 	machiner, err := st.Machiner("")
 	c.Assert(err, IsNil)
-	m, err := machiner.Machine(stm.Id())
-	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, "0")
+	c.Assert(machiner, NotNil)
 
 	instId, ok := stm.InstanceId()
 	c.Assert(ok, Equals, true)
