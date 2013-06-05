@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package machiner_test
 
 import (
 	. "launchpad.net/gocheck"
@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apimachiner "launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
@@ -26,7 +27,7 @@ type machinerSuite struct {
 	st     *api.State
 
 	machine  *state.Machine
-	machiner *api.Machiner
+	machiner *apimachiner.Machiner
 }
 
 var _ = Suite(&machinerSuite{})

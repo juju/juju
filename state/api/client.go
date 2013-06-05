@@ -28,7 +28,7 @@ type Status struct {
 // Status returns the status of the juju environment.
 func (c *Client) Status() (*Status, error) {
 	var s Status
-	if err := c.st.call("Client", "", "Status", nil, &s); err != nil {
+	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
 		return nil, err
 	}
 	return &s, nil
@@ -40,7 +40,7 @@ func (c *Client) ServiceSet(service string, options map[string]string) error {
 		ServiceName: service,
 		Options:     options,
 	}
-	return c.st.call("Client", "", "ServiceSet", p, nil)
+	return c.st.Call("Client", "", "ServiceSet", p, nil)
 }
 
 // Resolved clears errors on a unit.
@@ -49,7 +49,7 @@ func (c *Client) Resolved(unit string, retry bool) error {
 		UnitName: unit,
 		Retry:    retry,
 	}
-	return c.st.call("Client", "", "Resolved", p, nil)
+	return c.st.Call("Client", "", "Resolved", p, nil)
 }
 
 // ServiceSetYAML sets configuration options on a service
@@ -59,14 +59,14 @@ func (c *Client) ServiceSetYAML(service string, yaml string) error {
 		ServiceName: service,
 		Config:      yaml,
 	}
-	return c.st.call("Client", "", "ServiceSetYAML", p, nil)
+	return c.st.Call("Client", "", "ServiceSetYAML", p, nil)
 }
 
 // ServiceGet returns the configuration for the named service.
 func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 	var results params.ServiceGetResults
 	params := params.ServiceGet{ServiceName: service}
-	err := c.st.call("Client", "", "ServiceGet", params, &results)
+	err := c.st.Call("Client", "", "ServiceGet", params, &results)
 	return &results, err
 }
 
@@ -74,28 +74,28 @@ func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
 func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
 	var addRelRes params.AddRelationResults
 	params := params.AddRelation{Endpoints: endpoints}
-	err := c.st.call("Client", "", "AddRelation", params, &addRelRes)
+	err := c.st.Call("Client", "", "AddRelation", params, &addRelRes)
 	return &addRelRes, err
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
 func (c *Client) DestroyRelation(endpoints ...string) error {
 	params := params.DestroyRelation{Endpoints: endpoints}
-	return c.st.call("Client", "", "DestroyRelation", params, nil)
+	return c.st.Call("Client", "", "DestroyRelation", params, nil)
 }
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceExpose(service string) error {
 	params := params.ServiceExpose{ServiceName: service}
-	return c.st.call("Client", "", "ServiceExpose", params, nil)
+	return c.st.Call("Client", "", "ServiceExpose", params, nil)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
 func (c *Client) ServiceUnexpose(service string) error {
 	params := params.ServiceUnexpose{ServiceName: service}
-	return c.st.call("Client", "", "ServiceUnexpose", params, nil)
+	return c.st.Call("Client", "", "ServiceUnexpose", params, nil)
 }
 
 // ServiceDeploy obtains the charm, either locally or from the charm store,
@@ -109,7 +109,7 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 		ConfigYAML:  configYAML,
 		Constraints: cons,
 	}
-	return c.st.call("Client", "", "ServiceDeploy", params, nil)
+	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
 
 // AddServiceUnits adds a given number of units to a service.
@@ -119,14 +119,14 @@ func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error)
 		NumUnits:    numUnits,
 	}
 	results := new(params.AddServiceUnitsResults)
-	err := c.st.call("Client", "", "AddServiceUnits", args, results)
+	err := c.st.Call("Client", "", "AddServiceUnits", args, results)
 	return results.Units, err
 }
 
 // DestroyServiceUnits decreases the number of units dedicated to a service.
 func (c *Client) DestroyServiceUnits(unitNames []string) error {
 	params := params.DestroyServiceUnits{unitNames}
-	return c.st.call("Client", "", "DestroyServiceUnits", params, nil)
+	return c.st.Call("Client", "", "DestroyServiceUnits", params, nil)
 }
 
 // ServiceDestroy destroys a given service.
@@ -134,13 +134,13 @@ func (c *Client) ServiceDestroy(service string) error {
 	params := params.ServiceDestroy{
 		ServiceName: service,
 	}
-	return c.st.call("Client", "", "ServiceDestroy", params, nil)
+	return c.st.Call("Client", "", "ServiceDestroy", params, nil)
 }
 
 // GetServiceConstraints returns the constraints for the given service.
 func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
 	results := new(params.GetServiceConstraintsResults)
-	err := c.st.call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	err := c.st.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
 	return results.Constraints, err
 }
 
@@ -150,7 +150,7 @@ func (c *Client) SetServiceConstraints(service string, constraints constraints.V
 		ServiceName: service,
 		Constraints: constraints,
 	}
-	return c.st.call("Client", "", "SetServiceConstraints", params, nil)
+	return c.st.Call("Client", "", "SetServiceConstraints", params, nil)
 }
 
 // CharmInfo holds information about a charm.
@@ -165,7 +165,7 @@ type CharmInfo struct {
 func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
 	args := params.CharmInfo{CharmURL: charmURL}
 	info := new(CharmInfo)
-	if err := c.st.call("Client", "", "CharmInfo", args, info); err != nil {
+	if err := c.st.Call("Client", "", "CharmInfo", args, info); err != nil {
 		return nil, err
 	}
 	return info, nil
@@ -181,7 +181,7 @@ type EnvironmentInfo struct {
 // EnvironmentInfo returns details about the Juju environment.
 func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
 	info := new(EnvironmentInfo)
-	err := c.st.call("Client", "", "EnvironmentInfo", nil, info)
+	err := c.st.Call("Client", "", "EnvironmentInfo", nil, info)
 	return info, err
 }
 
@@ -194,7 +194,7 @@ type WatchAll struct {
 // collection of Deltas.
 func (c *Client) WatchAll() (*AllWatcher, error) {
 	info := new(WatchAll)
-	if err := c.st.call("Client", "", "WatchAll", nil, info); err != nil {
+	if err := c.st.Call("Client", "", "WatchAll", nil, info); err != nil {
 		return nil, err
 	}
 	return newAllWatcher(c, &info.AllWatcherId), nil
@@ -204,7 +204,7 @@ func (c *Client) WatchAll() (*AllWatcher, error) {
 func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 	args := params.GetAnnotations{tag}
 	ann := new(params.GetAnnotationsResults)
-	err := c.st.call("Client", "", "GetAnnotations", args, ann)
+	err := c.st.Call("Client", "", "GetAnnotations", args, ann)
 	return ann.Annotations, err
 }
 
@@ -213,5 +213,5 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 // units and the environment itself.
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
-	return c.st.call("Client", "", "SetAnnotations", args, nil)
+	return c.st.Call("Client", "", "SetAnnotations", args, nil)
 }

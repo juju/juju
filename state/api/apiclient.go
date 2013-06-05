@@ -104,7 +104,7 @@ func Open(info *Info) (*State, error) {
 
 func (s *State) heartbeatMonitor() {
 	ping := func() error {
-		return s.call("State", "", "Ping", nil, nil)
+		return s.Call("State", "", "Ping", nil, nil)
 	}
 	for {
 		if err := ping(); err != nil {
@@ -115,7 +115,10 @@ func (s *State) heartbeatMonitor() {
 	}
 }
 
-func (s *State) call(objType, id, request string, params, response interface{}) error {
+// Call invokes a low-level RPC method of the given objType, id, and
+// request, passing the given parameters and filling in the response
+// results. This should not be used directly by clients.
+func (s *State) Call(objType, id, request string, params, response interface{}) error {
 	err := s.client.Call(objType, id, request, params, response)
 	return clientError(err)
 }

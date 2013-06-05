@@ -1,16 +1,17 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package machiner
 
 import (
 	"fmt"
+	apicommon "launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 // Machiner provides access to the Machiner API facade.
 type Machiner struct {
-	st *State
+	stcaller apicommon.Caller
 }
 
 // MachinerMachine provides access to state.Machine methods through
@@ -21,13 +22,18 @@ type MachinerMachine struct {
 	machiner *Machiner
 }
 
+// New creates a new client-side Machiner facade.
+func New(stcaller apicommon.Caller) *Machiner {
+	return &Machiner{stcaller}
+}
+
 // machineLife requests the lifecycle of the given machine from the server.
 func (m *Machiner) machineLife(id string) (params.Life, error) {
 	var result params.MachinesLifeResults
 	args := params.Machines{
 		Ids: []string{id},
 	}
-	err := m.st.call("Machiner", "", "Life", args, &result)
+	err := m.stcaller.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
 		return "", err
 	}
@@ -61,7 +67,7 @@ func (mm *MachinerMachine) SetStatus(status params.Status, info string) error {
 			{Id: mm.id, Status: status, Info: info},
 		},
 	}
-	err := mm.machiner.st.call("Machiner", "", "SetStatus", args, &result)
+	err := mm.machiner.stcaller.Call("Machiner", "", "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -85,7 +91,7 @@ func (mm *MachinerMachine) EnsureDead() error {
 	args := params.Machines{
 		Ids: []string{mm.id},
 	}
-	err := mm.machiner.st.call("Machiner", "", "EnsureDead", args, &result)
+	err := mm.machiner.stcaller.Call("Machiner", "", "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
