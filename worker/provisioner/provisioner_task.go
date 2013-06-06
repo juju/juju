@@ -4,9 +4,13 @@
 package provisioner
 
 import (
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/tomb"
 )
 
 type Watcher interface {
