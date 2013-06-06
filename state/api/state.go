@@ -26,13 +26,13 @@ func (st *State) Client() *Client {
 
 // Machiner returns an object that can be used to access the Machiner
 // API facade.
-func (st *State) Machiner(version string) (*machiner.Machiner, error) {
+func (st *State) Machiner() (*machiner.Machiner, error) {
 	// Just verify we're allowed to access it.
 	args := params.Machines{
 		Ids: []string{},
 	}
 	var result params.MachinesLifeResults
-	err := st.Call("Machiner", version, "Life", args, &result)
+	err := st.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
 		return nil, err
 	}
