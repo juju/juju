@@ -22,7 +22,8 @@ func Test(t *stdtesting.T) {
 type machinerSuite struct {
 	testing.JujuConnSuite
 
-	machiner *machiner.Machiner
+	authorizer *fakeAuthorizer
+	machiner   *machiner.Machiner
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -32,9 +33,14 @@ var _ = Suite(&machinerSuite{})
 
 // fakeAuthorizer implements the common.Authorizer interface.
 type fakeAuthorizer struct {
-	tag      string
-	manager  bool
-	machiner bool
+	tag          string
+	loggedIn     bool
+	manager      bool
+	machineAgent bool
+}
+
+func (fa *fakeAuthorizer) IsLoggedIn() bool {
+	return fa.loggedIn
 }
 
 func (fa *fakeAuthorizer) AuthOwner(entity common.Tagger) bool {
@@ -45,11 +51,8 @@ func (fa *fakeAuthorizer) AuthEnvironManager() bool {
 	return fa.manager
 }
 
-func (fa *fakeAuthorizer) RequireMachiner() error {
-	if !fa.machiner {
-		return common.ErrPerm
-	}
-	return nil
+func (fa *fakeAuthorizer) AuthMachineAgent() bool {
+	return fa.machineAgent
 }
 
 func (s *machinerSuite) SetUpTest(c *C) {
@@ -63,14 +66,18 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
+	// Create a fakeAuthorizer so we can check permissions.
+	s.authorizer = &fakeAuthorizer{
+		tag:          state.MachineTag(s.machine1.Id()),
+		loggedIn:     true,
+		manager:      false,
+		machineAgent: true,
+	}
+
 	// Create a machiner API for machine 1.
 	s.machiner, err = machiner.New(
 		s.State,
-		&fakeAuthorizer{
-			tag:      state.MachineTag(s.machine1.Id()),
-			manager:  false,
-			machiner: true,
-		},
+		s.authorizer,
 	)
 	c.Assert(err, IsNil)
 }
@@ -81,18 +88,22 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 	c.Assert(err, ErrorMatches, messageRegexp)
 }
 
-func (s *machinerSuite) TestMachinerFailsWithNonMachinerUser(c *C) {
-	aMachiner, err := machiner.New(
-		s.State,
-		&fakeAuthorizer{
-			tag:      state.MachineTag(s.machine1.Id()),
-			manager:  false,
-			machiner: false,
-		},
-	)
+func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.machineAgent = false
+	aMachiner, err := machiner.New(s.State, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "permission denied")
+}
+
+func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.loggedIn = false
+	aMachiner, err := machiner.New(s.State, anAuthorizer)
+	c.Assert(err, NotNil)
+	c.Assert(aMachiner, IsNil)
+	c.Assert(err, ErrorMatches, "not logged in")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {

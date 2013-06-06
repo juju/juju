@@ -17,8 +17,11 @@ type Machiner struct {
 
 // New creates a new instance of the Machiner facade.
 func New(st *state.State, authorizer common.Authorizer) (*Machiner, error) {
-	if err := authorizer.RequireMachiner(); err != nil {
-		return nil, err
+	if !authorizer.IsLoggedIn() {
+		return nil, common.ErrNotLoggedIn
+	}
+	if !authorizer.AuthMachineAgent() {
+		return nil, common.ErrPerm
 	}
 	return &Machiner{st, authorizer}, nil
 }

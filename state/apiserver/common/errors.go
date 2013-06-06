@@ -34,6 +34,9 @@ var singletonErrorCodes = map[error]string{
 	ErrStoppedWatcher:            api.CodeStopped,
 }
 
+// ServerError returns an error suitable for returning to an API
+// client, with an error code suitable for various kinds of errors
+// generated in packages outside the API.
 func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
