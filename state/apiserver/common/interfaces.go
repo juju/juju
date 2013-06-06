@@ -3,7 +3,9 @@
 
 package common
 
-// Tagger interface defines a single Tag method.
+// Tagger is implemented by any entity with a Tag method, which should
+// return the tag of the entity (for instance a machine might return
+// the tag "machine-1")
 type Tagger interface {
 	Tag() string
 }

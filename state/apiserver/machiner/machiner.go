@@ -10,7 +10,7 @@ import (
 	statewatcher "launchpad.net/juju-core/state/watcher"
 )
 
-// Machiner represents the Machiner API facade used by the machiner worker.
+// Machiner implements the API used by the machiner worker.
 type Machiner struct {
 	st               *state.State
 	resourceRegistry common.ResourceRegistry

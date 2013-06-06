@@ -70,7 +70,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	// Register.
 	s.resourcesRegistry = make(fakeResourceRegistry)
 
-	// Create a machiner facades for machine 1.
+	// Create a machiner API for machine 1.
 	s.machiner = machiner.New(
 		s.State,
 		s.resourcesRegistry,
