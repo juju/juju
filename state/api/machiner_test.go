@@ -81,12 +81,12 @@ func (s *machinerSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *machinerSuite) TestMachinerFailsWithNotEmptyVersion(c *C) {
+func (s *machinerSuite) TestMachinerFailsWithNotEmptyId(c *C) {
 	machiner, err := s.st.Machiner("blah")
 	c.Assert(err, NotNil)
 	c.Assert(machiner, IsNil)
-	c.Assert(api.ErrCode(err), Equals, api.CodeBadVersion)
-	c.Assert(err, ErrorMatches, "API version not supported")
+	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	c.Assert(err, ErrorMatches, "id not found")
 }
 
 func (s *machinerSuite) TestMachineAndMachineId(c *C) {

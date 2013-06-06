@@ -25,7 +25,6 @@ var _ rpc.ErrorCoder = (*Error)(nil)
 // The Code constants hold error codes for some kinds of error.
 const (
 	CodeNotFound            = "not found"
-	CodeBadVersion          = "API version not supported"
 	CodeUnauthorized        = "unauthorized access"
 	CodeCannotEnterScope    = "cannot enter scope"
 	CodeCannotEnterScopeYet = "cannot enter scope yet"
