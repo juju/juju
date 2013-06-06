@@ -65,8 +65,9 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	c.Assert(s.st, NotNil)
 
 	// Create the machiner facade.
-	s.machiner, err = s.st.Machiner("")
+	s.machiner, err = s.st.Machiner()
 	c.Assert(err, IsNil)
+	c.Assert(s.machiner, NotNil)
 }
 
 func (s *machinerSuite) TearDownTest(c *C) {
@@ -80,14 +81,6 @@ func (s *machinerSuite) TearDownTest(c *C) {
 		c.Assert(err, IsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *machinerSuite) TestMachinerFailsWithNotEmptyId(c *C) {
-	machiner, err := s.st.Machiner("blah")
-	c.Assert(err, NotNil)
-	c.Assert(machiner, IsNil)
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
-	c.Assert(err, ErrorMatches, "id not found")
 }
 
 func (s *machinerSuite) TestMachineAndMachineId(c *C) {

@@ -118,6 +118,9 @@ func (s *State) heartbeatMonitor() {
 // Call invokes a low-level RPC method of the given objType, id, and
 // request, passing the given parameters and filling in the response
 // results. This should not be used directly by clients.
+// TODO (dimitern) Add tests for all client-facing objects to verify
+// we return the correct error when invoking Call("Object",
+// "non-empty-id",...)
 func (s *State) Call(objType, id, request string, params, response interface{}) error {
 	err := s.client.Call(objType, id, request, params, response)
 	return clientError(err)
