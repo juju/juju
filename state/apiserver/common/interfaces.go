@@ -10,8 +10,20 @@ type Tagger interface {
 	Tag() string
 }
 
-// Authorizer interface defines per-method authorization calls.
+// Authorizer represents a value that can be asked for authorization
+// information on its associated authenticated entity. It is
+// implemented by an API server to allow an API implementation to ask
+// questions about the client that is currently connected.
 type Authorizer interface {
+	// RequireMachiner returns an error if the authenticated entity is
+	// not a machine agent.
+	RequireMachiner() error
+
+	// AuthOwner returns whether the authenticated entity is the same
+	// as the given entity.
 	AuthOwner(entity Tagger) bool
+
+	// AuthEnvironManager returns whether the authenticated entity is
+	// a machine running the environment manager job.
 	AuthEnvironManager() bool
 }

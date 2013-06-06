@@ -13,7 +13,6 @@ import (
 
 var (
 	ErrBadId          = stderrors.New("id not found")
-	ErrBadVersion     = stderrors.New("API version not supported")
 	ErrBadCreds       = stderrors.New("invalid entity name or password")
 	ErrPerm           = stderrors.New("permission denied")
 	ErrNotLoggedIn    = stderrors.New("not logged in")
@@ -28,7 +27,6 @@ var singletonErrorCodes = map[error]string{
 	state.ErrExcessiveContention: api.CodeExcessiveContention,
 	state.ErrUnitHasSubordinates: api.CodeUnitHasSubordinates,
 	ErrBadId:                     api.CodeNotFound,
-	ErrBadVersion:                api.CodeBadVersion,
 	ErrBadCreds:                  api.CodeUnauthorized,
 	ErrPerm:                      api.CodeUnauthorized,
 	ErrNotLoggedIn:               api.CodeUnauthorized,
@@ -36,7 +34,10 @@ var singletonErrorCodes = map[error]string{
 	ErrStoppedWatcher:            api.CodeStopped,
 }
 
-func ServerError(err error) error {
+func ServerError(err error) *params.Error {
+	if err == nil {
+		return nil
+	}
 	code := singletonErrorCodes[err]
 	switch {
 	case code != "":
@@ -48,23 +49,11 @@ func ServerError(err error) error {
 		code = api.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = api.CodeHasAssignedUnits
+	default:
+		code = api.ErrCode(err)
 	}
-	if code != "" {
-		return &api.Error{
-			Message: err.Error(),
-			Code:    code,
-		}
+	return &params.Error{
+		Message: err.Error(),
+		Code:    code,
 	}
-	return err
-}
-
-func ServerErrorToParams(err error) *params.Error {
-	if err != nil {
-		err = ServerError(err)
-		return &params.Error{
-			Message: err.Error(),
-			Code:    api.ErrCode(err),
-		}
-	}
-	return nil
 }
