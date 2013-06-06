@@ -5,15 +5,14 @@ package machiner
 
 import "launchpad.net/juju-core/state/api/params"
 
-// Machine provides access to state.Machine methods through
-// the Machiner facade.
+// Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
 	id       string
 	life     params.Life
 	machiner *Machiner
 }
 
-// SetStatus changes the status of the machine.
+// SetStatus sets the status of the machine.
 func (m *Machine) SetStatus(status params.Status, info string) error {
 	var result params.ErrorResults
 	args := params.MachinesSetStatus{
@@ -21,7 +20,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 			{Id: m.id, Status: status, Info: info},
 		},
 	}
-	err := m.machiner.stcaller.Call("Machiner", "", "SetStatus", args, &result)
+	err := m.machiner.caller.Call("Machiner", "", "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -45,7 +44,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Machines{
 		Ids: []string{m.id},
 	}
-	err := m.machiner.stcaller.Call("Machiner", "", "EnsureDead", args, &result)
+	err := m.machiner.caller.Call("Machiner", "", "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
