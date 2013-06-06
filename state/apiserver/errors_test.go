@@ -67,17 +67,19 @@ var errorTransformTests = []struct {
 }, {
 	err:  stderrors.New("an error"),
 	code: "",
+}, {
+	err:  nil,
+	code: "",
 }}
 
 func (s *errorsSuite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
 		err1 := common.ServerError(t.err)
-		c.Assert(err1, NotNil)
-		c.Assert(err1.Error(), Equals, t.err.Error())
-		if t.code != "" {
-			c.Assert(api.ErrCode(err1), Equals, t.code)
+		if t.err == nil {
+			c.Assert(err1, IsNil)
 		} else {
-			c.Assert(err1.Error(), Equals, t.err.Error())
+			c.Assert(err1.Message, Equals, t.err.Error())
+			c.Assert(err1.Code, Equals, t.code)
 		}
 	}
 }
