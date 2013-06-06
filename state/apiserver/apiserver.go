@@ -99,7 +99,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	conn := rpc.NewConn(jsoncodec.NewWebsocket(wsConn))
 	serverError := func(err error) error {
 		if err := common.ServerError(err); err != nil {
-			return *err
+			return err
 		}
 		return nil
 	}

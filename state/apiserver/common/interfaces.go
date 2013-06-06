@@ -15,9 +15,13 @@ type Tagger interface {
 // implemented by an API server to allow an API implementation to ask
 // questions about the client that is currently connected.
 type Authorizer interface {
-	// RequireMachiner returns an error if the authenticated entity is
-	// not a machine agent.
-	RequireMachiner() error
+	// IsLoggedIn returns whether the user is currently logged in and
+	// authenticated.
+	IsLoggedIn() bool
+
+	// AuthMachineAgent returns whether the authenticated entity is a
+	// machine agent.
+	AuthMachineAgent() bool
 
 	// AuthOwner returns whether the authenticated entity is the same
 	// as the given entity.

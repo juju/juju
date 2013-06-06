@@ -55,21 +55,6 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
-// RequireMachiner checks whether the current client is a machine
-// agent and hence may access the Machiner APIs. We filter out
-// non-agents when calling one of the accessor functions which avoids
-// us making the check in every single request method.
-func (r *srvRoot) RequireMachiner() error {
-	e := r.user.authenticator()
-	if e == nil {
-		return common.ErrNotLoggedIn
-	}
-	if _, ok := e.(*state.Machine); !ok {
-		return common.ErrPerm
-	}
-	return nil
-}
-
 // requireAgent checks whether the current client is an agent and hence
 // may access the agent APIs.  We filter out non-agents when calling one
 // of the accessor functions (Machine, Unit, etc) which avoids us making
@@ -83,7 +68,6 @@ func (r *srvRoot) requireAgent() error {
 		return common.ErrPerm
 	}
 	return nil
-
 }
 
 // requireClient returns an error unless the current
@@ -103,15 +87,11 @@ func (r *srvRoot) requireClient() error {
 // facade. The id argument is reserved for future use and currently
 // needs to be empty.
 func (r *srvRoot) Machiner(id string) (*machiner.Machiner, error) {
-	machiner, err := machiner.New(r.srv.state, r.resources, r)
-	if err != nil {
-		return nil, err
-	}
 	if id != "" {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return machiner, nil
+	return machiner.New(r.srv.state, r)
 }
 
 // User returns an object that provides
@@ -236,6 +216,24 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 		return nil, common.ErrBadId
 	}
 	return r.client, nil
+}
+
+// IsLoggedIn returns whether the user is currently logged in and
+// authenticated.
+func (r *srvRoot) IsLoggedIn() bool {
+	return r.user.authenticator() != nil
+}
+
+// AuthMachineAgent returns whether the current client is a machine agent.
+func (r *srvRoot) AuthMachineAgent() bool {
+	if !r.IsLoggedIn() {
+		return false
+	}
+	e := r.user.authenticator()
+	if _, ok := e.(*state.Machine); !ok {
+		return false
+	}
+	return true
 }
 
 // AuthOwner returns whether the authenticated user's tag matches the
