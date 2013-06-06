@@ -1236,3 +1236,54 @@ func (s *StateSuite) TestParseTag(c *C) {
 	c.Assert(id, Equals, user.Name())
 	c.Assert(err, IsNil)
 }
+
+func (s *StateSuite) TestWatchCleanups(c *C) {
+	cw := s.State.WatchCleanups()
+	defer cw.Stop()
+
+	assertNoChange := func(sync bool) {
+		if sync {
+			cw.Sync()
+		}
+		select {
+		case _, ok := <-cw.Changes():
+			c.Fatalf("unexpected change: %v", ok)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertChange := func() {
+		// Sync is needed, otherwise notification every 5 seconds.
+		cw.Sync()
+		select {
+		case _, ok := <-cw.Changes():
+			c.Assert(ok, Equals, true)
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("timed out waiting for change")
+		}
+		assertNoChange(false)
+	}
+
+	// Check initial event.
+	assertChange()
+
+	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	rel1, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange(true)
+	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
+	c.Assert(err, IsNil)
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	_, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange(true)
+
+	err = rel1.Destroy()
+	c.Assert(err, IsNil)
+	assertChange()
+}

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
 	"strings"
+	"time"
 )
 
 // commonWatcher is part of all client watchers.
@@ -1227,6 +1228,77 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case out <- changes:
 			out = nil
 			changes = nil
+		}
+	}
+	panic("unreachable")
+}
+
+// CleanupWatcher notifies about new cleanup documents.
+//
+// The first event emitted contains the unit names of all units currently
+// assigned to the machine, irrespective of their life state. From then on,
+// a new event is emitted whenever a unit is assigned to or unassigned from
+// the machine, or the lifecycle of a unit that is currently assigned to
+// the machine changes.
+//
+// After a unit is found to be Dead, no further event will include it.
+type CleanupWatcher struct {
+	commonWatcher
+	out  chan struct{}
+	sync chan struct{}
+}
+
+// WatchCleanups returns a CleanupWatcher that notifies when documents
+// that where marked for removal exist.
+func (st *State) WatchCleanups() *CleanupWatcher {
+	return newCleanupWatcher(st)
+}
+
+func newCleanupWatcher(st *State) *CleanupWatcher {
+	w := &CleanupWatcher{
+		commonWatcher: commonWatcher{st: st},
+		out:           make(chan struct{}),
+		sync:          make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.sync)
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *CleanupWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+// Sync forces an immediate syncing with the database.
+func (w *CleanupWatcher) Sync() {
+	w.sync <- struct{}{}
+}
+
+func (w *CleanupWatcher) loop() (err error) {
+	next := time.After(watcher.Period)
+	out := w.out
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-w.sync:
+			next = time.After(0)
+		case <-next:
+			next = time.After(watcher.Period)
+			count, err := w.st.cleanups.Find(nil).Count()
+			if err != nil {
+				return err
+			}
+			if count > 0 {
+				out = w.out
+			}
+		case out <- struct{}{}:
+			out = nil
 		}
 	}
 	panic("unreachable")
