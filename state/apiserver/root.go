@@ -16,7 +16,6 @@ type srvRoot struct {
 	client    *srvClient
 	state     *srvState
 	srv       *Server
-	machiner  *machiner.Machiner
 	resources *resources
 
 	user authUser
@@ -36,7 +35,6 @@ func newStateServer(srv *Server) *srvRoot {
 	r.state = &srvState{
 		root: r,
 	}
-	r.machiner = machiner.New(r.srv.state, r)
 	return r
 }
 
@@ -57,6 +55,21 @@ func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
 	return r.admin, nil
 }
 
+// RequireMachiner checks whether the current client is a machine
+// agent and hence may access the Machiner APIs. We filter out
+// non-agents when calling one of the accessor functions which avoids
+// us making the check in every single request method.
+func (r *srvRoot) RequireMachiner() error {
+	e := r.user.authenticator()
+	if e == nil {
+		return common.ErrNotLoggedIn
+	}
+	if _, ok := e.(*state.Machine); !ok {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 // requireAgent checks whether the current client is an agent and hence
 // may access the agent APIs.  We filter out non-agents when calling one
 // of the accessor functions (Machine, Unit, etc) which avoids us making
@@ -70,6 +83,7 @@ func (r *srvRoot) requireAgent() error {
 		return common.ErrPerm
 	}
 	return nil
+
 }
 
 // requireClient returns an error unless the current
@@ -86,16 +100,18 @@ func (r *srvRoot) requireClient() error {
 }
 
 // Machiner returns an object that provides access to the Machiner API
-// facade. Version argument is reserved for future use and currently
+// facade. The id argument is reserved for future use and currently
 // needs to be empty.
-func (r *srvRoot) Machiner(version string) (*machiner.Machiner, error) {
-	if err := r.requireAgent(); err != nil {
+func (r *srvRoot) Machiner(id string) (*machiner.Machiner, error) {
+	machiner, err := machiner.New(r.srv.state, r)
+	if err != nil {
 		return nil, err
 	}
-	if version != "" {
-		return nil, common.ErrBadVersion
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
 	}
-	return r.machiner, nil
+	return machiner, nil
 }
 
 // User returns an object that provides
