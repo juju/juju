@@ -55,7 +55,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	// Create a machiner facades for machine 1.
+	// Create a machiner API for machine 1.
 	s.machiner = machiner.New(
 		s.State,
 		&fakeAuthorizer{
