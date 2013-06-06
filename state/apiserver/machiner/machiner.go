@@ -18,8 +18,11 @@ type Machiner struct {
 }
 
 // New creates a new instance of the Machiner facade.
-func New(st *state.State, resourceRegistry common.ResourceRegistry, authorizer common.Authorizer) *Machiner {
-	return &Machiner{st, resourceRegistry, authorizer}
+func New(st *state.State, resourceRegistry common.ResourceRegistry, authorizer common.Authorizer) (*Machiner, error) {
+	if err := authorizer.RequireMachiner(); err != nil {
+		return nil, err
+	}
+	return &Machiner{st, resourceRegistry, authorizer}, nil
 }
 
 // SetStatus sets the status of each given machine.
@@ -40,7 +43,7 @@ func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults
 				err = machine.SetStatus(arg.Status, arg.Info)
 			}
 		}
-		result.Errors[i] = common.ServerErrorToParams(err)
+		result.Errors[i] = common.ServerError(err)
 	}
 	return result, nil
 }
@@ -93,7 +96,7 @@ func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error
 				result.Machines[i].Life = params.Life(machine.Life().String())
 			}
 		}
-		result.Machines[i].Error = common.ServerErrorToParams(err)
+		result.Machines[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
@@ -117,7 +120,7 @@ func (m *Machiner) EnsureDead(args params.Machines) (params.ErrorResults, error)
 				err = machine.EnsureDead()
 			}
 		}
-		result.Errors[i] = common.ServerErrorToParams(err)
+		result.Errors[i] = common.ServerError(err)
 	}
 	return result, nil
 }

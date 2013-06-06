@@ -34,8 +34,9 @@ var _ = Suite(&machinerSuite{})
 
 // fakeAuthorizer implements the common.Authorizer interface.
 type fakeAuthorizer struct {
-	tag     string
-	manager bool
+	tag      string
+	manager  bool
+	machiner bool
 }
 
 func (authorizer *fakeAuthorizer) AuthOwner(entity common.Tagger) bool {
@@ -55,6 +56,13 @@ func (registry fakeResourceRegistry) Register(resource common.Resource) string {
 	return id
 }
 
+func (fa *fakeAuthorizer) RequireMachiner() error {
+	if !fa.machiner {
+		return common.ErrPerm
+	}
+	return nil
+}
+
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -71,20 +79,36 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	s.resourcesRegistry = make(fakeResourceRegistry)
 
 	// Create a machiner API for machine 1.
-	s.machiner = machiner.New(
+	s.machiner, err = machiner.New(
 		s.State,
 		s.resourcesRegistry,
 		&fakeAuthorizer{
-			tag:     state.MachineTag(s.machine1.Id()),
-			manager: false,
+			tag:      state.MachineTag(s.machine1.Id()),
+			manager:  false,
+			machiner: true,
 		},
 	)
+	c.Assert(err, IsNil)
 }
 
 func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp string) {
 	c.Assert(err, NotNil)
 	c.Assert(api.ErrCode(err), Equals, code)
 	c.Assert(err, ErrorMatches, messageRegexp)
+}
+
+func (s *machinerSuite) TestMachinerFailsWithNonMachinerUser(c *C) {
+	aMachiner, err := machiner.New(
+		s.State,
+		&fakeAuthorizer{
+			tag:      state.MachineTag(s.machine1.Id()),
+			manager:  false,
+			machiner: false,
+		},
+	)
+	c.Assert(err, NotNil)
+	c.Assert(aMachiner, IsNil)
+	c.Assert(err, ErrorMatches, "permission denied")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
