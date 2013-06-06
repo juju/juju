@@ -15,7 +15,13 @@ format:
 
 # Install packages required to develop Juju and run tests.
 install-dependencies:
-	sudo apt-get install build-essential bzr zip git-core mercurial distro-info-data golang-go mongodb
+	sudo apt-get install build-essential bzr zip git-core mercurial distro-info-data golang-go
+	@echo
+	@echo "Make sure you have MongoDB running.  See the README file."
+	@if [ -z "$(GOPATH)" ]; then \
+		echo; \
+		echo "You need to set up a GOPATH.  See the README file."; \
+	fi
 
 # Invoke gofmt's "simplify" option to streamline the source code.
 simplify:
