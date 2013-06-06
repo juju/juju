@@ -38,20 +38,20 @@ type fakeAuthorizer struct {
 	manager bool
 }
 
-func (fa *fakeAuthorizer) AuthOwner(entity common.Tagger) bool {
-	return entity.Tag() == fa.tag
+func (authorizer *fakeAuthorizer) AuthOwner(entity common.Tagger) bool {
+	return entity.Tag() == authorizer.tag
 }
 
-func (fa *fakeAuthorizer) AuthEnvironManager() bool {
-	return fa.manager
+func (authorizer *fakeAuthorizer) AuthEnvironManager() bool {
+	return authorizer.manager
 }
 
 // fakeResourceRegistry implements the common.ResourceRegistry interface.
 type fakeResourceRegistry map[string]common.Resource
 
-func (frr fakeResourceRegistry) Register(resource common.Resource) string {
-	id := strconv.Itoa(len(frr))
-	frr[id] = resource
+func (registry fakeResourceRegistry) Register(resource common.Resource) string {
+	id := strconv.Itoa(len(registry))
+	registry[id] = resource
 	return id
 }
 
