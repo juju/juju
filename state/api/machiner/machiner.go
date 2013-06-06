@@ -11,12 +11,12 @@ import (
 
 // Machiner provides access to the Machiner API facade.
 type Machiner struct {
-	stcaller common.Caller
+	caller common.Caller
 }
 
 // New creates a new client-side Machiner facade.
-func New(stcaller common.Caller) *Machiner {
-	return &Machiner{stcaller}
+func New(caller common.Caller) *Machiner {
+	return &Machiner{caller}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
@@ -25,7 +25,7 @@ func (m *Machiner) machineLife(id string) (params.Life, error) {
 	args := params.Machines{
 		Ids: []string{id},
 	}
-	err := m.stcaller.Call("Machiner", "", "Life", args, &result)
+	err := m.caller.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
 		return "", err
 	}
