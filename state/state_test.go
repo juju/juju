@@ -1360,7 +1360,7 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 		s.State.StartSync()
 		select {
 		case _, ok := <-cw.Changes():
-			c.Fatalf("unexpected change: %v", ok)
+			c.Fatalf("unexpected change; ok: %v", ok)
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
@@ -1380,7 +1380,7 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	// Check initial event.
 	assertChanges(1)
 
-	// Add relations doesn't emit events.
+	// Adding relations doesn't emit events.
 	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
@@ -1412,15 +1412,12 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	c.Assert(err, IsNil)
 	assertChanges(1)
 
-	// A cleanup without need doesn't emit events.
+	// Verify that Cleanup() doesn't emit unnecessary events.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// Don't handle each event keeps them in the queue. Cleanups
-	// have a transaction per entry. So they create the according number
-	// of events. This behavior will change in a followup with a cleanup 
-	// redesign.
+	// Not calling Cleanup() queues up the changes.
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, IsNil)
 	relM, err = s.State.AddRelation(eps...)
@@ -1436,6 +1433,10 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	err = relV.Destroy()
 	c.Assert(err, IsNil)
 	assertChanges(2)
+
+	// Cleanup() deletes each document in an extra transaction which
+	// leads to multiple events. This behavior will be changed in a
+	// follow-up.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
 	assertChanges(2)

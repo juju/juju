@@ -1248,15 +1248,13 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
-// CleanupWatcher notifies changes of the cleanup documents 
-// signalling the need for a cleanup.
+// CleanupWatcher notifies of changes in the cleanups collection.
 type CleanupWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
-// WatchCleanups returns a CleanupWatcher that notifies when documents
-// that where marked for removal exist.
+// WatchCleanups starts and returns a CleanupWatcher.
 func (st *State) WatchCleanups() *CleanupWatcher {
 	return newCleanupWatcher(st)
 }
