@@ -53,7 +53,7 @@ func (l *Log) Start(ctx *Context) (err error) {
 		loggo.RemoveWriter("default")
 	}
 	if l.Verbose || l.Debug {
-		var level = loggo.INFO
+		level := loggo.INFO
 		if l.Debug {
 			level = loggo.DEBUG
 		}
