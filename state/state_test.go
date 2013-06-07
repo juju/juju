@@ -1241,10 +1241,8 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	cw := s.State.WatchCleanups()
 	defer cw.Stop()
 
-	assertNoChange := func(sync bool) {
-		if sync {
-			cw.Sync()
-		}
+	assertNoChange := func() {
+		s.State.StartSync()
 		select {
 		case _, ok := <-cw.Changes():
 			c.Fatalf("unexpected change: %v", ok)
@@ -1252,15 +1250,14 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 		}
 	}
 	assertChange := func() {
-		// Sync is needed, otherwise notification every 5 seconds.
-		cw.Sync()
+		s.State.StartSync()
 		select {
 		case _, ok := <-cw.Changes():
 			c.Assert(ok, Equals, true)
 		case <-time.After(500 * time.Millisecond):
 			c.Fatalf("timed out waiting for change")
 		}
-		assertNoChange(false)
+		assertNoChange()
 	}
 
 	// Check initial event.
@@ -1274,14 +1271,14 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	c.Assert(err, IsNil)
 	rel1, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoChange(true)
+	assertNoChange()
 	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, IsNil)
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
 	c.Assert(err, IsNil)
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoChange(true)
+	assertNoChange()
 
 	err = rel1.Destroy()
 	c.Assert(err, IsNil)

@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
 	"strings"
-	"time"
 )
 
 // commonWatcher is part of all client watchers.
@@ -1233,19 +1232,12 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
-// CleanupWatcher notifies about new cleanup documents.
-//
-// The first event emitted contains the unit names of all units currently
-// assigned to the machine, irrespective of their life state. From then on,
-// a new event is emitted whenever a unit is assigned to or unassigned from
-// the machine, or the lifecycle of a unit that is currently assigned to
-// the machine changes.
-//
-// After a unit is found to be Dead, no further event will include it.
+// CleanupWatcher notifies changes of the cleanup documents 
+// signalling the need for a cleanup.
 type CleanupWatcher struct {
 	commonWatcher
-	out  chan struct{}
-	sync chan struct{}
+	out chan struct{}
+	in  chan watcher.Change
 }
 
 // WatchCleanups returns a CleanupWatcher that notifies when documents
@@ -1258,11 +1250,10 @@ func newCleanupWatcher(st *State) *CleanupWatcher {
 	w := &CleanupWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
-		sync:          make(chan struct{}),
+		in:            make(chan watcher.Change),
 	}
 	go func() {
 		defer w.tomb.Done()
-		defer close(w.sync)
 		defer close(w.out)
 		w.tomb.Kill(w.loop())
 	}()
@@ -1274,29 +1265,18 @@ func (w *CleanupWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-// Sync forces an immediate syncing with the database.
-func (w *CleanupWatcher) Sync() {
-	w.sync <- struct{}{}
-}
-
 func (w *CleanupWatcher) loop() (err error) {
-	next := time.After(watcher.Period)
+	w.st.watcher.WatchCollection(w.st.cleanups.Name, w.in)
+	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, w.in)
+
 	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.sync:
-			next = time.After(0)
-		case <-next:
-			next = time.After(watcher.Period)
-			count, err := w.st.cleanups.Find(nil).Count()
-			if err != nil {
-				return err
-			}
-			if count > 0 {
-				out = w.out
-			}
+		case <-w.in:
+			// Simply emit each event.
+			out = w.out
 		case out <- struct{}{}:
 			out = nil
 		}

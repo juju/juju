@@ -997,9 +997,10 @@ func (st *State) setMongoPassword(name, password string) error {
 // cleanupDoc represents a potentially large set of documents that should be
 // removed.
 type cleanupDoc struct {
-	Id     bson.ObjectId `bson:"_id"`
-	Kind   string
-	Prefix string
+	Id       bson.ObjectId `bson:"_id"`
+	Kind     string
+	Prefix   string
+	TxnRevno int64 `bson:"txn-revno"`
 }
 
 // Cleanup removes all documents that were previously marked for removal, if
