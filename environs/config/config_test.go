@@ -130,7 +130,7 @@ var configTests = []configTest{
 			"name":    "my-name",
 			"ca-cert": invalidCACert,
 		},
-		err: "bad CA certificate/key in configuration: ASN.1 syntax error:.*",
+		err: `bad CA certificate/key in configuration: (asn1:|ASN\.1) syntax error:.*`,
 	}, {
 		about: "Invalid CA key",
 		attrs: attrs{
