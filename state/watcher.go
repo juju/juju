@@ -1231,3 +1231,53 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	}
 	panic("unreachable")
 }
+
+// CleanupWatcher notifies of changes in the cleanups collection.
+type CleanupWatcher struct {
+	commonWatcher
+	out chan struct{}
+}
+
+// WatchCleanups starts and returns a CleanupWatcher.
+func (st *State) WatchCleanups() *CleanupWatcher {
+	return newCleanupWatcher(st)
+}
+
+func newCleanupWatcher(st *State) *CleanupWatcher {
+	w := &CleanupWatcher{
+		commonWatcher: commonWatcher{st: st},
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *CleanupWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *CleanupWatcher) loop() (err error) {
+	in := make(chan watcher.Change)
+
+	w.st.watcher.WatchCollection(w.st.cleanups.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, in)
+
+	// Initial event.
+	w.out <- struct{}{}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-in:
+			// Simply emit event for each change.
+			w.out <- struct{}{}
+		}
+	}
+	panic("unreachable")
+}
