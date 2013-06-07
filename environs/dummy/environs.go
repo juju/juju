@@ -450,6 +450,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if e.ecfg().stateServer() {
+		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
+		// so that we can call it here.
+
 		info := stateInfo()
 		st, err := state.Initialize(info, cfg, state.DefaultDialOpts())
 		if err != nil {
