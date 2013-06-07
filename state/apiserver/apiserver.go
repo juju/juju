@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/tomb"
 	"net"
 	"net/http"
@@ -96,6 +97,12 @@ func (srv *Server) Addr() string {
 
 func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	conn := rpc.NewConn(jsoncodec.NewWebsocket(wsConn))
+	serverError := func(err error) error {
+		if err := common.ServerError(err); err != nil {
+			return err
+		}
+		return nil
+	}
 	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
 		return err
 	}
