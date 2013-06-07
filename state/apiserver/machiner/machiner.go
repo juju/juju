@@ -1,21 +1,33 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package machiner
 
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 )
 
-// srvMachiner represents the Machiner API facade used by the machiner worker.
-type srvMachiner struct {
+// Machiner implements the API used by the machiner worker.
+type Machiner struct {
 	st   *state.State
-	auth Authorizer
+	auth common.Authorizer
+}
+
+// New creates a new instance of the Machiner facade.
+func New(st *state.State, authorizer common.Authorizer) (*Machiner, error) {
+	if !authorizer.IsLoggedIn() {
+		return nil, common.ErrNotLoggedIn
+	}
+	if !authorizer.AuthMachineAgent() {
+		return nil, common.ErrPerm
+	}
+	return &Machiner{st, authorizer}, nil
 }
 
 // SetStatus sets the status of each given machine.
-func (m *srvMachiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults, error) {
+func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Errors: make([]*params.Error, len(args.Machines)),
 	}
@@ -27,23 +39,23 @@ func (m *srvMachiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 		if err == nil {
 			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
-				err = errPerm
+				err = common.ErrPerm
 			} else {
 				err = machine.SetStatus(arg.Status, arg.Info)
 			}
 		}
-		result.Errors[i] = serverErrorToParams(err)
+		result.Errors[i] = common.ServerError(err)
 	}
 	return result, nil
 }
 
 // Watch starts an EntityWatcher for each given machine.
-//func (m *srvMachiner) Watch(args params.Machines) (params.MachinerWatchResults, error) {
+//func (m *Machiner) Watch(args params.Machines) (params.MachinerWatchResults, error) {
 // TODO (dimitern) implement this once the watchers can handle bulk ops
 //}
 
 // Life returns the lifecycle state of each given machine.
-func (m *srvMachiner) Life(args params.Machines) (params.MachinesLifeResults, error) {
+func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error) {
 	result := params.MachinesLifeResults{
 		Machines: make([]params.MachineLifeResult, len(args.Ids)),
 	}
@@ -55,19 +67,19 @@ func (m *srvMachiner) Life(args params.Machines) (params.MachinesLifeResults, er
 		if err == nil {
 			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
-				err = errPerm
+				err = common.ErrPerm
 			} else {
 				result.Machines[i].Life = params.Life(machine.Life().String())
 			}
 		}
-		result.Machines[i].Error = serverErrorToParams(err)
+		result.Machines[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
 // EnsureDead changes the lifecycle of each given machine to Dead if
 // it's Alive or Dying. It does nothing otherwise.
-func (m *srvMachiner) EnsureDead(args params.Machines) (params.ErrorResults, error) {
+func (m *Machiner) EnsureDead(args params.Machines) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Errors: make([]*params.Error, len(args.Ids)),
 	}
@@ -79,12 +91,12 @@ func (m *srvMachiner) EnsureDead(args params.Machines) (params.ErrorResults, err
 		if err == nil {
 			// Allow only for the owner agent.
 			if !m.auth.AuthOwner(machine) {
-				err = errPerm
+				err = common.ErrPerm
 			} else {
 				err = machine.EnsureDead()
 			}
 		}
-		result.Errors[i] = serverErrorToParams(err)
+		result.Errors[i] = common.ServerError(err)
 	}
 	return result, nil
 }

@@ -68,7 +68,7 @@ func (s *loginSuite) TestBadLogin(c *C) {
 			c.Assert(err, IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner("")
+			_, err = st.Machiner()
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
@@ -79,7 +79,7 @@ func (s *loginSuite) TestBadLogin(c *C) {
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
-			_, err = st.Machiner("")
+			_, err = st.Machiner()
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 		}()
