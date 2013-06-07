@@ -215,7 +215,6 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		environments:   db.C("environments"),
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
-		containerRefs:  db.C("containerRefs"),
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),

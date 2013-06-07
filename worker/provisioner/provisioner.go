@@ -214,7 +214,7 @@ func (p *Provisioner) findUnknownInstances() ([]environs.Instance, error) {
 	return unknown, nil
 }
 
-// pendingOrDead looks up machines with ids and returns those that do not
+// pendingOrDead looks up machines with ids and retuns those that do not
 // have an instance id assigned yet, and also those that are dead.
 func (p *Provisioner) pendingOrDead(ids []string) (pending, dead []*state.Machine, err error) {
 	// TODO(niemeyer): ms, err := st.Machines(alive)
