@@ -3,13 +3,16 @@
 
 package api
 
-import "launchpad.net/juju-core/state/api/params"
+import (
+	"launchpad.net/juju-core/state/api/machiner"
+	"launchpad.net/juju-core/state/api/params"
+)
 
 // Login authenticates as the entity with the given name and password.
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
 func (st *State) Login(tag, password string) error {
-	return st.call("Admin", "", "Login", &params.Creds{
+	return st.Call("Admin", "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
 	}, nil)
@@ -23,15 +26,15 @@ func (st *State) Client() *Client {
 
 // Machiner returns an object that can be used to access the Machiner
 // API facade.
-func (st *State) Machiner(version string) (*Machiner, error) {
+func (st *State) Machiner() (*machiner.Machiner, error) {
 	// Just verify we're allowed to access it.
 	args := params.Machines{
 		Ids: []string{},
 	}
 	var result params.MachinesLifeResults
-	err := st.call("Machiner", version, "Life", args, &result)
+	err := st.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
 		return nil, err
 	}
-	return &Machiner{st}, nil
+	return machiner.New(st), nil
 }

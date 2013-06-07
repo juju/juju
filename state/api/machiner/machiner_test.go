@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package machiner_test
 
 import (
 	. "launchpad.net/gocheck"
@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
@@ -26,7 +27,7 @@ type machinerSuite struct {
 	st     *api.State
 
 	machine  *state.Machine
-	machiner *api.Machiner
+	machiner *machiner.Machiner
 }
 
 var _ = Suite(&machinerSuite{})
@@ -64,8 +65,9 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	c.Assert(s.st, NotNil)
 
 	// Create the machiner facade.
-	s.machiner, err = s.st.Machiner("")
+	s.machiner, err = s.st.Machiner()
 	c.Assert(err, IsNil)
+	c.Assert(s.machiner, NotNil)
 }
 
 func (s *machinerSuite) TearDownTest(c *C) {
@@ -79,14 +81,6 @@ func (s *machinerSuite) TearDownTest(c *C) {
 		c.Assert(err, IsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)
-}
-
-func (s *machinerSuite) TestMachinerFailsWithNotEmptyId(c *C) {
-	machiner, err := s.st.Machiner("blah")
-	c.Assert(err, NotNil)
-	c.Assert(machiner, IsNil)
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
-	c.Assert(err, ErrorMatches, "id not found")
 }
 
 func (s *machinerSuite) TestMachineAndMachineId(c *C) {

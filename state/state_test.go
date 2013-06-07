@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -922,8 +921,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: 0,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
@@ -932,58 +930,24 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
-	retryDelay := 200 * time.Millisecond
+	// Default mgo retry delay
+	retryDelay := 500 * time.Millisecond
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should have delayed for at least RetryDelay
+	// tryOpenState should have delayed for at least retryDelay
 	// internally mgo will try three times in a row before returning
 	// to the caller.
 	if t1 := time.Since(t0); t1 < 3*retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
-	}
-}
-
-func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
-	retryDelay := 200 * time.Millisecond
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, IsNil)
-	defer l.Close()
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				return
-			}
-			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
-			conn.Close()
-		}
-	}()
-	info := state.TestingStateInfo()
-	info.Addrs = []string{l.Addr().String()}
-
-	t0 := time.Now()
-	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
-	})
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should not have delayed because the socket
-	// connected, but ssl handshake failed
-	if t1 := time.Since(t0); t1 > 3*retryDelay {
-		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
 	}
 }
 
