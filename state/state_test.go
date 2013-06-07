@@ -1440,5 +1440,4 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
 	assertChanges(2)
-
 }
