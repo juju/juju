@@ -7,7 +7,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	statewatcher "launchpad.net/juju-core/state/watcher"
 )
 
 // Machiner implements the API used by the machiner worker.
@@ -67,16 +66,10 @@ func (m *Machiner) Watch(args params.Machines) (params.MachinesWatchResults, err
 				err = common.ErrPerm
 			} else {
 				watcher := machine.Watch()
-				// To save an extra round-trip to call Next after Watch, we check
-				// for initial changes.
-				if _, ok := <-watcher.Changes(); !ok {
-					err = statewatcher.MustErr(watcher)
-				} else {
-					result.Results[i].EntityWatcherId = m.resourceRegistry.Register(watcher)
-				}
+				result.Results[i].EntityWatcherId = m.resourceRegistry.Register(watcher)
 			}
 		}
-		result.Results[i].Error = common.ServerErrorToParams(err)
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }

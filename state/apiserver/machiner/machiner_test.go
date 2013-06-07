@@ -107,7 +107,7 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.machineAgent = false
-	aMachiner, err := machiner.New(s.State, anAuthorizer)
+	aMachiner, err := machiner.New(s.State, s.resourcesRegistry, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "permission denied")
@@ -116,7 +116,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.loggedIn = false
-	aMachiner, err := machiner.New(s.State, anAuthorizer)
+	aMachiner, err := machiner.New(s.State, s.resourcesRegistry, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "not logged in")

@@ -91,7 +91,7 @@ func (r *srvRoot) Machiner(id string) (*machiner.Machiner, error) {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return machiner.New(r.srv.state, r)
+	return machiner.New(r.srv.state, r.resources, r)
 }
 
 // User returns an object that provides
