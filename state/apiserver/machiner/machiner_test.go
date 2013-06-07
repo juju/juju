@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package machiner_test
 
 import (
 	. "launchpad.net/gocheck"
@@ -9,13 +9,21 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/machiner"
+	coretesting "launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
+
+func Test(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
 
 type machinerSuite struct {
 	testing.JujuConnSuite
 
-	machiner *apiserver.SrvMachiner
+	authorizer *fakeAuthorizer
+	machiner   *machiner.Machiner
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -23,18 +31,28 @@ type machinerSuite struct {
 
 var _ = Suite(&machinerSuite{})
 
-// fakeAuthorizer implements the Authorizer interface.
+// fakeAuthorizer implements the common.Authorizer interface.
 type fakeAuthorizer struct {
-	tag     string
-	manager bool
+	tag          string
+	loggedIn     bool
+	manager      bool
+	machineAgent bool
 }
 
-func (fa *fakeAuthorizer) AuthOwner(entity apiserver.Tagger) bool {
+func (fa *fakeAuthorizer) IsLoggedIn() bool {
+	return fa.loggedIn
+}
+
+func (fa *fakeAuthorizer) AuthOwner(entity common.Tagger) bool {
 	return entity.Tag() == fa.tag
 }
 
 func (fa *fakeAuthorizer) AuthEnvironManager() bool {
 	return fa.manager
+}
+
+func (fa *fakeAuthorizer) AuthMachineAgent() bool {
+	return fa.machineAgent
 }
 
 func (s *machinerSuite) SetUpTest(c *C) {
@@ -48,20 +66,44 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	// Create a machiner facades for machine 1.
-	s.machiner = apiserver.NewMachiner(
+	// Create a fakeAuthorizer so we can check permissions.
+	s.authorizer = &fakeAuthorizer{
+		tag:          state.MachineTag(s.machine1.Id()),
+		loggedIn:     true,
+		manager:      false,
+		machineAgent: true,
+	}
+
+	// Create a machiner API for machine 1.
+	s.machiner, err = machiner.New(
 		s.State,
-		&fakeAuthorizer{
-			tag:     state.MachineTag(s.machine1.Id()),
-			manager: false,
-		},
+		s.authorizer,
 	)
+	c.Assert(err, IsNil)
 }
 
 func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp string) {
 	c.Assert(err, NotNil)
 	c.Assert(api.ErrCode(err), Equals, code)
 	c.Assert(err, ErrorMatches, messageRegexp)
+}
+
+func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.machineAgent = false
+	aMachiner, err := machiner.New(s.State, anAuthorizer)
+	c.Assert(err, NotNil)
+	c.Assert(aMachiner, IsNil)
+	c.Assert(err, ErrorMatches, "permission denied")
+}
+
+func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.loggedIn = false
+	aMachiner, err := machiner.New(s.State, anAuthorizer)
+	c.Assert(err, NotNil)
+	c.Assert(aMachiner, IsNil)
+	c.Assert(err, ErrorMatches, "not logged in")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
