@@ -279,30 +279,6 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	s.checkNoOperations(c)
 }
 
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
-	defer stop(c, p)
-
-	// create a machine to host the container.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-	s.checkStartInstance(c, m)
-
-	// make a container on the machine we just created
-	container, err := s.State.AddContainerWithConstraints(m.Id(), state.LXC, config.DefaultSeries, constraints.Value{}, state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	// the PA should not attempt to create it
-	s.checkNoOperations(c)
-
-	// cleanup
-	c.Assert(container.EnsureDead(), IsNil)
-	c.Assert(container.Remove(), IsNil)
-	c.Assert(m.EnsureDead(), IsNil)
-	s.checkStopInstance(c)
-	s.waitRemoved(c, m)
-}
-
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
 	err := s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
