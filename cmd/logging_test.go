@@ -5,11 +5,13 @@ package cmd_test
 
 import (
 	"io/ioutil"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
-	"path/filepath"
+	"launchpad.net/loggo"
 )
 
 type LogSuite struct {
@@ -36,6 +38,26 @@ func (s *LogSuite) TestAddFlags(c *C) {
 	c.Assert(l.Verbose, Equals, true)
 	c.Assert(l.Debug, Equals, true)
 	c.Assert(l.Config, Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
+}
+
+func (s *LogSuite) TestVerboseSetsLogLevel(c *C) {
+	l := &cmd.Log{Verbose: true}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, IsNil)
+
+	logger := loggo.GetLogger("juju")
+	c.Assert(logger.GetLogLevel(), Equals, loggo.INFO)
+}
+
+func (s *LogSuite) TestDebugSetsLogLevel(c *C) {
+	l := &cmd.Log{Debug: true}
+	ctx := testing.Context(c)
+	err := l.Start(ctx)
+	c.Assert(err, IsNil)
+
+	logger := loggo.GetLogger("juju")
+	c.Assert(logger.GetLogLevel(), Equals, loggo.DEBUG)
 }
 
 func (s *LogSuite) TestStderr(c *C) {

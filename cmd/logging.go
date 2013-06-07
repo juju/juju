@@ -52,9 +52,13 @@ func (l *Log) Start(ctx *Context) (err error) {
 	} else {
 		loggo.RemoveWriter("default")
 	}
-	if l.Debug {
+	if l.Verbose || l.Debug {
+		level := loggo.INFO
+		if l.Debug {
+			level = loggo.DEBUG
+		}
 		logger := loggo.GetLogger("juju")
-		logger.SetLogLevel(loggo.DEBUG)
+		logger.SetLogLevel(level)
 	}
 	loggo.ConfigureLogging(l.Config)
 	return nil

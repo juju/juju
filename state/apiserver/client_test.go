@@ -15,14 +15,20 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
-func (s *suite) TestClientStatus(c *C) {
+type clientSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&clientSuite{})
+
+func (s *clientSuite) TestClientStatus(c *C) {
 	s.setUpScenario(c)
 	status, err := s.APIState.Client().Status()
 	c.Assert(err, IsNil)
 	c.Assert(status, DeepEquals, scenarioStatus)
 }
 
-func (s *suite) TestClientServerSet(c *C) {
+func (s *clientSuite) TestClientServerSet(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	err = s.APIState.Client().ServiceSet("dummy", map[string]string{
@@ -38,7 +44,7 @@ func (s *suite) TestClientServerSet(c *C) {
 	})
 }
 
-func (s *suite) TestClientServiceSetYAML(c *C) {
+func (s *clientSuite) TestClientServiceSetYAML(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	err = s.APIState.Client().ServiceSetYAML("dummy", "title: aaa\nusername: bbb")
@@ -66,7 +72,7 @@ var clientAddServiceUnitsTests = []struct {
 	},
 }
 
-func (s *suite) TestClientAddServiceUnits(c *C) {
+func (s *clientSuite) TestClientAddServiceUnits(c *C) {
 	_, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
 	for i, t := range clientAddServiceUnitsTests {
@@ -102,7 +108,7 @@ var clientCharmInfoTests = []struct {
 	},
 }
 
-func (s *suite) TestClientCharmInfo(c *C) {
+func (s *clientSuite) TestClientCharmInfo(c *C) {
 	// Use wordpress for tests so that we can compare Provides and Requires.
 	charm := s.AddTestingCharm(c, "wordpress")
 	for i, t := range clientCharmInfoTests {
@@ -123,7 +129,7 @@ func (s *suite) TestClientCharmInfo(c *C) {
 	}
 }
 
-func (s *suite) TestClientEnvironmentInfo(c *C) {
+func (s *clientSuite) TestClientEnvironmentInfo(c *C) {
 	conf, _ := s.State.EnvironConfig()
 	info, err := s.APIState.Client().EnvironmentInfo()
 	c.Assert(err, IsNil)
@@ -162,7 +168,7 @@ var clientAnnotationsTests = []struct {
 	},
 }
 
-func (s *suite) TestClientAnnotations(c *C) {
+func (s *clientSuite) TestClientAnnotations(c *C) {
 	// Set up entities.
 	service, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
@@ -206,7 +212,7 @@ func (s *suite) TestClientAnnotations(c *C) {
 	}
 }
 
-func (s *suite) TestClientAnnotationsBadEntity(c *C) {
+func (s *clientSuite) TestClientAnnotationsBadEntity(c *C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
 	expected := `invalid entity tag ".*"`
 	for _, id := range bad {
@@ -217,7 +223,7 @@ func (s *suite) TestClientAnnotationsBadEntity(c *C) {
 	}
 }
 
-func (s *suite) TestClientServiceGet(c *C) {
+func (s *clientSuite) TestClientServiceGet(c *C) {
 	s.setUpScenario(c)
 	results, err := s.APIState.Client().ServiceGet("wordpress")
 	c.Assert(err, IsNil)
@@ -235,7 +241,7 @@ func (s *suite) TestClientServiceGet(c *C) {
 	})
 }
 
-func (s *suite) TestClientServiceExpose(c *C) {
+func (s *clientSuite) TestClientServiceExpose(c *C) {
 	s.setUpScenario(c)
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
@@ -248,7 +254,7 @@ func (s *suite) TestClientServiceExpose(c *C) {
 	c.Assert(service.IsExposed(), Equals, true)
 }
 
-func (s *suite) TestClientServiceUnexpose(c *C) {
+func (s *clientSuite) TestClientServiceUnexpose(c *C) {
 	s.setUpScenario(c)
 	serviceName := "wordpress"
 	service, err := s.State.Service(serviceName)
@@ -261,7 +267,7 @@ func (s *suite) TestClientServiceUnexpose(c *C) {
 	c.Assert(service.IsExposed(), Equals, false)
 }
 
-func (s *suite) TestClientServiceDestroy(c *C) {
+func (s *clientSuite) TestClientServiceDestroy(c *C) {
 	// Setup:
 	s.setUpScenario(c)
 	serviceName := "wordpress"
@@ -275,7 +281,7 @@ func (s *suite) TestClientServiceDestroy(c *C) {
 	c.Assert(service.Life(), Not(Equals), state.Alive)
 }
 
-func (s *suite) TestClientUnitResolved(c *C) {
+func (s *clientSuite) TestClientUnitResolved(c *C) {
 	// Setup:
 	s.setUpScenario(c)
 	u, err := s.State.Unit("wordpress/0")
@@ -317,7 +323,7 @@ var serviceDeployTests = []struct {
 },
 }
 
-func (s *suite) TestClientServiceDeploy(c *C) {
+func (s *clientSuite) TestClientServiceDeploy(c *C) {
 	s.setUpScenario(c)
 
 	for i, test := range serviceDeployTests {
@@ -366,7 +372,7 @@ func withRepo(repo charm.Repository, f func()) {
 	f()
 }
 
-func (s *suite) TestSuccessfulAddRelation(c *C) {
+func (s *clientSuite) TestSuccessfulAddRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "mysql"}
 	res, err := s.APIState.Client().AddRelation(endpoints...)
@@ -388,7 +394,7 @@ func (s *suite) TestSuccessfulAddRelation(c *C) {
 	}
 }
 
-func (s *suite) TestSuccessfulDestroyRelation(c *C) {
+func (s *clientSuite) TestSuccessfulDestroyRelation(c *C) {
 	s.setUpScenario(c)
 	endpoints := []string{"wordpress", "logging"}
 	err := s.APIState.Client().DestroyRelation(endpoints...)
@@ -407,13 +413,13 @@ func (s *suite) TestSuccessfulDestroyRelation(c *C) {
 	}
 }
 
-func (s *suite) TestNoRelation(c *C) {
+func (s *clientSuite) TestNoRelation(c *C) {
 	s.setUpScenario(c)
 	err := s.APIState.Client().DestroyRelation("wordpress", "mysql")
 	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }
 
-func (s *suite) TestClientWatchAll(c *C) {
+func (s *clientSuite) TestClientWatchAll(c *C) {
 	// A very simple end-to-end test, because
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)

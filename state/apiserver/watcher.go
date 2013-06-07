@@ -6,6 +6,7 @@ package apiserver
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -38,7 +39,7 @@ func (w srvEntityWatcher) Next() error {
 	}
 	err := watcher.Err()
 	if err == nil {
-		err = errStoppedWatcher
+		err = common.ErrStoppedWatcher
 	}
 	return err
 }
@@ -61,7 +62,7 @@ func (w srvLifecycleWatcher) Next() (params.LifecycleWatchResults, error) {
 	}
 	err := watcher.Err()
 	if err == nil {
-		err = errStoppedWatcher
+		err = common.ErrStoppedWatcher
 	}
 	return params.LifecycleWatchResults{}, err
 }
@@ -84,7 +85,7 @@ func (w srvEnvironConfigWatcher) Next() (params.EnvironConfigWatchResults, error
 	}
 	err := watcher.Err()
 	if err == nil {
-		err = errStoppedWatcher
+		err = common.ErrStoppedWatcher
 	}
 	return params.EnvironConfigWatchResults{}, err
 }

@@ -10,6 +10,12 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
+type loginSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&loginSuite{})
+
 var badLoginTests = []struct {
 	tag      string
 	password string
@@ -31,7 +37,7 @@ var badLoginTests = []struct {
 	err:      `invalid entity tag "bar"`,
 }}
 
-func (s *suite) TestBadLogin(c *C) {
+func (s *loginSuite) TestBadLogin(c *C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
 	// called with user-admin permissions automatically.
@@ -62,7 +68,7 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner("")
+			_, err = st.Machiner()
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
@@ -73,7 +79,7 @@ func (s *suite) TestBadLogin(c *C) {
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
-			_, err = st.Machiner("")
+			_, err = st.Machiner()
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 		}()
