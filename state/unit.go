@@ -801,7 +801,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Jobs:       []MachineJob{JobHostUnits},
 		Principals: []string{u.doc.Name},
 	}
-	mdoc, ops, err := u.st.addMachineOps(mdoc, cons)
+	mdoc, ops, err := u.st.addMachineOps("", mdoc, cons)
 	if err != nil {
 		return err
 	}
