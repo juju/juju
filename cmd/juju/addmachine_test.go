@@ -10,6 +10,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"strconv"
 )
 
 type AddMachineSuite struct {
@@ -55,21 +56,25 @@ func (s *AddMachineSuite) TestAddMachineWithConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, expectedCons)
 }
 
-func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string, container state.ContainerType) {
+func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string, ctype state.ContainerType) {
 	m, err := s.State.Machine(parentId)
 	c.Assert(err, IsNil)
-	c.Assert(m.NumChildren(), Equals, 1)
-	m, err = s.State.Machine(containerId)
+	containers, err := state.MachineContainers(s.State, m.Id())
 	c.Assert(err, IsNil)
-	c.Assert(m.NumChildren(), Equals, 0)
-	c.Assert(m.ContainerType(), Equals, container)
+	c.Assert(containers, DeepEquals, []string{containerId})
+	container, err := s.State.Machine(containerId)
+	c.Assert(err, IsNil)
+	containers, err = state.MachineContainers(s.State, container.Id())
+	c.Assert(err, IsNil)
+	c.Assert(containers, DeepEquals, []string(nil))
+	c.Assert(container.ContainerType(), Equals, ctype)
 }
 
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *C) {
-	for i, container := range state.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("/%s", container))
+	for i, ctype := range state.SupportedContainerTypes {
+		err := runAddMachine(c, fmt.Sprintf("/%s", ctype))
 		c.Assert(err, IsNil)
-		s._assertAddContainer(c, "0", fmt.Sprintf("0/%s/%d", container, i), container)
+		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/%d", ctype, i), ctype)
 	}
 }
 

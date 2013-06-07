@@ -289,13 +289,15 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
 	s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
-	_, err = s.State.AddContainerWithConstraints(m.Id(), state.LXC, config.DefaultSeries, constraints.Value{}, state.JobHostUnits)
+	container, err := s.State.AddContainerWithConstraints(m.Id(), state.LXC, config.DefaultSeries, constraints.Value{}, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
 	// the PA should not attempt to create it
 	s.checkNoOperations(c)
 
 	// cleanup
+	c.Assert(container.EnsureDead(), IsNil)
+	c.Assert(container.Remove(), IsNil)
 	c.Assert(m.EnsureDead(), IsNil)
 	s.checkStopInstance(c)
 	s.waitRemoved(c, m)

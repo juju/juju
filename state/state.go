@@ -99,6 +99,7 @@ type State struct {
 	environments   *mgo.Collection
 	charms         *mgo.Collection
 	machines       *mgo.Collection
+	containerRefs  *mgo.Collection
 	relations      *mgo.Collection
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
@@ -201,23 +202,8 @@ func (st *State) AddContainerWithConstraints(
 	// machine constraints to ensure the container can be created on the specifed machine.
 	// ie it makes no sense asking for a 16G container on a machine with 8G.
 
-	// mongo doesn't support atomic transactions spanning documents so we need to create any parent
-	// machine first (if required) and delete it if there's an error.
-	var parent *Machine
-	if parentId == "" && containerType != "" {
-		parent, err = st.AddMachineWithConstraints(series, machineCons, jobs...)
-		if err != nil {
-			return nil, fmt.Errorf("cannot create parent machine for container: %v", err)
-		}
-		parentId = parent.Id()
-	}
-	m, err = st.addMachine(
+	return st.addMachine(
 		&addMachineParams{series: series, parentId: parentId, containerType: containerType, machineCons: machineCons, jobs: jobs})
-	if err != nil && parent != nil {
-		// The container could not be created so any newly created parent needs to be removed from state.
-		parent.Destroy()
-	}
-	return m, err
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
@@ -247,6 +233,7 @@ func (st *State) addMachineOps(parentId string, mdoc *machineDoc, cons constrain
 		}
 		jset[j] = true
 	}
+	var containerId string
 	if parentId == "" {
 		// we are creating a new machine instance (not a container).
 		seq, err := st.sequence("machine")
@@ -254,13 +241,15 @@ func (st *State) addMachineOps(parentId string, mdoc *machineDoc, cons constrain
 			return nil, nil, err
 		}
 		mdoc.Id = strconv.Itoa(seq)
+		parentId = mdoc.Id
 	} else {
 		// we are cresting a container so set up a namespaced id.
-		p, err := st.Machine(parentId)
+		seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", parentId, mdoc.ContainerType))
 		if err != nil {
 			return nil, nil, err
 		}
-		mdoc.Id = fmt.Sprintf("%s/%s/%d", parentId, mdoc.ContainerType, p.NumChildren())
+		mdoc.Id = fmt.Sprintf("%s/%s/%d", parentId, mdoc.ContainerType, seq)
+		containerId = mdoc.Id
 	}
 	mdoc.Life = Alive
 	sdoc := statusDoc{
@@ -275,9 +264,11 @@ func (st *State) addMachineOps(parentId string, mdoc *machineDoc, cons constrain
 		},
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
+		createContainerRefOp(st, parentId, containerId),
 	}
-	if parentId != "" {
-		ops = append(ops, updateChildrenRefCountOp(st, parentId, 1))
+	// Also create an empty container record for the new container itself.
+	if containerId != "" {
+		ops = append(ops, createContainerRefOp(st, containerId, ""))
 	}
 	return mdoc, ops, nil
 }
@@ -305,17 +296,29 @@ func (st *State) addMachine(params *addMachineParams) (m *Machine, err error) {
 		return nil, err
 	}
 	cons = params.machineCons.WithFallbacks(cons)
-	mdoc := &machineDoc{
-		Series:        params.series,
-		ContainerType: string(params.containerType),
-		InstanceId:    params.instanceId,
-		Nonce:         params.nonce,
-		Jobs:          params.jobs,
+	var ops []txn.Op
+	if params.containerType != "" {
+		if params.parentId == "" {
+			// No parent machine is specified so create one.
+			mdoc, parentOps, err := st.prepareAddMachine(params, cons)
+			if err != nil {
+				return nil, err
+			}
+			params.parentId = mdoc.Id
+			ops = parentOps
+		} else {
+			// If a parent machine is specified, make sure it exists.
+			_, err := st.Machine(params.parentId)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	mdoc, ops, err := st.addMachineOps(params.parentId, mdoc, cons)
+	mdoc, machineOps, err := st.prepareAddMachine(params, cons)
 	if err != nil {
 		return nil, err
 	}
+	ops = append(ops, machineOps...)
 
 	err = st.runner.Run(ops, "", nil)
 	if err != nil {
@@ -327,6 +330,19 @@ func (st *State) addMachine(params *addMachineParams) (m *Machine, err error) {
 		return nil, err
 	}
 	return m, nil
+}
+
+// prepareAddMachine is a helper function used by addMachine
+func (st *State) prepareAddMachine(params *addMachineParams, cons constraints.Value) (*machineDoc, []txn.Op, error) {
+	mdoc := &machineDoc{
+		Series:        params.series,
+		ContainerType: string(params.containerType),
+		InstanceId:    params.instanceId,
+		Nonce:         params.nonce,
+		Jobs:          params.jobs,
+	}
+	mdoc, ops, err := st.addMachineOps(params.parentId, mdoc, cons)
+	return mdoc, ops, err
 }
 
 var errDead = fmt.Errorf("not found or dead")

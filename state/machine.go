@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
+	"strings"
 	"time"
 )
 
@@ -58,7 +59,6 @@ type machineDoc struct {
 	Nonce         string
 	Series        string
 	ContainerType string
-	NumChildren   int
 	InstanceId    InstanceId
 	Principals    []string
 	Life          Life
@@ -94,11 +94,6 @@ func (m *Machine) Series() string {
 // ContainerType returns the type of container hosting this machine.
 func (m *Machine) ContainerType() ContainerType {
 	return ContainerType(m.doc.ContainerType)
-}
-
-// NumChildren returns the number of containers directly running inside this machine.
-func (m *Machine) NumChildren() int {
-	return m.doc.NumChildren
 }
 
 // machineGlobalKey returns the global database key for the identified machine.
@@ -225,12 +220,36 @@ func IsHasAssignedUnitsError(err error) bool {
 	return ok
 }
 
+type HasContainersError struct {
+	MachineId    string
+	ContainerIds []string
+}
+
+func (e *HasContainersError) Error() string {
+	return fmt.Sprintf("machine %s is hosting containers %q", e.MachineId, strings.Join(e.ContainerIds, ","))
+}
+
+func IsHasContainersError(err error) bool {
+	_, ok := err.(*HasContainersError)
+	return ok
+}
+
 // advanceLifecycle ensures that the machine's lifecycle is no earlier
 // than the supplied value. If the machine already has that lifecycle
 // value, or a later one, no changes will be made to remote state. If
 // the machine has any responsibilities that preclude a valid change in
 // lifecycle, it will return an error.
 func (original *Machine) advanceLifecycle(life Life) (err error) {
+	containers, err := MachineContainers(original.st, original.Id())
+	if err != nil {
+		return err
+	}
+	if len(containers) > 0 {
+		return &HasContainersError{
+			MachineId:    original.doc.Id,
+			ContainerIds: containers,
+		}
+	}
 	m := original
 	defer func() {
 		if err == nil {
@@ -258,7 +277,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			{{"principals", D{{"$exists", false}}}},
 		}},
 	}
-	// 3 atempts: one with original data, one with refreshed data, and a final
+	// 3 attempts: one with original data, one with refreshed data, and a final
 	// one intended to determine the cause of failure of the preceding attempt.
 	for i := 0; i < 3; i++ {
 		// If the transaction was aborted, grab a fresh copy of the machine data.
@@ -337,6 +356,7 @@ func (m *Machine) Remove() (err error) {
 		removeConstraintsOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
 	}
+	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
 	return onAbort(m.st.runner.Run(ops, "", nil), nil)
