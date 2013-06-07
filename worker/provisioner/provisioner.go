@@ -19,11 +19,11 @@ var logger = loggo.GetLogger("juju.provisioner")
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	st                  *state.State
-	machineId           string // Which machine runs the provisioner.
-	environ             environs.Environ
-	tomb                tomb.Tomb
-	environmentProvider worker.Worker
+	st                     *state.State
+	machineId              string // Which machine runs the provisioner.
+	environ                environs.Environ
+	tomb                   tomb.Tomb
+	environmentProvisioner ProvisionerTask
 
 	configObserver
 }
@@ -80,22 +80,18 @@ func (p *Provisioner) loop() error {
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
 	machinesWatcher := p.st.WatchMachines()
-	environmentBroker := newEnvironmentBroker(p.environ, p.st)
-	p.environmentProvider = newProvisionerTask(
+	environmentBroker := newEnvironBroker(p.environ, p.st)
+	p.environmentProvisioner = newProvisionerTask(
 		p.machineId,
 		machinesWatcher,
 		environmentBroker,
 		stateInfo,
 		apiInfo)
-	// What do we do if the environmentProvider dies?
-	// we should perhaps watch in the loop?
+	defer p.environmentProvisioner.Stop()
 
 	for {
 		select {
 		case <-p.tomb.Dying():
-			p.environmentProvider.Kill()
-			// what to do with this error?
-			p.environmentProvider.Wait()
 			return tomb.ErrDying
 		case cfg, ok := <-environWatcher.Changes():
 			if !ok {
@@ -104,6 +100,10 @@ func (p *Provisioner) loop() error {
 			if err := p.setConfig(cfg); err != nil {
 				logger.Error("loaded invalid environment configuration: %v", err)
 			}
+		case <-p.environmentProvisioner.Dying():
+			err := p.environmentProvisioner.Err()
+			logger.Error("environment provisioner died: %v", err)
+			return err
 		}
 	}
 	panic("not reached")

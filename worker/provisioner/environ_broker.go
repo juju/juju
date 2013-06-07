@@ -8,7 +8,7 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-func newEnvironmentBroker(environ environs.Environ, state *state.State) Broker {
+func newEnvironBroker(environ environs.Environ, state *state.State) Broker {
 	return &environBroker{environ, state}
 }
 

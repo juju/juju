@@ -16,6 +16,13 @@ import (
 	"launchpad.net/tomb"
 )
 
+type ProvisionerTask interface {
+	worker.Worker
+	Stop() error
+	Dying() <-chan struct{}
+	Err() error
+}
+
 type Watcher interface {
 	watcher.Errer
 	watcher.Stopper
@@ -65,6 +72,19 @@ func (task *provisionerTask) Kill() {
 // Wait implements worker.Worker.Wait.
 func (task *provisionerTask) Wait() error {
 	return task.tomb.Wait()
+}
+
+func (task *provisionerTask) Stop() error {
+	task.Kill()
+	return task.Wait()
+}
+
+func (task *provisionerTask) Dying() <-chan struct{} {
+	return task.tomb.Dying()
+}
+
+func (task *provisionerTask) Err() error {
+	return task.tomb.Err()
 }
 
 func (task *provisionerTask) loop() error {
