@@ -5,7 +5,6 @@ package provisioner
 
 import (
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/state"
 )
 
 func newEnvironBroker(environ environs.Environ) Broker {

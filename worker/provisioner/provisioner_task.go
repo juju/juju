@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -30,7 +31,7 @@ type Watcher interface {
 }
 
 type MachineGetter interface {
-	Machine(id string) (*Machine, error)
+	Machine(id string) (*state.Machine, error)
 }
 
 func newProvisionerTask(
@@ -40,7 +41,7 @@ func newProvisionerTask(
 	broker Broker,
 	stateInfo *state.Info,
 	apiInfo *api.Info,
-) worker.Worker {
+) ProvisionerTask {
 	task := &provisionerTask{
 		machineId:      machineId,
 		machineGetter:  machineGetter,
@@ -114,6 +115,7 @@ func (task *provisionerTask) loop() error {
 			// TODO(dfc; lp:1042717) fire process machines periodically to shut down unknown
 			// instances.
 			if err := task.processMachines(ids); err != nil {
+				logger.Error("Process machines failed: %v", err)
 				return err
 			}
 		}
@@ -122,7 +124,7 @@ func (task *provisionerTask) loop() error {
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
-
+	logger.Trace("processMachines(%v)", ids)
 	// Populate the tasks maps of current instances and machines.
 	err := task.populateMachineMaps(ids)
 	if err != nil {
@@ -175,6 +177,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 		machine, err := task.machineGetter.Machine(id)
 		switch {
 		case errors.IsNotFoundError(err):
+			logger.Debug("machine %q not found in state", id)
 			delete(task.machines, id)
 		case err == nil:
 			task.machines[id] = machine
@@ -212,7 +215,6 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 				logger.Error("failed to remove dead machine %q", machine)
 				return nil, nil, err
 			}
-			delete(task.machines, id)
 			continue
 		}
 		if instId, hasInstId := machine.InstanceId(); !hasInstId {
@@ -250,6 +252,7 @@ func (task *provisionerTask) findUnknownInstances() ([]environs.Instance, error)
 	for _, i := range instances {
 		unknown = append(unknown, i)
 	}
+	logger.Trace("unknown: %v", unknown)
 	return unknown, nil
 }
 
@@ -266,6 +269,8 @@ func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []e
 			// instance is already dead, and we don't need to stop it.
 			if found {
 				instances = append(instances, instance)
+				// now remove it from the machines map
+				delete(task.machines, machine.Id())
 			}
 		}
 	}
@@ -278,11 +283,11 @@ func (task *provisionerTask) stopInstances(instances []environs.Instance) error 
 	if len(instances) == 0 {
 		return nil
 	}
+	logger.Debug("Stopping instances: %v", instances)
 	if err := task.broker.StopInstances(instances); err != nil {
 		logger.Error("broker failed to stop instances: %v", err)
 		return err
 	}
-
 	return nil
 }
 
