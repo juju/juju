@@ -24,7 +24,4 @@ type Broker interface {
 
 	// AllInstances returns all instances currently known to the broker.
 	AllInstances() ([]environs.Instance, error)
-
-	// AllMachines returns all the machines in state that relate to this broker.
-	AllMachines() ([]*state.Machine, error)
 }

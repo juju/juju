@@ -8,23 +8,15 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
-func newEnvironBroker(environ environs.Environ, state *state.State) Broker {
-	return &environBroker{environ, state}
+func newEnvironBroker(environ environs.Environ) Broker {
+	return &environBroker{environ}
 }
 
 type environBroker struct {
 	environs.Environ
-	*state.State
 }
 
 // Defer to the Environ for:
 //   StartInstance
 //   StopInstances
 //   AllInstances
-
-// Defer to State for
-//   AllMachines
-
-// TODO(thumper): the AllMachines method will need tweaking once we have
-// containers in state in order to filter out the containers and only return
-// the top level machines.

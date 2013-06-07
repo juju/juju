@@ -29,8 +29,13 @@ type Watcher interface {
 	Changes() <-chan []string
 }
 
+type MachineGetter interface {
+	Machine(id string) (*Machine, error)
+}
+
 func newProvisionerTask(
 	machineId string,
+	machineGetter MachineGetter,
 	watcher Watcher,
 	broker Broker,
 	stateInfo *state.Info,
@@ -38,10 +43,12 @@ func newProvisionerTask(
 ) worker.Worker {
 	task := &provisionerTask{
 		machineId:      machineId,
+		machineGetter:  machineGetter,
 		machineWatcher: watcher,
 		broker:         broker,
 		stateInfo:      stateInfo,
 		apiInfo:        apiInfo,
+		machines:       make(map[string]*state.Machine),
 	}
 	go func() {
 		defer task.tomb.Done()
@@ -52,6 +59,7 @@ func newProvisionerTask(
 
 type provisionerTask struct {
 	machineId      string
+	machineGetter  MachineGetter
 	machineWatcher Watcher
 	broker         Broker
 	tomb           tomb.Tomb
@@ -91,12 +99,9 @@ func (task *provisionerTask) loop() error {
 	logger.Info("Starting up provisioner task %s", task.machineId)
 	defer watcher.Stop(task.machineWatcher, &task.tomb)
 
-	// Call processMachines to stop any unknown instances before watching machines.
-	if err := task.processMachines(nil); err != nil {
-		logger.Error("Error clearing unknown instances before watching new changes: %v", err)
-		return err
-	}
-
+	// When the watcher is started, it will have the initial changes be all
+	// the machines that are relevant. Also, since this is available straight
+	// away, we know there will be some changes right off the bat.
 	for {
 		select {
 		case <-task.tomb.Dying():
@@ -119,7 +124,7 @@ func (task *provisionerTask) loop() error {
 func (task *provisionerTask) processMachines(ids []string) error {
 
 	// Populate the tasks maps of current instances and machines.
-	err := task.populateMachineMaps()
+	err := task.populateMachineMaps(ids)
 	if err != nil {
 		return err
 	}
@@ -151,9 +156,8 @@ func (task *provisionerTask) processMachines(ids []string) error {
 	return task.startMachines(pending)
 }
 
-func (task *provisionerTask) populateMachineMaps() error {
+func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	task.instances = make(map[state.InstanceId]environs.Instance)
-	task.machines = make(map[string]*state.Machine)
 
 	instances, err := task.broker.AllInstances()
 	if err != nil {
@@ -164,13 +168,19 @@ func (task *provisionerTask) populateMachineMaps() error {
 		task.instances[i.Id()] = i
 	}
 
-	machines, err := task.broker.AllMachines()
-	if err != nil {
-		logger.Error("failed to get all machines from broker: %v", err)
-		return err
-	}
-	for _, m := range machines {
-		task.machines[m.Id()] = m
+	// Update the machines map with new data for each of the machines in the
+	// change list.
+	// TODO(thumper): update for API server later to get all machines in one go.
+	for _, id := range ids {
+		machine, err := task.machineGetter.Machine(id)
+		switch {
+		case errors.IsNotFoundError(err):
+			delete(task.machines, id)
+		case err == nil:
+			task.machines[id] = machine
+		default:
+			logger.Error("failed to get machine: %v", err)
+		}
 	}
 	return nil
 }
@@ -178,7 +188,6 @@ func (task *provisionerTask) populateMachineMaps() error {
 // pendingOrDead looks up machines with ids and retuns those that do not
 // have an instance id assigned yet, and also those that are dead.
 func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state.Machine, err error) {
-	// TODO(niemeyer): ms, err := st.Machines(alive)
 	for _, id := range ids {
 		machine, found := task.machines[id]
 		if !found {
@@ -203,6 +212,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 				logger.Error("failed to remove dead machine %q", machine)
 				return nil, nil, err
 			}
+			delete(task.machines, id)
 			continue
 		}
 		if instId, hasInstId := machine.InstanceId(); !hasInstId {

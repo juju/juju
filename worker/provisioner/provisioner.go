@@ -83,6 +83,7 @@ func (p *Provisioner) loop() error {
 	environmentBroker := newEnvironBroker(p.environ, p.st)
 	p.environmentProvisioner = newProvisionerTask(
 		p.machineId,
+		p.st,
 		machinesWatcher,
 		environmentBroker,
 		stateInfo,
