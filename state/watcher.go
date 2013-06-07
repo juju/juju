@@ -1253,7 +1253,6 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 type CleanupWatcher struct {
 	commonWatcher
 	out chan struct{}
-	in  chan watcher.Change
 }
 
 // WatchCleanups returns a CleanupWatcher that notifies when documents
@@ -1266,7 +1265,6 @@ func newCleanupWatcher(st *State) *CleanupWatcher {
 	w := &CleanupWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
-		in:            make(chan watcher.Change),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -1282,19 +1280,21 @@ func (w *CleanupWatcher) Changes() <-chan struct{} {
 }
 
 func (w *CleanupWatcher) loop() (err error) {
-	w.st.watcher.WatchCollection(w.st.cleanups.Name, w.in)
-	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, w.in)
+	in := make(chan watcher.Change)
 
-	out := w.out
+	w.st.watcher.WatchCollection(w.st.cleanups.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, in)
+
+	// Initial event.
+	w.out <- struct{}{}
+
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.in:
-			// Simply emit each event.
-			out = w.out
-		case out <- struct{}{}:
-			out = nil
+		case <-in:
+			// Simply emit event for each change.
+			w.out <- struct{}{}
 		}
 	}
 	panic("unreachable")

@@ -1354,7 +1354,7 @@ func (s *StateSuite) TestParseTag(c *C) {
 
 func (s *StateSuite) TestWatchCleanups(c *C) {
 	cw := s.State.WatchCleanups()
-	defer cw.Stop()
+	defer stop(c, cw)
 
 	assertNoChange := func() {
 		s.State.StartSync()
@@ -1364,38 +1364,80 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 		case <-time.After(50 * time.Millisecond):
 		}
 	}
-	assertChange := func() {
+	assertChanges := func(count int) {
 		s.State.StartSync()
-		select {
-		case _, ok := <-cw.Changes():
-			c.Assert(ok, Equals, true)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("timed out waiting for change")
+		for i := 0; i < count; i++ {
+			select {
+			case _, ok := <-cw.Changes():
+				c.Assert(ok, Equals, true)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("timed out waiting for change")
+			}
 		}
 		assertNoChange()
 	}
 
 	// Check initial event.
-	assertChange()
+	assertChanges(1)
 
+	// Add relations doesn't emit events.
 	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, IsNil)
-	rel1, err := s.State.AddRelation(eps...)
+	relM, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	assertNoChange()
 	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, IsNil)
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
 	c.Assert(err, IsNil)
-	_, err = s.State.AddRelation(eps...)
+	relV, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	assertNoChange()
 
-	err = rel1.Destroy()
+	// Destroy relations and cleanup.
+	err = relM.Destroy()
 	c.Assert(err, IsNil)
-	assertChange()
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+
+	// A cleanup without need doesn't emit events.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Don't handle each event keeps them in the queue. Cleanups
+	// have a transaction per entry. So they create the according number
+	// of events. This behavior will change in a followup with a cleanup 
+	// redesign.
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(2)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(2)
+
 }
