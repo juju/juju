@@ -11,7 +11,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"net"
 	"net/http"
@@ -150,6 +149,7 @@ func (s *MockStore) ServeCharm(w http.ResponseWriter, r *http.Request) {
 }
 
 type StoreSuite struct {
+	testing.LoggingSuite
 	server      *MockStore
 	store       *charm.CharmStore
 	oldCacheDir string
@@ -158,19 +158,24 @@ type StoreSuite struct {
 var _ = Suite(&StoreSuite{})
 
 func (s *StoreSuite) SetUpSuite(c *C) {
+	s.LoggingSuite.SetUpSuite(c)
 	s.server = NewMockStore(c)
 	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
+	s.LoggingSuite.SetUpTest(c)
 	charm.CacheDir = c.MkDir()
 	s.store = charm.NewStore("http://127.0.0.1:4444")
 	s.server.downloads = nil
 }
 
+// Uses the TearDownTest from testing.LoggingSuite
+
 func (s *StoreSuite) TearDownSuite(c *C) {
 	charm.CacheDir = s.oldCacheDir
 	s.server.lis.Close()
+	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *StoreSuite) TestMissing(c *C) {
@@ -192,9 +197,8 @@ func (s *StoreSuite) TestError(c *C) {
 }
 
 func (s *StoreSuite) TestWarning(c *C) {
-	defer log.SetTarget(log.SetTarget(c))
 	curl := charm.MustParseURL("cs:series/unwise")
-	expect := `.* WARNING charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
+	expect := `.* WARNING juju charm: charm store reports for "cs:series/unwise": foolishness` + "\n"
 	r, err := s.store.Latest(curl)
 	c.Assert(r, Equals, 23)
 	c.Assert(err, IsNil)
@@ -495,9 +499,9 @@ func (s *LocalRepoSuite) TestLogsErrors(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(ch.Revision(), Equals, 1)
 	c.Assert(c.GetTestLog(), Matches, `
-.* WARNING charm: failed to load charm at ".*/series/blah": .*
-.* WARNING charm: failed to load charm at ".*/series/blah.charm": .*
-.* WARNING charm: failed to load charm at ".*/series/upgrade2": .*
+.* WARNING juju charm: failed to load charm at ".*/series/blah": .*
+.* WARNING juju charm: failed to load charm at ".*/series/blah.charm": .*
+.* WARNING juju charm: failed to load charm at ".*/series/upgrade2": .*
 `[1:])
 }
 

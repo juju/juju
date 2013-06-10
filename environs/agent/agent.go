@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -26,7 +27,7 @@ type Conf struct {
 	StateServerCert []byte `yaml:",omitempty"`
 	StateServerKey  []byte `yaml:",omitempty"`
 
-	MongoPort int `yaml:",omitempty"`
+	StatePort int `yaml:",omitempty"`
 	APIPort   int `yaml:",omitempty"`
 
 	// OldPassword specifies a password that should be
@@ -245,7 +246,7 @@ func (c *Conf) OpenState() (*state.State, error) {
 		}
 		// TODO(rog) remove this fallback behaviour when
 		// all initial connections are via the API.
-		if !state.IsUnauthorizedError(err) {
+		if !errors.IsUnauthorizedError(err) {
 			return nil, err
 		}
 	}

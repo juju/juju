@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -88,28 +89,6 @@ func IsUnitName(name string) bool {
 // IsMachineId returns whether id is a valid machine id.
 func IsMachineId(name string) bool {
 	return validMachine.MatchString(name)
-}
-
-// notFoundError represents the error that something is not found.
-type notFoundError struct {
-	msg string
-}
-
-func (e *notFoundError) Error() string {
-	return e.msg
-}
-
-// NotFoundf returns a error for which IsNotFound returns
-// true. The message for the error is made up from the given
-// arguments formatted as with fmt.Sprintf, with the
-// string " not found" appended.
-func NotFoundf(format string, args ...interface{}) error {
-	return &notFoundError{fmt.Sprintf(format+" not found", args...)}
-}
-
-func IsNotFound(err error) bool {
-	_, ok := err.(*notFoundError)
-	return ok
 }
 
 // State represents the state of an environment
@@ -201,17 +180,24 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, "", "", jobs)
+	return st.addMachine(series, constraints.Value{}, "", "", jobs)
+}
+
+// AddMachine adds a new machine configured to run the supplied jobs on the
+// supplied series. The machine's constraints will be taken from the result of
+// merging extraCons with the enviroinment constraints.
+func (st *State) AddMachineWithConstraints(series string, extraCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
+	return st.addMachine(series, extraCons, "", "", jobs)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured to run the supplied jobs on the supplied series. The
-// machine's constraints will be taken from the environment constraints.
-func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+// instance, configured to run the supplied jobs on the supplied series, using
+// the specified constraints.
+func (st *State) InjectMachine(series string, cons constraints.Value, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, instanceId, BootstrapNonce, jobs)
+	return st.addMachine(series, cons, instanceId, BootstrapNonce, jobs)
 }
 
 func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
@@ -251,13 +237,15 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, instanceId InstanceId, nonce string, jobs []MachineJob) (m *Machine, err error) {
+func (st *State) addMachine(series string, extraCons constraints.Value, instanceId InstanceId,
+	nonce string, jobs []MachineJob) (m *Machine, err error) {
 	defer utils.ErrorContextf(&err, "cannot add a new machine")
 
 	cons, err := st.EnvironConstraints()
 	if err != nil {
 		return nil, err
 	}
+	cons = extraCons.WithFallbacks(cons)
 	mdoc := &machineDoc{
 		Series:     series,
 		InstanceId: instanceId,
@@ -323,7 +311,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("machine %s", id)
+		return nil, errors.NotFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -486,7 +474,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("charm %q", curl)
+		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -600,7 +588,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("service %q", name)
+		return nil, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -775,7 +763,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
-			if IsNotFound(err) {
+			if errors.IsNotFoundError(err) {
 				return nil, fmt.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
 				return nil, err
@@ -837,7 +825,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("relation %q", key)
+		return nil, errors.NotFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -850,7 +838,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("relation %d", id)
+		return nil, errors.NotFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -866,7 +854,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("unit %q", name)
+		return nil, errors.NotFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
@@ -881,7 +869,7 @@ func (st *State) DestroyUnits(names ...string) (err error) {
 	for _, name := range names {
 		unit, err := st.Unit(name)
 		switch {
-		case IsNotFound(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != Alive:
@@ -904,7 +892,7 @@ func (st *State) DestroyMachines(ids ...string) (err error) {
 	for _, id := range ids {
 		machine, err := st.Machine(id)
 		switch {
-		case IsNotFound(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case machine.Life() != Alive:

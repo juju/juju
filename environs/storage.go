@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"io"
+	"launchpad.net/juju-core/errors"
 )
 
 // EmptyStorage holds a StorageReader object that contains no files and
@@ -15,7 +16,7 @@ var EmptyStorage StorageReader = emptyStorage{}
 type emptyStorage struct{}
 
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, &NotFoundError{fmt.Errorf("file %q not found", name)}
+	return nil, errors.NotFoundf("file %q", name)
 }
 
 func (s emptyStorage) URL(name string) (string, error) {

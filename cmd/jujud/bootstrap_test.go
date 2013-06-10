@@ -9,6 +9,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -192,7 +193,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
 	}
-	testOpenState(c, info, state.Unauthorizedf(""))
+	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
 	info.Tag, info.Password = "", testPasswordHash

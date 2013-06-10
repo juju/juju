@@ -116,7 +116,7 @@ func (c *BootstrapCommand) configureBootstrapMachine(st *state.State, cfg *confi
 	jobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobServeAPI, state.JobHostUnits,
 	}
-	m, err := st.InjectMachine(version.Current.Series, instanceId, jobs...)
+	m, err := st.InjectMachine(version.Current.Series, c.Constraints, instanceId, jobs...)
 	if err != nil {
 		return err
 	}

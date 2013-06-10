@@ -14,6 +14,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -44,10 +45,14 @@ type HookContext struct {
 	// relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
 	relations map[int]*ContextRelation
+
+	// apiAddrs contains the API server addresses.
+	apiAddrs []string
 }
 
 func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
-	remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
+	remoteUnitName string, relations map[int]*ContextRelation,
+	apiAddrs []string) *HookContext {
 	return &HookContext{
 		unit:           unit,
 		id:             id,
@@ -55,6 +60,7 @@ func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
 		relationId:     relationId,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
+		apiAddrs:       apiAddrs,
 	}
 }
 
@@ -123,6 +129,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 		"JUJU_ENV_UUID=" + ctx.uuid,
+		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())
