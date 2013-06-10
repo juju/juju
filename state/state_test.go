@@ -117,6 +117,7 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
+	{state.JobManageState, "JobManageState"},
 	{state.JobServeAPI, "JobServeAPI"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
@@ -155,6 +156,7 @@ func (s *StateSuite) TestAddMachines(c *C) {
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
+		state.JobManageState,
 		state.JobServeAPI,
 	}
 	m1, err := s.State.AddMachine("blahblah", allJobs...)
@@ -1352,6 +1354,39 @@ func (s *StateSuite) TestParseTag(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *StateSuite) TestCleanup(c *C) {
+	needed, err := s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(needed, Equals, false)
+
+	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+
+	needed, err = s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(needed, Equals, false)
+
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+
+	needed, err = s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(needed, Equals, true)
+
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+
+	needed, err = s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(needed, Equals, false)
+}
+
 func (s *StateSuite) TestWatchCleanups(c *C) {
 	cw := s.State.WatchCleanups()
 	defer stop(c, cw)
@@ -1417,10 +1452,7 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// Don't handle each event keeps them in the queue. Cleanups
-	// have a transaction per entry. So they create the according number
-	// of events. This behavior will change in a followup with a cleanup 
-	// redesign.
+	// Don't handle each event keeps them in the queue.
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, IsNil)
 	relM, err = s.State.AddRelation(eps...)
@@ -1439,5 +1471,4 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
 	assertChanges(2)
-
 }

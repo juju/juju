@@ -1286,7 +1286,11 @@ func (w *CleanupWatcher) loop() (err error) {
 	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, in)
 
 	// Initial event.
-	w.out <- struct{}{}
+	select {
+	case w.out <- struct{}{}:
+	default:
+		return tomb.ErrDying
+	}
 
 	for {
 		select {

@@ -35,12 +35,14 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
+	JobManageState
 	JobServeAPI
 )
 
 var jobNames = []string{
 	JobHostUnits:     "JobHostUnits",
 	JobManageEnviron: "JobManageEnviron",
+	JobManageState:   "JobManageState",
 	JobServeAPI:      "JobServeAPI",
 }
 
@@ -271,7 +273,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 		Update: D{{"$set", D{{"life", life}}}},
 	}
 	advanceAsserts := D{
-		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron}}}},
+		{"jobs", D{{"$nin", []MachineJob{JobManageEnviron, JobManageState}}}},
 		{"$or", []D{
 			{{"principals", D{{"$size", 0}}}},
 			{{"principals", D{{"$exists", false}}}},
@@ -317,6 +319,10 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 				// the restriction will become "there must be at least one
 				// machine with this job".)
 				return fmt.Errorf("machine %s is required by the environment", m.doc.Id)
+			}
+			if j == JobManageState {
+				// (NOTE: Same like for JobManageEnviron.)
+				return fmt.Errorf("machine %s is required for state management", m.doc.Id)
 			}
 		}
 		if len(m.doc.Principals) != 0 {
