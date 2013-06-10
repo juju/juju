@@ -46,7 +46,7 @@ func (o *configObserver) notify(cfg *config.Config) {
 // and allocates them to the new machines.
 func NewProvisioner(st *state.State, machineId string) *Provisioner {
 	p := &Provisioner{
-		st:        st,
+		state:     st,
 		machineId: machineId,
 	}
 	go func() {
@@ -66,14 +66,6 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 
-	// Get a new StateInfo from the environment: the one used to
-	// launch the agent may refer to localhost, which will be
-	// unhelpful when attempting to run an agent on a new machine.
-	stateInfo, apiInfo, err := p.environ.StateInfo()
-	if err != nil {
-		return err
-	}
-
 	// Start a new worker for the environment provider.
 
 	// Start responding to changes in machines, and to any further updates
@@ -85,8 +77,7 @@ func (p *Provisioner) loop() error {
 		p.state,
 		machinesWatcher,
 		environmentBroker,
-		stateInfo,
-		apiInfo)
+	)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
 	for {

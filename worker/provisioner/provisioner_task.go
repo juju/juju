@@ -30,25 +30,17 @@ type Watcher interface {
 	Changes() <-chan []string
 }
 
-type MachineGetter interface {
-	Machine(id string) (*state.Machine, error)
-}
-
 func newProvisionerTask(
 	machineId string,
-	machineGetter MachineGetter,
+	st *state.State,
 	watcher Watcher,
 	broker Broker,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
 ) ProvisionerTask {
 	task := &provisionerTask{
 		machineId:      machineId,
-		machineGetter:  machineGetter,
+		state:          st,
 		machineWatcher: watcher,
 		broker:         broker,
-		stateInfo:      stateInfo,
-		apiInfo:        apiInfo,
 		machines:       make(map[string]*state.Machine),
 	}
 	go func() {
@@ -60,12 +52,14 @@ func newProvisionerTask(
 
 type provisionerTask struct {
 	machineId      string
-	machineGetter  MachineGetter
+	state          *state.State
 	machineWatcher Watcher
 	broker         Broker
 	tomb           tomb.Tomb
-	stateInfo      *state.Info
-	apiInfo        *api.Info
+
+	// Remembered addresses and api addresses
+	stateAddresses []string
+	apiAddresses   []string
 
 	// instance id -> instance
 	instances map[state.InstanceId]environs.Instance
@@ -174,7 +168,7 @@ func (task *provisionerTask) populateMachineMaps(ids []string) error {
 	// change list.
 	// TODO(thumper): update for API server later to get all machines in one go.
 	for _, id := range ids {
-		machine, err := task.machineGetter.Machine(id)
+		machine, err := task.state.Machine(id)
 		switch {
 		case errors.IsNotFoundError(err):
 			logger.Debugf("machine %q not found in state", id)
@@ -355,6 +349,35 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 }
 
 func (task *provisionerTask) setupAuthentication(machine *state.Machine) (*state.Info, *api.Info, error) {
+	// Grab a new list of state and api addresses each time along with the
+	// cert, as these can change during a processing loop.  If for example the
+	// provisioner was starting 100 machines in one go, some of those may be
+	// new api servers.  We should take advantage of those ASAP.
+	stateAddresses, err := task.state.Addresses()
+	if err != nil {
+		// Expected behaviour is to continue provisioning with old remembered
+		// info if config becomes invalid.
+		if task.stateAddresses == nil {
+			return nil, nil, fmt.Errorf("cannot get addresses from state: %v", err)
+		} else {
+			logger.Infof("cannot get current addresses from state, using remembered values")
+			stateAddresses = task.stateAddresses
+		}
+	} else {
+		// Remember them for later.
+		task.stateAddresses = stateAddresses
+	}
+	apiAddresses, err := task.state.APIAddresses()
+	if err != nil {
+		if task.apiAddresses == nil {
+			return nil, nil, fmt.Errorf("cannot get api addresses from state: %v", err)
+		} else {
+			logger.Infof("cannot get current api addresses from state, using remembered values")
+			apiAddresses = task.apiAddresses
+		}
+	} else {
+		task.apiAddresses = apiAddresses
+	}
 	password, err := utils.RandomPassword()
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
@@ -362,11 +385,16 @@ func (task *provisionerTask) setupAuthentication(machine *state.Machine) (*state
 	if err := machine.SetMongoPassword(password); err != nil {
 		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", machine, err)
 	}
-	stateInfo := *task.stateInfo
-	stateInfo.Tag = machine.Tag()
-	stateInfo.Password = password
-	apiInfo := *task.apiInfo
-	apiInfo.Tag = machine.Tag()
-	apiInfo.Password = password
-	return &stateInfo, &apiInfo, nil
+	cert := task.state.CACert()
+	return &state.Info{
+			Addrs:    stateAddresses,
+			CACert:   cert,
+			Tag:      machine.Tag(),
+			Password: password,
+		}, &api.Info{
+			Addrs:    apiAddresses,
+			CACert:   cert,
+			Tag:      machine.Tag(),
+			Password: password,
+		}, nil
 }
