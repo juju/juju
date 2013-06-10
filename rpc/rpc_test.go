@@ -517,6 +517,15 @@ func (*suite) TestBidirectional(c *C) {
 	closeClient(c, client, srvDone)
 }
 
+func (*suite) TestServerRequestWhenNotServing(c *C) {
+	srvRoot := &Root{}
+	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
+	var r int64val
+	err := client.Call("CallbackMethods", "", "Factorial", int64val{12}, &r)
+	c.Assert(err, ErrorMatches, "request error: request error: no service")
+	closeClient(c, client, srvDone)
+}
+
 func chanReadError(c *C, ch <-chan error, what string) error {
 	select {
 	case e := <-ch:
