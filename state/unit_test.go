@@ -45,30 +45,30 @@ func (s *UnitSuite) TestService(c *C) {
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
 }
 
-func (s *UnitSuite) TestServiceConfigNeedsCharmURLSet(c *C) {
-	_, err := s.unit.ServiceConfig()
+func (s *UnitSuite) TestConfigSettingsNeedCharmURLSet(c *C) {
+	_, err := s.unit.ConfigSettings()
 	c.Assert(err, ErrorMatches, "unit charm not set")
 }
 
-func (s *UnitSuite) TestServiceConfigIncludesDefaults(c *C) {
+func (s *UnitSuite) TestConfigSettingsIncludeDefaults(c *C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	settings, err := s.unit.ServiceConfig()
+	settings, err := s.unit.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
-func (s *UnitSuite) TestServiceConfigReflectsService(c *C) {
+func (s *UnitSuite) TestConfigSettingsReflectService(c *C) {
 	err := s.service.SetConfig(map[string]string{"blog-title": "no title"})
 	c.Assert(err, IsNil)
 	err = s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
-	settings, err := s.unit.ServiceConfig()
+	settings, err := s.unit.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"blog-title": "no title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "no title"})
 }
 
-func (s *UnitSuite) TestServiceConfigReflectsCharm(c *C) {
+func (s *UnitSuite) TestConfigSettingsReflectCharm(c *C) {
 	err := s.unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, IsNil)
 	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
@@ -76,16 +76,16 @@ func (s *UnitSuite) TestServiceConfigReflectsCharm(c *C) {
 	c.Assert(err, IsNil)
 
 	// Settings still reflect charm set on unit.
-	settings, err := s.unit.ServiceConfig()
+	settings, err := s.unit.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// When the unit has the new charm set, it'll see the new config.
 	err = s.unit.SetCharmURL(newCharm.URL())
 	c.Assert(err, IsNil)
-	settings, err = s.unit.ServiceConfig()
+	settings, err = s.unit.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, map[string]interface{}{})
+	c.Assert(settings, DeepEquals, charm.Settings{})
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
