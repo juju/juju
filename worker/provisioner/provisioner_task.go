@@ -300,8 +300,9 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	// state.Info as the PA.
 	stateInfo, apiInfo, err := task.setupAuthentication(machine)
 	if err != nil {
-		logger.Errorf("failed to setup authentication: %v", err)
-		return err
+		logger.Warningf("failed to setup authentication for machine %q: %v", machine.Id(), err)
+		// Don't return a real error, just try again next time.
+		return nil
 	}
 	cons, err := machine.Constraints()
 	if err != nil {
