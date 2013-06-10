@@ -4,6 +4,7 @@
 package jujutest
 
 import (
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strings"
@@ -11,12 +12,15 @@ import (
 
 // VirtualRoundTripper can be used to provide "http" responses without actually
 // starting an HTTP server. It is used by calling:
-// vfs := NewVirtualRoundTripper([]FileContent{<file contents>})
+// vfs := NewVirtualRoundTripper([]FileContent{<file contents>, <error urls>})
 // http.DefaultTransport.(*http.Transport).RegisterProtocol("test", vfs)
 // At which point requests to test:///foo will pull out the virtual content of
 // the file named 'foo' passed into the RoundTripper constructor.
+// If errorURLs are supplied, any URL which starts with the one of the map keys
+// causes a response with the corresponding status code to be returned.
 type VirtualRoundTripper struct {
-	contents []FileContent
+	contents  []FileContent
+	errorURLS map[string]int
 }
 
 var _ http.RoundTripper = (*VirtualRoundTripper)(nil)
@@ -52,6 +56,16 @@ func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 		Header:     make(http.Header),
 		Close:      true,
 	}
+	full := req.URL.String()
+	for urlPrefix, statusCode := range v.errorURLS {
+		if strings.HasPrefix(full, urlPrefix) {
+			res.Status = fmt.Sprintf("%d Error", statusCode)
+			res.StatusCode = statusCode
+			res.ContentLength = 0
+			res.Body = ioutil.NopCloser(strings.NewReader(""))
+			return res, nil
+		}
+	}
 	for _, fc := range v.contents {
 		if fc.Name == req.URL.Path {
 			res.Status = "200 OK"
@@ -68,6 +82,6 @@ func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	return res, nil
 }
 
-func NewVirtualRoundTripper(contents []FileContent) *VirtualRoundTripper {
-	return &VirtualRoundTripper{contents}
+func NewVirtualRoundTripper(contents []FileContent, errorURLs map[string]int) *VirtualRoundTripper {
+	return &VirtualRoundTripper{contents, errorURLs}
 }

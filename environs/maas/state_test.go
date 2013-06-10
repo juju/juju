@@ -5,7 +5,7 @@ package maas
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 )
 
 type StateSuite struct {
@@ -22,5 +22,5 @@ func (suite *StateSuite) TestLoadStateReturnsNotFoundPointerForMissingFile(c *C)
 
 	_, err = env.loadState()
 
-	c.Check(err, FitsTypeOf, &environs.NotFoundError{})
+	c.Check(err, FitsTypeOf, &errors.NotFoundError{})
 }

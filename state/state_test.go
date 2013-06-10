@@ -10,13 +10,14 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"net"
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -56,15 +57,33 @@ func (s *StateSuite) TestDialAgain(c *C) {
 
 func (s *StateSuite) TestStateInfo(c *C) {
 	info := state.TestingStateInfo()
-	c.Assert(s.State.Addresses(), DeepEquals, info.Addrs)
+	stateAddr, err := s.State.Addresses()
+	c.Assert(err, IsNil)
+	c.Assert(stateAddr, DeepEquals, info.Addrs)
 	c.Assert(s.State.CACert(), DeepEquals, info.CACert)
+}
+
+func (s *StateSuite) TestAPIAddresses(c *C) {
+	config, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	apiPort := strconv.Itoa(config.APIPort())
+	info := state.TestingStateInfo()
+	expectedAddrs := make([]string, 0, len(info.Addrs))
+	for _, stateAddr := range info.Addrs {
+		domain := strings.Split(stateAddr, ":")[0]
+		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
+		expectedAddrs = append(expectedAddrs, expectedAddr)
+	}
+	apiAddrs, err := s.State.APIAddresses()
+	c.Assert(err, IsNil)
+	c.Assert(apiAddrs, DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
-	err2 := state.NotFoundf("foo")
-	c.Assert(state.IsNotFound(err1), Equals, false)
-	c.Assert(state.IsNotFound(err2), Equals, true)
+	err2 := errors.NotFoundf("foo")
+	c.Assert(errors.IsNotFoundError(err1), Equals, false)
+	c.Assert(errors.IsNotFoundError(err2), Equals, true)
 }
 
 func (s *StateSuite) TestAddCharm(c *C) {
@@ -152,22 +171,42 @@ func (s *StateSuite) TestAddMachines(c *C) {
 	check(m[1], "1", "blahblah", allJobs)
 }
 
+func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
+	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=4G"))
+	c.Assert(err, IsNil)
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	extraCons := constraints.MustParse("cpu-cores=4")
+	m, err := s.State.AddMachineWithConstraints("series", extraCons, oneJob...)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	expectedCons := constraints.MustParse("cpu-cores=4 mem=4G")
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, expectedCons)
+}
+
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", constraints.Value{}, state.InstanceId("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
-	m, err := s.State.InjectMachine("series", state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	cons := constraints.MustParse("mem=4G")
+	m, err := s.State.InjectMachine("series", cons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mcons)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
@@ -185,7 +224,7 @@ func (s *StateSuite) TestReadMachine(c *C) {
 func (s *StateSuite) TestMachineNotFound(c *C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, ErrorMatches, "machine 0 not found")
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *StateSuite) TestAllMachines(c *C) {
@@ -250,7 +289,7 @@ func (s *StateSuite) TestAddService(c *C) {
 func (s *StateSuite) TestServiceNotFound(c *C) {
 	_, err := s.State.Service("bummer")
 	c.Assert(err, ErrorMatches, `service "bummer" not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -867,11 +906,11 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
 	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 
 	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 
 	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
@@ -882,8 +921,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: 0,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
@@ -892,58 +930,24 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
-	retryDelay := 200 * time.Millisecond
+	// Default mgo retry delay
+	retryDelay := 500 * time.Millisecond
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should have delayed for at least RetryDelay
+	// tryOpenState should have delayed for at least retryDelay
 	// internally mgo will try three times in a row before returning
 	// to the caller.
 	if t1 := time.Since(t0); t1 < 3*retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
-	}
-}
-
-func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
-	retryDelay := 200 * time.Millisecond
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, IsNil)
-	defer l.Close()
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				return
-			}
-			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
-			conn.Close()
-		}
-	}()
-	info := state.TestingStateInfo()
-	info.Addrs = []string{l.Addr().String()}
-
-	t0 := time.Now()
-	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
-	})
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should not have delayed because the socket
-	// connected, but ssl handshake failed
-	if t1 := time.Since(t0); t1 > 3*retryDelay {
-		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
 	}
 }
 
@@ -1003,7 +1007,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -1021,7 +1025,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
@@ -1049,7 +1053,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingStateInfo()
 	err = tryOpenState(info)
-	c.Assert(state.IsUnauthorizedError(err), Equals, true)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 
 	info.Password = "foo"
 	err = tryOpenState(info)
@@ -1079,17 +1083,17 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, erro
 	e, err := getEntity("machine-1234")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	e, err = getEntity("unit-foo-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	e, err = getEntity("unit-foo-bar-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -1125,7 +1129,7 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	e, err := getEntity("user-arble")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `user "arble" not found`)
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)
@@ -1231,4 +1235,94 @@ func (s *StateSuite) TestParseTag(c *C) {
 	c.Assert(coll, Equals, "users")
 	c.Assert(id, Equals, user.Name())
 	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestWatchCleanups(c *C) {
+	cw := s.State.WatchCleanups()
+	defer stop(c, cw)
+
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case _, ok := <-cw.Changes():
+			c.Fatalf("unexpected change; ok: %v", ok)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertChanges := func(count int) {
+		s.State.StartSync()
+		for i := 0; i < count; i++ {
+			select {
+			case _, ok := <-cw.Changes():
+				c.Assert(ok, Equals, true)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("timed out waiting for change")
+			}
+		}
+		assertNoChange()
+	}
+
+	// Check initial event.
+	assertChanges(1)
+
+	// Adding relations doesn't emit events.
+	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
+	c.Assert(err, IsNil)
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Destroy relations and cleanup.
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+
+	// Verify that Cleanup() doesn't emit unnecessary events.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Not calling Cleanup() queues up the changes.
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(2)
+
+	// Cleanup() deletes each document in an extra transaction which
+	// leads to multiple events. This behavior will be changed in a
+	// follow-up.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(2)
 }

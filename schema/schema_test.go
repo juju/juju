@@ -6,6 +6,7 @@ package schema_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/schema"
+	"math"
 	"testing"
 )
 
@@ -107,6 +108,43 @@ func (s *S) TestInt(c *C) {
 	out, err = sch.Coerce(nil, aPath)
 	c.Assert(out, IsNil)
 	c.Assert(err, ErrorMatches, "<path>: expected int, got nothing")
+}
+
+func (s *S) TestForceInt(c *C) {
+	sch := schema.ForceInt()
+
+	out, err := sch.Coerce(42, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, int(42))
+
+	out, err = sch.Coerce(int8(42), aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, int(42))
+
+	out, err = sch.Coerce(float32(42), aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, int(42))
+
+	out, err = sch.Coerce(float64(42), aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, int(42))
+
+	out, err = sch.Coerce(42.66, aPath)
+	c.Assert(err, IsNil)
+	c.Assert(out, Equals, int(42))
+
+	// If an out of range value is provided, that value is truncated,
+	// generating unexpected results, but no error is raised.
+	out, err = sch.Coerce(float64(math.MaxInt64+1), aPath)
+	c.Assert(err, IsNil)
+
+	out, err = sch.Coerce(true, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, "<path>: expected number, got true")
+
+	out, err = sch.Coerce(nil, aPath)
+	c.Assert(out, IsNil)
+	c.Assert(err, ErrorMatches, "<path>: expected number, got nothing")
 }
 
 func (s *S) TestFloat(c *C) {

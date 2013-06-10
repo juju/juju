@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -356,7 +357,7 @@ func (t *LiveTests) TestPublicStorage(c *C) {
 
 	// check that the public storage isn't aliased to the private storage.
 	r, err = t.Env.Storage().Get("test-object")
-	var notFoundError *environs.NotFoundError
+	var notFoundError *errors.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 

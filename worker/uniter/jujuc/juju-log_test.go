@@ -4,14 +4,13 @@
 package jujuc_test
 
 import (
-	"bytes"
 	"fmt"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-	stdlog "log"
+	"launchpad.net/loggo"
 )
 
 type JujuLogSuite struct {
@@ -20,36 +19,27 @@ type JujuLogSuite struct {
 
 var _ = Suite(&JujuLogSuite{})
 
-func pushLog(debug bool) (*bytes.Buffer, func()) {
-	oldTarget, oldDebug := log.Target(), log.Debug
-	var buf bytes.Buffer
-	log.SetTarget(stdlog.New(&buf, "JUJU:", 0))
-	log.Debug = debug
-	return &buf, func() {
-		log.SetTarget(oldTarget)
-		log.Debug = oldDebug
-	}
-}
-
 var commonLogTests = []struct {
-	debugEnabled bool
-	debugFlag    bool
-	target       string
+	debugFlag bool
+	level     loggo.Level
 }{
-	{false, false, "JUJU:INFO"},
-	{false, true, ""},
-	{true, false, "JUJU:INFO"},
-	{true, true, "JUJU:DEBUG"},
+	{false, loggo.INFO},
+	{true, loggo.DEBUG},
 }
 
 func assertLogs(c *C, ctx jujuc.Context, badge string) {
+	loggo.ConfigureLogging("juju=DEBUG")
+	writer := &loggo.TestWriter{}
+	old_writer, err := loggo.ReplaceDefaultWriter(writer)
+	c.Assert(err, IsNil)
+	defer loggo.ReplaceDefaultWriter(old_writer)
 	msg1 := "the chickens"
 	msg2 := "are 110% AWESOME"
 	com, err := jujuc.NewCommand(ctx, "juju-log")
 	c.Assert(err, IsNil)
 	for _, t := range commonLogTests {
-		buf, pop := pushLog(t.debugEnabled)
-		defer pop()
+		writer.Clear()
+		c.Assert(err, IsNil)
 
 		var args []string
 		if t.debugFlag {
@@ -59,13 +49,9 @@ func assertLogs(c *C, ctx jujuc.Context, badge string) {
 		}
 		code := cmd.Main(com, &cmd.Context{}, args)
 		c.Assert(code, Equals, 0)
-
-		if t.target == "" {
-			c.Assert(buf.String(), Equals, "")
-		} else {
-			expect := fmt.Sprintf("%s %s: %s %s\n", t.target, badge, msg1, msg2)
-			c.Assert(buf.String(), Equals, expect)
-		}
+		c.Assert(writer.Log, HasLen, 1)
+		c.Assert(writer.Log[0].Level, Equals, t.level)
+		c.Assert(writer.Log[0].Message, Equals, fmt.Sprintf("%s: %s %s", badge, msg1, msg2))
 	}
 }
 

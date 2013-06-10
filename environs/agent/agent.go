@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -26,7 +27,7 @@ type Conf struct {
 	StateServerCert []byte `yaml:",omitempty"`
 	StateServerKey  []byte `yaml:",omitempty"`
 
-	MongoPort int `yaml:",omitempty"`
+	StatePort int `yaml:",omitempty"`
 	APIPort   int `yaml:",omitempty"`
 
 	// OldPassword specifies a password that should be
@@ -213,7 +214,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		if err == nil {
 			return st, "", nil
 		}
-		if !state.IsUnauthorizedError(err) {
+		if !errors.IsUnauthorizedError(err) {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password

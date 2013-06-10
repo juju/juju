@@ -6,6 +6,7 @@ package state_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"time"
@@ -280,7 +281,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	err = pr.ru1.LeaveScope()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	// The settings were not themselves actually deleted yet...
 	assertSettings()
