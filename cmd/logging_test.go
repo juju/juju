@@ -46,8 +46,7 @@ func (s *LogSuite) TestVerboseSetsLogLevel(c *C) {
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 
-	logger := loggo.GetLogger("juju")
-	c.Assert(logger.GetLogLevel(), Equals, loggo.INFO)
+	c.Assert(loggo.GetLogger("").LogLevel(), Equals, loggo.INFO)
 }
 
 func (s *LogSuite) TestDebugSetsLogLevel(c *C) {
@@ -56,8 +55,7 @@ func (s *LogSuite) TestDebugSetsLogLevel(c *C) {
 	err := l.Start(ctx)
 	c.Assert(err, IsNil)
 
-	logger := loggo.GetLogger("juju")
-	c.Assert(logger.GetLogLevel(), Equals, loggo.DEBUG)
+	c.Assert(loggo.GetLogger("").LogLevel(), Equals, loggo.DEBUG)
 }
 
 func (s *LogSuite) TestStderr(c *C) {
