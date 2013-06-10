@@ -391,6 +391,43 @@ func sortedUnitNames(units []*state.Unit) []string {
 	return names
 }
 
+func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *C) (*state.Machine, *state.Service, *state.Unit) {
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, true)
+
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+	return m, svc, unit
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterAddingUnit(c *C) {
+	s.assertMachineDirtyAfterAddingUnit(c)
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterUnassigningUnit(c *C) {
+	m, _, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	err := unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
+	m, svc, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	err := unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+}
+
 type machineInfo struct {
 	tools      *state.Tools
 	instanceId string

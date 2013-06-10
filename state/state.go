@@ -251,6 +251,7 @@ func (st *State) addMachine(series string, extraCons constraints.Value, instance
 		InstanceId: instanceId,
 		Nonce:      nonce,
 		Jobs:       jobs,
+		Clean:      true,
 	}
 	mdoc, ops, err := st.addMachineOps(mdoc, cons)
 	if err != nil {

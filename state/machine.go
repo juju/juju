@@ -64,6 +64,7 @@ type machineDoc struct {
 	TxnRevno     int64  `bson:"txn-revno"`
 	Jobs         []MachineJob
 	PasswordHash string
+	Clean        bool
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -528,4 +529,9 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil
+}
+
+// Clean returns true if the machine does not have any deployed units or containers.
+func (m *Machine) Clean() bool {
+	return m.doc.Clean
 }
