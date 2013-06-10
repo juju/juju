@@ -727,7 +727,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 	}...)
 	massert := isAliveDoc
 	if unused {
-		massert = append(massert, D{{"principals", D{{"$size", 0}}}}...)
+		massert = append(massert, D{{"clean", D{{"$ne", false}}}}...)
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -738,11 +738,12 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		C:      u.st.machines.Name,
 		Id:     m.doc.Id,
 		Assert: massert,
-		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}},
+		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}, {"$set", D{{"clean", false}}}},
 	}}
 	err = u.st.runner.Run(ops, "", nil)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
+		m.doc.Clean = false
 		return nil
 	}
 	if err != txn.ErrAborted {
@@ -800,6 +801,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Series:     u.doc.Series,
 		Jobs:       []MachineJob{JobHostUnits},
 		Principals: []string{u.doc.Name},
+		Clean:      false,
 	}
 	mdoc, ops, err := u.st.addMachineOps(mdoc, cons)
 	if err != nil {
@@ -840,17 +842,18 @@ func (u *Unit) AssignToNewMachine() (err error) {
 
 var noUnusedMachines = stderrors.New("all eligible machines in use")
 
-// AssignToUnusedMachine assigns u to a machine without other units.
-// If there are no unused machines besides machine 0, an error is returned.
+// AssignToUnusedMachine assigns u to a machine which is marked as clean. A machine
+// is clean if it has never had any principal units assigned to it.
+// If there are no clean machines besides machine 0, an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
 func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
-	// Select all machines that can accept principal units but have none assigned.
+	// Select all machines that can accept principal units and are clean.
 	query := u.st.machines.Find(D{
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", JobHostUnits},
-		{"principals", D{{"$size", 0}}},
+		{"clean", D{{"$ne", false}}},
 	})
 
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509

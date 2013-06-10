@@ -373,9 +373,6 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
-	policy := s.env.AssignmentPolicy()
-	c.Assert(policy, Equals, state.AssignNew)
-
 	err := environs.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, IsNil)
 
