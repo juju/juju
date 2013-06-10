@@ -209,6 +209,10 @@ func (a *ChangeAPIMethods) ChangeAPI() error {
 	return a.r.conn.Serve(&changedAPIRoot{}, nil)
 }
 
+func (a *ChangeAPIMethods) RemoveAPI() error {
+	return a.r.conn.Serve(nil, nil)
+}
+
 type changedAPIRoot struct{}
 
 func (r *changedAPIRoot) NewlyAvailable(string) (newlyAvailableMethods, error) {
@@ -568,6 +572,18 @@ func (*suite) TestChangeAPI(c *C) {
 	err = client.Call("NewlyAvailable", "", "NewMethod", nil, &s)
 	c.Assert(err, IsNil)
 	c.Assert(s, Equals, stringVal{"new method result"})
+}
+
+func (*suite) TestChangeAPIToNil(c *C) {
+	srvRoot := &Root{}
+	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
+	defer closeClient(c, client, srvDone)
+
+	err := client.Call("ChangeAPIMethods", "", "RemoveAPI", nil, nil)
+	c.Assert(err, IsNil)
+
+	err = client.Call("ChangeAPIMethods", "", "RemoveAPI", nil, nil)
+	c.Assert(err, ErrorMatches, "request error: no service")
 }
 
 func (*suite) TestChangeAPIWhileServingRequest(c *C) {
