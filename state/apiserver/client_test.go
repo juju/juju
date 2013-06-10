@@ -47,7 +47,7 @@ func (s *clientSuite) TestClientServerSet(c *C) {
 func (s *clientSuite) TestClientServiceSetYAML(c *C) {
 	dummy, err := s.State.AddService("dummy", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	err = s.APIState.Client().ServiceSetYAML("dummy", "title: aaa\nusername: bbb")
+	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: aaa\n  username: bbb")
 	c.Assert(err, IsNil)
 	conf, err := dummy.Config()
 	c.Assert(err, IsNil)
@@ -302,20 +302,17 @@ func (s *clientSuite) TestClientUnitResolved(c *C) {
 
 var serviceDeployTests = []struct {
 	about            string
-	serviceName      string
 	charmUrl         string
 	numUnits         int
 	expectedNumUnits int
 	constraints      constraints.Value
 }{{
 	about:            "Normal deploy",
-	serviceName:      "mywordpress",
 	charmUrl:         "local:series/wordpress",
 	expectedNumUnits: 1,
 	constraints:      constraints.MustParse("mem=1G"),
 }, {
 	about:            "Two units",
-	serviceName:      "mywordpress",
 	charmUrl:         "local:series/wordpress",
 	numUnits:         2,
 	expectedNumUnits: 2,
@@ -332,14 +329,15 @@ func (s *clientSuite) TestClientServiceDeploy(c *C) {
 		localRepo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
 		c.Assert(err, IsNil)
 		withRepo(localRepo, func() {
-			_, err = s.State.Service(test.serviceName)
+			serviceName := "mywordpress"
+			_, err = s.State.Service(serviceName)
 			c.Assert(errors.IsNotFoundError(err), Equals, true)
 			err = s.APIState.Client().ServiceDeploy(
-				test.charmUrl, test.serviceName, test.numUnits, "", test.constraints,
+				test.charmUrl, serviceName, test.numUnits, "mywordpress: {}", test.constraints,
 			)
 			c.Assert(err, IsNil)
 
-			service, err := s.State.Service(test.serviceName)
+			service, err := s.State.Service(serviceName)
 			c.Assert(err, IsNil)
 			defer removeServiceAndUnits(c, service)
 			scons, err := service.Constraints()

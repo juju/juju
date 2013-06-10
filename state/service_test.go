@@ -383,23 +383,37 @@ var serviceSetTests = []struct {
 		"title": "My Title",
 	},
 }, {
+	about: "gibberish",
+	set:   serviceSetYAML("`"),
+	err:   `cannot parse settings data: .*`,
+}, {
 	about: "bad configuration",
-	set:   serviceSetYAML("345"),
-	err:   "malformed YAML data",
+	set:   serviceSetYAML("{}"),
+	err:   `no settings found for "dummy-service"`,
 }, {
 	about:  "config with no options",
-	set:    serviceSetYAML("{}"),
+	set:    serviceSetYAML("dummy-service: {}"),
 	expect: map[string]interface{}{},
 }, {
 	about: "set some attributes",
 	initial: map[string]interface{}{
 		"title": "sir",
 	},
-	set: serviceSetYAML("skill-level: 9000\nusername: admin001\n\n"),
+	set: serviceSetYAML("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n"),
 	expect: map[string]interface{}{
 		"title":       "sir",
 		"username":    "admin001",
 		"skill-level": int64(9000), // yaml int types are int64
+	},
+}, {
+	about: "remove an attribute by setting to nil",
+	initial: map[string]interface{}{
+		"title":    "sir",
+		"username": "foo",
+	},
+	set: serviceSetYAML("dummy-service: {title: null}"),
+	expect: map[string]interface{}{
+		"username": "foo",
 	},
 }, {
 	about: "remove an attribute by setting to empty string",
@@ -407,7 +421,7 @@ var serviceSetTests = []struct {
 		"title":    "sir",
 		"username": "foo",
 	},
-	set: serviceSetYAML("title: ''\n"),
+	set: serviceSetYAML("dummy-service: {title: ''}"),
 	expect: map[string]interface{}{
 		"username": "foo",
 	},

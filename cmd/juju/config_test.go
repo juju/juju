@@ -154,12 +154,13 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	}
 }
 
-func setupConfigfile(c *C, dir string) {
+func setupConfigfile(c *C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	file, err := os.Create(path)
 	c.Assert(err, IsNil)
-	_, err = file.Write([]byte("skill-level: 9000\nusername: admin001\n\n"))
+	defer file.Close()
+	_, err = file.Write([]byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n"))
 	c.Assert(err, IsNil)
-	file.Close()
+	return path
 }

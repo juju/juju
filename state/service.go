@@ -9,7 +9,6 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -720,6 +719,36 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	return relations, nil
 }
 
+// updateConfigSettings changes a service's charm config settings. Values set
+// to nil will be deleted; unknown and invalid values will return an error.
+func (s *Service) updateConfigSettings(changes charm.Settings) error {
+	charm, _, err := s.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err = charm.Config().ValidateSettings(changes)
+	if err != nil {
+		return err
+	}
+	// TODO(fwereade) state.Settings is itself really problematic in just
+	// about every use case. This needs to be resolved some time; but at
+	// least the settings docs are keyed by charm url as well as service
+	// name, so the actual impact of a race is non-threatening.
+	node, err := readSettings(s.st, s.settingsKey())
+	if err != nil {
+		return err
+	}
+	for name, value := range changes {
+		if value == nil {
+			node.Delete(name)
+		} else {
+			node.Set(name, value)
+		}
+	}
+	_, err = node.Write()
+	return err
+}
+
 // Config returns the configuration node for the service.
 func (s *Service) Config() (config *Settings, err error) {
 	config, err = readSettings(s.st, s.settingsKey())
@@ -740,37 +769,21 @@ func (s *Service) SetConfig(options map[string]string) error {
 	if err != nil {
 		return err
 	}
-	node, err := readSettings(s.st, s.settingsKey())
-	if err != nil {
-		return err
-	}
-	for name, value := range changes {
-		if value == nil {
-			node.Delete(name)
-		} else {
-			node.Set(name, value)
-		}
-	}
-	_, err = node.Write()
-	return err
+	return s.updateConfigSettings(changes)
 }
 
 // SetConfigYAML is like Set except that the
 // configuration data is specified in YAML format.
 func (s *Service) SetConfigYAML(yamlData []byte) error {
-	// TODO(rog) should this function interpret null as delete?
-	// TODO(rog) this is wrong. See lp#1167465
-	var options map[string]string
-	if err := goyaml.Unmarshal(yamlData, &options); err != nil {
+	charm, _, err := s.Charm()
+	if err != nil {
 		return err
 	}
-	if options == nil {
-		// YAML will unfortunately succeed if we try to
-		// unmarshal into an inappropriate data type,
-		// so check that we actually have got a map.
-		return fmt.Errorf("malformed YAML data")
+	changes, err := charm.Config().ParseSettingsYAML(yamlData, s.doc.Name)
+	if err != nil {
+		return err
 	}
-	return s.SetConfig(options)
+	return s.updateConfigSettings(changes)
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
