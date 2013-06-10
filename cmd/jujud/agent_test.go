@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -270,8 +271,10 @@ func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state
 		DataDir:     s.DataDir(),
 		OldPassword: password,
 		StateInfo:   s.StateInfo(c),
+		APIInfo:     s.APIInfo(c),
 	}
 	conf.StateInfo.Tag = tag
+	conf.APIInfo.Tag = tag
 	err = conf.Write()
 	c.Assert(err, IsNil)
 	return conf, tools
@@ -345,7 +348,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	info := s.StateInfo(c)
 	info.Tag = ent.Tag()
 	info.Password = "initial"
-	testOpenState(c, info, state.Unauthorizedf("unauth"))
+	testOpenState(c, info, errors.Unauthorizedf("unauth"))
 
 	// Read the configuration and check that we can connect with it.
 	c.Assert(refreshConfig(conf), IsNil)

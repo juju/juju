@@ -9,6 +9,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 )
@@ -139,7 +140,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 		st.Close()
 	}
 	if expectErr != nil {
-		c.Assert(state.IsUnauthorizedError(err), Equals, true)
+		c.Assert(errors.IsUnauthorizedError(err), Equals, true)
 	} else {
 		c.Assert(err, IsNil)
 	}
@@ -161,7 +162,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 		Addrs:  []string{testing.MgoAddr},
 		CACert: []byte(testing.CACert),
 	}
-	testOpenState(c, info, state.Unauthorizedf("some auth problem"))
+	testOpenState(c, info, errors.Unauthorizedf("some auth problem"))
 
 	info.Tag, info.Password = "machine-0", "foo"
 	testOpenState(c, info, nil)

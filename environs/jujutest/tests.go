@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -232,7 +233,7 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, at
 		}
 	}
 	c.Assert(r, IsNil)
-	var notFoundError *environs.NotFoundError
+	var notFoundError *errors.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
 }
 

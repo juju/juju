@@ -257,7 +257,8 @@ func (s *liveSimplestreamsSuite) TearDownSuite(c *C) {
 
 func (s *simplestreamsSuite) SetUpSuite(c *C) {
 	s.liveSimplestreamsSuite.SetUpSuite(c)
-	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(imageData)
+	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(
+		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
 func (s *simplestreamsSuite) TearDownSuite(c *C) {
@@ -355,8 +356,14 @@ func (s *liveSimplestreamsSuite) TestFetchExists(c *C) {
 	c.Assert(len(im) > 0, Equals, true)
 }
 
-func (s *liveSimplestreamsSuite) TestFetchMultipleBaseURLsExists(c *C) {
-	im, err := Fetch([]string{"http://127.0.0.1", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
+func (s *liveSimplestreamsSuite) TestFetchFirstURLNotFound(c *C) {
+	im, err := Fetch([]string{"test://notfound", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
+	c.Assert(err, IsNil)
+	c.Assert(len(im) > 0, Equals, true)
+}
+
+func (s *liveSimplestreamsSuite) TestFetchFirstURLUnauthorised(c *C) {
+	im, err := Fetch([]string{"test://unauth", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
 	c.Assert(err, IsNil)
 	c.Assert(len(im) > 0, Equals, true)
 }

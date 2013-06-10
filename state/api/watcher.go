@@ -24,25 +24,12 @@ func newAllWatcher(client *Client, id *string) *AllWatcher {
 
 func (watcher *AllWatcher) Next() ([]params.Delta, error) {
 	info := new(params.AllWatcherNextResults)
-	err := watcher.client.st.call("AllWatcher", *watcher.id, "Next", nil, info)
+	err := watcher.client.st.Call("AllWatcher", *watcher.id, "Next", nil, info)
 	return info.Deltas, err
 }
 
 func (watcher *AllWatcher) Stop() error {
-	return watcher.client.st.call("AllWatcher", *watcher.id, "Stop", nil, nil)
-}
-
-// Pinger periodically reports that a specific key is alive, so that
-// watchers interested on that fact can react appropriately.
-type Pinger struct {
-	st *State
-	id string
-}
-
-// Stop stops the p's periodical ping. Watchers will not notice p has
-// stopped pinging until the previous ping times out.
-func (p *Pinger) Stop() error {
-	return p.st.call("Pinger", p.id, "Stop", nil, nil)
+	return watcher.client.st.Call("AllWatcher", *watcher.id, "Stop", nil, nil)
 }
 
 // commonWatcher implements common watcher logic in one place to
@@ -168,13 +155,13 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 
 func (w *EntityWatcher) loop() error {
 	var id params.EntityWatcherId
-	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
+	if err := w.st.Call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
-		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, result)
+		return w.st.Call("EntityWatcher", id.EntityWatcherId, request, nil, result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -229,13 +216,13 @@ func newLifecycleWatcher(st *State, watchCall string) *LifecycleWatcher {
 
 func (w *LifecycleWatcher) loop() error {
 	var result params.LifecycleWatchResults
-	if err := w.st.call("State", "", w.watchCall, nil, &result); err != nil {
+	if err := w.st.Call("State", "", w.watchCall, nil, &result); err != nil {
 		return err
 	}
 	changes := result.Ids
 	w.newResult = func() interface{} { return new(params.LifecycleWatchResults) }
 	w.call = func(request string, newResult interface{}) error {
-		return w.st.call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
+		return w.st.Call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -289,7 +276,7 @@ func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
 
 func (w *EnvironConfigWatcher) loop() error {
 	var result params.EnvironConfigWatchResults
-	if err := w.st.call("State", "", "WatchEnvironConfig", nil, &result); err != nil {
+	if err := w.st.Call("State", "", "WatchEnvironConfig", nil, &result); err != nil {
 		return err
 	}
 
@@ -301,7 +288,7 @@ func (w *EnvironConfigWatcher) loop() error {
 		return new(params.EnvironConfigWatchResults)
 	}
 	w.call = func(request string, newResult interface{}) error {
-		return w.st.call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
+		return w.st.Call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()

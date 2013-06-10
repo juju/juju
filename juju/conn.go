@@ -6,7 +6,7 @@ package juju
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -50,7 +51,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	info.Password = password
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts)
-	if state.IsUnauthorizedError(err) {
+	if errors.IsUnauthorizedError(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -62,7 +63,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info, opts)
-			if !state.IsUnauthorizedError(err) {
+			if !errors.IsUnauthorizedError(err) {
 				break
 			}
 		}
@@ -329,7 +330,7 @@ func InitJujuHome() error {
 	if jujuHome == "" {
 		home := os.Getenv("HOME")
 		if home == "" {
-			return errors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
+			return stderrors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
 		}
 		jujuHome = filepath.Join(home, ".juju")
 	}
