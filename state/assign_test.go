@@ -307,8 +307,6 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 	_, err := s.State.AddMachine("series", state.JobManageEnviron) // bootstrap machine
 	c.Assert(err, IsNil)
-	unit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
 
 	// Add some units to another service and allocate them to machines
 	service1, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
@@ -324,27 +322,20 @@ func (s *AssignSuite) TestAssignUnitToUnusedMachine(c *C) {
 		units[i] = u
 	}
 
-	// Assign the suite's unit to a machine, then remove the unit
-	// so the machine becomes available again.
-	origMachine, err := s.State.AddMachine("series", state.JobHostUnits)
+	// Create a new, unused machine.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = unit.AssignToMachine(origMachine)
-	c.Assert(err, IsNil)
-	err = unit.EnsureDead()
-	c.Assert(err, IsNil)
-	err = unit.Remove()
-	c.Assert(err, IsNil)
-	err = s.wordpress.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(machine.Clean(), Equals, true)
 
-	// Check that AssignToUnusedMachine finds the old (now unused) machine.
+	// Check that AssignToUnusedMachine finds the newly created, unused machine.
 	newService, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
 	newUnit, err := newService.AddUnit()
 	c.Assert(err, IsNil)
 	reusedMachine, err := newUnit.AssignToUnusedMachine()
 	c.Assert(err, IsNil)
-	c.Assert(reusedMachine.Id(), Equals, origMachine.Id())
+	c.Assert(reusedMachine.Id(), Equals, machine.Id())
+	c.Assert(reusedMachine.Clean(), Equals, false)
 
 	// Check that it fails when called again, even when there's an available machine
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -450,6 +441,19 @@ func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
 	c.Assert(machineUnits, HasLen, 1)
 	// Make sure it is the right unit.
 	c.Assert(machineUnits[0].Name(), Equals, unit.Name())
+}
+
+func (s *AssignSuite) TestAssignToNewMachineMakesDirty(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err := s.State.Machine(mid)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Clean(), Equals, false)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *C) {
@@ -613,7 +617,8 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 		c.Assert(m.Series(), Equals, "series")
 	}
 
-	// Remove units from alternate machines.
+	// Remove units from alternate machines. These machines will still be
+	// considered as dirty so will continue to be ignored by the policy.
 	var unused []string
 	for i := 1; i < 11; i += 2 {
 		mid := strconv.Itoa(i)
@@ -627,7 +632,6 @@ func (s *AssignSuite) TestAssignUnitUnusedPolicy(c *C) {
 		c.Assert(err, IsNil)
 		err = unit.Destroy()
 		c.Assert(err, IsNil)
-		unused = append(unused, mid)
 	}
 	// Add some more unused machines
 	for i := 0; i < 4; i++ {

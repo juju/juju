@@ -28,13 +28,6 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *MachineSuite) ContainerDefaults(c *C) {
-	c.Assert(s.machine.ContainerType(), Equals, "")
-	containers, err := state.MachineContainers(s.State, s.machine.Id())
-	c.Assert(err, IsNil)
-	c.Assert(containers, DeepEquals, []string(nil))
-}
-
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
@@ -43,18 +36,6 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
 	err = m.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
-}
-
-func (s *MachineSuite) TestLifeMachineWithContainer(c *C) {
-	// A machine hosting a container must not advance lifecycle.
-	_, err := s.State.AddContainerWithConstraints(s.machine.Id(), state.LXC, "series", emptyCons, state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = s.machine.Destroy()
-	c.Assert(err, FitsTypeOf, &state.HasContainersError{})
-	c.Assert(err, ErrorMatches, `machine 0 is hosting containers "0/lxc/0"`)
-	err1 := s.machine.EnsureDead()
-	c.Assert(err1, DeepEquals, err)
-	c.Assert(s.machine.Life(), Equals, state.Alive)
 }
 
 func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
@@ -101,8 +82,6 @@ func (s *MachineSuite) TestRemove(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
-	_, err = state.MachineContainers(s.State, s.machine.Id())
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
@@ -410,6 +389,43 @@ func sortedUnitNames(units []*state.Unit) []string {
 	}
 	sort.Strings(names)
 	return names
+}
+
+func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *C) (*state.Machine, *state.Service, *state.Unit) {
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, true)
+
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+	return m, svc, unit
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterAddingUnit(c *C) {
+	s.assertMachineDirtyAfterAddingUnit(c)
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterUnassigningUnit(c *C) {
+	m, _, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	err := unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
+	m, svc, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	err := unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
 }
 
 type machineInfo struct {

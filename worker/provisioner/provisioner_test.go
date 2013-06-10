@@ -5,9 +5,14 @@ package provisioner_test
 
 import (
 	"fmt"
+	"strings"
+	stdtesting "testing"
+	"time"
+
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
@@ -16,11 +21,9 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/provisioner"
-	"strings"
-	stdtesting "testing"
-	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -97,18 +100,19 @@ func stop(c *C, s stopper) {
 	c.Assert(s.Stop(), IsNil)
 }
 
-func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) {
-	s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
+func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) environs.Instance {
+	return s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
 }
 
-func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) {
+func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance environs.Instance) {
 	s.State.StartSync()
 	for {
 		select {
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
-				s.waitInstanceId(c, m, o.Instance.Id())
+				instance = o.Instance
+				s.waitInstanceId(c, m, instance.Id())
 
 				// Check the instance was started with the expected params.
 				c.Assert(o.MachineId, Equals, m.Id())
@@ -141,6 +145,7 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 			return
 		}
 	}
+	return
 }
 
 // checkNoOperations checks that the environ was not operated upon.
@@ -154,19 +159,31 @@ func (s *ProvisionerSuite) checkNoOperations(c *C) {
 	}
 }
 
-// checkStopInstance checks that an instance has been stopped.
-func (s *ProvisionerSuite) checkStopInstance(c *C) {
+// checkStopInstances checks that an instance has been stopped.
+func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...environs.Instance) {
 	s.State.StartSync()
-	select {
-	case o := <-s.op:
-		switch o.(type) {
-		case dummy.OpStopInstances:
-		default:
-			c.Fatalf("unexpected operation %#v", o)
+	instanceIds := set.NewStrings()
+	for _, instance := range instances {
+		instanceIds.Add(string(instance.Id()))
+	}
+	// Continue checking for stop instance calls until all the instances we
+	// are waiting on to finish, actually finish, or we time out.
+	for !instanceIds.IsEmpty() {
+		select {
+		case o := <-s.op:
+			switch o := o.(type) {
+			case dummy.OpStopInstances:
+				for _, stoppedInstance := range o.Instances {
+					instanceIds.Remove(string(stoppedInstance.Id()))
+				}
+			default:
+				c.Fatalf("unexpected operation %#v", o)
+				return
+			}
+		case <-time.After(2 * time.Second):
+			c.Fatalf("provisioner did not stop an instance")
+			return
 		}
-	case <-time.After(2 * time.Second):
-		c.Fatalf("provisioner did not stop an instance")
-		return
 	}
 }
 
@@ -230,11 +247,11 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 	// Check that an instance is provisioned when the machine is created...
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
-	s.checkStartInstance(c, m)
+	instance := s.checkStartInstance(c, m)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(m.EnsureDead(), IsNil)
-	s.checkStopInstance(c)
+	s.checkStopInstances(c, instance)
 	s.waitRemoved(c, m)
 }
 
@@ -277,30 +294,6 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	p = provisioner.NewProvisioner(s.State, "0")
 	defer stop(c, p)
 	s.checkNoOperations(c)
-}
-
-func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
-	defer stop(c, p)
-
-	// create a machine to host the container.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-	s.checkStartInstance(c, m)
-
-	// make a container on the machine we just created
-	container, err := s.State.AddContainerWithConstraints(m.Id(), state.LXC, config.DefaultSeries, constraints.Value{}, state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	// the PA should not attempt to create it
-	s.checkNoOperations(c)
-
-	// cleanup
-	c.Assert(container.EnsureDead(), IsNil)
-	c.Assert(container.Remove(), IsNil)
-	c.Assert(m.EnsureDead(), IsNil)
-	s.checkStopInstance(c)
-	s.waitRemoved(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {
@@ -390,12 +383,12 @@ func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *C) {
 	// create a machine
 	m0, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
-	s.checkStartInstance(c, m0)
+	i0 := s.checkStartInstance(c, m0)
 
 	// create a second machine
 	m1, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
-	s.checkStartInstance(c, m1)
+	i1 := s.checkStartInstance(c, m1)
 	stop(c, p)
 
 	// mark the first machine as dead
@@ -408,8 +401,7 @@ func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *C) {
 	// start a new provisioner to shut them both down
 	p = provisioner.NewProvisioner(s.State, "0")
 	defer stop(c, p)
-	s.checkStopInstance(c)
-	s.checkStopInstance(c)
+	s.checkStopInstances(c, i0, i1)
 	s.waitRemoved(c, m0)
 }
 

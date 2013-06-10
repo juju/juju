@@ -10,9 +10,15 @@ import (
 	"time"
 )
 
+type stateSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&stateSuite{})
+
 var testPingPeriod = 100 * time.Millisecond
 
-func (s *suite) TestConnectionBrokenDetection(c *C) {
+func (s *stateSuite) TestConnectionBrokenDetection(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, stm)

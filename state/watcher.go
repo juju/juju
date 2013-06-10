@@ -55,44 +55,31 @@ func hasInt(changes []int, id int) bool {
 // given kind. The first event emitted will contain the ids of all non-Dead
 // entities; subsequent events are emitted whenever one or more entities are
 // added, or change their lifecycle state. After an entity is found to be
-// Dead, no further event will include it. An optional filter can be used to
-// exclude some ids.
+// Dead, no further event will include it.
 type LifecycleWatcher struct {
 	commonWatcher
 	coll *mgo.Collection
 	// map[entityId]Life
-	filter func(ids []string) []string
-	life   map[string]Life
-	out    chan []string
+	life map[string]Life
+	out  chan []string
 }
 
 // WatchMachines returns a LifecycleWatcher that notifies of changes to
-// the lifecycles of the machines (but not containers) in the environment.
+// the lifecycles of the machines in the environment.
 func (st *State) WatchMachines() *LifecycleWatcher {
-	filter := func(ids []string) []string {
-		// Filter out ids which are for containers.
-		var machineIds []string
-		for _, id := range ids {
-			if !strings.Contains(id, "/") {
-				machineIds = append(machineIds, id)
-			}
-		}
-		return machineIds
-	}
-	return newLifecycleWatcher(st, st.machines, filter)
+	return newLifecycleWatcher(st, st.machines)
 }
 
 // WatchServices returns a LifecycleWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() *LifecycleWatcher {
-	return newLifecycleWatcher(st, st.services, nil)
+	return newLifecycleWatcher(st, st.services)
 }
 
-func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(ids []string) []string) *LifecycleWatcher {
+func newLifecycleWatcher(st *State, coll *mgo.Collection) *LifecycleWatcher {
 	w := &LifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          coll,
-		filter:        filter,
 		life:          make(map[string]Life),
 		out:           make(chan []string),
 	}
@@ -182,9 +169,6 @@ func (w *LifecycleWatcher) loop() (err error) {
 		case ch := <-in:
 			if ids, err = w.merge(ids, ch); err != nil {
 				return err
-			}
-			if w.filter != nil {
-				ids = w.filter(ids)
 			}
 			if len(ids) > 0 {
 				out = w.out
@@ -1243,6 +1227,56 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 		case out <- changes:
 			out = nil
 			changes = nil
+		}
+	}
+	panic("unreachable")
+}
+
+// CleanupWatcher notifies of changes in the cleanups collection.
+type CleanupWatcher struct {
+	commonWatcher
+	out chan struct{}
+}
+
+// WatchCleanups starts and returns a CleanupWatcher.
+func (st *State) WatchCleanups() *CleanupWatcher {
+	return newCleanupWatcher(st)
+}
+
+func newCleanupWatcher(st *State) *CleanupWatcher {
+	w := &CleanupWatcher{
+		commonWatcher: commonWatcher{st: st},
+		out:           make(chan struct{}),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+// Changes returns the event channel for w.
+func (w *CleanupWatcher) Changes() <-chan struct{} {
+	return w.out
+}
+
+func (w *CleanupWatcher) loop() (err error) {
+	in := make(chan watcher.Change)
+
+	w.st.watcher.WatchCollection(w.st.cleanups.Name, in)
+	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, in)
+
+	// Initial event.
+	w.out <- struct{}{}
+
+	for {
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-in:
+			// Simply emit event for each change.
+			w.out <- struct{}{}
 		}
 	}
 	panic("unreachable")
