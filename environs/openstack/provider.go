@@ -973,15 +973,6 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
-}
-
 func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
