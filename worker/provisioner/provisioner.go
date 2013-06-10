@@ -87,12 +87,16 @@ func (p *Provisioner) loop() error {
 		environmentBroker,
 		stateInfo,
 		apiInfo)
-	defer environmentProvisioner.Stop()
+	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
 	for {
 		select {
 		case <-p.tomb.Dying():
 			return tomb.ErrDying
+		case <-environmentProvisioner.Dying():
+			err := environmentProvisioner.Err()
+			logger.Error("environment provisioner died: %v", err)
+			return err
 		case cfg, ok := <-environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(environWatcher)
@@ -100,10 +104,6 @@ func (p *Provisioner) loop() error {
 			if err := p.setConfig(cfg); err != nil {
 				logger.Error("loaded invalid environment configuration: %v", err)
 			}
-		case <-environmentProvisioner.Dying():
-			err := environmentProvisioner.Err()
-			logger.Error("environment provisioner died: %v", err)
-			return err
 		}
 	}
 	panic("not reached")
