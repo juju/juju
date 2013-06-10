@@ -484,10 +484,6 @@ func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
-}
-
 // MAAS does not do firewalling so these port methods do nothing.
 func (*maasEnviron) OpenPorts([]params.Port) error {
 	log.Debugf("environs/maas: unimplemented OpenPorts() called")

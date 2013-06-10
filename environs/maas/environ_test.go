@@ -451,9 +451,3 @@ func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 }
-
-func (suite *EnvironSuite) TestAssignmentPolicy(c *C) {
-	env := suite.makeEnviron()
-
-	c.Check(env.AssignmentPolicy(), Equals, state.AssignUnused)
-}

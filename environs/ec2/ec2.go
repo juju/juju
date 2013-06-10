@@ -334,17 +334,6 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		}, nil
 }
 
-// AssignmentPolicy for EC2 is to deploy units only on machines without other
-// units already assigned, and to launch new machines as required.
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
-}
-
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.

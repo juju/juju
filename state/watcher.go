@@ -55,44 +55,31 @@ func hasInt(changes []int, id int) bool {
 // given kind. The first event emitted will contain the ids of all non-Dead
 // entities; subsequent events are emitted whenever one or more entities are
 // added, or change their lifecycle state. After an entity is found to be
-// Dead, no further event will include it. An optional filter can be used to
-// exclude some ids.
+// Dead, no further event will include it.
 type LifecycleWatcher struct {
 	commonWatcher
 	coll *mgo.Collection
 	// map[entityId]Life
-	filter func(ids []string) []string
-	life   map[string]Life
-	out    chan []string
+	life map[string]Life
+	out  chan []string
 }
 
 // WatchMachines returns a LifecycleWatcher that notifies of changes to
-// the lifecycles of the machines (but not containers) in the environment.
+// the lifecycles of the machines in the environment.
 func (st *State) WatchMachines() *LifecycleWatcher {
-	filter := func(ids []string) []string {
-		// Filter out ids which are for containers.
-		var machineIds []string
-		for _, id := range ids {
-			if !strings.Contains(id, "/") {
-				machineIds = append(machineIds, id)
-			}
-		}
-		return machineIds
-	}
-	return newLifecycleWatcher(st, st.machines, filter)
+	return newLifecycleWatcher(st, st.machines)
 }
 
 // WatchServices returns a LifecycleWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
 func (st *State) WatchServices() *LifecycleWatcher {
-	return newLifecycleWatcher(st, st.services, nil)
+	return newLifecycleWatcher(st, st.services)
 }
 
-func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(ids []string) []string) *LifecycleWatcher {
+func newLifecycleWatcher(st *State, coll *mgo.Collection) *LifecycleWatcher {
 	w := &LifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          coll,
-		filter:        filter,
 		life:          make(map[string]Life),
 		out:           make(chan []string),
 	}
@@ -182,9 +169,6 @@ func (w *LifecycleWatcher) loop() (err error) {
 		case ch := <-in:
 			if ids, err = w.merge(ids, ch); err != nil {
 				return err
-			}
-			if w.filter != nil {
-				ids = w.filter(ids)
 			}
 			if len(ids) > 0 {
 				out = w.out
@@ -1248,15 +1232,13 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
-// CleanupWatcher notifies changes of the cleanup documents 
-// signalling the need for a cleanup.
+// CleanupWatcher notifies of changes in the cleanups collection.
 type CleanupWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
-// WatchCleanups returns a CleanupWatcher that notifies when documents
-// that where marked for removal exist.
+// WatchCleanups starts and returns a CleanupWatcher.
 func (st *State) WatchCleanups() *CleanupWatcher {
 	return newCleanupWatcher(st)
 }
