@@ -14,6 +14,12 @@ import (
 	"strings"
 )
 
+type permSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&permSuite{})
+
 // Most (if not all) of the permission tests below aim to test
 // end-to-end operations execution through the API, but do not care
 // about the results. They only test that a call is succeeds or fails
@@ -129,7 +135,7 @@ loop:
 	return p
 }
 
-func (s *suite) TestOperationPerm(c *C) {
+func (s *permSuite) TestOperationPerm(c *C) {
 	entities := s.setUpScenario(c)
 	for i, t := range operationPermTests {
 		allow := allowed(entities, t.allow, t.deny)

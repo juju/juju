@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"net"
 	"net/url"
 	"sort"
 	"strconv"
@@ -922,8 +921,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: 0,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
@@ -932,58 +930,24 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
-	retryDelay := 200 * time.Millisecond
+	// Default mgo retry delay
+	retryDelay := 500 * time.Millisecond
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should have delayed for at least RetryDelay
+	// tryOpenState should have delayed for at least retryDelay
 	// internally mgo will try three times in a row before returning
 	// to the caller.
 	if t1 := time.Since(t0); t1 < 3*retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
-	}
-}
-
-func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
-	retryDelay := 200 * time.Millisecond
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, IsNil)
-	defer l.Close()
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				return
-			}
-			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
-			conn.Close()
-		}
-	}()
-	info := state.TestingStateInfo()
-	info.Addrs = []string{l.Addr().String()}
-
-	t0 := time.Now()
-	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
-	})
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should not have delayed because the socket
-	// connected, but ssl handshake failed
-	if t1 := time.Since(t0); t1 > 3*retryDelay {
-		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
 	}
 }
 
@@ -1271,4 +1235,94 @@ func (s *StateSuite) TestParseTag(c *C) {
 	c.Assert(coll, Equals, "users")
 	c.Assert(id, Equals, user.Name())
 	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestWatchCleanups(c *C) {
+	cw := s.State.WatchCleanups()
+	defer stop(c, cw)
+
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case _, ok := <-cw.Changes():
+			c.Fatalf("unexpected change; ok: %v", ok)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertChanges := func(count int) {
+		s.State.StartSync()
+		for i := 0; i < count; i++ {
+			select {
+			case _, ok := <-cw.Changes():
+				c.Assert(ok, Equals, true)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("timed out waiting for change")
+			}
+		}
+		assertNoChange()
+	}
+
+	// Check initial event.
+	assertChanges(1)
+
+	// Adding relations doesn't emit events.
+	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
+	c.Assert(err, IsNil)
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Destroy relations and cleanup.
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+
+	// Verify that Cleanup() doesn't emit unnecessary events.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Not calling Cleanup() queues up the changes.
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(2)
+
+	// Cleanup() deletes each document in an extra transaction which
+	// leads to multiple events. This behavior will be changed in a
+	// follow-up.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(2)
 }
