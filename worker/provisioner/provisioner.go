@@ -19,11 +19,10 @@ var logger = loggo.GetLogger("juju.provisioner")
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	st                     *state.State
-	machineId              string // Which machine runs the provisioner.
-	environ                environs.Environ
-	tomb                   tomb.Tomb
-	environmentProvisioner ProvisionerTask
+	st        *state.State
+	machineId string // Which machine runs the provisioner.
+	environ   environs.Environ
+	tomb      tomb.Tomb
 
 	configObserver
 }
@@ -81,14 +80,14 @@ func (p *Provisioner) loop() error {
 	// to the environment config.
 	machinesWatcher := p.st.WatchMachines()
 	environmentBroker := newEnvironBroker(p.environ)
-	p.environmentProvisioner = newProvisionerTask(
+	environmentProvisioner := newProvisionerTask(
 		p.machineId,
 		p.st,
 		machinesWatcher,
 		environmentBroker,
 		stateInfo,
 		apiInfo)
-	defer p.environmentProvisioner.Stop()
+	defer environmentProvisioner.Stop()
 
 	for {
 		select {
@@ -101,8 +100,8 @@ func (p *Provisioner) loop() error {
 			if err := p.setConfig(cfg); err != nil {
 				logger.Error("loaded invalid environment configuration: %v", err)
 			}
-		case <-p.environmentProvisioner.Dying():
-			err := p.environmentProvisioner.Err()
+		case <-environmentProvisioner.Dying():
+			err := environmentProvisioner.Err()
 			logger.Error("environment provisioner died: %v", err)
 			return err
 		}
