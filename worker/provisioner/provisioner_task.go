@@ -215,6 +215,8 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 				logger.Error("failed to remove dead machine %q", machine)
 				return nil, nil, err
 			}
+			// now remove it from the machines map
+			delete(task.machines, machine.Id())
 			continue
 		}
 		if instId, hasInstId := machine.InstanceId(); !hasInstId {
@@ -265,12 +267,9 @@ func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []e
 		instId, ok := machine.InstanceId()
 		if ok {
 			instance, found := task.instances[instId]
-			// If the instance is not found, it means that the underlying
-			// instance is already dead, and we don't need to stop it.
+			// If the instance is not found we can't stop it.
 			if found {
 				instances = append(instances, instance)
-				// now remove it from the machines map
-				delete(task.machines, machine.Id())
 			}
 		}
 	}
