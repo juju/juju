@@ -413,15 +413,22 @@ func (s *LocalRepoSuite) addDir(name string) string {
 	return testing.Charms.ClonedDirPath(s.seriesPath, name)
 }
 
+func (s *LocalRepoSuite) checkNotFoundErr(c *C, err error, curl *charm.URL) {
+	expect := `charm not found in "` + s.repo.Path + `": ` + curl.String()
+	c.Check(err, ErrorMatches, expect)
+}
+
 func (s *LocalRepoSuite) TestMissingCharm(c *C) {
-	_, err := s.repo.Latest(charm.MustParseURL("local:series/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra" in `+s.repo.Path)
-	_, err = s.repo.Get(charm.MustParseURL("local:series/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/zebra" in `+s.repo.Path)
-	_, err = s.repo.Latest(charm.MustParseURL("local:badseries/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra" in `+s.repo.Path)
-	_, err = s.repo.Get(charm.MustParseURL("local:badseries/zebra"))
-	c.Assert(err, ErrorMatches, `no charms found matching "local:badseries/zebra" in `+s.repo.Path)
+	for i, str := range []string{
+		"local:series/zebra", "local:badseries/zebra",
+	} {
+		c.Logf("test %d: %s", i, str)
+		curl := charm.MustParseURL(str)
+		_, err := s.repo.Latest(curl)
+		s.checkNotFoundErr(c, err, curl)
+		_, err = s.repo.Get(curl)
+		s.checkNotFoundErr(c, err, curl)
+	}
 }
 
 func (s *LocalRepoSuite) TestMissingRepo(c *C) {
@@ -467,8 +474,8 @@ func (s *LocalRepoSuite) TestMultipleVersions(c *C) {
 	rev, err = s.repo.Latest(badRevCurl)
 	c.Assert(err, IsNil)
 	c.Assert(rev, Equals, 2)
-	ch, err = s.repo.Get(badRevCurl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/upgrade-33" in `+s.repo.Path)
+	_, err = s.repo.Get(badRevCurl)
+	s.checkNotFoundErr(c, err, badRevCurl)
 }
 
 func (s *LocalRepoSuite) TestBundle(c *C) {
@@ -519,8 +526,8 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *C) {
 	curl := charm.MustParseURL("local:series/dummy")
 
 	_, err = s.repo.Get(curl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy" in `+s.repo.Path)
+	s.checkNotFoundErr(c, err, curl)
 	_, err = s.repo.Latest(curl)
-	c.Assert(err, ErrorMatches, `no charms found matching "local:series/dummy" in `+s.repo.Path)
+	s.checkNotFoundErr(c, err, curl)
 	c.Assert(c.GetTestLog(), Equals, "")
 }
