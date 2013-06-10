@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.provisioner")
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	st        *state.State
+	state     *state.State
 	machineId string // Which machine runs the provisioner.
 	environ   environs.Environ
 	tomb      tomb.Tomb
@@ -57,7 +57,7 @@ func NewProvisioner(st *state.State, machineId string) *Provisioner {
 }
 
 func (p *Provisioner) loop() error {
-	environWatcher := p.st.WatchEnvironConfig()
+	environWatcher := p.state.WatchEnvironConfig()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	var err error
@@ -78,11 +78,11 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher := p.st.WatchMachines()
+	machinesWatcher := p.state.WatchMachines()
 	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := newProvisionerTask(
 		p.machineId,
-		p.st,
+		p.state,
 		machinesWatcher,
 		environmentBroker,
 		stateInfo,
