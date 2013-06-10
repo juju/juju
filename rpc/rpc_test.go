@@ -90,6 +90,14 @@ func (r *Root) CallbackMethods(string) (*CallbackMethods, error) {
 	return &CallbackMethods{r}, nil
 }
 
+type ChangeAPIMethods struct {
+	r *Root
+}
+
+func (r *Root) ChangeAPIMethods(string) (*ChangeAPIMethods, error) {
+	return &ChangeAPIMethods{r}, nil
+}
+
 func (t *Root) called(rcvr interface{}, method string, arg interface{}) {
 	t.mu.Lock()
 	t.calls = append(t.calls, &callInfo{rcvr, method, arg})
@@ -152,15 +160,21 @@ func (a *SimpleMethods) SliceArg(struct{ X []string }) stringVal {
 }
 
 type DelayedMethods struct {
-	ready chan struct{}
-	done  chan string
+	ready     chan struct{}
+	done      chan string
+	doneError chan error
 }
 
-func (a *DelayedMethods) Delay() stringVal {
+func (a *DelayedMethods) Delay() (stringVal, error) {
 	if a.ready != nil {
 		a.ready <- struct{}{}
 	}
-	return stringVal{<-a.done}
+	select {
+	case s := <-a.done:
+		return stringVal{s}, nil
+	case err := <-a.doneError:
+		return stringVal{}, err
+	}
 }
 
 type ErrorMethods struct {
@@ -191,12 +205,29 @@ func (a *CallbackMethods) Factorial(x int64val) (int64val, error) {
 	return int64val{x.I * r.I}, nil
 }
 
+func (a *ChangeAPIMethods) ChangeAPI() error {
+	return a.r.conn.Serve(&changedAPIRoot{}, nil)
+}
+
+type changedAPIRoot struct{}
+
+func (r *changedAPIRoot) NewlyAvailable(string) (newlyAvailableMethods, error) {
+	return newlyAvailableMethods{}, nil
+}
+
+type newlyAvailableMethods struct{}
+
+func (newlyAvailableMethods) NewMethod() stringVal {
+	return stringVal{"new method result"}
+}
+
 func (*suite) TestRPC(c *C) {
 	root := &Root{
 		simple: make(map[string]*SimpleMethods),
 	}
 	root.simple["a99"] = &SimpleMethods{root: root, id: "a99"}
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 	for narg := 0; narg < 2; narg++ {
 		for nret := 0; nret < 2; nret++ {
 			for nerr := 0; nerr < 2; nerr++ {
@@ -208,7 +239,6 @@ func (*suite) TestRPC(c *C) {
 			}
 		}
 	}
-	closeClient(c, client, srvDone)
 }
 
 func (root *Root) testCall(c *C, conn *rpc.Conn, narg, nret int, retErr, testErr bool) {
@@ -258,6 +288,7 @@ func (*suite) TestConcurrentCalls(c *C) {
 	}
 
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 	call := func(id string, done chan<- struct{}) {
 		var r stringVal
 		err := client.Call("DelayedMethods", id, "Delay", nil, &r)
@@ -279,7 +310,6 @@ func (*suite) TestConcurrentCalls(c *C) {
 	start2 <- "return 2"
 	chanRead(c, done1, "method 1 done")
 	chanRead(c, done2, "method 2 done")
-	closeClient(c, client, srvDone)
 }
 
 type codedError struct {
@@ -300,10 +330,10 @@ func (*suite) TestErrorCode(c *C) {
 		errorInst: &ErrorMethods{&codedError{"message", "code"}},
 	}
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
 	c.Assert(err, ErrorMatches, `request error: message \(code\)`)
 	c.Assert(err.(rpc.ErrorCoder).ErrorCode(), Equals, "code")
-	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestTransformErrors(c *C) {
@@ -321,6 +351,7 @@ func (*suite) TestTransformErrors(c *C) {
 		return fmt.Errorf("transformed: %v", err)
 	}
 	client, srvDone := newRPCClientServer(c, root, tfErr, false)
+	defer closeClient(c, client, srvDone)
 	err := client.Call("ErrorMethods", "", "Call", nil, nil)
 	c.Assert(err, DeepEquals, &rpc.RequestError{
 		Message: "transformed: message",
@@ -337,7 +368,6 @@ func (*suite) TestTransformErrors(c *C) {
 		Message: "transformed: no error methods",
 	})
 
-	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
@@ -352,6 +382,7 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 		},
 	}
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 	done := make(chan struct{})
 	go func() {
 		var r stringVal
@@ -368,7 +399,6 @@ func (*suite) TestServerWaitsForOutstandingCalls(c *C) {
 	case <-time.After(25 * time.Millisecond):
 	}
 	start <- "xxx"
-	closeClient(c, client, srvDone)
 }
 
 func chanRead(c *C, ch <-chan struct{}, what string) {
@@ -388,6 +418,7 @@ func (*suite) TestCompatibility(c *C) {
 	root.simple["a0"] = a0
 
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 	call := func(method string, arg, ret interface{}) (passedArg interface{}) {
 		root.calls = nil
 		err := client.Call("SimpleMethods", "a0", method, arg, ret)
@@ -421,8 +452,6 @@ func (*suite) TestCompatibility(c *C) {
 	arg = call("Call1r0", stringVal{"x"}, &r)
 	c.Assert(arg, Equals, stringVal{"x"})
 	c.Assert(r, Equals, extra{})
-
-	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestBadCall(c *C) {
@@ -432,6 +461,7 @@ func (*suite) TestBadCall(c *C) {
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 
 	err := client.Call("BadSomething", "a0", "No", nil, nil)
 	c.Assert(err, ErrorMatches, `request error: unknown object type "BadSomething"`)
@@ -441,8 +471,6 @@ func (*suite) TestBadCall(c *C) {
 
 	err = client.Call("SimpleMethods", "xx", "Call0r0", nil, nil)
 	c.Assert(err, ErrorMatches, "request error: unknown SimpleMethods id")
-
-	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestContinueAfterReadBodyError(c *C) {
@@ -452,6 +480,7 @@ func (*suite) TestContinueAfterReadBodyError(c *C) {
 	a0 := &SimpleMethods{root: root, id: "a0"}
 	root.simple["a0"] = a0
 	client, srvDone := newRPCClientServer(c, root, nil, false)
+	defer closeClient(c, client, srvDone)
 
 	var ret stringVal
 	arg0 := struct {
@@ -473,7 +502,6 @@ func (*suite) TestContinueAfterReadBodyError(c *C) {
 	err = client.Call("SimpleMethods", "a0", "SliceArg", arg1, &ret)
 	c.Assert(err, IsNil)
 	c.Assert(ret.Val, Equals, "SliceArg ret")
-	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestErrorAfterClientClose(c *C) {
@@ -508,22 +536,72 @@ func (*suite) TestRootIsKilled(c *C) {
 func (*suite) TestBidirectional(c *C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
+	defer closeClient(c, client, srvDone)
 	clientRoot := &Root{conn: client}
 	client.Serve(clientRoot, nil)
 	var r int64val
 	err := client.Call("CallbackMethods", "", "Factorial", int64val{12}, &r)
 	c.Assert(err, IsNil)
 	c.Assert(r.I, Equals, int64(479001600))
-	closeClient(c, client, srvDone)
 }
 
 func (*suite) TestServerRequestWhenNotServing(c *C) {
 	srvRoot := &Root{}
 	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
+	defer closeClient(c, client, srvDone)
 	var r int64val
 	err := client.Call("CallbackMethods", "", "Factorial", int64val{12}, &r)
 	c.Assert(err, ErrorMatches, "request error: request error: no service")
-	closeClient(c, client, srvDone)
+}
+
+func (*suite) TestChangeAPI(c *C) {
+	srvRoot := &Root{}
+	client, srvDone := newRPCClientServer(c, srvRoot, nil, true)
+	defer closeClient(c, client, srvDone)
+	var s stringVal
+	err := client.Call("NewlyAvailable", "", "NewMethod", nil, &s)
+	c.Assert(err, ErrorMatches, `request error: unknown object type "NewlyAvailable"`)
+	err = client.Call("ChangeAPIMethods", "", "ChangeAPI", nil, nil)
+	c.Assert(err, IsNil)
+	err = client.Call("ChangeAPIMethods", "", "ChangeAPI", nil, nil)
+	c.Assert(err, ErrorMatches, `request error: unknown object type "ChangeAPIMethods"`)
+	err = client.Call("NewlyAvailable", "", "NewMethod", nil, &s)
+	c.Assert(err, IsNil)
+	c.Assert(s, Equals, stringVal{"new method result"})
+}
+
+func (*suite) TestChangeAPIWhileServingRequest(c *C) {
+	ready := make(chan struct{})
+	done := make(chan error)
+	srvRoot := &Root{
+		delayed: map[string]*DelayedMethods{
+			"1": {ready: ready, doneError: done},
+		},
+	}
+	transform := func(err error) error {
+		return fmt.Errorf("transformed: %v", err)
+	}
+	client, srvDone := newRPCClientServer(c, srvRoot, transform, true)
+	defer closeClient(c, client, srvDone)
+
+	result := make(chan error)
+	go func() {
+		result <- client.Call("DelayedMethods", "1", "Delay", nil, nil)
+	}()
+	chanRead(c, ready, "method ready")
+
+	err := client.Call("ChangeAPIMethods", "", "ChangeAPI", nil, nil)
+	c.Assert(err, IsNil)
+
+	// Ensure that not only does the request in progress complete,
+	// but that the original transformErrors function is called.
+	done <- fmt.Errorf("an error")
+	select {
+	case r := <-result:
+		c.Assert(r, ErrorMatches, "request error: transformed: an error")
+	case <-time.After(3 * time.Second):
+		c.Fatalf("timeout on channel read")
+	}
 }
 
 func chanReadError(c *C, ch <-chan error, what string) error {
