@@ -1010,24 +1010,15 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	return nil
 }
 
-type ConfigWatcher struct {
-	*settingsWatcher
-}
-
-// WatchServiceConfig returns a watcher for observing changes to
-// unit's service configuration.
-func (u *Unit) WatchServiceConfig() (*ConfigWatcher, error) {
-	if u.doc.CharmURL == nil {
-		return nil, fmt.Errorf("unit charm not set")
-	}
-	skey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
-	return &ConfigWatcher{newSettingsWatcher(u.st, skey)}, nil
-}
-
 // EntityWatcher observes changes to a state entity.
 type EntityWatcher struct {
 	commonWatcher
 	out chan struct{}
+}
+
+// Watch return a watcher for observing changes to a machine.
+func (m *Machine) Watch() *EntityWatcher {
+	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
 }
 
 // Watch return a watcher for observing changes to a service.
@@ -1040,9 +1031,22 @@ func (u *Unit) Watch() *EntityWatcher {
 	return newEntityWatcher(u.st, u.st.units.Name, u.doc.Name, u.doc.TxnRevno)
 }
 
-// Watch return a watcher for observing changes to a machine.
-func (m *Machine) Watch() *EntityWatcher {
-	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
+// WatchConfigSettings returns a watcher for observing changes to the
+// unit's service configuration settings. The unit must have a charm URL
+// set before this method is called, and the returned watcher will be
+// valid only while the unit's charm URL is not changed.
+// TODO(fwereade): this could be much smarter; if it were, uniter.Filter
+// could be somewhat simpler.
+func (u *Unit) WatchConfigSettings() (*EntityWatcher, error) {
+	if u.doc.CharmURL == nil {
+		return nil, fmt.Errorf("unit charm not set")
+	}
+	settingsKey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
+	_, txnRevno, err := readSettingsDoc(u.st, settingsKey)
+	if err != nil {
+		return nil, err
+	}
+	return newEntityWatcher(u.st, u.st.settings.Name, settingsKey, txnRevno), nil
 }
 
 func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *EntityWatcher {

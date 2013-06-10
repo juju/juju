@@ -222,10 +222,10 @@ func (f *filter) loop(unitName string) (err error) {
 	defer watcher.Stop(servicew, &f.tomb)
 	// configw and relationsw can get restarted, so we need to use
 	// their eventual values in the defer calls.
-	var configw *state.ConfigWatcher
-	var configChanges <-chan *state.Settings
+	var configw *state.EntityWatcher
+	var configChanges <-chan struct{}
 	if curl, ok := f.unit.CharmURL(); ok {
-		configw, err = f.unit.WatchServiceConfig()
+		configw, err = f.unit.WatchConfigSettings()
 		if err != nil {
 			return err
 		}
@@ -317,7 +317,7 @@ func (f *filter) loop(unitName string) (err error) {
 				return tomb.ErrDying
 			case f.charmChanged <- nothing:
 			}
-			configw, err = f.unit.WatchServiceConfig()
+			configw, err = f.unit.WatchConfigSettings()
 			if err != nil {
 				return err
 			}
