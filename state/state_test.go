@@ -117,7 +117,6 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
-	{state.JobManageState, "JobManageState"},
 	{state.JobServeAPI, "JobServeAPI"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
@@ -155,7 +154,6 @@ func (s *StateSuite) TestAddMachines(c *C) {
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
-		state.JobManageState,
 		state.JobServeAPI,
 	}
 	m1, err := s.State.AddMachine("blahblah", allJobs...)
@@ -1274,6 +1272,10 @@ func (s *StateSuite) TestCleanup(c *C) {
 
 func (s *StateSuite) TestWatchCleanups(c *C) {
 	cw := s.State.WatchCleanups()
+	err := cw.Stop()
+	c.Assert(err, IsNil)
+
+	cw = s.State.WatchCleanups()
 	defer stop(c, cw)
 
 	assertNoChange := func() {
@@ -1301,7 +1303,7 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	assertChanges(1)
 
 	// Adding relations doesn't emit events.
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)

@@ -17,7 +17,7 @@ type Cleaner struct {
 }
 
 // NewCleaner returns a Cleaner that runs state.Cleanup()
-// if the 
+// if the CleanupWatcher signals documents marked for deletion.
 func NewCleaner(st *state.State) *Cleaner {
 	c := &Cleaner{st: st}
 	go func() {

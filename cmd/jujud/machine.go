@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
@@ -123,9 +122,6 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st, a.MachineId),
 				firewaller.NewFirewaller(st))
-		case state.JobManageState:
-			tasks = append(tasks,
-				cleaner.NewCleaner(st))
 		case state.JobServeAPI:
 			// Ignore because it's started independently.
 			continue
