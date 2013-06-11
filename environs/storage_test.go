@@ -4,12 +4,10 @@
 package environs_test
 
 import (
-	"fmt"
-	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/testing"
 )
 
 type EmptyStorageSuite struct{}
@@ -34,45 +32,32 @@ func (s *EmptyStorageSuite) TestList(c *C) {
 	c.Assert(err, IsNil)
 }
 
-type MockStorage struct {
-	StorageRequests []string
-}
-
-func (ms *MockStorage) Put(filename string, reader io.Reader, length int64) error {
-	var content []byte
-	content, _ = ioutil.ReadAll(reader)
-	log_message := fmt.Sprintf(
-		"Put('%s', '%s', %d)", filename, content, length)
-	ms.StorageRequests = append(ms.StorageRequests, log_message)
-	return nil
-}
-
-func (ms *MockStorage) Get(name string) (io.ReadCloser, error) {
-	log_message := fmt.Sprintf("Get('%s')", name)
-	ms.StorageRequests = append(ms.StorageRequests, log_message)
-	return nil, errors.NotFoundf("file %q not found", name)
-}
-
-func (ms *MockStorage) List(prefix string) ([]string, error) {
-	return nil, nil
-}
-
-func (ms *MockStorage) Remove(file string) error {
-	return nil
-}
-
-func (ms *MockStorage) URL(name string) (string, error) {
-	return "", fmt.Errorf("file %q not found", name)
-}
 
 type VerifyStorageSuite struct{}
 
 var _ = Suite(&VerifyStorageSuite{})
 
+const existingEnv = `
+environments:
+    test:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+
 func (s *VerifyStorageSuite) TestVerifyStorage(c *C) {
-	storage := MockStorage{}
-	error := environs.VerifyStorage(&storage)
-	c.Assert(error, IsNil)
-	c.Assert(storage.StorageRequests[0], Equals,
-		"Put('bootstrap-verify', 'juju-core storage writing verified: ok', 38)")
+	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+	reader, err := storage.Get("bootstrap-verify")
+	c.Assert(err, IsNil)
+	defer reader.Close()
+	contents, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(string(contents), Equals,
+		"juju-core storage writing verified: ok\n")
 }
