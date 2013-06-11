@@ -59,12 +59,12 @@ func (s *AddMachineSuite) TestAddMachineWithConstraints(c *C) {
 func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string, ctype state.ContainerType) {
 	m, err := s.State.Machine(parentId)
 	c.Assert(err, IsNil)
-	containers, err := state.MachineContainers(s.State, m.Id())
+	containers, err := m.Containers()
 	c.Assert(err, IsNil)
 	c.Assert(containers, DeepEquals, []string{containerId})
 	container, err := s.State.Machine(containerId)
 	c.Assert(err, IsNil)
-	containers, err = state.MachineContainers(s.State, container.Id())
+	containers, err = container.Containers()
 	c.Assert(err, IsNil)
 	c.Assert(containers, DeepEquals, []string(nil))
 	c.Assert(container.ContainerType(), Equals, ctype)
@@ -74,7 +74,7 @@ func (s *AddMachineSuite) TestAddContainerToNewMachine(c *C) {
 	for i, ctype := range state.SupportedContainerTypes {
 		err := runAddMachine(c, fmt.Sprintf("/%s", ctype))
 		c.Assert(err, IsNil)
-		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/%d", ctype, i), ctype)
+		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/0", ctype), ctype)
 	}
 }
 

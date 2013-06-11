@@ -77,19 +77,20 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 		}
 		series = conf.DefaultSeries()
 	}
-	if c.ContainerType == "" {
-		m, err := conn.State.AddMachineWithConstraints(series, c.Constraints, state.JobHostUnits)
-		if err != nil {
+	params := state.AddMachineParams{
+		ParentId:      c.MachineId,
+		ContainerType: c.ContainerType,
+		Series:        series,
+		Constraints:   c.Constraints,
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := conn.State.AddMachineWithConstraints(&params)
+	if err == nil {
+		if c.ContainerType == "" {
 			log.Infof("created machine %v", m)
-		}
-		return err
-	} else {
-		m, err := conn.State.AddContainerWithConstraints(
-			c.MachineId, c.ContainerType, series, c.Constraints, state.JobHostUnits)
-		if err == nil {
+		} else {
 			log.Infof("created %q container on machine %v", c.ContainerType, m)
 		}
-		return err
 	}
 	return err
 }

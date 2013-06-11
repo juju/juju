@@ -181,29 +181,20 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(&addMachineParams{series: series, jobs: jobs})
+	return st.addMachine(&AddMachineParams{Series: series, Jobs: jobs})
 }
 
 // AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
-// supplied series. The machine's constraints will be taken from the result of
-// merging machineCons with the environment constraints.
-func (st *State) AddMachineWithConstraints(series string, machineCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(&addMachineParams{series: series, machineCons: machineCons, jobs: jobs})
-}
+// supplied series. The machine's constraints and other configuration will be taken from
+// the supplied params struct.
+func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine, err error) {
 
-// AddContainerWithConstraints creates a new container of the specified type on the machine with the specified
-// parent id, configured to run the supplied jobs on the supplied series. The container's constraints will be
-// taken from the result of merging machineCons with the environment constraints. If parent id is not supplied, a
-// new machine instance is created.
-func (st *State) AddContainerWithConstraints(
-	parentId string, containerType ContainerType, series string, machineCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
-
-	// TODO(wallyworld) - when the actual machine characteristics are made available, we need to check the
-	// machine constraints to ensure the container can be created on the specifed machine.
+	// TODO(wallyworld) - if a container is required, and when the actual machine characteristics
+	// are made available, we need to check the machine constraints to ensure the container can be
+	// created on the specifed machine.
 	// ie it makes no sense asking for a 16G container on a machine with 8G.
 
-	return st.addMachine(
-		&addMachineParams{series: series, parentId: parentId, containerType: containerType, machineCons: machineCons, jobs: jobs})
+	return st.addMachine(params)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
@@ -213,7 +204,7 @@ func (st *State) InjectMachine(series string, cons constraints.Value, instanceId
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(&addMachineParams{series: series, machineCons: cons, instanceId: instanceId, nonce: BootstrapNonce, jobs: jobs})
+	return st.addMachine(&AddMachineParams{Series: series, Constraints: cons, instanceId: instanceId, nonce: BootstrapNonce, Jobs: jobs})
 }
 
 func (st *State) addMachineOps(parentId string, mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
@@ -273,20 +264,21 @@ func (st *State) addMachineOps(parentId string, mdoc *machineDoc, cons constrain
 	return mdoc, ops, nil
 }
 
-type addMachineParams struct {
-	series        string
-	machineCons   constraints.Value
-	parentId      string
-	containerType ContainerType
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	Series        string
+	Constraints   constraints.Value
+	ParentId      string
+	ContainerType ContainerType
 	instanceId    InstanceId
 	nonce         string
-	jobs          []MachineJob
+	Jobs          []MachineJob
 }
 
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(params *addMachineParams) (m *Machine, err error) {
+func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	msg := "cannot add a new machine"
-	if params.parentId != "" || params.containerType != "" {
+	if params.ParentId != "" || params.ContainerType != "" {
 		msg = "cannot add a new container"
 	}
 	defer utils.ErrorContextf(&err, msg)
@@ -295,20 +287,20 @@ func (st *State) addMachine(params *addMachineParams) (m *Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-	cons = params.machineCons.WithFallbacks(cons)
+	cons = params.Constraints.WithFallbacks(cons)
 	var ops []txn.Op
-	if params.containerType != "" {
-		if params.parentId == "" {
+	if params.ContainerType != "" {
+		if params.ParentId == "" {
 			// No parent machine is specified so create one.
 			mdoc, parentOps, err := st.prepareAddMachine(params, cons)
 			if err != nil {
 				return nil, err
 			}
-			params.parentId = mdoc.Id
+			params.ParentId = mdoc.Id
 			ops = parentOps
 		} else {
 			// If a parent machine is specified, make sure it exists.
-			_, err := st.Machine(params.parentId)
+			_, err := st.Machine(params.ParentId)
 			if err != nil {
 				return nil, err
 			}
@@ -333,16 +325,16 @@ func (st *State) addMachine(params *addMachineParams) (m *Machine, err error) {
 }
 
 // prepareAddMachine is a helper function used by addMachine
-func (st *State) prepareAddMachine(params *addMachineParams, cons constraints.Value) (*machineDoc, []txn.Op, error) {
+func (st *State) prepareAddMachine(params *AddMachineParams, cons constraints.Value) (*machineDoc, []txn.Op, error) {
 	mdoc := &machineDoc{
-		Series:        params.series,
-		ContainerType: string(params.containerType),
+		Series:        params.Series,
+		ContainerType: string(params.ContainerType),
 		InstanceId:    params.instanceId,
 		Nonce:         params.nonce,
-		Jobs:          params.jobs,
+		Jobs:          params.Jobs,
 		Clean:         true,
 	}
-	mdoc, ops, err := st.addMachineOps(params.parentId, mdoc, cons)
+	mdoc, ops, err := st.addMachineOps(params.ParentId, mdoc, cons)
 	return mdoc, ops, err
 }
 

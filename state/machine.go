@@ -221,6 +221,20 @@ func IsHasAssignedUnitsError(err error) bool {
 	return ok
 }
 
+// Containers returns the container ids belonging to a parent machine.
+// TODO(wallyworld): move this method to a service
+func (m *Machine) Containers() ([]string, error) {
+	var mc machineContainers
+	err := m.st.containerRefs.FindId(m.Id()).One(&mc)
+	if err == nil {
+		return mc.Children, nil
+	}
+	if err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("machine %v", m.Id())
+	}
+	return nil, err
+}
+
 type HasContainersError struct {
 	MachineId    string
 	ContainerIds []string
@@ -241,7 +255,7 @@ func IsHasContainersError(err error) bool {
 // the machine has any responsibilities that preclude a valid change in
 // lifecycle, it will return an error.
 func (original *Machine) advanceLifecycle(life Life) (err error) {
-	containers, err := MachineContainers(original.st, original.Id())
+	containers, err := original.Containers()
 	if err != nil {
 		return err
 	}

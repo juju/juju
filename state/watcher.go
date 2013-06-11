@@ -66,9 +66,9 @@ type LifecycleWatcher struct {
 	out    chan []string
 }
 
-// WatchMachines returns a LifecycleWatcher that notifies of changes to
+// WatchEnvironMachines returns a LifecycleWatcher that notifies of changes to
 // the lifecycles of the machines (but not containers) in the environment.
-func (st *State) WatchMachines() *LifecycleWatcher {
+func (st *State) WatchEnvironMachines() *LifecycleWatcher {
 	filter := func(ids []string) []string {
 		// Filter out ids which are for containers.
 		var machineIds []string

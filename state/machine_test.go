@@ -28,9 +28,9 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *MachineSuite) ContainerDefaults(c *C) {
-	c.Assert(s.machine.ContainerType(), Equals, "")
-	containers, err := state.MachineContainers(s.State, s.machine.Id())
+func (s *MachineSuite) TestContainerDefaults(c *C) {
+	c.Assert(string(s.machine.ContainerType()), Equals, "")
+	containers, err := s.machine.Containers()
 	c.Assert(err, IsNil)
 	c.Assert(containers, DeepEquals, []string(nil))
 }
@@ -47,7 +47,13 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 
 func (s *MachineSuite) TestLifeMachineWithContainer(c *C) {
 	// A machine hosting a container must not advance lifecycle.
-	_, err := s.State.AddContainerWithConstraints(s.machine.Id(), state.LXC, "series", emptyCons, state.JobHostUnits)
+	params := state.AddMachineParams{
+		ParentId:      s.machine.Id(),
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	err = s.machine.Destroy()
 	c.Assert(err, FitsTypeOf, &state.HasContainersError{})
@@ -102,7 +108,7 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
-	_, err = state.MachineContainers(s.State, s.machine.Id())
+	_, err = s.machine.Containers()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)

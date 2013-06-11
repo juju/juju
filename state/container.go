@@ -4,9 +4,7 @@
 package state
 
 import (
-	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/errors"
 	"strings"
 )
 
@@ -75,17 +73,4 @@ func removeContainerRefOps(st *State, machineId string) []txn.Op {
 		Update: D{{"$pull", D{{"children", machineId}}}},
 	}
 	return []txn.Op{removeRefOp, removeParentRefOp}
-}
-
-// MachineContainers returns the container ids belonging to a parent machine.
-func MachineContainers(st *State, parentId string) ([]string, error) {
-	var mc machineContainers
-	err := st.containerRefs.FindId(parentId).One(&mc)
-	if err == nil {
-		return mc.Children, nil
-	}
-	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine %v", parentId)
-	}
-	return nil, err
 }

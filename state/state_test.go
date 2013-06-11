@@ -177,7 +177,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 	c.Assert(err, IsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
-	m, err := s.State.AddMachineWithConstraints("series", extraCons, oneJob...)
+	params := state.AddMachineParams{
+		Series:      "series",
+		Constraints: extraCons,
+		Jobs:        oneJob,
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0")
 	c.Assert(m.Series(), Equals, "series")
@@ -191,7 +196,7 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 var emptyCons = constraints.Value{}
 
 func (s *StateSuite) assertMachineContainers(c *C, m *state.Machine, containers []string) {
-	containers, err := state.MachineContainers(s.State, m.Id())
+	containers, err := m.Containers()
 	c.Assert(err, IsNil)
 	c.Assert(containers, DeepEquals, containers)
 }
@@ -199,11 +204,19 @@ func (s *StateSuite) assertMachineContainers(c *C, m *state.Machine, containers 
 func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
-	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", emptyCons, oneJob...)
+	params := state.AddMachineParams{
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          oneJob,
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
 	c.Assert(m.ContainerType(), Equals, state.LXC)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, emptyCons)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 
 	m, err = s.State.Machine("0")
@@ -222,11 +235,20 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 
 	// Add first container.
-	m, err := s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, oneJob...)
+	params := state.AddMachineParams{
+		ParentId:      "1",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
 	c.Assert(m.ContainerType(), Equals, state.LXC)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, emptyCons)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
 
@@ -237,7 +259,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	s.assertMachineContainers(c, m, nil)
 
 	// Add second container.
-	m, err = s.State.AddContainerWithConstraints("1", state.LXC, "series", emptyCons, oneJob...)
+	m, err = s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/1")
 	c.Assert(m.Series(), Equals, "series")
@@ -250,7 +272,14 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	cons := constraints.MustParse("mem=4G")
 
-	m, err := s.State.AddContainerWithConstraints("", state.LXC, "series", cons, oneJob...)
+	params := state.AddMachineParams{
+		ParentId:      "",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Constraints:   cons,
+		Jobs:          oneJob,
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
@@ -264,9 +293,16 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 func (s *StateSuite) TestAddContainerErrors(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
-	_, err := s.State.AddContainerWithConstraints("10", state.LXC, "series", emptyCons, oneJob...)
+	params := state.AddMachineParams{
+		ParentId:      "10",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          oneJob,
+	}
+	_, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, ErrorMatches, "cannot add a new container: machine 10 not found")
-	_, err = s.State.AddContainerWithConstraints("10", "", "series", emptyCons, oneJob...)
+	params.ContainerType = ""
+	_, err = s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, ErrorMatches, "cannot add a new container: no container type specified")
 }
 
@@ -710,7 +746,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	c.Assert(err, IsNil)
 
 	// All except gone machine are reported in initial event.
-	w := s.State.WatchMachines()
+	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
 	s.assertChange(c, w, alive.Id(), dying.Id(), dead.Id())
 
@@ -728,7 +764,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 
 func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Initial event is empty when no machines.
-	w := s.State.WatchMachines()
+	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
 	s.assertChange(c, w)
 
@@ -760,32 +796,38 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 
 func (s *StateSuite) TestWatchMachinesWithContainerLifecycle(c *C) {
 	// Initial event is empty when no machines.
-	w := s.State.WatchMachines()
+	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
 	s.assertChange(c, w)
 
 	// Add a machine: reported.
-	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	params := state.AddMachineParams{
+		Series: "series",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	machine, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	s.assertChange(c, w, "0")
 
 	// Add a container: not reported.
-	mc, err := s.State.AddContainerWithConstraints(machine.Id(), state.LXC, "series", constraints.Value{}, state.JobHostUnits)
+	params.ParentId = machine.Id()
+	params.ContainerType = state.LXC
+	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
 	// Make the container Dying: not reported.
-	err = mc.Destroy()
+	err = m.Destroy()
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
 	// Make the container Dead: not reported.
-	err = mc.EnsureDead()
+	err = m.EnsureDead()
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
 	// Remove the container: not reported.
-	err = mc.Remove()
+	err = m.Remove()
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 }

@@ -306,7 +306,13 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
 	instance := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
-	container, err := s.State.AddContainerWithConstraints(m.Id(), state.LXC, config.DefaultSeries, constraints.Value{}, state.JobHostUnits)
+	params := state.AddMachineParams{
+		ParentId:      m.Id(),
+		ContainerType: state.LXC,
+		Series:        config.DefaultSeries,
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 
 	// the PA should not attempt to create it
