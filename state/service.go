@@ -345,22 +345,6 @@ func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relat
 	return extraPeers
 }
 
-// convertConfig takes the given charm's config and converts the
-// current service's charm config to the new one (if possible,
-// otherwise returns an error). It also returns an assert op to
-// ensure the old settings haven't changed in the meantime.
-func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, error) {
-	orig, err := s.Config()
-	if err != nil {
-		return nil, txn.Op{}, err
-	}
-	newcfg, err := ch.Config().Convert(orig.Map())
-	if err != nil {
-		return nil, txn.Op{}, err
-	}
-	return newcfg, orig.assertUnchangedOp(), nil
-}
-
 func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
 	// All relations must still exist and their endpoints are implemented by the charm.
@@ -382,24 +366,25 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
-	// Build the new service config.
-	newcfg, assertOrigSettingsOp, err := s.convertConfig(ch)
+	// Build the new service config from what can be used of the old one.
+	oldSettings, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
 		return nil, err
 	}
+	newSettings := ch.Config().FilterSettings(oldSettings.Map())
 
 	// Create or replace service settings.
 	var settingsOp txn.Op
-	newkey := serviceSettingsKey(s.doc.Name, ch.URL())
-	if count, err := s.st.settings.FindId(newkey).Count(); err != nil {
+	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
+	if count, err := s.st.settings.FindId(newKey).Count(); err != nil {
 		return nil, err
 	} else if count == 0 {
 		// No settings for this key yet, create it.
-		settingsOp = createSettingsOp(s.st, newkey, newcfg)
+		settingsOp = createSettingsOp(s.st, newKey, newSettings)
 	} else {
 		// Settings exist, just replace them with the new ones.
 		var err error
-		settingsOp, _, err = replaceSettingsOp(s.st, newkey, newcfg)
+		settingsOp, _, err = replaceSettingsOp(s.st, newKey, newSettings)
 		if err != nil {
 			return nil, err
 		}
@@ -420,7 +405,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	differentCharm := D{{"charmurl", D{{"$ne", ch.URL()}}}}
 	ops := []txn.Op{
 		// Old settings shouldn't change
-		assertOrigSettingsOp,
+		oldSettings.assertUnchangedOp(),
 		// Create/replace with new settings.
 		settingsOp,
 		// Increment the ref count.
@@ -747,43 +732,26 @@ func (s *Service) Config() (config *Settings, err error) {
 // SetConfig changes a service's configuration values.
 // Values set to the empty string will be deleted.
 func (s *Service) SetConfig(options map[string]string) error {
-	unvalidated := make(map[string]string)
-	var remove []string
-	for k, v := range options {
-		if v == "" {
-			remove = append(remove, k)
-		} else {
-			unvalidated[k] = v
-		}
-	}
 	charm, _, err := s.Charm()
 	if err != nil {
 		return err
 	}
-	// 1. Validate will convert this partial configuration
-	// into a full configuration by inserting charm defaults
-	// for missing values.
-	validated, err := charm.Config().Validate(unvalidated)
+	changes, err := charm.Config().ParseSettingsStrings(options)
 	if err != nil {
 		return err
 	}
-	// 2. strip out the additional default keys added in the previous step.
-	validated = strip(validated, unvalidated)
-	cfg, err := s.Config()
+	node, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
 		return err
 	}
-	// 3. Update any keys that remain after validation and filtering.
-	if len(validated) > 0 {
-		cfg.Update(validated)
-	}
-	// 4. Delete any removed keys.
-	if len(remove) > 0 {
-		for _, k := range remove {
-			cfg.Delete(k)
+	for name, value := range changes {
+		if value == nil {
+			node.Delete(name)
+		} else {
+			node.Set(name, value)
 		}
 	}
-	_, err = cfg.Write()
+	_, err = node.Write()
 	return err
 }
 
@@ -803,16 +771,6 @@ func (s *Service) SetConfigYAML(yamlData []byte) error {
 		return fmt.Errorf("malformed YAML data")
 	}
 	return s.SetConfig(options)
-}
-
-// strip removes from validated, any keys which are not also present in unvalidated.
-func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
-	for k := range validated {
-		if _, ok := unvalidated[k]; !ok {
-			delete(validated, k)
-		}
-	}
-	return validated
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")

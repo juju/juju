@@ -111,16 +111,11 @@ func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
 	if err != nil {
 		return nil, err
 	}
-	// Build a dictionary containing charm defaults, and overwrite any
-	// values that have actually been set.
-	cfg, err := charm.Config().Validate(nil)
-	if err != nil {
-		return nil, err
+	result := charm.Config().DefaultSettings()
+	for name, value := range settings.Map() {
+		result[name] = value
 	}
-	for k, v := range settings.Map() {
-		cfg[k] = v
-	}
-	return cfg, nil
+	return result, nil
 }
 
 // ServiceName returns the service name.
@@ -803,7 +798,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Principals: []string{u.doc.Name},
 		Clean:      false,
 	}
-	mdoc, ops, err := u.st.addMachineOps(mdoc, cons)
+	mdoc, ops, err := u.st.addMachineOps(mdoc, cons, containerRefParams{hostOnly: true})
 	if err != nil {
 		return err
 	}
