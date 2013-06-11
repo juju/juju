@@ -110,7 +110,10 @@ func (m *Machine) globalKey() string {
 // MachineTag returns the tag for the
 // machine with the given id.
 func MachineTag(id string) string {
-	return fmt.Sprintf("machine-%s", id)
+	tag := fmt.Sprintf("machine-%s", id)
+	// Containers require "/" to be replaced by "-".
+	tag = strings.Replace(tag, "/", "-", -1)
+	return tag
 }
 
 // Tag returns a name identifying the machine that is safe to use

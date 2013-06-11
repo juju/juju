@@ -188,6 +188,8 @@ func (s *MachineSuite) TestTag(c *C) {
 
 func (s *MachineSuite) TestMachineTag(c *C) {
 	c.Assert(state.MachineTag("10"), Equals, "machine-10")
+	// Check a container id.
+	c.Assert(state.MachineTag("10/lxc/1"), Equals, "machine-10-lxc-1")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *C) {
