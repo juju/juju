@@ -92,6 +92,11 @@ func (s *storage) URL(name string) (string, error) {
 }
 
 func (s *storage) Put(name string, r io.Reader, length int64) error {
+	// Allow Put to be poisoned as well.
+	if err := s.poisoned[name]; err != nil {
+		return err
+	}
+
 	// We only log Put requests on private storage.
 	if strings.HasSuffix(s.path, "/private") {
 		s.state.ops <- OpPutFile{s.state.name, name}

@@ -7,6 +7,8 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -60,4 +62,16 @@ func (s *VerifyStorageSuite) TestVerifyStorage(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(string(contents), Equals,
 		"juju-core storage writing verified: ok\n")
+}
+
+func (s *VerifyStorageSuite) TestVerifyStorageFails(c *C) {
+	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+	storage := environ.Storage()
+	someError := errors.Unauthorizedf("you shall not pass")
+	dummy.Poison(storage, "bootstrap-verify", someError)
+	err = environs.VerifyStorage(storage)
+	c.Assert(err, Equals, someError)
 }
