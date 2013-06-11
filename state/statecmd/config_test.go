@@ -134,7 +134,9 @@ func (s *ConfigSuite) TestServiceGet(c *C) {
 			c.Assert(err, IsNil)
 		}
 		if t.config != nil {
-			err = svc.SetConfig(t.config)
+			settings, err := ch.Config().ParseSettingsStrings(t.config)
+			c.Assert(err, IsNil)
+			err = svc.UpdateConfigSettings(settings)
 			c.Assert(err, IsNil)
 		}
 		expect := t.expect

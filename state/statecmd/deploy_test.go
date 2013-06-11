@@ -219,9 +219,9 @@ func (s *DeploySuite) TestConfigMap(c *C) {
 	s.AssertService(c, "dummy", curl, 1, 0)
 	svc, err := s.State.Service("dummy")
 	c.Assert(err, IsNil)
-	cfg, err := svc.Config()
+	settings, err := svc.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg.Map(), DeepEquals, map[string]interface{}{
+	c.Assert(settings, DeepEquals, charm.Settings{
 		"skill-level": int64(1),
 	})
 }
@@ -239,9 +239,9 @@ func (s *DeploySuite) TestConfigYAML(c *C) {
 	s.AssertService(c, "dummy", curl, 1, 0)
 	svc, err := s.State.Service("dummy")
 	c.Assert(err, IsNil)
-	cfg, err := svc.Config()
+	settings, err := svc.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg.Map(), DeepEquals, map[string]interface{}{
+	c.Assert(settings, DeepEquals, charm.Settings{
 		"skill-level": int64(9001),
 	})
 }

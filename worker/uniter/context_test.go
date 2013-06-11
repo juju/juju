@@ -577,11 +577,9 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	node, err := s.service.Config()
-	c.Assert(err, IsNil)
-	node.Set("blog-title", "Something Else")
-	_, err = node.Write()
-	c.Assert(err, IsNil)
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "Something Else",
+	})
 
 	// Local view is not changed.
 	settings, err = ctx.ConfigSettings()

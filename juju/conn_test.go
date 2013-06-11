@@ -426,12 +426,12 @@ func (s *DeployLocalSuite) SetUpTest(c *C) {
 }
 
 func (s *DeployLocalSuite) TestDeploy(c *C) {
-	charm, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
+	ch, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
 	c.Assert(err, IsNil)
 	cons := constraints.MustParse("mem=4G")
 	args := juju.DeployServiceParams{
 		ServiceName: "bob",
-		Charm:       charm,
+		Charm:       ch,
 		NumUnits:    3,
 		Constraints: cons,
 		ConfigYAML:  "bob: {blog-title: aspidistra flagpole}",
@@ -441,9 +441,9 @@ func (s *DeployLocalSuite) TestDeploy(c *C) {
 	scons, err := svc.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(scons, DeepEquals, cons)
-	config, err := svc.Config()
+	settings, err := svc.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(config.Map(), DeepEquals, map[string]interface{}{
+	c.Assert(settings, DeepEquals, charm.Settings{
 		"blog-title": "aspidistra flagpole",
 	})
 

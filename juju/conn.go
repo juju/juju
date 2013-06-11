@@ -200,21 +200,23 @@ type DeployServiceParams struct {
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	// TODO(rog) validate the configuration before adding the service.
+	var err error
+	var settings charm.Settings
+	config := args.Charm.Config()
+	if args.ConfigYAML != "" {
+		settings, err = config.ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
+	} else if args.Config != nil {
+		settings, err = config.ParseSettingsStrings(args.Config)
+	}
+	if err != nil {
+		return nil, err
+	}
 	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) should we destroy if we return an error in any of the
-	// subsequent operations?
-	// BUG(lp:1162122): Config/ConfigYAML have no tests.
-	if args.ConfigYAML != "" {
-		if err := svc.SetConfigYAML([]byte(args.ConfigYAML)); err != nil {
-			return nil, err
-		}
-	} else if args.Config != nil {
-		if err := svc.SetConfig(args.Config); err != nil {
-			// TODO(rog) should we destroy the service here?
+	if len(settings) > 0 {
+		if err := svc.UpdateConfigSettings(settings); err != nil {
 			return nil, err
 		}
 	}
