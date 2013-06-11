@@ -99,6 +99,7 @@ type State struct {
 	environments   *mgo.Collection
 	charms         *mgo.Collection
 	machines       *mgo.Collection
+	containerRefs  *mgo.Collection
 	relations      *mgo.Collection
 	relationScopes *mgo.Collection
 	services       *mgo.Collection
@@ -180,14 +181,20 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, constraints.Value{}, "", "", jobs)
+	return st.addMachine(&AddMachineParams{Series: series, Jobs: jobs})
 }
 
-// AddMachine adds a new machine configured to run the supplied jobs on the
-// supplied series. The machine's constraints will be taken from the result of
-// merging extraCons with the enviroinment constraints.
-func (st *State) AddMachineWithConstraints(series string, extraCons constraints.Value, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, extraCons, "", "", jobs)
+// AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
+// supplied series. The machine's constraints and other configuration will be taken from
+// the supplied params struct.
+func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine, err error) {
+
+	// TODO(wallyworld) - if a container is required, and when the actual machine characteristics
+	// are made available, we need to check the machine constraints to ensure the container can be
+	// created on the specifed machine.
+	// ie it makes no sense asking for a 16G container on a machine with 8G.
+
+	return st.addMachine(params)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
@@ -197,15 +204,26 @@ func (st *State) InjectMachine(series string, cons constraints.Value, instanceId
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, cons, instanceId, BootstrapNonce, jobs)
+	return st.addMachine(&AddMachineParams{Series: series, Constraints: cons, instanceId: instanceId, nonce: BootstrapNonce, Jobs: jobs})
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
+// containerRefParams specify how a machineContainers document is to be created.
+type containerRefParams struct {
+	hostId      string
+	newHost     bool
+	hostOnly    bool
+	containerId string
+}
+
+func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
 	if len(mdoc.Jobs) == 0 {
 		return nil, nil, fmt.Errorf("no jobs specified")
+	}
+	if containerParams.hostId != "" && mdoc.ContainerType == "" {
+		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range mdoc.Jobs {
@@ -214,11 +232,25 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 		}
 		jset[j] = true
 	}
-	seq, err := st.sequence("machine")
-	if err != nil {
-		return nil, nil, err
+	if containerParams.hostId == "" {
+		// we are creating a new machine instance (not a container).
+		seq, err := st.sequence("machine")
+		if err != nil {
+			return nil, nil, err
+		}
+		mdoc.Id = strconv.Itoa(seq)
+		containerParams.hostId = mdoc.Id
+		containerParams.newHost = true
 	}
-	mdoc.Id = strconv.Itoa(seq)
+	if mdoc.ContainerType != "" {
+		// we are creating a container so set up a namespaced id.
+		seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", containerParams.hostId, mdoc.ContainerType))
+		if err != nil {
+			return nil, nil, err
+		}
+		mdoc.Id = fmt.Sprintf("%s/%s/%d", containerParams.hostId, mdoc.ContainerType, seq)
+		containerParams.containerId = mdoc.Id
+	}
 	mdoc.Life = Alive
 	sdoc := statusDoc{
 		Status: params.StatusPending,
@@ -233,30 +265,76 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
+	ops = append(ops, createContainerRefOp(st, containerParams)...)
 	return mdoc, ops, nil
 }
 
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	Series        string
+	Constraints   constraints.Value
+	ParentId      string
+	ContainerType ContainerType
+	instanceId    InstanceId
+	nonce         string
+	Jobs          []MachineJob
+}
+
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, extraCons constraints.Value, instanceId InstanceId,
-	nonce string, jobs []MachineJob) (m *Machine, err error) {
-	defer utils.ErrorContextf(&err, "cannot add a new machine")
+func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
+	msg := "cannot add a new machine"
+	if params.ParentId != "" || params.ContainerType != "" {
+		msg = "cannot add a new container"
+	}
+	defer utils.ErrorContextf(&err, msg)
 
 	cons, err := st.EnvironConstraints()
 	if err != nil {
 		return nil, err
 	}
-	cons = extraCons.WithFallbacks(cons)
-	mdoc := &machineDoc{
-		Series:     series,
-		InstanceId: instanceId,
-		Nonce:      nonce,
-		Jobs:       jobs,
-		Clean:      true,
+	cons = params.Constraints.WithFallbacks(cons)
+	var ops []txn.Op
+	var containerParams = containerRefParams{hostId: params.ParentId, hostOnly: true}
+	// If we are creating a container, first create the host (parent) machine if necessary.
+	if params.ContainerType != "" {
+		containerParams.hostOnly = false
+		if params.ParentId == "" {
+			// No parent machine is specified so create one.
+			mdoc := &machineDoc{
+				Series:     params.Series,
+				InstanceId: params.instanceId,
+				Nonce:      params.nonce,
+				Jobs:       params.Jobs,
+				Clean:      true,
+			}
+			mdoc, parentOps, err := st.addMachineOps(mdoc, cons, containerRefParams{})
+			if err != nil {
+				return nil, err
+			}
+			ops = parentOps
+			containerParams.hostId = mdoc.Id
+			containerParams.newHost = true
+		} else {
+			// If a parent machine is specified, make sure it exists.
+			_, err := st.Machine(containerParams.hostId)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	mdoc, ops, err := st.addMachineOps(mdoc, cons)
+	mdoc := &machineDoc{
+		Series:        params.Series,
+		ContainerType: string(params.ContainerType),
+		InstanceId:    params.instanceId,
+		Nonce:         params.nonce,
+		Jobs:          params.Jobs,
+		Clean:         true,
+	}
+	mdoc, machineOps, err := st.addMachineOps(mdoc, cons, containerParams)
 	if err != nil {
 		return nil, err
 	}
+	ops = append(ops, machineOps...)
 
 	err = st.runner.Run(ops, "", nil)
 	if err != nil {
