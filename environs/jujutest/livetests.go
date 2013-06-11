@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -453,6 +454,22 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	}
 	c.Logf("waiting for instance to be removed")
 	t.assertStopInstance(c, conn.Environ, instId1)
+}
+
+func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
+	t.BootstrapOnce(c)
+	environ := t.Env
+
+	storage := environ.Storage()
+	err := environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+	reader, err := storage.Get("bootstrap-verify")
+	c.Assert(err, IsNil)
+	defer reader.Close()
+	contents, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(string(contents), Equals,
+		"juju-core storage writing verified: ok\n")
 }
 
 type tooler interface {
