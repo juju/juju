@@ -5,11 +5,9 @@ package apiserver_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -288,23 +286,16 @@ func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 }
 
 func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
-	// We are cheating and using a local repo only.
-
-	// Set the CharmStore to the test repository.
-	serviceName := "mywordpress"
-	charmUrl := "local:series/wordpress"
-	parsedUrl := charm.MustParseURL(charmUrl)
-	repo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
-	originalServerCharmStore := apiserver.CharmStore
-	apiserver.CharmStore = repo
-
-	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "mywordpress: {}", constraints.Value{})
+	var err error
+	withMockCharmStore(func(store *coretesting.MockCharmStore) {
+		curl, _ := addCharm(c, store, "dummy")
+		err = st.Client().ServiceDeploy(curl.String(), "deploy-service", 1, "", constraints.Value{})
+	})
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
-		apiserver.CharmStore = originalServerCharmStore
-		service, err := mst.Service(serviceName)
+		service, err := mst.Service("deploy-service")
 		c.Assert(err, IsNil)
 		removeServiceAndUnits(c, service)
 	}, nil

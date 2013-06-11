@@ -94,7 +94,6 @@ type ServiceDeploy struct {
 	Config         map[string]string
 	ConfigYAML     string // Takes precedence over config if both are present.
 	Constraints    constraints.Value
-	BumpRevision   bool
 	ForceMachineId string
 }
 

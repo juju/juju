@@ -111,3 +111,62 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 	check(err)
 	return ch
 }
+
+type MockCharmStore struct {
+	charms map[string]map[int]*charm.Bundle
+}
+
+func NewMockCharmStore() *MockCharmStore {
+	return &MockCharmStore{map[string]map[int]*charm.Bundle{}}
+}
+
+func (s *MockCharmStore) SetCharm(curl *charm.URL, bundle *charm.Bundle) error {
+	base := curl.WithRevision(-1).String()
+	if curl.Revision < 0 {
+		return fmt.Errorf("bad charm url revision")
+	}
+	if bundle == nil {
+		delete(s.charms[base], curl.Revision)
+		return nil
+	}
+	bundleRev := bundle.Revision()
+	bundleName := bundle.Meta().Name
+	if bundleName != curl.Name || bundleRev != curl.Revision {
+		return fmt.Errorf("charm url %s mismatch with bundle %s-%d", curl, bundleName, bundleRev)
+	}
+	if _, found := s.charms[base]; !found {
+		s.charms[base] = map[int]*charm.Bundle{}
+	}
+	s.charms[base][curl.Revision] = bundle
+	return nil
+}
+
+func (s *MockCharmStore) interpret(curl *charm.URL) (base string, rev int) {
+	base, rev = curl.WithRevision(-1).String(), curl.Revision
+	if rev == -1 {
+		for candidate := range s.charms[base] {
+			if candidate > rev {
+				rev = candidate
+			}
+		}
+	}
+	return
+}
+
+func (s *MockCharmStore) Get(curl *charm.URL) (charm.Charm, error) {
+	base, rev := s.interpret(curl)
+	charm, found := s.charms[base][rev]
+	if !found {
+		return nil, fmt.Errorf("charm not found in mock store: %s", curl)
+	}
+	return charm, nil
+}
+
+func (s *MockCharmStore) Latest(curl *charm.URL) (int, error) {
+	curl = curl.WithRevision(-1)
+	base, rev := s.interpret(curl)
+	if _, found := s.charms[base][rev]; !found {
+		return 0, fmt.Errorf("charm not found in mock store: %s", curl)
+	}
+	return rev, nil
+}

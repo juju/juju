@@ -6,15 +6,12 @@ package main
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 	"os"
 )
 
@@ -123,22 +120,49 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	var configYAML []byte
+	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
+	// here, but it's the original behaviour and not convenient to change.
+	// PutCharm will always be required in some form for local charms; and we
+	// will need an EnsureStoreCharm method somewhere that gets the state.Charm
+	// for use in the following checks.
+	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
+	if err != nil {
+		return err
+	}
+	numUnits := c.NumUnits
+	if ch.Meta().Subordinate {
+		empty := constraints.Value{}
+		if c.Constraints != empty {
+			return errors.New("cannot specify constraints for subordinate service")
+		}
+		if numUnits == 1 && c.ForceMachineId == "" {
+			numUnits = 0
+		} else {
+			return errors.New("cannot specify units for subordinate service")
+		}
+	}
+	serviceName := c.ServiceName
+	if serviceName == "" {
+		serviceName = ch.Meta().Name
+	}
+	var settings charm.Settings
 	if c.Config.Path != "" {
-		configYAML, err = ioutil.ReadFile(c.Config.Path)
+		configYAML, err := c.Config.Read(ctx)
+		if err != nil {
+			return err
+		}
+		settings, err = ch.Config().ParseSettingsYAML(configYAML, serviceName)
 		if err != nil {
 			return err
 		}
 	}
-	args := params.ServiceDeploy{
-		ServiceName: c.ServiceName,
-		CharmUrl:    c.CharmName,
-		NumUnits:    c.NumUnits,
-		// BUG(lp:1162122): --config has no tests.
-		ConfigYAML:     string(configYAML),
+	_, err = conn.DeployService(juju.DeployServiceParams{
+		ServiceName:    serviceName,
+		Charm:          ch,
+		NumUnits:       numUnits,
+		ConfigSettings: settings,
 		Constraints:    c.Constraints,
-		BumpRevision:   c.BumpRevision,
 		ForceMachineId: c.ForceMachineId,
-	}
-	return statecmd.ServiceDeploy(conn.State, args, conn, curl, repo)
+	})
+	return err
 }
