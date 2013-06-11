@@ -115,6 +115,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
+	c.AddPackage("lxc")
 
 	addScripts(c,
 		"set -xe", // ensure we run all the scripts or abort.
