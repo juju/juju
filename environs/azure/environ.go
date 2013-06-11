@@ -3,6 +3,13 @@
 
 package azure
 
+import (
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
+)
+
 type azureEnviron struct{}
 
 // azureEnviron implements Environ.
