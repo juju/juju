@@ -57,13 +57,13 @@ func build() error {
 		return err
 	}
 
-	logger.Info("Waiting for unit to reach %q status...", params.StatusStarted)
+	logger.Infof("Waiting for unit to reach %q status...", params.StatusStarted)
 	unit := units[0]
 	last, info, err := unit.Status()
 	if err != nil {
 		return err
 	}
-	logger.Info("Unit status is %q: %s", last, info)
+	logger.Infof("Unit status is %q: %s", last, info)
 	for last != params.StatusStarted {
 		time.Sleep(2 * time.Second)
 		if err := unit.Refresh(); err != nil {
@@ -74,7 +74,7 @@ func build() error {
 			return err
 		}
 		if status != last {
-			logger.Info("Unit status is %q: %s", status, info)
+			logger.Infof("Unit status is %q: %s", status, info)
 			last = status
 		}
 	}
@@ -82,7 +82,7 @@ func build() error {
 	if !ok {
 		return fmt.Errorf("cannot retrieve files: build unit lacks a public-address")
 	}
-	logger.Info("Built files published at http://%s", addr)
-	logger.Info("Remember to destroy the environment when you're done...")
+	logger.Infof("Built files published at http://%s", addr)
+	logger.Infof("Remember to destroy the environment when you're done...")
 	return nil
 }
