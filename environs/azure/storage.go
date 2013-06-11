@@ -3,6 +3,11 @@
 
 package azure
 
+import (
+	"io"
+	"launchpad.net/juju-core/environs"
+)
+
 type azureStorage struct{}
 
 // azureStorage implements Storage.

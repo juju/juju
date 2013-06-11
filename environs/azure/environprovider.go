@@ -3,13 +3,19 @@
 
 package azure
 
+import (
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
+)
+
 type azureEnvironProvider struct{}
 
 // azureEnvironProvider implements EnvironProvider.
 var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 
 // Open is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) Open(cfg *config.Config) (Environ, error) {
+func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	panic("unimplemented")
 }
 
@@ -39,6 +45,6 @@ func (prov azureEnvironProvider) PrivateAddress() (string, error) {
 }
 
 // InstanceId is specified in the EnvironProvider interface.
-func (prov AzureEnvironProvider) InstanceId() (state.InstanceId, error) {
+func (prov azureEnvironProvider) InstanceId() (state.InstanceId, error) {
 	panic("unimplemented")
 }
