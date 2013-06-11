@@ -196,9 +196,9 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 var emptyCons = constraints.Value{}
 
 func (s *StateSuite) assertMachineContainers(c *C, m *state.Machine, containers []string) {
-	containers, err := m.Containers()
+	mc, err := m.Containers()
 	c.Assert(err, IsNil)
-	c.Assert(containers, DeepEquals, containers)
+	c.Assert(mc, DeepEquals, containers)
 }
 
 func (s *StateSuite) TestAddContainerToNewMachine(c *C) {

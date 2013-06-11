@@ -21,37 +21,74 @@ var SupportedContainerTypes []ContainerType = []ContainerType{
 }
 
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.
+// All machines have an associated container ref doc, regardless of whether they host any containers.
 type machineContainers struct {
 	Id       string   `bson:"_id"`
 	Children []string `bson:",omitempty"`
 }
 
-// createContainerRefOp returns a txn.Op that updates a parent machine's container references to add
-// a new container with the specified container id. If not container id is specified, an empty
+// createContainerRefOp the txn.Op's that update a parent machine's container references to add
+// a new container with the specified container id. If no container id is specified, an empty
 // machineContainers doc is created.
-func createContainerRefOp(st *State, parentId, containerId string) txn.Op {
-	var op txn.Op
-	if containerId != "" {
-		op = txn.Op{
-			C:      st.containerRefs.Name,
-			Id:     parentId,
-			Update: D{{"$addToSet", D{{"children", containerId}}}},
-		}
-	} else {
-		mc := machineContainers{
-			Id: parentId,
-		}
-		op = txn.Op{
-			C:      st.containerRefs.Name,
-			Id:     parentId,
-			Assert: txn.DocMissing,
-			Insert: &mc,
+func createContainerRefOp(st *State, params containerRefParams) []txn.Op {
+	// See if we are creating a parent machine to subsequently host a new container. In this case,
+	// the container ref doc will be created later once the container id is known.
+	if !params.hostOnly && params.containerId == "" {
+		return []txn.Op{}
+	}
+	if params.hostOnly {
+		// Create an empty containers reference for a new host machine which will have no containers.
+		return []txn.Op{
+			{
+				C:      st.containerRefs.Name,
+				Id:     params.hostId,
+				Assert: txn.DocMissing,
+				Insert: &machineContainers{
+					Id: params.hostId,
+				},
+			},
 		}
 	}
-	return op
+	var ops []txn.Op
+	if params.newHost {
+		// If the host machine doesn't exist yet, create a new containers record.
+		mc := machineContainers{
+			Id:       params.hostId,
+			Children: []string{params.containerId},
+		}
+		ops = []txn.Op{
+			{
+				C:      st.containerRefs.Name,
+				Id:     mc.Id,
+				Assert: txn.DocMissing,
+				Insert: &mc,
+			},
+		}
+	} else {
+		// The host machine exists so update it's containers record.
+		ops = []txn.Op{
+			{
+				C:      st.containerRefs.Name,
+				Id:     params.hostId,
+				Assert: txn.DocExists,
+				Update: D{{"$addToSet", D{{"children", params.containerId}}}},
+			},
+		}
+	}
+	// Create a containers reference document for the container itself.
+	mc := machineContainers{
+		Id: params.containerId,
+	}
+	ops = append(ops, txn.Op{
+		C:      st.containerRefs.Name,
+		Id:     mc.Id,
+		Assert: txn.DocMissing,
+		Insert: &mc,
+	})
+	return ops
 }
 
-// removeContainerRefOps returns the txn.Ops necessary to remove a machine container record.
+// removeContainerRefOps returns the txn.Op's necessary to remove a machine container record.
 // These include removing the record itself and updating the host machine's children property.
 func removeContainerRefOps(st *State, machineId string) []txn.Op {
 	removeRefOp := txn.Op{

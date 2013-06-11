@@ -230,7 +230,7 @@ func (m *Machine) Containers() ([]string, error) {
 		return mc.Children, nil
 	}
 	if err == mgo.ErrNotFound {
-		return nil, errors.NotFoundf("machine %v", m.Id())
+		return nil, errors.NotFoundf("container info for machine %v", m.Id())
 	}
 	return nil, err
 }
