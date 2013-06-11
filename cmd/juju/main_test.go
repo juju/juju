@@ -73,7 +73,7 @@ func syncToolsHelpText() string {
 }
 
 func (s *MainSuite) TestTearDown(c *C) {
-	loggo.ResetLogging()
+	loggo.ResetLoggers()
 }
 
 func (s *MainSuite) TestRunMain(c *C) {
