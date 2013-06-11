@@ -78,7 +78,7 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher := p.st.WatchMachines()
+	machinesWatcher := p.st.WatchEnvironMachines()
 	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := newProvisionerTask(
 		p.machineId,
