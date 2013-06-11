@@ -10,7 +10,17 @@ import (
 	"launchpad.net/juju-core/charm"
 )
 
-var sampleConfig = `
+type ConfigSuite struct {
+	config *charm.Config
+}
+
+var _ = Suite(&ConfigSuite{})
+
+func (s *ConfigSuite) SetUpSuite(c *C) {
+	// Just use a single shared config for the whole suite. There's no use case
+	// for mutating a config, we we assume that nobody will do so here.
+	var err error
+	s.config, err = charm.ReadConfig(bytes.NewBuffer([]byte(`
 options:
   title:
     default: My Title
@@ -32,20 +42,12 @@ options:
   reticulate-splines:
     description: Whether to reticulate splines on launch, or not.
     type: boolean
-`
-
-func readSample(c *C) *charm.Config {
-	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
+`)))
 	c.Assert(err, IsNil)
-	return config
 }
 
-type ConfigSuite struct{}
-
-var _ = Suite(&ConfigSuite{})
-
 func (s *ConfigSuite) TestReadSample(c *C) {
-	c.Assert(readSample(c).Options, DeepEquals, map[string]charm.Option{
+	c.Assert(s.config.Options, DeepEquals, map[string]charm.Option{
 		"title": charm.Option{
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
@@ -76,7 +78,7 @@ func (s *ConfigSuite) TestReadSample(c *C) {
 }
 
 func (s *ConfigSuite) TestDefaultSettings(c *C) {
-	c.Assert(readSample(c).DefaultSettings(), DeepEquals, charm.Settings{
+	c.Assert(s.config.DefaultSettings(), DeepEquals, charm.Settings{
 		"title":              "My Title",
 		"username":           "admin001",
 		"outlook":            nil,
@@ -87,11 +89,11 @@ func (s *ConfigSuite) TestDefaultSettings(c *C) {
 }
 
 func (s *ConfigSuite) TestFilterSettings(c *C) {
-	settings := readSample(c).FilterSettings(charm.Settings{
+	settings := s.config.FilterSettings(charm.Settings{
 		"title":              "something valid",
 		"username":           nil,
 		"unknown":            "whatever",
-		"outlook":            123,
+		"outlook":            "",
 		"skill-level":        5.5,
 		"agility-ratio":      true,
 		"reticulate-splines": "hullo",
@@ -99,11 +101,11 @@ func (s *ConfigSuite) TestFilterSettings(c *C) {
 	c.Assert(settings, DeepEquals, charm.Settings{
 		"title":    "something valid",
 		"username": nil,
+		"outlook":  nil,
 	})
 }
 
 func (s *ConfigSuite) TestValidateSettings(c *C) {
-	config := readSample(c)
 	for i, test := range []struct {
 		info   string
 		input  charm.Settings
@@ -167,7 +169,7 @@ func (s *ConfigSuite) TestValidateSettings(c *C) {
 		err:   `option "reticulate-splines" expected boolean, got 101`,
 	}} {
 		c.Logf("test %d: %s", i, test.info)
-		result, err := config.ValidateSettings(test.input)
+		result, err := s.config.ValidateSettings(test.input)
 		if test.err != "" {
 			c.Check(err, ErrorMatches, test.err)
 		} else {
@@ -196,7 +198,6 @@ var settingsWithValues = charm.Settings{
 }
 
 func (s *ConfigSuite) TestParseSettingsYAML(c *C) {
-	config := readSample(c)
 	for i, test := range []struct {
 		info   string
 		yaml   string
@@ -295,7 +296,7 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *C) {
 		expect: settingsWithValues,
 	}} {
 		c.Logf("test %d: %s", i, test.info)
-		result, err := config.ParseSettingsYAML([]byte(test.yaml), test.key)
+		result, err := s.config.ParseSettingsYAML([]byte(test.yaml), test.key)
 		if test.err != "" {
 			c.Check(err, ErrorMatches, test.err)
 		} else {
@@ -306,7 +307,6 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *C) {
 }
 
 func (s *ConfigSuite) TestParseSettingsStrings(c *C) {
-	config := readSample(c)
 	for i, test := range []struct {
 		info   string
 		input  map[string]string
@@ -351,7 +351,7 @@ func (s *ConfigSuite) TestParseSettingsStrings(c *C) {
 		err:   `option "reticulate-splines" expected boolean, got "cannonball"`,
 	}} {
 		c.Logf("test %d: %s", i, test.info)
-		result, err := config.ParseSettingsStrings(test.input)
+		result, err := s.config.ParseSettingsStrings(test.input)
 		if test.err != "" {
 			c.Check(err, ErrorMatches, test.err)
 		} else {
