@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 
 	"launchpad.net/golxc"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -26,8 +27,8 @@ var (
 )
 
 type lxcContainer struct {
-	machineId string
 	*golxc.Container
+	machine *state.Machine
 }
 
 func NewContainer(st *state.State, machineId string) (container.Container, error) {
@@ -39,8 +40,8 @@ func NewContainer(st *state.State, machineId string) (container.Container, error
 	}
 	name := machine.Tag()
 	return &lxcContainer{
-		machineId: machineId,
-		container: golxc.New(name),
+		machine:   machine,
+		Container: golxc.New(name),
 	}, nil
 }
 
@@ -53,7 +54,7 @@ func (lxc *lxcContainer) Create() error {
 	}
 	// Write the userData to a temp file and use that filename as a start template param
 	userData := []byte("#cloud-init\n") // call userData
-	userDataFilename := filepath.join(lxc.Directory(), "cloud-init")
+	userDataFilename := filepath.Join(lxc.Directory(), "cloud-init")
 	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
 		logger.Errorf("failed to write user data: %v", err)
 		return err
@@ -62,7 +63,7 @@ func (lxc *lxcContainer) Create() error {
 		"--debug",                      // Debug errors in the cloud image
 		"--userdata", userDataFilename, // Our groovey cloud-init
 		"--hostid", lxc.Name(), // Use the container name as the hostid
-		"-r", series,
+		"-r", lxc.machine.Series(),
 	}
 	// Create the container.
 	if err := lxc.Container.Create(defaultTemplate, templateParams...); err != nil {
@@ -83,12 +84,12 @@ func (lxc *lxcContainer) Start() error {
 // Defer the Stop and Destroy methods to the composed lxc.Container
 
 func (lxc *lxcContainer) Directory() string {
-	return filepath.join(containerDir, lxc.Name())
+	return filepath.Join(containerDir, lxc.Name())
 }
 
 func (lxc *lxcContainer) userData(nonce string, tools *state.Tools, cfg *config.Config, cons constraints.Value) ([]byte, error) {
 	machineConfig := &cloudinit.MachineConfig{
-		MachineId:    lxc.machineId,
+		MachineId:    lxc.machine.Id(),
 		MachineNonce: nonce,
 		DataDir:      "/var/lib/juju",
 		Tools:        tools,
