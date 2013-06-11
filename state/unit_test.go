@@ -45,28 +45,47 @@ func (s *UnitSuite) TestService(c *C) {
 	c.Assert(svc.Name(), Equals, s.unit.ServiceName())
 }
 
-func (s *UnitSuite) TestServiceConfig(c *C) {
-	scfg, err := s.service.Config()
-	c.Assert(err, IsNil)
-	scfg.Update(map[string]interface{}{
-		"foo":        "bar",
-		"blog-title": "no title",
-	})
-	_, err = scfg.Write()
-	c.Assert(err, IsNil)
-
-	unit, err := s.service.AddUnit()
-	c.Assert(err, IsNil)
-
-	_, err = unit.ServiceConfig()
+func (s *UnitSuite) TestServiceConfigNeedsCharmURLSet(c *C) {
+	_, err := s.unit.ServiceConfig()
 	c.Assert(err, ErrorMatches, "unit charm not set")
+}
 
-	err = unit.SetCharmURL(s.charm.URL())
+func (s *UnitSuite) TestServiceConfigIncludesDefaults(c *C) {
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+	settings, err := s.unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+}
+
+func (s *UnitSuite) TestServiceConfigReflectsService(c *C) {
+	err := s.service.SetConfig(map[string]string{"blog-title": "no title"})
+	c.Assert(err, IsNil)
+	err = s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+	settings, err := s.unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{"blog-title": "no title"})
+}
+
+func (s *UnitSuite) TestServiceConfigReflectsCharm(c *C) {
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+	newCharm := s.AddConfigCharm(c, "wordpress", "options: {}", 123)
+	err = s.service.SetCharm(newCharm, false)
 	c.Assert(err, IsNil)
 
-	cfg, err := unit.ServiceConfig()
+	// Settings still reflect charm set on unit.
+	settings, err := s.unit.ServiceConfig()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, scfg.Map())
+	c.Assert(settings, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+
+	// When the unit has the new charm set, it'll see the new config.
+	err = s.unit.SetCharmURL(newCharm.URL())
+	c.Assert(err, IsNil)
+	settings, err = s.unit.ServiceConfig()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, map[string]interface{}{})
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {

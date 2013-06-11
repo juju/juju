@@ -264,7 +264,6 @@ var setCharmConfigTests = []struct {
 		startconfig: stringConfig,
 		startvalues: map[string]interface{}{"key": "value"},
 		endconfig:   floatConfig,
-		err:         `unexpected type in service configuration "key"="value"; expected float`,
 	},
 }
 
@@ -339,7 +338,7 @@ var serviceSetTests = []struct {
 }{{
 	about: "unknown option",
 	set:   serviceSet(map[string]string{"foo": "bar"}),
-	err:   `Unknown configuration option: "foo"`,
+	err:   `unknown option "foo"`,
 }, {
 	about: "set outlook",
 	set:   serviceSet(map[string]string{"outlook": "positive"}),
