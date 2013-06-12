@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -571,9 +572,9 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
-	cfg, err := ctx.Config()
+	settings, err := ctx.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
 	node, err := s.service.Config()
@@ -583,9 +584,9 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	c.Assert(err, IsNil)
 
 	// Local view is not changed.
-	cfg, err = ctx.Config()
+	settings, err = ctx.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
 type HookContextSuite struct {
