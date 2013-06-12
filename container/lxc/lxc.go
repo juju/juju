@@ -115,12 +115,13 @@ func (lxc *lxcContainer) Directory() string {
 
 func (lxc *lxcContainer) userData() ([]byte, error) {
 	machineConfig := &cloudinit.MachineConfig{
-		MachineId:    lxc.machineId,
-		MachineNonce: lxc.nonce,
-		StateInfo:    lxc.stateInfo,
-		APIInfo:      lxc.apiInfo,
-		DataDir:      "/var/lib/juju",
-		Tools:        lxc.tools,
+		MachineId:            lxc.machineId,
+		MachineNonce:         lxc.nonce,
+		MachineContainerType: "lxc",
+		StateInfo:            lxc.stateInfo,
+		APIInfo:              lxc.apiInfo,
+		DataDir:              "/var/lib/juju",
+		Tools:                lxc.tools,
 	}
 	// TODO(thumper): add mount points for the /var/lib/juju/tools dir and /var/log/juju for the machine logs.
 	if err := environs.FinishMachineConfig(machineConfig, lxc.environConfig, lxc.cons); err != nil {
