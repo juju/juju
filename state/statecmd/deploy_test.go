@@ -209,6 +209,7 @@ func (s *DeploySuite) TestConfigMap(c *C) {
 		CharmUrl: "local:dummy",
 		Config: map[string]string{
 			"skill-level": "1",
+			"username":    "",
 		},
 		NumUnits: 1,
 	}
@@ -220,8 +221,29 @@ func (s *DeploySuite) TestConfigMap(c *C) {
 	c.Assert(err, IsNil)
 	cfg, err := svc.Config()
 	c.Assert(err, IsNil)
-	skill, _ := cfg.Get("skill-level")
-	c.Assert(skill, Equals, int64(1))
+	c.Assert(cfg.Map(), DeepEquals, map[string]interface{}{
+		"skill-level": int64(1),
+	})
+}
+
+func (s *DeploySuite) TestConfigYAML(c *C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	args := params.ServiceDeploy{
+		CharmUrl:   "local:dummy",
+		ConfigYAML: "dummy: {skill-level: 9001, username: null}",
+		NumUnits:   1,
+	}
+	err := s.runDeploy(c, args)
+	c.Assert(err, IsNil)
+	curl := charm.MustParseURL("local:precise/dummy-1")
+	s.AssertService(c, "dummy", curl, 1, 0)
+	svc, err := s.State.Service("dummy")
+	c.Assert(err, IsNil)
+	cfg, err := svc.Config()
+	c.Assert(err, IsNil)
+	c.Assert(cfg.Map(), DeepEquals, map[string]interface{}{
+		"skill-level": int64(9001),
+	})
 }
 
 func (s *DeploySuite) TestConstraints(c *C) {

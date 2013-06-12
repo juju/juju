@@ -213,7 +213,7 @@ func opClientServiceSet(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientServiceSetYAML(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
+	err := st.Client().ServiceSetYAML("wordpress", `"wordpress": {"blog-title": "foo"}`)
 	if err != nil {
 		return func() {}, err
 	}
@@ -298,7 +298,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	originalServerCharmStore := apiserver.CharmStore
 	apiserver.CharmStore = repo
 
-	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "", constraints.Value{})
+	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "mywordpress: {}", constraints.Value{})
 	if err != nil {
 		return func() {}, err
 	}

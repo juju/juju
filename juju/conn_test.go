@@ -420,8 +420,8 @@ func (s *DeployLocalSuite) SetUpTest(c *C) {
 	s.seriesPath = filepath.Join(repoPath, s.defaultSeries)
 	err := os.Mkdir(s.seriesPath, 0777)
 	c.Assert(err, IsNil)
-	coretesting.Charms.BundlePath(s.seriesPath, "mysql")
-	s.charmUrl, err = charm.InferURL("local:mysql", s.defaultSeries)
+	coretesting.Charms.BundlePath(s.seriesPath, "wordpress")
+	s.charmUrl, err = charm.InferURL("local:wordpress", s.defaultSeries)
 	c.Assert(err, IsNil)
 }
 
@@ -430,16 +430,22 @@ func (s *DeployLocalSuite) TestDeploy(c *C) {
 	c.Assert(err, IsNil)
 	cons := constraints.MustParse("mem=4G")
 	args := juju.DeployServiceParams{
+		ServiceName: "bob",
 		Charm:       charm,
 		NumUnits:    3,
-		ServiceName: "bob",
 		Constraints: cons,
+		ConfigYAML:  "bob: {blog-title: aspidistra flagpole}",
 	}
 	svc, err := s.Conn.DeployService(args)
 	c.Assert(err, IsNil)
 	scons, err := svc.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(scons, DeepEquals, cons)
+	config, err := svc.Config()
+	c.Assert(err, IsNil)
+	c.Assert(config.Map(), DeepEquals, map[string]interface{}{
+		"blog-title": "aspidistra flagpole",
+	})
 
 	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)

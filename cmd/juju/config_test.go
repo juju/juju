@@ -5,7 +5,7 @@ package main
 
 import (
 	"bytes"
-	"os"
+	"io/ioutil"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -154,12 +154,11 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 	}
 }
 
-func setupConfigfile(c *C, dir string) {
+func setupConfigfile(c *C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
-	file, err := os.Create(path)
+	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
+	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, IsNil)
-	_, err = file.Write([]byte("skill-level: 9000\nusername: admin001\n\n"))
-	c.Assert(err, IsNil)
-	file.Close()
+	return path
 }
