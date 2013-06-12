@@ -1278,29 +1278,8 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	cw = s.State.WatchCleanups()
 	defer stop(c, cw)
 
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case _, ok := <-cw.Changes():
-			c.Fatalf("unexpected change; ok: %v", ok)
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	assertChanges := func(count int) {
-		s.State.StartSync()
-		for i := 0; i < count; i++ {
-			select {
-			case _, ok := <-cw.Changes():
-				c.Assert(ok, Equals, true)
-			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("timed out waiting for change")
-			}
-		}
-		assertNoChange()
-	}
-
 	// Check initial event.
-	assertChanges(1)
+	assertCleanupChange(c, s.State, cw)
 
 	// Adding relations doesn't emit events.
 	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
@@ -1311,55 +1290,101 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	c.Assert(err, IsNil)
 	relM, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	assertNoCleanupChange(c, s.State, cw)
 	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, IsNil)
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
 	c.Assert(err, IsNil)
 	relV, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	assertNoCleanupChange(c, s.State, cw)
 
 	// Destroy relations and cleanup.
 	err = relM.Destroy()
 	c.Assert(err, IsNil)
-	assertChanges(1)
+	assertCleanupChange(c, s.State, cw)
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
-	assertChanges(1)
+	assertCleanupChange(c, s.State, cw)
 	err = relV.Destroy()
 	c.Assert(err, IsNil)
-	assertChanges(1)
+	assertCleanupChange(c, s.State, cw)
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
-	assertChanges(1)
+	assertCleanupChange(c, s.State, cw)
 
 	// Verify that Cleanup() doesn't emit unnecessary events.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
-	assertNoChange()
+	assertNoCleanupChange(c, s.State, cw)
 
 	// Not calling Cleanup() queues up the changes.
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, IsNil)
 	relM, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	assertNoCleanupChange(c, s.State, cw)
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
 	c.Assert(err, IsNil)
 	relV, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	assertNoCleanupChange(c, s.State, cw)
 	err = relM.Destroy()
 	c.Assert(err, IsNil)
 	err = relV.Destroy()
 	c.Assert(err, IsNil)
-	assertChanges(2)
+	assertCleanupChange(c, s.State, cw)
 
 	// Cleanup() deletes each document in an extra transaction which
 	// leads to multiple events. This behavior will be changed in a
 	// follow-up.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
-	assertChanges(2)
+	assertCleanupChange(c, s.State, cw)
+}
+
+func (s *StateSuite) TestWatchCleanupsPeer(c *C) {
+	cw := s.State.WatchCleanups()
+	defer stop(c, cw)
+
+	// Check initial event.
+	assertCleanupChange(c, s.State, cw)
+
+	// Adding services with peer relation doesn't emit events.
+	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	c.Assert(err, IsNil)
+	_, err = riak.Endpoint("ring")
+	c.Assert(err, IsNil)
+	allHooks, err := s.State.AddService("all-hooks", s.AddTestingCharm(c, "all-hooks"))
+	c.Assert(err, IsNil)
+	_, err = allHooks.Endpoint("self")
+	c.Assert(err, IsNil)
+	assertNoCleanupChange(c, s.State, cw)
+
+	// Destroying the services emits one event.
+	err = riak.Destroy()
+	c.Assert(err, IsNil)
+	err = allHooks.Destroy()
+	c.Assert(err, IsNil)
+	assertCleanupChange(c, s.State, cw)
+}
+
+func assertNoCleanupChange(c *C, st *state.State, cw *state.CleanupWatcher) {
+	st.Sync()
+	select {
+	case _, ok := <-cw.Changes():
+		c.Fatalf("unexpected change; ok: %v", ok)
+	case <-time.After(50 * time.Millisecond):
+	}
+}
+
+func assertCleanupChange(c *C, st *state.State, cw *state.CleanupWatcher) {
+	st.Sync()
+	select {
+	case _, ok := <-cw.Changes():
+		c.Assert(ok, Equals, true)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("timed out waiting for change")
+	}
+	assertNoCleanupChange(c, st, cw)
 }

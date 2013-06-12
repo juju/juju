@@ -52,7 +52,10 @@ func (c *Cleaner) loop() error {
 		select {
 		case <-c.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.Changes():
+		case _, ok := <-w.Changes():
+			if !ok {
+				return watcher.MustErr(w)
+			}
 			if err := c.st.Cleanup(); err != nil {
 				return err
 			}

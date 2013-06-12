@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/cleaner"
 	stdtesting "testing"
+	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -45,9 +46,7 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(needed, Equals, false)
 
-	// Observe destroying of the relation with a watcher. After waiting
-	// for the initial event the relation is destroyed. This raises one
-	// event for the destroying and one for the cleanup.
+	// Observe destroying of the relation with a watcher.
 	cw := s.State.WatchCleanups()
 	defer func() { c.Assert(cw.Stop(), IsNil) }()
 
@@ -56,12 +55,22 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 
 	err = relM.Destroy()
 	c.Assert(err, IsNil)
+	s.State.Sync()
 
-	s.State.StartSync()
-	_, ok = <-cw.Changes()
-	c.Assert(ok, Equals, true)
-	_, ok = <-cw.Changes()
-	c.Assert(ok, Equals, true)
+	timeout := time.After(5500 * time.Millisecond)
+	for {
+		select {
+		case <-timeout:
+			c.Fatalf("timed out waiting for cleanup")
+		case <-cw.Changes():
+			needed, err = s.State.NeedsCleanup()
+			c.Assert(err, IsNil)
+			if needed {
+				continue
+			}
+		}
+		break
+	}
 
 	// Cleanup is done, so not needed anymore.
 	needed, err = s.State.NeedsCleanup()
