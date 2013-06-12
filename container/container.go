@@ -3,10 +3,21 @@
 
 package container
 
+import (
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+)
+
 // A Container represents a containerized virtual machine.
 type Container interface {
 	Name() string
-	Create() error
+	Create(
+		series, nonce string,
+		tools *state.Tools,
+		environConfig *config.Config,
+		stateInfo *state.Info,
+		apiInfo *api.Info) error
 	Start() error
 	Stop() error
 	Destroy() error

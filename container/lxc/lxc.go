@@ -4,6 +4,7 @@
 package lxc
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -28,53 +29,37 @@ var (
 
 type lxcContainer struct {
 	*golxc.Container
-	machineId     string
-	series        string
-	nonce         string
-	tools         *state.Tools
-	environConfig *config.Config
-	stateInfo     *state.Info
-	apiInfo       *api.Info
-	cons          constraints.Value
+	machineId string
 }
 
 // TODO(thumper): care about constraints...
-func NewContainer(
-	machineId, series, nonce string,
+func NewContainer(machineId string) (container.Container, error) {
+	name := state.MachineTag(machineId)
+	return &lxcContainer{
+		Container: golxc.New(name),
+		machineId: machineId,
+	}, nil
+}
+
+func (lxc *lxcContainer) Create(
+	series, nonce string,
 	tools *state.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info,
-) (container.Container, error) {
-	name := state.MachineTag(machineId)
-	return &lxcContainer{
-		Container:     golxc.New(name),
-		machineId:     machineId,
-		series:        series,
-		nonce:         nonce,
-		tools:         tools,
-		environConfig: environConfig,
-		stateInfo:     stateInfo,
-		apiInfo:       apiInfo,
-	}, nil
-}
-
-func (lxc *lxcContainer) Create() error {
+) error {
 	// Create the cloud-init.
 	directory := lxc.Directory()
 	if err := os.MkdirAll(directory, 0755); err != nil {
 		logger.Errorf("failed to create container directory: %v", err)
 		return err
 	}
-	// Write the userData to a temp file and use that filename as a start template param
-	userData, err := lxc.userData()
-	if err != nil {
-		logger.Errorf("failed to create user data: %v", err)
+	if err := lxc.WriteConfig(); err != nil {
+		logger.Errorf("failed to write config file: %v", err)
 		return err
 	}
-
-	userDataFilename := filepath.Join(directory, "cloud-init")
-	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
+	userDataFilename, err := lxc.WriteUserData(nonce, tools, environConfig, stateInfo, apiInfo)
+	if err != nil {
 		logger.Errorf("failed to write user data: %v", err)
 		return err
 	}
@@ -82,11 +67,16 @@ func (lxc *lxcContainer) Create() error {
 		"--debug",                      // Debug errors in the cloud image
 		"--userdata", userDataFilename, // Our groovey cloud-init
 		"--hostid", lxc.Name(), // Use the container name as the hostid
-		"-r", lxc.series,
+		"-r", series,
 	}
 	// Create the container.
 	if err := lxc.Container.Create(defaultTemplate, templateParams...); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
+		return err
+	}
+	// Make sure that the mount dir has been created.
+	if err := os.MkdirAll(lxc.InternalLogDir(), 0755); err != nil {
+		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
 		return err
 	}
 	return nil
@@ -113,18 +103,69 @@ func (lxc *lxcContainer) Directory() string {
 	return filepath.Join(containerDir, lxc.Name())
 }
 
-func (lxc *lxcContainer) userData() ([]byte, error) {
+const internalLogDir = "/var/lib/lxc/%s/rootfs/var/log/juju"
+
+func (lxc *lxcContainer) InternalLogDir() string {
+	return fmt.Sprintf(internalLogDir, lxc.Name())
+}
+
+const localConfig = `
+lxc.network.type = veth
+lxc.network.link = lxcbr0
+lxc.network.flags = up
+
+lxc.mount.entry=/var/log/juju %s none defaults,bind 0 0
+`
+
+func (lxc *lxcContainer) WriteConfig() error {
+	// TODO(thumper): support different network settings.
+	config := fmt.Sprintf(localConfig, lxc.InternalLogDir())
+	configFilename := filepath.Join(lxc.Directory(), "lxc.conf")
+	if err := ioutil.WriteFile(configFilename, []byte(config), 0644); err != nil {
+		return err
+	}
+	lxc.Container.ConfigFile = configFilename
+	return nil
+}
+
+func (lxc *lxcContainer) WriteUserData(
+	nonce string,
+	tools *state.Tools,
+	environConfig *config.Config,
+	stateInfo *state.Info,
+	apiInfo *api.Info,
+) (string, error) {
+	userData, err := lxc.userData(nonce, tools, environConfig, stateInfo, apiInfo)
+	if err != nil {
+		logger.Errorf("failed to create user data: %v", err)
+		return "", err
+	}
+	userDataFilename := filepath.Join(lxc.Directory(), "cloud-init")
+	if err := ioutil.WriteFile(userDataFilename, userData, 0644); err != nil {
+		logger.Errorf("failed to write user data: %v", err)
+		return "", err
+	}
+	return userDataFilename, nil
+}
+
+func (lxc *lxcContainer) userData(
+	nonce string,
+	tools *state.Tools,
+	environConfig *config.Config,
+	stateInfo *state.Info,
+	apiInfo *api.Info,
+) ([]byte, error) {
 	machineConfig := &cloudinit.MachineConfig{
 		MachineId:            lxc.machineId,
-		MachineNonce:         lxc.nonce,
+		MachineNonce:         nonce,
 		MachineContainerType: "lxc",
-		StateInfo:            lxc.stateInfo,
-		APIInfo:              lxc.apiInfo,
+		StateInfo:            stateInfo,
+		APIInfo:              apiInfo,
 		DataDir:              "/var/lib/juju",
-		Tools:                lxc.tools,
+		Tools:                tools,
 	}
 	// TODO(thumper): add mount points for the /var/lib/juju/tools dir and /var/log/juju for the machine logs.
-	if err := environs.FinishMachineConfig(machineConfig, lxc.environConfig, lxc.cons); err != nil {
+	if err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{}); err != nil {
 		return nil, err
 	}
 	cloudConfig, err := cloudinit.New(machineConfig)
