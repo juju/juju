@@ -238,6 +238,12 @@ func (m *Machine) Containers() ([]string, error) {
 	return nil, err
 }
 
+// ParentId returns the Id of the host machine if this machine is a container.
+func (m *Machine) ParentId() (string, bool) {
+	parentId := parentId(m.Id())
+	return parentId, parentId != ""
+}
+
 type HasContainersError struct {
 	MachineId    string
 	ContainerIds []string
