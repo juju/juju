@@ -35,10 +35,10 @@ func (s *MachineSuite) TestContainerDefaults(c *C) {
 	c.Assert(containers, DeepEquals, []string(nil))
 }
 
-func (s *MachineSuite) TestParent(c *C) {
-	parent, err := s.machine.Parent()
-	c.Assert(err, IsNil)
-	c.Assert(parent, IsNil)
+func (s *MachineSuite) TestParentId(c *C) {
+	parentId, ok := s.machine.ParentId()
+	c.Assert(parentId, Equals, "")
+	c.Assert(ok, Equals, false)
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
 		ContainerType: state.LXC,
@@ -47,9 +47,9 @@ func (s *MachineSuite) TestParent(c *C) {
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	parent, err = container.Parent()
-	c.Assert(err, IsNil)
-	c.Assert(parent.Id(), Equals, s.machine.Id())
+	parentId, ok = container.ParentId()
+	c.Assert(parentId, Equals, s.machine.Id())
+	c.Assert(ok, Equals, true)
 }
 
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {

@@ -238,12 +238,9 @@ func (m *Machine) Containers() ([]string, error) {
 	return nil, err
 }
 
-func (m *Machine) Parent() (*Machine, error) {
+func (m *Machine) ParentId() (string, bool) {
 	parentId := parentId(m.Id())
-	if parentId == "" {
-		return nil, nil
-	}
-	return m.st.Machine(parentId)
+	return parentId, parentId != ""
 }
 
 type HasContainersError struct {
