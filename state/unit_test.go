@@ -66,6 +66,12 @@ func (s *UnitSuite) TestConfigSettingsReflectService(c *C) {
 	settings, err := s.unit.ConfigSettings()
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "no title"})
+
+	err = s.service.SetConfig(map[string]string{"blog-title": "ironic title"})
+	c.Assert(err, IsNil)
+	settings, err = s.unit.ConfigSettings()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "ironic title"})
 }
 
 func (s *UnitSuite) TestConfigSettingsReflectCharm(c *C) {
@@ -86,6 +92,75 @@ func (s *UnitSuite) TestConfigSettingsReflectCharm(c *C) {
 	settings, err = s.unit.ConfigSettings()
 	c.Assert(err, IsNil)
 	c.Assert(settings, DeepEquals, charm.Settings{})
+}
+
+func (s *UnitSuite) TestWatchConfigSettingsNeedsCharmURL(c *C) {
+	_, err := s.unit.WatchConfigSettings()
+	c.Assert(err, ErrorMatches, "unit charm not set")
+}
+
+func (s *UnitSuite) TestWatchConfigSettings(c *C) {
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+	w, err := s.unit.WatchConfigSettings()
+	c.Assert(err, IsNil)
+	defer stop(c, w)
+
+	// Check initial event.
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case <-w.Changes():
+			c.Fatalf("unexpected change")
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertChange := func() {
+		s.State.Sync()
+		select {
+		case <-w.Changes():
+		case <-time.After(500 * time.Millisecond):
+			c.Fatalf("change not received")
+		}
+		assertNoChange()
+	}
+	assertChange()
+
+	// Update config a couple of times, check a single event.
+	err = s.service.SetConfig(map[string]string{
+		"blog-title": "superhero paparazzi",
+	})
+	c.Assert(err, IsNil)
+	err = s.service.SetConfig(map[string]string{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, IsNil)
+	assertChange()
+
+	// Non-change is not reported.
+	err = s.service.SetConfig(map[string]string{
+		"blog-title": "sauceror central",
+	})
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Change service's charm; nothing detected.
+	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
+	err = s.service.SetCharm(newCharm, false)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Change service config for new charm; nothing detected.
+	err = s.service.SetConfig(map[string]string{
+		"key": "42.0",
+	})
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// NOTE: if we were to change the unit to use the new charm, we'd see
+	// another event, because the originally-watched document will become
+	// unreferenced and be removed. But I'm not testing that behaviour
+	// because it's not very helpful and subject to change.
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
