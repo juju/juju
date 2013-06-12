@@ -580,6 +580,7 @@ func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	err = s.service.UpdateConfigSettings(charm.Settings{
 		"blog-title": "Something Else",
 	})
+	c.Assert(err, IsNil)
 
 	// Local view is not changed.
 	settings, err = ctx.ConfigSettings()
