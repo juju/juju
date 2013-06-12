@@ -1,12 +1,16 @@
+// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package charm
 
 import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strconv"
+
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/schema"
-	"strconv"
 )
 
 // Settings is a group of charm config option names and values. A Settings
@@ -37,15 +41,10 @@ func (option Option) validate(name string, value interface{}) (_ interface{}, er
 		return nil, nil
 	}
 	defer option.error(&err, name, value)
-	if checker := map[string]schema.Checker{
-		"string":  schema.String(),
-		"int":     schema.Int(),
-		"float":   schema.Float(),
-		"boolean": schema.Bool(),
-	}[option.Type]; checker != nil {
+	if checker := optionTypeCheckers[option.Type]; checker != nil {
 		if value, err = checker.Coerce(value, nil); err != nil {
 			return nil, err
-		} else if str, ok := value.(string); ok && str == "" {
+		} else if value == "" {
 			value = nil
 		}
 		return value, nil
@@ -53,9 +52,16 @@ func (option Option) validate(name string, value interface{}) (_ interface{}, er
 	panic(fmt.Errorf("option %q has unknown type %q", name, option.Type))
 }
 
+var optionTypeCheckers = map[string]schema.Checker{
+	"string":  schema.String(),
+	"int":     schema.Int(),
+	"float":   schema.Float(),
+	"boolean": schema.Bool(),
+}
+
 // parse returns an appropriately-typed value for the supplied string, or
 // returns an error if it cannot be parsed to the correct type. Empty
-// strings are always returned as nil values.
+// string values are returned as nil.
 func (option Option) parse(name, str string) (_ interface{}, err error) {
 	if str == "" {
 		return nil, nil
@@ -80,7 +86,7 @@ type Config struct {
 	Options map[string]Option
 }
 
-// NewConfig returns a new Config.
+// NewConfig returns a new Config without any options.
 func NewConfig() *Config {
 	return &Config{map[string]Option{}}
 }
@@ -162,9 +168,9 @@ func (c *Config) FilterSettings(settings Settings) Settings {
 	return out
 }
 
-// ParseSettingsStrings returns valid settings derived from the supplied map,
-// or an error. Every value in the map must be parseable to the correct type
-// for the option identified by its key; empty string values are set to nil.
+// ParseSettingsStrings returns settings derived from the supplied map. Every
+// value in the map must be parseable to the correct type for the option
+// identified by its key. Empty values are interpreted as nil.
 func (c *Config) ParseSettingsStrings(values map[string]string) (Settings, error) {
 	out := make(Settings)
 	for name, str := range values {
@@ -181,11 +187,11 @@ func (c *Config) ParseSettingsStrings(values map[string]string) (Settings, error
 	return out, nil
 }
 
-// ParseSettingsYAML returns valid settings derived from the supplied YAML, or
-// an error. The YAML must unmarshal to a map of strings to settings data; the
-// supplied key must be present in the map, and must point to a map in which
-// every value must have, or be a string parseable to, the correct type for the
-// associated config option. Empty string and nil values are both set to nil.
+// ParseSettingsYAML returns settings derived from the supplied YAML data. The
+// YAML must unmarshal to a map of strings to settings data; the supplied key
+// must be present in the map, and must point to a map in which every value
+// must have, or be a string parseable to, the correct type for the associated
+// config option. Empty strings and nil values are both interpreted as nil.
 func (c *Config) ParseSettingsYAML(yamlData []byte, key string) (Settings, error) {
 	var allSettings map[string]Settings
 	if err := goyaml.Unmarshal(yamlData, &allSettings); err != nil {
