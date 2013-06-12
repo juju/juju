@@ -10,7 +10,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
 	"strconv"
@@ -29,6 +28,7 @@ var _ = Suite(&TrivialSuite{})
 type StoreSuite struct {
 	MgoSuite
 	testing.HTTPSuite
+	testing.LoggingSuite
 	store *store.Store
 }
 
@@ -37,23 +37,25 @@ type TrivialSuite struct{}
 func (s *StoreSuite) SetUpSuite(c *C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
+	s.LoggingSuite.SetUpSuite(c)
 }
 
 func (s *StoreSuite) TearDownSuite(c *C) {
+	s.LoggingSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
 func (s *StoreSuite) SetUpTest(c *C) {
 	s.MgoSuite.SetUpTest(c)
+	s.LoggingSuite.SetUpTest(c)
 	var err error
 	s.store, err = store.Open(s.Addr)
 	c.Assert(err, IsNil)
-	log.SetTarget(c)
-	log.Debug = true
 }
 
 func (s *StoreSuite) TearDownTest(c *C) {
+	s.LoggingSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 	if s.store != nil {
 		s.store.Close()

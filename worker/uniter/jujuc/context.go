@@ -5,6 +5,7 @@ package jujuc
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/charm"
 	"strconv"
 	"strings"
 )
@@ -32,7 +33,7 @@ type Context interface {
 	ClosePort(protocol string, port int) error
 
 	// Config returns the current service configuration of the executing unit.
-	Config() (map[string]interface{}, error)
+	ConfigSettings() (charm.Settings, error)
 
 	// HookRelation returns the ContextRelation associated with the executing
 	// hook if it was found, and whether it was found.

@@ -292,7 +292,7 @@ func repoNotFound(path string) error {
 }
 
 func charmNotFound(curl *URL, repoPath string) error {
-	return &NotFoundError{fmt.Sprintf("no charms found matching %q in %s", curl, repoPath)}
+	return &NotFoundError{fmt.Sprintf("charm not found in %q: %s", repoPath, curl)}
 }
 
 func mightBeCharm(info os.FileInfo) bool {

@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
@@ -46,7 +47,15 @@ func (c *srvClient) ServiceSet(p params.ServiceSet) error {
 	if err != nil {
 		return err
 	}
-	return svc.SetConfig(p.Options)
+	ch, _, err := svc.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsStrings(p.Options)
+	if err != nil {
+		return err
+	}
+	return svc.UpdateConfigSettings(changes)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
@@ -55,7 +64,15 @@ func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
 	if err != nil {
 		return err
 	}
-	return svc.SetConfigYAML([]byte(p.Config))
+	ch, _, err := svc.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsYAML([]byte(p.Config), p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.UpdateConfigSettings(changes)
 }
 
 // ServiceGet returns the configuration for a service.
@@ -86,36 +103,50 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 
 var CharmStore charm.Repository = charm.Store
 
-// ServiceDeploy fetches the charm from the charm store and deploys it.  Local
+// ServiceDeploy fetches the charm from the charm store and deploys it. Local
 // charms are not supported.
 func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
-	state := c.root.srv.state
-	conf, err := state.EnvironConfig()
+	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
+	if curl.Schema != "cs" {
+		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+	}
+	if curl.Revision < 0 {
+		return fmt.Errorf("charm url must include revision")
+	}
+	conn, err := juju.NewConnFromState(c.root.srv.state)
 	if err != nil {
 		return err
 	}
-	conn, err := juju.NewConnFromState(state)
+	ch, err := conn.PutCharm(curl, CharmStore, false)
 	if err != nil {
 		return err
 	}
-	if args.NumUnits == 0 {
-		args.NumUnits = 1
+	var settings charm.Settings
+	if len(args.ConfigYAML) > 0 {
+		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
+	} else if len(args.Config) > 0 {
+		settings, err = ch.Config().ParseSettingsStrings(args.Config)
 	}
-	serviceName := args.ServiceName
-	if serviceName == "" {
-		serviceName = curl.Name
+	if err != nil {
+		return err
 	}
-	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
+	_, err = conn.DeployService(juju.DeployServiceParams{
+		ServiceName:    args.ServiceName,
+		Charm:          ch,
+		NumUnits:       args.NumUnits,
+		ConfigSettings: settings,
+		Constraints:    args.Constraints,
+		ForceMachineId: args.ForceMachineId,
+	})
+	return err
 }
 
 // ServiceSetCharm sets the charm for a given service.
 func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
-	state := c.root.srv.state
-	service, err := state.Service(args.ServiceName)
+	service, err := c.root.srv.state.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -123,18 +154,21 @@ func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return err
 	}
-	if curl.Revision == -1 {
-		return fmt.Errorf("a full charm URL including revision must be specified")
-	}
 	if curl.Schema != "cs" {
-		return fmt.Errorf(`the schema "cs" must be specified for setting a charm`)
+		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
 	}
-	conn, err := juju.NewConnFromState(state)
+	if curl.Revision < 0 {
+		return fmt.Errorf("charm url must include revision")
+	}
+	conn, err := juju.NewConnFromState(c.root.srv.state)
 	if err != nil {
 		return err
 	}
-	// Set bumpRevision to false when working with the CharmStore.
-	return statecmd.ServiceUpgradeCharm(state, service, conn, curl, CharmStore, args.Force, false)
+	ch, err := conn.PutCharm(curl, CharmStore, false)
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(ch, args.Force)
 }
 
 // AddServiceUnits adds a given number of units to a service.

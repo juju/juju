@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
@@ -197,23 +197,7 @@ var runHookTests = []struct {
 	},
 }
 
-type logRecorder struct {
-	c      *C
-	prefix string
-	lines  []string
-}
-
-func (l *logRecorder) Output(calldepth int, s string) error {
-	if strings.HasPrefix(s, l.prefix) {
-		l.lines = append(l.lines, s[len(l.prefix):])
-	}
-	l.c.Logf("%s", s)
-	return nil
-}
-
 func (s *RunHookSuite) TestRunHook(c *C) {
-	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
-	defer log.SetTarget(log.SetTarget(logger))
 	uuid, err := utils.NewUUID()
 	c.Assert(err, IsNil)
 	for i, t := range runHookTests {
@@ -229,7 +213,6 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			charmDir, outPath = makeCharm(c, spec)
 		}
 		toolsDir := c.MkDir()
-		logger.lines = nil
 		t0 := time.Now()
 		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
 		if t.err == "" {
@@ -244,17 +227,9 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			}
 			AssertEnv(c, outPath, charmDir, env, uuid.String())
 		}
-		var expectLog []string
-		if t.spec.stdout != "" {
-			expectLog = append(expectLog, splitLine(t.spec.stdout)...)
-		}
-		if t.spec.stderr != "" {
-			expectLog = append(expectLog, splitLine(t.spec.stderr)...)
-		}
 		if t.spec.background != "" && time.Now().Sub(t0) > 5*time.Second {
 			c.Errorf("background process holding up hook execution")
 		}
-		c.Assert(logger.lines, DeepEquals, expectLog)
 	}
 }
 
@@ -597,21 +572,20 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
-	cfg, err := ctx.Config()
+	settings, err := ctx.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	node, err := s.service.Config()
-	c.Assert(err, IsNil)
-	node.Set("blog-title", "Something Else")
-	_, err = node.Write()
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "Something Else",
+	})
 	c.Assert(err, IsNil)
 
 	// Local view is not changed.
-	cfg, err = ctx.Config()
+	settings, err = ctx.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
 type HookContextSuite struct {

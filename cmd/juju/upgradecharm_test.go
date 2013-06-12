@@ -46,7 +46,7 @@ func (s *UpgradeCharmErrorsSuite) TestWithInvalidRepository(c *C) {
 	// overwrites it (TearDownTest will revert it again).
 	os.Setenv("JUJU_REPOSITORY", "")
 	err = runUpgradeCharm(c, "riak", "--repository=")
-	c.Assert(err, ErrorMatches, `no charms found matching "local:precise/riak" in .*`)
+	c.Assert(err, ErrorMatches, `charm not found in ".*": local:precise/riak`)
 }
 
 func (s *UpgradeCharmErrorsSuite) TestInvalidService(c *C) {

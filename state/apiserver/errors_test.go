@@ -9,8 +9,15 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/testing"
 )
+
+type errorsSuite struct {
+	testing.LoggingSuite
+}
+
+var _ = Suite(&errorsSuite{})
 
 var errorTransformTests = []struct {
 	err  error
@@ -34,25 +41,25 @@ var errorTransformTests = []struct {
 	err:  state.ErrUnitHasSubordinates,
 	code: api.CodeUnitHasSubordinates,
 }, {
-	err:  apiserver.ErrBadId,
+	err:  common.ErrBadId,
 	code: api.CodeNotFound,
 }, {
-	err:  apiserver.ErrBadCreds,
+	err:  common.ErrBadCreds,
 	code: api.CodeUnauthorized,
 }, {
-	err:  apiserver.ErrPerm,
+	err:  common.ErrPerm,
 	code: api.CodeUnauthorized,
 }, {
-	err:  apiserver.ErrNotLoggedIn,
+	err:  common.ErrNotLoggedIn,
 	code: api.CodeUnauthorized,
 }, {
-	err:  apiserver.ErrUnknownWatcher,
+	err:  common.ErrUnknownWatcher,
 	code: api.CodeNotFound,
 }, {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?! nah..
 	code: api.CodeNotAssigned,
 }, {
-	err:  apiserver.ErrStoppedWatcher,
+	err:  common.ErrStoppedWatcher,
 	code: api.CodeStopped,
 }, {
 	err:  &state.HasAssignedUnitsError{"42", []string{"a"}},
@@ -60,16 +67,19 @@ var errorTransformTests = []struct {
 }, {
 	err:  stderrors.New("an error"),
 	code: "",
+}, {
+	err:  nil,
+	code: "",
 }}
 
-func (s *suite) TestErrorTransform(c *C) {
+func (s *errorsSuite) TestErrorTransform(c *C) {
 	for _, t := range errorTransformTests {
-		err1 := apiserver.ServerError(t.err)
-		c.Assert(err1.Error(), Equals, t.err.Error())
-		if t.code != "" {
-			c.Assert(api.ErrCode(err1), Equals, t.code)
+		err1 := common.ServerError(t.err)
+		if t.err == nil {
+			c.Assert(err1, IsNil)
 		} else {
-			c.Assert(err1, Equals, t.err)
+			c.Assert(err1.Message, Equals, t.err.Error())
+			c.Assert(err1.Code, Equals, t.code)
 		}
 	}
 }

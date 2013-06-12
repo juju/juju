@@ -5,14 +5,17 @@ package apiserver_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/apiserver"
-	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 )
+
+type permSuite struct {
+	baseSuite
+}
+
+var _ = Suite(&permSuite{})
 
 // Most (if not all) of the permission tests below aim to test
 // end-to-end operations execution through the API, but do not care
@@ -61,8 +64,8 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
-	about: "Client.ServiceUpgradeCharm",
-	op:    opClientServiceUpgradeCharm,
+	about: "Client.ServiceSetCharm",
+	op:    opClientServiceSetCharm,
 	allow: []string{"user-admin", "user-other"},
 }, {
 	about: "Client.GetAnnotations",
@@ -133,7 +136,7 @@ loop:
 	return p
 }
 
-func (s *suite) TestOperationPerm(c *C) {
+func (s *permSuite) TestOperationPerm(c *C) {
 	entities := s.setUpScenario(c)
 	for i, t := range operationPermTests {
 		allow := allowed(entities, t.allow, t.deny)
@@ -211,7 +214,7 @@ func opClientServiceSet(c *C, st *api.State, mst *state.State) (func(), error) {
 }
 
 func opClientServiceSetYAML(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceSetYAML("wordpress", `"blog-title": "foo"`)
+	err := st.Client().ServiceSetYAML("wordpress", `"wordpress": {"blog-title": "foo"}`)
 	if err != nil {
 		return func() {}, err
 	}
@@ -286,30 +289,15 @@ func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 }
 
 func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
-	// We are cheating and using a local repo only.
-
-	// Set the CharmStore to the test repository.
-	serviceName := "mywordpress"
-	charmUrl := "local:series/wordpress"
-	parsedUrl := charm.MustParseURL(charmUrl)
-	repo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
-	originalServerCharmStore := apiserver.CharmStore
-	apiserver.CharmStore = repo
-
-	err = st.Client().ServiceDeploy(charmUrl, serviceName, 1, "", constraints.Value{})
-	if err != nil {
-		return func() {}, err
+	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{})
+	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
+		err = nil
 	}
-	return func() {
-		apiserver.CharmStore = originalServerCharmStore
-		service, err := mst.Service(serviceName)
-		c.Assert(err, IsNil)
-		removeServiceAndUnits(c, service)
-	}, nil
+	return func() {}, err
 }
 
-func opClientServiceUpgradeCharm(c *C, st *api.State, mst *state.State) (func(), error) {
-	err := st.Client().ServiceUpgradeCharm("nosuch", "local:series/wordpress", false)
+func opClientServiceSetCharm(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
 	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}

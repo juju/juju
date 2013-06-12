@@ -48,7 +48,7 @@ var marshalTestCases = []struct {
 			CharmURL:    "cs:series/name",
 			Life:        params.Life(state.Dying.String()),
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
-			Config: map[string]interface{}{
+			Config: charm.Settings{
 				"hello": "goodbye",
 				"foo":   false,
 			},
