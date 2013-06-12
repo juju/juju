@@ -39,7 +39,7 @@ var initErrorTests = []struct {
 		err:  `invalid service name "burble-1"`,
 	}, {
 		args: []string{"craziness", "burble1", "-n", "0"},
-		err:  `must deploy at least one unit`,
+		err:  `--num-units must be a positive integer`,
 	}, {
 		args: []string{"craziness", "burble1", "--force-machine", "bigglesplop"},
 		err:  `invalid machine id "bigglesplop"`,
@@ -151,7 +151,7 @@ func (s *DeploySuite) TestConstraints(c *C) {
 func (s *DeploySuite) TestSubordinateConstraints(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging", "--constraints", "mem=1G")
-	c.Assert(err, ErrorMatches, "cannot specify constraints for subordinate service")
+	c.Assert(err, ErrorMatches, "cannot use --constraints with subordinate service")
 }
 
 func (s *DeploySuite) TestNumUnits(c *C) {
@@ -165,7 +165,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 func (s *DeploySuite) TestNumUnitsSubordinate(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "--num-units", "3", "local:logging")
-	c.Assert(err, ErrorMatches, `cannot specify units for subordinate service`)
+	c.Assert(err, ErrorMatches, "cannot use --num-units or --force-machine with subordinate service")
 	_, err = s.State.Service("dummy")
 	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }
@@ -199,7 +199,7 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *C) {
 	c.Assert(err, IsNil)
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "--force-machine", machine.Id(), "local:logging")
-	c.Assert(err, ErrorMatches, `cannot specify units for subordinate service`)
+	c.Assert(err, ErrorMatches, "cannot use --num-units or --force-machine with subordinate service")
 	_, err = s.State.Service("dummy")
 	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }

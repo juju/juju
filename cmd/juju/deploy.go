@@ -89,7 +89,7 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 	if c.NumUnits < 1 {
-		return errors.New("must deploy at least one unit")
+		return errors.New("--num-units must be a positive integer")
 	}
 	if c.ForceMachineId != "" {
 		if c.NumUnits > 1 {
@@ -133,12 +133,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if ch.Meta().Subordinate {
 		empty := constraints.Value{}
 		if c.Constraints != empty {
-			return errors.New("cannot specify constraints for subordinate service")
+			return errors.New("cannot use --constraints with subordinate service")
 		}
 		if numUnits == 1 && c.ForceMachineId == "" {
 			numUnits = 0
 		} else {
-			return errors.New("cannot specify units for subordinate service")
+			return errors.New("cannot use --num-units or --force-machine with subordinate service")
 		}
 	}
 	serviceName := c.ServiceName

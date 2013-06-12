@@ -302,120 +302,119 @@ func (s *clientSuite) TestClientUnitResolved(c *C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployCharmErrors(c *C) {
-	withMockCharmStore(func(store *coretesting.MockCharmStore) {
-		for url, expect := range map[string]string{
-			// TODO(fwereade) make these errors consistent one day.
-			"wordpress":                      `charm URL has invalid schema: "wordpress"`,
-			"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
-			"cs:precise/wordpress":           "charm url must include revision",
-			"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
-			"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
-		} {
-			c.Logf("test %s", url)
-			err := s.APIState.Client().ServiceDeploy(
-				url, "service", 1, "", constraints.Value{},
-			)
-			c.Check(err, ErrorMatches, expect)
-			_, err = s.State.Service("service")
-			c.Assert(errors.IsNotFoundError(err), Equals, true)
-		}
-	})
+	_, restore := makeMockCharmStore()
+	defer restore()
+	for url, expect := range map[string]string{
+		// TODO(fwereade) make these errors consistent one day.
+		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
+		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
+		"cs:precise/wordpress":           "charm url must include revision",
+		"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
+		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
+	} {
+		c.Logf("test %s", url)
+		err := s.APIState.Client().ServiceDeploy(
+			url, "service", 1, "", constraints.Value{},
+		)
+		c.Check(err, ErrorMatches, expect)
+		_, err = s.State.Service("service")
+		c.Assert(errors.IsNotFoundError(err), Equals, true)
+	}
 }
 
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *C) {
 	// TODO(fwereade): test ForceMachineId directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
-	withMockCharmStore(func(store *coretesting.MockCharmStore) {
-		curl, bundle := addCharm(c, store, "dummy")
-		mem4g := constraints.MustParse("mem=4G")
-		err := s.APIState.Client().ServiceDeploy(
-			curl.String(), "service", 3, "", mem4g,
-		)
-		c.Assert(err, IsNil)
-		service, err := s.State.Service("service")
-		c.Assert(err, IsNil)
-		charm, force, err := service.Charm()
-		c.Assert(err, IsNil)
-		c.Assert(force, Equals, false)
-		c.Assert(charm.URL(), DeepEquals, curl)
-		c.Assert(charm.Meta(), DeepEquals, bundle.Meta())
-		c.Assert(charm.Config(), DeepEquals, bundle.Config())
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", mem4g,
+	)
+	c.Assert(err, IsNil)
+	service, err := s.State.Service("service")
+	c.Assert(err, IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
+	c.Assert(charm.URL(), DeepEquals, curl)
+	c.Assert(charm.Meta(), DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), DeepEquals, bundle.Config())
 
-		cons, err := service.Constraints()
+	cons, err := service.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mem4g)
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		cons, err := machine.Constraints()
 		c.Assert(err, IsNil)
 		c.Assert(cons, DeepEquals, mem4g)
-		units, err := service.AllUnits()
-		c.Assert(err, IsNil)
-		for _, unit := range units {
-			mid, err := unit.AssignedMachineId()
-			c.Assert(err, IsNil)
-			machine, err := s.State.Machine(mid)
-			c.Assert(err, IsNil)
-			cons, err := machine.Constraints()
-			c.Assert(err, IsNil)
-			c.Assert(cons, DeepEquals, mem4g)
-		}
-	})
+	}
 }
 
 func (s *clientSuite) TestClientServiceDeploySubordinate(c *C) {
-	withMockCharmStore(func(store *coretesting.MockCharmStore) {
-		curl, bundle := addCharm(c, store, "logging")
-		err := s.APIState.Client().ServiceDeploy(
-			curl.String(), "service-name", 0, "", constraints.Value{},
-		)
-		service, err := s.State.Service("service-name")
-		c.Assert(err, IsNil)
-		charm, force, err := service.Charm()
-		c.Assert(err, IsNil)
-		c.Assert(force, Equals, false)
-		c.Assert(charm.URL(), DeepEquals, curl)
-		c.Assert(charm.Meta(), DeepEquals, bundle.Meta())
-		c.Assert(charm.Config(), DeepEquals, bundle.Config())
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "logging")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 0, "", constraints.Value{},
+	)
+	service, err := s.State.Service("service-name")
+	c.Assert(err, IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
+	c.Assert(charm.URL(), DeepEquals, curl)
+	c.Assert(charm.Meta(), DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), DeepEquals, bundle.Config())
 
-		units, err := service.AllUnits()
-		c.Assert(err, IsNil)
-		c.Assert(units, HasLen, 0)
-	})
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 0)
 }
 
 func (s *clientSuite) TestClientServiceDeployConfig(c *C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	withMockCharmStore(func(store *coretesting.MockCharmStore) {
-		curl, _ := addCharm(c, store, "dummy")
-		err := s.APIState.Client().ServiceDeploy(
-			curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{},
-		)
-		c.Assert(err, IsNil)
-		service, err := s.State.Service("service-name")
-		c.Assert(err, IsNil)
-		settings, err := service.ConfigSettings()
-		c.Assert(err, IsNil)
-		c.Assert(settings, DeepEquals, charm.Settings{"username": "fred"})
-	})
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{},
+	)
+	c.Assert(err, IsNil)
+	service, err := s.State.Service("service-name")
+	c.Assert(err, IsNil)
+	settings, err := service.ConfigSettings()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, charm.Settings{"username": "fred"})
 }
 
 func (s *clientSuite) TestClientServiceDeployConfigError(c *C) {
 	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
 	// Can't be done cleanly until it's extracted similarly to Machiner.
-	withMockCharmStore(func(store *coretesting.MockCharmStore) {
-		curl, _ := addCharm(c, store, "dummy")
-		err := s.APIState.Client().ServiceDeploy(
-			curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{},
-		)
-		c.Assert(err, ErrorMatches, `option "skill-level" expected int, got "fred"`)
-		_, err = s.State.Service("service-name")
-		c.Assert(errors.IsNotFoundError(err), Equals, true)
-	})
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{},
+	)
+	c.Assert(err, ErrorMatches, `option "skill-level" expected int, got "fred"`)
+	_, err = s.State.Service("service-name")
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
-func withMockCharmStore(f func(*coretesting.MockCharmStore)) {
+func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 	mockStore := coretesting.NewMockCharmStore()
 	origStore := apiserver.CharmStore
 	apiserver.CharmStore = mockStore
-	defer func() { apiserver.CharmStore = origStore }()
-	f(mockStore)
+	return mockStore, func() { apiserver.CharmStore = origStore }
 }
 
 func addCharm(c *C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {

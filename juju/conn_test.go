@@ -405,7 +405,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 }
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
-// test, because ServiceDeploy demands that a charm already exists in state,
+// test, because DeployService demands that a charm already exists in state,
 // and that's is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.JujuConnSuite

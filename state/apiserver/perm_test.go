@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 )
 
@@ -286,19 +285,11 @@ func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 }
 
 func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
-	var err error
-	withMockCharmStore(func(store *coretesting.MockCharmStore) {
-		curl, _ := addCharm(c, store, "dummy")
-		err = st.Client().ServiceDeploy(curl.String(), "deploy-service", 1, "", constraints.Value{})
-	})
-	if err != nil {
-		return func() {}, err
+	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{})
+	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
+		err = nil
 	}
-	return func() {
-		service, err := mst.Service("deploy-service")
-		c.Assert(err, IsNil)
-		removeServiceAndUnits(c, service)
-	}, nil
+	return func() {}, err
 }
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
