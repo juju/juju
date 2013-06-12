@@ -98,8 +98,11 @@ func (u *Unit) Service() (*Service, error) {
 	return u.st.Service(u.doc.Service)
 }
 
-// ServiceConfig returns the contents of this unit's service configuration.
-func (u *Unit) ServiceConfig() (map[string]interface{}, error) {
+// ConfigSettings returns the complete set of service charm config settings
+// available to the unit. Unset values will be replaced with the default
+// value for the associated option, and may thus be nil when no default is
+// specified.
+func (u *Unit) ConfigSettings() (charm.Settings, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
