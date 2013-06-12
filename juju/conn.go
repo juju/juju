@@ -186,51 +186,55 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 // DeployServiceParams contains the arguments required to deploy the referenced
 // charm.
 type DeployServiceParams struct {
-	ServiceName string
-	Charm       *state.Charm
-	NumUnits    int
-	// Config is used only by the API.
-	Config map[string]string
-	// ConfigYAML takes precedence over Config if both are provided.
-	ConfigYAML  string
-	Constraints constraints.Value
+	ServiceName    string
+	Charm          *state.Charm
+	ConfigSettings charm.Settings
+	Constraints    constraints.Value
+	NumUnits       int
 	// Use string for deploy-to machine to avoid ambiguity around machine 0.
 	ForceMachineId string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	var err error
-	var settings charm.Settings
-	config := args.Charm.Config()
-	if args.ConfigYAML != "" {
-		settings, err = config.ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
-	} else if args.Config != nil {
-		settings, err = config.ParseSettingsStrings(args.Config)
-	}
+	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
 	}
-	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
+	emptyCons := constraints.Value{}
+	if args.Charm.Meta().Subordinate {
+		if args.NumUnits != 0 || args.ForceMachineId != "" {
+			return nil, fmt.Errorf("subordinate service must be deployed without units")
+		}
+		if args.Constraints != emptyCons {
+			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
+		}
+	}
+	// TODO(fwereade): transactional State.AddService including settings, constraints
+	// (minimumUnitCount, initialMachineIds?).
+	service, err := conn.State.AddService(args.ServiceName, args.Charm)
 	if err != nil {
 		return nil, err
 	}
 	if len(settings) > 0 {
-		if err := svc.UpdateConfigSettings(settings); err != nil {
+		if err := service.UpdateConfigSettings(settings); err != nil {
 			return nil, err
 		}
 	}
 	if args.Charm.Meta().Subordinate {
-		return svc, nil
+		return service, nil
 	}
-	if err := svc.SetConstraints(args.Constraints); err != nil {
-		return nil, err
+	if args.Constraints != emptyCons {
+		if err := service.SetConstraints(args.Constraints); err != nil {
+			return nil, err
+		}
 	}
-	_, err = conn.AddUnits(svc, args.NumUnits, args.ForceMachineId)
-	if err != nil {
-		return nil, err
+	if args.NumUnits > 0 {
+		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineId); err != nil {
+			return nil, err
+		}
 	}
-	return svc, nil
+	return service, nil
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {

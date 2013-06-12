@@ -240,9 +240,9 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
-	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	c.Assert(err, ErrorMatches, "--num-units must be a positive integer")
 	_, err = initDeployCommand("charm-name", "-n", "0")
-	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	c.Assert(err, ErrorMatches, "--num-units must be a positive integer")
 
 	// environment tested elsewhere
 }
