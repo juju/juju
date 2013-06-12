@@ -112,20 +112,22 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
 }
 
-// ServiceUpgradeCharm upgrades a service to the given charm.
-func (c *srvClient) ServiceUpgradeCharm(args params.ServiceUpgradeCharm) error {
+// ServiceSetCharm sets the charm for a given service.
+func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
 	state := c.root.srv.state
 	service, err := state.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
-	conf, err := state.EnvironConfig()
+	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
-	if err != nil {
-		return err
+	if curl.Revision == -1 {
+		return fmt.Errorf("a full charm URL including revision must be specified")
+	}
+	if curl.Schema != "cs" {
+		return fmt.Errorf(`the schema "cs" must be specified for setting a charm`)
 	}
 	conn, err := juju.NewConnFromState(state)
 	if err != nil {

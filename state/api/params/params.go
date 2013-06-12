@@ -98,8 +98,8 @@ type ServiceDeploy struct {
 	ForceMachineId string
 }
 
-// ServiceUpgradeCharm upgrades a service to the given charm.
-type ServiceUpgradeCharm struct {
+// ServiceSetCharm sets the charm for a given service.
+type ServiceSetCharm struct {
 	ServiceName string
 	CharmUrl    string
 	Force       bool
