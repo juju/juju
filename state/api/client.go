@@ -111,7 +111,7 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
 
-// ServiceUpgradeCharm upgrades a service to the given charm.
+// ServiceSetCharm sets the charm for a given service.
 func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
 	args := params.ServiceSetCharm{
 		ServiceName: serviceName,

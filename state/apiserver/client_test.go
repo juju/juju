@@ -455,7 +455,7 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *C) {
 	defer restore()
 	s.setUpScenario(c)
 	for url, expect := range map[string]string{
-		// TODO(fwereade) make these errors consistent one day.
+		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
 		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
 		"cs:precise/wordpress":           "charm url must include revision",
