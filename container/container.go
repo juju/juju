@@ -5,6 +5,7 @@ package container
 
 // A Container represents a containerized virtual machine.
 type Container interface {
+	Name() string
 	Create() error
 	Start() error
 	Stop() error
