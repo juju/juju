@@ -88,6 +88,16 @@ func createContainerRefOp(st *State, params containerRefParams) []txn.Op {
 	return ops
 }
 
+// parentId returns the id of the host machine if machineId a container id, or ""
+// if machineId is not for a container.
+func parentId(machineId string) string {
+	idParts := strings.Split(machineId, "/")
+	if len(idParts) < 3 {
+		return ""
+	}
+	return strings.Join(idParts[:len(idParts)-2], "/")
+}
+
 // removeContainerRefOps returns the txn.Op's necessary to remove a machine container record.
 // These include removing the record itself and updating the host machine's children property.
 func removeContainerRefOps(st *State, machineId string) []txn.Op {
@@ -98,11 +108,10 @@ func removeContainerRefOps(st *State, machineId string) []txn.Op {
 		Remove: true,
 	}
 	// If the machine is a container, figure out it's parent host.
-	idParts := strings.Split(machineId, "/")
-	if len(idParts) < 3 {
+	parentId := parentId(machineId)
+	if parentId == "" {
 		return []txn.Op{removeRefOp}
 	}
-	parentId := strings.Join(idParts[:len(idParts)-2], "/")
 	removeParentRefOp := txn.Op{
 		C:      st.containerRefs.Name,
 		Id:     parentId,

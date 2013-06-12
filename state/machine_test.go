@@ -35,6 +35,23 @@ func (s *MachineSuite) TestContainerDefaults(c *C) {
 	c.Assert(containers, DeepEquals, []string(nil))
 }
 
+func (s *MachineSuite) TestParentId(c *C) {
+	parentId, ok := s.machine.ParentId()
+	c.Assert(parentId, Equals, "")
+	c.Assert(ok, Equals, false)
+	params := state.AddMachineParams{
+		ParentId:      s.machine.Id(),
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	parentId, ok = container.ParentId()
+	c.Assert(parentId, Equals, s.machine.Id())
+	c.Assert(ok, Equals, true)
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
