@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/loggo"
 )
 
@@ -32,11 +33,19 @@ type lxcContainer struct {
 	nonce         string
 	tools         *state.Tools
 	environConfig *config.Config
+	stateInfo     *state.Info
+	apiInfo       *api.Info
 	cons          constraints.Value
 }
 
 // TODO(thumper): care about constraints...
-func NewContainer(machineId, series, nonce string, tools *state.Tools, environConfig *config.Config) (container.Container, error) {
+func NewContainer(
+	machineId, series, nonce string,
+	tools *state.Tools,
+	environConfig *config.Config,
+	stateInfo *state.Info,
+	apiInfo *api.Info,
+) (container.Container, error) {
 	name := state.MachineTag(machineId)
 	return &lxcContainer{
 		Container:     golxc.New(name),
@@ -45,6 +54,8 @@ func NewContainer(machineId, series, nonce string, tools *state.Tools, environCo
 		nonce:         nonce,
 		tools:         tools,
 		environConfig: environConfig,
+		stateInfo:     stateInfo,
+		apiInfo:       apiInfo,
 	}, nil
 }
 
@@ -106,6 +117,8 @@ func (lxc *lxcContainer) userData() ([]byte, error) {
 	machineConfig := &cloudinit.MachineConfig{
 		MachineId:    lxc.machineId,
 		MachineNonce: lxc.nonce,
+		StateInfo:    lxc.stateInfo,
+		APIInfo:      lxc.apiInfo,
 		DataDir:      "/var/lib/juju",
 		Tools:        lxc.tools,
 	}
