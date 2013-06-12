@@ -105,7 +105,6 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 		ServiceName: serviceName,
 		CharmUrl:    charmUrl,
 		NumUnits:    numUnits,
-		// BUG(lp:1162122): ConfigYAML has no tests.
 		ConfigYAML:  configYAML,
 		Constraints: cons,
 	}

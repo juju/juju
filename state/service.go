@@ -719,9 +719,19 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	return relations, nil
 }
 
-// updateConfigSettings changes a service's charm config settings. Values set
+// ConfigSettings returns the raw user configuration for the service's charm.
+// Unset values are omitted.
+func (s *Service) ConfigSettings() (charm.Settings, error) {
+	settings, err := readSettings(s.st, s.settingsKey())
+	if err != nil {
+		return nil, err
+	}
+	return settings.Map(), nil
+}
+
+// UpdateConfigSettings changes a service's charm config settings. Values set
 // to nil will be deleted; unknown and invalid values will return an error.
-func (s *Service) updateConfigSettings(changes charm.Settings) error {
+func (s *Service) UpdateConfigSettings(changes charm.Settings) error {
 	charm, _, err := s.Charm()
 	if err != nil {
 		return err
@@ -747,43 +757,6 @@ func (s *Service) updateConfigSettings(changes charm.Settings) error {
 	}
 	_, err = node.Write()
 	return err
-}
-
-// Config returns the configuration node for the service.
-func (s *Service) Config() (config *Settings, err error) {
-	config, err = readSettings(s.st, s.settingsKey())
-	if err != nil {
-		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
-	}
-	return config, nil
-}
-
-// SetConfig changes a service's configuration values.
-// Values set to the empty string will be deleted.
-func (s *Service) SetConfig(options map[string]string) error {
-	charm, _, err := s.Charm()
-	if err != nil {
-		return err
-	}
-	changes, err := charm.Config().ParseSettingsStrings(options)
-	if err != nil {
-		return err
-	}
-	return s.updateConfigSettings(changes)
-}
-
-// SetConfigYAML is like Set except that the
-// configuration data is specified in YAML format.
-func (s *Service) SetConfigYAML(yamlData []byte) error {
-	charm, _, err := s.Charm()
-	if err != nil {
-		return err
-	}
-	changes, err := charm.Config().ParseSettingsYAML(yamlData, s.doc.Name)
-	if err != nil {
-		return err
-	}
-	return s.updateConfigSettings(changes)
 }
 
 var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")

@@ -92,15 +92,14 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 	if c.NumUnits < 1 {
-		// TODO improve/remove: this is misleading when deploying subordinates.
 		return errors.New("must deploy at least one unit")
 	}
 	if c.ForceMachineId != "" {
+		if c.NumUnits > 1 {
+			return errors.New("cannot use --num-units with --force-machine")
+		}
 		if !state.IsMachineId(c.ForceMachineId) {
 			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
-		}
-		if c.NumUnits > 1 {
-			return fmt.Errorf("force-machine cannot be used for multiple units")
 		}
 	}
 	return nil

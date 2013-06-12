@@ -46,7 +46,15 @@ func (c *srvClient) ServiceSet(p params.ServiceSet) error {
 	if err != nil {
 		return err
 	}
-	return svc.SetConfig(p.Options)
+	ch, _, err := svc.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsStrings(p.Options)
+	if err != nil {
+		return err
+	}
+	return svc.UpdateConfigSettings(changes)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
@@ -55,7 +63,15 @@ func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
 	if err != nil {
 		return err
 	}
-	return svc.SetConfigYAML([]byte(p.Config))
+	ch, _, err := svc.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsYAML([]byte(p.Config), p.ServiceName)
+	if err != nil {
+		return err
+	}
+	return svc.UpdateConfigSettings(changes)
 }
 
 // ServiceGet returns the configuration for a service.

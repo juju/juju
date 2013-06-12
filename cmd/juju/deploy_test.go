@@ -37,6 +37,12 @@ var initErrorTests = []struct {
 		args: []string{"craziness", "burble1", "-n", "0"},
 		err:  `must deploy at least one unit`,
 	}, {
+		args: []string{"craziness", "burble1", "--force-machine", "bigglesplop"},
+		err:  `invalid machine id "bigglesplop"`,
+	}, {
+		args: []string{"craziness", "burble1", "-n", "2", "--force-machine", "123"},
+		err:  `cannot use --num-units with --force-machine`,
+	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
 	},

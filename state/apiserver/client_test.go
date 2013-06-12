@@ -36,9 +36,9 @@ func (s *clientSuite) TestClientServerSet(c *C) {
 		"username": "yyy",
 	})
 	c.Assert(err, IsNil)
-	conf, err := dummy.Config()
+	settings, err := dummy.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+	c.Assert(settings, DeepEquals, charm.Settings{
 		"title":    "xxx",
 		"username": "yyy",
 	})
@@ -49,9 +49,9 @@ func (s *clientSuite) TestClientServiceSetYAML(c *C) {
 	c.Assert(err, IsNil)
 	err = s.APIState.Client().ServiceSetYAML("dummy", "dummy:\n  title: aaa\n  username: bbb")
 	c.Assert(err, IsNil)
-	conf, err := dummy.Config()
+	settings, err := dummy.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(conf.Map(), DeepEquals, map[string]interface{}{
+	c.Assert(settings, DeepEquals, charm.Settings{
 		"title":    "aaa",
 		"username": "bbb",
 	})

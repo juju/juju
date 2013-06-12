@@ -334,8 +334,8 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	file.Close()
 	com, err := initSetCommand("--config", "testconfig.yaml", "service")
 	c.Assert(err, IsNil)
-	c.Assert(com.Config.Path, Equals, "testconfig.yaml")
-	actual, err := com.Config.Read(ctx)
+	c.Assert(com.SettingsYAML.Path, Equals, "testconfig.yaml")
+	actual, err := com.SettingsYAML.Read(ctx)
 	c.Assert(err, IsNil)
 	c.Assert(actual, DeepEquals, expected)
 

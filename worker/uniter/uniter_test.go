@@ -1320,10 +1320,7 @@ func (s fixHook) step(c *C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *C, ctx *context) {
-	node, err := ctx.svc.Config()
-	c.Assert(err, IsNil)
-	node.Update(s)
-	_, err = node.Write()
+	err := ctx.svc.UpdateConfigSettings(charm.Settings(s))
 	c.Assert(err, IsNil)
 }
 
