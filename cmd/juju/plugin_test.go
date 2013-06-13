@@ -105,6 +105,8 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 	go func() {
 		resultChan <- GetPluginDescriptions()
 	}()
+        // 10 seconds is arbitrary but should always be generously long. Test
+        // actually only takes about 15ms in practice. But 10s allows for system hiccups, etc.
 	waitTime := 10 * time.Second
 	var results []PluginDescription
 	select {
