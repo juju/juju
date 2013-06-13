@@ -65,17 +65,21 @@ func (lxc *lxcContainer) Create(
 ) error {
 	// Create the cloud-init.
 	directory := lxc.Directory()
+	logger.Tracef("create directory: %s", directory)
 	if err := os.MkdirAll(directory, 0755); err != nil {
 		logger.Errorf("failed to create container directory: %v", err)
 		return err
 	}
-	if err := lxc.WriteConfig(); err != nil {
-		logger.Errorf("failed to write config file: %v", err)
-		return err
-	}
+	logger.Tracef("write cloud-init")
 	userDataFilename, err := lxc.WriteUserData(nonce, tools, environConfig, stateInfo, apiInfo)
 	if err != nil {
 		logger.Errorf("failed to write user data: %v", err)
+		return err
+	}
+	logger.Tracef("write the lxc.conf file")
+	configFile, err := lxc.WriteConfig()
+	if err != nil {
+		logger.Errorf("failed to write config file: %v", err)
 		return err
 	}
 	templateParams := []string{
@@ -85,15 +89,18 @@ func (lxc *lxcContainer) Create(
 		"-r", series,
 	}
 	// Create the container.
-	if err := lxc.Container.Create(defaultTemplate, templateParams...); err != nil {
+	logger.Tracef("create the container")
+	if err := lxc.Container.Create(configFile, defaultTemplate, templateParams...); err != nil {
 		logger.Errorf("lxc container creation failed: %v", err)
 		return err
 	}
 	// Make sure that the mount dir has been created.
+	logger.Tracef("make the mount dir for the shard logs")
 	if err := os.MkdirAll(lxc.InternalLogDir(), 0755); err != nil {
 		logger.Errorf("failed to create internal /var/log/juju mount dir: %v", err)
 		return err
 	}
+	logger.Tracef("lxc container created")
 	return nil
 }
 
@@ -105,9 +112,15 @@ func (lxc *lxcContainer) Start() error {
 	consoleFile := filepath.Join(directory, "console.log")
 	lxc.Container.LogFile = filepath.Join(directory, "container.log")
 	lxc.Container.LogLevel = golxc.LogDebug
-	// configFile needed maybe later for ipconfig and mount points
+	// Experimentation has shown that passing the config file through at start
+	// time when it has mount points defined, causes those mounts to fail, and
+	// the container fails to start.  Passing the same config through at
+	// create time seems to work fine.
 	configFile := ""
-	return lxc.Container.Start(configFile, consoleFile)
+	logger.Tracef("start the container")
+	err := lxc.Container.Start(configFile, consoleFile)
+	logger.Tracef("container started")
+	return err
 }
 
 // Defer the Stop and Destroy methods to the composed lxc.Container
@@ -132,15 +145,14 @@ lxc.network.flags = up
 lxc.mount.entry=/var/log/juju %s none defaults,bind 0 0
 `
 
-func (lxc *lxcContainer) WriteConfig() error {
+func (lxc *lxcContainer) WriteConfig() (string, error) {
 	// TODO(thumper): support different network settings.
 	config := fmt.Sprintf(localConfig, lxc.InternalLogDir())
 	configFilename := filepath.Join(lxc.Directory(), "lxc.conf")
 	if err := ioutil.WriteFile(configFilename, []byte(config), 0644); err != nil {
-		return err
+		return "", err
 	}
-	lxc.Container.ConfigFile = configFilename
-	return nil
+	return configFilename, nil
 }
 
 func (lxc *lxcContainer) WriteUserData(

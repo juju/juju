@@ -68,17 +68,19 @@ func (broker *lxcBroker) StopInstances(instances []environs.Instance) error {
 
 // AllInstances only returns running containers.
 func (broker *lxcBroker) AllInstances() (result []environs.Instance, err error) {
-	containers, err := golxc.ListRunning()
+	containers, err := golxc.List()
 	if err != nil {
 		lxcLogger.Errorf("failed getting all instances: %v", err)
 		return
 	}
 	for _, container := range containers {
-		lxcContainer, err := lxc.NewFromExisting(container)
-		if err != nil {
-			return nil, err
+		if container.IsRunning() {
+			lxcContainer, err := lxc.NewFromExisting(container)
+			if err != nil {
+				return nil, err
+			}
+			result = append(result, lxcContainer.Instance())
 		}
-		result = append(result, lxcContainer.Instance())
 	}
 	return
 }
