@@ -378,10 +378,7 @@ type machineDocSlice []machineDoc
 func (ms machineDocSlice) Len() int      { return len(ms) }
 func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
 func (ms machineDocSlice) Less(i, j int) bool {
-	// There's nothing we can do with errors at this point.
-	m1, _ := strconv.Atoi(ms[i].Id)
-	m2, _ := strconv.Atoi(ms[j].Id)
-	return m1 < m2
+	return ms[i].Id < ms[j].Id
 }
 
 // Machine returns the machine with the given id.

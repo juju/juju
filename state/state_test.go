@@ -331,6 +331,39 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
 }
 
+func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m0, err := s.State.InjectMachine("series", emptyCons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, IsNil)
+
+	// Add first container.
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, emptyCons)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	s.assertMachineContainers(c, m0, []string{"0/lxc/0"})
+
+	// Add second container.
+	m, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/1")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
+}
+
 func (s *StateSuite) TestReadMachine(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)

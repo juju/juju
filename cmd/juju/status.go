@@ -43,7 +43,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 
 type statusContext struct {
 	instances map[state.InstanceId]environs.Instance
-	machines  map[string]*state.Machine
+	machines  map[string][]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
 }
@@ -91,15 +91,29 @@ func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Inst
 	return m, nil
 }
 
-// fetchAllMachines returns a map from machine id to machine.
-func fetchAllMachines(st *state.State) (map[string]*state.Machine, error) {
-	v := make(map[string]*state.Machine)
+// fetchAllMachines returns a map from top level machine id to machines, where machines[0] is the host
+// machine and machines[1..n] are any containers (including nested ones).
+func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
+	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, err
 	}
+	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
-		v[m.Id()] = m
+		parentId, ok := m.ParentId()
+		if !ok {
+			// Only top level host machines go directly into the machine map.
+			v[m.Id()] = []*state.Machine{m}
+		} else {
+			topParentId := state.TopParentId(m.Id())
+			machines, ok := v[topParentId]
+			if !ok {
+				panic(fmt.Errorf("unexpected machine id %q", parentId))
+			}
+			machines = append(machines, m)
+			v[topParentId] = machines
+		}
 	}
 	return v, nil
 }
@@ -130,13 +144,38 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 
 func (ctxt *statusContext) processMachines() map[string]machineStatus {
 	machinesMap := make(map[string]machineStatus)
-	for _, m := range ctxt.machines {
-		machinesMap[m.Id()] = ctxt.processMachine(m)
+	for id, machines := range ctxt.machines {
+		hostStatus := ctxt.makeMachineStatus(machines[0])
+		ctxt.processMachine(machines, &hostStatus, 0)
+		machinesMap[id] = hostStatus
 	}
 	return machinesMap
 }
 
-func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+func (ctxt *statusContext) processMachine(machines []*state.Machine, host *machineStatus, startIndex int) (nextIndex int) {
+	nextIndex = startIndex + 1
+	currentHost := host
+	var previousContainer *machineStatus
+	for nextIndex < len(machines) {
+		machine := machines[nextIndex]
+		container := ctxt.makeMachineStatus(machine)
+		if currentHost.Id == state.ParentId(machine.Id()) {
+			currentHost.Containers[machine.Id()] = container
+			previousContainer = &container
+			nextIndex++
+		} else {
+			if state.NestingLevel(machine.Id()) > state.NestingLevel(previousContainer.Id) {
+				nextIndex = ctxt.processMachine(machines, previousContainer, nextIndex-1)
+			} else {
+				break
+			}
+		}
+	}
+	return
+}
+
+func (ctxt *statusContext) makeMachineStatus(machine *state.Machine) (status machineStatus) {
+	status.Id = machine.Id()
 	status.Life,
 		status.AgentVersion,
 		status.AgentState,
@@ -163,6 +202,7 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 		// in the output.
 		status.AgentState = ""
 	}
+	status.Containers = make(map[string]machineStatus)
 	return
 }
 
@@ -311,15 +351,17 @@ func processLife(entity lifer) string {
 }
 
 type machineStatus struct {
-	Err            error            `json:"-" yaml:",omitempty"`
-	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	InstanceState  string           `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
-	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
-	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
+	Err            error                    `json:"-" yaml:",omitempty"`
+	AgentState     params.Status            `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentStateInfo string                   `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	AgentVersion   string                   `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	InstanceId     state.InstanceId         `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
+	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
+	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
+	Id             string                   `json:"-" yaml:"-"`
+	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
