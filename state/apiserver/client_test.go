@@ -4,6 +4,7 @@
 package apiserver_test
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -300,74 +301,129 @@ func (s *clientSuite) TestClientUnitResolved(c *C) {
 	c.Assert(mode, Equals, state.ResolvedNoHooks)
 }
 
-var serviceDeployTests = []struct {
-	about            string
-	charmUrl         string
-	numUnits         int
-	expectedNumUnits int
-	constraints      constraints.Value
-}{{
-	about:            "Normal deploy",
-	charmUrl:         "local:series/wordpress",
-	expectedNumUnits: 1,
-	constraints:      constraints.MustParse("mem=1G"),
-}, {
-	about:            "Two units",
-	charmUrl:         "local:series/wordpress",
-	numUnits:         2,
-	expectedNumUnits: 2,
-	constraints:      constraints.MustParse("mem=4G"),
-},
-}
-
-func (s *clientSuite) TestClientServiceDeploy(c *C) {
-	s.setUpScenario(c)
-
-	for i, test := range serviceDeployTests {
-		c.Logf("test %d; %s", i, test.about)
-		parsedUrl := charm.MustParseURL(test.charmUrl)
-		localRepo, err := charm.InferRepository(parsedUrl, coretesting.Charms.Path)
-		c.Assert(err, IsNil)
-		withRepo(localRepo, func() {
-			serviceName := "mywordpress"
-			_, err = s.State.Service(serviceName)
-			c.Assert(errors.IsNotFoundError(err), Equals, true)
-			err = s.APIState.Client().ServiceDeploy(
-				test.charmUrl, serviceName, test.numUnits, "mywordpress: {}", test.constraints,
-			)
-			c.Assert(err, IsNil)
-
-			service, err := s.State.Service(serviceName)
-			c.Assert(err, IsNil)
-			defer removeServiceAndUnits(c, service)
-			scons, err := service.Constraints()
-			c.Assert(err, IsNil)
-			c.Assert(scons, DeepEquals, test.constraints)
-
-			units, err := service.AllUnits()
-			c.Assert(err, IsNil)
-			c.Assert(units, HasLen, test.expectedNumUnits)
-			for _, unit := range units {
-				mid, err := unit.AssignedMachineId()
-				c.Assert(err, IsNil)
-				machine, err := s.State.Machine(mid)
-				c.Assert(err, IsNil)
-				mcons, err := machine.Constraints()
-				c.Assert(err, IsNil)
-				c.Assert(mcons, DeepEquals, test.constraints)
-			}
-		})
+func (s *clientSuite) TestClientServiceDeployCharmErrors(c *C) {
+	_, restore := makeMockCharmStore()
+	defer restore()
+	for url, expect := range map[string]string{
+		// TODO(fwereade) make these errors consistent one day.
+		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
+		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
+		"cs:precise/wordpress":           "charm url must include revision",
+		"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
+		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
+	} {
+		c.Logf("test %s", url)
+		err := s.APIState.Client().ServiceDeploy(
+			url, "service", 1, "", constraints.Value{},
+		)
+		c.Check(err, ErrorMatches, expect)
+		_, err = s.State.Service("service")
+		c.Assert(errors.IsNotFoundError(err), Equals, true)
 	}
 }
 
-func withRepo(repo charm.Repository, f func()) {
-	// Monkey-patch server repository.
-	originalServerCharmStore := apiserver.CharmStore
-	apiserver.CharmStore = repo
-	defer func() {
-		apiserver.CharmStore = originalServerCharmStore
-	}()
-	f()
+func (s *clientSuite) TestClientServiceDeployPrincipal(c *C) {
+	// TODO(fwereade): test ForceMachineId directly on srvClient, when we
+	// manage to extract it as a package and can thus do it conveniently.
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "dummy")
+	mem4g := constraints.MustParse("mem=4G")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", mem4g,
+	)
+	c.Assert(err, IsNil)
+	service, err := s.State.Service("service")
+	c.Assert(err, IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
+	c.Assert(charm.URL(), DeepEquals, curl)
+	c.Assert(charm.Meta(), DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), DeepEquals, bundle.Config())
+
+	cons, err := service.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mem4g)
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	for _, unit := range units {
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		machine, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		cons, err := machine.Constraints()
+		c.Assert(err, IsNil)
+		c.Assert(cons, DeepEquals, mem4g)
+	}
+}
+
+func (s *clientSuite) TestClientServiceDeploySubordinate(c *C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, bundle := addCharm(c, store, "logging")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 0, "", constraints.Value{},
+	)
+	service, err := s.State.Service("service-name")
+	c.Assert(err, IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
+	c.Assert(charm.URL(), DeepEquals, curl)
+	c.Assert(charm.Meta(), DeepEquals, bundle.Meta())
+	c.Assert(charm.Config(), DeepEquals, bundle.Config())
+
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 0)
+}
+
+func (s *clientSuite) TestClientServiceDeployConfig(c *C) {
+	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
+	// Can't be done cleanly until it's extracted similarly to Machiner.
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 1, "service-name:\n  username: fred", constraints.Value{},
+	)
+	c.Assert(err, IsNil)
+	service, err := s.State.Service("service-name")
+	c.Assert(err, IsNil)
+	settings, err := service.ConfigSettings()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, charm.Settings{"username": "fred"})
+}
+
+func (s *clientSuite) TestClientServiceDeployConfigError(c *C) {
+	// TODO(fwereade): test Config/ConfigYAML handling directly on srvClient.
+	// Can't be done cleanly until it's extracted similarly to Machiner.
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service-name", 1, "service-name:\n  skill-level: fred", constraints.Value{},
+	)
+	c.Assert(err, ErrorMatches, `option "skill-level" expected int, got "fred"`)
+	_, err = s.State.Service("service-name")
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+}
+
+func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
+	mockStore := coretesting.NewMockCharmStore()
+	origStore := apiserver.CharmStore
+	apiserver.CharmStore = mockStore
+	return mockStore, func() { apiserver.CharmStore = origStore }
+}
+
+func addCharm(c *C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
+	bundle := coretesting.Charms.Bundle(c.MkDir(), name)
+	scurl := fmt.Sprintf("cs:precise/%s-%d", name, bundle.Revision())
+	curl := charm.MustParseURL(scurl)
+	err := store.SetCharm(curl, bundle)
+	c.Assert(err, IsNil)
+	return curl, bundle
 }
 
 func (s *clientSuite) TestSuccessfulAddRelation(c *C) {

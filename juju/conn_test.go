@@ -11,11 +11,13 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
@@ -402,63 +404,159 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 
 }
 
+// DeployLocalSuite uses a fresh copy of the same local dummy charm for each
+// test, because DeployService demands that a charm already exists in state,
+// and that's is the simplest way to get one in there.
 type DeployLocalSuite struct {
 	testing.JujuConnSuite
-	repo          *charm.LocalRepository
-	defaultSeries string
-	seriesPath    string
-	charmUrl      *charm.URL
+	repo        charm.Repository
+	charm       *state.Charm
+	oldCacheDir string
 }
 
 var _ = Suite(&DeployLocalSuite{})
 
-func (s *DeployLocalSuite) SetUpTest(c *C) {
-	s.JujuConnSuite.SetUpTest(c)
-	repoPath := c.MkDir()
-	s.defaultSeries = "precise"
-	s.repo = &charm.LocalRepository{Path: repoPath}
-	s.seriesPath = filepath.Join(repoPath, s.defaultSeries)
-	err := os.Mkdir(s.seriesPath, 0777)
-	c.Assert(err, IsNil)
-	coretesting.Charms.BundlePath(s.seriesPath, "wordpress")
-	s.charmUrl, err = charm.InferURL("local:wordpress", s.defaultSeries)
-	c.Assert(err, IsNil)
+func (s *DeployLocalSuite) SetUpSuite(c *C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.repo = &charm.LocalRepository{Path: coretesting.Charms.Path}
+	s.oldCacheDir, charm.CacheDir = charm.CacheDir, c.MkDir()
 }
 
-func (s *DeployLocalSuite) TestDeploy(c *C) {
-	ch, err := s.Conn.PutCharm(s.charmUrl, s.repo, false)
-	c.Assert(err, IsNil)
-	cons := constraints.MustParse("mem=4G")
-	args := juju.DeployServiceParams{
-		ServiceName: "bob",
-		Charm:       ch,
-		NumUnits:    3,
-		Constraints: cons,
-		ConfigYAML:  "bob: {blog-title: aspidistra flagpole}",
-	}
-	svc, err := s.Conn.DeployService(args)
-	c.Assert(err, IsNil)
-	scons, err := svc.Constraints()
-	c.Assert(err, IsNil)
-	c.Assert(scons, DeepEquals, cons)
-	settings, err := svc.ConfigSettings()
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, charm.Settings{
-		"blog-title": "aspidistra flagpole",
-	})
+func (s *DeployLocalSuite) TearDownSuite(c *C) {
+	charm.CacheDir = s.oldCacheDir
+	s.JujuConnSuite.TearDownSuite(c)
+}
 
-	units, err := svc.AllUnits()
+func (s *DeployLocalSuite) SetUpTest(c *C) {
+	s.JujuConnSuite.SetUpTest(c)
+	curl := charm.MustParseURL("local:series/dummy")
+	charm, err := s.Conn.PutCharm(curl, s.repo, false)
 	c.Assert(err, IsNil)
-	c.Assert(len(units), Equals, 3)
+	s.charm = charm
+}
+
+func (s *DeployLocalSuite) TestDeployMinimal(c *C) {
+	service, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName: "bob",
+		Charm:       s.charm,
+	})
+	c.Assert(err, IsNil)
+	s.assertCharm(c, service, s.charm.URL())
+	s.assertSettings(c, service, charm.Settings{})
+	s.assertConstraints(c, service, constraints.Value{})
+	s.assertMachines(c, service, constraints.Value{})
+}
+
+func (s *DeployLocalSuite) TestDeploySettings(c *C) {
+	service, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName: "bob",
+		Charm:       s.charm,
+		ConfigSettings: charm.Settings{
+			"title":       "banana cupcakes",
+			"skill-level": 9901,
+		},
+	})
+	c.Assert(err, IsNil)
+	s.assertSettings(c, service, charm.Settings{
+		"title":       "banana cupcakes",
+		"skill-level": int64(9901),
+	})
+}
+
+func (s *DeployLocalSuite) TestDeploySettingsError(c *C) {
+	_, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName: "bob",
+		Charm:       s.charm,
+		ConfigSettings: charm.Settings{
+			"skill-level": 99.01,
+		},
+	})
+	c.Assert(err, ErrorMatches, `option "skill-level" expected int, got 99.01`)
+	_, err = s.State.Service("bob")
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+}
+
+func (s *DeployLocalSuite) TestDeployConstraints(c *C) {
+	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
+	c.Assert(err, IsNil)
+	serviceCons := constraints.MustParse("cpu-cores=2")
+	service, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName: "bob",
+		Charm:       s.charm,
+		Constraints: serviceCons,
+	})
+	c.Assert(err, IsNil)
+	s.assertConstraints(c, service, serviceCons)
+}
+
+func (s *DeployLocalSuite) TestDeployNumUnits(c *C) {
+	err := s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
+	c.Assert(err, IsNil)
+	serviceCons := constraints.MustParse("cpu-cores=2")
+	service, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName: "bob",
+		Charm:       s.charm,
+		Constraints: serviceCons,
+		NumUnits:    2,
+	})
+	c.Assert(err, IsNil)
+	s.assertConstraints(c, service, serviceCons)
+	s.assertMachines(c, service, constraints.MustParse("mem=2G cpu-cores=2"), "0", "1")
+}
+
+func (s *DeployLocalSuite) TestDeployForceMachineId(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Equals, "0")
+	err = s.State.SetEnvironConstraints(constraints.MustParse("mem=2G"))
+	c.Assert(err, IsNil)
+	serviceCons := constraints.MustParse("cpu-cores=2")
+	service, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName:    "bob",
+		Charm:          s.charm,
+		Constraints:    serviceCons,
+		NumUnits:       1,
+		ForceMachineId: "0",
+	})
+	c.Assert(err, IsNil)
+	s.assertConstraints(c, service, serviceCons)
+	s.assertMachines(c, service, constraints.Value{}, "0")
+}
+
+func (s *DeployLocalSuite) assertCharm(c *C, service *state.Service, expect *charm.URL) {
+	curl, force := service.CharmURL()
+	c.Assert(curl, DeepEquals, expect)
+	c.Assert(force, Equals, false)
+}
+
+func (s *DeployLocalSuite) assertSettings(c *C, service *state.Service, expect charm.Settings) {
+	settings, err := service.ConfigSettings()
+	c.Assert(err, IsNil)
+	c.Assert(settings, DeepEquals, expect)
+}
+
+func (s *DeployLocalSuite) assertConstraints(c *C, service *state.Service, expect constraints.Value) {
+	cons, err := service.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, expect)
+}
+
+func (s *DeployLocalSuite) assertMachines(c *C, service *state.Service, expectCons constraints.Value, expectIds ...string) {
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, len(expectIds))
+	unseenIds := set.NewStrings(expectIds...)
 	for _, unit := range units {
-		mid, err := unit.AssignedMachineId()
+		id, err := unit.AssignedMachineId()
 		c.Assert(err, IsNil)
-		machine, err := s.State.Machine(mid)
+		unseenIds.Remove(id)
+		machine, err := s.State.Machine(id)
 		c.Assert(err, IsNil)
-		mcons, err := machine.Constraints()
+		cons, err := machine.Constraints()
 		c.Assert(err, IsNil)
-		c.Assert(mcons, DeepEquals, cons)
+		c.Assert(cons, DeepEquals, expectCons)
 	}
+	c.Assert(unseenIds, DeepEquals, set.NewStrings())
 }
 
 type InitJujuHomeSuite struct {

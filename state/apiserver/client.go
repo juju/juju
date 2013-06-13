@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api"
@@ -102,30 +103,45 @@ func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
 
 var CharmStore charm.Repository = charm.Store
 
-// ServiceDeploy fetches the charm from the charm store and deploys it.  Local
+// ServiceDeploy fetches the charm from the charm store and deploys it. Local
 // charms are not supported.
 func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
-	state := c.root.srv.state
-	conf, err := state.EnvironConfig()
+	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
 	}
-	curl, err := charm.InferURL(args.CharmUrl, conf.DefaultSeries())
+	if curl.Schema != "cs" {
+		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+	}
+	if curl.Revision < 0 {
+		return fmt.Errorf("charm url must include revision")
+	}
+	conn, err := juju.NewConnFromState(c.root.srv.state)
 	if err != nil {
 		return err
 	}
-	conn, err := juju.NewConnFromState(state)
+	ch, err := conn.PutCharm(curl, CharmStore, false)
 	if err != nil {
 		return err
 	}
-	if args.NumUnits == 0 {
-		args.NumUnits = 1
+	var settings charm.Settings
+	if len(args.ConfigYAML) > 0 {
+		settings, err = ch.Config().ParseSettingsYAML([]byte(args.ConfigYAML), args.ServiceName)
+	} else if len(args.Config) > 0 {
+		settings, err = ch.Config().ParseSettingsStrings(args.Config)
 	}
-	serviceName := args.ServiceName
-	if serviceName == "" {
-		serviceName = curl.Name
+	if err != nil {
+		return err
 	}
-	return statecmd.ServiceDeploy(state, args, conn, curl, CharmStore)
+	_, err = conn.DeployService(juju.DeployServiceParams{
+		ServiceName:    args.ServiceName,
+		Charm:          ch,
+		NumUnits:       args.NumUnits,
+		ConfigSettings: settings,
+		Constraints:    args.Constraints,
+		ForceMachineId: args.ForceMachineId,
+	})
+	return err
 }
 
 // AddServiceUnits adds a given number of units to a service.
