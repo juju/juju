@@ -423,6 +423,8 @@ func (s *clientSuite) TestClientServiceSetCharm(c *C) {
 		"service", "cs:precise/wordpress-3", false,
 	)
 	c.Assert(err, IsNil)
+
+	// Ensure that the charm is not marked as forced.
 	service, err := s.State.Service("service")
 	c.Assert(err, IsNil)
 	_, force, err := service.Charm()
@@ -443,6 +445,8 @@ func (s *clientSuite) TestClientServiceSetCharmForce(c *C) {
 		"service", "cs:precise/wordpress-3", true,
 	)
 	c.Assert(err, IsNil)
+
+	// Ensure that the charm is marked as forced.
 	service, err := s.State.Service("service")
 	c.Assert(err, IsNil)
 	_, force, err := service.Charm()
