@@ -926,7 +926,7 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: txn.DocExists,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
 	err := u.st.runTransaction(ops)

@@ -117,10 +117,9 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *C) {
-	defer state.SetTransactionHooks(c, s.State, state.BeforeHook(func() {
-		err := s.machine.Destroy()
-		c.Assert(err, IsNil)
-	}))()
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.machine.Destroy(), IsNil)
+	})()
 	err := s.machine.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -131,10 +130,9 @@ func (s *MachineSuite) TestDestroyCancel(c *C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	defer state.SetTransactionHooks(c, s.State, state.BeforeHook(func() {
-		err = unit.AssignToMachine(s.machine)
-		c.Assert(err, IsNil)
-	}))()
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(unit.AssignToMachine(s.machine), IsNil)
+	})()
 	err = s.machine.Destroy()
 	c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
 }
@@ -144,15 +142,10 @@ func (s *MachineSuite) TestDestroyContention(c *C) {
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
+
 	perturb := state.TransactionHook{
-		Before: func() {
-			err = unit.AssignToMachine(s.machine)
-			c.Assert(err, IsNil)
-		},
-		After: func() {
-			err = unit.UnassignFromMachine()
-			c.Assert(err, IsNil)
-		},
+		Before: func() { c.Assert(unit.AssignToMachine(s.machine), IsNil) },
+		After:  func() { c.Assert(unit.UnassignFromMachine(), IsNil) },
 	}
 	defer state.SetTransactionHooks(c, s.State, perturb, perturb, perturb)()
 	err = s.machine.Destroy()
@@ -178,10 +171,9 @@ func (s *MachineSuite) TestRemoveAbort(c *C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, IsNil)
 
-	defer state.SetTransactionHooks(c, s.State, state.BeforeHook(func() {
-		err := s.machine.Remove()
-		c.Assert(err, IsNil)
-	}))()
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.machine.Remove(), IsNil)
+	})()
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }

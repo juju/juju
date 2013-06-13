@@ -113,7 +113,7 @@ type State struct {
 	annotations      *mgo.Collection
 	statuses         *mgo.Collection
 	runner           *txn.Runner
-	transactionHooks chan ([]TransactionHook)
+	transactionHooks chan ([]transactionHook)
 	watcher          *watcher.Watcher
 	pwatcher         *presence.Watcher
 	// mu guards allManager.
@@ -121,9 +121,9 @@ type State struct {
 	allManager *multiwatcher.StoreManager
 }
 
-// TransactionHook holds a pair of functions to be called before and after a
+// transactionHook holds a pair of functions to be called before and after a
 // mgo/txn transaction is run. It is only used in testing.
-type TransactionHook struct {
+type transactionHook struct {
 	Before func()
 	After  func()
 }

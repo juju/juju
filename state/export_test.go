@@ -15,10 +15,7 @@ import (
 	"path/filepath"
 )
 
-// BeforeHook expresses a common construct in a compact fashion.
-func BeforeHook(f func()) TransactionHook {
-	return TransactionHook{Before: f}
-}
+type TransactionHook transactionHook
 
 // SetTransactionHooks queues up hooks to be applied to the next transactions,
 // and returns a function that asserts all hooks have been run (and removes any
@@ -29,14 +26,25 @@ func BeforeHook(f func()) TransactionHook {
 // already queued; and setting transaction hooks renders the *State goroutine-
 // unsafe.
 func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) (checkRan func()) {
+	converted := make([]transactionHook, len(transactionHooks))
+	for i, hook := range transactionHooks {
+		converted[i] = transactionHook(hook)
+		c.Logf("%d: %#v", i, converted[i])
+	}
 	original := <-st.transactionHooks
-	st.transactionHooks <- transactionHooks
+	st.transactionHooks <- converted
 	c.Assert(original, HasLen, 0)
 	return func() {
 		remaining := <-st.transactionHooks
 		st.transactionHooks <- nil
 		c.Assert(remaining, HasLen, 0)
 	}
+}
+
+// SetBeforeHook uses SetTransactionHooks to queue a single function to be run
+// immediately before the next transaction.
+func SetBeforeHook(c *C, st *State, f func()) (checkRan func()) {
+	return SetTransactionHooks(c, st, TransactionHook{Before: f})
 }
 
 // TestingEnvironConfig returns a default environment configuration.

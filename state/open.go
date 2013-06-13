@@ -247,7 +247,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.transactionHooks = make(chan ([]TransactionHook), 1)
+	st.transactionHooks = make(chan ([]transactionHook), 1)
 	st.transactionHooks <- nil
 	return st, nil
 }

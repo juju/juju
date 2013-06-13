@@ -173,8 +173,9 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 
-	err = s.unit.Destroy()
-	c.Assert(err, IsNil)
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
 	err = s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
@@ -189,8 +190,9 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
 
-	err = s.unit.Destroy()
-	c.Assert(err, IsNil)
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
 	err = s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
