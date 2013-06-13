@@ -92,21 +92,33 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *C) {
 }
 
 func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
-	suite.makeFullPlugin(PluginParams{Name: "foo", Sleep: 100 * time.Millisecond})
-	suite.makeFullPlugin(PluginParams{Name: "bar", Sleep: 150 * time.Millisecond})
-	suite.makeFullPlugin(PluginParams{Name: "baz", Sleep: 300 * time.Millisecond})
-	suite.makeFullPlugin(PluginParams{Name: "error", ExitStatus: 1, Sleep: 100 * time.Millisecond})
-	suite.makeFullPlugin(PluginParams{Name: "slow", Sleep: 200 * time.Millisecond})
+	// Make plugins that will deadlock if we don't start them in parallel.
+	// Each plugin depends on another one being started before they will
+	// complete. They make a full loop, so no sequential ordering will ever
+	// succeed.
+	suite.makeFullPlugin(PluginParams{Name: "foo", Creates: "foo", DependsOn: "bar"})
+	suite.makeFullPlugin(PluginParams{Name: "bar", Creates: "bar", DependsOn: "baz"})
+	suite.makeFullPlugin(PluginParams{Name: "baz", Creates: "baz", DependsOn: "error"})
+	suite.makeFullPlugin(PluginParams{Name: "error", ExitStatus: 1, Creates: "error", DependsOn: "foo"})
 
-	start := time.Now()
-	results := GetPluginDescriptions()
-	elapsed := time.Since(start)
+	// If the code was wrong, GetPluginDescriptions would deadlock,
+	// so timeout after a short while
+	resultChan := make(chan []PluginDescription)
+	go func() {
+		resultChan <- GetPluginDescriptions()
+	}()
+	// 10 seconds is arbitrary but should always be generously long. Test
+	// actually only takes about 15ms in practice. But 10s allows for system hiccups, etc.
+	waitTime := 10 * time.Second
+	var results []PluginDescription
+	select {
+	case results = <-resultChan:
+		break
+	case <-time.After(waitTime):
+		c.Fatalf("Took too more than %fs to complete.", waitTime.Seconds())
+	}
 
-	// 300 for baz above + 50ms wiggle room
-	expectedDuration := 350 * time.Millisecond
-
-	c.Assert(results, HasLen, 5)
-	c.Check(elapsed, DurationLessThan, expectedDuration)
+	c.Assert(results, HasLen, 4)
 	c.Assert(results[0].name, Equals, "bar")
 	c.Assert(results[0].description, Equals, "bar description")
 	c.Assert(results[1].name, Equals, "baz")
@@ -115,8 +127,6 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 	c.Assert(results[2].description, Equals, "error occurred running 'juju-error --description'")
 	c.Assert(results[3].name, Equals, "foo")
 	c.Assert(results[3].description, Equals, "foo description")
-	c.Assert(results[4].name, Equals, "slow")
-	c.Assert(results[4].description, Equals, "slow description")
 }
 
 func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *C) {
@@ -169,15 +179,24 @@ func (suite *PluginSuite) makeFailingPlugin(name string, exitStatus int) {
 type PluginParams struct {
 	Name       string
 	ExitStatus int
-	Sleep      time.Duration
+	Creates    string
+	DependsOn  string
 }
 
 const pluginTemplate = `#!/bin/bash
 
 if [ "$1" = "--description" ]; then
-  sleep {{.Sleep.Seconds}}
+  if [ -n "{{.Creates}}" ]; then
+    touch "{{.Creates}}"
+  fi
+  if [ -n "{{.DependsOn}}" ]; then
+    # Sleep 10ms while waiting to allow other stuff to do work
+    while [ ! -e "{{.DependsOn}}" ]; do sleep 0.010; done
+  fi
   echo "{{.Name}} description"
   exit {{.ExitStatus}}
+else
+  echo "No --description" >2
 fi
 
 if [ "$1" = "--help" ]; then
@@ -195,7 +214,14 @@ func (suite *PluginSuite) makeFullPlugin(params PluginParams) {
 	// Create a new template and parse the plugin into it.
 	t := template.Must(template.New("plugin").Parse(pluginTemplate))
 	content := &bytes.Buffer{}
-	t.Execute(content, params)
 	filename := testing.HomePath("juju-" + params.Name)
+	// Create the files in the temp dirs, so we don't pollute the working space
+	if params.Creates != "" {
+		params.Creates = testing.HomePath(params.Creates)
+	}
+	if params.DependsOn != "" {
+		params.DependsOn = testing.HomePath(params.DependsOn)
+	}
+	t.Execute(content, params)
 	ioutil.WriteFile(filename, content.Bytes(), 0755)
 }
