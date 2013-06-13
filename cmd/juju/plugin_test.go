@@ -92,8 +92,10 @@ func (suite *PluginSuite) TestRunPluginWithFailing(c *C) {
 }
 
 func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
-	// Each plugin depends on another one being started before they will complete.
-	// Thus if we don't start them in parallel, we would deadlock
+	// Make plugins that will deadlock if we don't start them in parallel.
+	// Each plugin depends on another one being started before they will
+	// complete. They make a full loop, so no sequential ordering will ever
+	// succeed.
 	suite.makeFullPlugin(PluginParams{Name: "foo", Creates: "foo", DependsOn: "bar"})
 	suite.makeFullPlugin(PluginParams{Name: "bar", Creates: "bar", DependsOn: "baz"})
 	suite.makeFullPlugin(PluginParams{Name: "baz", Creates: "baz", DependsOn: "error"})
