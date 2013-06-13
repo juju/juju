@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package params_test
 
 import (
@@ -43,9 +46,9 @@ var marshalTestCases = []struct {
 			Name:        "Benji",
 			Exposed:     true,
 			CharmURL:    "cs:series/name",
-			Life:        state.Dying.String(),
+			Life:        params.Life(state.Dying.String()),
 			Constraints: constraints.MustParse("arch=arm mem=1024M"),
-			Config: map[string]interface{}{
+			Config: charm.Settings{
 				"hello": "goodbye",
 				"foo":   false,
 			},

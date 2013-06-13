@@ -1,9 +1,13 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -23,7 +27,7 @@ func getStatus(st *State, globalKey string) (statusDoc, error) {
 	var doc statusDoc
 	err := st.statuses.FindId(globalKey).One(&doc)
 	if err == mgo.ErrNotFound {
-		return statusDoc{}, NotFoundf("status")
+		return statusDoc{}, errors.NotFoundf("status")
 	}
 	if err != nil {
 		return statusDoc{}, fmt.Errorf("cannot get status %q: %v", globalKey, err)

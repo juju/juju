@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc
 
 import (
@@ -47,5 +50,9 @@ func (c *RelationListCommand) Run(ctx *cmd.Context) error {
 	if !found {
 		return fmt.Errorf("unknown relation id")
 	}
-	return c.out.Write(ctx, r.UnitNames())
+	unitNames := r.UnitNames()
+	if unitNames == nil {
+		unitNames = []string{}
+	}
+	return c.out.Write(ctx, unitNames)
 }

@@ -1,9 +1,13 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
 	"regexp"
 )
@@ -28,7 +32,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 		Assert: txn.DocMissing,
 		Insert: &u.doc,
 	}}
-	err := st.runTxn(ops)
+	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = fmt.Errorf("user already exists")
 	}
@@ -43,7 +47,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 func (st *State) getUser(name string, udoc *userDoc) error {
 	err := st.users.Find(D{{"_id", name}}).One(udoc)
 	if err == mgo.ErrNotFound {
-		err = NotFoundf("user %q", name)
+		err = errors.NotFoundf("user %q", name)
 	}
 	return err
 }
@@ -94,7 +98,7 @@ func (u *User) SetPasswordHash(pwHash string) error {
 		Id:     u.Name(),
 		Update: D{{"$set", D{{"passwordhash", pwHash}}}},
 	}}
-	if err := u.st.runTxn(ops); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
 	}
 	u.doc.PasswordHash = pwHash

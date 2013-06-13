@@ -1,461 +1,143 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package api
 
 import (
-	"fmt"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/constraints"
+	"code.google.com/p/go.net/websocket"
+	"crypto/tls"
+	"crypto/x509"
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/tomb"
-	"strings"
-	"sync"
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
+	"launchpad.net/juju-core/utils"
+	"time"
 )
 
-// Machine represents the state of a machine.
-type Machine struct {
-	st  *State
-	id  string
-	doc params.Machine
+// PingPeriod defines how often the internal connection health check
+// will run. It's a variable so it can be changed in tests.
+var PingPeriod = 5 * time.Second
+
+type State struct {
+	client *rpc.Conn
+	conn   *websocket.Conn
+
+	// broken is a channel that gets closed when the connection is
+	// broken.
+	broken chan struct{}
 }
 
-// Client represents the client-accessible part of the state.
-type Client struct {
-	st *State
+// Info encapsulates information about a server holding juju state and
+// can be used to make a connection to it.
+type Info struct {
+	// Addrs holds the addresses of the state servers.
+	Addrs []string
+
+	// CACert holds the CA certificate that will be used
+	// to validate the state server's certificate, in PEM format.
+	CACert []byte
+
+	// Tag holds the name of the entity that is connecting.
+	// If this and the password are empty, no login attempt will be made
+	// (this is to allow tests to access the API to check that operations
+	// fail when not logged in).
+	Tag string
+
+	// Password holds the password for the administrator or connecting entity.
+	Password string
 }
 
-// Client returns an object that can be used
-// to access client-specific functionality.
-func (st *State) Client() *Client {
-	return &Client{st}
+var openAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Minute,
+	Delay: 500 * time.Millisecond,
 }
 
-// MachineInfo holds information about a machine.
-type MachineInfo struct {
-	InstanceId string // blank if not set.
-}
-
-// Status holds information about the status of a juju environment.
-type Status struct {
-	Machines map[string]MachineInfo
-	// TODO the rest
-}
-
-// Status returns the status of the juju environment.
-func (c *Client) Status() (*Status, error) {
-	var s Status
-	if err := c.st.call("Client", "", "Status", nil, &s); err != nil {
+func Open(info *Info) (*State, error) {
+	// TODO Select a random address from info.Addrs
+	// and only fail when we've tried all the addresses.
+	// TODO what does "origin" really mean, and is localhost always ok?
+	cfg, err := websocket.NewConfig("wss://"+info.Addrs[0]+"/", "http://localhost/")
+	if err != nil {
 		return nil, err
 	}
-	return &s, nil
-}
-
-// ServiceSet sets configuration options on a service.
-func (c *Client) ServiceSet(service string, options map[string]string) error {
-	p := params.ServiceSet{
-		ServiceName: service,
-		Options:     options,
-	}
-	return c.st.call("Client", "", "ServiceSet", p, nil)
-}
-
-// Resolved clears errors on a unit.
-func (c *Client) Resolved(unit string, retry bool) error {
-	p := params.Resolved{
-		UnitName: unit,
-		Retry:    retry,
-	}
-	return c.st.call("Client", "", "Resolved", p, nil)
-}
-
-// ServiceSetYAML sets configuration options on a service
-// given options in YAML format.
-func (c *Client) ServiceSetYAML(service string, yaml string) error {
-	p := params.ServiceSetYAML{
-		ServiceName: service,
-		Config:      yaml,
-	}
-	return c.st.call("Client", "", "ServiceSetYAML", p, nil)
-}
-
-// ServiceGet returns the configuration for the named service.
-func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
-	var results params.ServiceGetResults
-	params := params.ServiceGet{ServiceName: service}
-	err := c.st.call("Client", "", "ServiceGet", params, &results)
-	return &results, err
-}
-
-// AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
-	var addRelRes params.AddRelationResults
-	params := params.AddRelation{Endpoints: endpoints}
-	err := c.st.call("Client", "", "AddRelation", params, &addRelRes)
-	return &addRelRes, err
-}
-
-// DestroyRelation removes the relation between the specified endpoints.
-func (c *Client) DestroyRelation(endpoints ...string) error {
-	params := params.DestroyRelation{Endpoints: endpoints}
-	return c.st.call("Client", "", "DestroyRelation", params, nil)
-}
-
-// ServiceExpose changes the juju-managed firewall to expose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceExpose(service string) error {
-	params := params.ServiceExpose{ServiceName: service}
-	return c.st.call("Client", "", "ServiceExpose", params, nil)
-}
-
-// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
-// were also explicitly marked by units as open.
-func (c *Client) ServiceUnexpose(service string) error {
-	params := params.ServiceUnexpose{ServiceName: service}
-	return c.st.call("Client", "", "ServiceUnexpose", params, nil)
-}
-
-// ServiceDeploy obtains the charm, either locally or from the charm store,
-// and deploys it.
-func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
-	params := params.ServiceDeploy{
-		ServiceName: serviceName,
-		CharmUrl:    charmUrl,
-		NumUnits:    numUnits,
-		// BUG(lp:1162122): ConfigYAML has no tests.
-		ConfigYAML:  configYAML,
-		Constraints: cons,
-	}
-	return c.st.call("Client", "", "ServiceDeploy", params, nil)
-}
-
-// AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
-	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
-	}
-	results := new(params.AddServiceUnitsResults)
-	err := c.st.call("Client", "", "AddServiceUnits", args, results)
-	return results.Units, err
-}
-
-// DestroyServiceUnits decreases the number of units dedicated to a service.
-func (c *Client) DestroyServiceUnits(unitNames []string) error {
-	params := params.DestroyServiceUnits{unitNames}
-	return c.st.call("Client", "", "DestroyServiceUnits", params, nil)
-}
-
-// ServiceDestroy destroys a given service.
-func (c *Client) ServiceDestroy(service string) error {
-	params := params.ServiceDestroy{
-		ServiceName: service,
-	}
-	return c.st.call("Client", "", "ServiceDestroy", params, nil)
-}
-
-// GetServiceConstraints returns the constraints for the given service.
-func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
-	results := new(params.GetServiceConstraintsResults)
-	err := c.st.call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
-	return results.Constraints, err
-}
-
-// SetServiceConstraints specifies the constraints for the given service.
-func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
-	params := params.SetServiceConstraints{
-		ServiceName: service,
-		Constraints: constraints,
-	}
-	return c.st.call("Client", "", "SetServiceConstraints", params, nil)
-}
-
-// CharmInfo holds information about a charm.
-type CharmInfo struct {
-	Revision int
-	URL      string
-	Config   *charm.Config
-	Meta     *charm.Meta
-}
-
-// CharmInfo returns information about the requested charm.
-func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
-	args := params.CharmInfo{CharmURL: charmURL}
-	info := new(CharmInfo)
-	if err := c.st.call("Client", "", "CharmInfo", args, info); err != nil {
+	pool := x509.NewCertPool()
+	xcert, err := cert.ParseCert(info.CACert)
+	if err != nil {
 		return nil, err
 	}
-	return info, nil
-}
-
-// EnvironmentInfo holds information about the Juju environment.
-type EnvironmentInfo struct {
-	DefaultSeries string
-	ProviderType  string
-	Name          string
-}
-
-// EnvironmentInfo returns details about the Juju environment.
-func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
-	info := new(EnvironmentInfo)
-	err := c.st.call("Client", "", "EnvironmentInfo", nil, info)
-	return info, err
-}
-
-// AllWatcher holds information allowing us to get Deltas describing changes
-// to the entire environment.
-type AllWatcher struct {
-	client *Client
-	id     *string
-}
-
-func newAllWatcher(client *Client, id *string) *AllWatcher {
-	return &AllWatcher{client, id}
-}
-
-func (watcher *AllWatcher) Next() ([]params.Delta, error) {
-	info := new(params.AllWatcherNextResults)
-	err := watcher.client.st.call("AllWatcher", *watcher.id, "Next", nil, info)
-	return info.Deltas, err
-}
-
-func (watcher *AllWatcher) Stop() error {
-	return watcher.client.st.call("AllWatcher", *watcher.id, "Stop", nil, nil)
-}
-
-// WatchAll holds the id of the newly-created AllWatcher.
-type WatchAll struct {
-	AllWatcherId string
-}
-
-// WatchAll returns an AllWatcher, from which you can request the Next
-// collection of Deltas.
-func (c *Client) WatchAll() (*AllWatcher, error) {
-	info := new(WatchAll)
-	if err := c.st.call("Client", "", "WatchAll", nil, info); err != nil {
-		return nil, err
+	pool.AddCert(xcert)
+	cfg.TlsConfig = &tls.Config{
+		RootCAs:    pool,
+		ServerName: "anything",
 	}
-	return newAllWatcher(c, &info.AllWatcherId), nil
-}
-
-// GetAnnotations returns annotations that have been set on the given entity.
-func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
-	args := params.GetAnnotations{tag}
-	ann := new(params.GetAnnotationsResults)
-	err := c.st.call("Client", "", "GetAnnotations", args, ann)
-	return ann.Annotations, err
-}
-
-// SetAnnotations sets the annotation pairs on the given entity.
-// Currently annotations are supported on machines, services,
-// units and the environment itself.
-func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
-	args := params.SetAnnotations{tag, pairs}
-	return c.st.call("Client", "", "SetAnnotations", args, nil)
-}
-
-// Machine returns a reference to the machine with the given id.
-func (st *State) Machine(id string) (*Machine, error) {
-	m := &Machine{
-		st: st,
-		id: id,
-	}
-	if err := m.Refresh(); err != nil {
-		return nil, err
-	}
-	return m, nil
-}
-
-// Unit represents the state of a service unit.
-type Unit struct {
-	st   *State
-	name string
-	doc  params.Unit
-}
-
-// Unit returns a unit by name.
-func (st *State) Unit(name string) (*Unit, error) {
-	u := &Unit{
-		st:   st,
-		name: name,
-	}
-	if err := u.Refresh(); err != nil {
-		return nil, err
-	}
-	return u, nil
-}
-
-// Login authenticates as the entity with the given name and password.
-// Subsequent requests on the state will act as that entity.
-// This method is usually called automatically by Open.
-func (st *State) Login(tag, password string) error {
-	return st.call("Admin", "", "Login", &params.Creds{
-		AuthTag:  tag,
-		Password: password,
-	}, nil)
-}
-
-// Id returns the machine id.
-func (m *Machine) Id() string {
-	return m.id
-}
-
-// Tag returns a name identifying the machine that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (m *Machine) Tag() string {
-	return MachineTag(m.Id())
-}
-
-// MachineTag returns the tag for the
-// machine with the given id.
-func MachineTag(id string) string {
-	return fmt.Sprintf("machine-%s", id)
-}
-
-// Refresh refreshes the contents of the machine from the underlying
-// state. TODO(rog) It returns a NotFoundError if the machine has been removed.
-func (m *Machine) Refresh() error {
-	return m.st.call("Machine", m.id, "Get", nil, &m.doc)
-}
-
-// String returns the machine's id.
-func (m *Machine) String() string {
-	return m.id
-}
-
-// InstanceId returns the provider specific instance id for this machine
-// and whether it has been set.
-func (m *Machine) InstanceId() (string, bool) {
-	return m.doc.InstanceId, m.doc.InstanceId != ""
-}
-
-// SetPassword sets the password for the machine's agent.
-func (m *Machine) SetPassword(password string) error {
-	return m.st.call("Machine", m.id, "SetPassword", &params.Password{
-		Password: password,
-	}, nil)
-}
-
-func (m *Machine) Watch() *EntityWatcher {
-	return newEntityWatcher(m.st, "Machine", m.id)
-}
-
-type EntityWatcher struct {
-	tomb  tomb.Tomb
-	wg    sync.WaitGroup
-	st    *State
-	etype string
-	eid   string
-	out   chan struct{}
-}
-
-func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
-	w := &EntityWatcher{
-		st:    st,
-		etype: etype,
-		eid:   id,
-		out:   make(chan struct{}),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		defer w.wg.Wait() // Wait for watcher to be stopped.
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-func (w *EntityWatcher) loop() error {
-	var id params.EntityWatcherId
-	if err := w.st.call(w.etype, w.eid, "Watch", nil, &id); err != nil {
-		return err
-	}
-	callWatch := func(request string) error {
-		return w.st.call("EntityWatcher", id.EntityWatcherId, request, nil, nil)
-	}
-	w.wg.Add(1)
-	go func() {
-		// When the EntityWatcher has been stopped, we send a
-		// Stop request to the server, which will remove the
-		// watcher and return a CodeStopped error to any
-		// currently outstanding call to Next.  If a call to
-		// Next happens just after the watcher has been stopped,
-		// we'll get a CodeNotFound error; Either way we'll
-		// return, wait for the stop request to complete, and
-		// the watcher will die with all resources cleaned up.
-		defer w.wg.Done()
-		<-w.tomb.Dying()
-		if err := callWatch("Stop"); err != nil {
-			log.Errorf("state/api: error trying to stop watcher: %v", err)
+	var conn *websocket.Conn
+	for a := openAttempt.Start(); a.Next(); {
+		log.Infof("state/api: dialing %q", cfg.Location)
+		conn, err = websocket.DialConfig(cfg)
+		if err == nil {
+			break
 		}
-	}()
+		log.Errorf("state/api: %v", err)
+	}
+	if err != nil {
+		return nil, err
+	}
+	log.Infof("state/api: connection established")
+
+	client := rpc.NewConn(jsoncodec.NewWebsocket(conn))
+	client.Start()
+	st := &State{
+		client: client,
+		conn:   conn,
+	}
+	if info.Tag != "" || info.Password != "" {
+		if err := st.Login(info.Tag, info.Password); err != nil {
+			conn.Close()
+			return nil, err
+		}
+	}
+	st.broken = make(chan struct{})
+	go st.heartbeatMonitor()
+	return st, nil
+}
+
+func (s *State) heartbeatMonitor() {
+	ping := func() error {
+		return s.Call("State", "", "Ping", nil, nil)
+	}
 	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case w.out <- struct{}{}:
-			// Note that because the change notification
-			// contains no information, there's no point in
-			// calling Next again until we have sent a notification
-			// on w.out.
+		if err := ping(); err != nil {
+			close(s.broken)
+			return
 		}
-		if err := callWatch("Next"); err != nil {
-			if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {
-				if w.tomb.Err() != tomb.ErrStillAlive {
-					// The watcher has been stopped at the client end, so we're
-					// expecting one of the above two kinds of error.
-					// We might see the same errors if the server itself
-					// has been shut down, in which case we leave them
-					// untouched.
-					err = tomb.ErrDying
-				}
-			}
-			return err
-		}
+		time.Sleep(PingPeriod)
 	}
-	panic("unreachable")
 }
 
-func (w *EntityWatcher) Changes() <-chan struct{} {
-	return w.out
+// Call invokes a low-level RPC method of the given objType, id, and
+// request, passing the given parameters and filling in the response
+// results. This should not be used directly by clients.
+// TODO (dimitern) Add tests for all client-facing objects to verify
+// we return the correct error when invoking Call("Object",
+// "non-empty-id",...)
+func (s *State) Call(objType, id, request string, params, response interface{}) error {
+	err := s.client.Call(objType, id, request, params, response)
+	return clientError(err)
 }
 
-func (w *EntityWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
+func (s *State) Close() error {
+	return s.client.Close()
 }
 
-func (w *EntityWatcher) Err() error {
-	return w.tomb.Err()
+// Broken returns a channel that's closed when the connection is broken.
+func (s *State) Broken() <-chan struct{} {
+	return s.broken
 }
 
-// Refresh refreshes the contents of the Unit from the underlying
-// state. TODO(rog) It returns a NotFoundError if the unit has been removed.
-func (u *Unit) Refresh() error {
-	return u.st.call("Unit", u.name, "Get", nil, &u.doc)
-}
-
-// SetPassword sets the password for the unit's agent.
-func (u *Unit) SetPassword(password string) error {
-	return u.st.call("Unit", u.name, "SetPassword", &params.Password{
-		Password: password,
-	}, nil)
-}
-
-// UnitTag returns the tag for the
-// unit with the given name.
-func UnitTag(unitName string) string {
-	return "unit-" + strings.Replace(unitName, "/", "-", -1)
-}
-
-// Tag returns a name identifying the unit that is safe to use
-// as a file name.  The returned name will be different from other
-// Tag values returned by any other entities from the same state.
-func (u *Unit) Tag() string {
-	return UnitTag(u.name)
-}
-
-// DeployerTag returns the tag of the agent responsible for deploying
-// the unit. If no such entity can be determined, false is returned.
-func (u *Unit) DeployerTag() (string, bool) {
-	return u.doc.DeployerTag, u.doc.DeployerTag != ""
+// RPCClient returns the RPC client for the state, so that testing
+// functions can tickle parts of the API that the conventional entry
+// points don't reach. This is exported for testing purposes only.
+func (s *State) RPCClient() *rpc.Conn {
+	return s.client
 }

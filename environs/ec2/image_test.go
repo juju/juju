@@ -1,11 +1,12 @@
+// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package ec2
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/jujutest"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -17,49 +18,12 @@ var _ = Suite(&imageSuite{})
 
 func (s *imageSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	UseTestImageData(imagesData)
+	UseTestImageData(TestImagesData)
 }
 
 func (s *imageSuite) TearDownSuite(c *C) {
 	UseTestImageData(nil)
 	s.LoggingSuite.TearDownTest(c)
-}
-
-var imagesData = []jujutest.FileContent{
-	{"/query/precise/server/released.current.txt", envtesting.ImagesFields(
-		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
-		"ebs amd64 eu-west-1 ami-00000016 paravirtual",
-		"ebs i386 ap-northeast-1 ami-00000023 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-00000026 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-00000087 hvm",
-		"ebs amd64 test ami-00000033 paravirtual",
-		"ebs i386 test ami-00000034 paravirtual",
-		"ebs amd64 test ami-00000035 hvm",
-	)},
-	{"/query/quantal/server/released.current.txt", envtesting.ImagesFields(
-		"instance-store amd64 us-east-1 ami-00000011 paravirtual",
-		"ebs amd64 eu-west-1 ami-01000016 paravirtual",
-		"ebs i386 ap-northeast-1 ami-01000023 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-01000026 paravirtual",
-		"ebs amd64 ap-northeast-1 ami-01000087 hvm",
-		"ebs i386 test ami-01000034 paravirtual",
-		"ebs amd64 test ami-01000035 hvm",
-	)},
-	{"/query/raring/server/released.current.txt", envtesting.ImagesFields(
-		"ebs i386 test ami-02000034 paravirtual",
-	)},
-}
-
-var instanceTypeCosts = instanceTypeCost{
-	"m1.small":    60,
-	"m1.medium":   120,
-	"m1.large":    240,
-	"m1.xlarge":   480,
-	"t1.micro":    20,
-	"c1.medium":   145,
-	"c1.xlarge":   580,
-	"cc1.4xlarge": 1300,
-	"cc2.8xlarge": 2400,
 }
 
 type specSuite struct {
@@ -70,13 +34,15 @@ var _ = Suite(&specSuite{})
 
 func (s *specSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	UseTestImageData(imagesData)
-	UseTestInstanceTypeData(instanceTypeCosts)
+	UseTestImageData(TestImagesData)
+	UseTestInstanceTypeData(TestInstanceTypeCosts)
+	UseTestRegionData(TestRegions)
 }
 
 func (s *specSuite) TearDownSuite(c *C) {
 	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
+	UseTestRegionData(nil)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
@@ -158,7 +124,7 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
 		storage := ebsStorage
-		spec, err := findInstanceSpec(&instances.InstanceConstraint{
+		spec, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
 			Region:      "test",
 			Series:      t.series,
 			Arches:      t.arches,
@@ -180,11 +146,11 @@ var findInstanceSpecErrorTests = []struct {
 	{
 		series: "bad",
 		arches: both,
-		err:    `no "bad" images in test with arches \[amd64 i386\], and no default specified`,
+		err:    `invalid series "bad"`,
 	}, {
 		series: "precise",
 		arches: []string{"arm"},
-		err:    `no "precise" images in test with arches \[arm\], and no default specified`,
+		err:    `no "precise" images in test with arches \[arm\]`,
 	}, {
 		series: "raring",
 		arches: both,
@@ -196,7 +162,7 @@ var findInstanceSpecErrorTests = []struct {
 func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
-		_, err := findInstanceSpec(&instances.InstanceConstraint{
+		_, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
 			Region:      "test",
 			Series:      t.series,
 			Arches:      t.arches,

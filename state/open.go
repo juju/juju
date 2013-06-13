@@ -1,11 +1,15 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
 	"crypto/tls"
 	"crypto/x509"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -13,6 +17,7 @@ import (
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
@@ -45,18 +50,13 @@ type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
-
-	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
-	RetryDelay time.Duration
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
-		Timeout:    10 * time.Minute,
-		RetryDelay: 2 * time.Second,
+		Timeout: 10 * time.Minute,
 	}
 }
 
@@ -67,10 +67,10 @@ func DefaultDialOpts() DialOpts {
 func Open(info *Info, opts DialOpts) (*State, error) {
 	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
-		return nil, errors.New("no mongo addresses")
+		return nil, stderrors.New("no mongo addresses")
 	}
 	if len(info.CACert) == 0 {
-		return nil, errors.New("missing CA certificate")
+		return nil, stderrors.New("missing CA certificate")
 	}
 	xcert, err := cert.ParseCert(info.CACert)
 	if err != nil {
@@ -85,8 +85,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	dial := func(addr net.Addr) (net.Conn, error) {
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Errorf("state: connection failed, paused for %v: %v", opts.RetryDelay, err)
-			time.Sleep(opts.RetryDelay)
+			log.Errorf("state: connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)
@@ -131,7 +130,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	// do nothing.
 	if _, err := st.Environment(); err == nil {
 		return st, nil
-	} else if !IsNotFound(err) {
+	} else if !errors.IsNotFoundError(err) {
 		return nil, err
 	}
 	log.Infof("state: initializing environment")
@@ -147,7 +146,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 	}
-	if err := st.runTxn(ops); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
@@ -179,31 +178,6 @@ var (
 	logSizeTests = 1000000
 )
 
-// unauthorizedError represents the error that an operation is unauthorized.
-// Use IsUnauthorized() to determine if the error was related to authorization failure.
-type unauthorizedError struct {
-	msg string
-	error
-}
-
-func IsUnauthorizedError(err error) bool {
-	_, ok := err.(*unauthorizedError)
-	return ok
-}
-
-func (e *unauthorizedError) Error() string {
-	if e.error != nil {
-		return fmt.Sprintf("%s: %v", e.msg, e.error.Error())
-	}
-	return e.msg
-}
-
-// Unauthorizedf returns an error for which IsUnauthorizedError returns true.
-// It is mainly used for testing.
-func Unauthorizedf(format string, args ...interface{}) error {
-	return &unauthorizedError{fmt.Sprintf(format, args...), nil}
-}
-
 func maybeUnauthorized(err error, msg string) error {
 	if err == nil {
 		return nil
@@ -211,10 +185,10 @@ func maybeUnauthorized(err error, msg string) error {
 	// Unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
-		return &unauthorizedError{msg, err}
+		return &errors.UnauthorizedError{err, msg}
 	}
 	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return &unauthorizedError{msg, err}
+		return &errors.UnauthorizedError{err, msg}
 	}
 	return fmt.Errorf("%s: %v", msg, err)
 }
@@ -241,6 +215,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		environments:   db.C("environments"),
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
+		containerRefs:  db.C("containerRefs"),
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
@@ -272,14 +247,37 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
-	st.txnHooks = make(chan ([]func()), 1)
-	st.txnHooks <- nil
+	st.transactionHooks = make(chan ([]TransactionHook), 1)
+	st.transactionHooks <- nil
 	return st, nil
 }
 
 // Addresses returns the list of addresses used to connect to the state.
-func (st *State) Addresses() (addrs []string) {
-	return append(addrs, st.info.Addrs...)
+func (st *State) Addresses() ([]string, error) {
+	stateAddrs := st.db.Session.LiveServers()
+	if len(stateAddrs) == 0 {
+		return nil, stderrors.New("unable to find state addresses")
+	}
+	return stateAddrs, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	stateAddrs, err := st.Addresses()
+	if err != nil {
+		return nil, err
+	}
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	apiAddrs := make([]string, 0, len(stateAddrs))
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	for _, stateAddr := range stateAddrs {
+		i := strings.LastIndex(stateAddr, ":")
+		apiAddrs = append(apiAddrs, stateAddr[:i]+apiPortSuffix)
+	}
+	return apiAddrs, nil
 }
 
 // CACert returns the certificate used to validate the state connection.

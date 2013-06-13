@@ -1,157 +1,216 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package api
 
 import (
-	"code.google.com/p/go.net/websocket"
-	"crypto/tls"
-	"crypto/x509"
-	"encoding/json"
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/utils"
-	"time"
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/state/api/params"
 )
 
-type State struct {
-	client *rpc.Client
-	conn   *websocket.Conn
+// Client represents the client-accessible part of the state.
+type Client struct {
+	st *State
 }
 
-// Info encapsulates information about a server holding juju state and
-// can be used to make a connection to it.
-type Info struct {
-	// Addrs holds the addresses of the state servers.
-	Addrs []string
-
-	// CACert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
-	CACert []byte
-
-	// Tag holds the name of the entity that is connecting.
-	// If this and the password are empty, no login attempt will be made
-	// (this is to allow tests to access the API to check that operations
-	// fail when not logged in).
-	Tag string
-
-	// Password holds the password for the administrator or connecting entity.
-	Password string
+// MachineInfo holds information about a machine.
+type MachineInfo struct {
+	InstanceId string // blank if not set.
 }
 
-var openAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Minute,
-	Delay: 500 * time.Millisecond,
+// Status holds information about the status of a juju environment.
+type Status struct {
+	Machines map[string]MachineInfo
+	// TODO the rest
 }
 
-func Open(info *Info) (*State, error) {
-	// TODO Select a random address from info.Addrs
-	// and only fail when we've tried all the addresses.
-	// TODO what does "origin" really mean, and is localhost always ok?
-	cfg, err := websocket.NewConfig("wss://"+info.Addrs[0]+"/", "http://localhost/")
-	if err != nil {
+// Status returns the status of the juju environment.
+func (c *Client) Status() (*Status, error) {
+	var s Status
+	if err := c.st.Call("Client", "", "Status", nil, &s); err != nil {
 		return nil, err
 	}
-	pool := x509.NewCertPool()
-	xcert, err := cert.ParseCert(info.CACert)
-	if err != nil {
+	return &s, nil
+}
+
+// ServiceSet sets configuration options on a service.
+func (c *Client) ServiceSet(service string, options map[string]string) error {
+	p := params.ServiceSet{
+		ServiceName: service,
+		Options:     options,
+	}
+	return c.st.Call("Client", "", "ServiceSet", p, nil)
+}
+
+// Resolved clears errors on a unit.
+func (c *Client) Resolved(unit string, retry bool) error {
+	p := params.Resolved{
+		UnitName: unit,
+		Retry:    retry,
+	}
+	return c.st.Call("Client", "", "Resolved", p, nil)
+}
+
+// ServiceSetYAML sets configuration options on a service
+// given options in YAML format.
+func (c *Client) ServiceSetYAML(service string, yaml string) error {
+	p := params.ServiceSetYAML{
+		ServiceName: service,
+		Config:      yaml,
+	}
+	return c.st.Call("Client", "", "ServiceSetYAML", p, nil)
+}
+
+// ServiceGet returns the configuration for the named service.
+func (c *Client) ServiceGet(service string) (*params.ServiceGetResults, error) {
+	var results params.ServiceGetResults
+	params := params.ServiceGet{ServiceName: service}
+	err := c.st.Call("Client", "", "ServiceGet", params, &results)
+	return &results, err
+}
+
+// AddRelation adds a relation between the specified endpoints and returns the relation info.
+func (c *Client) AddRelation(endpoints ...string) (*params.AddRelationResults, error) {
+	var addRelRes params.AddRelationResults
+	params := params.AddRelation{Endpoints: endpoints}
+	err := c.st.Call("Client", "", "AddRelation", params, &addRelRes)
+	return &addRelRes, err
+}
+
+// DestroyRelation removes the relation between the specified endpoints.
+func (c *Client) DestroyRelation(endpoints ...string) error {
+	params := params.DestroyRelation{Endpoints: endpoints}
+	return c.st.Call("Client", "", "DestroyRelation", params, nil)
+}
+
+// ServiceExpose changes the juju-managed firewall to expose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) ServiceExpose(service string) error {
+	params := params.ServiceExpose{ServiceName: service}
+	return c.st.Call("Client", "", "ServiceExpose", params, nil)
+}
+
+// ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
+// were also explicitly marked by units as open.
+func (c *Client) ServiceUnexpose(service string) error {
+	params := params.ServiceUnexpose{ServiceName: service}
+	return c.st.Call("Client", "", "ServiceUnexpose", params, nil)
+}
+
+// ServiceDeploy obtains the charm, either locally or from the charm store,
+// and deploys it.
+func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int, configYAML string, cons constraints.Value) error {
+	params := params.ServiceDeploy{
+		ServiceName: serviceName,
+		CharmUrl:    charmUrl,
+		NumUnits:    numUnits,
+		ConfigYAML:  configYAML,
+		Constraints: cons,
+	}
+	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
+}
+
+// AddServiceUnits adds a given number of units to a service.
+func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
+	args := params.AddServiceUnits{
+		ServiceName: service,
+		NumUnits:    numUnits,
+	}
+	results := new(params.AddServiceUnitsResults)
+	err := c.st.Call("Client", "", "AddServiceUnits", args, results)
+	return results.Units, err
+}
+
+// DestroyServiceUnits decreases the number of units dedicated to a service.
+func (c *Client) DestroyServiceUnits(unitNames []string) error {
+	params := params.DestroyServiceUnits{unitNames}
+	return c.st.Call("Client", "", "DestroyServiceUnits", params, nil)
+}
+
+// ServiceDestroy destroys a given service.
+func (c *Client) ServiceDestroy(service string) error {
+	params := params.ServiceDestroy{
+		ServiceName: service,
+	}
+	return c.st.Call("Client", "", "ServiceDestroy", params, nil)
+}
+
+// GetServiceConstraints returns the constraints for the given service.
+func (c *Client) GetServiceConstraints(service string) (constraints.Value, error) {
+	results := new(params.GetServiceConstraintsResults)
+	err := c.st.Call("Client", "", "GetServiceConstraints", params.GetServiceConstraints{service}, results)
+	return results.Constraints, err
+}
+
+// SetServiceConstraints specifies the constraints for the given service.
+func (c *Client) SetServiceConstraints(service string, constraints constraints.Value) error {
+	params := params.SetServiceConstraints{
+		ServiceName: service,
+		Constraints: constraints,
+	}
+	return c.st.Call("Client", "", "SetServiceConstraints", params, nil)
+}
+
+// CharmInfo holds information about a charm.
+type CharmInfo struct {
+	Revision int
+	URL      string
+	Config   *charm.Config
+	Meta     *charm.Meta
+}
+
+// CharmInfo returns information about the requested charm.
+func (c *Client) CharmInfo(charmURL string) (*CharmInfo, error) {
+	args := params.CharmInfo{CharmURL: charmURL}
+	info := new(CharmInfo)
+	if err := c.st.Call("Client", "", "CharmInfo", args, info); err != nil {
 		return nil, err
 	}
-	pool.AddCert(xcert)
-	cfg.TlsConfig = &tls.Config{
-		RootCAs:    pool,
-		ServerName: "anything",
-	}
-	var conn *websocket.Conn
-	for a := openAttempt.Start(); a.Next(); {
-		log.Infof("state/api: dialing %q", cfg.Location)
-		conn, err = websocket.DialConfig(cfg)
-		if err == nil {
-			break
-		}
-		log.Errorf("state/api: %v", err)
-	}
-	if err != nil {
+	return info, nil
+}
+
+// EnvironmentInfo holds information about the Juju environment.
+type EnvironmentInfo struct {
+	DefaultSeries string
+	ProviderType  string
+	Name          string
+}
+
+// EnvironmentInfo returns details about the Juju environment.
+func (c *Client) EnvironmentInfo() (*EnvironmentInfo, error) {
+	info := new(EnvironmentInfo)
+	err := c.st.Call("Client", "", "EnvironmentInfo", nil, info)
+	return info, err
+}
+
+// WatchAll holds the id of the newly-created AllWatcher.
+type WatchAll struct {
+	AllWatcherId string
+}
+
+// WatchAll returns an AllWatcher, from which you can request the Next
+// collection of Deltas.
+func (c *Client) WatchAll() (*AllWatcher, error) {
+	info := new(WatchAll)
+	if err := c.st.Call("Client", "", "WatchAll", nil, info); err != nil {
 		return nil, err
 	}
-	log.Infof("state/api: connection established")
-
-	client := rpc.NewClientWithCodec(&clientCodec{conn: conn})
-	st := &State{
-		client: client,
-		conn:   conn,
-	}
-	if info.Tag != "" || info.Password != "" {
-		if err := st.Login(info.Tag, info.Password); err != nil {
-			conn.Close()
-			return nil, err
-		}
-	}
-	return st, nil
+	return newAllWatcher(c, &info.AllWatcherId), nil
 }
 
-func (s *State) call(objType, id, request string, params, response interface{}) error {
-	err := s.client.Call(objType, id, request, params, response)
-	return clientError(err)
+// GetAnnotations returns annotations that have been set on the given entity.
+func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
+	args := params.GetAnnotations{tag}
+	ann := new(params.GetAnnotationsResults)
+	err := c.st.Call("Client", "", "GetAnnotations", args, ann)
+	return ann.Annotations, err
 }
 
-func (s *State) Close() error {
-	return s.client.Close()
-}
-
-// RPCClient returns the RPC client for the state, so that testing
-// functions can tickle parts of the API that the conventional entry
-// points don't reach. This is exported for testing purposes only.
-func (s *State) RPCClient() *rpc.Client {
-	return s.client
-}
-
-type clientReq struct {
-	RequestId uint64
-	Type      string
-	Id        string
-	Request   string
-	Params    interface{}
-}
-
-type clientResp struct {
-	RequestId uint64
-	Error     string
-	ErrorCode string
-	Response  json.RawMessage
-}
-
-type clientCodec struct {
-	conn *websocket.Conn
-	resp clientResp
-}
-
-func (c *clientCodec) Close() error {
-	return c.conn.Close()
-}
-
-func (c *clientCodec) WriteRequest(req *rpc.Request, p interface{}) error {
-	return websocket.JSON.Send(c.conn, &clientReq{
-		RequestId: req.RequestId,
-		Type:      req.Type,
-		Id:        req.Id,
-		Request:   req.Request,
-		Params:    p,
-	})
-}
-
-func (c *clientCodec) ReadResponseHeader(resp *rpc.Response) error {
-	c.resp = clientResp{}
-	if err := websocket.JSON.Receive(c.conn, &c.resp); err != nil {
-		return err
-	}
-	resp.RequestId = c.resp.RequestId
-	resp.Error = c.resp.Error
-	resp.ErrorCode = c.resp.ErrorCode
-	return nil
-}
-
-func (c *clientCodec) ReadResponseBody(body interface{}) error {
-	if body == nil {
-		return nil
-	}
-	return json.Unmarshal(c.resp.Response, body)
+// SetAnnotations sets the annotation pairs on the given entity.
+// Currently annotations are supported on machines, services,
+// units and the environment itself.
+func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
+	args := params.SetAnnotations{tag, pairs}
+	return c.st.Call("Client", "", "SetAnnotations", args, nil)
 }

@@ -1,7 +1,11 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package machiner
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -33,6 +37,10 @@ func (mr *Machiner) String() string {
 	return fmt.Sprintf("machiner %s", mr.id)
 }
 
+func (mr *Machiner) Kill() {
+	mr.tomb.Kill(nil)
+}
+
 func (mr *Machiner) Stop() error {
 	mr.tomb.Kill(nil)
 	return mr.tomb.Wait()
@@ -45,7 +53,7 @@ func (mr *Machiner) Wait() error {
 func (mr *Machiner) loop() error {
 	// Find which machine we're responsible for.
 	m, err := mr.st.Machine(mr.id)
-	if state.IsNotFound(err) {
+	if errors.IsNotFoundError(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
 		return err
@@ -72,7 +80,7 @@ func (mr *Machiner) loop() error {
 		case <-mr.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.Changes():
-			if err := m.Refresh(); state.IsNotFound(err) {
+			if err := m.Refresh(); errors.IsNotFoundError(err) {
 				return worker.ErrTerminateAgent
 			} else if err != nil {
 				return err

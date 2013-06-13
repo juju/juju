@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -5,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
@@ -215,7 +219,7 @@ func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error)
 		}
 	}()
 	entity, err := a.Entity(st)
-	if state.IsNotFound(err) || err == nil && entity.Life() == state.Dead {
+	if errors.IsNotFoundError(err) || err == nil && entity.Life() == state.Dead {
 		err = worker.ErrTerminateAgent
 	}
 	if err != nil {

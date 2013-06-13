@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package machiner_test
 
 import (
@@ -45,6 +48,8 @@ func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus p
 		}
 	}
 }
+
+var _ worker.Worker = (*machiner.Machiner)(nil)
 
 func (s *MachinerSuite) TestNotFound(c *C) {
 	mr := machiner.NewMachiner(s.State, "eleventy-one")

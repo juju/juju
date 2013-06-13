@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package deployer_test
 
 import (
@@ -11,6 +14,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
@@ -188,6 +192,11 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 		OldPassword: password,
 		StateInfo: &state.Info{
 			Addrs:  []string{"s1:123", "s2:123"},
+			CACert: []byte("test-cert"),
+			Tag:    tag,
+		},
+		APIInfo: &api.Info{
+			Addrs:  []string{"a1:123", "a2:123"},
 			CACert: []byte("test-cert"),
 			Tag:    tag,
 		},

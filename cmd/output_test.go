@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cmd_test
 
 import (
@@ -78,6 +81,7 @@ var outputTests = map[string][]struct {
 		{"hello", `"hello"` + "\n"},
 		{"\n\n\n", `"\n\n\n"` + "\n"},
 		{"foo: bar", `"foo: bar"` + "\n"},
+		{[]string{}, `[]` + "\n"},
 		{[]string{"blam", "dink"}, `["blam","dink"]` + "\n"},
 		{defaultValue, `{"Juju":1,"Puppet":false}` + "\n"},
 	},

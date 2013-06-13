@@ -1,9 +1,12 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package juju
 
 import (
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -11,6 +14,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -47,7 +51,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	info.Password = password
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts)
-	if state.IsUnauthorizedError(err) {
+	if errors.IsUnauthorizedError(err) {
 		log.Noticef("juju: authorization error while connecting to state server; retrying")
 		// We can't connect with the administrator password,;
 		// perhaps this was the first connection and the
@@ -59,7 +63,7 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 		// initialized and the initial password set.
 		for a := redialStrategy.Start(); a.Next(); {
 			st, err = state.Open(info, opts)
-			if !state.IsUnauthorizedError(err) {
+			if !errors.IsUnauthorizedError(err) {
 				break
 			}
 		}
@@ -182,49 +186,55 @@ func (conn *Conn) PutCharm(curl *charm.URL, repo charm.Repository, bumpRevision 
 // DeployServiceParams contains the arguments required to deploy the referenced
 // charm.
 type DeployServiceParams struct {
-	ServiceName string
-	Charm       *state.Charm
-	NumUnits    int
-	// Config is used only by the API.
-	Config map[string]string
-	// ConfigYAML takes precedence over Config if both are provided.
-	ConfigYAML  string
-	Constraints constraints.Value
+	ServiceName    string
+	Charm          *state.Charm
+	ConfigSettings charm.Settings
+	Constraints    constraints.Value
+	NumUnits       int
 	// Use string for deploy-to machine to avoid ambiguity around machine 0.
 	ForceMachineId string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	// TODO(rog) validate the configuration before adding the service.
-	svc, err := conn.State.AddService(args.ServiceName, args.Charm)
+	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err
 	}
-	// TODO(rog) should we destroy if we return an error in any of the
-	// subsequent operations?
-	// BUG(lp:1162122): Config/ConfigYAML have no tests.
-	if args.ConfigYAML != "" {
-		if err := svc.SetConfigYAML([]byte(args.ConfigYAML)); err != nil {
-			return nil, err
+	emptyCons := constraints.Value{}
+	if args.Charm.Meta().Subordinate {
+		if args.NumUnits != 0 || args.ForceMachineId != "" {
+			return nil, fmt.Errorf("subordinate service must be deployed without units")
 		}
-	} else if args.Config != nil {
-		if err := svc.SetConfig(args.Config); err != nil {
-			// TODO(rog) should we destroy the service here?
+		if args.Constraints != emptyCons {
+			return nil, fmt.Errorf("subordinate service must be deployed without constraints")
+		}
+	}
+	// TODO(fwereade): transactional State.AddService including settings, constraints
+	// (minimumUnitCount, initialMachineIds?).
+	service, err := conn.State.AddService(args.ServiceName, args.Charm)
+	if err != nil {
+		return nil, err
+	}
+	if len(settings) > 0 {
+		if err := service.UpdateConfigSettings(settings); err != nil {
 			return nil, err
 		}
 	}
 	if args.Charm.Meta().Subordinate {
-		return svc, nil
+		return service, nil
 	}
-	if err := svc.SetConstraints(args.Constraints); err != nil {
-		return nil, err
+	if args.Constraints != emptyCons {
+		if err := service.SetConstraints(args.Constraints); err != nil {
+			return nil, err
+		}
 	}
-	_, err = conn.AddUnits(svc, args.NumUnits, args.ForceMachineId)
-	if err != nil {
-		return nil, err
+	if args.NumUnits > 0 {
+		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineId); err != nil {
+			return nil, err
+		}
 	}
-	return svc, nil
+	return service, nil
 }
 
 func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error) {
@@ -288,10 +298,9 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 // to them as necessary.
 func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
-	// TODO store AssignmentPolicy in state, thus removing the need for this
-	// to use conn.Environ (so the method can be moved off Conn, and into
-	// State.
-	policy := conn.Environ.AssignmentPolicy()
+	// Hard code for now till we implement a constraints based approach.
+	// We currently only support AssignNew.
+	policy := state.AssignNew
 	// TODO what do we do if we fail half-way through this process?
 	for i := 0; i < n; i++ {
 		unit, err := svc.AddUnit()
@@ -327,7 +336,7 @@ func InitJujuHome() error {
 	if jujuHome == "" {
 		home := os.Getenv("HOME")
 		if home == "" {
-			return errors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
+			return stderrors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
 		}
 		jujuHome = filepath.Join(home, ".juju")
 	}

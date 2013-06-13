@@ -1,9 +1,11 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
 	"errors"
 	"fmt"
-	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -87,15 +89,14 @@ func (c *DeployCommand) Init(args []string) error {
 		return cmd.CheckEmpty(args[2:])
 	}
 	if c.NumUnits < 1 {
-		// TODO improve/remove: this is misleading when deploying subordinates.
-		return errors.New("must deploy at least one unit")
+		return errors.New("--num-units must be a positive integer")
 	}
 	if c.ForceMachineId != "" {
+		if c.NumUnits > 1 {
+			return errors.New("cannot use --num-units with --force-machine")
+		}
 		if !state.IsMachineId(c.ForceMachineId) {
 			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
-		}
-		if c.NumUnits > 1 {
-			return fmt.Errorf("force-machine cannot be used for multiple units")
 		}
 	}
 	return nil
@@ -119,39 +120,49 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	var configYAML []byte
-	if c.Config.Path != "" {
-		configYAML, err = ioutil.ReadFile(c.Config.Path)
-		if err != nil {
-			return err
-		}
-	}
-	charm, err := conn.PutCharm(curl, repo, c.BumpRevision)
+	// TODO(fwereade) it's annoying to roundtrip the bytes through the client
+	// here, but it's the original behaviour and not convenient to change.
+	// PutCharm will always be required in some form for local charms; and we
+	// will need an EnsureStoreCharm method somewhere that gets the state.Charm
+	// for use in the following checks.
+	ch, err := conn.PutCharm(curl, repo, c.BumpRevision)
 	if err != nil {
 		return err
 	}
-	if charm.Meta().Subordinate {
+	numUnits := c.NumUnits
+	if ch.Meta().Subordinate {
 		empty := constraints.Value{}
 		if c.Constraints != empty {
-			return state.ErrSubordinateConstraints
+			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if c.ForceMachineId != "" {
-			return fmt.Errorf("subordinate service cannot specify force-machine")
+		if numUnits == 1 && c.ForceMachineId == "" {
+			numUnits = 0
+		} else {
+			return errors.New("cannot use --num-units or --force-machine with subordinate service")
 		}
 	}
 	serviceName := c.ServiceName
 	if serviceName == "" {
-		serviceName = curl.Name
+		serviceName = ch.Meta().Name
 	}
-	args := juju.DeployServiceParams{
-		Charm:       charm,
-		ServiceName: serviceName,
-		NumUnits:    c.NumUnits,
-		// BUG(lp:1162122): --config has no tests.
-		ConfigYAML:     string(configYAML),
+	var settings charm.Settings
+	if c.Config.Path != "" {
+		configYAML, err := c.Config.Read(ctx)
+		if err != nil {
+			return err
+		}
+		settings, err = ch.Config().ParseSettingsYAML(configYAML, serviceName)
+		if err != nil {
+			return err
+		}
+	}
+	_, err = conn.DeployService(juju.DeployServiceParams{
+		ServiceName:    serviceName,
+		Charm:          ch,
+		NumUnits:       numUnits,
+		ConfigSettings: settings,
 		Constraints:    c.Constraints,
 		ForceMachineId: c.ForceMachineId,
-	}
-	_, err = conn.DeployService(args)
+	})
 	return err
 }

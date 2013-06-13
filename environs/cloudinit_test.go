@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package environs_test
 
 import (
@@ -68,6 +71,8 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *C) {
 	c.Check(mcfg.StateInfo, DeepEquals, &state.Info{
 		Password: password, CACert: []byte(testing.CACert),
 	})
+	c.Check(mcfg.StatePort, Equals, cfg.StatePort())
+	c.Check(mcfg.APIPort, Equals, cfg.APIPort())
 	c.Check(mcfg.Constraints, DeepEquals, cons)
 
 	oldAttrs["ca-private-key"] = ""

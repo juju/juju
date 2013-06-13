@@ -1,8 +1,9 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package api
 
-import (
-	"launchpad.net/juju-core/rpc"
-)
+import "launchpad.net/juju-core/rpc"
 
 // Error is the type of error returned by any call
 // to the state API.
@@ -31,6 +32,7 @@ const (
 	CodeUnitHasSubordinates = "unit has subordinates"
 	CodeNotAssigned         = "not assigned"
 	CodeStopped             = "stopped"
+	CodeHasAssignedUnits    = "machine has assigned units"
 )
 
 // ErrCode returns the error code associated with
@@ -46,7 +48,7 @@ func ErrCode(err error) string {
 // clientError maps errors returned from an RPC call into local errors with
 // appropriate values.
 func clientError(err error) error {
-	rerr, ok := err.(*rpc.ServerError)
+	rerr, ok := err.(*rpc.RequestError)
 	if !ok {
 		return err
 	}

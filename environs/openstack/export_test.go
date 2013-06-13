@@ -1,19 +1,25 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack
 
 import (
+	"bytes"
 	"fmt"
+	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
+	"text/template"
 	"time"
 )
 
@@ -50,7 +56,7 @@ var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 // Set Metadata requests to be served by the filecontent supplied.
 func UseTestMetadata(metadata []jujutest.FileContent) {
 	if len(metadata) != 0 {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata)
+		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(metadata, nil)
 		metadataHost = "test:"
 	} else {
 		testRoundTripper.Sub = nil
@@ -98,7 +104,7 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 	authModeCfg := AuthMode(ecfg.authMode())
 	writablePublicStorage := &storage{
 		containerName: ecfg.publicBucket(),
-		swift:         swift.New(e.(*environ).client(ecfg, authModeCfg)),
+		swift:         swift.New(e.(*environ).authClient(ecfg, authModeCfg)),
 	}
 
 	// Ensure the container exists.
@@ -112,81 +118,171 @@ func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return instanceAddress(addresses)
 }
 
-var privateBucketImagesData = map[string]string{
-	"quantal": testing.ImagesFields(
-		"inst3 amd64 region-1 id-1 paravirtual",
-		"inst4 amd64 region-2 id-2 paravirtual",
-	),
-	"raring": testing.ImagesFields(
-		"inst5 amd64 some-region id-y paravirtual",
-		"inst6 amd64 another-region id-z paravirtual",
-	),
-}
-
-var publicBucketImagesData = map[string]string{
-	"precise": testing.ImagesFields(
-		"inst1 amd64 some-region 1 paravirtual",
-		"inst2 amd64 some-region 2 paravirtual",
-	),
-}
-
-func metadataFilePath(series string) string {
-	return fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", series)
-}
-
-func UseTestImageData(e environs.Environ, includePrivate bool) {
-	// Put some image metadata files into the public (and maybe private) storage.
-	if includePrivate {
-		for series, imagesData := range privateBucketImagesData {
-			e.Storage().Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
+var publicBucketIndexData = `
+		{
+		 "index": {
+		  "com.ubuntu.cloud:released:openstack": {
+		   "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		   "clouds": [
+			{
+			 "region": "{{.Region}}",
+			 "endpoint": "{{.URL}}"
+			}
+		   ],
+		   "cloudname": "test",
+		   "datatype": "image-ids",
+		   "format": "products:1.0",
+		   "products": [
+			"com.ubuntu.cloud:server:12.04:amd64",
+			"com.ubuntu.cloud:server:12.10:amd64",
+			"com.ubuntu.cloud:server:13.04:amd64"
+		   ],
+		   "path": "image-metadata/products.json"
+		  }
+		 },
+		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
+		 "format": "index:1.0"
 		}
+`
+
+var publicBucketImagesData = `
+{
+ "content_id": "com.ubuntu.cloud:released:openstack",
+ "products": {
+   "com.ubuntu.cloud:server:12.04:amd64": {
+     "release": "precise",
+     "version": "12.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst1": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "1"
+           },
+           "inst2": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "2"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121218",
+         "label": "release"
+       },
+       "20121111": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "3"
+           }
+         },
+         "pubname": "ubuntu-precise-12.04-amd64-server-20121111",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:12.10:amd64": {
+     "release": "quantal",
+     "version": "12.10",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst3": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "region-1",
+             "id": "id-1"
+           },
+           "inst4": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "region-2",
+             "id": "id-2"
+           }
+         },
+         "pubname": "ubuntu-quantal-12.14-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   },
+   "com.ubuntu.cloud:server:13.04:amd64": {
+     "release": "raring",
+     "version": "13.04",
+     "arch": "amd64",
+     "versions": {
+       "20121218": {
+         "items": {
+           "inst5": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "some-region",
+             "id": "id-y"
+           },
+           "inst6": {
+             "root_store": "ebs",
+             "virt": "pv",
+             "region": "another-region",
+             "id": "id-z"
+           }
+         },
+         "pubname": "ubuntu-raring-13.04-amd64-server-20121218",
+         "label": "release"
+       }
+     }
+   }
+ },
+ "format": "products:1.0"
+}
+`
+
+const productMetadatafile = "image-metadata/products.json"
+
+func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
+	// Put some image metadata files into the public storage.
+	t := template.Must(template.New("").Parse(publicBucketIndexData))
+	var metadata bytes.Buffer
+	if err := t.Execute(&metadata, cred); err != nil {
+		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
-	for series, imagesData := range publicBucketImagesData {
-		WritablePublicStorage(e).Put(metadataFilePath(series), strings.NewReader(imagesData), int64(len(imagesData)))
-	}
+	data := metadata.Bytes()
+	WritablePublicStorage(e).Put(imagemetadata.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
+	WritablePublicStorage(e).Put(
+		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
-	for series := range privateBucketImagesData {
-		e.Storage().Remove(metadataFilePath(series))
-	}
-	for series := range publicBucketImagesData {
-		WritablePublicStorage(e).Remove(metadataFilePath(series))
-	}
+	WritablePublicStorage(e).Remove(imagemetadata.DefaultIndexPath + ".json")
+	WritablePublicStorage(e).Remove(productMetadatafile)
 }
 
 func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *instances.InstanceSpec, err error) {
 	env := e.(*environ)
 	spec, err = findInstanceSpec(env, &instances.InstanceConstraint{
-		Series:              series,
-		Arches:              []string{arch},
-		Region:              env.ecfg().region(),
-		Constraints:         constraints.MustParse(cons),
-		DefaultInstanceType: env.ecfg().defaultInstanceType(),
-		DefaultImageId:      env.ecfg().defaultImageId(),
+		Series:      series,
+		Arches:      []string{arch},
+		Region:      env.ecfg().region(),
+		Constraints: constraints.MustParse(cons),
 	})
 	return
+}
+
+func GetImageURLs(e environs.Environ) ([]string, error) {
+	return e.(*environ).getImageBaseURLs()
+}
+
+func GetSwiftURL(e environs.Environ) (string, error) {
+	return e.(*environ).client.MakeServiceURL("object-store", nil)
 }
 
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
-}
-
-func SetDefaultInstanceType(e environs.Environ, defaultInstanceType string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["default-instance-type"] = defaultInstanceType
-}
-
-func SetDefaultImageId(e environs.Environ, defaultId string) {
-	ecfg := e.(*environ).ecfg()
-	ecfg.attrs["default-image-id"] = defaultId
-}
-
-// ImageDetails specify parameters used to start a test machine for the live tests.
-type ImageDetails struct {
-	Flavor  string
-	ImageId string
 }
 
 type BootstrapState struct {

@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The statecmd package is a temporary package
 // to put code that's used by both cmd/juju and state/api.
 // It is intended to wither away to nothing as functionality
@@ -15,53 +18,48 @@ import (
 
 // ServiceGet returns the configuration for the named service.
 func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults, error) {
-	svc, err := st.Service(p.ServiceName)
+	service, err := st.Service(p.ServiceName)
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
-	svcCfg, err := svc.Config()
+	settings, err := service.ConfigSettings()
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
-	charm, _, err := svc.Charm()
+	charm, _, err := service.Charm()
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
-	charmCfg := charm.Config().Options
-
+	configInfo := describe(settings, charm.Config())
 	var constraints constraints.Value
-	if svc.IsPrincipal() {
-		constraints, err = svc.Constraints()
+	if service.IsPrincipal() {
+		constraints, err = service.Constraints()
 		if err != nil {
 			return params.ServiceGetResults{}, err
 		}
 	}
-
 	return params.ServiceGetResults{
 		Service:     p.ServiceName,
 		Charm:       charm.Meta().Name,
-		Config:      merge(svcCfg.Map(), charmCfg),
+		Config:      configInfo,
 		Constraints: constraints,
 	}, nil
 }
 
-// merge returns the service settings merged with the charm
-// schema, taking default values from the configuration
-// in the charm metadata.
-func merge(serviceCfg map[string]interface{}, charmCfg map[string]charm.Option) map[string]interface{} {
+func describe(settings charm.Settings, config *charm.Config) map[string]interface{} {
 	results := make(map[string]interface{})
-	for k, v := range charmCfg {
-		m := map[string]interface{}{
-			"description": v.Description,
-			"type":        v.Type,
+	for name, option := range config.Options {
+		info := map[string]interface{}{
+			"description": option.Description,
+			"type":        option.Type,
 		}
-		if s, ok := serviceCfg[k]; ok {
-			m["value"] = s
+		if value := settings[name]; value != nil {
+			info["value"] = value
 		} else {
-			m["value"] = v.Default
-			m["default"] = true
+			info["value"] = option.Default
+			info["default"] = true
 		}
-		results[k] = m
+		results[name] = info
 	}
 	return results
 }

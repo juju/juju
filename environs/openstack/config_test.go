@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack
 
 import (
@@ -15,15 +18,20 @@ type ConfigSuite struct {
 
 // Ensure any environment variables a user may have set locally are reset.
 var envVars = map[string]string{
-	"OS_USERNAME":     "",
-	"OS_PASSWORD":     "",
-	"OS_TENANT_NAME":  "",
-	"OS_AUTH_URL":     "",
-	"OS_REGION_NAME":  "",
-	"NOVA_USERNAME":   "",
-	"NOVA_PASSWORD":   "",
-	"NOVA_PROJECT_ID": "",
-	"NOVA_REGION":     "",
+	"AWS_SECRET_ACCESS_KEY": "",
+	"EC2_SECRET_KEYS":       "",
+	"NOVA_API_KEY":          "",
+	"NOVA_PASSWORD":         "",
+	"NOVA_PROJECT_ID":       "",
+	"NOVA_REGION":           "",
+	"NOVA_USERNAME":         "",
+	"OS_ACCESS_KEY":         "",
+	"OS_AUTH_URL":           "",
+	"OS_PASSWORD":           "",
+	"OS_REGION_NAME":        "",
+	"OS_SECRET_KEY":         "",
+	"OS_TENANT_NAME":        "",
+	"OS_USERNAME":           "",
 }
 
 var _ = Suite(&ConfigSuite{})
@@ -41,14 +49,14 @@ type configTest struct {
 	controlBucket string
 	publicBucket  string
 	pbucketURL    string
-	imageId       string
-	instanceType  string
 	useFloatingIP bool
 	username      string
 	password      string
 	tenantName    string
 	authMode      string
 	authURL       string
+	accessKey     string
+	secretKey     string
 	firewallMode  config.FirewallMode
 	err           string
 }
@@ -125,6 +133,12 @@ func (t configTest) check(c *C) {
 	if t.authMode != "" {
 		c.Assert(ecfg.authMode(), Equals, t.authMode)
 	}
+	if t.accessKey != "" {
+		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
+	}
+	if t.secretKey != "" {
+		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
+	}
 	if t.username != "" {
 		c.Assert(ecfg.username(), Equals, t.username)
 		c.Assert(ecfg.password(), Equals, t.password)
@@ -146,12 +160,6 @@ func (t configTest) check(c *C) {
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
-	}
-	if t.imageId != "" {
-		c.Assert(ecfg.defaultImageId(), Equals, t.imageId)
-	}
-	if t.instanceType != "" {
-		c.Assert(ecfg.defaultInstanceType(), Equals, t.instanceType)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
 }
@@ -265,6 +273,36 @@ var configTests = []configTest{
 		},
 		err: ".*invalid authorization mode.*",
 	}, {
+		summary: "keypair authorization mode",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"access-key": "MyAccessKey",
+			"secret-key": "MySecretKey",
+		},
+		authMode:  "keypair",
+		accessKey: "MyAccessKey",
+		secretKey: "MySecretKey",
+	}, {
+		summary: "keypair authorization mode without access key",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"secret-key": "MySecretKey",
+		},
+		envVars: map[string]string{
+			"OS_USERNAME": "",
+		},
+		err: "required environment variable not set for credentials attribute: User",
+	}, {
+		summary: "keypair authorization mode without secret key",
+		config: attrs{
+			"auth-mode":  "keypair",
+			"access-key": "MyAccessKey",
+		},
+		envVars: map[string]string{
+			"OS_PASSWORD": "",
+		},
+		err: "required environment variable not set for credentials attribute: Secrets",
+	}, {
 		summary: "invalid auth-url format",
 		config: attrs{
 			"auth-url": "invalid",
@@ -313,18 +351,6 @@ var configTests = []configTest{
 	}, {
 		summary:  "default auth mode based on environment",
 		authMode: string(AuthUserPass),
-	}, {
-		summary: "image id",
-		config: attrs{
-			"default-image-id": "image-id",
-		},
-		imageId: "image-id",
-	}, {
-		summary: "instance type",
-		config: attrs{
-			"default-instance-type": "instance-type",
-		},
-		instanceType: "instance-type",
 	}, {
 		summary: "default use floating ip",
 		// Do not use floating IP's by default.

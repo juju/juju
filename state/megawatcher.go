@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -112,7 +115,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		Name:     svc.Name,
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
-		Life:     svc.Life.String(),
+		Life:     params.Life(svc.Life.String()),
 	}
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false

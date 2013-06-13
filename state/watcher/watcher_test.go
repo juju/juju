@@ -1,10 +1,12 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package watcher_test
 
 import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/tomb"
@@ -355,15 +357,6 @@ func (s *FastPeriodSuite) TestWatchKnownRemove(c *C) {
 func (s *FastPeriodSuite) TestScale(c *C) {
 	const N = 500
 	const T = 10
-
-	// Too much data.. doesn't help.
-	debug := log.Debug
-	defer func() { log.Debug = debug }()
-	log.Debug = false
-	// There is a data race on log.Debug. To avoid this race stop the
-	// watcher before restoring the value of log.Debug so the watcher
-	// does not observe a stale value of log.Debug.
-	defer s.w.Stop()
 
 	c.Logf("Creating %d documents, %d per transaction...", N, T)
 	ops := make([]txn.Op, T)

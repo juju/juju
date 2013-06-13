@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package maas
 
 import (
@@ -8,6 +11,7 @@ import (
 	"io/ioutil"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"net/url"
 	"sort"
 	"sync"
@@ -64,7 +68,7 @@ func (stor *maasStorage) addressFileObject(name string) gomaasapi.MAASObject {
 // its download URL and its contents, as a MAASObject.
 //
 // This may return many different errors, but specifically, it returns
-// (a pointer to) environs.NotFoundError if the file did not exist.
+// (a pointer to) errors.NotFoundError if the file did not exist.
 //
 // The function takes out a lock on the storage object.
 func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, error) {
@@ -73,8 +77,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 		noObj := gomaasapi.MAASObject{}
 		serverErr, ok := err.(gomaasapi.ServerError)
 		if ok && serverErr.StatusCode == 404 {
-			msg := fmt.Errorf("file '%s' not found", name)
-			return noObj, &environs.NotFoundError{msg}
+			return noObj, errors.NotFoundf("file '%s' not found", name)
 		}
 		msg := fmt.Errorf("could not access file '%s': %v", name, err)
 		return noObj, msg

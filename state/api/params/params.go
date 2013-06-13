@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package params
 
 import (
@@ -7,6 +10,48 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 )
+
+// Error holds the error result of a single operation.
+type Error struct {
+	Message string
+	Code    string
+}
+
+// ErrorCode implements rpc.ErrorCoder interface.
+func (e Error) ErrorCode() string {
+	return e.Code
+}
+
+// Error implements the error interface.
+func (e Error) Error() string {
+	return e.Message
+}
+
+// ErrorResults holds the results of calling a bulk operation which
+// mutates multiple entites, like Machiner.SetStatus. The order and
+// number of elements matches the entities specified in the request.
+type ErrorResults struct {
+	// Errors contains errors occured while performing each operation (if any).
+	Errors []*Error
+}
+
+// Machines holds the arguments for making an API call working on
+// multiple machine entities.
+type Machines struct {
+	Ids []string
+}
+
+// MachineSetStatus holds a machine id, status and extra info.
+type MachineSetStatus struct {
+	Id     string
+	Status Status
+	Info   string
+}
+
+// MachinesSetStatus holds the parameters for making a Machiner.SetStatus call.
+type MachinesSetStatus struct {
+	Machines []MachineSetStatus
+}
 
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
@@ -26,14 +71,30 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
+// Life describes the lifecycle state of an entity ("alive", "dying"
+// or "dead").
+type Life string
+
+// MachineLifeResult holds the result of Machiner.Life for a single machine.
+type MachineLifeResult struct {
+	Life  Life
+	Error *Error
+}
+
+// MachinesLifeResults holds the results of a Machiner.Life call.
+type MachinesLifeResults struct {
+	Machines []MachineLifeResult
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
-	ServiceName string
-	CharmUrl    string
-	NumUnits    int
-	Config      map[string]string
-	ConfigYAML  string // Takes precedence over config if both are present.
-	Constraints constraints.Value
+	ServiceName    string
+	CharmUrl       string
+	NumUnits       int
+	Config         map[string]string
+	ConfigYAML     string // Takes precedence over config if both are present.
+	Constraints    constraints.Value
+	ForceMachineId string
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -115,14 +176,36 @@ type Creds struct {
 	Password string
 }
 
-// Machine holds details of a machine.
-type Machine struct {
-	InstanceId string
-}
-
 // EntityWatcherId holds the id of an EntityWatcher.
 type EntityWatcherId struct {
 	EntityWatcherId string
+}
+
+// LifecycleWatchResults holds the results of API calls
+// that watch the lifecycle of a set of objects.
+// It is used both for the initial Watch request
+// and for subsequent Next requests.
+type LifecycleWatchResults struct {
+	// LifeCycleWatcherId holds the id of the newly
+	// created watcher. It will be empty for a Next
+	// request.
+	LifecycleWatcherId string
+
+	// Ids holds the list of entity ids.
+	// For a Watch request, it holds all entity ids being
+	// watched; for a Next request, it holds the ids of those
+	// that have changed.
+	Ids []string
+}
+
+// EnvironConfigWatchResults holds the result of
+// State.WatchEnvironConfig(): id of the created EnvironConfigWatcher,
+// along with the current environment configuration. It is also used
+// for the result of EnvironConfigWatcher.Next(), when it contains the
+// changed config (EnvironConfigWatcherId will be empty in this case).
+type EnvironConfigWatchResults struct {
+	EnvironConfigWatcherId string
+	Config                 map[string]interface{}
 }
 
 // AllWatcherId holds the id of an AllWatcher.
@@ -325,7 +408,7 @@ type ServiceInfo struct {
 	Name        string `bson:"_id"`
 	Exposed     bool
 	CharmURL    string
-	Life        string
+	Life        Life
 	Constraints constraints.Value
 	Config      map[string]interface{}
 }

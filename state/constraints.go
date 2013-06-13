@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -5,6 +8,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 )
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
@@ -62,7 +66,7 @@ func removeConstraintsOp(st *State, id string) txn.Op {
 func readConstraints(st *State, id string) (constraints.Value, error) {
 	doc := constraintsDoc{}
 	if err := st.constraints.FindId(id).One(&doc); err == mgo.ErrNotFound {
-		return constraints.Value{}, NotFoundf("constraints")
+		return constraints.Value{}, errors.NotFoundf("constraints")
 	} else if err != nil {
 		return constraints.Value{}, err
 	}
@@ -71,7 +75,7 @@ func readConstraints(st *State, id string) (constraints.Value, error) {
 
 func writeConstraints(st *State, id string, cons constraints.Value) error {
 	ops := []txn.Op{setConstraintsOp(st, id, cons)}
-	if err := st.runTxn(ops); err != nil {
+	if err := st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set constraints: %v", err)
 	}
 	return nil

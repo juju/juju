@@ -1,9 +1,13 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cmd_test
 
 import (
+	"fmt"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -99,17 +103,65 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
-	target, debug := log.Target(), log.Debug
-	defer func() {
-		log.SetTarget(target)
-		log.Debug = debug
-	}()
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Log: &cmd.Log{}})
 	jc.Register(&TestCommand{Name: "blah"})
 	ctx := testing.Context(c)
 	code := cmd.Main(jc, ctx, []string{"blah", "--option", "error", "--debug"})
 	c.Assert(code, Equals, 1)
-	c.Assert(bufferString(ctx.Stderr), Matches, `^.* ERROR command failed: BAM!
+	c.Assert(bufferString(ctx.Stderr), Matches, `^.* ERROR .* command failed: BAM!
 error: BAM!
 `)
+}
+
+func NewSuperWithCallback(callback func(*cmd.Context, string, []string) error) cmd.Command {
+	return cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:            "jujutest",
+		Log:             &cmd.Log{},
+		MissingCallback: callback,
+	})
+}
+
+func (s *SuperCommandSuite) TestMissingCallback(c *C) {
+	var calledName string
+	var calledArgs []string
+
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		calledName = subcommand
+		calledArgs = args
+		return nil
+	}
+
+	code := cmd.Main(
+		NewSuperWithCallback(callback),
+		testing.Context(c),
+		[]string{"foo", "bar", "baz", "--debug"})
+	c.Assert(code, Equals, 0)
+	c.Assert(calledName, Equals, "foo")
+	c.Assert(calledArgs, DeepEquals, []string{"bar", "baz", "--debug"})
+}
+
+func (s *SuperCommandSuite) TestMissingCallbackErrors(c *C) {
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		return fmt.Errorf("command not found %q", subcommand)
+	}
+
+	ctx := testing.Context(c)
+	code := cmd.Main(NewSuperWithCallback(callback), ctx, []string{"foo"})
+	c.Assert(code, Equals, 1)
+	c.Assert(testing.Stdout(ctx), Equals, "")
+	c.Assert(testing.Stderr(ctx), Equals, "error: command not found \"foo\"\n")
+}
+
+func (s *SuperCommandSuite) TestMissingCallbackContextWiredIn(c *C) {
+	callback := func(ctx *cmd.Context, subcommand string, args []string) error {
+		fmt.Fprintf(ctx.Stdout, "this is std out")
+		fmt.Fprintf(ctx.Stderr, "this is std err")
+		return nil
+	}
+
+	ctx := testing.Context(c)
+	code := cmd.Main(NewSuperWithCallback(callback), ctx, []string{"foo", "bar", "baz", "--debug"})
+	c.Assert(code, Equals, 0)
+	c.Assert(testing.Stdout(ctx), Equals, "this is std out")
+	c.Assert(testing.Stderr(ctx), Equals, "this is std err")
 }

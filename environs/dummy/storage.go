@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package dummy
 
 import (
@@ -6,6 +9,7 @@ import (
 	"io"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"net/http"
 	"sort"
 	"strings"
@@ -78,7 +82,7 @@ func (s *storage) dataWithDelay(path string) (data []byte, err error) {
 	}
 	data, ok := s.files[path]
 	if !ok {
-		return nil, &environs.NotFoundError{fmt.Errorf("file %q not found", path)}
+		return nil, errors.NotFoundf("file %q not found", path)
 	}
 	return data, nil
 }

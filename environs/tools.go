@@ -1,9 +1,13 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package environs
 
 import (
 	"fmt"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
@@ -143,6 +147,6 @@ func isToolsError(err error) bool {
 
 func convertToolsError(err *error) {
 	if isToolsError(*err) {
-		*err = &NotFoundError{*err}
+		*err = &errors.NotFoundError{*err, ""}
 	}
 }

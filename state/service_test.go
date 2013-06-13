@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state_test
 
 import (
@@ -6,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"sort"
 	"time"
@@ -222,9 +226,9 @@ options:
 var setCharmConfigTests = []struct {
 	summary     string
 	startconfig string
-	startvalues map[string]interface{}
+	startvalues charm.Settings
 	endconfig   string
-	endvalues   map[string]interface{}
+	endvalues   charm.Settings
 	err         string
 }{
 	{
@@ -238,18 +242,18 @@ var setCharmConfigTests = []struct {
 	}, {
 		summary:     "add string key and preserve existing values",
 		startconfig: stringConfig,
-		startvalues: map[string]interface{}{"key": "foo", "other": "bar"},
+		startvalues: charm.Settings{"key": "foo"},
 		endconfig:   newStringConfig,
-		endvalues:   map[string]interface{}{"key": "foo", "other": "bar"},
+		endvalues:   charm.Settings{"key": "foo"},
 	}, {
 		summary:     "remove string key",
 		startconfig: stringConfig,
-		startvalues: map[string]interface{}{"key": "value"},
+		startvalues: charm.Settings{"key": "value"},
 		endconfig:   emptyConfig,
 	}, {
 		summary:     "remove float key",
 		startconfig: floatConfig,
-		startvalues: map[string]interface{}{"key": 123.45},
+		startvalues: charm.Settings{"key": 123.45},
 		endconfig:   emptyConfig,
 	}, {
 		summary:     "change key type without values",
@@ -258,9 +262,8 @@ var setCharmConfigTests = []struct {
 	}, {
 		summary:     "change key type with values",
 		startconfig: stringConfig,
-		startvalues: map[string]interface{}{"key": "value"},
+		startvalues: charm.Settings{"key": "value"},
 		endconfig:   floatConfig,
-		err:         `unexpected type in service configuration "key"="value"; expected float`,
 	},
 }
 
@@ -278,15 +281,12 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 		origCh := charms[t.startconfig]
 		svc, err := s.State.AddService("wordpress", origCh)
 		c.Assert(err, IsNil)
-		cfg, err := svc.Config()
-		c.Assert(err, IsNil)
-		cfg.Update(t.startvalues)
-		_, err = cfg.Write()
+		err = svc.UpdateConfigSettings(t.startvalues)
 		c.Assert(err, IsNil)
 
 		newCh := charms[t.endconfig]
 		err = svc.SetCharm(newCh, false)
-		var expectVals map[string]interface{}
+		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
@@ -301,12 +301,12 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 		sch, _, err := svc.Charm()
 		c.Assert(err, IsNil)
 		c.Assert(sch.URL(), DeepEquals, expectCh.URL())
-		cfg, err = svc.Config()
+		settings, err := svc.ConfigSettings()
 		c.Assert(err, IsNil)
 		if len(expectVals) == 0 {
-			c.Assert(cfg.Map(), HasLen, 0)
+			c.Assert(settings, HasLen, 0)
 		} else {
-			c.Assert(cfg.Map(), DeepEquals, expectVals)
+			c.Assert(settings, DeepEquals, expectVals)
 		}
 
 		err = svc.Destroy()
@@ -314,124 +314,78 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 	}
 }
 
-func serviceSet(options map[string]string) func(svc *state.Service) error {
-	return func(svc *state.Service) error {
-		return svc.SetConfig(options)
-	}
-}
-
-func serviceSetYAML(yaml string) func(svc *state.Service) error {
-	return func(svc *state.Service) error {
-		return svc.SetConfigYAML([]byte(yaml))
-	}
-}
-
-var serviceSetTests = []struct {
+var serviceUpdateConfigSettingsTests = []struct {
 	about   string
-	initial map[string]interface{}
-	set     func(st *state.Service) error
-	expect  map[string]interface{} // resulting configuration of the dummy service.
-	err     string                 // error regex
+	initial charm.Settings
+	update  charm.Settings
+	expect  charm.Settings
+	err     string
 }{{
-	about: "unknown option",
-	set:   serviceSet(map[string]string{"foo": "bar"}),
-	err:   `Unknown configuration option: "foo"`,
+	about:  "unknown option",
+	update: charm.Settings{"foo": "bar"},
+	err:    `unknown option "foo"`,
 }, {
-	about: "set outlook",
-	set:   serviceSet(map[string]string{"outlook": "positive"}),
-	expect: map[string]interface{}{
-		"outlook": "positive",
-	},
+	about:  "bad type",
+	update: charm.Settings{"skill-level": "profound"},
+	err:    `option "skill-level" expected int, got "profound"`,
 }, {
-	about: "unset outlook and set title",
-	initial: map[string]interface{}{
-		"outlook": "positive",
-	},
-	set: serviceSet(map[string]string{
-		"outlook": "",
-		"title":   "sir",
-	},
-	),
-	expect: map[string]interface{}{
-		"title": "sir",
-	},
+	about:  "set string",
+	update: charm.Settings{"outlook": "positive"},
+	expect: charm.Settings{"outlook": "positive"},
 }, {
-	about: "set a default value",
-	initial: map[string]interface{}{
-		"title": "sir",
-	},
-	set: serviceSet(map[string]string{"username": "admin001"}),
-	expect: map[string]interface{}{
-		"username": "admin001",
-		"title":    "sir",
-	},
+	about:   "unset string and set another",
+	initial: charm.Settings{"outlook": "positive"},
+	update:  charm.Settings{"outlook": nil, "title": "sir"},
+	expect:  charm.Settings{"title": "sir"},
 }, {
-	about: "unset a default value, set a different default",
-	initial: map[string]interface{}{
-		"username": "admin001",
-		"title":    "sir",
-	},
-	set: serviceSet(map[string]string{
-		"username": "",
-		"title":    "My Title",
-	},
-	),
-	expect: map[string]interface{}{
-		"title": "My Title",
-	},
+	about:  "unset missing string",
+	update: charm.Settings{"outlook": nil},
 }, {
-	about: "bad configuration",
-	set:   serviceSetYAML("345"),
-	err:   "malformed YAML data",
+	about:   `empty strings unset string values`,
+	initial: charm.Settings{"outlook": "positive"},
+	update:  charm.Settings{"outlook": "", "title": ""},
 }, {
-	about:  "config with no options",
-	set:    serviceSetYAML("{}"),
-	expect: map[string]interface{}{},
+	about:   "preserve existing value",
+	initial: charm.Settings{"title": "sir"},
+	update:  charm.Settings{"username": "admin001"},
+	expect:  charm.Settings{"username": "admin001", "title": "sir"},
 }, {
-	about: "set some attributes",
-	initial: map[string]interface{}{
-		"title": "sir",
-	},
-	set: serviceSetYAML("skill-level: 9000\nusername: admin001\n\n"),
-	expect: map[string]interface{}{
-		"title":       "sir",
-		"username":    "admin001",
-		"skill-level": int64(9000), // yaml int types are int64
-	},
+	about:   "unset a default value, set a different default",
+	initial: charm.Settings{"username": "admin001", "title": "sir"},
+	update:  charm.Settings{"username": nil, "title": "My Title"},
+	expect:  charm.Settings{"title": "My Title"},
 }, {
-	about: "remove an attribute by setting to empty string",
-	initial: map[string]interface{}{
-		"title":    "sir",
-		"username": "foo",
-	},
-	set: serviceSetYAML("title: ''\n"),
-	expect: map[string]interface{}{
-		"username": "foo",
-	},
-},
-}
+	about:  "non-string type",
+	update: charm.Settings{"skill-level": 303},
+	expect: charm.Settings{"skill-level": int64(303)},
+}, {
+	about:   "unset non-string type",
+	initial: charm.Settings{"skill-level": 303},
+	update:  charm.Settings{"skill-level": nil},
+}}
 
-func (s *ServiceSuite) TestSet(c *C) {
+func (s *ServiceSuite) TestUpdateConfigSettings(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	for i, t := range serviceSetTests {
+	for i, t := range serviceUpdateConfigSettingsTests {
 		c.Logf("test %d. %s", i, t.about)
 		svc, err := s.State.AddService("dummy-service", sch)
 		c.Assert(err, IsNil)
 		if t.initial != nil {
-			cfg, err := svc.Config()
-			c.Assert(err, IsNil)
-			cfg.Update(t.initial)
-			_, err = cfg.Write()
+			err := svc.UpdateConfigSettings(t.initial)
 			c.Assert(err, IsNil)
 		}
-		err = t.set(svc)
+		err = svc.UpdateConfigSettings(t.update)
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
 		} else {
 			c.Assert(err, IsNil)
-			cfg, err := svc.Config()
+			settings, err := svc.ConfigSettings()
 			c.Assert(err, IsNil)
-			c.Assert(cfg.Map(), DeepEquals, t.expect)
+			expect := t.expect
+			if expect == nil {
+				expect = charm.Settings{}
+			}
+			c.Assert(settings, DeepEquals, expect)
 		}
 		err = svc.Destroy()
 		c.Assert(err, IsNil)
@@ -562,7 +516,7 @@ func (s *ServiceSuite) TestNewPeerRelationsAddedOnUpgrade(c *C) {
 	// Check the peer relations got destroyed as well.
 	for _, rel := range rels {
 		err = rel.Refresh()
-		c.Assert(state.IsNotFound(err), Equals, true)
+		c.Assert(errors.IsNotFoundError(err), Equals, true)
 	}
 }
 
@@ -749,7 +703,7 @@ func (s *ServiceSuite) TestServiceRefresh(c *C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestServiceExposed(c *C) {
@@ -945,7 +899,7 @@ func (s *ServiceSuite) TestDestroySimple(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.mysql.Life(), Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestDestroyStillHasUnits(c *C) {
@@ -964,7 +918,7 @@ func (s *ServiceSuite) TestDestroyStillHasUnits(c *C) {
 	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestDestroyOnceHadUnits(c *C) {
@@ -979,7 +933,7 @@ func (s *ServiceSuite) TestDestroyOnceHadUnits(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.mysql.Life(), Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestDestroyStaleNonZeroUnitCount(c *C) {
@@ -996,7 +950,7 @@ func (s *ServiceSuite) TestDestroyStaleNonZeroUnitCount(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.mysql.Life(), Equals, state.Dying)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *C) {
@@ -1020,7 +974,7 @@ func (s *ServiceSuite) TestDestroyStaleZeroUnitCount(c *C) {
 	err = unit.Remove()
 	c.Assert(err, IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *C) {
@@ -1036,9 +990,9 @@ func (s *ServiceSuite) TestDestroyWithRemovableRelation(c *C) {
 	err = wordpress.Destroy()
 	c.Assert(err, IsNil)
 	err = wordpress.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = rel.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestDestroyWithReferencedRelation(c *C) {
@@ -1087,16 +1041,16 @@ func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *C, refresh bool) {
 
 	// ...while the second is removed directly.
 	err = rel1.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	// Drop the last reference to the first relation; check the relation and
 	// the service are are both removed.
 	err = ru.LeaveScope()
 	c.Assert(err, IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = rel0.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
@@ -1105,28 +1059,9 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	err := s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	_, err = s.State.Unit("mysql/0")
 	c.Assert(err, ErrorMatches, `unit "mysql/0" not found`)
-}
-
-func (s *ServiceSuite) TestServiceConfig(c *C) {
-	env, err := s.mysql.Config()
-	c.Assert(err, IsNil)
-	err = env.Read()
-	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
-
-	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
-	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
-	_, err = env.Write()
-	c.Assert(err, IsNil)
-
-	env, err = s.mysql.Config()
-	c.Assert(err, IsNil)
-	err = env.Read()
-	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
 }
 
 func uint64p(val uint64) *uint64 {
@@ -1160,7 +1095,7 @@ func (s *ServiceSuite) TestConstraints(c *C) {
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	err = s.mysql.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	// ...but we can check that old constraints do not affect new services
 	// with matching names.
@@ -1432,7 +1367,7 @@ func (s *ServiceSuite) TestWatchUnits(c *C) {
 	// does not yield any more events.
 	for _, uname := range all {
 		unit, err := s.State.Unit(uname)
-		if state.IsNotFound(err) || unit.Life() != state.Dead {
+		if errors.IsNotFoundError(err) || unit.Life() != state.Dead {
 			continue
 		}
 		c.Assert(err, IsNil)
@@ -1658,84 +1593,6 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	select {
 	case got, ok := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v, %v", got, ok)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func (s *ServiceSuite) TestWatchServiceConfig(c *C) {
-	config, err := s.mysql.Config()
-	c.Assert(err, IsNil)
-	c.Assert(config.Keys(), HasLen, 0)
-
-	u, err := s.mysql.AddUnit()
-	c.Assert(err, IsNil)
-
-	_, err = u.WatchServiceConfig()
-	c.Assert(err, ErrorMatches, "unit charm not set")
-
-	err = u.SetCharmURL(s.charm.URL())
-	c.Assert(err, IsNil)
-
-	configWatcher, err := u.WatchServiceConfig()
-	c.Assert(err, IsNil)
-	defer func() {
-		c.Assert(configWatcher.Stop(), IsNil)
-	}()
-
-	s.State.StartSync()
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-
-	// Two change events.
-	config.Set("foo", "bar")
-	config.Set("baz", "yadda")
-	changes, err := config.Write()
-	c.Assert(err, IsNil)
-	c.Assert(changes, DeepEquals, []state.ItemChange{{
-		Key:      "baz",
-		Type:     state.ItemAdded,
-		NewValue: "yadda",
-	}, {
-		Key:      "foo",
-		Type:     state.ItemAdded,
-		NewValue: "bar",
-	}})
-
-	s.State.StartSync()
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda", "foo": "bar"})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-
-	config.Delete("foo")
-	changes, err = config.Write()
-	c.Assert(err, IsNil)
-	c.Assert(changes, DeepEquals, []state.ItemChange{{
-		Key:      "foo",
-		Type:     state.ItemDeleted,
-		OldValue: "bar",
-	}})
-
-	s.State.StartSync()
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda"})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-
-	select {
-	case got := <-configWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

@@ -1,7 +1,11 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package maas
 
 import (
 	"encoding/base64"
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/goyaml"
@@ -10,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -270,7 +275,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	instance, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, IsNil)
 	c.Check(err, ErrorMatches, "no tools available")
-	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+	c.Check(err, FitsTypeOf, (*errors.NotFoundError)(nil))
 }
 
 func uint64p(val uint64) *uint64 {
@@ -369,9 +374,12 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
-
 	c.Assert(err, IsNil)
-	c.Assert(stateInfo.Addrs, DeepEquals, []string{hostname + mgoPortSuffix})
+
+	config := env.Config()
+	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	c.Assert(stateInfo.Addrs, DeepEquals, []string{hostname + statePortSuffix})
 	c.Assert(apiInfo.Addrs, DeepEquals, []string{hostname + apiPortSuffix})
 }
 
@@ -380,7 +388,7 @@ func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 
 	_, _, err := env.StateInfo()
 
-	c.Check(err, FitsTypeOf, &environs.NotFoundError{})
+	c.Check(err, FitsTypeOf, &errors.NotFoundError{})
 }
 
 func (suite *EnvironSuite) TestDestroy(c *C) {
@@ -422,7 +430,7 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoTools(c *C) {
 	envtesting.RemoveTools(c, env.Storage())
 	err := env.Bootstrap(constraints.Value{})
 	c.Check(err, ErrorMatches, "no tools available")
-	c.Check(err, FitsTypeOf, (*environs.NotFoundError)(nil))
+	c.Check(err, FitsTypeOf, (*errors.NotFoundError)(nil))
 }
 
 func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *C) {
@@ -442,10 +450,4 @@ func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	// environs.Bootstrap calls Environ.Bootstrap.  This works.
 	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
-}
-
-func (suite *EnvironSuite) TestAssignmentPolicy(c *C) {
-	env := suite.makeEnviron()
-
-	c.Check(env.AssignmentPolicy(), Equals, state.AssignUnused)
 }

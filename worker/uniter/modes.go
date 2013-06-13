@@ -1,11 +1,15 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package uniter
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -286,7 +290,7 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 		return nil, err
 	}
 	for _, name := range u.unit.SubordinateNames() {
-		if sub, err := u.st.Unit(name); state.IsNotFound(err) {
+		if sub, err := u.st.Unit(name); errors.IsNotFoundError(err) {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -409,7 +413,7 @@ func modeContext(name string, err *error) func() {
 		switch *err {
 		case nil, tomb.ErrDying, worker.ErrTerminateAgent:
 		default:
-			*err = errors.New(name + ": " + (*err).Error())
+			*err = stderrors.New(name + ": " + (*err).Error())
 		}
 	}
 }

@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc_test
 
 import (
@@ -5,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -93,8 +97,8 @@ func (c *Context) ClosePort(protocol string, port int) error {
 	return nil
 }
 
-func (c *Context) Config() (map[string]interface{}, error) {
-	return map[string]interface{}{
+func (c *Context) ConfigSettings() (charm.Settings, error) {
+	return charm.Settings{
 		"monsters":            false,
 		"spline-reticulation": 45.0,
 		"title":               "My Title",
@@ -146,7 +150,7 @@ func (r *ContextRelation) Settings() (jujuc.Settings, error) {
 }
 
 func (r *ContextRelation) UnitNames() []string {
-	s := []string{}
+	var s []string // initially nil to match the true context.
 	for name := range r.units {
 		s = append(s, name)
 	}

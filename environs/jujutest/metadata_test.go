@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujutest
 
 import (
@@ -16,7 +19,7 @@ func (s *metadataSuite) TestVirtualRoundTripper(c *C) {
 	vrt := NewVirtualRoundTripper([]FileContent{
 		{"a", aContent},
 		{"b", "b-content"},
-	})
+	}, nil)
 	c.Assert(vrt, NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
 	resp, err := vrt.RoundTrip(req)
@@ -32,7 +35,7 @@ func (s *metadataSuite) TestVirtualRoundTripper(c *C) {
 func (s *metadataSuite) TestVirtualRoundTripperMissing(c *C) {
 	vrt := NewVirtualRoundTripper([]FileContent{
 		{"a", "a-content"},
-	})
+	}, nil)
 	c.Assert(vrt, NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)

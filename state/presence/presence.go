@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The presence package implements an interface for observing liveness
 // of arbitrary keys (agents, processes, etc) on top of MongoDB.
 // The design works by periodically updating the database so that
@@ -312,10 +315,32 @@ type pingInfo struct {
 	Dead  map[string]int64 ",omitempty"
 }
 
+func (w *Watcher) findAllBeings() (map[int64]beingInfo, error) {
+	beings := make([]beingInfo, 0)
+	err := w.beings.Find(bson.D{{}}).All(&beings)
+	if err != nil {
+		return nil, err
+	}
+	beingInfos := make(map[int64]beingInfo, len(beings))
+	for _, being := range beings {
+		beingInfos[being.Seq] = being
+	}
+	return beingInfos, nil
+}
+
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels. It fetches the last two time
 // slots and compares the union of both to the in-memory state.
 func (w *Watcher) sync() error {
+	var allBeings map[int64]beingInfo
+	if len(w.beingKey) == 0 {
+		// The very first time we sync, we grab all ever-known beings,
+		// so we don't have to look them up one-by-one
+		var err error
+		if allBeings, err = w.findAllBeings(); err != nil {
+			return err
+		}
+	}
 	slot := timeSlot(time.Now(), w.delta)
 	var ping []pingInfo
 	err := w.pings.Find(bson.D{{"$or", []pingInfo{{Slot: slot}, {Slot: slot - period}}}}).All(&ping)
@@ -368,12 +393,17 @@ func (w *Watcher) sync() error {
 				if _, ok := w.beingKey[seq]; ok {
 					continue
 				}
-				err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
-				if err == mgo.ErrNotFound {
-					debugf("state/presence: found seq=%d unowned", seq)
-					continue
-				} else if err != nil {
-					return err
+				// Check if the being exists in the 'all' map,
+				// otherwise do a single lookup in mongo
+				var ok bool
+				if being, ok = allBeings[seq]; !ok {
+					err := w.beings.Find(bson.D{{"_id", seq}}).One(&being)
+					if err == mgo.ErrNotFound {
+						debugf("state/presence: found seq=%d unowned", seq)
+						continue
+					} else if err != nil {
+						return err
+					}
 				}
 				cur := w.beingSeq[being.Key]
 				if cur < seq {
@@ -410,7 +440,7 @@ func (w *Watcher) sync() error {
 	return nil
 }
 
-// A Pinger periodically reports that a specific key is alive, so that
+// Pinger periodically reports that a specific key is alive, so that
 // watchers interested on that fact can react appropriately.
 type Pinger struct {
 	mu       sync.Mutex

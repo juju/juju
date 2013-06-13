@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package ec2
 
 import (
@@ -5,6 +8,7 @@ import (
 	"io"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"sync"
 	"time"
 )
@@ -156,7 +160,7 @@ func (s *storage) deleteAll() error {
 
 func maybeNotFound(err error) error {
 	if err != nil && s3ErrorStatusCode(err) == 404 {
-		return &environs.NotFoundError{err}
+		return &errors.NotFoundError{err, ""}
 	}
 	return err
 }

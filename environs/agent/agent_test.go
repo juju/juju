@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package agent_test
 
 import (
@@ -43,7 +46,7 @@ var confTests = []struct {
 	conf: agent.Conf{
 		StateServerCert: []byte("server cert"),
 		StateServerKey:  []byte("server key"),
-		MongoPort:       1234,
+		StatePort:       1234,
 		APIPort:         4321,
 		OldPassword:     "old password",
 		StateInfo: &state.Info{

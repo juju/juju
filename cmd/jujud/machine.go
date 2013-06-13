@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -105,15 +108,16 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	m := e.(*state.Machine)
 	log.Infof("jobs for machine agent: %v", m.Jobs())
+	dataDir := a.Conf.DataDir
 	tasks := []task{
-		NewUpgrader(st, m, a.Conf.DataDir),
+		NewUpgrader(st, m, dataDir),
 		machiner.NewMachiner(st, m.Id()),
 	}
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
 			tasks = append(tasks,
-				newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir))
+				newDeployer(st, m.WatchPrincipalUnits(), dataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st, a.MachineId),

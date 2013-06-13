@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package testing
 
 import (
@@ -107,4 +110,76 @@ func (r *Repo) Bundle(dst, name string) *charm.Bundle {
 	ch, err := charm.ReadBundle(r.BundlePath(dst, name))
 	check(err)
 	return ch
+}
+
+// MockCharmStore implements charm.Respository and is used to isolate tests
+// that would otherwise need to hit the real charm store.
+type MockCharmStore struct {
+	charms map[string]map[int]*charm.Bundle
+}
+
+func NewMockCharmStore() *MockCharmStore {
+	return &MockCharmStore{map[string]map[int]*charm.Bundle{}}
+}
+
+// SetCharm adds and removes charms in s. The affected charm is identified by
+// charmURL, which must be revisioned. If bundle is nil, the charm will be
+// removed; otherwise, it will be stored. It is an error to store a bundle
+// under a charmURL that does not share its name and revision.
+func (s *MockCharmStore) SetCharm(charmURL *charm.URL, bundle *charm.Bundle) error {
+	base := charmURL.WithRevision(-1).String()
+	if charmURL.Revision < 0 {
+		return fmt.Errorf("bad charm url revision")
+	}
+	if bundle == nil {
+		delete(s.charms[base], charmURL.Revision)
+		return nil
+	}
+	bundleRev := bundle.Revision()
+	bundleName := bundle.Meta().Name
+	if bundleName != charmURL.Name || bundleRev != charmURL.Revision {
+		return fmt.Errorf("charm url %s mismatch with bundle %s-%d", charmURL, bundleName, bundleRev)
+	}
+	if _, found := s.charms[base]; !found {
+		s.charms[base] = map[int]*charm.Bundle{}
+	}
+	s.charms[base][charmURL.Revision] = bundle
+	return nil
+}
+
+// interpret extracts from charmURL information relevant to both Latest and
+// Get. The returned "base" is always the string representation of the
+// unrevisioned part of charmURL; the "rev" wil be taken from the charmURL if
+// available, and will otherwise be the revision of the latest charm in the
+// store with the same "base".
+func (s *MockCharmStore) interpret(charmURL *charm.URL) (base string, rev int) {
+	base, rev = charmURL.WithRevision(-1).String(), charmURL.Revision
+	if rev == -1 {
+		for candidate := range s.charms[base] {
+			if candidate > rev {
+				rev = candidate
+			}
+		}
+	}
+	return
+}
+
+// Get implements charm.Repository.Get.
+func (s *MockCharmStore) Get(charmURL *charm.URL) (charm.Charm, error) {
+	base, rev := s.interpret(charmURL)
+	charm, found := s.charms[base][rev]
+	if !found {
+		return nil, fmt.Errorf("charm not found in mock store: %s", charmURL)
+	}
+	return charm, nil
+}
+
+// Latest implements charm.Repository.Latest.
+func (s *MockCharmStore) Latest(charmURL *charm.URL) (int, error) {
+	charmURL = charmURL.WithRevision(-1)
+	base, rev := s.interpret(charmURL)
+	if _, found := s.charms[base][rev]; !found {
+		return 0, fmt.Errorf("charm not found in mock store: %s", charmURL)
+	}
+	return rev, nil
 }

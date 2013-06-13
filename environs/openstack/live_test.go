@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack_test
 
 import (
@@ -53,10 +56,8 @@ func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 }
 
 // Register tests to run against a real Openstack instance.
-func registerLiveTests(cred *identity.Credentials, testImageDetails openstack.ImageDetails) {
+func registerLiveTests(cred *identity.Credentials) {
 	config := makeTestConfig(cred)
-	config["default-image-id"] = testImageDetails.ImageId
-	config["default-instance-type"] = testImageDetails.Flavor
 	Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{

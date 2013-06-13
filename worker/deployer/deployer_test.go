@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package deployer_test
 
 import (
@@ -7,6 +10,7 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -33,6 +37,8 @@ func (s *DeployerSuite) TearDownTest(c *C) {
 	s.SimpleToolsFixture.TearDown(c)
 	s.JujuConnSuite.TearDownTest(c)
 }
+
+var _ = (*deployer.Deployer)(nil)
 
 func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
@@ -230,7 +236,7 @@ func isDeployed(ctx deployer.Context, expected ...string) func(*C) bool {
 func isRemoved(st *state.State, name string) func(*C) bool {
 	return func(c *C) bool {
 		_, err := st.Unit(name)
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			return true
 		}
 		c.Assert(err, IsNil)

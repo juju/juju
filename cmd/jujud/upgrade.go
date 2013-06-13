@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -5,6 +8,7 @@ import (
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -77,6 +81,10 @@ func NewUpgrader(st *state.State, agentState AgentState, dataDir string) *Upgrad
 
 func (u *Upgrader) String() string {
 	return "upgrader"
+}
+
+func (u *Upgrader) Kill() {
+	u.tomb.Kill(nil)
 }
 
 func (u *Upgrader) Stop() error {
@@ -198,7 +206,7 @@ func (u *Upgrader) run() error {
 			tools, err := environs.FindExactTools(environ, required)
 			if err != nil {
 				log.Errorf("upgrader error finding tools for %v: %v", required, err)
-				if _, missing := err.(*environs.NotFoundError); !missing {
+				if !errors.IsNotFoundError(err) {
 					return err
 				}
 				noDelay()

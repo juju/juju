@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cloudinit
 
 import (
@@ -8,7 +11,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -34,10 +36,10 @@ type MachineConfig struct {
 	StateServerCert []byte
 	StateServerKey  []byte
 
-	// MongoPort specifies the TCP port that will be used
+	// StatePort specifies the TCP port that will be used
 	// by the MongoDB server. It must be non-zero
 	// if StateServer is true.
-	MongoPort int
+	StatePort int
 
 	// APIPort specifies the TCP port that will be used
 	// by the API server. It must be non-zero
@@ -111,12 +113,6 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	if err := verifyConfig(cfg); err != nil {
 		return nil, err
 	}
-	// TODO(dimitern) this is needed for raring, due to LP bug #1103881
-	if cfg.Tools.Series == "raring" {
-		addScripts(c, "apt-get upgrade -y")
-	} else {
-		c.SetAptUpgrade(true)
-	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
 
@@ -134,13 +130,29 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		fmt.Sprintf("echo -n %s > $bin/downloaded-url.txt", shquote(cfg.Tools.URL)),
 	)
 
+	// TODO (thumper): work out how to pass the logging config to the children
 	debugFlag := ""
 	// TODO: disable debug mode by default when the system is stable.
-	if true || log.Debug {
+	if true {
 		debugFlag = " --debug"
 	}
 
-	var syslogConfigRenderer syslog.SyslogConfigRenderer
+	if err := cfg.addLogging(c); err != nil {
+		return nil, err
+	}
+
+	// We add the machine agent's configuration info
+	// before running bootstrap-state so that bootstrap-state
+	// has a chance to rerwrite it to change the password.
+	// It would be cleaner to change bootstrap-state to
+	// be responsible for starting the machine agent itself,
+	// but this would not be backwardly compatible.
+	machineTag := state.MachineTag(cfg.MachineId)
+	_, err := cfg.addAgentInfo(c, machineTag)
+	if err != nil {
+		return nil, err
+	}
+
 	if cfg.StateServer {
 		if cfg.NeedMongoPPA() {
 			c.AddAptSource("ppa:juju/experimental", "1024R/C8068B11")
@@ -148,13 +160,13 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
 		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
-		if err := addMongoToBoot(c, cfg); err != nil {
+		if err := cfg.addMongoToBoot(c); err != nil {
 			return nil, err
 		}
 		// We temporarily give bootstrap-state a directory
 		// of its own so that it can get the state info via the
 		// same mechanism as other jujud commands.
-		acfg, err := addAgentInfo(c, cfg, "bootstrap")
+		acfg, err := cfg.addAgentInfo(c, "bootstrap")
 		if err != nil {
 			return nil, err
 		}
@@ -166,33 +178,39 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)
-		syslogConfigRenderer = syslog.NewAccumulateConfig(
-			state.MachineTag(cfg.MachineId))
-	} else {
-		syslogConfigRenderer = syslog.NewForwardConfig(
-			state.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
 	}
 
-	content, err := syslogConfigRenderer.Render()
-	if err != nil {
-		return nil, err
-	}
-	addScripts(c,
-		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", string(content)),
-	)
-	c.AddRunCmd("restart rsyslog")
-
-	if _, err := addAgentToBoot(c, cfg, "machine",
-		state.MachineTag(cfg.MachineId),
+	if err := cfg.addAgentToBoot(c, "machine",
+		machineTag,
 		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
 		return nil, err
 	}
 
 	// general options
+	c.SetAptUpgrade(true)
 	c.SetAptUpdate(true)
 	c.SetOutput(cloudinit.OutAll, "| tee -a /var/log/cloud-init-output.log", "")
-
 	return c, nil
+}
+
+func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
+	var configRenderer syslog.SyslogConfigRenderer
+	if cfg.StateServer {
+		configRenderer = syslog.NewAccumulateConfig(
+			state.MachineTag(cfg.MachineId))
+	} else {
+		configRenderer = syslog.NewForwardConfig(
+			state.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
+	}
+	content, err := configRenderer.Render()
+	if err != nil {
+		return err
+	}
+	addScripts(c,
+		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", string(content)),
+	)
+	c.AddRunCmd("restart rsyslog")
+	return nil
 }
 
 func addFile(c *cloudinit.Config, filename, data string, mode uint) {
@@ -216,7 +234,7 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 		APIInfo:         &apiInfo,
 		StateServerCert: cfg.StateServerCert,
 		StateServerKey:  cfg.StateServerKey,
-		MongoPort:       cfg.MongoPort,
+		StatePort:       cfg.StatePort,
 		APIPort:         cfg.APIPort,
 		MachineNonce:    cfg.MachineNonce,
 	}
@@ -234,7 +252,7 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, tag string) (*agent.Conf, error) {
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (*agent.Conf, error) {
 	acfg := cfg.agentConfig(tag)
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
@@ -244,12 +262,7 @@ func addAgentInfo(c *cloudinit.Config, cfg *MachineConfig, tag string) (*agent.C
 	return acfg, nil
 }
 
-func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, tag, args string) (*agent.Conf, error) {
-	acfg, err := addAgentInfo(c, cfg, tag)
-	if err != nil {
-		return nil, err
-	}
-
+func (cfg *MachineConfig) addAgentToBoot(c *cloudinit.Config, kind, tag, args string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -280,13 +293,13 @@ func addAgentToBoot(c *cloudinit.Config, cfg *MachineConfig, kind, tag, args str
 	}
 	cmds, err := conf.InstallCommands()
 	if err != nil {
-		return nil, fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
+		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
 	}
 	addScripts(c, cmds...)
-	return acfg, nil
+	return nil
 }
 
-func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
+func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	addScripts(c,
 		"mkdir -p /var/lib/juju/db/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
@@ -309,7 +322,7 @@ func addMongoToBoot(c *cloudinit.Config, cfg *MachineConfig) error {
 			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
 			" --sslPEMKeyPassword ignored" +
 			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(cfg.MongoPort) +
+			" --port " + fmt.Sprint(cfg.StatePort) +
 			" --noprealloc" +
 			" --syslog" +
 			" --smallfiles",
@@ -338,7 +351,7 @@ func (cfg *MachineConfig) jujuTools() string {
 func (cfg *MachineConfig) stateHostAddrs() []string {
 	var hosts []string
 	if cfg.StateServer {
-		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.MongoPort))
+		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.StatePort))
 	}
 	if cfg.StateInfo != nil {
 		hosts = append(hosts, cfg.StateInfo.Addrs...)
@@ -416,8 +429,8 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateServerKey) == 0 {
 			return fmt.Errorf("missing state server private key")
 		}
-		if cfg.MongoPort == 0 {
-			return fmt.Errorf("missing mongo port")
+		if cfg.StatePort == 0 {
+			return fmt.Errorf("missing state port")
 		}
 		if cfg.APIPort == 0 {
 			return fmt.Errorf("missing API port")

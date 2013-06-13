@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -6,6 +9,7 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
@@ -13,10 +17,9 @@ import (
 // SetCommand updates the configuration of a service
 type SetCommand struct {
 	EnvCommandBase
-	ServiceName string
-	// either Options or Config will contain the configuration data
-	Options []string
-	Config  cmd.FileVar
+	ServiceName     string
+	SettingsStrings map[string]string
+	SettingsYAML    cmd.FileVar
 }
 
 func (c *SetCommand) Info() *cmd.Info {
@@ -30,51 +33,59 @@ func (c *SetCommand) Info() *cmd.Info {
 
 func (c *SetCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
-	f.Var(&c.Config, "config", "path to yaml-formatted service config")
+	f.Var(&c.SettingsYAML, "config", "path to yaml-formatted service config")
 }
 
 func (c *SetCommand) Init(args []string) error {
 	if len(args) == 0 || len(strings.Split(args[0], "=")) > 1 {
 		return errors.New("no service name specified")
 	}
-	if len(c.Config.Path) > 0 && len(args) > 1 {
+	if c.SettingsYAML.Path != "" && len(args) > 1 {
 		return errors.New("cannot specify --config when using key=value arguments")
 	}
-	c.ServiceName, c.Options = args[0], args[1:]
+	c.ServiceName = args[0]
+	settings, err := parse(args[1:])
+	if err != nil {
+		return err
+	}
+	c.SettingsStrings = settings
 	return nil
 }
 
-// Run updates the configuration of a service
+// Run updates the configuration of a service.
 func (c *SetCommand) Run(ctx *cmd.Context) error {
-	contents, err := c.Config.Read(ctx)
-	if err != nil && err != cmd.ErrNoPath {
-		return err
-	}
-	var options map[string]string
-	if len(contents) == 0 {
-		if len(c.Options) == 0 {
-			// nothing to do.
-			return nil
-		}
-		options, err = parse(c.Options)
-		if err != nil {
-			return err
-		}
-	}
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
 	defer conn.Close()
-
-	svc, err := conn.State.Service(c.ServiceName)
+	service, err := conn.State.Service(c.ServiceName)
 	if err != nil {
 		return err
 	}
-	if len(contents) == 0 {
-		return svc.SetConfig(options)
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
 	}
-	return svc.SetConfigYAML(contents)
+	var settings charm.Settings
+	if c.SettingsYAML.Path != "" {
+		settingsYAML, err := c.SettingsYAML.Read(ctx)
+		if err != nil {
+			return err
+		}
+		settings, err = ch.Config().ParseSettingsYAML(settingsYAML, c.ServiceName)
+		if err != nil {
+			return err
+		}
+	} else if len(c.SettingsStrings) > 0 {
+		settings, err = ch.Config().ParseSettingsStrings(c.SettingsStrings)
+		if err != nil {
+			return err
+		}
+	} else {
+		return nil
+	}
+	return service.UpdateConfigSettings(settings)
 }
 
 // parse parses the option k=v strings into a map of options to be

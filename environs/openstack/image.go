@@ -1,8 +1,10 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack
 
 import (
-	"bufio"
-	"fmt"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 )
 
@@ -28,21 +30,30 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	// look first in the control bucket and then the public bucket to find the release files containing the
-	// metadata for available images. The format of the data in the files is found at
-	// https://help.ubuntu.com/community/UEC/Images.
-	var spec *instances.InstanceSpec
-	releasesFile := fmt.Sprintf("series-image-metadata/%s/server/released.current.txt", ic.Series)
-	r, err := e.Storage().Get(releasesFile)
+	imageConstraint := imagemetadata.ImageConstraint{
+		CloudSpec: imagemetadata.CloudSpec{ic.Region, e.ecfg().authURL()},
+		Series:    ic.Series,
+		Arches:    ic.Arches,
+	}
+	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
-		r, err = e.PublicStorage().Get(releasesFile)
+		return nil, err
 	}
-	var br *bufio.Reader
-	if err == nil {
-		defer r.Close()
-		br = bufio.NewReader(r)
+	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
+	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, false)
+	if err != nil {
+		return nil, err
 	}
-	spec, err = instances.FindInstanceSpec(br, ic, allInstanceTypes)
+	var images []instances.Image
+	for _, imageMetadata := range matchingImages {
+		im := *imageMetadata
+		images = append(images, instances.Image{
+			Id:    im.Id,
+			VType: im.VType,
+			Arch:  im.Arch,
+		})
+	}
+	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
 	}

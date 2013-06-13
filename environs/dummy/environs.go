@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The dummy provider implements an environment provider for testing
 // purposes, registered with environs under the name "dummy".
 //
@@ -491,13 +494,6 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		Addrs:  []string{e.state.apiServer.Addr()},
 		CACert: []byte(testing.CACert),
 	}, nil
-}
-
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Although dummy does not actually start instances, it must respect the
-	// conservative assignment policy for the providers that do instantiate
-	// machines.
-	return state.AssignNew
 }
 
 func (e *environ) Config() *config.Config {

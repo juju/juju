@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package utils
 
 import (
@@ -44,7 +47,7 @@ func Timeit(action string) func() {
 	stack = append(stack, cur)
 	return func() {
 		cur.duration = time.Since(cur.start)
-		if cur == stack[0] {
+		if len(stack) == 0 || cur == stack[0] {
 			fmt.Fprint(os.Stderr, cur)
 			stack = nil
 		} else {

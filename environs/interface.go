@@ -1,3 +1,6 @@
+// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package environs
 
 import (
@@ -78,12 +81,6 @@ type Instance interface {
 
 var ErrNoInstances = errors.New("no instances found")
 var ErrPartialInstances = errors.New("only some instances were found")
-
-// NotFoundError records an error when something has not been found.
-type NotFoundError struct {
-	// error is the underlying error.
-	error
-}
 
 // A StorageReader can retrieve and list files from a storage provider.
 type StorageReader interface {
@@ -200,9 +197,6 @@ type Environ interface {
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid
 	Destroy(insts []Instance) error
-
-	// AssignmentPolicy returns the environment's unit assignment policy.
-	AssignmentPolicy() state.AssignmentPolicy
 
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the

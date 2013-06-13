@@ -1,3 +1,6 @@
+// Copyright 2011, 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package charm_test
 
 import (
@@ -7,7 +10,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
@@ -15,7 +17,9 @@ import (
 	"syscall"
 )
 
-type DirSuite struct{}
+type DirSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = Suite(&DirSuite{})
 
@@ -118,7 +122,6 @@ func (s *DirSuite) TestBundleTo(c *C) {
 
 // Bug #864164: Must complain if charm hooks aren't executable
 func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
-	defer log.SetTarget(log.SetTarget(c))
 	hooks := []string{"install", "start", "config-changed", "upgrade-charm", "stop"}
 	for _, relName := range []string{"foo", "bar", "self"} {
 		for _, kind := range []string{"joined", "changed", "departed", "broken"} {
@@ -137,7 +140,7 @@ func (s *DirSuite) TestBundleToWithNonExecutableHooks(c *C) {
 	tlog := c.GetTestLog()
 	for _, hook := range hooks {
 		fullpath := filepath.Join(dir.Path, "hooks", hook)
-		exp := fmt.Sprintf(`^(.|\n)*WARNING charm: making "%s" executable in charm(.|\n)*$`, fullpath)
+		exp := fmt.Sprintf(`^(.|\n)*WARNING juju charm: making "%s" executable in charm(.|\n)*$`, fullpath)
 		c.Assert(tlog, Matches, exp, Commentf("hook %q was not made executable", fullpath))
 	}
 

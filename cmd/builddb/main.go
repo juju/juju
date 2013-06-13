@@ -1,16 +1,19 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api/params"
-	stdlog "log"
 	"os"
 	"path/filepath"
 	"time"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/loggo"
 )
 
 // Import the providers.
@@ -18,8 +21,9 @@ import (
 	_ "launchpad.net/juju-core/environs/all"
 )
 
+var logger = loggo.GetLogger("juju.builddb")
+
 func main() {
-	log.SetTarget(stdlog.New(os.Stdout, "", stdlog.LstdFlags))
 	if err := build(); err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)
 		os.Exit(1)
@@ -53,13 +57,13 @@ func build() error {
 		return err
 	}
 
-	log.Infof("builddb: Waiting for unit to reach %q status...", params.StatusStarted)
+	logger.Infof("Waiting for unit to reach %q status...", params.StatusStarted)
 	unit := units[0]
 	last, info, err := unit.Status()
 	if err != nil {
 		return err
 	}
-	logStatus(last, info)
+	logger.Infof("Unit status is %q: %s", last, info)
 	for last != params.StatusStarted {
 		time.Sleep(2 * time.Second)
 		if err := unit.Refresh(); err != nil {
@@ -70,7 +74,7 @@ func build() error {
 			return err
 		}
 		if status != last {
-			logStatus(status, info)
+			logger.Infof("Unit status is %q: %s", status, info)
 			last = status
 		}
 	}
@@ -78,15 +82,7 @@ func build() error {
 	if !ok {
 		return fmt.Errorf("cannot retrieve files: build unit lacks a public-address")
 	}
-	log.Noticef("builddb: Built files published at http://%s", addr)
-	log.Noticef("builddb: Remember to destroy the environment when you're done...")
+	logger.Infof("Built files published at http://%s", addr)
+	logger.Infof("Remember to destroy the environment when you're done...")
 	return nil
-}
-
-func logStatus(status params.Status, info string) {
-	if info == "" {
-		log.Infof("builddb: Unit status is %q", status)
-	} else {
-		log.Infof("builddb: Unit status is %q: %s", status, info)
-	}
 }

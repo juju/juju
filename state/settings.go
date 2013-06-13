@@ -1,9 +1,13 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/errors"
 	"sort"
 )
 
@@ -161,9 +165,9 @@ func (c *Settings) Write() ([]ItemChange, error) {
 			{"$unset", deletions},
 		},
 	}}
-	err := c.st.runTxn(ops)
+	err := c.st.runTransaction(ops)
 	if err == txn.ErrAborted {
-		return nil, NotFoundf("settings")
+		return nil, errors.NotFoundf("settings")
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot write settings: %v", err)
@@ -193,7 +197,7 @@ func (c *Settings) Read() error {
 	if err == mgo.ErrNotFound {
 		c.disk = nil
 		c.core = make(map[string]interface{})
-		return NotFoundf("settings")
+		return errors.NotFoundf("settings")
 	}
 	if err != nil {
 		return fmt.Errorf("cannot read settings: %v", err)
@@ -242,7 +246,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 	s := newSettings(st, key)
 	s.core = copyMap(values)
 	ops := []txn.Op{createSettingsOp(st, key, values)}
-	err := s.st.runTxn(ops)
+	err := s.st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		return nil, errSettingsExist
 	}
@@ -256,7 +260,7 @@ func createSettings(st *State, key string, values map[string]interface{}) (*Sett
 func removeSettings(st *State, key string) error {
 	err := st.settings.RemoveId(key)
 	if err == mgo.ErrNotFound {
-		return NotFoundf("settings")
+		return errors.NotFoundf("settings")
 	}
 	return nil
 }

@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package cloudinit_test
 
 import (
@@ -58,7 +61,7 @@ var cloudinitTests = []cloudinitTest{
 			StateServer:     true,
 			StateServerCert: serverCert,
 			StateServerKey:  serverKey,
-			MongoPort:       37017,
+			StatePort:       37017,
 			APIPort:         17070,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -81,6 +84,11 @@ bin='/var/lib/juju/tools/1\.2\.3-precise-amd64'
 mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' > \$bin/downloaded-url\.txt
+cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
+restart rsyslog
+mkdir -p '/var/lib/juju/agents/machine-0'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
+chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
 echo 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 chmod 600 '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
@@ -90,15 +98,10 @@ dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
 cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
-cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
-restart rsyslog
-mkdir -p '/var/lib/juju/agents/machine-0'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
-chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0
@@ -113,7 +116,7 @@ start jujud-machine-0
 			StateServer:     true,
 			StateServerCert: serverCert,
 			StateServerKey:  serverKey,
-			MongoPort:       37017,
+			StatePort:       37017,
 			APIPort:         17070,
 			MachineNonce:    "FAKE_NONCE",
 			StateInfo: &state.Info{
@@ -129,7 +132,6 @@ start jujud-machine-0
 		},
 		setEnvConfig: true,
 		expectScripts: `
-apt-get upgrade -y
 set -xe
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
@@ -137,6 +139,11 @@ bin='/var/lib/juju/tools/1\.2\.3-raring-amd64'
 mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' > \$bin/downloaded-url\.txt
+cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
+restart rsyslog
+mkdir -p '/var/lib/juju/agents/machine-0'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
+chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
 echo 'SERVER CERT\\n[^']*SERVER KEY\\n[^']*' > '/var/lib/juju/server\.pem'
 chmod 600 '/var/lib/juju/server\.pem'
 mkdir -p /var/lib/juju/db/journal
@@ -146,15 +153,10 @@ dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc\.2
 cat >> /etc/init/juju-db\.conf << 'EOF'\\ndescription "juju state database"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 65000 65000\\nlimit nproc 20000 20000\\n\\nexec /usr/bin/mongod --auth --dbpath=/var/lib/juju/db --sslOnNormalPorts --sslPEMKeyFile '/var/lib/juju/server\.pem' --sslPEMKeyPassword ignored --bind_ip 0\.0\.0\.0 --port 37017 --noprealloc --syslog --smallfiles\\nEOF\\n
 start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
-cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\\n\\n\$ModLoad imfile\\n\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\nEOF\\n
-restart rsyslog
-mkdir -p '/var/lib/juju/agents/machine-0'
-echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+mongoport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: machine-0\\n  password: ""\\n' > '/var/lib/juju/agents/machine-0/agent\.conf'
-chmod 600 '/var/lib/juju/agents/machine-0/agent\.conf'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file /var/log/juju/machine-0\.log --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0
@@ -249,10 +251,7 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		err = goyaml.Unmarshal(data, &x)
 		c.Assert(err, IsNil)
 
-		// TODO(dimitern) raring does apt-get upgrade differently, due to LP bug #1103881
-		if test.cfg.Tools.Series != "raring" {
-			c.Check(x["apt_upgrade"], Equals, true)
-		}
+		c.Check(x["apt_upgrade"], Equals, true)
 		c.Check(x["apt_update"], Equals, true)
 
 		scripts := getScripts(x)
@@ -489,8 +488,8 @@ var verifyTests = []struct {
 		info.Tag = "machine-0"
 		cfg.APIInfo = &info
 	}},
-	{"missing mongo port", func(cfg *cloudinit.MachineConfig) {
-		cfg.MongoPort = 0
+	{"missing state port", func(cfg *cloudinit.MachineConfig) {
+		cfg.StatePort = 0
 	}},
 	{"missing API port", func(cfg *cloudinit.MachineConfig) {
 		cfg.APIPort = 0
@@ -507,7 +506,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 		StateServer:     true,
 		StateServerCert: serverCert,
 		StateServerKey:  serverKey,
-		MongoPort:       1234,
+		StatePort:       1234,
 		APIPort:         1235,
 		MachineId:       "99",
 		Tools:           newSimpleTools("9.9.9-linux-arble"),

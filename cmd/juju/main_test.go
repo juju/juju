@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -12,6 +15,7 @@ import (
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/loggo"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -68,13 +72,24 @@ func syncToolsHelpText() string {
 	return helpText(&SyncToolsCommand{}, "juju sync-tools")
 }
 
-var runMainTests = []struct {
-	summary string
-	args    []string
-	code    int
-	out     string
-}{
-	{
+func (s *MainSuite) TestTearDown(c *C) {
+	loggo.ResetLoggers()
+}
+
+func (s *MainSuite) TestRunMain(c *C) {
+	defer testing.MakeSampleHome(c).Restore()
+	// The test array structure needs to be inline here as some of the
+	// expected values below use deployHelpText().  This constructs the deploy
+	// command and runs gets the help for it.  When the deploy command is
+	// setting the flags (which is needed for the help text) it is accessing
+	// config.JujuHome(), which panics if SetJujuHome has not been called.
+	// The FakeHome from testing does this.
+	for i, t := range []struct {
+		summary string
+		args    []string
+		code    int
+		out     string
+	}{{
 		summary: "no params shows help",
 		args:    []string{},
 		code:    0,
@@ -117,7 +132,7 @@ var runMainTests = []struct {
 	}, {
 		summary: "unknown command",
 		args:    []string{"discombobulate"},
-		code:    2,
+		code:    1,
 		out:     "error: unrecognized command: juju discombobulate\n",
 	}, {
 		summary: "unknown option before command",
@@ -145,11 +160,7 @@ var runMainTests = []struct {
 		code:    0,
 		out:     version.Current.String() + "\n",
 	},
-}
-
-func (s *MainSuite) TestRunMain(c *C) {
-	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
-	for i, t := range runMainTests {
+	} {
 		c.Logf("test %d: %s", i, t.summary)
 		out := badrun(c, t.code, t.args...)
 		c.Assert(out, Equals, t.out)
@@ -182,7 +193,7 @@ func (s *MainSuite) TestActualRunJujuArgsBeforeCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
@@ -195,11 +206,12 @@ func (s *MainSuite) TestActualRunJujuArgsAfterCommand(c *C) {
 	c.Assert(out, Equals, "error: "+msg+"\n")
 	content, err := ioutil.ReadFile(logpath)
 	c.Assert(err, IsNil)
-	fullmsg := fmt.Sprintf(`(.|\n)*ERROR command failed: %s\n`, msg)
+	fullmsg := fmt.Sprintf(`(.|\n)*ERROR .* command failed: %s\n`, msg)
 	c.Assert(string(content), Matches, fullmsg)
 }
 
 var commandNames = []string{
+	"add-machine",
 	"add-relation",
 	"add-unit",
 	"bootstrap",
@@ -210,6 +222,7 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
+	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init
 	"get",
@@ -217,6 +230,7 @@ var commandNames = []string{
 	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
+	"image-metadata",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation
@@ -230,6 +244,7 @@ var commandNames = []string{
 	"ssh",
 	"stat", // alias for status
 	"status",
+	"switch",
 	"sync-tools",
 	"terminate-machine", // alias for destroy-machine
 	"unexpose",
@@ -260,6 +275,7 @@ var topicNames = []string{
 	"basics",
 	"commands",
 	"global-options",
+	"plugins",
 	"topics",
 }
 
@@ -284,6 +300,7 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 var globalFlags = []string{
 	"--debug .*",
 	"-h, --help .*",
+	"--log-config .*",
 	"--log-file .*",
 	"-v, --verbose .*",
 }

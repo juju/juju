@@ -1,7 +1,11 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	"time"
 )
@@ -28,8 +32,7 @@ func TestingStateInfo() *Info {
 // connecting to the testing state server.
 func TestingDialOpts() DialOpts {
 	return DialOpts{
-		Timeout:    100 * time.Millisecond,
-		RetryDelay: 0,
+		Timeout: 100 * time.Millisecond,
 	}
 }
 
@@ -76,7 +79,7 @@ func (s *SettingsSuite) TestCannotOverwrite(c *C) {
 func (s *SettingsSuite) TestCannotReadMissing(c *C) {
 	_, err := readSettings(s.state, s.key)
 	c.Assert(err, ErrorMatches, "settings not found")
-	c.Assert(IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *SettingsSuite) TestCannotWriteMissing(c *C) {
@@ -89,7 +92,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *C) {
 	node.Set("foo", "bar")
 	_, err = node.Write()
 	c.Assert(err, ErrorMatches, "settings not found")
-	c.Assert(IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *C) {

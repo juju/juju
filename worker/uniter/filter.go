@@ -1,8 +1,12 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package uniter
 
 import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -218,10 +222,10 @@ func (f *filter) loop(unitName string) (err error) {
 	defer watcher.Stop(servicew, &f.tomb)
 	// configw and relationsw can get restarted, so we need to use
 	// their eventual values in the defer calls.
-	var configw *state.ConfigWatcher
-	var configChanges <-chan *state.Settings
+	var configw *state.EntityWatcher
+	var configChanges <-chan struct{}
 	if curl, ok := f.unit.CharmURL(); ok {
-		configw, err = f.unit.WatchServiceConfig()
+		configw, err = f.unit.WatchConfigSettings()
 		if err != nil {
 			return err
 		}
@@ -313,7 +317,7 @@ func (f *filter) loop(unitName string) (err error) {
 				return tomb.ErrDying
 			case f.charmChanged <- nothing:
 			}
-			configw, err = f.unit.WatchServiceConfig()
+			configw, err = f.unit.WatchConfigSettings()
 			if err != nil {
 				return err
 			}
@@ -351,7 +355,7 @@ func (f *filter) loop(unitName string) (err error) {
 // unitChanged responds to changes in the unit.
 func (f *filter) unitChanged() error {
 	if err := f.unit.Refresh(); err != nil {
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			return worker.ErrTerminateAgent
 		}
 		return err
@@ -379,7 +383,7 @@ func (f *filter) unitChanged() error {
 // serviceChanged responds to changes in the service.
 func (f *filter) serviceChanged() error {
 	if err := f.service.Refresh(); err != nil {
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			return fmt.Errorf("service unexpectedly removed")
 		}
 		return err

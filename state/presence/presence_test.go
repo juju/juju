@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package presence_test
 
 import (
@@ -438,6 +441,32 @@ func (s *PresenceSuite) TestSync(c *C) {
 
 	assertChange(c, ch, presence.Change{"a", true})
 
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		c.Fatalf("Sync failed to returned")
+	}
+}
+
+func (s *PresenceSuite) TestFindAllBeings(c *C) {
+	w := presence.NewWatcher(s.presence)
+	p := presence.NewPinger(s.presence, "a")
+	defer w.Stop()
+	defer p.Stop()
+
+	ch := make(chan presence.Change)
+	w.Watch("a", ch)
+	assertChange(c, ch, presence.Change{"a", false})
+	c.Assert(p.Start(), IsNil)
+	done := make(chan bool)
+	go func() {
+		w.Sync()
+		done <- true
+	}()
+	assertChange(c, ch, presence.Change{"a", true})
+	results, err := presence.FindAllBeings(w)
+	c.Assert(err, IsNil)
+	c.Assert(results, HasLen, 1)
 	select {
 	case <-done:
 	case <-time.After(100 * time.Millisecond):

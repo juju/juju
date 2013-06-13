@@ -1,9 +1,13 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package firewaller
 
 import (
 	"fmt"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -35,7 +39,7 @@ func NewFirewaller(st *state.State) *Firewaller {
 	fw := &Firewaller{
 		st:              st,
 		environWatcher:  st.WatchEnvironConfig(),
-		machinesWatcher: st.WatchMachines(),
+		machinesWatcher: st.WatchEnvironMachines(),
 		machineds:       make(map[string]*machineData),
 		unitsChange:     make(chan *unitsChange),
 		unitds:          make(map[string]*unitData),
@@ -134,7 +138,7 @@ func (fw *Firewaller) startMachine(id string) error {
 		ports:  make([]params.Port, 0),
 	}
 	m, err := machined.machine()
-	if state.IsNotFound(err) {
+	if errors.IsNotFoundError(err) {
 		return nil
 	} else if err != nil {
 		return fmt.Errorf("worker/firewaller: cannot watch machine units: %v", err)
@@ -257,7 +261,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 func (fw *Firewaller) reconcileInstances() error {
 	for _, machined := range fw.machineds {
 		m, err := machined.machine()
-		if state.IsNotFound(err) {
+		if errors.IsNotFoundError(err) {
 			if err := fw.forgetMachine(machined); err != nil {
 				return err
 			}
@@ -267,7 +271,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		}
 		instanceId, ok := m.InstanceId()
 		if !ok {
-			return state.NotFoundf("instance id for %v", m)
+			return errors.NotFoundf("instance id for %v", m)
 		}
 		instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
 		if err == environs.ErrNoInstances {
@@ -309,13 +313,13 @@ func (fw *Firewaller) unitsChanged(change *unitsChange) error {
 	changed := []*unitData{}
 	for _, name := range change.units {
 		unit, err := fw.st.Unit(name)
-		if err != nil && !state.IsNotFound(err) {
+		if err != nil && !errors.IsNotFoundError(err) {
 			return err
 		}
 		var machineId string
 		if unit != nil {
 			machineId, err = unit.AssignedMachineId()
-			if state.IsNotFound(err) {
+			if errors.IsNotFoundError(err) {
 				continue
 			} else if err != nil && !state.IsNotAssigned(err) {
 				return err
@@ -430,7 +434,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 		return nil
 	}
 	m, err := machined.machine()
-	if state.IsNotFound(err) {
+	if errors.IsNotFoundError(err) {
 		return nil
 	}
 	if err != nil {
@@ -438,7 +442,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	}
 	instanceId, ok := m.InstanceId()
 	if !ok {
-		return state.NotFoundf("instance id for %v", m)
+		return errors.NotFoundf("instance id for %v", m)
 	}
 	instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
 	if err != nil {
@@ -469,7 +473,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 // machines that are dying.
 func (fw *Firewaller) machineLifeChanged(id string) error {
 	m, err := fw.st.Machine(id)
-	found := !state.IsNotFound(err)
+	found := !errors.IsNotFoundError(err)
 	if found && err != nil {
 		return err
 	}
@@ -550,7 +554,12 @@ func (fw *Firewaller) Err() (reason error) {
 	return fw.tomb.Err()
 }
 
-// Wait waits for the Firewaller to exit.
+// Kill implements worker.Worker.Kill.
+func (fw *Firewaller) Kill() {
+	fw.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
 func (fw *Firewaller) Wait() error {
 	return fw.tomb.Wait()
 }
@@ -591,7 +600,7 @@ func (md *machineData) watchLoop(unitw *state.MachineUnitsWatcher) {
 		case change, ok := <-unitw.Changes():
 			if !ok {
 				_, err := md.machine()
-				if !state.IsNotFound(err) {
+				if !errors.IsNotFoundError(err) {
 					md.fw.tomb.Kill(watcher.MustErr(unitw))
 				}
 				return
@@ -642,7 +651,7 @@ func (ud *unitData) watchLoop(latestPorts []params.Port) {
 				return
 			}
 			if err := ud.unit.Refresh(); err != nil {
-				if !state.IsNotFound(err) {
+				if !errors.IsNotFoundError(err) {
 					ud.fw.tomb.Kill(err)
 				}
 				return
@@ -711,7 +720,7 @@ func (sd *serviceData) watchLoop(exposed bool) {
 				return
 			}
 			if err := sd.service.Refresh(); err != nil {
-				if !state.IsNotFound(err) {
+				if !errors.IsNotFoundError(err) {
 					sd.fw.tomb.Kill(err)
 				}
 				return

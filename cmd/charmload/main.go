@@ -1,19 +1,19 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/lpad"
-	stdlog "log"
 	"os"
 	"path/filepath"
 )
 
 func main() {
-	log.SetTarget(stdlog.New(os.Stdout, "", stdlog.LstdFlags))
 	err := load()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "%v\n", err)

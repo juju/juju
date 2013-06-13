@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package maas
 
 import (
@@ -66,9 +69,9 @@ func (s *UtilSuite) TestUserData(c *C) {
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
 		DataDir:     jujuDataDir,
-		MongoPort:   mgoPort,
 		Config:      envConfig,
-		APIPort:     apiPort,
+		StatePort:   envConfig.StatePort(),
+		APIPort:     envConfig.APIPort(),
 		StateServer: true,
 	}
 	script1 := "script1"

@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package main
 
 import (
@@ -17,6 +20,7 @@ type PublishSuite struct {
 	testing.LoggingSuite
 	testing.HTTPSuite
 
+	home       *testing.FakeHome
 	dir        string
 	oldBaseURL string
 	branch     *bzr.Branch
@@ -69,6 +73,12 @@ func (s *PublishSuite) TearDownSuite(c *C) {
 func (s *PublishSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
+	s.home = testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+		{
+			Name: ".bazaar/bazaar.conf",
+			Data: "[DEFAULT]\nemail = Test <testing@example.com>\n",
+		},
+	})
 
 	s.dir = c.MkDir()
 	s.branch = bzr.New(s.dir)
@@ -77,6 +87,7 @@ func (s *PublishSuite) SetUpTest(c *C) {
 }
 
 func (s *PublishSuite) TearDownTest(c *C) {
+	s.home.Restore()
 	s.HTTPSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }

@@ -1,8 +1,12 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package uniter_test
 
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm/hooks"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter"
@@ -443,7 +447,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
-	c.Assert(state.IsNotFound(err), Equals, true)
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
 	// Verify that no other hooks were sent at any stage.
 	select {

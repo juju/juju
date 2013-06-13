@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package jujuc
 
 import (
@@ -39,15 +42,15 @@ func (c *ConfigGetCommand) Init(args []string) error {
 }
 
 func (c *ConfigGetCommand) Run(ctx *cmd.Context) error {
-	cfg, err := c.ctx.Config()
+	settings, err := c.ctx.ConfigSettings()
 	if err != nil {
 		return err
 	}
 	var value interface{}
 	if c.Key == "" {
-		value = cfg
+		value = settings
 	} else {
-		value, _ = cfg[c.Key]
+		value, _ = settings[c.Key]
 	}
 	return c.out.Write(ctx, value)
 }

@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package openstack_test
 
 import (
@@ -7,39 +10,18 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
-	"reflect"
 	"testing"
 )
 
-// Out-of-the-box, we support live testing using Canonistack or HP Cloud.
-var testConstraints = map[string]openstack.ImageDetails{
-	"hpcloud": openstack.ImageDetails{
-		Flavor: "standard.xsmall", ImageId: "75845"},
-}
-
 var live = flag.Bool("live", false, "Include live OpenStack tests")
-var vendor = flag.String("vendor", "", "The Openstack vendor to test against")
-var imageId = flag.String("image", "", "The image id for which a test service is to be started")
-var flavor = flag.String("flavor", "", "The flavor of the test service")
 
 func Test(t *testing.T) {
 	if *live {
-		// We can either specify a vendor, or imageId and flavor separately.
-		var testImageDetails openstack.ImageDetails
-		if *vendor != "" {
-			var ok bool
-			if testImageDetails, ok = testConstraints[*vendor]; !ok {
-				keys := reflect.ValueOf(testConstraints).MapKeys()
-				t.Fatalf("Unknown vendor %s. Must be one of %s", *vendor, keys)
-			}
-		} else {
-			testImageDetails = openstack.ImageDetails{*flavor, *imageId}
-		}
 		cred, err := identity.CompleteCredentialsFromEnv()
 		if err != nil {
 			t.Fatalf("Error setting up test suite: %s", err.Error())
 		}
-		registerLiveTests(cred, testImageDetails)
+		registerLiveTests(cred)
 	}
 	registerLocalTests()
 	TestingT(t)

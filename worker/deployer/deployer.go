@@ -1,6 +1,10 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package deployer
 
 import (
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
@@ -59,6 +63,10 @@ func (d *Deployer) String() string {
 	return "deployer for " + d.tag
 }
 
+func (d *Deployer) Kill() {
+	d.tomb.Kill(nil)
+}
+
 func (d *Deployer) Stop() error {
 	d.tomb.Kill(nil)
 	return d.tomb.Wait()
@@ -76,7 +84,7 @@ func (d *Deployer) changed(unitName string) error {
 	var life state.Life
 	responsible := false
 	unit, err := d.st.Unit(unitName)
-	if state.IsNotFound(err) {
+	if errors.IsNotFoundError(err) {
 		life = state.Dead
 	} else if err != nil {
 		return err

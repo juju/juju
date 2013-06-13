@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package maas
 
 import (
@@ -7,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"math/rand"
 	"net/http"
 	"net/url"
@@ -100,7 +104,7 @@ func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFoundForMissingFile(c *C)
 	stor := s.makeStorage("rfo-test")
 	_, err := stor.retrieveFileObject("nonexistent-file")
 	c.Assert(err, NotNil)
-	c.Check(err, FitsTypeOf, &environs.NotFoundError{})
+	c.Check(err, FitsTypeOf, &errors.NotFoundError{})
 }
 
 func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *C) {
@@ -139,7 +143,7 @@ func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *C) {
 	const filename = "lost-data"
 	storage := NewStorage(s.environ)
 	_, err := storage.Get(filename)
-	c.Assert(err, FitsTypeOf, &environs.NotFoundError{})
+	c.Assert(err, FitsTypeOf, &errors.NotFoundError{})
 }
 
 func (s *StorageSuite) TestListReturnsEmptyIfNoFilesStored(c *C) {
@@ -329,7 +333,7 @@ func (s *StorageSuite) TestRemoveDeletesFile(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = storage.Get(filename)
-	c.Assert(err, FitsTypeOf, &environs.NotFoundError{})
+	c.Assert(err, FitsTypeOf, &errors.NotFoundError{})
 
 	listing, err := storage.List(filename)
 	c.Assert(err, IsNil)

@@ -1,9 +1,13 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package uniter
 
 import (
 	"bufio"
 	"fmt"
 	"io"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -11,6 +15,7 @@ import (
 	"os/exec"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -19,8 +24,8 @@ import (
 type HookContext struct {
 	unit *state.Unit
 
-	// config holds the service configuration.
-	config map[string]interface{}
+	// configSettings holds the service configuration.
+	configSettings charm.Settings
 
 	// id identifies the context.
 	id string
@@ -41,10 +46,14 @@ type HookContext struct {
 	// relations contains the context for every relation the unit is a member
 	// of, keyed on relation id.
 	relations map[int]*ContextRelation
+
+	// apiAddrs contains the API server addresses.
+	apiAddrs []string
 }
 
 func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
-	remoteUnitName string, relations map[int]*ContextRelation) *HookContext {
+	remoteUnitName string, relations map[int]*ContextRelation,
+	apiAddrs []string) *HookContext {
 	return &HookContext{
 		unit:           unit,
 		id:             id,
@@ -52,6 +61,7 @@ func NewHookContext(unit *state.Unit, id, uuid string, relationId int,
 		relationId:     relationId,
 		remoteUnitName: remoteUnitName,
 		relations:      relations,
+		apiAddrs:       apiAddrs,
 	}
 }
 
@@ -75,15 +85,19 @@ func (ctx *HookContext) ClosePort(protocol string, port int) error {
 	return ctx.unit.ClosePort(protocol, port)
 }
 
-func (ctx *HookContext) Config() (map[string]interface{}, error) {
-	if ctx.config == nil {
+func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
+	if ctx.configSettings == nil {
 		var err error
-		ctx.config, err = ctx.unit.ServiceConfig()
+		ctx.configSettings, err = ctx.unit.ConfigSettings()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return ctx.config, nil
+	result := charm.Settings{}
+	for name, value := range ctx.configSettings {
+		result[name] = value
+	}
+	return result, nil
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {
@@ -120,6 +134,7 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 		"JUJU_AGENT_SOCKET=" + socketPath,
 		"JUJU_UNIT_NAME=" + ctx.unit.Name(),
 		"JUJU_ENV_UUID=" + ctx.uuid,
+		"JUJU_API_ADDRESSES=" + strings.Join(ctx.apiAddrs, " "),
 	}
 	if r, found := ctx.HookRelation(); found {
 		vars = append(vars, "JUJU_RELATION="+r.Name())

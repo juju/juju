@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 // The state package enables reading, observing, and changing
 // the state stored in MongoDB of a whole environment
 // managed by juju.
@@ -11,6 +14,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -87,80 +91,62 @@ func IsMachineId(name string) bool {
 	return validMachine.MatchString(name)
 }
 
-// notFoundError represents the error that something is not found.
-type notFoundError struct {
-	msg string
-}
-
-func (e *notFoundError) Error() string {
-	return e.msg
-}
-
-// NotFoundf returns a error for which IsNotFound returns
-// true. The message for the error is made up from the given
-// arguments formatted as with fmt.Sprintf, with the
-// string " not found" appended.
-func NotFoundf(format string, args ...interface{}) error {
-	return &notFoundError{fmt.Sprintf(format+" not found", args...)}
-}
-
-func IsNotFound(err error) bool {
-	_, ok := err.(*notFoundError)
-	return ok
-}
-
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info           *Info
-	db             *mgo.Database
-	environments   *mgo.Collection
-	charms         *mgo.Collection
-	machines       *mgo.Collection
-	relations      *mgo.Collection
-	relationScopes *mgo.Collection
-	services       *mgo.Collection
-	settings       *mgo.Collection
-	settingsrefs   *mgo.Collection
-	constraints    *mgo.Collection
-	units          *mgo.Collection
-	users          *mgo.Collection
-	presence       *mgo.Collection
-	cleanups       *mgo.Collection
-	annotations    *mgo.Collection
-	statuses       *mgo.Collection
-	runner         *txn.Runner
-	txnHooks       chan ([]func())
-	watcher        *watcher.Watcher
-	pwatcher       *presence.Watcher
+	info             *Info
+	db               *mgo.Database
+	environments     *mgo.Collection
+	charms           *mgo.Collection
+	machines         *mgo.Collection
+	containerRefs    *mgo.Collection
+	relations        *mgo.Collection
+	relationScopes   *mgo.Collection
+	services         *mgo.Collection
+	settings         *mgo.Collection
+	settingsrefs     *mgo.Collection
+	constraints      *mgo.Collection
+	units            *mgo.Collection
+	users            *mgo.Collection
+	presence         *mgo.Collection
+	cleanups         *mgo.Collection
+	annotations      *mgo.Collection
+	statuses         *mgo.Collection
+	runner           *txn.Runner
+	transactionHooks chan ([]TransactionHook)
+	watcher          *watcher.Watcher
+	pwatcher         *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
 }
 
-// runTxn runs the supplied operations as a single mgo/txn transaction, and
-// includes a mechanism whereby tests can use SetTxnHooks to induce arbitrary
-// state mutations before and after particular transactions are attempted.
-func (st *State) runTxn(ops []txn.Op) error {
-	txnHooks := <-st.txnHooks
-	st.txnHooks <- nil
-	switch len(txnHooks) {
-	default:
+// TransactionHook holds a pair of functions to be called before and after a
+// mgo/txn transaction is run. It is only used in testing.
+type TransactionHook struct {
+	Before func()
+	After  func()
+}
+
+// runTransaction runs the supplied operations as a single mgo/txn transaction,
+// and includes a mechanism whereby tests can use SetTransactionHooks to induce
+// arbitrary state mutations before and after particular transactions.
+func (st *State) runTransaction(ops []txn.Op) error {
+	transactionHooks := <-st.transactionHooks
+	st.transactionHooks <- nil
+	if len(transactionHooks) > 0 {
 		defer func() {
-			if txnHooks[1] != nil {
-				txnHooks[1]()
+			if transactionHooks[0].After != nil {
+				transactionHooks[0].After()
 			}
-			if <-st.txnHooks != nil {
+			if <-st.transactionHooks != nil {
 				panic("concurrent use of transaction hooks")
 			}
-			st.txnHooks <- txnHooks[2:]
+			st.transactionHooks <- transactionHooks[1:]
 		}()
-		fallthrough
-	case 1:
-		if txnHooks[0] != nil {
-			txnHooks[0]()
+		if transactionHooks[0].Before != nil {
+			transactionHooks[0].Before()
 		}
-	case 0:
 	}
 	return st.runner.Run(ops, "", nil)
 }
@@ -226,25 +212,49 @@ func (st *State) SetEnvironConstraints(cons constraints.Value) error {
 // supplied series. The machine's constraints will be taken from the
 // environment constraints.
 func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err error) {
-	return st.addMachine(series, "", "", jobs)
+	return st.addMachine(&AddMachineParams{Series: series, Jobs: jobs})
+}
+
+// AddMachineWithConstraints adds a new machine configured to run the supplied jobs on the
+// supplied series. The machine's constraints and other configuration will be taken from
+// the supplied params struct.
+func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine, err error) {
+
+	// TODO(wallyworld) - if a container is required, and when the actual machine characteristics
+	// are made available, we need to check the machine constraints to ensure the container can be
+	// created on the specifed machine.
+	// ie it makes no sense asking for a 16G container on a machine with 8G.
+
+	return st.addMachine(params)
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured to run the supplied jobs on the supplied series. The
-// machine's constraints will be taken from the environment constraints.
-func (st *State) InjectMachine(series string, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+// instance, configured to run the supplied jobs on the supplied series, using
+// the specified constraints.
+func (st *State) InjectMachine(series string, cons constraints.Value, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	return st.addMachine(series, instanceId, BootstrapNonce, jobs)
+	return st.addMachine(&AddMachineParams{Series: series, Constraints: cons, instanceId: instanceId, nonce: BootstrapNonce, Jobs: jobs})
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machineDoc, []txn.Op, error) {
+// containerRefParams specify how a machineContainers document is to be created.
+type containerRefParams struct {
+	hostId      string
+	newHost     bool
+	hostOnly    bool
+	containerId string
+}
+
+func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
 	if len(mdoc.Jobs) == 0 {
 		return nil, nil, fmt.Errorf("no jobs specified")
+	}
+	if containerParams.hostId != "" && mdoc.ContainerType == "" {
+		return nil, nil, fmt.Errorf("no container type specified")
 	}
 	jset := make(map[MachineJob]bool)
 	for _, j := range mdoc.Jobs {
@@ -253,11 +263,25 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 		}
 		jset[j] = true
 	}
-	seq, err := st.sequence("machine")
-	if err != nil {
-		return nil, nil, err
+	if containerParams.hostId == "" {
+		// we are creating a new machine instance (not a container).
+		seq, err := st.sequence("machine")
+		if err != nil {
+			return nil, nil, err
+		}
+		mdoc.Id = strconv.Itoa(seq)
+		containerParams.hostId = mdoc.Id
+		containerParams.newHost = true
 	}
-	mdoc.Id = strconv.Itoa(seq)
+	if mdoc.ContainerType != "" {
+		// we are creating a container so set up a namespaced id.
+		seq, err := st.sequence(fmt.Sprintf("machine%s%sContainer", containerParams.hostId, mdoc.ContainerType))
+		if err != nil {
+			return nil, nil, err
+		}
+		mdoc.Id = fmt.Sprintf("%s/%s/%d", containerParams.hostId, mdoc.ContainerType, seq)
+		containerParams.containerId = mdoc.Id
+	}
 	mdoc.Life = Alive
 	sdoc := statusDoc{
 		Status: params.StatusPending,
@@ -272,29 +296,78 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value) (*machi
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
+	ops = append(ops, createContainerRefOp(st, containerParams)...)
 	return mdoc, ops, nil
 }
 
+// AddMachineParams encapsulates the parameters used to create a new machine.
+type AddMachineParams struct {
+	Series        string
+	Constraints   constraints.Value
+	ParentId      string
+	ContainerType ContainerType
+	instanceId    InstanceId
+	nonce         string
+	Jobs          []MachineJob
+}
+
 // addMachine implements AddMachine and InjectMachine.
-func (st *State) addMachine(series string, instanceId InstanceId, nonce string, jobs []MachineJob) (m *Machine, err error) {
-	defer utils.ErrorContextf(&err, "cannot add a new machine")
+func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
+	msg := "cannot add a new machine"
+	if params.ParentId != "" || params.ContainerType != "" {
+		msg = "cannot add a new container"
+	}
+	defer utils.ErrorContextf(&err, msg)
 
 	cons, err := st.EnvironConstraints()
 	if err != nil {
 		return nil, err
 	}
-	mdoc := &machineDoc{
-		Series:     series,
-		InstanceId: instanceId,
-		Nonce:      nonce,
-		Jobs:       jobs,
+	cons = params.Constraints.WithFallbacks(cons)
+	var ops []txn.Op
+	var containerParams = containerRefParams{hostId: params.ParentId, hostOnly: true}
+	// If we are creating a container, first create the host (parent) machine if necessary.
+	if params.ContainerType != "" {
+		containerParams.hostOnly = false
+		if params.ParentId == "" {
+			// No parent machine is specified so create one.
+			mdoc := &machineDoc{
+				Series:     params.Series,
+				InstanceId: params.instanceId,
+				Nonce:      params.nonce,
+				Jobs:       params.Jobs,
+				Clean:      true,
+			}
+			mdoc, parentOps, err := st.addMachineOps(mdoc, cons, containerRefParams{})
+			if err != nil {
+				return nil, err
+			}
+			ops = parentOps
+			containerParams.hostId = mdoc.Id
+			containerParams.newHost = true
+		} else {
+			// If a parent machine is specified, make sure it exists.
+			_, err := st.Machine(containerParams.hostId)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
-	mdoc, ops, err := st.addMachineOps(mdoc, cons)
+	mdoc := &machineDoc{
+		Series:        params.Series,
+		ContainerType: string(params.ContainerType),
+		InstanceId:    params.instanceId,
+		Nonce:         params.nonce,
+		Jobs:          params.Jobs,
+		Clean:         true,
+	}
+	mdoc, machineOps, err := st.addMachineOps(mdoc, cons, containerParams)
 	if err != nil {
 		return nil, err
 	}
+	ops = append(ops, machineOps...)
 
-	err = st.runTxn(ops)
+	err = st.runTransaction(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -348,7 +421,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 	sel := D{{"_id", id}}
 	err := st.machines.Find(sel).One(mdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("machine %s", id)
+		return nil, errors.NotFoundf("machine %s", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get machine %s: %v", id, err)
@@ -511,7 +584,7 @@ func (st *State) Charm(curl *charm.URL) (*Charm, error) {
 	cdoc := &charmDoc{}
 	err := st.charms.Find(D{{"_id", curl}}).One(cdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("charm %q", curl)
+		return nil, errors.NotFoundf("charm %q", curl)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get charm %q: %v", curl, err)
@@ -604,7 +677,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
-	if err := st.runTxn(ops); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -625,7 +698,7 @@ func (st *State) Service(name string) (service *Service, err error) {
 	sel := D{{"_id", name}}
 	err = st.services.Find(sel).One(sdoc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("service %q", name)
+		return nil, errors.NotFoundf("service %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get service %q: %v", name, err)
@@ -800,7 +873,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 		series := map[string]bool{}
 		for _, ep := range eps {
 			svc, err := st.Service(ep.ServiceName)
-			if IsNotFound(err) {
+			if errors.IsNotFoundError(err) {
 				return nil, fmt.Errorf("service %q does not exist", ep.ServiceName)
 			} else if err != nil {
 				return nil, err
@@ -846,7 +919,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Insert: doc,
 		})
 		// Run the transaction, and retry on abort.
-		if err = st.runTxn(ops); err == txn.ErrAborted {
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -862,7 +935,7 @@ func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
 	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("relation %q", key)
+		return nil, errors.NotFoundf("relation %q", key)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %q: %v", key, err)
@@ -875,7 +948,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 	doc := relationDoc{}
 	err := st.relations.Find(D{{"id", id}}).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("relation %d", id)
+		return nil, errors.NotFoundf("relation %d", id)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get relation %d: %v", id, err)
@@ -891,7 +964,7 @@ func (st *State) Unit(name string) (*Unit, error) {
 	doc := unitDoc{}
 	err := st.units.FindId(name).One(&doc)
 	if err == mgo.ErrNotFound {
-		return nil, NotFoundf("unit %q", name)
+		return nil, errors.NotFoundf("unit %q", name)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("cannot get unit %q: %v", name, err)
@@ -906,7 +979,7 @@ func (st *State) DestroyUnits(names ...string) (err error) {
 	for _, name := range names {
 		unit, err := st.Unit(name)
 		switch {
-		case IsNotFound(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("unit %q does not exist", name)
 		case err != nil:
 		case unit.Life() != Alive:
@@ -929,7 +1002,7 @@ func (st *State) DestroyMachines(ids ...string) (err error) {
 	for _, id := range ids {
 		machine, err := st.Machine(id)
 		switch {
-		case IsNotFound(err):
+		case errors.IsNotFoundError(err):
 			err = fmt.Errorf("machine %s does not exist", id)
 		case err != nil:
 		case machine.Life() != Alive:
@@ -1071,7 +1144,7 @@ func (st *State) Cleanup() error {
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := st.runTxn(ops); err != nil {
+		if err := st.runTransaction(ops); err != nil {
 			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}

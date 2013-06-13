@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -71,7 +74,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 		} else {
 			ops = a.updateOps(toUpdate, toRemove)
 		}
-		if err := a.st.runTxn(ops); err == nil {
+		if err := a.st.runTransaction(ops); err == nil {
 			return nil
 		} else if err != txn.ErrAborted {
 			return err

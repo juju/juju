@@ -1,14 +1,17 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
-	"errors"
+	stderrors "errors"
 	"fmt"
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"sort"
@@ -89,7 +92,7 @@ func (s *Service) Life() Life {
 	return s.doc.Life
 }
 
-var errRefresh = errors.New("state seems inconsistent, refresh and try again")
+var errRefresh = stderrors.New("state seems inconsistent, refresh and try again")
 
 // Destroy ensures that the service and all its relations will be removed at
 // some point; if the service has no units, and no relation involving the
@@ -112,11 +115,11 @@ func (s *Service) Destroy() (err error) {
 		case err != nil:
 			return err
 		default:
-			if err := svc.st.runTxn(ops); err != txn.ErrAborted {
+			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
 		}
-		if err := svc.Refresh(); IsNotFound(err) {
+		if err := svc.Refresh(); errors.IsNotFoundError(err) {
 			return nil
 		} else if err != nil {
 			return err
@@ -246,7 +249,7 @@ func (s *Service) setExposed(exposed bool) (err error) {
 		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
-	if err := s.st.runTxn(ops); err != nil {
+	if err := s.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
@@ -341,22 +344,6 @@ func (s *Service) extraPeerRelations(newMeta *charm.Meta) map[string]charm.Relat
 	return extraPeers
 }
 
-// convertConfig takes the given charm's config and converts the
-// current service's charm config to the new one (if possible,
-// otherwise returns an error). It also returns an assert op to
-// ensure the old settings haven't changed in the meantime.
-func (s *Service) convertConfig(ch *Charm) (map[string]interface{}, txn.Op, error) {
-	orig, err := s.Config()
-	if err != nil {
-		return nil, txn.Op{}, err
-	}
-	newcfg, err := ch.Config().Convert(orig.Map())
-	if err != nil {
-		return nil, txn.Op{}, err
-	}
-	return newcfg, orig.assertUnchangedOp(), nil
-}
-
 func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op, error) {
 	asserts := make([]txn.Op, 0, len(relations))
 	// All relations must still exist and their endpoints are implemented by the charm.
@@ -378,24 +365,25 @@ func (s *Service) checkRelationsOps(ch *Charm, relations []*Relation) ([]txn.Op,
 // changeCharmOps returns the operations necessary to set a service's
 // charm URL to a new value.
 func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
-	// Build the new service config.
-	newcfg, assertOrigSettingsOp, err := s.convertConfig(ch)
+	// Build the new service config from what can be used of the old one.
+	oldSettings, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
 		return nil, err
 	}
+	newSettings := ch.Config().FilterSettings(oldSettings.Map())
 
 	// Create or replace service settings.
 	var settingsOp txn.Op
-	newkey := serviceSettingsKey(s.doc.Name, ch.URL())
-	if count, err := s.st.settings.FindId(newkey).Count(); err != nil {
+	newKey := serviceSettingsKey(s.doc.Name, ch.URL())
+	if count, err := s.st.settings.FindId(newKey).Count(); err != nil {
 		return nil, err
 	} else if count == 0 {
 		// No settings for this key yet, create it.
-		settingsOp = createSettingsOp(s.st, newkey, newcfg)
+		settingsOp = createSettingsOp(s.st, newKey, newSettings)
 	} else {
 		// Settings exist, just replace them with the new ones.
 		var err error
-		settingsOp, _, err = replaceSettingsOp(s.st, newkey, newcfg)
+		settingsOp, _, err = replaceSettingsOp(s.st, newKey, newSettings)
 		if err != nil {
 			return nil, err
 		}
@@ -416,7 +404,7 @@ func (s *Service) changeCharmOps(ch *Charm, force bool) ([]txn.Op, error) {
 	differentCharm := D{{"charmurl", D{{"$ne", ch.URL()}}}}
 	ops := []txn.Op{
 		// Old settings shouldn't change
-		assertOrigSettingsOp,
+		oldSettings.assertUnchangedOp(),
 		// Create/replace with new settings.
 		settingsOp,
 		// Increment the ref count.
@@ -496,7 +484,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			}
 		}
 
-		if err := s.st.runTxn(ops); err == nil {
+		if err := s.st.runTransaction(ops); err == nil {
 			s.doc.CharmURL = ch.URL()
 			s.doc.ForceCharm = force
 			return nil
@@ -526,7 +514,7 @@ func (s *Service) String() string {
 func (s *Service) Refresh() error {
 	err := s.st.services.FindId(s.doc.Name).One(&s.doc)
 	if err == mgo.ErrNotFound {
-		return NotFoundf("service %q", s)
+		return errors.NotFoundf("service %q", s)
 	}
 	if err != nil {
 		return fmt.Errorf("cannot refresh service %q: %v", s, err)
@@ -539,7 +527,7 @@ func (s *Service) newUnitName() (string, error) {
 	change := mgo.Change{Update: D{{"$inc", D{{"unitseq", 1}}}}}
 	result := serviceDoc{}
 	if _, err := s.st.services.Find(D{{"_id", s.doc.Name}}).Apply(change, &result); err == mgo.ErrNotFound {
-		return "", NotFoundf("service %q", s)
+		return "", errors.NotFoundf("service %q", s)
 	} else if err != nil {
 		return "", fmt.Errorf("cannot increment unit sequence: %v", err)
 	}
@@ -617,7 +605,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.st.runTxn(ops); err == txn.ErrAborted {
+	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {
@@ -630,7 +618,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	return s.Unit(name)
 }
 
-var ErrExcessiveContention = errors.New("state changing too quickly; try again soon")
+var ErrExcessiveContention = stderrors.New("state changing too quickly; try again soon")
 
 // removeUnitOps returns the operations necessary to remove the supplied unit,
 // assuming the supplied asserts apply to the unit document.
@@ -731,87 +719,47 @@ func (s *Service) Relations() (relations []*Relation, err error) {
 	return relations, nil
 }
 
-// Config returns the configuration node for the service.
-func (s *Service) Config() (config *Settings, err error) {
-	config, err = readSettings(s.st, s.settingsKey())
+// ConfigSettings returns the raw user configuration for the service's charm.
+// Unset values are omitted.
+func (s *Service) ConfigSettings() (charm.Settings, error) {
+	settings, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
-		return nil, fmt.Errorf("cannot get configuration of service %q: %v", s, err)
+		return nil, err
 	}
-	return config, nil
+	return settings.Map(), nil
 }
 
-// SetConfig changes a service's configuration values.
-// Values set to the empty string will be deleted.
-func (s *Service) SetConfig(options map[string]string) error {
-	unvalidated := make(map[string]string)
-	var remove []string
-	for k, v := range options {
-		if v == "" {
-			remove = append(remove, k)
-		} else {
-			unvalidated[k] = v
-		}
-	}
+// UpdateConfigSettings changes a service's charm config settings. Values set
+// to nil will be deleted; unknown and invalid values will return an error.
+func (s *Service) UpdateConfigSettings(changes charm.Settings) error {
 	charm, _, err := s.Charm()
 	if err != nil {
 		return err
 	}
-	// 1. Validate will convert this partial configuration
-	// into a full configuration by inserting charm defaults
-	// for missing values.
-	validated, err := charm.Config().Validate(unvalidated)
+	changes, err = charm.Config().ValidateSettings(changes)
 	if err != nil {
 		return err
 	}
-	// 2. strip out the additional default keys added in the previous step.
-	validated = strip(validated, unvalidated)
-	cfg, err := s.Config()
+	// TODO(fwereade) state.Settings is itself really problematic in just
+	// about every use case. This needs to be resolved some time; but at
+	// least the settings docs are keyed by charm url as well as service
+	// name, so the actual impact of a race is non-threatening.
+	node, err := readSettings(s.st, s.settingsKey())
 	if err != nil {
 		return err
 	}
-	// 3. Update any keys that remain after validation and filtering.
-	if len(validated) > 0 {
-		cfg.Update(validated)
-	}
-	// 4. Delete any removed keys.
-	if len(remove) > 0 {
-		for _, k := range remove {
-			cfg.Delete(k)
+	for name, value := range changes {
+		if value == nil {
+			node.Delete(name)
+		} else {
+			node.Set(name, value)
 		}
 	}
-	_, err = cfg.Write()
+	_, err = node.Write()
 	return err
 }
 
-// SetConfigYAML is like Set except that the
-// configuration data is specified in YAML format.
-func (s *Service) SetConfigYAML(yamlData []byte) error {
-	// TODO(rog) should this function interpret null as delete?
-	// TODO(rog) this is wrong. See lp#1167465
-	var options map[string]string
-	if err := goyaml.Unmarshal(yamlData, &options); err != nil {
-		return err
-	}
-	if options == nil {
-		// YAML will unfortunately succeed if we try to
-		// unmarshal into an inappropriate data type,
-		// so check that we actually have got a map.
-		return fmt.Errorf("malformed YAML data")
-	}
-	return s.SetConfig(options)
-}
-
-// strip removes from validated, any keys which are not also present in unvalidated.
-func strip(validated map[string]interface{}, unvalidated map[string]string) map[string]interface{} {
-	for k := range validated {
-		if _, ok := unvalidated[k]; !ok {
-			delete(validated, k)
-		}
-	}
-	return validated
-}
-
-var ErrSubordinateConstraints = errors.New("constraints do not apply to subordinate services")
+var ErrSubordinateConstraints = stderrors.New("constraints do not apply to subordinate services")
 
 // Constraints returns the current service constraints.
 func (s *Service) Constraints() (constraints.Value, error) {
@@ -838,7 +786,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 		},
 		setConstraintsOp(s.st, s.globalKey(), cons),
 	}
-	return onAbort(s.st.runTxn(ops), errNotAlive)
+	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
 // settingsIncRefOp returns an operation that increments the ref count
@@ -851,7 +799,7 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 		return txn.Op{}, err
 	} else if count == 0 {
 		if !canCreate {
-			return txn.Op{}, NotFoundf("service settings")
+			return txn.Op{}, errors.NotFoundf("service settings")
 		}
 		return txn.Op{
 			C:      st.settingsrefs.Name,

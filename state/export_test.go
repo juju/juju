@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package state
 
 import (
@@ -12,18 +15,26 @@ import (
 	"path/filepath"
 )
 
-// SetTxnHooks queues up N functions to be run before/after the next N/2
-// transactions. Every function can freely execute its own transactions
-// without causing subsequent hooks to be run. It returns a function that
-// asserts that all hooks have been run and removes any that have not. It
-// is an error to set transaction hooks when any are already queued.
-func SetTxnHooks(c *C, st *State, txnHooks ...func()) (checkRan func()) {
-	original := <-st.txnHooks
-	st.txnHooks <- txnHooks
+// BeforeHook expresses a common construct in a compact fashion.
+func BeforeHook(f func()) TransactionHook {
+	return TransactionHook{Before: f}
+}
+
+// SetTransactionHooks queues up hooks to be applied to the next transactions,
+// and returns a function that asserts all hooks have been run (and removes any
+// that have not). Each hook function can freely execute its own transactions
+// without causing other hooks to be triggered.
+// It returns a function that asserts that all hooks have been run, and removes
+// any that have not. It is an error to set transaction hooks when any are
+// already queued; and setting transaction hooks renders the *State goroutine-
+// unsafe.
+func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) (checkRan func()) {
+	original := <-st.transactionHooks
+	st.transactionHooks <- transactionHooks
 	c.Assert(original, HasLen, 0)
 	return func() {
-		remaining := <-st.txnHooks
-		st.txnHooks <- nil
+		remaining := <-st.transactionHooks
+		st.transactionHooks <- nil
 		c.Assert(remaining, HasLen, 0)
 	}
 }
