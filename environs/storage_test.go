@@ -34,10 +34,9 @@ func (s *EmptyStorageSuite) TestList(c *C) {
 	c.Assert(err, IsNil)
 }
 
+type verifyStorageSuite struct{}
 
-type VerifyStorageSuite struct{}
-
-var _ = Suite(&VerifyStorageSuite{})
+var _ = Suite(&verifyStorageSuite{})
 
 const existingEnv = `
 environments:
@@ -47,7 +46,7 @@ environments:
         authorized-keys: i-am-a-key
 `
 
-func (s *VerifyStorageSuite) TestVerifyStorage(c *C) {
+func (s *verifyStorageSuite) TestVerifyStorage(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	environ, err := environs.NewFromName("test")
@@ -64,7 +63,7 @@ func (s *VerifyStorageSuite) TestVerifyStorage(c *C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func (s *VerifyStorageSuite) TestVerifyStorageFails(c *C) {
+func (s *verifyStorageSuite) TestVerifyStorageFails(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	environ, err := environs.NewFromName("test")
