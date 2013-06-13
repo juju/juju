@@ -70,11 +70,4 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 		}
 		break
 	}
-
-	// Cleanup is done, so no event expected anymore.
-	select {
-	case _, ok := <-cw.Changes():
-		c.Fatalf("unexpected change; ok: %v", ok)
-	case <-time.After(50 * time.Millisecond):
-	}
 }
