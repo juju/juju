@@ -11,6 +11,48 @@ import (
 	"launchpad.net/juju-core/constraints"
 )
 
+// Error holds the error result of a single operation.
+type Error struct {
+	Message string
+	Code    string
+}
+
+// ErrorCode implements rpc.ErrorCoder interface.
+func (e Error) ErrorCode() string {
+	return e.Code
+}
+
+// Error implements the error interface.
+func (e Error) Error() string {
+	return e.Message
+}
+
+// ErrorResults holds the results of calling a bulk operation which
+// mutates multiple entites, like Machiner.SetStatus. The order and
+// number of elements matches the entities specified in the request.
+type ErrorResults struct {
+	// Errors contains errors occured while performing each operation (if any).
+	Errors []*Error
+}
+
+// Machines holds the arguments for making an API call working on
+// multiple machine entities.
+type Machines struct {
+	Ids []string
+}
+
+// MachineSetStatus holds a machine id, status and extra info.
+type MachineSetStatus struct {
+	Id     string
+	Status Status
+	Info   string
+}
+
+// MachinesSetStatus holds the parameters for making a Machiner.SetStatus call.
+type MachinesSetStatus struct {
+	Machines []MachineSetStatus
+}
+
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
@@ -29,38 +71,19 @@ type DestroyRelation struct {
 	Endpoints []string
 }
 
-// SetStatus holds the parameters for Machine.SetStatus and
-// Unit.SetStatus.
-type SetStatus struct {
-	Status Status
-	Info   string
-}
-
-// StatusResults holds the results for Machine.Status and Unit.Status.
-type StatusResults struct {
-	Status Status
-	Info   string
-}
-
-// SetProvisioned holds the parameters for Machine.SetProvisioned.
-type SetProvisioned struct {
-	InstanceId string
-	Nonce      string
-}
-
-// ConstraintsResults holds the results for Machine.Constraints and
-// Service.Constraints.
-type ConstraintsResults struct {
-	Constraints constraints.Value
-}
-
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
 
-// LifeResults holds the results of a Life call.
-type LifeResults struct {
-	Life Life
+// MachineLifeResult holds the result of Machiner.Life for a single machine.
+type MachineLifeResult struct {
+	Life  Life
+	Error *Error
+}
+
+// MachinesLifeResults holds the results of a Machiner.Life call.
+type MachinesLifeResults struct {
+	Machines []MachineLifeResult
 }
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
@@ -71,7 +94,6 @@ type ServiceDeploy struct {
 	Config         map[string]string
 	ConfigYAML     string // Takes precedence over config if both are present.
 	Constraints    constraints.Value
-	BumpRevision   bool
 	ForceMachineId string
 }
 
@@ -154,22 +176,9 @@ type Creds struct {
 	Password string
 }
 
-// Machine holds details of a machine.
-type Machine struct {
-	Id         string
-	InstanceId string
-	Life       Life
-	Series     string
-}
-
 // EntityWatcherId holds the id of an EntityWatcher.
 type EntityWatcherId struct {
 	EntityWatcherId string
-}
-
-// PingerId holds the id of a Pinger.
-type PingerId struct {
-	PingerId string
 }
 
 // LifecycleWatchResults holds the results of API calls
@@ -272,11 +281,6 @@ type Port struct {
 
 func (p Port) String() string {
 	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
-}
-
-// AllMachinesResults holds the results of the AllMachines call.
-type AllMachinesResults struct {
-	Machines []*Machine
 }
 
 // Delta holds details of a change to the environment.

@@ -6,16 +6,21 @@ package charm_test
 import (
 	"bytes"
 	"fmt"
-	"io"
-	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
-	"os"
-	"path/filepath"
 )
 
-var sampleConfig = `
+type ConfigSuite struct {
+	config *charm.Config
+}
+
+var _ = Suite(&ConfigSuite{})
+
+func (s *ConfigSuite) SetUpSuite(c *C) {
+	// Just use a single shared config for the whole suite. There's no use case
+	// for mutating a config, we we assume that nobody will do so here.
+	var err error
+	s.config, err = charm.ReadConfig(bytes.NewBuffer([]byte(`
 options:
   title:
     default: My Title
@@ -23,7 +28,7 @@ options:
     type: string
   outlook:
     description: No default outlook.
-    type: string
+    # type defaults to string in python
   username:
     default: admin001
     description: The name of the initial account (given admin permissions).
@@ -37,41 +42,328 @@ options:
   reticulate-splines:
     description: Whether to reticulate splines on launch, or not.
     type: boolean
-`
-
-func repoConfig(name string) io.Reader {
-	charmDir := testing.Charms.DirPath(name)
-	file, err := os.Open(filepath.Join(charmDir, "config.yaml"))
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-	data, err := ioutil.ReadAll(file)
-	if err != nil {
-		panic(err)
-	}
-	return bytes.NewBuffer(data)
+`)))
+	c.Assert(err, IsNil)
 }
 
-type ConfigSuite struct{}
-
-var _ = Suite(&ConfigSuite{})
-
-func (s *ConfigSuite) TestReadConfig(c *C) {
-	config, err := charm.ReadConfig(repoConfig("dummy"))
-	c.Assert(err, IsNil)
-	c.Assert(config.Options["title"], DeepEquals,
-		charm.Option{
+func (s *ConfigSuite) TestReadSample(c *C) {
+	c.Assert(s.config.Options, DeepEquals, map[string]charm.Option{
+		"title": charm.Option{
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
 			Type:        "string",
 		},
-	)
+		"username": charm.Option{
+			Default:     "admin001",
+			Description: "The name of the initial account (given admin permissions).",
+			Type:        "string",
+		},
+		"outlook": charm.Option{
+			Description: "No default outlook.",
+			Type:        "string",
+		},
+		"skill-level": charm.Option{
+			Description: "A number indicating skill.",
+			Type:        "int",
+		},
+		"agility-ratio": charm.Option{
+			Description: "A number from 0 to 1 indicating agility.",
+			Type:        "float",
+		},
+		"reticulate-splines": charm.Option{
+			Description: "Whether to reticulate splines on launch, or not.",
+			Type:        "boolean",
+		},
+	})
+}
+
+func (s *ConfigSuite) TestDefaultSettings(c *C) {
+	c.Assert(s.config.DefaultSettings(), DeepEquals, charm.Settings{
+		"title":              "My Title",
+		"username":           "admin001",
+		"outlook":            nil,
+		"skill-level":        nil,
+		"agility-ratio":      nil,
+		"reticulate-splines": nil,
+	})
+}
+
+func (s *ConfigSuite) TestFilterSettings(c *C) {
+	settings := s.config.FilterSettings(charm.Settings{
+		"title":              "something valid",
+		"username":           nil,
+		"unknown":            "whatever",
+		"outlook":            "",
+		"skill-level":        5.5,
+		"agility-ratio":      true,
+		"reticulate-splines": "hullo",
+	})
+	c.Assert(settings, DeepEquals, charm.Settings{
+		"title":    "something valid",
+		"username": nil,
+		"outlook":  nil,
+	})
+}
+
+func (s *ConfigSuite) TestValidateSettings(c *C) {
+	for i, test := range []struct {
+		info   string
+		input  charm.Settings
+		expect charm.Settings
+		err    string
+	}{{
+		info:   "nil settings are valid",
+		expect: charm.Settings{},
+	}, {
+		info:  "empty settings are valid",
+		input: charm.Settings{},
+	}, {
+		info:  "unknown keys are not valid",
+		input: charm.Settings{"foo": nil},
+		err:   `unknown option "foo"`,
+	}, {
+		info: "nil is valid for every value type",
+		input: charm.Settings{
+			"outlook":            nil,
+			"skill-level":        nil,
+			"agility-ratio":      nil,
+			"reticulate-splines": nil,
+		},
+	}, {
+		info: "correctly-typed values are valid",
+		input: charm.Settings{
+			"outlook":            "stormy",
+			"skill-level":        int64(123),
+			"agility-ratio":      0.5,
+			"reticulate-splines": true,
+		},
+	}, {
+		info:   "empty string-typed values become nil",
+		input:  charm.Settings{"outlook": ""},
+		expect: charm.Settings{"outlook": nil},
+	}, {
+		info: "almost-correctly-typed values are valid",
+		input: charm.Settings{
+			"skill-level":   123,
+			"agility-ratio": float32(0.5),
+		},
+		expect: charm.Settings{
+			"skill-level":   int64(123),
+			"agility-ratio": 0.5,
+		},
+	}, {
+		info:  "bad string",
+		input: charm.Settings{"outlook": false},
+		err:   `option "outlook" expected string, got false`,
+	}, {
+		info:  "bad int",
+		input: charm.Settings{"skill-level": 123.4},
+		err:   `option "skill-level" expected int, got 123.4`,
+	}, {
+		info:  "bad float",
+		input: charm.Settings{"agility-ratio": "cheese"},
+		err:   `option "agility-ratio" expected float, got "cheese"`,
+	}, {
+		info:  "bad boolean",
+		input: charm.Settings{"reticulate-splines": 101},
+		err:   `option "reticulate-splines" expected boolean, got 101`,
+	}} {
+		c.Logf("test %d: %s", i, test.info)
+		result, err := s.config.ValidateSettings(test.input)
+		if test.err != "" {
+			c.Check(err, ErrorMatches, test.err)
+		} else {
+			c.Check(err, IsNil)
+			if test.expect == nil {
+				c.Check(result, DeepEquals, test.input)
+			} else {
+				c.Check(result, DeepEquals, test.expect)
+			}
+		}
+	}
+}
+
+var settingsWithNils = charm.Settings{
+	"outlook":            nil,
+	"skill-level":        nil,
+	"agility-ratio":      nil,
+	"reticulate-splines": nil,
+}
+
+var settingsWithValues = charm.Settings{
+	"outlook":            "whatever",
+	"skill-level":        int64(123),
+	"agility-ratio":      2.22,
+	"reticulate-splines": true,
+}
+
+func (s *ConfigSuite) TestParseSettingsYAML(c *C) {
+	for i, test := range []struct {
+		info   string
+		yaml   string
+		key    string
+		expect charm.Settings
+		err    string
+	}{{
+		info: "bad structure",
+		yaml: "`",
+		err:  `cannot parse settings data: .*`,
+	}, {
+		info: "bad key",
+		yaml: "{}",
+		key:  "blah",
+		err:  `no settings found for "blah"`,
+	}, {
+		info: "bad settings key",
+		yaml: "blah:\n  ping: pong",
+		key:  "blah",
+		err:  `unknown option "ping"`,
+	}, {
+		info: "bad type for string",
+		yaml: "blah:\n  outlook: 123",
+		key:  "blah",
+		err:  `option "outlook" expected string, got 123`,
+	}, {
+		info: "bad type for int",
+		yaml: "blah:\n  skill-level: 12.345",
+		key:  "blah",
+		err:  `option "skill-level" expected int, got 12.345`,
+	}, {
+		info: "bad type for float",
+		yaml: "blah:\n  agility-ratio: blob",
+		key:  "blah",
+		err:  `option "agility-ratio" expected float, got "blob"`,
+	}, {
+		info: "bad type for boolean",
+		yaml: "blah:\n  reticulate-splines: 123",
+		key:  "blah",
+		err:  `option "reticulate-splines" expected boolean, got 123`,
+	}, {
+		info: "bad string for int",
+		yaml: "blah:\n  skill-level: cheese",
+		key:  "blah",
+		err:  `option "skill-level" expected int, got "cheese"`,
+	}, {
+		info: "bad string for float",
+		yaml: "blah:\n  agility-ratio: blob",
+		key:  "blah",
+		err:  `option "agility-ratio" expected float, got "blob"`,
+	}, {
+		info: "bad string for boolean",
+		yaml: "blah:\n  reticulate-splines: cannonball",
+		key:  "blah",
+		err:  `option "reticulate-splines" expected boolean, got "cannonball"`,
+	}, {
+		info:   "empty dict is valid",
+		yaml:   "blah: {}",
+		key:    "blah",
+		expect: charm.Settings{},
+	}, {
+		info: "nil values are valid",
+		yaml: `blah:
+            outlook: null
+            skill-level: null
+            agility-ratio: null
+            reticulate-splines: null`,
+		key:    "blah",
+		expect: settingsWithNils,
+	}, {
+		info: "empty strings are considered nil",
+		yaml: `blah:
+            outlook: ""
+            skill-level: ""
+            agility-ratio: ""
+            reticulate-splines: ""`,
+		key:    "blah",
+		expect: settingsWithNils,
+	}, {
+		info: "appropriate strings are valid",
+		yaml: `blah:
+            outlook: whatever
+            skill-level: "123"
+            agility-ratio: "2.22"
+            reticulate-splines: "true"`,
+		key:    "blah",
+		expect: settingsWithValues,
+	}, {
+		info: "appropriate types are valid",
+		yaml: `blah:
+            outlook: whatever
+            skill-level: 123
+            agility-ratio: 2.22
+            reticulate-splines: y`,
+		key:    "blah",
+		expect: settingsWithValues,
+	}} {
+		c.Logf("test %d: %s", i, test.info)
+		result, err := s.config.ParseSettingsYAML([]byte(test.yaml), test.key)
+		if test.err != "" {
+			c.Check(err, ErrorMatches, test.err)
+		} else {
+			c.Check(err, IsNil)
+			c.Check(result, DeepEquals, test.expect)
+		}
+	}
+}
+
+func (s *ConfigSuite) TestParseSettingsStrings(c *C) {
+	for i, test := range []struct {
+		info   string
+		input  map[string]string
+		expect charm.Settings
+		err    string
+	}{{
+		info:   "nil map is valid",
+		expect: charm.Settings{},
+	}, {
+		info:   "empty map is valid",
+		input:  map[string]string{},
+		expect: charm.Settings{},
+	}, {
+		info: "empty strings are nil values",
+		input: map[string]string{
+			"outlook":            "",
+			"skill-level":        "",
+			"agility-ratio":      "",
+			"reticulate-splines": "",
+		},
+		expect: settingsWithNils,
+	}, {
+		info: "strings are converted",
+		input: map[string]string{
+			"outlook":            "whatever",
+			"skill-level":        "123",
+			"agility-ratio":      "2.22",
+			"reticulate-splines": "true",
+		},
+		expect: settingsWithValues,
+	}, {
+		info:  "bad string for int",
+		input: map[string]string{"skill-level": "cheese"},
+		err:   `option "skill-level" expected int, got "cheese"`,
+	}, {
+		info:  "bad string for float",
+		input: map[string]string{"agility-ratio": "blob"},
+		err:   `option "agility-ratio" expected float, got "blob"`,
+	}, {
+		info:  "bad string for boolean",
+		input: map[string]string{"reticulate-splines": "cannonball"},
+		err:   `option "reticulate-splines" expected boolean, got "cannonball"`,
+	}} {
+		c.Logf("test %d: %s", i, test.info)
+		result, err := s.config.ParseSettingsStrings(test.input)
+		if test.err != "" {
+			c.Check(err, ErrorMatches, test.err)
+		} else {
+			c.Check(err, IsNil)
+			c.Check(result, DeepEquals, test.expect)
+		}
+	}
 }
 
 func (s *ConfigSuite) TestConfigError(c *C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
-	c.Assert(err, ErrorMatches, `config: options.t.type: unexpected value.*`)
+	c.Assert(err, ErrorMatches, `invalid config: option "t" has unknown type "foo"`)
 }
 
 func (s *ConfigSuite) TestDefaultType(c *C) {
@@ -87,173 +379,15 @@ func (s *ConfigSuite) TestDefaultType(c *C) {
 	assertDefault("float", "2.2e11", 2.2e11)
 	assertDefault("int", "99", int64(99))
 
-	assertTypeError := func(type_ string, value string) {
-		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
+	assertTypeError := func(type_, str, value string) {
+		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, str)
 		_, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
-		expected := fmt.Sprintf(`Bad default for "t": %s is not of type %s`, value, type_)
+		expected := fmt.Sprintf(`invalid config default: option "t" expected %s, got %s`, type_, value)
 		c.Assert(err, ErrorMatches, expected)
 	}
 
-	assertTypeError("boolean", "henry")
-	assertTypeError("string", "2.5")
-	assertTypeError("float", "blob")
-	assertTypeError("int", "33.2")
-}
-
-func (s *ConfigSuite) TestParseSample(c *C) {
-	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
-	c.Assert(err, IsNil)
-
-	opt := config.Options
-	c.Assert(opt["title"], DeepEquals,
-		charm.Option{
-			Default:     "My Title",
-			Description: "A descriptive title used for the service.",
-			Type:        "string",
-		},
-	)
-	c.Assert(opt["outlook"], DeepEquals,
-		charm.Option{
-			Description: "No default outlook.",
-			Type:        "string",
-		},
-	)
-	c.Assert(opt["username"], DeepEquals,
-		charm.Option{
-			Default:     "admin001",
-			Description: "The name of the initial account (given admin permissions).",
-			Type:        "string",
-		},
-	)
-	c.Assert(opt["skill-level"], DeepEquals,
-		charm.Option{
-			Description: "A number indicating skill.",
-			Type:        "int",
-		},
-	)
-	c.Assert(opt["reticulate-splines"], DeepEquals,
-		charm.Option{
-			Description: "Whether to reticulate splines on launch, or not.",
-			Type:        "boolean",
-		},
-	)
-}
-
-func (s *ConfigSuite) TestValidate(c *C) {
-	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
-	c.Assert(err, IsNil)
-
-	input := map[string]string{
-		"title":   "Helpful Title",
-		"outlook": "Peachy",
-	}
-
-	// This should include an overridden value, a default and a new value.
-	expected := map[string]interface{}{
-		"title":    "Helpful Title",
-		"outlook":  "Peachy",
-		"username": "admin001",
-	}
-
-	output, err := config.Validate(input)
-	c.Assert(err, IsNil)
-	c.Assert(output, DeepEquals, expected)
-
-	// Check whether float conversion is working.
-	input["agility-ratio"] = "0.5"
-	input["skill-level"] = "7"
-	expected["agility-ratio"] = 0.5
-	expected["skill-level"] = int64(7)
-	output, err = config.Validate(input)
-	c.Assert(err, IsNil)
-	c.Assert(output, DeepEquals, expected)
-
-	// Check whether float errors are caught.
-	input["agility-ratio"] = "foo"
-	output, err = config.Validate(input)
-	c.Assert(err, ErrorMatches, `Value for "agility-ratio" is not a float: "foo"`)
-	input["agility-ratio"] = "0.5"
-
-	// Check whether int errors are caught.
-	input["skill-level"] = "foo"
-	output, err = config.Validate(input)
-	c.Assert(err, ErrorMatches, `Value for "skill-level" is not an int: "foo"`)
-	input["skill-level"] = "7"
-
-	// Check whether boolean errors are caught.
-	input["reticulate-splines"] = "maybe"
-	output, err = config.Validate(input)
-	c.Assert(err, ErrorMatches, `Value for "reticulate-splines" is not a boolean: "maybe"`)
-	input["reticulate-splines"] = "false"
-
-	// Now try to set a value outside the expected.
-	input["bad"] = "value"
-	output, err = config.Validate(input)
-	c.Assert(output, IsNil)
-	c.Assert(err, ErrorMatches, `Unknown configuration option: "bad"`)
-}
-
-var convertTests = []struct {
-	summary string
-	input   map[string]interface{}
-	expect  map[string]interface{}
-	err     string
-}{{
-	// Schema defaults are ignored.
-	summary: "valid strings",
-	input: map[string]interface{}{
-		"title":   "Helpful Title",
-		"outlook": "Peachy",
-	},
-	expect: map[string]interface{}{
-		"title":   "Helpful Title",
-		"outlook": "Peachy",
-	},
-}, {
-	// Integers are always int64 in YAML, where the input is usually coming from.
-	summary: "valid integers and floats",
-	input: map[string]interface{}{
-		"agility-ratio": 0.5,
-		"skill-level":   int64(7),
-	},
-	expect: map[string]interface{}{
-		"agility-ratio": 0.5,
-		"skill-level":   int64(7),
-	},
-}, {
-	summary: "valid booleans",
-	input:   map[string]interface{}{"reticulate-splines": true},
-	expect:  map[string]interface{}{"reticulate-splines": true},
-}, {
-	summary: "invalid type error with floats",
-	input:   map[string]interface{}{"agility-ratio": "bar"},
-	err:     `unexpected type in service configuration "agility-ratio"="bar"; expected float`,
-}, {
-	summary: "invalid type error with integers",
-	input:   map[string]interface{}{"skill-level": "foo"},
-	err:     `unexpected type in service configuration "skill-level"="foo"; expected int`,
-}, {
-	summary: "invalid type error with booleans",
-	input:   map[string]interface{}{"reticulate-splines": "maybe"},
-	err:     `unexpected type in service configuration "reticulate-splines"="maybe"; expected boolean`,
-}, {
-	summary: "with value not in the schema (ignored)",
-	input:   map[string]interface{}{"bad": "value"},
-	expect:  map[string]interface{}{},
-}}
-
-func (s *ConfigSuite) TestConvert(c *C) {
-	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(sampleConfig)))
-	c.Assert(err, IsNil)
-
-	for i, t := range convertTests {
-		c.Logf("test %d: %s", i, t.summary)
-		output, err := config.Convert(t.input)
-		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
-		} else {
-			c.Assert(err, IsNil)
-			c.Assert(output, DeepEquals, t.expect)
-		}
-	}
+	assertTypeError("boolean", "henry", `"henry"`)
+	assertTypeError("string", "2.5", "2.5")
+	assertTypeError("float", "123", "123")
+	assertTypeError("int", "true", "true")
 }

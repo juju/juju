@@ -35,12 +35,6 @@ import (
 	"time"
 )
 
-const mgoPort = 37017
-const apiPort = 17070
-
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
-
 type environProvider struct{}
 
 var _ environs.EnvironProvider = (*environProvider)(nil)
@@ -534,7 +528,8 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	cert, hasCert := e.Config().CACert()
+	config := e.Config()
+	cert, hasCert := config.CACert()
 	if !hasCert {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
@@ -559,7 +554,9 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 				continue
 			}
 			if name != "" {
-				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+				stateAddrs = append(stateAddrs, name+statePortSuffix)
 				apiAddrs = append(apiAddrs, name+apiPortSuffix)
 			}
 		}
@@ -703,8 +700,6 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 		StateServer:  scfg.stateServer,
 		StateInfo:    scfg.info,
 		APIInfo:      scfg.apiInfo,
-		MongoPort:    mgoPort,
-		APIPort:      apiPort,
 		DataDir:      "/var/lib/juju",
 		Tools:        tools,
 	}
@@ -811,7 +806,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
-	groups, err := e.setUpGroups(scfg.machineId)
+	config := e.Config()
+	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -981,15 +977,6 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
-}
-
 func (e *environ) globalGroupName() string {
 	return fmt.Sprintf("%s-global", e.jujuGroupName())
 }
@@ -1124,7 +1111,7 @@ func (e *environ) Provider() environs.EnvironProvider {
 // other instances that might be running on the same OpenStack account.
 // In addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]nova.SecurityGroup, error) {
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]nova.RuleInfo{
 			{
@@ -1135,8 +1122,8 @@ func (e *environ) setUpGroups(machineId string) ([]nova.SecurityGroup, error) {
 			},
 			{
 				IPProtocol: "tcp",
-				FromPort:   mgoPort,
-				ToPort:     mgoPort,
+				FromPort:   statePort,
+				ToPort:     statePort,
 				Cidr:       "0.0.0.0/0",
 			},
 			{

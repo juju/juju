@@ -53,9 +53,13 @@ Other prerequisites
 -------------------
 
 A number of additional prerequisite packages are required to compile `juju-core`
-and run the tests.
+and run the tests.  Running "make install-dependencies" from the source tree
+will generally install these for you.
 
-    sudo apt-get install build-essential bzr zip git-core mercurial
+If you do choose to install them manually, here's what you need:
+
+    sudo apt-get install build-essential bzr zip git-core mercurial \
+        distro-info-data
 
 Binaries for mongodb are also required, but a newer version than is present in
 either 12.04 or 12.10 Ubuntu releases. Instead, you can get what you need from
@@ -134,4 +138,4 @@ Known issues
 * juju-origin is not supported so it must be removed from the environment you
   define in environments.yaml if it exists.  At the moment --upload-tools is
   the work-around to use, though it does have the problems mentioned
-  previously. 
+  previously.

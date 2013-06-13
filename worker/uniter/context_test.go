@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/uniter"
@@ -113,6 +113,9 @@ func AssertEnv(c *C, outPath string, charmDir string, env map[string]string, uui
 // the bufio line reader.
 const lineBufferSize = 4096
 
+var apiAddrs = []string{"a1:123", "a2:123"}
+var expectedApiAddrs = strings.Join(apiAddrs, " ")
+
 var runHookTests = []struct {
 	summary string
 	relid   int
@@ -165,17 +168,19 @@ var runHookTests = []struct {
 		relid:   -1,
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
-			"JUJU_UNIT_NAME": "u/0",
+			"JUJU_UNIT_NAME":     "u/0",
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
 		},
 	}, {
 		summary: "check shell environment for relation-broken hook context",
 		relid:   1,
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
-			"JUJU_UNIT_NAME":   "u/0",
-			"JUJU_RELATION":    "db",
-			"JUJU_RELATION_ID": "db:1",
-			"JUJU_REMOTE_UNIT": "",
+			"JUJU_UNIT_NAME":     "u/0",
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_RELATION":      "db",
+			"JUJU_RELATION_ID":   "db:1",
+			"JUJU_REMOTE_UNIT":   "",
 		},
 	}, {
 		summary: "check shell environment for relation hook context",
@@ -183,31 +188,16 @@ var runHookTests = []struct {
 		remote:  "r/1",
 		spec:    hookSpec{perm: 0700},
 		env: map[string]string{
-			"JUJU_UNIT_NAME":   "u/0",
-			"JUJU_RELATION":    "db",
-			"JUJU_RELATION_ID": "db:1",
-			"JUJU_REMOTE_UNIT": "r/1",
+			"JUJU_UNIT_NAME":     "u/0",
+			"JUJU_API_ADDRESSES": expectedApiAddrs,
+			"JUJU_RELATION":      "db",
+			"JUJU_RELATION_ID":   "db:1",
+			"JUJU_REMOTE_UNIT":   "r/1",
 		},
 	},
 }
 
-type logRecorder struct {
-	c      *C
-	prefix string
-	lines  []string
-}
-
-func (l *logRecorder) Output(calldepth int, s string) error {
-	if strings.HasPrefix(s, l.prefix) {
-		l.lines = append(l.lines, s[len(l.prefix):])
-	}
-	l.c.Logf("%s", s)
-	return nil
-}
-
 func (s *RunHookSuite) TestRunHook(c *C) {
-	logger := &logRecorder{c: c, prefix: "INFO worker/uniter: HOOK "}
-	defer log.SetTarget(log.SetTarget(logger))
 	uuid, err := utils.NewUUID()
 	c.Assert(err, IsNil)
 	for i, t := range runHookTests {
@@ -223,7 +213,6 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			charmDir, outPath = makeCharm(c, spec)
 		}
 		toolsDir := c.MkDir()
-		logger.lines = nil
 		t0 := time.Now()
 		err := ctx.RunHook("something-happened", charmDir, toolsDir, "/path/to/socket")
 		if t.err == "" {
@@ -238,17 +227,9 @@ func (s *RunHookSuite) TestRunHook(c *C) {
 			}
 			AssertEnv(c, outPath, charmDir, env, uuid.String())
 		}
-		var expectLog []string
-		if t.spec.stdout != "" {
-			expectLog = append(expectLog, splitLine(t.spec.stdout)...)
-		}
-		if t.spec.stderr != "" {
-			expectLog = append(expectLog, splitLine(t.spec.stderr)...)
-		}
 		if t.spec.background != "" && time.Now().Sub(t0) > 5*time.Second {
 			c.Errorf("background process holding up hook execution")
 		}
-		c.Assert(logger.lines, DeepEquals, expectLog)
 	}
 }
 
@@ -528,7 +509,8 @@ type InterfaceSuite struct {
 
 var _ = Suite(&InterfaceSuite{})
 
-func (s *InterfaceSuite) GetContext(c *C, relId int, remoteName string) jujuc.Context {
+func (s *InterfaceSuite) GetContext(c *C, relId int,
+	remoteName string) jujuc.Context {
 	uuid, err := utils.NewUUID()
 	c.Assert(err, IsNil)
 	return s.HookContextSuite.GetHookContext(c, uuid.String(), relId, remoteName)
@@ -590,21 +572,20 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 
 func (s *InterfaceSuite) TestConfigCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
-	cfg, err := ctx.Config()
+	settings, err := ctx.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 
 	// Change remote config.
-	node, err := s.service.Config()
-	c.Assert(err, IsNil)
-	node.Set("blog-title", "Something Else")
-	_, err = node.Write()
+	err = s.service.UpdateConfigSettings(charm.Settings{
+		"blog-title": "Something Else",
+	})
 	c.Assert(err, IsNil)
 
 	// Local view is not changed.
-	cfg, err = ctx.Config()
+	settings, err = ctx.ConfigSettings()
 	c.Assert(err, IsNil)
-	c.Assert(cfg, DeepEquals, map[string]interface{}{"blog-title": "My Title"})
+	c.Assert(settings, DeepEquals, charm.Settings{"blog-title": "My Title"})
 }
 
 type HookContextSuite struct {
@@ -659,10 +640,12 @@ func (s *HookContextSuite) AddContextRelation(c *C, name string) {
 	s.relctxs[rel.Id()] = uniter.NewContextRelation(ru, nil)
 }
 
-func (s *HookContextSuite) GetHookContext(c *C, uuid string, relid int, remote string) *uniter.HookContext {
+func (s *HookContextSuite) GetHookContext(c *C, uuid string, relid int,
+	remote string) *uniter.HookContext {
 	if relid != -1 {
 		_, found := s.relctxs[relid]
 		c.Assert(found, Equals, true)
 	}
-	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote, s.relctxs)
+	return uniter.NewHookContext(s.unit, "TestCtx", uuid, relid, remote,
+		s.relctxs, apiAddrs)
 }

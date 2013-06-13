@@ -502,13 +502,6 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	}, nil
 }
 
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Although dummy does not actually start instances, it must respect the
-	// conservative assignment policy for the providers that do instantiate
-	// machines.
-	return state.AssignNew
-}
-
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }

@@ -309,6 +309,36 @@ var configTests = []configTest{
 			"ssl-hostname-verification": "yes please",
 		},
 		err: `ssl-hostname-verification: expected bool, got "yes please"`,
+	}, {
+		about: "Explicit state port",
+		attrs: attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"state-port": 37042,
+		},
+	}, {
+		about: "Invalid state port",
+		attrs: attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"state-port": "illegal",
+		},
+		err: `state-port: expected number, got "illegal"`,
+	}, {
+		about: "Explicit API port",
+		attrs: attrs{
+			"type":     "my-type",
+			"name":     "my-name",
+			"api-port": 77042,
+		},
+	}, {
+		about: "Invalid API port",
+		attrs: attrs{
+			"type":     "my-type",
+			"name":     "my-name",
+			"api-port": "illegal",
+		},
+		err: `api-port: expected number, got "illegal"`,
 	},
 }
 
@@ -452,6 +482,13 @@ func (test configTest) check(c *C, home *testing.FakeHome) {
 		c.Assert(agentVersion, Equals, version.Zero)
 	}
 
+	if statePort, _ := test.attrs["state-port"].(int); statePort != 0 {
+		c.Assert(cfg.StatePort(), Equals, statePort)
+	}
+	if apiPort, _ := test.attrs["api-port"].(int); apiPort != 0 {
+		c.Assert(cfg.APIPort(), Equals, apiPort)
+	}
+
 	dev, _ := test.attrs["development"].(bool)
 	c.Assert(cfg.Development(), Equals, dev)
 
@@ -539,6 +576,8 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
+	attrs["state-port"] = config.DefaultStatePort
+	attrs["api-port"] = config.DefaultApiPort
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
@@ -620,6 +659,32 @@ var validationTests = []validationTest{
 			"firewall-mode": config.FwGlobal,
 		},
 		err: `cannot change firewall-mode from "global" to "instance"`,
+	}, {
+		about: "Cannot change the state-port",
+		new: attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"state-port": 42,
+		},
+		old: attrs{
+			"type":       "my-type",
+			"name":       "my-name",
+			"state-port": config.DefaultStatePort,
+		},
+		err: `cannot change state-port from 37017 to 42`,
+	}, {
+		about: "Cannot change the api-port",
+		new: attrs{
+			"type":     "my-type",
+			"name":     "my-name",
+			"api-port": 42,
+		},
+		old: attrs{
+			"type":     "my-type",
+			"name":     "my-name",
+			"api-port": config.DefaultApiPort,
+		},
+		err: `cannot change api-port from 17070 to 42`,
 	},
 }
 

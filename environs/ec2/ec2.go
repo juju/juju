@@ -28,12 +28,6 @@ import (
 	"time"
 )
 
-const mgoPort = 37017
-const apiPort = 17070
-
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
-
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
@@ -305,7 +299,8 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	cert, hasCert := e.Config().CACert()
+	config := e.Config()
+	cert, hasCert := config.CACert()
 	if !hasCert {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
@@ -325,7 +320,9 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			}
 			name := inst.(*instance).Instance.DNSName
 			if name != "" {
-				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+				stateAddrs = append(stateAddrs, name+statePortSuffix)
 				apiAddrs = append(apiAddrs, name+apiPortSuffix)
 			}
 		}
@@ -340,17 +337,6 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			Addrs:  apiAddrs,
 			CACert: cert,
 		}, nil
-}
-
-// AssignmentPolicy for EC2 is to deploy units only on machines without other
-// units already assigned, and to launch new machines as required.
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
 }
 
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
@@ -382,8 +368,6 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 		StateServer:  scfg.stateServer,
 		StateInfo:    scfg.info,
 		APIInfo:      scfg.apiInfo,
-		MongoPort:    mgoPort,
-		APIPort:      apiPort,
 		DataDir:      "/var/lib/juju",
 		Tools:        tools,
 	}
@@ -450,7 +434,8 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	groups, err := e.setUpGroups(scfg.machineId)
+	config := e.Config()
+	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -823,7 +808,7 @@ func (inst *instance) Ports(machineId string) ([]params.Port, error) {
 // other instances that might be running on the same EC2 account.  In
 // addition, a specific machine security group is created for each
 // machine, so that its firewall rules can be configured per machine.
-func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
+func (e *environ) setUpGroups(machineId string, statePort, apiPort int) ([]ec2.SecurityGroup, error) {
 	sourceGroups := []ec2.UserSecurityGroup{{Name: e.jujuGroupName()}}
 	jujuGroup, err := e.ensureGroup(e.jujuGroupName(),
 		[]ec2.IPPerm{
@@ -835,8 +820,8 @@ func (e *environ) setUpGroups(machineId string) ([]ec2.SecurityGroup, error) {
 			},
 			{
 				Protocol:  "tcp",
-				FromPort:  mgoPort,
-				ToPort:    mgoPort,
+				FromPort:  statePort,
+				ToPort:    statePort,
 				SourceIPs: []string{"0.0.0.0/0"},
 			},
 			{

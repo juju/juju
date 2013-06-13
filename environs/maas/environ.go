@@ -24,15 +24,10 @@ import (
 )
 
 const (
-	mgoPort     = 37017
-	apiPort     = 17070
 	jujuDataDir = "/var/lib/juju"
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
 )
-
-var mgoPortSuffix = fmt.Sprintf(":%d", mgoPort)
-var apiPortSuffix = fmt.Sprintf(":%d", apiPort)
 
 var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
@@ -74,12 +69,11 @@ func (env *maasEnviron) Name() string {
 // makeMachineConfig sets up a basic machine configuration for use with
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
-func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string, stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
+func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
+	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		MongoPort: mgoPort,
-		APIPort:   apiPort,
-		DataDir:   jujuDataDir,
+		DataDir: jujuDataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -145,7 +139,8 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	cert, hasCert := env.Config().CACert()
+	config := env.Config()
+	cert, hasCert := config.CACert()
 	if !hasCert {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
@@ -170,7 +165,9 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 				continue
 			}
 			if name != "" {
-				stateAddrs = append(stateAddrs, name+mgoPortSuffix)
+				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+				stateAddrs = append(stateAddrs, name+statePortSuffix)
 				apiAddrs = append(apiAddrs, name+apiPortSuffix)
 			}
 		}
@@ -489,10 +486,6 @@ func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
 	// back to the (*storage) to access the private deleteAll() method.
 	st := environ.Storage().(*maasStorage)
 	return st.deleteAll()
-}
-
-func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

@@ -4,8 +4,11 @@
 package testing
 
 import (
+	"fmt"
+	"time"
+
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/loggo"
 )
 
 // LoggingSuite redirects the juju logger to the test logger
@@ -14,18 +17,26 @@ type LoggingSuite struct {
 	restoreLog func()
 }
 
+type gocheckWriter struct {
+	c *C
+}
+
+func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
+	// Magic calldepth value...
+	w.c.Output(3, fmt.Sprintf("%s %s %s", level, module, message))
+}
+
 func (t *LoggingSuite) SetUpSuite(c *C)    {}
 func (t *LoggingSuite) TearDownSuite(c *C) {}
 
 func (t *LoggingSuite) SetUpTest(c *C) {
-	target, debug := log.SetTarget(c), log.Debug
-	t.restoreLog = func() {
-		log.SetTarget(target)
-		log.Debug = debug
-	}
-	log.Debug = true
+	loggo.ResetWriters()
+	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
+	loggo.ResetLoggers()
+	loggo.GetLogger("juju").SetLogLevel(loggo.DEBUG)
 }
 
 func (t *LoggingSuite) TearDownTest(c *C) {
-	t.restoreLog()
+	loggo.ResetLoggers()
+	loggo.ResetWriters()
 }

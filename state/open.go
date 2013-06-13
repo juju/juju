@@ -9,6 +9,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -49,18 +50,13 @@ type DialOpts struct {
 	// Timeout is the amount of time to wait contacting
 	// a state server.
 	Timeout time.Duration
-
-	// RetryDelay is the amount of time to wait between
-	// unsucssful connection attempts.
-	RetryDelay time.Duration
 }
 
 // DefaultDialOpts returns a DialOpts representing the default
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
-		Timeout:    10 * time.Minute,
-		RetryDelay: 2 * time.Second,
+		Timeout: 10 * time.Minute,
 	}
 }
 
@@ -89,8 +85,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	dial := func(addr net.Addr) (net.Conn, error) {
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Errorf("state: connection failed, paused for %v: %v", opts.RetryDelay, err)
-			time.Sleep(opts.RetryDelay)
+			log.Errorf("state: connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)
@@ -220,6 +215,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		environments:   db.C("environments"),
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
+		containerRefs:  db.C("containerRefs"),
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
@@ -255,8 +251,31 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 }
 
 // Addresses returns the list of addresses used to connect to the state.
-func (st *State) Addresses() (addrs []string) {
-	return append(addrs, st.info.Addrs...)
+func (st *State) Addresses() ([]string, error) {
+	stateAddrs := st.db.Session.LiveServers()
+	if len(stateAddrs) == 0 {
+		return nil, stderrors.New("unable to find state addresses")
+	}
+	return stateAddrs, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	stateAddrs, err := st.Addresses()
+	if err != nil {
+		return nil, err
+	}
+	config, err := st.EnvironConfig()
+	if err != nil {
+		return nil, err
+	}
+	apiAddrs := make([]string, 0, len(stateAddrs))
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	for _, stateAddr := range stateAddrs {
+		i := strings.LastIndex(stateAddr, ":")
+		apiAddrs = append(apiAddrs, stateAddr[:i]+apiPortSuffix)
+	}
+	return apiAddrs, nil
 }
 
 // CACert returns the certificate used to validate the state connection.

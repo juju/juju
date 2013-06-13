@@ -14,10 +14,10 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
-	"net"
 	"net/url"
 	"sort"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -57,8 +57,26 @@ func (s *StateSuite) TestDialAgain(c *C) {
 
 func (s *StateSuite) TestStateInfo(c *C) {
 	info := state.TestingStateInfo()
-	c.Assert(s.State.Addresses(), DeepEquals, info.Addrs)
+	stateAddr, err := s.State.Addresses()
+	c.Assert(err, IsNil)
+	c.Assert(stateAddr, DeepEquals, info.Addrs)
 	c.Assert(s.State.CACert(), DeepEquals, info.CACert)
+}
+
+func (s *StateSuite) TestAPIAddresses(c *C) {
+	config, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	apiPort := strconv.Itoa(config.APIPort())
+	info := state.TestingStateInfo()
+	expectedAddrs := make([]string, 0, len(info.Addrs))
+	for _, stateAddr := range info.Addrs {
+		domain := strings.Split(stateAddr, ":")[0]
+		expectedAddr := strings.Join([]string{domain, apiPort}, ":")
+		expectedAddrs = append(expectedAddrs, expectedAddr)
+	}
+	apiAddrs, err := s.State.APIAddresses()
+	c.Assert(err, IsNil)
+	c.Assert(apiAddrs, DeepEquals, expectedAddrs)
 }
 
 func (s *StateSuite) TestIsNotFound(c *C) {
@@ -127,6 +145,7 @@ func (s *StateSuite) TestAddMachines(c *C) {
 		c.Assert(m.Id(), Equals, id)
 		c.Assert(m.Series(), Equals, series)
 		c.Assert(m.Jobs(), DeepEquals, jobs)
+		s.assertMachineContainers(c, m, nil)
 	}
 	check(m0, "0", "series", oneJob)
 	m0, err = s.State.Machine("0")
@@ -158,7 +177,12 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 	c.Assert(err, IsNil)
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	extraCons := constraints.MustParse("cpu-cores=4")
-	m, err := s.State.AddMachineWithConstraints("series", extraCons, oneJob...)
+	params := state.AddMachineParams{
+		Series:      "series",
+		Constraints: extraCons,
+		Jobs:        oneJob,
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0")
 	c.Assert(m.Series(), Equals, "series")
@@ -169,12 +193,125 @@ func (s *StateSuite) TestAddMachineExtraConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, expectedCons)
 }
 
+var emptyCons = constraints.Value{}
+
+func (s *StateSuite) assertMachineContainers(c *C, m *state.Machine, containers []string) {
+	mc, err := m.Containers()
+	c.Assert(err, IsNil)
+	c.Assert(mc, DeepEquals, containers)
+}
+
+func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+
+	params := state.AddMachineParams{
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          oneJob,
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, emptyCons)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+
+	m, err = s.State.Machine("0")
+	c.Assert(err, IsNil)
+	s.assertMachineContainers(c, m, []string{"0/lxc/0"})
+	m, err = s.State.Machine("0/lxc/0")
+	c.Assert(err, IsNil)
+	s.assertMachineContainers(c, m, nil)
+}
+
+func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m0, err := s.State.AddMachine("series", oneJob...)
+	c.Assert(err, IsNil)
+	m1, err := s.State.AddMachine("series", oneJob...)
+	c.Assert(err, IsNil)
+
+	// Add first container.
+	params := state.AddMachineParams{
+		ParentId:      "1",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "1/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, emptyCons)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
+
+	s.assertMachineContainers(c, m0, nil)
+	s.assertMachineContainers(c, m1, []string{"1/lxc/0"})
+	m, err = s.State.Machine("1/lxc/0")
+	c.Assert(err, IsNil)
+	s.assertMachineContainers(c, m, nil)
+
+	// Add second container.
+	m, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "1/lxc/1")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
+}
+
+func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	cons := constraints.MustParse("mem=4G")
+
+	params := state.AddMachineParams{
+		ParentId:      "",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Constraints:   cons,
+		Jobs:          oneJob,
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, mcons)
+}
+
+func (s *StateSuite) TestAddContainerErrors(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+
+	params := state.AddMachineParams{
+		ParentId:      "10",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          oneJob,
+	}
+	_, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, ErrorMatches, "cannot add a new container: machine 10 not found")
+	params.ContainerType = ""
+	_, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, ErrorMatches, "cannot add a new container: no container type specified")
+}
+
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", constraints.Value{}, state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", emptyCons, state.InstanceId("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", constraints.Value{}, state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -497,7 +634,7 @@ func (s *StateSuite) TestEnvironConfig(c *C) {
 
 func (s *StateSuite) TestEnvironConstraints(c *C) {
 	// Environ constraints start out empty (for now).
-	cons0 := constraints.Value{}
+	cons0 := emptyCons
 	cons1, err := s.State.EnvironConstraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons1, DeepEquals, cons0)
@@ -609,7 +746,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	c.Assert(err, IsNil)
 
 	// All except gone machine are reported in initial event.
-	w := s.State.WatchMachines()
+	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
 	s.assertChange(c, w, alive.Id(), dying.Id(), dead.Id())
 
@@ -627,7 +764,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 
 func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Initial event is empty when no machines.
-	w := s.State.WatchMachines()
+	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
 	s.assertChange(c, w)
 
@@ -653,6 +790,44 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 
 	// Remove it: not reported.
 	err = machine.Remove()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+}
+
+func (s *StateSuite) TestWatchMachinesWithContainerLifecycle(c *C) {
+	// Initial event is empty when no machines.
+	w := s.State.WatchEnvironMachines()
+	defer stop(c, w)
+	s.assertChange(c, w)
+
+	// Add a machine: reported.
+	params := state.AddMachineParams{
+		Series: "series",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	machine, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertChange(c, w, "0")
+
+	// Add a container: not reported.
+	params.ParentId = machine.Id()
+	params.ContainerType = state.LXC
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+
+	// Make the container Dying: not reported.
+	err = m.Destroy()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+
+	// Make the container Dead: not reported.
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, w)
+
+	// Remove the container: not reported.
+	err = m.Remove()
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 }
@@ -735,12 +910,26 @@ func (*StateSuite) TestNameChecks(c *C) {
 		c.Assert(state.IsMachineId(s), Equals, expect)
 	}
 	assertMachine("0", true)
+	assertMachine("00", false)
 	assertMachine("1", true)
 	assertMachine("1000001", true)
 	assertMachine("01", false)
 	assertMachine("-1", false)
 	assertMachine("", false)
 	assertMachine("cantankerous", false)
+	// And container specs
+	assertMachine("0/", false)
+	assertMachine("0/0", false)
+	assertMachine("0/lxc", false)
+	assertMachine("0/lxc/", false)
+	assertMachine("0/lxc/0", true)
+	assertMachine("0/lxc/0/", false)
+	assertMachine("0/lxc/00", false)
+	assertMachine("0/lxc/01", false)
+	assertMachine("0/lxc/10", true)
+	assertMachine("0/kvm/4", true)
+	assertMachine("0/no-dash/0", false)
+	assertMachine("0/lxc/1/embedded/2", true)
 }
 
 type attrs map[string]interface{}
@@ -903,8 +1092,7 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: 0,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
@@ -913,58 +1101,24 @@ func (s *StateSuite) TestOpenBadAddress(c *C) {
 }
 
 func (s *StateSuite) TestOpenDelaysRetryBadAddress(c *C) {
-	retryDelay := 200 * time.Millisecond
+	// Default mgo retry delay
+	retryDelay := 500 * time.Millisecond
 	info := state.TestingStateInfo()
 	info.Addrs = []string{"0.1.2.3:1234"}
 
 	t0 := time.Now()
 	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
+		Timeout: 1 * time.Millisecond,
 	})
 	if err == nil {
 		st.Close()
 	}
 	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should have delayed for at least RetryDelay
+	// tryOpenState should have delayed for at least retryDelay
 	// internally mgo will try three times in a row before returning
 	// to the caller.
 	if t1 := time.Since(t0); t1 < 3*retryDelay {
 		c.Errorf("mgo.Dial only paused for %v, expected at least %v", t1, 3*retryDelay)
-	}
-}
-
-func (s *StateSuite) TestOpenDoesNotDelayOnHandShakeFailure(c *C) {
-	retryDelay := 200 * time.Millisecond
-	l, err := net.Listen("tcp", "127.0.0.1:0")
-	c.Assert(err, IsNil)
-	defer l.Close()
-	go func() {
-		for {
-			conn, err := l.Accept()
-			if err != nil {
-				return
-			}
-			conn.Write([]byte("this is not a SSL handshake\nno sir\n"))
-			conn.Close()
-		}
-	}()
-	info := state.TestingStateInfo()
-	info.Addrs = []string{l.Addr().String()}
-
-	t0 := time.Now()
-	st, err := state.Open(info, state.DialOpts{
-		Timeout:    1 * time.Millisecond,
-		RetryDelay: retryDelay,
-	})
-	if err == nil {
-		st.Close()
-	}
-	c.Assert(err, ErrorMatches, "no reachable servers")
-	// tryOpenState should not have delayed because the socket
-	// connected, but ssl handshake failed
-	if t1 := time.Since(t0); t1 > 3*retryDelay {
-		c.Errorf("mgo.Dial paused for %v, expected less than %v", t1, 3*retryDelay)
 	}
 }
 
@@ -1252,4 +1406,94 @@ func (s *StateSuite) TestParseTag(c *C) {
 	c.Assert(coll, Equals, "users")
 	c.Assert(id, Equals, user.Name())
 	c.Assert(err, IsNil)
+}
+
+func (s *StateSuite) TestWatchCleanups(c *C) {
+	cw := s.State.WatchCleanups()
+	defer stop(c, cw)
+
+	assertNoChange := func() {
+		s.State.StartSync()
+		select {
+		case _, ok := <-cw.Changes():
+			c.Fatalf("unexpected change; ok: %v", ok)
+		case <-time.After(50 * time.Millisecond):
+		}
+	}
+	assertChanges := func(count int) {
+		s.State.StartSync()
+		for i := 0; i < count; i++ {
+			select {
+			case _, ok := <-cw.Changes():
+				c.Assert(ok, Equals, true)
+			case <-time.After(500 * time.Millisecond):
+				c.Fatalf("timed out waiting for change")
+			}
+		}
+		assertNoChange()
+	}
+
+	// Check initial event.
+	assertChanges(1)
+
+	// Adding relations doesn't emit events.
+	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
+	c.Assert(err, IsNil)
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Destroy relations and cleanup.
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(1)
+
+	// Verify that Cleanup() doesn't emit unnecessary events.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertNoChange()
+
+	// Not calling Cleanup() queues up the changes.
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, IsNil)
+	relM, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
+	c.Assert(err, IsNil)
+	relV, err = s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	assertNoChange()
+	err = relM.Destroy()
+	c.Assert(err, IsNil)
+	err = relV.Destroy()
+	c.Assert(err, IsNil)
+	assertChanges(2)
+
+	// Cleanup() deletes each document in an extra transaction which
+	// leads to multiple events. This behavior will be changed in a
+	// follow-up.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	assertChanges(2)
 }
