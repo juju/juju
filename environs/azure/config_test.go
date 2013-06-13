@@ -17,17 +17,52 @@ var _ = Suite(new(ConfigSuite))
 // It's just the bare minimum to produce a configuration object.
 func makeConfigMap() map[string]interface{} {
 	return map[string]interface{}{
-		"name":            "testenv",
-		"type":            "azure",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
+		"name":           "testenv",
+		"type":           "azure",
+		"ca-cert":        testing.CACert,
+		"ca-private-key": testing.CAKey,
 	}
 }
 
-func (ConfigSuite) TestParsesSettings(c *C) {
-	configMap := makeConfigMap()
-	config, err := config.New(configMap)
+func (ConfigSuite) TestNewParsesSettings(c *C) {
+	attrs := makeConfigMap()
+	config, err := config.New(attrs)
 	c.Assert(err, IsNil)
 	c.Assert(config, NotNil)
-	c.Check(config.Name(), Equals, configMap["name"])
+	c.Check(config.Name(), Equals, attrs["name"])
+}
+
+func (ConfigSuite) TestValidateAcceptsNilOldConfig(c *C) {
+	provider := azureEnvironProvider{}
+	attrs := makeConfigMap()
+	config, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	result, err := provider.Validate(config, nil)
+	c.Assert(err, IsNil)
+	c.Check(result.Name(), Equals, attrs["name"])
+}
+
+func (ConfigSuite) TestValidateAcceptsUnchangedConfig(c *C) {
+	provider := azureEnvironProvider{}
+	attrs := makeConfigMap()
+	oldConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	result, err := provider.Validate(newConfig, oldConfig)
+	c.Assert(err, IsNil)
+	c.Check(result.Name(), Equals, attrs["name"])
+}
+
+func (ConfigSuite) TestValidateChecksConfigChanges(c *C) {
+	provider := azureEnvironProvider{}
+	oldAttrs := makeConfigMap()
+	oldConfig, err := config.New(oldAttrs)
+	c.Assert(err, IsNil)
+	newAttrs := makeConfigMap()
+	newAttrs["name"] = "different-name"
+	newConfig, err := config.New(newAttrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, oldConfig)
+	c.Check(err, NotNil)
 }
