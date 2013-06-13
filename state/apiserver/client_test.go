@@ -414,36 +414,45 @@ func (s *clientSuite) TestClientServiceSetCharm(c *C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
-	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", mem4g,
+		curl.String(), "service", 3, "", constraints.Value{},
 	)
 	c.Assert(err, IsNil)
+	addCharm(c, store, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
-		"service", "cs:precise/dummy-1", false,
+		"service", "cs:precise/wordpress-3", false,
 	)
 	c.Assert(err, IsNil)
+	service, err := s.State.Service("service")
+	c.Assert(err, IsNil)
+	_, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, false)
 }
 
 func (s *clientSuite) TestClientServiceSetCharmForce(c *C) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 	curl, _ := addCharm(c, store, "dummy")
-	mem4g := constraints.MustParse("mem=4G")
 	err := s.APIState.Client().ServiceDeploy(
-		curl.String(), "service", 3, "", mem4g,
+		curl.String(), "service", 3, "", constraints.Value{},
 	)
 	c.Assert(err, IsNil)
+	addCharm(c, store, "wordpress")
 	err = s.APIState.Client().ServiceSetCharm(
-		"service", "cs:precise/dummy-1", true,
+		"service", "cs:precise/wordpress-3", true,
 	)
 	c.Assert(err, IsNil)
+	service, err := s.State.Service("service")
+	c.Assert(err, IsNil)
+	_, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(force, Equals, true)
 }
 
 func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
-	s.setUpScenario(c)
 	err := s.APIState.Client().ServiceSetCharm(
 		"badservice", "cs:precise/wordpress-3", true,
 	)
@@ -453,7 +462,7 @@ func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *C) {
 func (s *clientSuite) TestClientServiceSetCharmErrors(c *C) {
 	_, restore := makeMockCharmStore()
 	defer restore()
-	s.setUpScenario(c)
+	s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	for url, expect := range map[string]string{
 		// TODO(fwereade,Makyo) make these errors consistent one day.
 		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
