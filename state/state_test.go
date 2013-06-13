@@ -918,9 +918,12 @@ func (*StateSuite) TestNameChecks(c *C) {
 	assertMachine("", false)
 	assertMachine("cantankerous", false)
 	// And container specs
+	assertMachine("0/", false)
 	assertMachine("0/0", false)
 	assertMachine("0/lxc", false)
+	assertMachine("0/lxc/", false)
 	assertMachine("0/lxc/0", true)
+	assertMachine("0/lxc/0/", false)
 	assertMachine("0/lxc/00", false)
 	assertMachine("0/lxc/01", false)
 	assertMachine("0/lxc/10", true)
