@@ -379,6 +379,19 @@ func (s *StateSuite) TestMachineNotFound(c *C) {
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
+func (s *StateSuite) TestMachineIdLessThan(c *C) {
+	c.Assert(state.MachineIdLessThan("0", "0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0", "1"), Equals, true)
+	c.Assert(state.MachineIdLessThan("1", "0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("10", "2"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0", "0/lxc/0"), Equals, true)
+	c.Assert(state.MachineIdLessThan("0/lxc/0", "0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("1", "0/lxc/0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0/lxc/0", "1"), Equals, true)
+	c.Assert(state.MachineIdLessThan("0/lxc/0/lxc/1", "0/lxc/0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxc/0"), Equals, true)
+}
+
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
