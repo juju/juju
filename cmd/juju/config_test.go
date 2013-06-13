@@ -5,10 +5,11 @@ package main
 
 import (
 	"bytes"
-	"os"
+	"io/ioutil"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -67,9 +68,7 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, IsNil)
-	err = svc.SetConfig(map[string]string{
-		"title": "Nearly There",
-	})
+	err = svc.UpdateConfigSettings(charm.Settings{"title": "Nearly There"})
 	c.Assert(err, IsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
@@ -94,9 +93,9 @@ func (s *ConfigSuite) TestGetConfig(c *C) {
 
 var setTests = []struct {
 	about  string
-	args   []string               // command to be executed
-	expect map[string]interface{} // resulting configuration of the dummy service.
-	err    string                 // error regex
+	args   []string       // command to be executed
+	expect charm.Settings // resulting configuration of the dummy service.
+	err    string         // error regex
 }{{
 	about: "invalid option",
 	args:  []string{"foo", "bar"},
@@ -112,21 +111,21 @@ var setTests = []struct {
 }, {
 	about: "set with options",
 	args:  []string{"username=hello"},
-	expect: map[string]interface{}{
+	expect: charm.Settings{
 		"username": "hello",
 	},
 }, {
 	about: "set with option values containing =",
 	args:  []string{"username=hello=foo"},
-	expect: map[string]interface{}{
+	expect: charm.Settings{
 		"username": "hello=foo",
 	},
 }, {
 	about: "--config $FILE test",
 	args:  []string{"--config", "testconfig.yaml"},
-	expect: map[string]interface{}{
+	expect: charm.Settings{
 		"username":    "admin001",
-		"skill-level": int64(9000), // yaml int types are int64
+		"skill-level": int64(9000), // charm int types are int64
 	},
 },
 }
@@ -147,19 +146,18 @@ func (s *ConfigSuite) TestSetConfig(c *C) {
 			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.err)
 		} else {
 			c.Check(code, Equals, 0)
-			cfg, err := svc.Config()
+			settings, err := svc.ConfigSettings()
 			c.Assert(err, IsNil)
-			c.Assert(cfg.Map(), DeepEquals, t.expect)
+			c.Assert(settings, DeepEquals, t.expect)
 		}
 	}
 }
 
-func setupConfigfile(c *C, dir string) {
+func setupConfigfile(c *C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
-	file, err := os.Create(path)
+	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
+	err := ioutil.WriteFile(path, content, 0666)
 	c.Assert(err, IsNil)
-	_, err = file.Write([]byte("skill-level: 9000\nusername: admin001\n\n"))
-	c.Assert(err, IsNil)
-	file.Close()
+	return path
 }
