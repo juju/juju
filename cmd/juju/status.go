@@ -55,14 +55,14 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	var ctxt statusContext
-	if ctxt.machines, err = fetchAllMachines(conn.State); err != nil {
+	var context statusContext
+	if context.machines, err = fetchAllMachines(conn.State); err != nil {
 		return err
 	}
-	if ctxt.services, ctxt.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
+	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
 		return err
 	}
-	ctxt.instances, err = fetchAllInstances(conn.Environ)
+	context.instances, err = fetchAllInstances(conn.Environ)
 	if err != nil {
 		// We cannot see instances from the environment, but
 		// there's still lots of potentially useful info to print.
@@ -72,8 +72,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		Machines map[string]machineStatus `json:"machines"`
 		Services map[string]serviceStatus `json:"services"`
 	}{
-		Machines: ctxt.processMachines(),
-		Services: ctxt.processServices(),
+		Machines: context.processMachines(),
+		Services: context.processServices(),
 	}
 	return c.out.Write(ctx, result)
 }
@@ -142,30 +142,30 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 	return svcMap, unitMap, nil
 }
 
-func (ctxt *statusContext) processMachines() map[string]machineStatus {
+func (context *statusContext) processMachines() map[string]machineStatus {
 	machinesMap := make(map[string]machineStatus)
-	for id, machines := range ctxt.machines {
-		hostStatus := ctxt.makeMachineStatus(machines[0])
-		ctxt.processMachine(machines, &hostStatus, 0)
+	for id, machines := range context.machines {
+		hostStatus := context.makeMachineStatus(machines[0])
+		context.processMachine(machines, &hostStatus, 0)
 		machinesMap[id] = hostStatus
 	}
 	return machinesMap
 }
 
-func (ctxt *statusContext) processMachine(machines []*state.Machine, host *machineStatus, startIndex int) (nextIndex int) {
+func (context *statusContext) processMachine(machines []*state.Machine, host *machineStatus, startIndex int) (nextIndex int) {
 	nextIndex = startIndex + 1
 	currentHost := host
 	var previousContainer *machineStatus
 	for nextIndex < len(machines) {
 		machine := machines[nextIndex]
-		container := ctxt.makeMachineStatus(machine)
+		container := context.makeMachineStatus(machine)
 		if currentHost.Id == state.ParentId(machine.Id()) {
 			currentHost.Containers[machine.Id()] = container
 			previousContainer = &container
 			nextIndex++
 		} else {
 			if state.NestingLevel(machine.Id()) > state.NestingLevel(previousContainer.Id) {
-				nextIndex = ctxt.processMachine(machines, previousContainer, nextIndex-1)
+				nextIndex = context.processMachine(machines, previousContainer, nextIndex-1)
 			} else {
 				break
 			}
@@ -174,7 +174,7 @@ func (ctxt *statusContext) processMachine(machines []*state.Machine, host *machi
 	return
 }
 
-func (ctxt *statusContext) makeMachineStatus(machine *state.Machine) (status machineStatus) {
+func (context *statusContext) makeMachineStatus(machine *state.Machine) (status machineStatus) {
 	status.Id = machine.Id()
 	status.Life,
 		status.AgentVersion,
@@ -185,7 +185,7 @@ func (ctxt *statusContext) makeMachineStatus(machine *state.Machine) (status mac
 	instid, ok := machine.InstanceId()
 	if ok {
 		status.InstanceId = instid
-		instance, ok := ctxt.instances[instid]
+		instance, ok := context.instances[instid]
 		if ok {
 			status.DNSName, _ = instance.DNSName()
 		} else {
@@ -206,40 +206,40 @@ func (ctxt *statusContext) makeMachineStatus(machine *state.Machine) (status mac
 	return
 }
 
-func (ctxt *statusContext) processServices() map[string]serviceStatus {
+func (context *statusContext) processServices() map[string]serviceStatus {
 	servicesMap := make(map[string]serviceStatus)
-	for _, s := range ctxt.services {
-		servicesMap[s.Name()] = ctxt.processService(s)
+	for _, s := range context.services {
+		servicesMap[s.Name()] = context.processService(s)
 	}
 	return servicesMap
 }
 
-func (ctxt *statusContext) processService(service *state.Service) (status serviceStatus) {
+func (context *statusContext) processService(service *state.Service) (status serviceStatus) {
 	url, _ := service.CharmURL()
 	status.Charm = url.String()
 	status.Exposed = service.IsExposed()
 	status.Life = processLife(service)
 	var err error
-	status.Relations, status.SubordinateTo, err = ctxt.processRelations(service)
+	status.Relations, status.SubordinateTo, err = context.processRelations(service)
 	if err != nil {
 		status.Err = err
 		return
 	}
 	if service.IsPrincipal() {
-		status.Units = ctxt.processUnits(ctxt.units[service.Name()])
+		status.Units = context.processUnits(context.units[service.Name()])
 	}
 	return status
 }
 
-func (ctxt *statusContext) processUnits(units map[string]*state.Unit) map[string]unitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit) map[string]unitStatus {
 	unitsMap := make(map[string]unitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = ctxt.processUnit(unit)
+		unitsMap[unit.Name()] = context.processUnit(unit)
 	}
 	return unitsMap
 }
 
-func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
+func (context *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
@@ -252,16 +252,16 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
-			subUnit := ctxt.unitByName(name)
-			status.Subordinates[name] = ctxt.processUnit(subUnit)
+			subUnit := context.unitByName(name)
+			status.Subordinates[name] = context.processUnit(subUnit)
 		}
 	}
 	return
 }
 
-func (ctxt *statusContext) unitByName(name string) *state.Unit {
+func (context *statusContext) unitByName(name string) *state.Unit {
 	serviceName := strings.Split(name, "/")[0]
-	return ctxt.units[serviceName][name]
+	return context.units[serviceName][name]
 }
 
 func (*statusContext) processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {

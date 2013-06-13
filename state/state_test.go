@@ -1610,3 +1610,21 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	c.Assert(err, IsNil)
 	assertChanges(2)
 }
+
+func (s *StateSuite) TestNestingLevel(c *C) {
+	c.Assert(state.NestingLevel("0"), Equals, 0)
+	c.Assert(state.NestingLevel("0/lxc/1"), Equals, 1)
+	c.Assert(state.NestingLevel("0/lxc/1/kvm/0"), Equals, 2)
+}
+
+func (s *StateSuite) TestTopParentId(c *C) {
+	c.Assert(state.TopParentId("0"), Equals, "0")
+	c.Assert(state.TopParentId("0/lxc/1"), Equals, "0")
+	c.Assert(state.TopParentId("0/lxc/1/kvm/2"), Equals, "0")
+}
+
+func (s *StateSuite) TestParentId(c *C) {
+	c.Assert(state.ParentId("0"), Equals, "")
+	c.Assert(state.ParentId("0/lxc/1"), Equals, "0")
+	c.Assert(state.ParentId("0/lxc/1/kvm/0"), Equals, "0/lxc/1")
+}
