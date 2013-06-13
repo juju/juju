@@ -80,7 +80,7 @@ func (p *Provisioner) loop() error {
 	// to the environment config.
 	machinesWatcher := p.st.WatchEnvironMachines()
 	environmentBroker := newEnvironBroker(p.environ)
-	environmentProvisioner := newProvisionerTask(
+	environmentProvisioner := NewProvisionerTask(
 		p.machineId,
 		p.st,
 		machinesWatcher,

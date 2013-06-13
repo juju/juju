@@ -4,73 +4,81 @@
 package provisioner
 
 import (
-	"fmt"
-
+	"launchpad.net/golxc"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container"
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/loggo"
 )
 
-func newLxcBroker() Broker {
-	return &lxcBroker{}
+var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
+
+func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
+	return &lxcBroker{
+		config: config,
+		tools:  tools,
+	}
 }
 
 type lxcBroker struct {
+	config *config.Config
+	tools  *state.Tools
 }
 
 func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
-	return nil, fmt.Errorf("Not implemented yet")
+	lxcContainer, err := lxc.NewContainer(machineId)
+	if err != nil {
+		lxcLogger.Errorf("failed to create container: %v", err)
+		return nil, err
+	}
+	// find tools, environ config
+	err = lxcContainer.Create(series, machineNonce, broker.tools, broker.config, info, apiInfo)
+	if err != nil {
+		lxcLogger.Errorf("failed to create container: %v", err)
+		return nil, err
+	}
+	if err := lxcContainer.Start(); err != nil {
+		lxcLogger.Errorf("failed to start container: %v", err)
+		return nil, err
+	}
+	return lxcContainer.Instance(), nil
 }
 
 // StopInstances shuts down the given instances.
-func (broker *lxcBroker) StopInstances([]environs.Instance) error {
-	return fmt.Errorf("Not implemented yet")
+func (broker *lxcBroker) StopInstances(instances []environs.Instance) error {
+	// TODO: potentially parallelise.
+	for _, instance := range instances {
+		lxcLogger.Infof("stopping lxc container for instance: %s", instance.Id())
+		lxcContainer, ok := instance.(container.Container)
+		if !ok {
+			lxcLogger.Warningf("instance is not a container - shouldn't happen")
+			continue
+		}
+		lxcContainer.Stop()
+		lxcContainer.Destroy()
+	}
+	return nil
 }
 
-func (broker *lxcBroker) AllInstances() ([]environs.Instance, error) {
-	return nil, fmt.Errorf("Not implemented yet")
-}
-
-// Not yet entirely convinced that this is the right place for the instance
-// parts, but bas good as any for now.
-
-type lxcInstance struct {
-}
-
-// Id returns a provider-generated identifier for the Instance.
-func (instance *lxcInstance) Id() state.InstanceId {
-}
-
-// DNSName returns the DNS name for the instance.
-// If the name is not yet allocated, it will return
-// an ErrNoDNSName error.
-func (instance *lxcInstance) DNSName() (string, error) {
-	return "", environs.ErrNoDNSName
-}
-
-// WaitDNSName returns the DNS name for the instance,
-// waiting until it is allocated if necessary.
-func (instance *lxcInstance) WaitDNSName() (string, error) {
-	return "", environs.ErrNoDNSName
-}
-
-// OpenPorts opens the given ports on the instance, which
-// should have been started with the given machine id.
-func (instance *lxcInstance) OpenPorts(machineId string, ports []params.Port) error {
-	return fmt.Errorf("not implemented")
-}
-
-// ClosePorts closes the given ports on the instance, which
-// should have been started with the given machine id.
-func (instance *lxcInstance) ClosePorts(machineId string, ports []params.Port) error {
-	return fmt.Errorf("not implemented")
-}
-
-// Ports returns the set of ports open on the instance, which
-// should have been started with the given machine id.
-// The ports are returned as sorted by state.SortPorts.
-func (instance *lxcInstance) Ports(machineId string) ([]params.Port, error) {
-	return nil, fmt.Errorf("not implemented")
+// AllInstances only returns running containers.
+func (broker *lxcBroker) AllInstances() (result []environs.Instance, err error) {
+	containers, err := golxc.ListRunning()
+	if err != nil {
+		lxcLogger.Errorf("failed getting all instances: %v", err)
+		return
+	}
+	for _, container := range containers {
+		lxcContainer, err := lxc.NewFromExisting(container)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, lxcContainer.Instance())
+	}
+	return
 }
