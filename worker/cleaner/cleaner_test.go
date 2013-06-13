@@ -50,16 +50,15 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 	cw := s.State.WatchCleanups()
 	defer func() { c.Assert(cw.Stop(), IsNil) }()
 
-	_, ok := <-cw.Changes()
-	c.Assert(ok, Equals, true)
-
 	err = relM.Destroy()
 	c.Assert(err, IsNil)
-	s.State.Sync()
 
-	timeout := time.After(5500 * time.Millisecond)
+	timeout := time.After(500 * time.Millisecond)
 	for {
+		s.State.StartSync()
 		select {
+		case <-time.After(50 * time.Millisecond):
+			continue
 		case <-timeout:
 			c.Fatalf("timed out waiting for cleanup")
 		case <-cw.Changes():
@@ -72,8 +71,10 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 		break
 	}
 
-	// Cleanup is done, so not needed anymore.
-	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, IsNil)
-	c.Assert(needed, Equals, false)
+	// Cleanup is done, so no event expected anymore.
+	select {
+	case _, ok := <-cw.Changes():
+		c.Fatalf("unexpected change; ok: %v", ok)
+	case <-time.After(50 * time.Millisecond):
+	}
 }

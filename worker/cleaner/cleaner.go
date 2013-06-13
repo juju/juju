@@ -5,6 +5,7 @@ package cleaner
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/tomb"
@@ -57,7 +58,7 @@ func (c *Cleaner) loop() error {
 				return watcher.MustErr(w)
 			}
 			if err := c.st.Cleanup(); err != nil {
-				return err
+				log.Errorf("worker/cleaner: cannot cleanup state: %v", err)
 			}
 		}
 	}

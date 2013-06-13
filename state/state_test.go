@@ -1361,7 +1361,7 @@ func (s *StateSuite) TestWatchCleanupsPeer(c *C) {
 	c.Assert(err, IsNil)
 	assertNoCleanupChange(c, s.State, cw)
 
-	// Destroying the services emits one event.
+	// Check that multiple events are coalesced.
 	err = riak.Destroy()
 	c.Assert(err, IsNil)
 	err = allHooks.Destroy()
@@ -1370,7 +1370,7 @@ func (s *StateSuite) TestWatchCleanupsPeer(c *C) {
 }
 
 func assertNoCleanupChange(c *C, st *state.State, cw *state.CleanupWatcher) {
-	st.Sync()
+	st.StartSync()
 	select {
 	case _, ok := <-cw.Changes():
 		c.Fatalf("unexpected change; ok: %v", ok)
