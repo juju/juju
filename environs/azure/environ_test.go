@@ -35,3 +35,8 @@ func (EnvironSuite) TestGetSnapshot(c *C) {
 	c.Check(original.Mutex, Equals, sync.Mutex{})
 	c.Check(snapshot.Mutex, Equals, sync.Mutex{})
 }
+
+func (EnvironSuite) TestName(c *C) {
+	env := azureEnviron{name: "foo"}
+	c.Check(env.Name(), Equals, env.name)
+}
