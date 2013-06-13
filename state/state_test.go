@@ -956,12 +956,26 @@ func (*StateSuite) TestNameChecks(c *C) {
 		c.Assert(state.IsMachineId(s), Equals, expect)
 	}
 	assertMachine("0", true)
+	assertMachine("00", false)
 	assertMachine("1", true)
 	assertMachine("1000001", true)
 	assertMachine("01", false)
 	assertMachine("-1", false)
 	assertMachine("", false)
 	assertMachine("cantankerous", false)
+	// And container specs
+	assertMachine("0/", false)
+	assertMachine("0/0", false)
+	assertMachine("0/lxc", false)
+	assertMachine("0/lxc/", false)
+	assertMachine("0/lxc/0", true)
+	assertMachine("0/lxc/0/", false)
+	assertMachine("0/lxc/00", false)
+	assertMachine("0/lxc/01", false)
+	assertMachine("0/lxc/10", true)
+	assertMachine("0/kvm/4", true)
+	assertMachine("0/no-dash/0", false)
+	assertMachine("0/lxc/1/embedded/2", true)
 }
 
 type attrs map[string]interface{}
