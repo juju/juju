@@ -1037,6 +1037,28 @@ func (m *Machine) Watch() *EntityWatcher {
 	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
 }
 
+// WatchContainers returns a watcher that notifies of changes to the lifecycle of containers on a machine.
+func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
+	filter := func(ids []string) []string {
+		// Filter out ids which are not of the specified container type on this machine.
+		var machineIds []string
+		for _, id := range ids {
+			// Ignore containers on different machines.
+			if ParentId(id) != m.Id() {
+				continue
+			}
+			// Extract the container type from the id.
+			idParts := strings.Split(id, "/")
+			containerType := ContainerType(idParts[len(idParts)-2])
+			if ctype == containerType {
+				machineIds = append(machineIds, id)
+			}
+		}
+		return machineIds
+	}
+	return newLifecycleWatcher(m.st, m.st.machines, filter)
+}
+
 // Watch return a watcher for observing changes to a service.
 func (s *Service) Watch() *EntityWatcher {
 	return newEntityWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)
