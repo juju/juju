@@ -70,7 +70,7 @@ const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 var (
 	validService = regexp.MustCompile("^" + serviceSnippet + "$")
 	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
-	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
+	validMachine = regexp.MustCompile("^(0|[1-9][0-9]*)(/[a-z]+/(0|[1-9][0-9]*))*$")
 )
 
 // BootstrapNonce is used as a nonce for the state server machine.
