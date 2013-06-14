@@ -72,5 +72,5 @@ func (s *verifyStorageSuite) TestVerifyStorageFails(c *C) {
 	someError := errors.Unauthorizedf("you shall not pass")
 	dummy.Poison(storage, "bootstrap-verify", someError)
 	err = environs.VerifyStorage(storage)
-	c.Assert(err, Equals, someError)
+	c.Assert(err, Equals, environs.VerifyStorageError)
 }

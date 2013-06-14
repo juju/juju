@@ -259,7 +259,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 
 	err = environs.VerifyStorage(e.Storage())
 	if err != nil {
-		return fmt.Errorf("provider storage is not writeable")
+		return err
 	}
 
 	possibleTools, err := environs.FindBootstrapTools(e, cons)

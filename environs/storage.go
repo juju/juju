@@ -19,6 +19,10 @@ type emptyStorage struct{}
 const verificationFilename string = "bootstrap-verify"
 const verificationContent = "juju-core storage writing verified: ok\n"
 
+var VerifyStorageError error = fmt.Errorf(
+	"provider storage is not writable")
+
+
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 	return nil, errors.NotFoundf("file %q", name)
 }
@@ -35,5 +39,8 @@ func VerifyStorage(storage Storage) error {
 	reader := strings.NewReader(verificationContent)
 	err := storage.Put(verificationFilename, reader,
 		int64(len(verificationContent)))
-	return err
+	if err != nil {
+		return VerifyStorageError
+	}
+	return nil
 }
