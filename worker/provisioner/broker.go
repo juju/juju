@@ -5,7 +5,7 @@ package provisioner
 
 import (
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )

@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -270,19 +271,19 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 
-type instance struct {
+type openstackInstance struct {
 	e *environ
 	*nova.ServerDetail
 	address string
 }
 
-func (inst *instance) String() string {
+func (inst *openstackInstance) String() string {
 	return inst.ServerDetail.Id
 }
 
-var _ instance.Instance = (*instance)(nil)
+var _ instance.Instance = (*openstackInstance)(nil)
 
-func (inst *instance) Id() state.InstanceId {
+func (inst *openstackInstance) Id() state.InstanceId {
 	return state.InstanceId(inst.ServerDetail.Id)
 }
 
@@ -324,7 +325,7 @@ func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 	return public, nil
 }
 
-func (inst *instance) DNSName() (string, error) {
+func (inst *openstackInstance) DNSName() (string, error) {
 	if inst.address != "" {
 		return inst.address, nil
 	}
@@ -341,7 +342,7 @@ func (inst *instance) DNSName() (string, error) {
 	return inst.address, nil
 }
 
-func (inst *instance) WaitDNSName() (string, error) {
+func (inst *openstackInstance) WaitDNSName() (string, error) {
 	for a := longAttempt.Start(); a.Next(); {
 		addr, err := inst.DNSName()
 		if err == nil || err != instance.ErrNoDNSName {
@@ -353,7 +354,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -366,7 +367,7 @@ func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -379,7 +380,7 @@ func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]params.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -545,7 +546,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			if inst == nil {
 				continue
 			}
-			name, err := inst.(*instance).DNSName()
+			name, err := inst.(*openstackInstance).DNSName()
 			if err != nil {
 				continue
 			}
@@ -832,7 +833,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
-	inst := &instance{e, detail, ""}
+	inst := &openstackInstance{e, detail, ""}
 	log.Infof("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
@@ -850,7 +851,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
-		instanceValue, ok := inst.(*instance)
+		instanceValue, ok := inst.(*openstackInstance)
 		if !ok {
 			return errors.New("Incompatible instance.Instance supplied")
 		}
@@ -887,7 +888,7 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
 			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
-				out[id] = &instance{e, &server, ""}
+				out[id] = &openstackInstance{e, &server, ""}
 			}
 			continue
 		}
@@ -933,7 +934,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	for _, server := range servers {
 		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 			var s = server
-			insts = append(insts, &instance{e, &s, ""})
+			insts = append(insts, &openstackInstance{e, &s, ""})
 		}
 	}
 	return insts, err
@@ -955,7 +956,7 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*instance).Id())
+		id := state.InstanceId(inst.(*openstackInstance).Id())
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true

@@ -8,6 +8,7 @@ import (
 	"io"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -134,10 +135,10 @@ type Environ interface {
 	// which must be unique within an environment, is used by juju to
 	// protect against the consequences of multiple instances being
 	// started with the same machine id.
-	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (Instance, error)
+	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error)
 
 	// StopInstances shuts down the given instances.
-	StopInstances([]Instance) error
+	StopInstances([]instance.Instance) error
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
@@ -145,11 +146,11 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ids []state.InstanceId) ([]Instance, error)
+	Instances(ids []state.InstanceId) ([]instance.Instance, error)
 
 	// AllInstances returns all instances currently known to the
 	// environment.
-	AllInstances() ([]Instance, error)
+	AllInstances() ([]instance.Instance, error)
 
 	// Storage returns storage specific to the environment.
 	Storage() Storage
@@ -166,7 +167,7 @@ type Environ interface {
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid
-	Destroy(insts []Instance) error
+	Destroy(insts []instance.Instance) error
 
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the

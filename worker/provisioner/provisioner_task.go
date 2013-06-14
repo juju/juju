@@ -6,8 +6,8 @@ package provisioner
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
