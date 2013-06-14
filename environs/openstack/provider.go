@@ -319,7 +319,7 @@ func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 		public = private
 	}
 	if public == "" {
-		return "", environs.ErrNoDNSName
+		return "", instance.ErrNoDNSName
 	}
 	return public, nil
 }
@@ -344,7 +344,7 @@ func (inst *instance) DNSName() (string, error) {
 func (inst *instance) WaitDNSName() (string, error) {
 	for a := longAttempt.Start(); a.Next(); {
 		addr, err := inst.DNSName()
-		if err == nil || err != environs.ErrNoDNSName {
+		if err == nil || err != instance.ErrNoDNSName {
 			return addr, err
 		}
 	}

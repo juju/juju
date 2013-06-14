@@ -92,7 +92,7 @@ func (inst *instance) DNSName() (string, error) {
 	}
 	freshInst := insts[0].(*instance).Instance
 	if freshInst.DNSName == "" {
-		return "", environs.ErrNoDNSName
+		return "", instance.ErrNoDNSName
 	}
 	inst.Instance.DNSName = freshInst.DNSName
 	return freshInst.DNSName, nil
@@ -101,7 +101,7 @@ func (inst *instance) DNSName() (string, error) {
 func (inst *instance) WaitDNSName() (string, error) {
 	for a := longAttempt.Start(); a.Next(); {
 		name, err := inst.DNSName()
-		if err == nil || err != environs.ErrNoDNSName {
+		if err == nil || err != instance.ErrNoDNSName {
 			return name, err
 		}
 	}
