@@ -395,12 +395,12 @@ func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 func (suite *EnvironSuite) TestDestroy(c *C) {
 	env := suite.makeEnviron()
 	suite.getInstance("test1")
-	instance := suite.getInstance("test2")
+	testInstance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	storage := env.Storage()
 
-	err := env.Destroy([]instance.Instance{instance})
+	err := env.Destroy([]instance.Instance{testInstance})
 
 	c.Check(err, IsNil)
 	// Instances have been stopped.

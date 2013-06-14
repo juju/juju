@@ -5,7 +5,6 @@ package firewaller_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"

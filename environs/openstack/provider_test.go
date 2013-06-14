@@ -8,7 +8,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
 	"launchpad.net/juju-core/instance"
 	"testing"

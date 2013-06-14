@@ -50,7 +50,7 @@ func DeleteStorageContent(s environs.Storage) error {
 }
 
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
-	return inst.(*instance).Instance
+	return inst.(*ec2Instance).Instance
 }
 
 // BucketStorage returns a storage instance addressing
@@ -149,8 +149,8 @@ func EC2ErrCode(err error) string {
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
 func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
-	oldi := inst.(*instance)
-	newi := &instance{oldi.e, &ec2.Instance{}}
+	oldi := inst.(*ec2Instance)
+	newi := &ec2Instance{oldi.e, &ec2.Instance{}}
 	*newi.Instance = *oldi.Instance
 	newi.InstanceId = newId
 	return newi
