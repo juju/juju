@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/log"
 	"strings"
 )
 
@@ -40,6 +41,9 @@ func VerifyStorage(storage Storage) error {
 	err := storage.Put(verificationFilename, reader,
 		int64(len(verificationContent)))
 	if err != nil {
+		log.Debugf(
+			"environs: failed to write bootstrap-verify file: %v",
+			err)
 		return VerifyStorageError
 	}
 	return nil
