@@ -379,7 +379,7 @@ type machineDocSlice []machineDoc
 func (ms machineDocSlice) Len() int      { return len(ms) }
 func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
 func (ms machineDocSlice) Less(i, j int) bool {
-	return MachineIdLessThan(ms[i].Id, ms[j].Id)
+	return machineIdLessThan(ms[i].Id, ms[j].Id)
 }
 
 // machineIdLessThan returns true if id1 < id2, false otherwise.
@@ -387,7 +387,16 @@ func (ms machineDocSlice) Less(i, j int) bool {
 // the comparison is done by comparing the id component values from
 // left to right (most significant part to least significant). Ids for
 // host machines are always less than ids for their containers.
-func MachineIdLessThan(id1, id2 string) bool {
+func machineIdLessThan(id1, id2 string) bool {
+	// Most times, we are dealing with host machines and not containers, so we will
+	// try interpreting the ids as ints - this will be faster than dealing with the
+	// container ids below.
+	mint1, err1 := strconv.Atoi(id1)
+	mint2, err2 := strconv.Atoi(id2)
+	if err1 == nil && err2 == nil {
+		return mint1 < mint2
+	}
+	// We have at least one container id so it gets complicated.
 	idParts1 := strings.Split(id1, "/")
 	idParts2 := strings.Split(id2, "/")
 	nrParts1 := len(idParts1)
