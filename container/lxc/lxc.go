@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -28,32 +29,39 @@ var (
 	containerDir    = "/var/lib/juju/containers"
 )
 
+type ContainerFactory interface {
+	NewContainer(machineId string) (container.Container, error)
+	NewFromExisting(existing golxc.Container) (container.Container, error)
+}
+
+type lxcFactory struct {
+	lxc golxc.ContainerFactory
+}
+
+func NewFactory(factory golxc.ContainerFactory) ContainerFactory {
+	return &lxcFactory{factory}
+}
+
 type lxcContainer struct {
-	*golxc.Container
+	golxc.Container
 	machineId string
 }
 
 // TODO(thumper): care about constraints...
-func NewContainer(machineId string) (container.Container, error) {
+func (factory *lxcFactory) NewContainer(machineId string) (container.Container, error) {
 	name := state.MachineTag(machineId)
 	return &lxcContainer{
-		Container: golxc.New(name),
+		Container: factory.lxc.New(name),
 		machineId: machineId,
 	}, nil
 }
 
-func NewFromExisting(existing *golxc.Container) (container.Container, error) {
+func (factory *lxcFactory) NewFromExisting(existing golxc.Container) (container.Container, error) {
 	machineId := state.MachineIdFromTag(existing.Name())
 	return &lxcContainer{
 		Container: existing,
 		machineId: machineId,
 	}, nil
-}
-
-// Instance represents the provider-specific notion of a machine, or in this
-// case, the container specific notion of a machine.
-func (lxc *lxcContainer) Instance() environs.Instance {
-	return lxc
 }
 
 func (lxc *lxcContainer) Create(
