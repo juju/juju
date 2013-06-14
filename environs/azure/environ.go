@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -43,22 +44,22 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // StartInstance is specified in the Environ interface.
-func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	panic("unimplemented")
 }
 
 // StopInstances is specified in the Environ interface.
-func (env *azureEnviron) StopInstances([]environs.Instance) error {
+func (env *azureEnviron) StopInstances([]instance.Instance) error {
 	panic("unimplemented")
 }
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (env *azureEnviron) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	panic("unimplemented")
 }
 
 // AllInstances is specified in the Environ interface.
-func (env *azureEnviron) AllInstances() ([]environs.Instance, error) {
+func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	panic("unimplemented")
 }
 
@@ -73,7 +74,7 @@ func (env *azureEnviron) PublicStorage() environs.StorageReader {
 }
 
 // Destroy is specified in the Environ interface.
-func (env *azureEnviron) Destroy(insts []environs.Instance) error {
+func (env *azureEnviron) Destroy(insts []instance.Instance) error {
 	panic("unimplemented")
 }
 

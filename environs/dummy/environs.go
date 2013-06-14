@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
@@ -75,7 +76,7 @@ type OpStartInstance struct {
 	Env          string
 	MachineId    string
 	MachineNonce string
-	Instance     environs.Instance
+	Instance     instance.Instance
 	Constraints  constraints.Value
 	Info         *state.Info
 	APIInfo      *api.Info
@@ -84,7 +85,7 @@ type OpStartInstance struct {
 
 type OpStopInstances struct {
 	Env       string
-	Instances []environs.Instance
+	Instances []instance.Instance
 }
 
 type OpOpenPorts struct {
@@ -122,7 +123,7 @@ type environState struct {
 	ops           chan<- Operation
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
-	insts         map[state.InstanceId]*instance
+	insts         map[state.InstanceId]*dummyInstance
 	globalPorts   map[params.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
@@ -224,7 +225,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	s := &environState{
 		name:         name,
 		ops:          ops,
-		insts:        make(map[state.InstanceId]*instance),
+		insts:        make(map[state.InstanceId]*dummyInstance),
 		globalPorts:  make(map[params.Port]bool),
 		firewallMode: fwmode,
 	}
@@ -515,7 +516,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy([]environs.Instance) error {
+func (e *environ) Destroy([]instance.Instance) error {
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
@@ -527,7 +528,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -552,7 +553,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if apiInfo.Tag != state.MachineTag(machineId) {
 		return nil, fmt.Errorf("entity tag must match started machine")
 	}
-	i := &instance{
+	i := &dummyInstance{
 		state:     e.state,
 		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
 		ports:     make(map[params.Port]bool),
@@ -574,7 +575,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	return i, nil
 }
 
-func (e *environ) StopInstances(is []environs.Instance) error {
+func (e *environ) StopInstances(is []instance.Instance) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -582,7 +583,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
-		delete(e.state.insts, i.(*instance).id)
+		delete(e.state.insts, i.(*dummyInstance).id)
 	}
 	e.state.ops <- OpStopInstances{
 		Env:       e.state.name,
@@ -591,7 +592,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, err error) {
+func (e *environ) Instances(ids []state.InstanceId) (insts []instance.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -616,12 +617,12 @@ func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, 
 	return
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
+func (e *environ) AllInstances() ([]instance.Instance, error) {
 	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
+	var insts []instance.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, v := range e.state.insts {
@@ -674,7 +675,7 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-type instance struct {
+type dummyInstance struct {
 	state     *environState
 	ports     map[params.Port]bool
 	id        state.InstanceId
@@ -682,20 +683,20 @@ type instance struct {
 	series    string
 }
 
-func (inst *instance) Id() state.InstanceId {
+func (inst *dummyInstance) Id() state.InstanceId {
 	return inst.id
 }
 
-func (inst *instance) DNSName() (string, error) {
+func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
 	return string(inst.id) + ".dns", nil
 }
 
-func (inst *instance) WaitDNSName() (string, error) {
+func (inst *dummyInstance) WaitDNSName() (string, error) {
 	return inst.DNSName()
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *dummyInstance) OpenPorts(machineId string, ports []params.Port) error {
 	defer delay()
 	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
@@ -719,7 +720,7 @@ func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *dummyInstance) ClosePorts(machineId string, ports []params.Port) error {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
@@ -742,7 +743,7 @@ func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) (ports []params.Port, err error) {
+func (inst *dummyInstance) Ports(machineId string) (ports []params.Port, err error) {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",

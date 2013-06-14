@@ -5,9 +5,9 @@ package firewaller_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -33,7 +33,7 @@ var _ worker.Worker = (*firewaller.Firewaller)(nil)
 
 // assertPorts retrieves the open ports of the instance and compares them
 // to the expected.
-func (s *FirewallerSuite) assertPorts(c *C, inst environs.Instance, machineId string, expected []params.Port) {
+func (s *FirewallerSuite) assertPorts(c *C, inst instance.Instance, machineId string, expected []params.Port) {
 	s.State.StartSync()
 	start := time.Now()
 	for {
@@ -133,7 +133,7 @@ func (s *FirewallerSuite) setGlobalMode(c *C) func(*C) {
 }
 
 // startInstance starts a new instance for the given machine.
-func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) environs.Instance {
+func (s *FirewallerSuite) startInstance(c *C, m *state.Machine) instance.Instance {
 	inst := testing.StartInstance(c, s.Conn.Environ, m.Id())
 	err := m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
