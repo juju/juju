@@ -118,8 +118,7 @@ func (lxc *lxcContainer) Start() error {
 	// console output and a log file.
 	directory := lxc.Directory()
 	consoleFile := filepath.Join(directory, "console.log")
-	lxc.Container.LogFile = filepath.Join(directory, "container.log")
-	lxc.Container.LogLevel = golxc.LogDebug
+	lxc.Container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	// Experimentation has shown that passing the config file through at start
 	// time when it has mount points defined, causes those mounts to fail, and
 	// the container fails to start.  Passing the same config through at
@@ -222,13 +221,13 @@ func (lxc *lxcContainer) Id() state.InstanceId {
 // If the name is not yet allocated, it will return
 // an ErrNoDNSName error.
 func (lxc *lxcContainer) DNSName() (string, error) {
-	return "", environs.ErrNoDNSName
+	return "", instance.ErrNoDNSName
 }
 
 // WaitDNSName returns the DNS name for the instance,
 // waiting until it is allocated if necessary.
 func (lxc *lxcContainer) WaitDNSName() (string, error) {
-	return "", environs.ErrNoDNSName
+	return "", instance.ErrNoDNSName
 }
 
 // OpenPorts opens the given ports on the instance, which
