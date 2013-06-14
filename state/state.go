@@ -70,7 +70,7 @@ const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 var (
 	validService = regexp.MustCompile("^" + serviceSnippet + "$")
 	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
-	validMachine = regexp.MustCompile("^0$|^[1-9][0-9]*$")
+	validMachine = regexp.MustCompile("^(0|[1-9][0-9]*)(/[a-z]+/(0|[1-9][0-9]*))*$")
 )
 
 // BootstrapNonce is used as a nonce for the state server machine.
@@ -1079,6 +1079,15 @@ type cleanupDoc struct {
 	Id     bson.ObjectId `bson:"_id"`
 	Kind   string
 	Prefix string
+}
+
+// NeedsCleanup returns true if documents previously marked for removal exist.
+func (st *State) NeedsCleanup() (bool, error) {
+	count, err := st.cleanups.Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
 }
 
 // Cleanup removes all documents that were previously marked for removal, if
