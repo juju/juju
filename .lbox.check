@@ -2,7 +2,7 @@
 
 set -e
 
-BADFMT=`find * -name '*.go' | grep -v '/\.#' | xargs gofmt -l`
+BADFMT=`find * -name '*.go' -not -name '.#*' | xargs gofmt -l`
 if [ -n "$BADFMT" ]; then
 	BADFMT=`echo "$BADFMT" | sed "s/^/  /"`
 	echo -e "gofmt is sad:\n\n$BADFMT"
