@@ -344,7 +344,7 @@ func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
 func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *C) {
 	suite.getInstance("test1")
 
-	err := suite.environ.StopInstances([]environs.Instance{})
+	err := suite.environ.StopInstances([]instance.Instance{})
 	c.Check(err, IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, DeepEquals, map[string][]string{})
@@ -354,7 +354,7 @@ func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *C) {
 	instance1 := suite.getInstance("test1")
 	instance2 := suite.getInstance("test2")
 	suite.getInstance("test3")
-	instances := []environs.Instance{instance1, instance2}
+	instances := []instance.Instance{instance1, instance2}
 
 	err := suite.environ.StopInstances(instances)
 
@@ -399,7 +399,7 @@ func (suite *EnvironSuite) TestDestroy(c *C) {
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	storage := env.Storage()
 
-	err := env.Destroy([]environs.Instance{instance})
+	err := env.Destroy([]instance.Instance{instance})
 
 	c.Check(err, IsNil)
 	// Instances have been stopped.

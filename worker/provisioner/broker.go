@@ -17,11 +17,11 @@ type Broker interface {
 	// unique within an environment, is used by juju to protect against the
 	// consequences of multiple instances being started with the same machine
 	// id.
-	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error)
+	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error)
 
 	// StopInstances shuts down the given instances.
-	StopInstances([]environs.Instance) error
+	StopInstances([]instance.Instance) error
 
 	// AllInstances returns all instances currently known to the broker.
-	AllInstances() ([]environs.Instance, error)
+	AllInstances() ([]instance.Instance, error)
 }

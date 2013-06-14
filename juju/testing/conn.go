@@ -77,7 +77,7 @@ func InvalidAPIInfo(machineId string) *api.Info {
 
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
-func StartInstance(c *C, env environs.Environ, machineId string) environs.Instance {
+func StartInstance(c *C, env environs.Environ, machineId string) instance.Instance {
 	series := config.DefaultSeries
 	inst, err := env.StartInstance(
 		machineId,

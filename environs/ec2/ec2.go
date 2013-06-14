@@ -74,7 +74,7 @@ func (inst *instance) String() string {
 	return inst.InstanceId
 }
 
-var _ environs.Instance = (*instance)(nil)
+var _ instance.Instance = (*instance)(nil)
 
 func (inst *instance) Id() state.InstanceId {
 	return state.InstanceId(inst.InstanceId)
@@ -278,7 +278,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
 		// more important.
-		e.StopInstances([]environs.Instance{inst})
+		e.StopInstances([]instance.Instance{inst})
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
@@ -340,7 +340,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, err
@@ -397,7 +397,7 @@ const ebsStorage = "ebs"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
@@ -460,7 +460,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	return inst, nil
 }
 
-func (e *environ) StopInstances(insts []environs.Instance) error {
+func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
 		ids[i] = inst.(*instance).Id()
@@ -472,7 +472,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
-func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
+func (e *environ) gatherInstances(ids []state.InstanceId, insts []instance.Instance) error {
 	var need []string
 	for i, inst := range insts {
 		if inst == nil {
@@ -514,11 +514,11 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Insta
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]environs.Instance, len(ids))
+	insts := make([]instance.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -543,7 +543,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	return insts, nil
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
+func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.jujuGroupName())
@@ -551,7 +551,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
+	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
@@ -561,7 +561,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) Destroy(ensureInsts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	log.Infof("environs/ec2: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {

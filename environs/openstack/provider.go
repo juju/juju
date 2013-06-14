@@ -280,7 +280,7 @@ func (inst *instance) String() string {
 	return inst.ServerDetail.Id
 }
 
-var _ environs.Instance = (*instance)(nil)
+var _ instance.Instance = (*instance)(nil)
 
 func (inst *instance) Id() state.InstanceId {
 	return state.InstanceId(inst.ServerDetail.Id)
@@ -507,7 +507,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
 		// more important.
-		e.StopInstances([]environs.Instance{inst})
+		e.StopInstances([]instance.Instance{inst})
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
@@ -657,7 +657,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return e.imageBaseURLs, nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, err
@@ -767,7 +767,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
@@ -847,12 +847,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	return inst, nil
 }
 
-func (e *environ) StopInstances(insts []environs.Instance) error {
+func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
 		instanceValue, ok := inst.(*instance)
 		if !ok {
-			return errors.New("Incompatible environs.Instance supplied")
+			return errors.New("Incompatible instance.Instance supplied")
 		}
 		ids[i] = instanceValue.Id()
 	}
@@ -863,7 +863,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // collectInstances tries to get information on each instance id in ids.
 // It fills the slots in the given map for known servers with status
 // either ACTIVE or BUILD. Returns a list of missing ids.
-func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]environs.Instance) []state.InstanceId {
+func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]instance.Instance) []state.InstanceId {
 	var err error
 	serversById := make(map[string]nova.ServerDetail)
 	if len(ids) == 1 {
@@ -896,12 +896,12 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 	return missing
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	missing := ids
-	found := make(map[state.InstanceId]environs.Instance)
+	found := make(map[state.InstanceId]instance.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -913,7 +913,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	if len(found) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	insts := make([]environs.Instance, len(ids))
+	insts := make([]instance.Instance, len(ids))
 	var err error
 	for i, id := range ids {
 		if inst := found[id]; inst != nil {
@@ -925,7 +925,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	return insts, err
 }
 
-func (e *environ) AllInstances() (insts []environs.Instance, err error) {
+func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	servers, err := e.nova().ListServersDetail(e.machinesFilter())
 	if err != nil {
 		return nil, err
@@ -939,7 +939,7 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	return insts, err
 }
 
-func (e *environ) Destroy(ensureInsts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	log.Infof("environs/openstack: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {

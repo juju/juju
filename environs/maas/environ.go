@@ -84,7 +84,7 @@ func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
 }
 
 // startBootstrapNode starts the juju bootstrap node for this environment.
-func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (environs.Instance, error) {
+func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Instance, error) {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
@@ -352,7 +352,7 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 }
 
 // StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
 	if err != nil {
 		return nil, err
@@ -362,7 +362,7 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 }
 
 // StopInstances is specified in the Environ interface.
-func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
+func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(instances) == 0 {
 		return nil
@@ -381,7 +381,7 @@ func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
 }
 
 // releaseInstance releases a single instance.
-func (environ *maasEnviron) releaseInstance(inst environs.Instance) error {
+func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
 	_, err := maasObj.CallPost("release", nil)
@@ -391,10 +391,10 @@ func (environ *maasEnviron) releaseInstance(inst environs.Instance) error {
 	return err
 }
 
-// Instances returns the environs.Instance objects corresponding to the given
+// Instances returns the instance.Instance objects corresponding to the given
 // slice of state.InstanceId.  Similar to what the ec2 provider does,
 // Instances returns nil if the given slice is empty or nil.
-func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -406,7 +406,7 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 // If the some of the intances could not be found, it returns the instance
 // that could be found plus the error environs.ErrPartialInstances in the error
 // return.
-func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (environ *maasEnviron) instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
@@ -417,7 +417,7 @@ func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instan
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]environs.Instance, len(listNodes))
+	instances := make([]instance.Instance, len(listNodes))
 	for index, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
 		if err != nil {
@@ -434,8 +434,8 @@ func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instan
 	return instances, nil
 }
 
-// AllInstances returns all the environs.Instance in this provider.
-func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
+// AllInstances returns all the instance.Instance in this provider.
+func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
 	return environ.instances(nil)
 }
 
@@ -452,7 +452,7 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
+func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 	log.Debugf("environs/maas: destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {

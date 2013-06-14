@@ -12,7 +12,7 @@ import (
 type azureInstance struct{}
 
 // azureInstance implements Instance.
-var _ environs.Instance = (*azureInstance)(nil)
+var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
 func (instance *azureInstance) Id() state.InstanceId {

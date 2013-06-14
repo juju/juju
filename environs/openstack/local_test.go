@@ -281,7 +281,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	inst := testing.StartInstance(c, env, "100")
-	err = s.Env.StopInstances([]environs.Instance{inst})
+	err = s.Env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, IsNil)
 }
 
@@ -338,7 +338,7 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 	inst1 := testing.StartInstance(c, s.Env, "101")
 	id1 := inst1.Id()
 	defer func() {
-		err := s.Env.StopInstances([]environs.Instance{inst0, inst1})
+		err := s.Env.StopInstances([]instance.Instance{inst0, inst1})
 		c.Assert(err, IsNil)
 	}()
 

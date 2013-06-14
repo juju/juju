@@ -100,11 +100,11 @@ func stop(c *C, s stopper) {
 	c.Assert(s.Stop(), IsNil)
 }
 
-func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) environs.Instance {
+func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) instance.Instance {
 	return s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
 }
 
-func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance environs.Instance) {
+func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance instance.Instance) {
 	s.State.StartSync()
 	for {
 		select {
@@ -160,7 +160,7 @@ func (s *ProvisionerSuite) checkNoOperations(c *C) {
 }
 
 // checkStopInstances checks that an instance has been stopped.
-func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...environs.Instance) {
+func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...instance.Instance) {
 	s.State.StartSync()
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {

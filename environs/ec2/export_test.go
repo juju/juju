@@ -48,7 +48,7 @@ func DeleteStorageContent(s environs.Storage) error {
 	return s.(*storage).deleteAll()
 }
 
-func InstanceEC2(inst environs.Instance) *ec2.Instance {
+func InstanceEC2(inst instance.Instance) *ec2.Instance {
 	return inst.(*instance).Instance
 }
 
@@ -147,7 +147,7 @@ func EC2ErrCode(err error) string {
 
 // FabricateInstance creates a new fictitious instance
 // given an existing instance and a new id.
-func FabricateInstance(inst environs.Instance, newId string) environs.Instance {
+func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
 	oldi := inst.(*instance)
 	newi := &instance{oldi.e, &ec2.Instance{}}
 	*newi.Instance = *oldi.Instance

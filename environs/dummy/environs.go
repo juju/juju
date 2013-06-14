@@ -75,7 +75,7 @@ type OpStartInstance struct {
 	Env          string
 	MachineId    string
 	MachineNonce string
-	Instance     environs.Instance
+	Instance     instance.Instance
 	Constraints  constraints.Value
 	Info         *state.Info
 	APIInfo      *api.Info
@@ -84,7 +84,7 @@ type OpStartInstance struct {
 
 type OpStopInstances struct {
 	Env       string
-	Instances []environs.Instance
+	Instances []instance.Instance
 }
 
 type OpOpenPorts struct {
@@ -515,7 +515,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy([]environs.Instance) error {
+func (e *environ) Destroy([]instance.Instance) error {
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
@@ -527,7 +527,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -574,7 +574,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	return i, nil
 }
 
-func (e *environ) StopInstances(is []environs.Instance) error {
+func (e *environ) StopInstances(is []instance.Instance) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -591,7 +591,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, err error) {
+func (e *environ) Instances(ids []state.InstanceId) (insts []instance.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -616,12 +616,12 @@ func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, 
 	return
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
+func (e *environ) AllInstances() ([]instance.Instance, error) {
 	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
+	var insts []instance.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, v := range e.state.insts {

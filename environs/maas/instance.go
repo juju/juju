@@ -16,7 +16,7 @@ type maasInstance struct {
 	environ    *maasEnviron
 }
 
-var _ environs.Instance = (*maasInstance)(nil)
+var _ instance.Instance = (*maasInstance)(nil)
 
 func (instance *maasInstance) Id() state.InstanceId {
 	// Use the node's 'resource_uri' value.

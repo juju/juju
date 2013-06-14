@@ -107,7 +107,7 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Not(Equals), insts[1].Id())
 
-	err = e.StopInstances([]environs.Instance{inst0})
+	err = e.StopInstances([]instance.Instance{inst0})
 	c.Assert(err, IsNil)
 
 	insts, err = e.Instances([]state.InstanceId{id0, id1})
