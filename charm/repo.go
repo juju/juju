@@ -326,10 +326,18 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	}
 	var latest Charm
 	for _, info := range infos {
+		chPath := filepath.Join(path, info.Name())
+		if info.Mode()&os.ModeSymlink != 0 {
+			if chPath, err = os.Readlink(chPath); err != nil {
+				return nil, err
+			}
+			if info, err = os.Stat(chPath); err != nil {
+				return nil, err
+			}
+		}
 		if !mightBeCharm(info) {
 			continue
 		}
-		chPath := filepath.Join(path, info.Name())
 		if ch, err := Read(chPath); err != nil {
 			log.Warningf("charm: failed to load charm at %q: %s", chPath, err)
 		} else if ch.Meta().Name == curl.Name {
