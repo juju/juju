@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/loggo"
 )
 
@@ -213,8 +212,8 @@ func (lxc *lxcContainer) userData(
 }
 
 // Id returns a provider-generated identifier for the Instance.
-func (lxc *lxcContainer) Id() state.InstanceId {
-	return state.InstanceId(lxc.Name())
+func (lxc *lxcContainer) Id() instance.Id {
+	return instance.Id(lxc.Name())
 }
 
 // DNSName returns the DNS name for the instance.
@@ -232,19 +231,19 @@ func (lxc *lxcContainer) WaitDNSName() (string, error) {
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (lxc *lxcContainer) OpenPorts(machineId string, ports []params.Port) error {
+func (lxc *lxcContainer) OpenPorts(machineId string, ports []instance.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (lxc *lxcContainer) ClosePorts(machineId string, ports []params.Port) error {
+func (lxc *lxcContainer) ClosePorts(machineId string, ports []instance.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The ports are returned as sorted by state.SortPorts.
-func (lxc *lxcContainer) Ports(machineId string) ([]params.Port, error) {
+func (lxc *lxcContainer) Ports(machineId string) ([]instance.Port, error) {
 	return nil, fmt.Errorf("not implemented")
 }
