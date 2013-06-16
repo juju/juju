@@ -64,6 +64,10 @@ var operationPermTests = []struct {
 	op:    opClientServiceDeploy,
 	allow: []string{"user-admin", "user-other"},
 }, {
+	about: "Client.ServiceSetCharm",
+	op:    opClientServiceSetCharm,
+	allow: []string{"user-admin", "user-other"},
+}, {
 	about: "Client.GetAnnotations",
 	op:    opClientGetAnnotations,
 	allow: []string{"user-admin", "user-other"},
@@ -287,6 +291,14 @@ func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{})
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
+		err = nil
+	}
+	return func() {}, err
+}
+
+func opClientServiceSetCharm(c *C, st *api.State, mst *state.State) (func(), error) {
+	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
+	if api.ErrCode(err) == api.CodeNotFound {
 		err = nil
 	}
 	return func() {}, err
