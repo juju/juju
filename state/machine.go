@@ -9,16 +9,13 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
 	"strings"
 	"time"
 )
-
-// An InstanceId is a provider-specific identifier associated with an
-// instance (physical or virtual machine allocated in the provider).
-type InstanceId string
 
 // Machine represents the state of a machine.
 type Machine struct {
@@ -59,7 +56,7 @@ type machineDoc struct {
 	Nonce         string
 	Series        string
 	ContainerType string
-	InstanceId    InstanceId
+	InstanceId    instance.Id
 	Principals    []string
 	Life          Life
 	Tools         *Tools `bson:",omitempty"`
@@ -480,7 +477,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id and nonce for
 // this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
+func (m *Machine) SetProvisioned(id instance.Id, nonce string) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance id of machine %q", m)
 
 	if id == "" || nonce == "" {

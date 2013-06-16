@@ -6,16 +6,19 @@ package instance
 import (
 	"errors"
 
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
 
+// An instance Id is a provider-specific identifier associated with an
+// instance (physical or virtual machine allocated in the provider).
+type Id string
+
 // Instance represents the the realization of a machine in state.
 type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
-	Id() state.InstanceId
+	Id() Id
 
 	// DNSName returns the DNS name for the instance.
 	// If the name is not yet allocated, it will return
