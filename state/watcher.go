@@ -1287,16 +1287,18 @@ func (w *CleanupWatcher) loop() (err error) {
 	w.st.watcher.WatchCollection(w.st.cleanups.Name, in)
 	defer w.st.watcher.UnwatchCollection(w.st.cleanups.Name, in)
 
-	// Initial event.
-	w.out <- struct{}{}
-
+	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
 		case <-in:
 			// Simply emit event for each change.
-			w.out <- struct{}{}
+			out = w.out
+		case out <- struct{}{}:
+			out = nil
 		}
 	}
 	panic("unreachable")
