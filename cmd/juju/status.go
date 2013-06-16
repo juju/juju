@@ -357,7 +357,7 @@ type machineStatus struct {
 	AgentStateInfo string                   `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
 	AgentVersion   string                   `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	InstanceId     instance.Id         `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	InstanceId     instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
 	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
 	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
