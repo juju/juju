@@ -144,6 +144,33 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
+// ServiceSetCharm sets the charm for a given service.
+func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
+	service, err := c.root.srv.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	curl, err := charm.ParseURL(args.CharmUrl)
+	if err != nil {
+		return err
+	}
+	if curl.Schema != "cs" {
+		return fmt.Errorf(`charm url has unsupported schema %q`, curl.Schema)
+	}
+	if curl.Revision < 0 {
+		return fmt.Errorf("charm url must include revision")
+	}
+	conn, err := juju.NewConnFromState(c.root.srv.state)
+	if err != nil {
+		return err
+	}
+	ch, err := conn.PutCharm(curl, CharmStore, false)
+	if err != nil {
+		return err
+	}
+	return service.SetCharm(ch, args.Force)
+}
+
 // AddServiceUnits adds a given number of units to a service.
 func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
 	units, err := statecmd.AddServiceUnits(c.root.srv.state, args)
