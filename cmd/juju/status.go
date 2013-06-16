@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -42,7 +43,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type statusContext struct {
-	instances map[state.InstanceId]environs.Instance
+	instances map[state.InstanceId]instance.Instance
 	machines  map[string][]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
@@ -79,8 +80,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 }
 
 // fetchAllInstances returns a map from instance id to instance.
-func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Instance, error) {
-	m := make(map[state.InstanceId]environs.Instance)
+func fetchAllInstances(env environs.Environ) (map[state.InstanceId]instance.Instance, error) {
+	m := make(map[state.InstanceId]instance.Instance)
 	insts, err := env.AllInstances()
 	if err != nil {
 		return nil, err

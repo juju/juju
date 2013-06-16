@@ -5,7 +5,7 @@ package maas
 
 import (
 	"launchpad.net/gomaasapi"
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -16,7 +16,7 @@ type maasInstance struct {
 	environ    *maasEnviron
 }
 
-var _ environs.Instance = (*maasInstance)(nil)
+var _ instance.Instance = (*maasInstance)(nil)
 
 func (instance *maasInstance) Id() state.InstanceId {
 	// Use the node's 'resource_uri' value.
