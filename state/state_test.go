@@ -11,8 +11,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
@@ -307,22 +307,22 @@ func (s *StateSuite) TestAddContainerErrors(c *C) {
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", emptyCons, state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
 	cons := constraints.MustParse("mem=4G")
-	m, err := s.State.InjectMachine("series", cons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
-	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+	c.Assert(instanceId, Equals, instance.Id("i-mindustrious"))
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons, DeepEquals, mcons)
@@ -333,7 +333,7 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.InjectMachine("series", emptyCons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 
 	// Add first container.
@@ -397,7 +397,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		err = m.SetProvisioned(state.InstanceId(fmt.Sprintf("foo-%d", i)), "fake_nonce")
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -772,7 +772,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// Dying machine...
 	dying, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = dying.SetProvisioned(state.InstanceId("i-blah"), "fake-nonce")
+	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
 	c.Assert(err, IsNil)
 	err = dying.Destroy()
 	c.Assert(err, IsNil)
@@ -820,7 +820,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	s.assertChange(c, w, "0")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(state.InstanceId("i-blah"), "fake-nonce")
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
@@ -902,15 +902,15 @@ func (s *StateSuite) assertChange(c *C, w *state.LifecycleWatcher, expect ...str
 }
 
 var sortPortsTests = []struct {
-	have, want []params.Port
+	have, want []instance.Port
 }{
-	{nil, []params.Port{}},
-	{[]params.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []params.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+	{nil, []instance.Port{}},
+	{[]instance.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []instance.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
 }
 
 func (*StateSuite) TestSortPorts(c *C) {
 	for _, t := range sortPortsTests {
-		p := make([]params.Port, len(t.have))
+		p := make([]instance.Port, len(t.have))
 		copy(p, t.have)
 		state.SortPorts(p)
 		c.Check(p, DeepEquals, t.want)

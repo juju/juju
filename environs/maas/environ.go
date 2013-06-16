@@ -17,7 +17,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"net/url"
 	"sync"
@@ -112,7 +111,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = env.saveState(&bootstrapState{StateInstances: []state.InstanceId{inst.Id()}})
+	err = env.saveState(&bootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -393,9 +392,9 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 }
 
 // Instances returns the instance.Instance objects corresponding to the given
-// slice of state.InstanceId.  Similar to what the ec2 provider does,
+// slice of instance.Id.  Similar to what the ec2 provider does,
 // Instances returns nil if the given slice is empty or nil.
-func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
+func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -407,7 +406,7 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]instance.Instan
 // If the some of the intances could not be found, it returns the instance
 // that could be found plus the error environs.ErrPartialInstances in the error
 // return.
-func (environ *maasEnviron) instances(ids []state.InstanceId) ([]instance.Instance, error) {
+func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
@@ -459,7 +458,7 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[state.InstanceId]bool)
+	found := make(map[instance.Id]bool)
 	for _, inst := range insts {
 		found[inst.Id()] = true
 	}
@@ -486,19 +485,19 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]params.Port) error {
+func (*maasEnviron) OpenPorts([]instance.Port) error {
 	log.Debugf("environs/maas: unimplemented OpenPorts() called")
 	return nil
 }
 
-func (*maasEnviron) ClosePorts([]params.Port) error {
+func (*maasEnviron) ClosePorts([]instance.Port) error {
 	log.Debugf("environs/maas: unimplemented ClosePorts() called")
 	return nil
 }
 
-func (*maasEnviron) Ports() ([]params.Port, error) {
+func (*maasEnviron) Ports() ([]instance.Port, error) {
 	log.Debugf("environs/maas: unimplemented Ports() called")
-	return []params.Port{}, nil
+	return []instance.Port{}, nil
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {

@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -134,7 +133,7 @@ func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	resourceURI, _ := node.GetField("resource_uri")
-	instanceIds := []state.InstanceId{state.InstanceId(resourceURI)}
+	instanceIds := []instance.Id{instance.Id(resourceURI)}
 
 	instances, err := suite.environ.Instances(instanceIds)
 
@@ -147,7 +146,7 @@ func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
 	// Instances returns nil if the given parameter is empty.
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
-	instances, err := suite.environ.Instances([]state.InstanceId{})
+	instances, err := suite.environ.Instances([]instance.Id{})
 
 	c.Check(err, IsNil)
 	c.Check(instances, IsNil)
@@ -188,9 +187,9 @@ func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
 	resourceURI1, _ := node1.GetField("resource_uri")
 	input2 := `{"system_id": "test2"}`
 	suite.testMAASObject.TestServer.NewNode(input2)
-	instanceId1 := state.InstanceId(resourceURI1)
-	instanceId2 := state.InstanceId("unknown systemID")
-	instanceIds := []state.InstanceId{instanceId1, instanceId2}
+	instanceId1 := instance.Id(resourceURI1)
+	instanceId2 := instance.Id("unknown systemID")
+	instanceIds := []instance.Id{instanceId1, instanceId2}
 
 	instances, err := suite.environ.Instances(instanceIds)
 
@@ -370,8 +369,8 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	instance := &maasInstance{&node, suite.environ}
-	err := env.saveState(&bootstrapState{StateInstances: []state.InstanceId{instance.Id()}})
+	testInstance := &maasInstance{&node, suite.environ}
+	err := env.saveState(&bootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

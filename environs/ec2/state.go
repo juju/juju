@@ -8,13 +8,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 )
 
 const stateFile = "provider-state"
 
 type bootstrapState struct {
-	StateInstances []state.InstanceId `yaml:"state-instances"`
+	StateInstances []instance.Id `yaml:"state-instances"`
 }
 
 func (e *environ) saveState(state *bootstrapState) error {
