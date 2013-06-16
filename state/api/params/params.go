@@ -97,6 +97,13 @@ type ServiceDeploy struct {
 	ForceMachineId string
 }
 
+// ServiceSetCharm sets the charm for a given service.
+type ServiceSetCharm struct {
+	ServiceName string
+	CharmUrl    string
+	Force       bool
+}
+
 // ServiceExpose holds the parameters for making the ServiceExpose call.
 type ServiceExpose struct {
 	ServiceName string
