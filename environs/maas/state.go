@@ -16,7 +16,7 @@ const stateFile = "provider-state"
 // Persistent environment state.  An environment needs to know what instances
 // it manages.
 type bootstrapState struct {
-	StateInstances []state.InstanceId `yaml:"state-instances"`
+	StateInstances []instance.Id `yaml:"state-instances"`
 }
 
 // saveState writes the environment's state to the provider-state file stored

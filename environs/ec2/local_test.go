@@ -50,7 +50,7 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 
 	id, err := p.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, state.InstanceId("dummy.instance.id"))
+	c.Assert(id, Equals, instance.Id("dummy.instance.id"))
 }
 
 func registerLocalTests() {

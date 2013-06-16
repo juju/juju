@@ -45,6 +45,6 @@ func (prov azureEnvironProvider) PrivateAddress() (string, error) {
 }
 
 // InstanceId is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) InstanceId() (state.InstanceId, error) {
+func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
 	panic("unimplemented")
 }

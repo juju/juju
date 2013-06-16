@@ -21,7 +21,7 @@ type UtilSuite struct{}
 var _ = Suite(&UtilSuite{})
 
 func (s *UtilSuite) TestExtractSystemId(c *C) {
-	instanceId := state.InstanceId("/MAAS/api/1.0/nodes/system_id/")
+	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 
 	systemId := extractSystemId(instanceId)
 
@@ -29,9 +29,9 @@ func (s *UtilSuite) TestExtractSystemId(c *C) {
 }
 
 func (s *UtilSuite) TestGetSystemIdValues(c *C) {
-	instanceId1 := state.InstanceId("/MAAS/api/1.0/nodes/system_id1/")
-	instanceId2 := state.InstanceId("/MAAS/api/1.0/nodes/system_id2/")
-	instanceIds := []state.InstanceId{instanceId1, instanceId2}
+	instanceId1 := instance.Id("/MAAS/api/1.0/nodes/system_id1/")
+	instanceId2 := instance.Id("/MAAS/api/1.0/nodes/system_id2/")
+	instanceIds := []instance.Id{instanceId1, instanceId2}
 
 	values := getSystemIdValues(instanceIds)
 

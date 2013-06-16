@@ -18,7 +18,7 @@ import (
 )
 
 type BootstrapState struct {
-	StateInstances []state.InstanceId
+	StateInstances []instance.Id
 }
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {

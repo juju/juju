@@ -15,7 +15,7 @@ type azureInstance struct{}
 var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
-func (instance *azureInstance) Id() state.InstanceId {
+func (instance *azureInstance) Id() instance.Id {
 	panic("unimplemented")
 }
 

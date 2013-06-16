@@ -18,15 +18,15 @@ type maasInstance struct {
 
 var _ instance.Instance = (*maasInstance)(nil)
 
-func (instance *maasInstance) Id() state.InstanceId {
+func (instance *maasInstance) Id() instance.Id {
 	// Use the node's 'resource_uri' value.
-	return state.InstanceId((*instance.maasObject).URI().String())
+	return instance.Id((*instance.maasObject).URI().String())
 }
 
 // refreshInstance refreshes the instance with the most up-to-date information
 // from the MAAS server.
 func (instance *maasInstance) refreshInstance() error {
-	insts, err := instance.environ.Instances([]state.InstanceId{instance.Id()})
+	insts, err := instance.environ.Instances([]instance.Id{instance.Id()})
 	if err != nil {
 		return err
 	}

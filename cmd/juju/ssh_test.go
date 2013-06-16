@@ -139,7 +139,7 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	// fudge unit.SetPublicAddress
 	id, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
-	insts, err := s.Conn.Environ.Instances([]state.InstanceId{id})
+	insts, err := s.Conn.Environ.Instances([]instance.Id{id})
 	c.Assert(err, IsNil)
 	addr, err := insts[0].WaitDNSName()
 	c.Assert(err, IsNil)

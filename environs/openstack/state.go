@@ -14,7 +14,7 @@ import (
 const stateFile = "provider-state"
 
 type bootstrapState struct {
-	StateInstances []state.InstanceId `yaml:"state-instances"`
+	StateInstances []instance.Id `yaml:"state-instances"`
 }
 
 func (e *environ) saveState(state *bootstrapState) error {

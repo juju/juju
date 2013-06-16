@@ -78,11 +78,11 @@ func (prov maasEnvironProvider) PrivateAddress() (string, error) {
 }
 
 // InstanceId is specified in the EnvironProvider interface.
-func (maasEnvironProvider) InstanceId() (state.InstanceId, error) {
+func (maasEnvironProvider) InstanceId() (instance.Id, error) {
 	info := machineInfo{}
 	err := info.load()
 	if err != nil {
 		return "", err
 	}
-	return state.InstanceId(info.InstanceId), nil
+	return instance.Id(info.InstanceId), nil
 }

@@ -54,7 +54,7 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 }
 
 // Instances is specified in the Environ interface.
-func (env *azureEnviron) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
+func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	panic("unimplemented")
 }
 
