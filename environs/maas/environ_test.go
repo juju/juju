@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -370,8 +369,8 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	instance := &maasInstance{&node, suite.environ}
-	err := env.saveState(&bootstrapState{StateInstances: []instance.Id{instance.Id()}})
+	testInstance := &maasInstance{&node, suite.environ}
+	err := env.saveState(&bootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

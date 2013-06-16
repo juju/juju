@@ -449,7 +449,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 
 // InstanceId returns the provider specific instance id for this machine
 // and whether it has been set.
-func (m *Machine) InstanceId() (InstanceId, bool) {
+func (m *Machine) InstanceId() (instance.Id, bool) {
 	return m.doc.InstanceId, m.doc.InstanceId != ""
 }
 

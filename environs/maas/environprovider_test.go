@@ -8,7 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 )
 
 type EnvironProviderSuite struct {

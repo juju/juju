@@ -8,7 +8,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 )
 
 const stateFile = "provider-state"
