@@ -410,6 +410,81 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *C) {
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
+func (s *clientSuite) TestClientServiceSetCharm(c *C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", constraints.Value{},
+	)
+	c.Assert(err, IsNil)
+	addCharm(c, store, "wordpress")
+	err = s.APIState.Client().ServiceSetCharm(
+		"service", "cs:precise/wordpress-3", false,
+	)
+	c.Assert(err, IsNil)
+
+	// Ensure that the charm is not marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(charm.URL().String(), Equals, "cs:precise/wordpress-3")
+	c.Assert(force, Equals, false)
+}
+
+func (s *clientSuite) TestClientServiceSetCharmForce(c *C) {
+	store, restore := makeMockCharmStore()
+	defer restore()
+	curl, _ := addCharm(c, store, "dummy")
+	err := s.APIState.Client().ServiceDeploy(
+		curl.String(), "service", 3, "", constraints.Value{},
+	)
+	c.Assert(err, IsNil)
+	addCharm(c, store, "wordpress")
+	err = s.APIState.Client().ServiceSetCharm(
+		"service", "cs:precise/wordpress-3", true,
+	)
+	c.Assert(err, IsNil)
+
+	// Ensure that the charm is marked as forced.
+	service, err := s.State.Service("service")
+	c.Assert(err, IsNil)
+	charm, force, err := service.Charm()
+	c.Assert(err, IsNil)
+	c.Assert(charm.URL().String(), Equals, "cs:precise/wordpress-3")
+	c.Assert(force, Equals, true)
+}
+
+func (s *clientSuite) TestClientServiceSetCharmInvalidService(c *C) {
+	_, restore := makeMockCharmStore()
+	defer restore()
+	err := s.APIState.Client().ServiceSetCharm(
+		"badservice", "cs:precise/wordpress-3", true,
+	)
+	c.Assert(err, ErrorMatches, `service "badservice" not found`)
+}
+
+func (s *clientSuite) TestClientServiceSetCharmErrors(c *C) {
+	_, restore := makeMockCharmStore()
+	defer restore()
+	s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	for url, expect := range map[string]string{
+		// TODO(fwereade,Makyo) make these errors consistent one day.
+		"wordpress":                      `charm URL has invalid schema: "wordpress"`,
+		"cs:wordpress":                   `charm URL without series: "cs:wordpress"`,
+		"cs:precise/wordpress":           "charm url must include revision",
+		"cs:precise/wordpress-999999":    `cannot get charm: charm not found in mock store: cs:precise/wordpress-999999`,
+		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
+	} {
+		c.Logf("test %s", url)
+		err := s.APIState.Client().ServiceSetCharm(
+			"wordpress", url, false,
+		)
+		c.Check(err, ErrorMatches, expect)
+	}
+}
+
 func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 	mockStore := coretesting.NewMockCharmStore()
 	origStore := apiserver.CharmStore
