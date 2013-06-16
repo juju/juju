@@ -5,7 +5,6 @@ package azure
 
 import (
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 type azureInstance struct{}

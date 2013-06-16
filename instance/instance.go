@@ -5,6 +5,7 @@ package instance
 
 import (
 	"errors"
+	"fmt"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
