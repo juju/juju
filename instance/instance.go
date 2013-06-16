@@ -5,8 +5,6 @@ package instance
 
 import (
 	"errors"
-
-	"launchpad.net/juju-core/state/api/params"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -14,6 +12,16 @@ var ErrNoDNSName = errors.New("DNS name not allocated")
 // An instance Id is a provider-specific identifier associated with an
 // instance (physical or virtual machine allocated in the provider).
 type Id string
+
+// Port identifies a network port number for a particular protocol.
+type Port struct {
+	Protocol string
+	Number   int
+}
+
+func (p Port) String() string {
+	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+}
 
 // Instance represents the the realization of a machine in state.
 type Instance interface {
@@ -31,14 +39,14 @@ type Instance interface {
 
 	// OpenPorts opens the given ports on the instance, which
 	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []params.Port) error
+	OpenPorts(machineId string, ports []Port) error
 
 	// ClosePorts closes the given ports on the instance, which
 	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []params.Port) error
+	ClosePorts(machineId string, ports []Port) error
 
 	// Ports returns the set of ports open on the instance, which
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
-	Ports(machineId string) ([]params.Port, error)
+	Ports(machineId string) ([]Port, error)
 }
