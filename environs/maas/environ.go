@@ -486,19 +486,19 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]params.Port) error {
+func (*maasEnviron) OpenPorts([]instance.Port) error {
 	log.Debugf("environs/maas: unimplemented OpenPorts() called")
 	return nil
 }
 
-func (*maasEnviron) ClosePorts([]params.Port) error {
+func (*maasEnviron) ClosePorts([]instance.Port) error {
 	log.Debugf("environs/maas: unimplemented ClosePorts() called")
 	return nil
 }
 
-func (*maasEnviron) Ports() ([]params.Port, error) {
+func (*maasEnviron) Ports() ([]instance.Port, error) {
 	log.Debugf("environs/maas: unimplemented Ports() called")
-	return []params.Port{}, nil
+	return []instance.Port{}, nil
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {

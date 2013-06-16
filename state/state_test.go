@@ -903,15 +903,15 @@ func (s *StateSuite) assertChange(c *C, w *state.LifecycleWatcher, expect ...str
 }
 
 var sortPortsTests = []struct {
-	have, want []params.Port
+	have, want []instance.Port
 }{
-	{nil, []params.Port{}},
-	{[]params.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []params.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+	{nil, []instance.Port{}},
+	{[]instance.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []instance.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
 }
 
 func (*StateSuite) TestSortPorts(c *C) {
 	for _, t := range sortPortsTests {
-		p := make([]params.Port, len(t.have))
+		p := make([]instance.Port, len(t.have))
 		copy(p, t.have)
 		state.SortPorts(p)
 		c.Check(p, DeepEquals, t.want)

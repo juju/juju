@@ -29,16 +29,16 @@ func (instance *azureInstance) WaitDNSName() (string, error) {
 }
 
 // OpenPorts is specified in the Instance interface.
-func (instance *azureInstance) OpenPorts(machineId string, ports []params.Port) error {
+func (instance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // ClosePorts is specified in the Instance interface.
-func (instance *azureInstance) ClosePorts(machineId string, ports []params.Port) error {
+func (instance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // Ports is specified in the Instance interface.
-func (instance *azureInstance) Ports(machineId string) ([]params.Port, error) {
+func (instance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
 	panic("unimplemented")
 }

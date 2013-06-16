@@ -596,7 +596,7 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	return st.deleteAll()
 }
 
-func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -609,7 +609,7 @@ func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -639,7 +639,7 @@ func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -654,7 +654,7 @@ func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	g := ec2.SecurityGroup{Name: name}
 	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
 	if err != nil {
@@ -669,7 +669,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, params.Port{
+			ports = append(ports, instance.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
@@ -679,7 +679,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []params.Port) error {
+func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -691,7 +691,7 @@ func (e *environ) OpenPorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []params.Port) error {
+func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -703,7 +703,7 @@ func (e *environ) ClosePorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]params.Port, error) {
+func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())
@@ -762,7 +762,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -775,7 +775,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []params.Port) error 
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -788,7 +788,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []params.Port) error
 	return nil
 }
 
-func (inst *ec2Instance) Ports(machineId string) ([]params.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())

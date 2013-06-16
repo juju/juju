@@ -84,17 +84,17 @@ func (env *azureEnviron) AssignmentPolicy() state.AssignmentPolicy {
 }
 
 // OpenPorts is specified in the Environ interface.
-func (env *azureEnviron) OpenPorts(ports []params.Port) error {
+func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // ClosePorts is specified in the Environ interface.
-func (env *azureEnviron) ClosePorts(ports []params.Port) error {
+func (env *azureEnviron) ClosePorts(ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // Ports is specified in the Environ interface.
-func (env *azureEnviron) Ports() ([]params.Port, error) {
+func (env *azureEnviron) Ports() ([]instance.Port, error) {
 	panic("unimplemented")
 }
 

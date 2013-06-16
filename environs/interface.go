@@ -172,17 +172,17 @@ type Environ interface {
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []params.Port) error
+	OpenPorts(ports []instance.Port) error
 
 	// ClosePorts closes the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []params.Port) error
+	ClosePorts(ports []instance.Port) error
 
 	// Ports returns the ports opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]params.Port, error)
+	Ports() ([]instance.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

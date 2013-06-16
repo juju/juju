@@ -63,7 +63,7 @@ var marshalTestCases = []struct {
 			Service:  "Shazam",
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
-			Ports: []params.Port{
+			Ports: []instance.Port{
 				{
 					Protocol: "http",
 					Number:   80},
