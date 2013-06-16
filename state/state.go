@@ -22,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
-	"math"
 	"net/url"
 	"regexp"
 	"sort"
@@ -412,7 +411,7 @@ func machineIdLessThan(id1, id2 string) bool {
 			continue
 		}
 		// See if the id part is a container type, and if so compare directly.
-		if math.Mod(float64(x), 2) == 1 {
+		if x%2 == 1 {
 			return m1 < m2
 		}
 		// Compare the integer ids.
