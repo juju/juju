@@ -130,7 +130,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Service:   wordpress.Name(),
 			Series:    m.Series(),
 			MachineId: m.Id(),
-			Ports:     []params.Port{},
+			Ports:     []instance.Port{},
 			Status:    params.StatusPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
@@ -176,7 +176,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
 			Series:  "series",
-			Ports:   []params.Port{},
+			Ports:   []instance.Port{},
 			Status:  params.StatusPending,
 		})
 	}
@@ -340,7 +340,7 @@ var allWatcherChangedTests = []struct {
 				PublicAddress:  "public",
 				PrivateAddress: "private",
 				MachineId:      "0",
-				Ports:          []params.Port{{"tcp", 12345}},
+				Ports:          []instance.Port{{"tcp", 12345}},
 				Status:         params.StatusError,
 				StatusInfo:     "failure",
 			},
@@ -372,7 +372,7 @@ var allWatcherChangedTests = []struct {
 				Service:       "wordpress",
 				Series:        "series",
 				PublicAddress: "public",
-				Ports:         []params.Port{{"udp", 17070}},
+				Ports:         []instance.Port{{"udp", 17070}},
 				Status:        params.StatusError,
 				StatusInfo:    "another failure",
 			},

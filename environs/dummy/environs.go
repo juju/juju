@@ -34,7 +34,6 @@ import (
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -92,14 +91,14 @@ type OpOpenPorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []params.Port
+	Ports      []instance.Port
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
 	InstanceId instance.Id
-	Ports      []params.Port
+	Ports      []instance.Port
 }
 
 type OpPutFile struct {
@@ -127,7 +126,7 @@ type environState struct {
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
 	insts         map[instance.Id]*dummyInstance
-	globalPorts   map[params.Port]bool
+	globalPorts   map[instance.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
 	storageDelay  time.Duration
@@ -229,7 +228,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 		name:         name,
 		ops:          ops,
 		insts:        make(map[instance.Id]*dummyInstance),
-		globalPorts:  make(map[params.Port]bool),
+		globalPorts:  make(map[instance.Port]bool),
 		firewallMode: fwmode,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
@@ -562,7 +561,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	i := &dummyInstance{
 		state:     e.state,
 		id:        instance.Id(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
-		ports:     make(map[params.Port]bool),
+		ports:     make(map[instance.Port]bool),
 		machineId: machineId,
 		series:    series,
 	}
@@ -637,7 +636,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []params.Port) error {
+func (e *environ) OpenPorts(ports []instance.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -650,7 +649,7 @@ func (e *environ) OpenPorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []params.Port) error {
+func (e *environ) ClosePorts(ports []instance.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -663,7 +662,7 @@ func (e *environ) ClosePorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() (ports []params.Port, err error) {
+func (e *environ) Ports() (ports []instance.Port, err error) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -683,7 +682,7 @@ func (*environ) Provider() environs.EnvironProvider {
 
 type dummyInstance struct {
 	state     *environState
-	ports     map[params.Port]bool
+	ports     map[instance.Port]bool
 	id        instance.Id
 	machineId string
 	series    string
@@ -702,7 +701,7 @@ func (inst *dummyInstance) WaitDNSName() (string, error) {
 	return inst.DNSName()
 }
 
-func (inst *dummyInstance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	defer delay()
 	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
@@ -726,7 +725,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []params.Port) erro
 	return nil
 }
 
-func (inst *dummyInstance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *dummyInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
@@ -749,7 +748,7 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []params.Port) err
 	return nil
 }
 
-func (inst *dummyInstance) Ports(machineId string) (ports []params.Port, err error) {
+func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err error) {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",

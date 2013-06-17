@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -67,7 +68,7 @@ type unitDoc struct {
 	MachineId      string
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
-	Ports          []params.Port
+	Ports          []instance.Port
 	Life           Life
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
@@ -472,7 +473,7 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	port := params.Port{Protocol: protocol, Number: number}
+	port := instance.Port{Protocol: protocol, Number: number}
 	defer utils.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -498,7 +499,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	port := params.Port{Protocol: protocol, Number: number}
+	port := instance.Port{Protocol: protocol, Number: number}
 	defer utils.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -510,7 +511,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	newPorts := make([]params.Port, 0, len(u.doc.Ports))
+	newPorts := make([]instance.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
 		if p != port {
 			newPorts = append(newPorts, p)
@@ -521,8 +522,8 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 }
 
 // OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []params.Port {
-	ports := append([]params.Port{}, u.doc.Ports...)
+func (u *Unit) OpenedPorts() []instance.Port {
+	ports := append([]instance.Port{}, u.doc.Ports...)
 	SortPorts(ports)
 	return ports
 }
@@ -1008,7 +1009,7 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-type portSlice []params.Port
+type portSlice []instance.Port
 
 func (p portSlice) Len() int      { return len(p) }
 func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
@@ -1023,6 +1024,6 @@ func (p portSlice) Less(i, j int) bool {
 
 // SortPorts sorts the given ports, first by protocol,
 // then by number.
-func SortPorts(ports []params.Port) {
+func SortPorts(ports []instance.Port) {
 	sort.Sort(portSlice(ports))
 }

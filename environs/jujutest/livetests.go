@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -175,70 +174,70 @@ func (t *LiveTests) TestPorts(c *C) {
 	defer t.Env.StopInstances([]instance.Instance{inst2})
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts("1", []params.Port{{"udp", 67}, {"tcp", 45}})
+	err = inst1.OpenPorts("1", []instance.Port{{"udp", 67}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"udp", 67}})
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	err = inst2.OpenPorts("2", []params.Port{{"tcp", 89}, {"tcp", 45}})
+	err = inst2.OpenPorts("2", []instance.Port{{"tcp", 89}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 
 	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that opening the same port again is ok.
 	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, IsNil)
-	err = inst2.OpenPorts("2", []params.Port{{"tcp", 45}})
+	err = inst2.OpenPorts("2", []instance.Port{{"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts("2", []params.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.OpenPorts("2", []instance.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 
-	err = inst2.ClosePorts("2", []params.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.ClosePorts("2", []instance.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 89}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts("1", []params.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.ClosePorts("1", []instance.Port{{"tcp", 45}, {"udp", 67}})
 	c.Assert(err, IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(ports, HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts("2", []params.Port{{"tcp", 111}, {"udp", 222}})
+	err = inst2.ClosePorts("2", []instance.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 89}})
 
 	// Check errors when acting on environment.
-	err = t.Env.OpenPorts([]params.Port{{"tcp", 80}})
+	err = t.Env.OpenPorts([]instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
 
-	err = t.Env.ClosePorts([]params.Port{{"tcp", 80}})
+	err = t.Env.ClosePorts([]instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
 
 	_, err = t.Env.Ports()
@@ -273,34 +272,34 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(ports, HasLen, 0)
 	defer t.Env.StopInstances([]instance.Instance{inst2})
 
-	err = t.Env.OpenPorts([]params.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	err = t.Env.OpenPorts([]instance.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}, {"udp", 67}})
 
 	// Check closing some ports.
-	err = t.Env.ClosePorts([]params.Port{{"tcp", 99}, {"udp", 67}})
+	err = t.Env.ClosePorts([]instance.Port{{"tcp", 99}, {"udp", 67}})
 	c.Assert(err, IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check that we can close ports that aren't there.
-	err = t.Env.ClosePorts([]params.Port{{"tcp", 111}, {"udp", 222}})
+	err = t.Env.ClosePorts([]instance.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts("1", []params.Port{{"tcp", 80}})
+	err = inst1.OpenPorts("1", []instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
 
-	err = inst1.ClosePorts("1", []params.Port{{"tcp", 80}})
+	err = inst1.ClosePorts("1", []instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
 
 	_, err = inst1.Ports("1")

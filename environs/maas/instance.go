@@ -7,7 +7,6 @@ import (
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 type maasInstance struct {
@@ -34,32 +33,32 @@ func (mi *maasInstance) refreshInstance() error {
 	return nil
 }
 
-func (instance *maasInstance) DNSName() (string, error) {
-	hostname, err := (*instance.maasObject).GetField("hostname")
+func (mi *maasInstance) DNSName() (string, error) {
+	hostname, err := (*mi.maasObject).GetField("hostname")
 	if err != nil {
 		return "", err
 	}
 	return hostname, nil
 }
 
-func (instance *maasInstance) WaitDNSName() (string, error) {
+func (mi *maasInstance) WaitDNSName() (string, error) {
 	// A MAAS nodes gets his DNS name when it's created.  WaitDNSName,
 	// (same as DNSName) just returns the hostname of the node.
-	return instance.DNSName()
+	return mi.DNSName()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (instance *maasInstance) OpenPorts(machineId string, ports []params.Port) error {
+func (mi *maasInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	log.Debugf("environs/maas: unimplemented OpenPorts() called")
 	return nil
 }
 
-func (instance *maasInstance) ClosePorts(machineId string, ports []params.Port) error {
+func (mi *maasInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	log.Debugf("environs/maas: unimplemented ClosePorts() called")
 	return nil
 }
 
-func (instance *maasInstance) Ports(machineId string) ([]params.Port, error) {
+func (mi *maasInstance) Ports(machineId string) ([]instance.Port, error) {
 	log.Debugf("environs/maas: unimplemented Ports() called")
-	return []params.Port{}, nil
+	return []instance.Port{}, nil
 }
