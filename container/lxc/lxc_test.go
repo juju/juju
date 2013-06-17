@@ -8,12 +8,10 @@ import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -114,31 +112,13 @@ func setupAuthentication(st *state.State, machine *state.Machine) (*state.Info, 
 }
 
 func (s *LxcSuite) TestContainerCreate(c *C) {
-	environ, err := environs.NewFromName("")
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(environ, constraints.Value{})
-	c.Assert(err, IsNil)
 
-	conn, err := juju.NewConnFromName("")
-	c.Assert(err, IsNil)
-
-	machine, err := conn.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	params := state.AddMachineParams{
-		ParentId:      machine.Id(),
-		ContainerType: state.LXC,
-		Series:        "series",
-		Jobs:          []state.MachineJob{state.JobHostUnits},
-	}
-	stateContainer, err := conn.State.AddMachineWithConstraints(&params)
-	c.Assert(err, IsNil)
+	config := testing.EnvironConfig(c)
+	stateInfo := jujutesting.FakeStateInfo("1/lxc/0")
+	apiInfo := jujutesting.FakeAPIInfo("1/lxc/0")
 
 	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer(stateContainer.Id())
-	c.Assert(err, IsNil)
-
-	stateInfo, apiInfo, err := setupAuthentication(conn.State, stateContainer)
+	container, err := factory.NewContainer("1/lxc/0")
 	c.Assert(err, IsNil)
 
 	series := "series"
@@ -147,8 +127,7 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
 	}
-	environConfig := environ.Config()
 
-	container.Create(series, nonce, tools, environConfig, stateInfo, apiInfo)
+	container.Create(series, nonce, tools, config, stateInfo, apiInfo)
 
 }
