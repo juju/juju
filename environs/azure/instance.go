@@ -5,7 +5,6 @@ package azure
 
 import (
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -15,7 +14,7 @@ type azureInstance struct{}
 var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
-func (instance *azureInstance) Id() state.InstanceId {
+func (instance *azureInstance) Id() instance.Id {
 	panic("unimplemented")
 }
 

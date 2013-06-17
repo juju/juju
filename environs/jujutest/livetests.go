@@ -113,7 +113,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err := t.Env.Instances([]state.InstanceId{id0, id0})
+	insts, err := t.Env.Instances([]instance.Id{id0, id0})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
@@ -138,7 +138,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
-	insts, err = t.Env.Instances([]state.InstanceId{id0, ""})
+	insts, err = t.Env.Instances([]instance.Id{id0, ""})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts, HasLen, 2)
 	c.Check(insts[0].Id(), Equals, id0)
@@ -150,7 +150,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
 	for a := t.Attempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]state.InstanceId{id0})
+		insts, err = t.Env.Instances([]instance.Id{id0})
 		if err != nil {
 			break
 		}
@@ -621,17 +621,17 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 		if !ok {
 			continue
 		}
-		_, err = t.Env.Instances([]state.InstanceId{instId})
+		_, err = t.Env.Instances([]instance.Id{instId})
 		c.Assert(err, IsNil)
 		return
 	}
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId state.InstanceId) {
+func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId instance.Id) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		_, err = t.Env.Instances([]state.InstanceId{instId})
+		_, err = t.Env.Instances([]instance.Id{instId})
 		if err == nil {
 			continue
 		}
@@ -647,7 +647,7 @@ func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId state.
 // that matches that of the given instance. If the instance is nil,
 // It asserts that the instance id is unset.
 func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
-	var wantId, gotId state.InstanceId
+	var wantId, gotId instance.Id
 	var err error
 	if inst != nil {
 		wantId = inst.Id()

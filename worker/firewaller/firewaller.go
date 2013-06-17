@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -273,7 +274,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if !ok {
 			return errors.NotFoundf("instance id for %v", m)
 		}
-		instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
+		instances, err := fw.environ.Instances([]instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
 		} else if err != nil {
@@ -444,7 +445,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if !ok {
 		return errors.NotFoundf("instance id for %v", m)
 	}
-	instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
+	instances, err := fw.environ.Instances([]instance.Id{instanceId})
 	if err != nil {
 		return err
 	}

@@ -43,7 +43,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type statusContext struct {
-	instances map[state.InstanceId]instance.Instance
+	instances map[instance.Id]instance.Instance
 	machines  map[string][]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
@@ -80,8 +80,8 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 }
 
 // fetchAllInstances returns a map from instance id to instance.
-func fetchAllInstances(env environs.Environ) (map[state.InstanceId]instance.Instance, error) {
-	m := make(map[state.InstanceId]instance.Instance)
+func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance, error) {
+	m := make(map[instance.Id]instance.Instance)
 	insts, err := env.AllInstances()
 	if err != nil {
 		return nil, err
@@ -357,7 +357,7 @@ type machineStatus struct {
 	AgentStateInfo string                   `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
 	AgentVersion   string                   `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	InstanceId     state.InstanceId         `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	InstanceId     instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
 	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
 	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
 	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`

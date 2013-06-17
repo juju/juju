@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -64,7 +65,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	add(&params.MachineInfo{
 		Id:         "0",
@@ -140,7 +141,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Annotations: pairs,
 		})
 
-		err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetStatus(params.StatusError, m.Tag())
 		c.Assert(err, IsNil)

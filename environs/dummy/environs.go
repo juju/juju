@@ -91,14 +91,14 @@ type OpStopInstances struct {
 type OpOpenPorts struct {
 	Env        string
 	MachineId  string
-	InstanceId state.InstanceId
+	InstanceId instance.Id
 	Ports      []params.Port
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
-	InstanceId state.InstanceId
+	InstanceId instance.Id
 	Ports      []params.Port
 }
 
@@ -126,7 +126,7 @@ type environState struct {
 	ops           chan<- Operation
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
-	insts         map[state.InstanceId]*dummyInstance
+	insts         map[instance.Id]*dummyInstance
 	globalPorts   map[params.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
@@ -228,7 +228,7 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	s := &environState{
 		name:         name,
 		ops:          ops,
-		insts:        make(map[state.InstanceId]*dummyInstance),
+		insts:        make(map[instance.Id]*dummyInstance),
 		globalPorts:  make(map[params.Port]bool),
 		firewallMode: fwmode,
 	}
@@ -389,8 +389,8 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
-func (*environProvider) InstanceId() (state.InstanceId, error) {
-	return state.InstanceId("dummy.instance.id"), nil
+func (*environProvider) InstanceId() (instance.Id, error) {
+	return instance.Id("dummy.instance.id"), nil
 }
 
 func (*environProvider) BoilerplateConfig() string {
@@ -561,7 +561,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	}
 	i := &dummyInstance{
 		state:     e.state,
-		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
+		id:        instance.Id(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
 		ports:     make(map[params.Port]bool),
 		machineId: machineId,
 		series:    series,
@@ -598,7 +598,7 @@ func (e *environ) StopInstances(is []instance.Instance) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) (insts []instance.Instance, err error) {
+func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -684,12 +684,12 @@ func (*environ) Provider() environs.EnvironProvider {
 type dummyInstance struct {
 	state     *environState
 	ports     map[params.Port]bool
-	id        state.InstanceId
+	id        instance.Id
 	machineId string
 	series    string
 }
 
-func (inst *dummyInstance) Id() state.InstanceId {
+func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 

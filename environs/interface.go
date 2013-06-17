@@ -47,7 +47,7 @@ type EnvironProvider interface {
 	PrivateAddress() (string, error)
 
 	// InstanceId returns this machine's instance id.
-	InstanceId() (state.InstanceId, error)
+	InstanceId() (instance.Id, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -146,7 +146,7 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ids []state.InstanceId) ([]instance.Instance, error)
+	Instances(ids []instance.Id) ([]instance.Instance, error)
 
 	// AllInstances returns all instances currently known to the
 	// environment.

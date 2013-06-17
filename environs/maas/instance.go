@@ -7,7 +7,6 @@ import (
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -18,20 +17,20 @@ type maasInstance struct {
 
 var _ instance.Instance = (*maasInstance)(nil)
 
-func (instance *maasInstance) Id() state.InstanceId {
+func (mi *maasInstance) Id() instance.Id {
 	// Use the node's 'resource_uri' value.
-	return state.InstanceId((*instance.maasObject).URI().String())
+	return instance.Id((*mi.maasObject).URI().String())
 }
 
 // refreshInstance refreshes the instance with the most up-to-date information
 // from the MAAS server.
-func (instance *maasInstance) refreshInstance() error {
-	insts, err := instance.environ.Instances([]state.InstanceId{instance.Id()})
+func (mi *maasInstance) refreshInstance() error {
+	insts, err := mi.environ.Instances([]instance.Id{mi.Id()})
 	if err != nil {
 		return err
 	}
 	newMaasObject := insts[0].(*maasInstance).maasObject
-	instance.maasObject = newMaasObject
+	mi.maasObject = newMaasObject
 	return nil
 }
 
