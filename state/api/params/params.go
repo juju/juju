@@ -94,8 +94,14 @@ type ServiceDeploy struct {
 	Config         map[string]string
 	ConfigYAML     string // Takes precedence over config if both are present.
 	Constraints    constraints.Value
-	BumpRevision   bool
 	ForceMachineId string
+}
+
+// ServiceSetCharm sets the charm for a given service.
+type ServiceSetCharm struct {
+	ServiceName string
+	CharmUrl    string
+	Force       bool
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.

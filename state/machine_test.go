@@ -28,6 +28,30 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) TestContainerDefaults(c *C) {
+	c.Assert(string(s.machine.ContainerType()), Equals, "")
+	containers, err := s.machine.Containers()
+	c.Assert(err, IsNil)
+	c.Assert(containers, DeepEquals, []string(nil))
+}
+
+func (s *MachineSuite) TestParentId(c *C) {
+	parentId, ok := s.machine.ParentId()
+	c.Assert(parentId, Equals, "")
+	c.Assert(ok, Equals, false)
+	params := state.AddMachineParams{
+		ParentId:      s.machine.Id(),
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	parentId, ok = container.ParentId()
+	c.Assert(parentId, Equals, s.machine.Id())
+	c.Assert(ok, Equals, true)
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
@@ -36,6 +60,24 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
 	err = m.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
+}
+
+func (s *MachineSuite) TestLifeMachineWithContainer(c *C) {
+	// A machine hosting a container must not advance lifecycle.
+	params := state.AddMachineParams{
+		ParentId:      s.machine.Id(),
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, FitsTypeOf, &state.HasContainersError{})
+	c.Assert(err, ErrorMatches, `machine 0 is hosting containers "0/lxc/0"`)
+	err1 := s.machine.EnsureDead()
+	c.Assert(err1, DeepEquals, err)
+	c.Assert(s.machine.Life(), Equals, state.Alive)
 }
 
 func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
@@ -82,6 +124,8 @@ func (s *MachineSuite) TestRemove(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	_, err = s.machine.Containers()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
@@ -144,6 +188,17 @@ func (s *MachineSuite) TestTag(c *C) {
 
 func (s *MachineSuite) TestMachineTag(c *C) {
 	c.Assert(state.MachineTag("10"), Equals, "machine-10")
+	// Check a container id.
+	c.Assert(state.MachineTag("10/lxc/1"), Equals, "machine-10-lxc-1")
+}
+
+func (s *MachineSuite) TestMachineIdFromTag(c *C) {
+	c.Assert(state.MachineIdFromTag("machine-10"), Equals, "10")
+	// Check a container id.
+	c.Assert(state.MachineIdFromTag("machine-10-lxc-1"), Equals, "10/lxc/1")
+	// Check reversability.
+	nested := "2/kvm/0/lxc/3"
+	c.Assert(state.MachineIdFromTag(state.MachineTag(nested)), Equals, nested)
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *C) {

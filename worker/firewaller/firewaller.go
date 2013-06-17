@@ -39,7 +39,7 @@ func NewFirewaller(st *state.State) *Firewaller {
 	fw := &Firewaller{
 		st:              st,
 		environWatcher:  st.WatchEnvironConfig(),
-		machinesWatcher: st.WatchMachines(),
+		machinesWatcher: st.WatchEnvironMachines(),
 		machineds:       make(map[string]*machineData),
 		unitsChange:     make(chan *unitsChange),
 		unitds:          make(map[string]*unitData),

@@ -240,9 +240,9 @@ func (*CmdSuite) TestAddUnitCommandInit(c *C) {
 
 	// bad unit count
 	_, err = initDeployCommand("charm-name", "--num-units", "0")
-	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	c.Assert(err, ErrorMatches, "--num-units must be a positive integer")
 	_, err = initDeployCommand("charm-name", "-n", "0")
-	c.Assert(err, ErrorMatches, "must deploy at least one unit")
+	c.Assert(err, ErrorMatches, "--num-units must be a positive integer")
 
 	// environment tested elsewhere
 }
@@ -334,8 +334,8 @@ func (*CmdSuite) TestSetCommandInit(c *C) {
 	file.Close()
 	com, err := initSetCommand("--config", "testconfig.yaml", "service")
 	c.Assert(err, IsNil)
-	c.Assert(com.Config.Path, Equals, "testconfig.yaml")
-	actual, err := com.Config.Read(ctx)
+	c.Assert(com.SettingsYAML.Path, Equals, "testconfig.yaml")
+	actual, err := com.SettingsYAML.Read(ctx)
 	c.Assert(err, IsNil)
 	c.Assert(actual, DeepEquals, expected)
 
