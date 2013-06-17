@@ -108,6 +108,10 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	// TODO(fwereade): this should check for an existing environment before
 	// starting a new one -- even given raciness, it's better than nothing.
+	if err := environs.VerifyStorage(env.Storage()); err != nil {
+		return fmt.Errorf("provider storage is not writeable")
+	}
+
 	inst, err := env.startBootstrapNode(cons)
 	if err != nil {
 		return err
