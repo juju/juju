@@ -258,6 +258,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
+	err = environs.VerifyStorage(e.Storage())
+	if err != nil {
+		return err
+	}
+
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
