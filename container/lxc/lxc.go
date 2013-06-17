@@ -148,14 +148,13 @@ lxc.network.type = veth
 lxc.network.link = lxcbr0
 lxc.network.flags = up
 
-lxc.mount.entry=/var/log/juju %s none defaults,bind 0 0
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
 
 func (lxc *lxcContainer) WriteConfig() (string, error) {
 	// TODO(thumper): support different network settings.
-	config := fmt.Sprintf(localConfig, lxc.InternalLogDir())
 	configFilename := filepath.Join(lxc.Directory(), "lxc.conf")
-	if err := ioutil.WriteFile(configFilename, []byte(config), 0644); err != nil {
+	if err := ioutil.WriteFile(configFilename, []byte(localConfig), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil
