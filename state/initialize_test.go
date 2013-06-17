@@ -52,7 +52,7 @@ func (s *InitializeSuite) TestInitialize(c *C) {
 	_, err = s.State.EnvironConstraints()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 
-	cfg := state.TestingEnvironConfig(c)
+	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
 	st, err := state.Initialize(state.TestingStateInfo(), cfg, state.TestingDialOpts())
 	c.Assert(err, IsNil)
@@ -74,7 +74,7 @@ func (s *InitializeSuite) TestInitialize(c *C) {
 }
 
 func (s *InitializeSuite) TestDoubleInitializeConfig(c *C) {
-	cfg := state.TestingEnvironConfig(c)
+	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
 	st := state.TestingInitialize(c, cfg)
 	st.Close()
@@ -96,7 +96,7 @@ func (s *InitializeSuite) TestDoubleInitializeConfig(c *C) {
 
 func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *C) {
 	// admin-secret blocks Initialize.
-	good := state.TestingEnvironConfig(c)
+	good := testing.EnvironConfig(c)
 	bad, err := good.Apply(map[string]interface{}{"admin-secret": "foo"})
 
 	_, err = state.Initialize(state.TestingStateInfo(), bad, state.TestingDialOpts())
@@ -116,7 +116,7 @@ func (s *InitializeSuite) TestEnvironConfigWithAdminSecret(c *C) {
 
 func (s *InitializeSuite) TestEnvironConfigWithoutAgentVersion(c *C) {
 	// admin-secret blocks Initialize.
-	good := state.TestingEnvironConfig(c)
+	good := testing.EnvironConfig(c)
 	attrs := good.AllAttrs()
 	delete(attrs, "agent-version")
 	bad, err := config.New(attrs)

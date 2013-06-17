@@ -11,6 +11,21 @@ import (
 	"path/filepath"
 )
 
+// EnvironConfig returns a default environment configuration.
+func EnvironConfig(c *C) *config.Config {
+	cfg, err := config.New(map[string]interface{}{
+		"type":            "test",
+		"name":            "test-name",
+		"default-series":  "test-series",
+		"authorized-keys": "test-keys",
+		"agent-version":   "9.9.9.9",
+		"ca-cert":         CACert,
+		"ca-private-key":  "",
+	})
+	c.Assert(err, IsNil)
+	return cfg
+}
+
 const SampleEnvName = "erewhemos"
 const EnvDefault = "default:\n  " + SampleEnvName + "\n"
 
