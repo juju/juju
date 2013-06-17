@@ -57,10 +57,6 @@ type provisionerTask struct {
 	broker         Broker
 	tomb           tomb.Tomb
 
-	// Remembered addresses and api addresses
-	stateAddresses []string
-	apiAddresses   []string
-
 	// instance id -> instance
 	instances map[state.InstanceId]instance.Instance
 	// machine id -> machine
@@ -356,28 +352,15 @@ func (task *provisionerTask) setupAuthentication(machine *state.Machine) (*state
 	// new api servers.  We should take advantage of those ASAP.
 	stateAddresses, err := task.state.Addresses()
 	if err != nil {
-		// Expected behaviour is to continue provisioning with old remembered
-		// info if config becomes invalid.
-		if task.stateAddresses == nil {
-			return nil, nil, fmt.Errorf("cannot get addresses from state: %v", err)
-		} else {
-			logger.Infof("cannot get current addresses from state, using remembered values")
-			stateAddresses = task.stateAddresses
-		}
-	} else {
-		// Remember them for later.
-		task.stateAddresses = stateAddresses
+		// This will only return an error if the config becomes invalid.  In
+		// those situations, the provisioner bombs out and is restarted.
+		return nil, nil, fmt.Errorf("cannot get addresses from state: %v", err)
 	}
 	apiAddresses, err := task.state.APIAddresses()
 	if err != nil {
-		if task.apiAddresses == nil {
-			return nil, nil, fmt.Errorf("cannot get api addresses from state: %v", err)
-		} else {
-			logger.Infof("cannot get current api addresses from state, using remembered values")
-			apiAddresses = task.apiAddresses
-		}
-	} else {
-		task.apiAddresses = apiAddresses
+		// Same for the api addresses.  We technically shouldn't get here if
+		// we didn't fail before, but best to check.
+		return nil, nil, fmt.Errorf("cannot get api addresses from state: %v", err)
 	}
 	password, err := utils.RandomPassword()
 	if err != nil {
