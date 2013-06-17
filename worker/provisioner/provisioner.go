@@ -94,6 +94,11 @@ func (p *Provisioner) loop() error {
 			}
 			if err := p.setConfig(cfg); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
+				// We *shouldn't* ever get into a state here where we have an
+				// invalid config.  If we do, stop the task and let jujud
+				// restart the provisioner, which will then wait for valid
+				// config.
+				return err
 			}
 		}
 	}
