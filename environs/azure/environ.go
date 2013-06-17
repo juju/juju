@@ -10,16 +10,46 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"sync"
 )
 
-type azureEnviron struct{}
+type azureEnviron struct {
+	// Except where indicated otherwise, all fields in this object should
+	// only be accessed using a lock or a snapshot.
+	sync.Mutex
+
+	// name is immutable; it can be accessed without locking.
+	name string
+
+	// ecfg is the environment's Azure-specific configuration.
+	ecfg *azureEnvironConfig
+}
 
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
 
 // Name is specified in the Environ interface.
 func (env *azureEnviron) Name() string {
-	panic("unimplemented")
+	return env.name
+}
+
+// getSnapshot produces an atomic shallow copy of the environment object.
+// Whenever you need to access the environment object's fields without
+// modifying them, get a snapshot and read its fields instead.  You will
+// get a consistent view of the fields without any further locking.
+// If you do need to modify the environment's fields, do not get a snapshot
+// but lock the object throughout the critical section.
+func (env *azureEnviron) getSnapshot() *azureEnviron {
+	env.Lock()
+	defer env.Unlock()
+
+	// Copy the environment.  (Not the pointer, the environment itself.)
+	// This is a shallow copy.
+	snap := *env
+	// Reset the snapshot's mutex, because we just copied it while we
+	// were holding it.  The snapshot will have a "clean," unlocked mutex.
+	snap.Mutex = sync.Mutex{}
+	return &snap
 }
 
 // Bootstrap is specified in the Environ interface.
