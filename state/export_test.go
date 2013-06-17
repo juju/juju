@@ -93,6 +93,10 @@ func addCharm(c *C, st *State, series string, ch charm.Charm) *Charm {
 	return sch
 }
 
+func MachineIdLessThan(id1, id2 string) bool {
+	return machineIdLessThan(id1, id2)
+}
+
 func init() {
 	logSize = logSizeTests
 }

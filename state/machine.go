@@ -107,13 +107,24 @@ func (m *Machine) globalKey() string {
 	return machineGlobalKey(m.doc.Id)
 }
 
+const machineTagPrefix = "machine-"
+
 // MachineTag returns the tag for the
 // machine with the given id.
 func MachineTag(id string) string {
-	tag := fmt.Sprintf("machine-%s", id)
+	tag := fmt.Sprintf("%s%s", machineTagPrefix, id)
 	// Containers require "/" to be replaced by "-".
 	tag = strings.Replace(tag, "/", "-", -1)
 	return tag
+}
+
+// MachineIdFromTag returns the machine id that was used to create the tag.
+func MachineIdFromTag(tag string) string {
+	// Strip off the "machine-" prefix.
+	id := tag[len(machineTagPrefix):]
+	// Put the slashes back.
+	id = strings.Replace(id, "-", "/", -1)
+	return id
 }
 
 // Tag returns a name identifying the machine that is safe to use
@@ -240,7 +251,7 @@ func (m *Machine) Containers() ([]string, error) {
 
 // ParentId returns the Id of the host machine if this machine is a container.
 func (m *Machine) ParentId() (string, bool) {
-	parentId := parentId(m.Id())
+	parentId := ParentId(m.Id())
 	return parentId, parentId != ""
 }
 

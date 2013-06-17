@@ -8,8 +8,8 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/openstack"
+	"launchpad.net/juju-core/instance"
 	"testing"
 )
 
@@ -44,14 +44,14 @@ var addressTests = []struct {
 	{
 		summary:  "missing",
 		expected: "",
-		failure:  environs.ErrNoDNSName,
+		failure:  instance.ErrNoDNSName,
 	},
 	{
 		summary:  "empty",
 		private:  []nova.IPAddress{},
 		networks: []string{"private"},
 		expected: "",
-		failure:  environs.ErrNoDNSName,
+		failure:  instance.ErrNoDNSName,
 	},
 	{
 		summary:  "private only",
@@ -110,7 +110,7 @@ var addressTests = []struct {
 		private:  []nova.IPAddress{{6, "::dead:beef:f00d"}},
 		networks: []string{"private"},
 		expected: "",
-		failure:  environs.ErrNoDNSName,
+		failure:  instance.ErrNoDNSName,
 	},
 }
 

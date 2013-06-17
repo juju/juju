@@ -17,6 +17,7 @@ import (
 )
 
 type PluginSuite struct {
+	testing.LoggingSuite
 	oldPath string
 	home    *testing.FakeHome
 }
@@ -24,6 +25,7 @@ type PluginSuite struct {
 var _ = Suite(&PluginSuite{})
 
 func (suite *PluginSuite) SetUpTest(c *C) {
+	suite.LoggingSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
 	suite.home = testing.MakeSampleHome(c)
 	os.Setenv("PATH", "/bin:"+testing.HomePath())
@@ -32,6 +34,7 @@ func (suite *PluginSuite) SetUpTest(c *C) {
 func (suite *PluginSuite) TearDownTest(c *C) {
 	suite.home.Restore()
 	os.Setenv("PATH", suite.oldPath)
+	suite.LoggingSuite.TearDownTest(c)
 }
 
 func (*PluginSuite) TestFindPlugins(c *C) {
@@ -195,8 +198,6 @@ if [ "$1" = "--description" ]; then
   fi
   echo "{{.Name}} description"
   exit {{.ExitStatus}}
-else
-  echo "No --description" >2
 fi
 
 if [ "$1" = "--help" ]; then
