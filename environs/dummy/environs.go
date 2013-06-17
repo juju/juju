@@ -101,7 +101,10 @@ type OpClosePorts struct {
 	Ports      []instance.Port
 }
 
-type OpPutFile GenericOperation
+type OpPutFile struct {
+	Env      string
+	FileName string
+}
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
@@ -432,6 +435,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	}
 	if _, ok := e.Config().CACert(); !ok {
 		return fmt.Errorf("no CA certificate in environment configuration")
+	}
+	if err := environs.VerifyStorage(e.Storage()); err != nil {
+		return err
 	}
 
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
