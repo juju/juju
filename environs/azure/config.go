@@ -14,6 +14,7 @@ var azureConfigChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"management-subscription-id":     schema.String(),
 		"management-certificate-path":    schema.String(),
+		"management-certificate":         schema.String(),
 		"management-hosted-service-name": schema.String(),
 		"storage-account-name":           schema.String(),
 		"storage-account-key":            schema.String(),
@@ -21,6 +22,8 @@ var azureConfigChecker = schema.StrictFieldMap(
 	},
 	schema.Defaults{
 		"management-hosted-service-name": "",
+		"management-certificate":         "",
+		"management-certificate-path":    "",
 		"storage-container-name":         "",
 	},
 )
@@ -34,8 +37,8 @@ func (cfg *azureEnvironConfig) ManagementSubscriptionId() string {
 	return cfg.attrs["management-subscription-id"].(string)
 }
 
-func (cfg *azureEnvironConfig) ManagementCertificatePath() string {
-	return cfg.attrs["management-certificate-path"].(string)
+func (cfg *azureEnvironConfig) ManagementCertificate() string {
+	return cfg.attrs["management-certificate"].(string)
 }
 
 func (cfg *azureEnvironConfig) ManagementHostedServiceName() string {
@@ -81,17 +84,30 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	envCfg.Config = cfg
 	envCfg.attrs = v.(map[string]interface{})
 
-	// Validate management-certificate-path: must be a path to an existing file.
-	certPath := envCfg.ManagementCertificatePath()
-	_, err = ioutil.ReadFile(certPath)
-	if err != nil {
-		return nil, fmt.Errorf("invalid management-certificate-path: %s", err)
+	cert := envCfg.ManagementCertificate()
+	if cert == "" {
+		certPath := envCfg.attrs["management-certificate-path"].(string)
+		pemData, err := ioutil.ReadFile(certPath)
+		if err != nil {
+			return nil, fmt.Errorf("invalid management-certificate-path: %s", err)
+		}
+		envCfg.attrs["management-certificate"] = string(pemData)
 	}
+	delete(envCfg.attrs, "management-certificate-path")
 	if envCfg.ManagementHostedServiceName() == "" {
 		return nil, fmt.Errorf("environment has no management-hosted-service-name; auto-creation of hosted services is not yet supported")
 	}
 	if envCfg.StorageContainerName() == "" {
 		return nil, fmt.Errorf("environment has no storage-container-name; auto-creation of storage containers is not yet supported")
+	}
+	if oldCfg != nil {
+		attrs := oldCfg.UnknownAttrs()
+		if hostedServiceName, _ := attrs["management-hosted-service-name"].(string); envCfg.ManagementHostedServiceName() != hostedServiceName {
+			return nil, fmt.Errorf("cannot change management-hosted-service-name from %q to %q", hostedServiceName, envCfg.ManagementHostedServiceName())
+		}
+		if storageContainerName, _ := attrs["storage-container-name"].(string); envCfg.StorageContainerName() != storageContainerName {
+			return nil, fmt.Errorf("cannot change storage-container-name from %q to %q", storageContainerName, envCfg.StorageContainerName())
+		}
 	}
 
 	return cfg.Apply(envCfg.attrs)
@@ -116,5 +132,12 @@ func (prov azureEnvironProvider) BoilerplateConfig() string {
 
 // SecretAttrs is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	panic("unimplemented")
+	secretAttrs := make(map[string]interface{})
+	azureCfg, err := prov.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	secretAttrs["management-certificate"] = azureCfg.ManagementCertificate()
+	secretAttrs["storage-account-key"] = azureCfg.StorageAccountKey()
+	return secretAttrs, nil
 }

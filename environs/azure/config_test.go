@@ -35,10 +35,9 @@ func makeConfigMap(configMap map[string]interface{}) map[string]interface{} {
 }
 
 func makeAzureConfigMap(c *C) map[string]interface{} {
-	managementCertificatePath := createTempFile(c)
 	azureConfig := map[string]interface{}{
 		"management-subscription-id":     "subscription-id",
-		"management-certificate-path":    managementCertificatePath,
+		"management-certificate":         "cert",
 		"management-hosted-service-name": "service-name",
 		"storage-account-name":           "account-name",
 		"storage-account-key":            "account-key",
@@ -47,12 +46,14 @@ func makeAzureConfigMap(c *C) map[string]interface{} {
 	return makeConfigMap(azureConfig)
 }
 
-// createTempFile creates a temporary empty file.  The file will be cleaned
+// createTempFile creates a temporary file.  The file will be cleaned
 // up at the end of the test calling this method.
-func createTempFile(c *C) string {
+func createTempFile(c *C, content []byte) string {
 	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, IsNil)
 	filename := file.Name()
+	err = ioutil.WriteFile(filename, content, 0644)
+	c.Assert(err, IsNil)
 	return filename
 }
 
@@ -78,6 +79,30 @@ func (ConfigSuite) TestValidateAcceptsUnchangedConfig(c *C) {
 	c.Check(result.Name(), Equals, attrs["name"])
 }
 
+func (ConfigSuite) TestValidateRejectsChangingHostedServiceName(c *C) {
+	attrs := makeAzureConfigMap(c)
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	provider := azureEnvironProvider{}
+	attrs["management-hosted-service-name"] = "another name"
+	oldConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, oldConfig)
+	c.Check(err, ErrorMatches, ".*cannot change management-hosted-service-name.*")
+}
+
+func (ConfigSuite) TestValidateRejectsChangingStorageContainer(c *C) {
+	attrs := makeAzureConfigMap(c)
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	provider := azureEnvironProvider{}
+	attrs["storage-container-name"] = "another name"
+	oldConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, oldConfig)
+	c.Check(err, ErrorMatches, ".*cannot change storage-container-name.*")
+}
+
 func (ConfigSuite) TestValidateChecksConfigChanges(c *C) {
 	provider := azureEnvironProvider{}
 	oldAttrs := makeBaseConfigMap()
@@ -93,14 +118,14 @@ func (ConfigSuite) TestValidateChecksConfigChanges(c *C) {
 
 func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	managementSubscriptionId := "subscription-id"
-	managementCertificatePath := createTempFile(c)
+	certificate := "certificate content"
 	managementHostedServiceName := "service-name"
 	storageAccountName := "account-name"
 	storageAccountKey := "account-key"
 	storageContainerName := "container-name"
 	azureConfig := map[string]interface{}{
 		"management-subscription-id":     managementSubscriptionId,
-		"management-certificate-path":    managementCertificatePath,
+		"management-certificate":         certificate,
 		"management-hosted-service-name": managementHostedServiceName,
 		"storage-account-name":           storageAccountName,
 		"storage-account-key":            storageAccountKey,
@@ -114,16 +139,31 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(azConfig.Name(), Equals, attrs["name"])
 	c.Check(azConfig.ManagementSubscriptionId(), Equals, managementSubscriptionId)
-	c.Check(azConfig.ManagementCertificatePath(), Equals, managementCertificatePath)
+	c.Check(azConfig.ManagementCertificate(), Equals, certificate)
 	c.Check(azConfig.ManagementHostedServiceName(), Equals, managementHostedServiceName)
 	c.Check(azConfig.StorageAccountName(), Equals, storageAccountName)
 	c.Check(azConfig.StorageAccountKey(), Equals, storageAccountKey)
 	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)
 }
 
+func (ConfigSuite) TestValidateReadsCertFile(c *C) {
+	certificate := "test certificate"
+	certFile := createTempFile(c, []byte(certificate))
+	attrs := makeAzureConfigMap(c)
+	delete(attrs, "management-certificate")
+	attrs["management-certificate-path"] = certFile
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	azConfig, err := provider.newConfig(newConfig)
+	c.Assert(err, IsNil)
+	c.Check(azConfig.ManagementCertificate(), Equals, certificate)
+}
+
 func (ConfigSuite) TestChecksExistingCertFile(c *C) {
 	nonExistingCertPath := "non-existing-cert-file"
 	attrs := makeAzureConfigMap(c)
+	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = nonExistingCertPath
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(attrs)
@@ -136,4 +176,24 @@ func (ConfigSuite) TestBoilerplateConfigReturnsAzureConfig(c *C) {
 	provider := azureEnvironProvider{}
 	boilerPlateConfig := provider.BoilerplateConfig()
 	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), Equals, true)
+}
+
+func (ConfigSuite) TestSecretAttrsReturnsSensitiveAttributes(c *C) {
+	attrs := makeAzureConfigMap(c)
+	certificate := "certificate"
+	attrs["management-certificate"] = certificate
+	storageAccountKey := "key"
+	attrs["storage-account-key"] = storageAccountKey
+	config, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	provider := azureEnvironProvider{}
+	secretAttrs, err := provider.SecretAttrs(config)
+	c.Assert(err, IsNil)
+
+	expectedAttrs := map[string]interface{}{
+		"management-certificate": certificate,
+		"storage-account-key":    storageAccountKey,
+	}
+	c.Check(secretAttrs, DeepEquals, expectedAttrs)
 }
