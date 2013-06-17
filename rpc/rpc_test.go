@@ -175,6 +175,7 @@ func (a *DelayedMethods) Delay() (stringVal, error) {
 	case err := <-a.doneError:
 		return stringVal{}, err
 	}
+	panic("unreachable")
 }
 
 type ErrorMethods struct {
