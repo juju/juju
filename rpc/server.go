@@ -126,9 +126,11 @@ func NewConn(codec Codec) *Conn {
 	}
 }
 
-// Start starts the RPC connection running.  It has no effect if it has
-// already been called.  By default, a connection serves no methods.
-// See Conn.Serve for a description of how to serve methods on a Conn.
+// Start starts the RPC connection running.  It must be called at least
+// one for any RPC connection (client or server side) It has no effect
+// if it has already been called.  By default, a connection serves no
+// methods.  See Conn.Serve for a description of how to serve methods on
+// a Conn.
 func (conn *Conn) Start() {
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
@@ -139,7 +141,7 @@ func (conn *Conn) Start() {
 }
 
 // Serve serves RPC requests on the connection by invoking methods on
-// rootValue. Note that it does not start the connection running,
+// root. Note that it does not start the connection running,
 // though it may be called once the connection is already started.
 //
 // The server executes each client request by calling a method on root
@@ -171,22 +173,25 @@ func (conn *Conn) Start() {
 // with specified codes.  There will be a panic if transformErrors
 // returns nil.
 //
-// It is an error if the connection is already serving requests
-// or if the root value implements no RPC methods.
+// It is an error if if the root value implements no RPC methods.
+//
+// Serve may be called at any time on a connection to change the
+// set of methods being served by the connection. This will have
+// no effect on calls that are currently being services.
+// If root is nil, the connection will serve no methods.
 func (conn *Conn) Serve(root interface{}, transformErrors func(error) error) error {
-	if transformErrors == nil {
-		transformErrors = func(err error) error { return err }
-	}
 	rootValue := reflect.ValueOf(root)
-	// Check that rootValue is ok to use as an RPC server type.
-	if _, err := methods(rootValue.Type()); err != nil {
-		return err
+	if root != nil {
+		if transformErrors == nil {
+			transformErrors = func(err error) error { return err }
+		}
+		// Check that rootValue is ok to use as an RPC server type.
+		if _, err := methods(rootValue.Type()); err != nil {
+			return err
+		}
 	}
 	conn.mutex.Lock()
 	defer conn.mutex.Unlock()
-	if conn.transformErrors != nil {
-		return errors.New("RPC connection is already serving requests")
-	}
 	conn.rootValue = rootValue
 	conn.transformErrors = transformErrors
 	return nil
@@ -301,17 +306,19 @@ func (conn *Conn) readBody(resp interface{}, isRequest bool) error {
 }
 
 func (conn *Conn) handleRequest(hdr *Header) error {
-	obtain, act, err := conn.findRequest(hdr)
+	reqInfo, err := conn.findRequest(hdr)
 	if err != nil {
 		if err := conn.readBody(nil, true); err != nil {
 			return err
 		}
+		// We don't transform the error because there
+		// may be no transformErrors function available.
 		return conn.writeErrorResponse(hdr.RequestId, err)
 	}
 	var argp interface{}
 	var arg reflect.Value
-	if act.arg != nil {
-		v := reflect.New(act.arg)
+	if reqInfo.action.arg != nil {
+		v := reflect.New(reqInfo.action.arg)
 		arg = v.Elem()
 		argp = v.Interface()
 	}
@@ -329,18 +336,18 @@ func (conn *Conn) handleRequest(hdr *Header) error {
 		// the error is actually a framing or syntax
 		// problem, then the next ReadHeader should pick
 		// up the problem and abort.
-		return conn.writeErrorResponse(hdr.RequestId, err)
+		return conn.writeErrorResponse(hdr.RequestId, reqInfo.transformErrors(err))
 	}
 	conn.mutex.Lock()
 	closing := conn.closing
 	if !closing {
 		conn.srvPending.Add(1)
-		go conn.runRequest(hdr.RequestId, hdr.Id, obtain, act, arg)
+		go conn.runRequest(hdr.RequestId, hdr.Id, reqInfo, arg)
 	}
 	conn.mutex.Unlock()
 	if closing {
 		// We're closing down - no new requests may be initiated.
-		return conn.writeErrorResponse(hdr.RequestId, ErrShutdown)
+		return conn.writeErrorResponse(hdr.RequestId, reqInfo.transformErrors(ErrShutdown))
 	}
 	return nil
 }
@@ -351,7 +358,6 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 	hdr := &Header{
 		RequestId: reqId,
 	}
-	err = conn.transformErrors(err)
 	if err, ok := err.(ErrorCoder); ok {
 		hdr.ErrorCode = err.ErrorCode()
 	} else {
@@ -364,37 +370,47 @@ func (conn *Conn) writeErrorResponse(reqId uint64, err error) error {
 	return nil
 }
 
-func (conn *Conn) isServing() bool {
-	conn.mutex.Lock()
-	defer conn.mutex.Unlock()
-	return conn.transformErrors != nil
+type requestInfo struct {
+	obtain          *obtainer
+	action          *action
+	transformErrors func(error) error
 }
 
-func (conn *Conn) findRequest(hdr *Header) (*obtainer, *action, error) {
-	if !conn.isServing() {
-		return nil, nil, fmt.Errorf("no service")
+func (conn *Conn) findRequest(hdr *Header) (requestInfo, error) {
+	conn.mutex.Lock()
+	rootValue := conn.rootValue
+	transformErrors := conn.transformErrors
+	conn.mutex.Unlock()
+
+	if !rootValue.IsValid() {
+		return requestInfo{}, fmt.Errorf("no service")
 	}
-	m, err := methods(conn.rootValue.Type())
+	m, err := methods(rootValue.Type())
 	if err != nil {
 		panic("failed to get methods")
 	}
 	o := m.obtain[hdr.Type]
 	if o == nil {
-		return nil, nil, fmt.Errorf("unknown object type %q", hdr.Type)
+		return requestInfo{}, fmt.Errorf("unknown object type %q", hdr.Type)
 	}
 	a := m.action[o.ret][hdr.Request]
 	if a == nil {
-		return nil, nil, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
+		return requestInfo{}, fmt.Errorf("no such request %q on %s", hdr.Request, hdr.Type)
 	}
-	return o, a, nil
+	info := requestInfo{
+		obtain:          o,
+		action:          a,
+		transformErrors: transformErrors,
+	}
+	return info, nil
 }
 
 // runRequest runs the given request and sends the reply.
-func (conn *Conn) runRequest(reqId uint64, objId string, obtain *obtainer, act *action, arg reflect.Value) {
+func (conn *Conn) runRequest(reqId uint64, objId string, reqInfo requestInfo, arg reflect.Value) {
 	defer conn.srvPending.Done()
-	rv, err := conn.runRequest0(reqId, objId, obtain, act, arg)
+	rv, err := conn.runRequest0(reqId, objId, reqInfo.obtain, reqInfo.action, arg)
 	if err != nil {
-		err = conn.writeErrorResponse(reqId, err)
+		err = conn.writeErrorResponse(reqId, reqInfo.transformErrors(err))
 	} else {
 		var rvi interface{}
 		hdr := &Header{
