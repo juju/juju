@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machiner"
@@ -17,14 +18,16 @@ type srvRoot struct {
 	state     *srvState
 	srv       *Server
 	resources *resources
+	rpcConn   *rpc.Conn
 
 	user authUser
 }
 
-func newStateServer(srv *Server) *srvRoot {
+func newStateServer(srv *Server, rpcConn *rpc.Conn) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
 		resources: newResources(),
+		rpcConn:   rpcConn,
 	}
 	r.admin = &srvAdmin{
 		root: r,

@@ -103,7 +103,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 		}
 		return nil
 	}
-	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
+	if err := conn.Serve(newStateServer(srv, conn), serverError); err != nil {
 		return err
 	}
 	conn.Start()
