@@ -26,6 +26,7 @@ var logger = loggo.GetLogger("juju.container.lxc")
 var (
 	defaultTemplate = "ubuntu-cloud"
 	containerDir    = "/var/lib/juju/containers"
+	lxcContainerDir = "/var/lib/lxc"
 )
 
 type ContainerFactory interface {
@@ -137,10 +138,10 @@ func (lxc *lxcContainer) Directory() string {
 	return filepath.Join(containerDir, lxc.Name())
 }
 
-const internalLogDir = "/var/lib/lxc/%s/rootfs/var/log/juju"
+const internalLogDir = "%s/%s/rootfs/var/log/juju"
 
 func (lxc *lxcContainer) InternalLogDir() string {
-	return fmt.Sprintf(internalLogDir, lxc.Name())
+	return fmt.Sprintf(internalLogDir, lxcContainerDir, lxc.Name())
 }
 
 const localConfig = `
