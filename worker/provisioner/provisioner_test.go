@@ -361,27 +361,6 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	s.checkStartInstance(c, m)
 }
 
-func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
-	defer stop(c, p)
-
-	// place a new machine into the state
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	s.checkStartInstance(c, m)
-
-	err = s.invalidateEnvironment(c)
-	c.Assert(err, IsNil)
-
-	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	// the PA should create it using the old environment
-	s.checkStartInstance(c, m)
-}
-
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
 	p := provisioner.NewProvisioner(s.State, "0")
 	defer stop(c, p)
@@ -465,56 +444,4 @@ func (s *ProvisionerSuite) TestDyingMachines(c *C) {
 	err = m0.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(m0.Life(), Equals, state.Dying)
-}
-
-func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
-	defer stop(c, p)
-
-	// place a new machine into the state
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-	s.checkStartInstance(c, m)
-
-	err = s.invalidateEnvironment(c)
-	c.Assert(err, IsNil)
-	s.State.StartSync()
-
-	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	// the PA should create it using the old environment
-	s.checkStartInstance(c, m)
-
-	err = s.fixEnvironment()
-	c.Assert(err, IsNil)
-
-	// insert our observer
-	cfgObserver := make(chan *config.Config, 1)
-	p.SetObserver(cfgObserver)
-
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	attrs := cfg.AllAttrs()
-	attrs["secret"] = "beef"
-	cfg, err = config.New(attrs)
-	c.Assert(err, IsNil)
-	err = s.State.SetEnvironConfig(cfg)
-
-	s.State.StartSync()
-
-	// wait for the PA to load the new configuration
-	select {
-	case <-cfgObserver:
-	case <-time.After(200 * time.Millisecond):
-		c.Fatalf("PA did not action config change")
-	}
-
-	// create a third machine
-	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
-
-	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", constraints.Value{})
 }
