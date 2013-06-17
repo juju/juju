@@ -113,12 +113,13 @@ func setupAuthentication(st *state.State, machine *state.Machine) (*state.Info, 
 
 func (s *LxcSuite) TestContainerCreate(c *C) {
 
+	machineId := "1/lxc/0"
 	config := testing.EnvironConfig(c)
-	stateInfo := jujutesting.FakeStateInfo("1/lxc/0")
-	apiInfo := jujutesting.FakeAPIInfo("1/lxc/0")
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
 
 	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer("1/lxc/0")
+	container, err := factory.NewContainer(machineId)
 	c.Assert(err, IsNil)
 
 	series := "series"
