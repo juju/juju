@@ -33,32 +33,32 @@ func (mi *maasInstance) refreshInstance() error {
 	return nil
 }
 
-func (this *maasInstance) DNSName() (string, error) {
-	hostname, err := (*this.maasObject).GetField("hostname")
+func (mi *maasInstance) DNSName() (string, error) {
+	hostname, err := (*mi.maasObject).GetField("hostname")
 	if err != nil {
 		return "", err
 	}
 	return hostname, nil
 }
 
-func (this *maasInstance) WaitDNSName() (string, error) {
+func (mi *maasInstance) WaitDNSName() (string, error) {
 	// A MAAS nodes gets his DNS name when it's created.  WaitDNSName,
 	// (same as DNSName) just returns the hostname of the node.
-	return this.DNSName()
+	return mi.DNSName()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.
-func (this *maasInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (mi *maasInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	log.Debugf("environs/maas: unimplemented OpenPorts() called")
 	return nil
 }
 
-func (this *maasInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (mi *maasInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	log.Debugf("environs/maas: unimplemented ClosePorts() called")
 	return nil
 }
 
-func (this *maasInstance) Ports(machineId string) ([]instance.Port, error) {
+func (mi *maasInstance) Ports(machineId string) ([]instance.Port, error) {
 	log.Debugf("environs/maas: unimplemented Ports() called")
 	return []instance.Port{}, nil
 }
