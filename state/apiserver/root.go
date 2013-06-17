@@ -6,8 +6,7 @@ package apiserver
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/apiserver/machineagent"
-	"launchpad.net/juju-core/state/apiserver/machiner"
+	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -87,21 +86,21 @@ func (r *srvRoot) requireClient() error {
 // Machiner returns an object that provides access to the Machiner API.
 // The id argument is reserved for future use and must currently
 // be empty.
-func (r *srvRoot) Machiner(id string) (*machiner.Machiner, error) {
+func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return machiner.New(r.srv.state, r)
+	return machine.NewMachinerAPI(r.srv.state, r)
 }
 
 // MachineAgent returns an object that provides access to the machine
 // agent API.  The id argument is reserved for future use and must currently
 // be empty.
-func (r *srvRoot) MachineAgent(id string) (*machineagent.API, error) {
+func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return machineagent.NewAPI(r.srv.state, r)
+	return machine.NewAgentAPI(r.srv.state, r)
 }
 
 // User returns an object that provides
