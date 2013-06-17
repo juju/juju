@@ -86,6 +86,22 @@ type MachinesLifeResults struct {
 	Machines []MachineLifeResult
 }
 
+// MachineAgentGetMachinesResults holds the results of a
+// machineagent.API.GetMachines call.
+type MachineAgentGetMachinesResults struct {
+	Machines []MachineAgentGetMachinesResult
+}
+
+type MachineJob string
+
+// MachineAgentGetMachinesResult holds the results of a
+// machineagent.API.GetMachines call for a single machine.
+type MachineAgentGetMachinesResult struct {
+	Life  Life
+	Jobs  []MachineJob
+	Error *Error
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName    string

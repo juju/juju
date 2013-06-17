@@ -38,7 +38,7 @@ func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults
 		machine, err := m.st.Machine(arg.Id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				err = machine.SetStatus(arg.Status, arg.Info)
@@ -66,7 +66,7 @@ func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error
 		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				result.Machines[i].Life = params.Life(machine.Life().String())
@@ -90,7 +90,7 @@ func (m *Machiner) EnsureDead(args params.Machines) (params.ErrorResults, error)
 		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				err = machine.EnsureDead()
