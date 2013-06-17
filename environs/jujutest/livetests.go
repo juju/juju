@@ -457,12 +457,10 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 }
 
 func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
+	// Bootstrap automatically verifies that storage is writable.
 	t.BootstrapOnce(c)
 	environ := t.Env
-
 	storage := environ.Storage()
-	err := environs.VerifyStorage(storage)
-	c.Assert(err, IsNil)
 	reader, err := storage.Get("bootstrap-verify")
 	c.Assert(err, IsNil)
 	defer reader.Close()
