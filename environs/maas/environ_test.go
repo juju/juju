@@ -15,6 +15,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -344,7 +345,7 @@ func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
 func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *C) {
 	suite.getInstance("test1")
 
-	err := suite.environ.StopInstances([]environs.Instance{})
+	err := suite.environ.StopInstances([]instance.Instance{})
 	c.Check(err, IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, DeepEquals, map[string][]string{})
@@ -354,7 +355,7 @@ func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *C) {
 	instance1 := suite.getInstance("test1")
 	instance2 := suite.getInstance("test2")
 	suite.getInstance("test3")
-	instances := []environs.Instance{instance1, instance2}
+	instances := []instance.Instance{instance1, instance2}
 
 	err := suite.environ.StopInstances(instances)
 
@@ -394,12 +395,12 @@ func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 func (suite *EnvironSuite) TestDestroy(c *C) {
 	env := suite.makeEnviron()
 	suite.getInstance("test1")
-	instance := suite.getInstance("test2")
+	testInstance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	storage := env.Storage()
 
-	err := env.Destroy([]environs.Instance{instance})
+	err := env.Destroy([]instance.Instance{testInstance})
 
 	c.Check(err, IsNil)
 	// Instances have been stopped.
@@ -450,10 +451,4 @@ func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *C) {
 	// environs.Bootstrap calls Environ.Bootstrap.  This works.
 	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
-}
-
-func (suite *EnvironSuite) TestAssignmentPolicy(c *C) {
-	env := suite.makeEnviron()
-
-	c.Check(env.AssignmentPolicy(), Equals, state.AssignUnused)
 }

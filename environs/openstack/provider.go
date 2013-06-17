@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -270,19 +271,19 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 
-type instance struct {
+type openstackInstance struct {
 	e *environ
 	*nova.ServerDetail
 	address string
 }
 
-func (inst *instance) String() string {
+func (inst *openstackInstance) String() string {
 	return inst.ServerDetail.Id
 }
 
-var _ environs.Instance = (*instance)(nil)
+var _ instance.Instance = (*openstackInstance)(nil)
 
-func (inst *instance) Id() state.InstanceId {
+func (inst *openstackInstance) Id() state.InstanceId {
 	return state.InstanceId(inst.ServerDetail.Id)
 }
 
@@ -319,12 +320,12 @@ func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
 		public = private
 	}
 	if public == "" {
-		return "", environs.ErrNoDNSName
+		return "", instance.ErrNoDNSName
 	}
 	return public, nil
 }
 
-func (inst *instance) DNSName() (string, error) {
+func (inst *openstackInstance) DNSName() (string, error) {
 	if inst.address != "" {
 		return inst.address, nil
 	}
@@ -341,10 +342,10 @@ func (inst *instance) DNSName() (string, error) {
 	return inst.address, nil
 }
 
-func (inst *instance) WaitDNSName() (string, error) {
+func (inst *openstackInstance) WaitDNSName() (string, error) {
 	for a := longAttempt.Start(); a.Next(); {
 		addr, err := inst.DNSName()
-		if err == nil || err != environs.ErrNoDNSName {
+		if err == nil || err != instance.ErrNoDNSName {
 			return addr, err
 		}
 	}
@@ -353,7 +354,7 @@ func (inst *instance) WaitDNSName() (string, error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -366,7 +367,7 @@ func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -379,7 +380,7 @@ func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]params.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -507,7 +508,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
 		// more important.
-		e.StopInstances([]environs.Instance{inst})
+		e.StopInstances([]instance.Instance{inst})
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
@@ -545,7 +546,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			if inst == nil {
 				continue
 			}
-			name, err := inst.(*instance).DNSName()
+			name, err := inst.(*openstackInstance).DNSName()
 			if err != nil {
 				continue
 			}
@@ -657,7 +658,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return e.imageBaseURLs, nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, err
@@ -767,7 +768,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
@@ -832,7 +833,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
-	inst := &instance{e, detail, ""}
+	inst := &openstackInstance{e, detail, ""}
 	log.Infof("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
@@ -847,12 +848,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	return inst, nil
 }
 
-func (e *environ) StopInstances(insts []environs.Instance) error {
+func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
-		instanceValue, ok := inst.(*instance)
+		instanceValue, ok := inst.(*openstackInstance)
 		if !ok {
-			return errors.New("Incompatible environs.Instance supplied")
+			return errors.New("Incompatible instance.Instance supplied")
 		}
 		ids[i] = instanceValue.Id()
 	}
@@ -863,7 +864,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // collectInstances tries to get information on each instance id in ids.
 // It fills the slots in the given map for known servers with status
 // either ACTIVE or BUILD. Returns a list of missing ids.
-func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]environs.Instance) []state.InstanceId {
+func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]instance.Instance) []state.InstanceId {
 	var err error
 	serversById := make(map[string]nova.ServerDetail)
 	if len(ids) == 1 {
@@ -887,7 +888,7 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
 			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
-				out[id] = &instance{e, &server, ""}
+				out[id] = &openstackInstance{e, &server, ""}
 			}
 			continue
 		}
@@ -896,12 +897,12 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 	return missing
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	missing := ids
-	found := make(map[state.InstanceId]environs.Instance)
+	found := make(map[state.InstanceId]instance.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -913,7 +914,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	if len(found) == 0 {
 		return nil, environs.ErrNoInstances
 	}
-	insts := make([]environs.Instance, len(ids))
+	insts := make([]instance.Instance, len(ids))
 	var err error
 	for i, id := range ids {
 		if inst := found[id]; inst != nil {
@@ -925,7 +926,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	return insts, err
 }
 
-func (e *environ) AllInstances() (insts []environs.Instance, err error) {
+func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	servers, err := e.nova().ListServersDetail(e.machinesFilter())
 	if err != nil {
 		return nil, err
@@ -933,13 +934,13 @@ func (e *environ) AllInstances() (insts []environs.Instance, err error) {
 	for _, server := range servers {
 		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 			var s = server
-			insts = append(insts, &instance{e, &s, ""})
+			insts = append(insts, &openstackInstance{e, &s, ""})
 		}
 	}
 	return insts, err
 }
 
-func (e *environ) Destroy(ensureInsts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	log.Infof("environs/openstack: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
@@ -955,7 +956,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*instance).Id())
+		id := state.InstanceId(inst.(*openstackInstance).Id())
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true
@@ -971,15 +972,6 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// back to the (*storage) to access the private deleteAll() method.
 	st := e.Storage().(*storage)
 	return st.deleteAll()
-}
-
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
 }
 
 func (e *environ) globalGroupName() string {

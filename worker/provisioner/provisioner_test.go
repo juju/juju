@@ -12,10 +12,10 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -100,11 +100,11 @@ func stop(c *C, s stopper) {
 	c.Assert(s.Stop(), IsNil)
 }
 
-func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) environs.Instance {
+func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) instance.Instance {
 	return s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
 }
 
-func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance environs.Instance) {
+func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance instance.Instance) {
 	s.State.StartSync()
 	for {
 		select {
@@ -160,7 +160,7 @@ func (s *ProvisionerSuite) checkNoOperations(c *C) {
 }
 
 // checkStopInstances checks that an instance has been stopped.
-func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...environs.Instance) {
+func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...instance.Instance) {
 	s.State.StartSync()
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
@@ -294,6 +294,36 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	p = provisioner.NewProvisioner(s.State, "0")
 	defer stop(c, p)
 	s.checkNoOperations(c)
+}
+
+func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
+	p := provisioner.NewProvisioner(s.State, "0")
+	defer stop(c, p)
+
+	// create a machine to host the container.
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	instance := s.checkStartInstance(c, m)
+
+	// make a container on the machine we just created
+	params := state.AddMachineParams{
+		ParentId:      m.Id(),
+		ContainerType: state.LXC,
+		Series:        config.DefaultSeries,
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+
+	// the PA should not attempt to create it
+	s.checkNoOperations(c)
+
+	// cleanup
+	c.Assert(container.EnsureDead(), IsNil)
+	c.Assert(container.Remove(), IsNil)
+	c.Assert(m.EnsureDead(), IsNil)
+	s.checkStopInstances(c, instance)
+	s.waitRemoved(c, m)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(c *C) {

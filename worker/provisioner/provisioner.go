@@ -78,7 +78,7 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher := p.st.WatchMachines()
+	machinesWatcher := p.st.WatchEnvironMachines()
 	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := newProvisionerTask(
 		p.machineId,
@@ -95,14 +95,14 @@ func (p *Provisioner) loop() error {
 			return tomb.ErrDying
 		case <-environmentProvisioner.Dying():
 			err := environmentProvisioner.Err()
-			logger.Error("environment provisioner died: %v", err)
+			logger.Errorf("environment provisioner died: %v", err)
 			return err
 		case cfg, ok := <-environWatcher.Changes():
 			if !ok {
 				return watcher.MustErr(environWatcher)
 			}
 			if err := p.setConfig(cfg); err != nil {
-				logger.Error("loaded invalid environment configuration: %v", err)
+				logger.Errorf("loaded invalid environment configuration: %v", err)
 			}
 		}
 	}

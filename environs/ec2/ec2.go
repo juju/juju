@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -65,22 +66,22 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 
-type instance struct {
+type ec2Instance struct {
 	e *environ
 	*ec2.Instance
 }
 
-func (inst *instance) String() string {
+func (inst *ec2Instance) String() string {
 	return inst.InstanceId
 }
 
-var _ environs.Instance = (*instance)(nil)
+var _ instance.Instance = (*ec2Instance)(nil)
 
-func (inst *instance) Id() state.InstanceId {
+func (inst *ec2Instance) Id() state.InstanceId {
 	return state.InstanceId(inst.InstanceId)
 }
 
-func (inst *instance) DNSName() (string, error) {
+func (inst *ec2Instance) DNSName() (string, error) {
 	if inst.Instance.DNSName != "" {
 		return inst.Instance.DNSName, nil
 	}
@@ -90,18 +91,18 @@ func (inst *instance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	freshInst := insts[0].(*instance).Instance
+	freshInst := insts[0].(*ec2Instance).Instance
 	if freshInst.DNSName == "" {
-		return "", environs.ErrNoDNSName
+		return "", instance.ErrNoDNSName
 	}
 	inst.Instance.DNSName = freshInst.DNSName
 	return freshInst.DNSName, nil
 }
 
-func (inst *instance) WaitDNSName() (string, error) {
+func (inst *ec2Instance) WaitDNSName() (string, error) {
 	for a := longAttempt.Start(); a.Next(); {
 		name, err := inst.DNSName()
-		if err == nil || err != environs.ErrNoDNSName {
+		if err == nil || err != instance.ErrNoDNSName {
 			return name, err
 		}
 	}
@@ -278,7 +279,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
 		// more important.
-		e.StopInstances([]environs.Instance{inst})
+		e.StopInstances([]instance.Instance{inst})
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
@@ -313,7 +314,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			if inst == nil {
 				continue
 			}
-			name := inst.(*instance).Instance.DNSName
+			name := inst.(*ec2Instance).Instance.DNSName
 			if name != "" {
 				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
 				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
@@ -334,24 +335,13 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		}, nil
 }
 
-// AssignmentPolicy for EC2 is to deploy units only on machines without other
-// units already assigned, and to launch new machines as required.
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
-}
-
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, err
@@ -408,7 +398,7 @@ const ebsStorage = "ebs"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
@@ -466,15 +456,15 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	inst := &instance{e, &instances.Instances[0]}
+	inst := &ec2Instance{e, &instances.Instances[0]}
 	log.Infof("environs/ec2: started instance %q", inst.Id())
 	return inst, nil
 }
 
-func (e *environ) StopInstances(insts []environs.Instance) error {
+func (e *environ) StopInstances(insts []instance.Instance) error {
 	ids := make([]state.InstanceId, len(insts))
 	for i, inst := range insts {
-		ids[i] = inst.(*instance).Id()
+		ids[i] = inst.(*ec2Instance).Id()
 	}
 	return e.terminateInstances(ids)
 }
@@ -483,7 +473,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
-func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
+func (e *environ) gatherInstances(ids []state.InstanceId, insts []instance.Instance) error {
 	var need []string
 	for i, inst := range insts {
 		if inst == nil {
@@ -513,7 +503,7 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Insta
 			for k := range r.Instances {
 				if r.Instances[k].InstanceId == string(id) {
 					inst := r.Instances[k]
-					insts[i] = &instance{e, &inst}
+					insts[i] = &ec2Instance{e, &inst}
 					n++
 				}
 			}
@@ -525,11 +515,11 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Insta
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]environs.Instance, len(ids))
+	insts := make([]instance.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -554,7 +544,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	return insts, nil
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
+func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.jujuGroupName())
@@ -562,17 +552,17 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
+	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
-			insts = append(insts, &instance{e, &inst})
+			insts = append(insts, &ec2Instance{e, &inst})
 		}
 	}
 	return insts, nil
 }
 
-func (e *environ) Destroy(ensureInsts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	log.Infof("environs/ec2: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
@@ -588,7 +578,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*instance).InstanceId)
+		id := state.InstanceId(inst.(*ec2Instance).InstanceId)
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true
@@ -772,7 +762,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -785,7 +775,7 @@ func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []params.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -798,7 +788,7 @@ func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]params.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]params.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())

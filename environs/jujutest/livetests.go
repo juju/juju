@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -142,7 +143,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Check(insts[0].Id(), Equals, id0)
 	c.Check(insts[1], IsNil)
 
-	err = t.Env.StopInstances([]environs.Instance{inst})
+	err = t.Env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, IsNil)
 
 	// The machine may not be marked as shutting down
@@ -160,7 +161,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 func (t *LiveTests) TestPorts(c *C) {
 	inst1 := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, NotNil)
-	defer t.Env.StopInstances([]environs.Instance{inst1})
+	defer t.Env.StopInstances([]instance.Instance{inst1})
 	ports, err := inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -170,7 +171,7 @@ func (t *LiveTests) TestPorts(c *C) {
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
-	defer t.Env.StopInstances([]environs.Instance{inst2})
+	defer t.Env.StopInstances([]instance.Instance{inst2})
 
 	// Open some ports and check they're there.
 	err = inst1.OpenPorts("1", []params.Port{{"udp", 67}, {"tcp", 45}})
@@ -260,7 +261,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 
 	// Create instances and check open ports on both instances.
 	inst1 := testing.StartInstance(c, t.Env, "1")
-	defer t.Env.StopInstances([]environs.Instance{inst1})
+	defer t.Env.StopInstances([]instance.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -269,7 +270,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
-	defer t.Env.StopInstances([]environs.Instance{inst2})
+	defer t.Env.StopInstances([]instance.Instance{inst2})
 
 	err = t.Env.OpenPorts([]params.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 	c.Assert(err, IsNil)
@@ -630,7 +631,7 @@ func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId state.
 // assertInstanceId asserts that the machine has an instance id
 // that matches that of the given instance. If the instance is nil,
 // It asserts that the instance id is unset.
-func assertInstanceId(c *C, m *state.Machine, inst environs.Instance) {
+func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
 	var wantId, gotId state.InstanceId
 	var err error
 	if inst != nil {
@@ -700,7 +701,7 @@ attempt:
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
-		err := t.Env.StopInstances([]environs.Instance{inst})
+		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
@@ -713,7 +714,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
 	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
 	if inst != nil {
-		err := t.Env.StopInstances([]environs.Instance{inst})
+		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
