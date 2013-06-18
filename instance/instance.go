@@ -50,4 +50,16 @@ type Instance interface {
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
 	Ports(machineId string) ([]Port, error)
+
+	// Metadata returns the characteristics of the instance.
+	Metadata() (*Metadata, error)
+}
+
+// Metadata represents the characteristics of the instance (if known).
+// Attributes that are nil are unknown or not supported.
+type Metadata struct {
+	Arch     *string
+	Mem      *uint64
+	CpuCores *uint64
+	CpuPower *uint64
 }

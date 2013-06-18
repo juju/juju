@@ -299,6 +299,25 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
+func (t *localServerSuite) TestStartInstanceMetadata(c *C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	inst, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	c.Assert(err, IsNil)
+	md, err := inst.Metadata()
+	c.Assert(err, IsNil)
+	c.Check(*md.Arch, Equals, "amd64")
+	c.Check(*md.Mem, Equals, uint64(1740))
+	c.Check(*md.CpuCores, Equals, uint64(1))
+	c.Assert(*md.CpuPower, Equals, uint64(100))
+}
+
 // If match is true, CheckScripts checks that at least one script started
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests

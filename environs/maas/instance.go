@@ -4,6 +4,7 @@
 package maas
 
 import (
+	"fmt"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
@@ -19,6 +20,11 @@ var _ instance.Instance = (*maasInstance)(nil)
 func (mi *maasInstance) Id() instance.Id {
 	// Use the node's 'resource_uri' value.
 	return instance.Id((*mi.maasObject).URI().String())
+}
+
+func (mi *maasInstance) Metadata() (*instance.Metadata, error) {
+	log.Debugf("environs/maas: unimplemented Metadata() called")
+	return nil, fmt.Errorf("environs/maas: unimplemented Metadata() called")
 }
 
 // refreshInstance refreshes the instance with the most up-to-date information

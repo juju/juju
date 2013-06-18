@@ -41,3 +41,8 @@ func (instance *azureInstance) ClosePorts(machineId string, ports []instance.Por
 func (instance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
 	panic("unimplemented")
 }
+
+// Metadata is specified in the Instance interface.
+func (instance *azureInstance) Metadata() (*instance.Metadata, error) {
+	panic("unimplemented")
+}

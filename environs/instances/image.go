@@ -23,9 +23,8 @@ type InstanceConstraint struct {
 
 // InstanceSpec holds an instance type name and the chosen image info.
 type InstanceSpec struct {
-	InstanceTypeId   string
-	InstanceTypeName string
-	Image            Image
+	InstanceType InstanceType
+	Image        Image
 }
 
 // FindInstanceSpec returns an InstanceSpec satisfying the supplied InstanceConstraint.
@@ -42,7 +41,7 @@ func FindInstanceSpec(possibleImages []Image, ic *InstanceConstraint, allInstanc
 	for _, itype := range matchingTypes {
 		for _, image := range possibleImages {
 			if image.match(itype) {
-				return &InstanceSpec{itype.Id, itype.Name, image}, nil
+				return &InstanceSpec{itype, image}, nil
 			}
 		}
 	}
