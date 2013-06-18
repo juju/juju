@@ -4,23 +4,23 @@
 package provisioner_test
 
 import (
-	"fmt"
-	"os"
-	"path/filepath"
-
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/container"
+	"launchpad.net/golxc"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/lxc/mock"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type lxcBrokerSuite struct {
 	testing.LoggingSuite
+	golxc              golxc.ContainerFactory
+	broker             provisioner.Broker
 	containerDir       string
 	removedDir         string
 	lxcDir             string
@@ -47,6 +47,12 @@ func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.oldRemovedDir = lxc.SetRemovedContainerDir(s.removedDir)
 	s.lxcDir = c.MkDir()
 	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
+	s.golxc = mock.MockFactory()
+	tools := &state.Tools{
+		Binary: version.MustParseBinary("2.3.4-foo-bar"),
+		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
+	}
+	s.broker = provisioner.NewLxcBroker(s.golxc, testing.EnvironConfig(c), tools)
 }
 
 func (s *lxcBrokerSuite) TearDownTest(c *C) {
@@ -56,6 +62,28 @@ func (s *lxcBrokerSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (*lxcBrokerSuite) TestInstanceInterface(c *C) {
+func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance {
+	stateInfo := jujutesting.FakeStateInfo(machineId)
+	apiInfo := jujutesting.FakeAPIInfo(machineId)
 
+	series := "series"
+	nonce := "fake-nonce"
+	cons := constraints.Value{}
+	lxc, err := s.broker.StartInstance(machineId, nonce, series, cons, stateInfo, apiInfo)
+	c.Assert(err, IsNil)
+	return lxc
+}
+
+func (s *lxcBrokerSuite) TestStartInstance(c *C) {
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId)
+	c.Assert(lxc.Id(), Equals, instance.Id("machine-1-lxc-0"))
+}
+
+func (s *lxcBrokerSuite) TestStopInstance(c *C) {
+	lxc0 := s.startInstance(c, "1/lxc/0")
+	lxc1 := s.startInstance(c, "1/lxc/1")
+	lxc2 := s.startInstance(c, "1/lxc/2")
+	err := s.broker.StopInstances([]instance.Instance{lxc0, lxc1, lxc2})
+	c.Assert(err, IsNil)
 }
