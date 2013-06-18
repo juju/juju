@@ -12,21 +12,3 @@ func GetMachineId(container container.Container) (machineId string, ok bool) {
 	}
 	return
 }
-
-func SetContainerDir(dir string) (old string) {
-	old = containerDir
-	containerDir = dir
-	return
-}
-
-func SetLxcContainerDir(dir string) (old string) {
-	old = lxcContainerDir
-	lxcContainerDir = dir
-	return
-}
-
-func SetRemovedContainerDir(dir string) (old string) {
-	old = removedContainerDir
-	removedContainerDir = dir
-	return
-}
