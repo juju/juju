@@ -14,7 +14,7 @@ func Test(t *stdtesting.T) {
 type commonSuite struct {
 	testing.JujuConnSuite
 
-	authorizer *fakeAuthorizer
+	authorizer fakeAuthorizer
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -32,7 +32,7 @@ func (s *commonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create a fakeAuthorizer so we can check permissions.
-	s.authorizer = &fakeAuthorizer{
+	s.authorizer = fakeAuthorizer{
 		tag:          state.MachineTag(s.machine1.Id()),
 		loggedIn:     true,
 		manager:      false,
@@ -48,18 +48,18 @@ type fakeAuthorizer struct {
 	machineAgent bool
 }
 
-func (fa *fakeAuthorizer) IsLoggedIn() bool {
+func (fa fakeAuthorizer) IsLoggedIn() bool {
 	return fa.loggedIn
 }
 
-func (fa *fakeAuthorizer) AuthOwner(tag string) bool {
+func (fa fakeAuthorizer) AuthOwner(tag string) bool {
 	return fa.tag == tag
 }
 
-func (fa *fakeAuthorizer) AuthEnvironManager() bool {
+func (fa fakeAuthorizer) AuthEnvironManager() bool {
 	return fa.manager
 }
 
-func (fa *fakeAuthorizer) AuthMachineAgent() bool {
+func (fa fakeAuthorizer) AuthMachineAgent() bool {
 	return fa.machineAgent
 }
