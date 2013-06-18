@@ -10,13 +10,15 @@ import (
 
 // tempCertFile is a temporary file containing an x509 certificate.
 // It's possible to pass a certificate to libcurl in-memory, but much more
-// complicated.  We went with this hack for now.
+// complicated.  We went with this hack for now.  Call newTempCertFile to
+// store a certificate in a temporary file, and once you're done with the
+// file, invoke its Delete method to clean it up.
 type tempCertFile struct {
 	tempDir  string
 	filename string
 }
 
-// Path returns the full path of the temporary certificate file.
+// Path returns the full absolute path for the temporary certificate file.
 func (certFile *tempCertFile) Path() string {
 	return path.Join(certFile.tempDir, certFile.filename)
 }
