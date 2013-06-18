@@ -543,6 +543,22 @@ Loop2:
 	c.Assert(seen[chB], IsNil)
 }
 
+func (s *FastPeriodSuite) TestUnwatchCollectionWithFilter(c *C) {
+	filter := func(key interface{}) bool {
+		id := key.(int)
+		return id != 2
+	}
+	chA := make(chan watcher.Change)
+	s.w.WatchCollectionWithFilter("testA", chA, filter)
+	revnoA := s.insert(c, "testA", 1)
+	assertChange(c, chA, watcher.Change{"testA", 1, revnoA})
+	s.insert(c, "testA", 2)
+	assertNoChange(c, chA)
+	s.insert(c, "testA", 3)
+	s.w.StartSync()
+	assertChange(c, chA, watcher.Change{"testA", 3, revnoA})
+}
+
 func (s *FastPeriodSuite) TestUnwatchCollectionWithOutstandingRequest(c *C) {
 	chA := make(chan watcher.Change)
 	s.w.WatchCollection("testA", chA)

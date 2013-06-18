@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
@@ -77,8 +76,8 @@ func (inst *ec2Instance) String() string {
 
 var _ instance.Instance = (*ec2Instance)(nil)
 
-func (inst *ec2Instance) Id() state.InstanceId {
-	return state.InstanceId(inst.InstanceId)
+func (inst *ec2Instance) Id() instance.Id {
+	return instance.Id(inst.InstanceId)
 }
 
 func (inst *ec2Instance) DNSName() (string, error) {
@@ -87,7 +86,7 @@ func (inst *ec2Instance) DNSName() (string, error) {
 	}
 	// Fetch the instance information again, in case
 	// the DNS information has become available.
-	insts, err := inst.e.Instances([]state.InstanceId{inst.Id()})
+	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
 	if err != nil {
 		return "", err
 	}
@@ -158,9 +157,9 @@ func (environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
 }
 
-func (environProvider) InstanceId() (state.InstanceId, error) {
+func (environProvider) InstanceId() (instance.Id, error) {
 	str, err := fetchMetadata("instance-id")
-	return state.InstanceId(str), err
+	return instance.Id(str), err
 }
 
 func (e *environ) Config() *config.Config {
@@ -258,6 +257,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
+	err = environs.VerifyStorage(e.Storage())
+	if err != nil {
+		return err
+	}
+
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
@@ -274,7 +278,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
-		StateInstances: []state.InstanceId{inst.Id()},
+		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -462,7 +466,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
-	ids := make([]state.InstanceId, len(insts))
+	ids := make([]instance.Id, len(insts))
 	for i, inst := range insts {
 		ids[i] = inst.(*ec2Instance).Id()
 	}
@@ -473,7 +477,7 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
-func (e *environ) gatherInstances(ids []state.InstanceId, insts []instance.Instance) error {
+func (e *environ) gatherInstances(ids []instance.Id, insts []instance.Instance) error {
 	var need []string
 	for i, inst := range insts {
 		if inst == nil {
@@ -515,7 +519,7 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []instance.Insta
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
+func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -568,8 +572,8 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[state.InstanceId]bool)
-	var ids []state.InstanceId
+	found := make(map[instance.Id]bool)
+	var ids []instance.Id
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
 		found[inst.Id()] = true
@@ -578,7 +582,7 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*ec2Instance).InstanceId)
+		id := instance.Id(inst.(*ec2Instance).InstanceId)
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true
@@ -596,7 +600,7 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	return st.deleteAll()
 }
 
-func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -609,7 +613,7 @@ func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -639,7 +643,7 @@ func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -654,7 +658,7 @@ func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	g := ec2.SecurityGroup{Name: name}
 	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
 	if err != nil {
@@ -669,7 +673,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, params.Port{
+			ports = append(ports, instance.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
@@ -679,7 +683,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []params.Port) error {
+func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -691,7 +695,7 @@ func (e *environ) OpenPorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []params.Port) error {
+func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -703,7 +707,7 @@ func (e *environ) ClosePorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]params.Port, error) {
+func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())
@@ -715,7 +719,7 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) terminateInstances(ids []state.InstanceId) error {
+func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -762,7 +766,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *ec2Instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -775,7 +779,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []params.Port) error 
 	return nil
 }
 
-func (inst *ec2Instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -788,7 +792,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []params.Port) error
 	return nil
 }
 
-func (inst *ec2Instance) Ports(machineId string) ([]params.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())

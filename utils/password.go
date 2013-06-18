@@ -33,18 +33,18 @@ func RandomPassword() (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
-// FastHash specifies whether a fast, insecure version of the hash
+// FastInsecureHash specifies whether a fast, insecure version of the hash
 // algorithm will be used.  Changing this will cause PasswordHash to
 // produce incompatible passwords.  It should only be changed for
 // testing purposes - to make tests run faster.
-var FastHash = false
+var FastInsecureHash = false
 
 // PasswordHash returns base64-encoded one-way hash of the provided salt
 // and password that is computationally hard to crack by iterating
 // through possible passwords.
 func PasswordHash(password string) string {
 	iter := 8192
-	if FastHash {
+	if FastInsecureHash {
 		iter = 1
 	}
 	// Generate 18 byte passwords because we know that MongoDB

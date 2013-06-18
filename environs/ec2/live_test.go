@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -120,7 +119,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
-	insts, err := t.Env.Instances([]state.InstanceId{inst.Id()})
+	insts, err := t.Env.Instances([]instance.Id{inst.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
@@ -131,7 +130,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
+	inst, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
@@ -230,7 +229,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		msg := Commentf("reservation %#v", r)
 		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
 		inst := r.Instances[0]
-		switch state.InstanceId(inst.InstanceId) {
+		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
@@ -325,7 +324,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// if it succeeds.
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]state.InstanceId{inst0.Id(), inst2.Id()})
+		insts, err = t.Env.Instances([]instance.Id{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			continue

@@ -52,10 +52,10 @@ type JujuConnSuite struct {
 	oldJujuHome string
 }
 
-// InvalidStateInfo holds information about no state - it will always
+// FakeStateInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func InvalidStateInfo(machineId string) *state.Info {
+func FakeStateInfo(machineId string) *state.Info {
 	return &state.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
 		Tag:      state.MachineTag(machineId),
@@ -64,10 +64,10 @@ func InvalidStateInfo(machineId string) *state.Info {
 	}
 }
 
-// InvalidAPIInfo holds information about no state - it will always
+// FakeAPIInfo holds information about no state - it will always
 // give an error when connected to.  The machine id gives the machine id
 // of the machine to be started.
-func InvalidAPIInfo(machineId string) *api.Info {
+func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
 		Tag:      state.MachineTag(machineId),
@@ -85,8 +85,8 @@ func StartInstance(c *C, env environs.Environ, machineId string) instance.Instan
 		"fake_nonce",
 		series,
 		constraints.Value{},
-		InvalidStateInfo(machineId),
-		InvalidAPIInfo(machineId),
+		FakeStateInfo(machineId),
+		FakeAPIInfo(machineId),
 	)
 	c.Assert(err, IsNil)
 	return inst
