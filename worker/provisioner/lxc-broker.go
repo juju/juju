@@ -19,6 +19,7 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
 func NewLxcBroker(factory golxc.ContainerFactory, config *config.Config, tools *state.Tools) Broker {
 	return &lxcBroker{
+		golxc:   factory,
 		factory: lxc.NewFactory(factory),
 		config:  config,
 		tools:   tools,
@@ -26,6 +27,7 @@ func NewLxcBroker(factory golxc.ContainerFactory, config *config.Config, tools *
 }
 
 type lxcBroker struct {
+	golxc   golxc.ContainerFactory
 	factory lxc.ContainerFactory
 	config  *config.Config
 	tools   *state.Tools
@@ -53,7 +55,7 @@ func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series st
 }
 
 // StopInstances shuts down the given instances.
-func (broker *lxcBroker) StopInstances(instances []environs.Instance) error {
+func (broker *lxcBroker) StopInstances(instances []instance.Instance) error {
 	// TODO: potentially parallelise.
 	for _, instance := range instances {
 		lxcLogger.Infof("stopping lxc container for instance: %s", instance.Id())
@@ -75,9 +77,9 @@ func (broker *lxcBroker) StopInstances(instances []environs.Instance) error {
 }
 
 // AllInstances only returns running containers.
-func (broker *lxcBroker) AllInstances() (result []environs.Instance, err error) {
+func (broker *lxcBroker) AllInstances() (result []instance.Instance, err error) {
 	// TODO(thumper): work on some prefix to avoid getting *all* containers.
-	containers, err := golxc.List()
+	containers, err := broker.golxc.List()
 	if err != nil {
 		lxcLogger.Errorf("failed getting all instances: %v", err)
 		return
@@ -88,7 +90,7 @@ func (broker *lxcBroker) AllInstances() (result []environs.Instance, err error) 
 			if err != nil {
 				return nil, err
 			}
-			result = append(result, lxcContainer.Instance())
+			result = append(result, lxcContainer)
 		}
 	}
 	return
