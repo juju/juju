@@ -19,21 +19,6 @@ func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, err
 	panic("unimplemented")
 }
 
-// Validate is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	panic("unimplemented")
-}
-
-// BoilerplateConfig is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) BoilerplateConfig() string {
-	panic("unimplemented")
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	panic("unimplemented")
-}
-
 // PublicAddress is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) PublicAddress() (string, error) {
 	panic("unimplemented")
