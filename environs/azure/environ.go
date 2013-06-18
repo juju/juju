@@ -4,13 +4,13 @@
 package azure
 
 import (
+	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"sync"
 )
 
@@ -65,7 +65,8 @@ func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
 
 // Config is specified in the Environ interface.
 func (env *azureEnviron) Config() *config.Config {
-	panic("unimplemented")
+	snap := env.getSnapshot()
+	return snap.ecfg.Config
 }
 
 // SetConfig is specified in the Environ interface.
@@ -131,4 +132,35 @@ func (env *azureEnviron) Ports() ([]instance.Port, error) {
 // Provider is specified in the Environ interface.
 func (env *azureEnviron) Provider() environs.EnvironProvider {
 	panic("unimplemented")
+}
+
+// TODO: Temporarily deactivating this code.  Passing certificate in-memory
+// may require gwacl change.
+/*
+// getManagementAPI obtains a context object for interfacing with Azure's
+// management API.
+// For now, each invocation just returns a separate object.  This is probably
+// wasteful (each context gets its own SSL connection) and may need optimizing
+// later.
+func (env *azureEnviron) getManagementAPI() (*gwacl.ManagementAPI, error) {
+	snap := env.getSnapshot()
+	subscription := snap.ecfg.ManagementSubscriptionId()
+	cert := snap.ecfg.ManagementCertificate()
+	return gwacl.NewManagementAPI(subscription, cert)
+}
+*/
+
+// getStorageContext obtains a context object for interfacing with Azure's
+// storage API.
+// For now, each invocation just returns a separate object.  This is probably
+// wasteful (each context gets its own SSL connection) and may need optimizing
+// later.
+func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
+	snap := env.getSnapshot()
+	context := gwacl.StorageContext{
+		Account: snap.ecfg.StorageAccountName(),
+		Key:     snap.ecfg.StorageAccountKey(),
+	}
+	// There is currently no way for this to fail.
+	return &context, nil
 }
