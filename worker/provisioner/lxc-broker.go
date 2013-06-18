@@ -84,7 +84,7 @@ func (broker *lxcBroker) AllInstances() (result []environs.Instance, err error) 
 	}
 	for _, container := range containers {
 		if container.IsRunning() {
-			lxcContainer, err := lxc.NewFromExisting(container)
+			lxcContainer, err := broker.factory.NewFromExisting(container)
 			if err != nil {
 				return nil, err
 			}
