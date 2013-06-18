@@ -14,6 +14,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 	"net"
 	"os"
 	"os/exec"
@@ -127,6 +128,8 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 		panic("MgoSuite tests must be run with MgoTestPackage")
 	}
 	mgo.SetStats(true)
+	// Make tests that use password authentication faster.
+	utils.FastHash = true
 }
 
 // readLines reads lines from the given reader and returns
@@ -157,7 +160,9 @@ func readLines(r io.Reader, n int) []string {
 	return final
 }
 
-func (s *MgoSuite) TearDownSuite(c *C) {}
+func (s *MgoSuite) TearDownSuite(c *C) {
+	utils.FastHash = false
+}
 
 // MgoDial returns a new connection to the shared MongoDB server.
 func MgoDial() *mgo.Session {

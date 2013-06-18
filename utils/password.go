@@ -33,14 +33,24 @@ func RandomPassword() (string, error) {
 	return base64.StdEncoding.EncodeToString(b), nil
 }
 
+// FastHash specifies whether a fast, insecure version of the hash
+// algorithm will be used.  Changing this will cause PasswordHash to
+// produce incompatible passwords.  It should only be changed for
+// testing purposes - to make tests run faster.
+var FastHash = false
+
 // PasswordHash returns base64-encoded one-way hash of the provided salt
 // and password that is computationally hard to crack by iterating
 // through possible passwords.
 func PasswordHash(password string) string {
+	iter := 8192
+	if FastHash {
+		iter = 1
+	}
 	// Generate 18 byte passwords because we know that MongoDB
 	// uses the MD5 sum of the password anyway, so there's
 	// no point in using more bytes. (18 so we don't get base 64
 	// padding characters).
-	h := pbkdf2.Key([]byte(password), salt, 8192, 18, sha512.New)
+	h := pbkdf2.Key([]byte(password), salt, iter, 18, sha512.New)
 	return base64.StdEncoding.EncodeToString(h)
 }
