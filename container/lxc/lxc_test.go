@@ -8,12 +8,14 @@ import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -75,16 +77,12 @@ func (s *LxcSuite) TestNewFromExisting(c *C) {
 	c.Assert(machineId, Equals, "1/lxc/0")
 }
 
-func (s *LxcSuite) TestContainerCreate(c *C) {
-
-	machineId := "1/lxc/0"
+func ContainerCreate(c *C, container container.Container) {
+	machineId, ok := lxc.GetMachineId(container)
+	c.Assert(ok, IsTrue)
 	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-
-	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer(machineId)
-	c.Assert(err, IsNil)
 
 	series := "series"
 	nonce := "fake-nonce"
@@ -93,8 +91,17 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
 	}
 
-	err = container.Create(series, nonce, tools, config, stateInfo, apiInfo)
+	err := container.Create(series, nonce, tools, config, stateInfo, apiInfo)
 	c.Assert(err, IsNil)
+}
+
+func (s *LxcSuite) TestContainerCreate(c *C) {
+
+	factory := lxc.NewFactory(MockFactory())
+	container, err := factory.NewContainer("1/lxc/0")
+	c.Assert(err, IsNil)
+
+	ContainerCreate(c, container)
 
 	name := string(container.Id())
 	// Check our container config files.
