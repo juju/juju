@@ -5,6 +5,7 @@ package lxc_test
 
 import (
 	"fmt"
+	"path/filepath"
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
@@ -27,6 +28,8 @@ type LxcSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
 	home               *testing.FakeHome
+	containerDir       string
+	lxcDir             string
 	oldContainerDir    string
 	oldLxcContainerDir string
 }
@@ -47,8 +50,10 @@ func (s *LxcSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 	s.home = testing.MakeSampleHome(c)
-	s.oldContainerDir = lxc.SetContainerDir(c.MkDir())
-	s.oldLxcContainerDir = lxc.SetLxcContainerDir(c.MkDir())
+	s.containerDir = c.MkDir()
+	s.oldContainerDir = lxc.SetContainerDir(s.containerDir)
+	s.lxcDir = c.MkDir()
+	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
 }
 
 func (s *LxcSuite) TearDownTest(c *C) {
@@ -129,6 +134,13 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
 	}
 
-	container.Create(series, nonce, tools, config, stateInfo, apiInfo)
+	err = container.Create(series, nonce, tools, config, stateInfo, apiInfo)
+	c.Assert(err, IsNil)
 
+	name := string(container.Id())
+	// Check our container config files.
+	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "lxc.conf"))
+	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "cloud-init"))
+	// Check the mount point has been created inside the container.
+	testing.AssertDirectoryExists(c, filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"))
 }
