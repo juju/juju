@@ -11,7 +11,8 @@ import (
 	"path/filepath"
 )
 
-// EnvironConfig returns a default environment configuration.
+// EnvironConfig returns a default environment configuration suitable for
+// testing.
 func EnvironConfig(c *C) *config.Config {
 	cfg, err := config.New(map[string]interface{}{
 		"type":            "test",
