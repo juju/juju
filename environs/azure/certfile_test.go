@@ -36,7 +36,7 @@ func (CertFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
 	defer certFile.Delete()
 	info, err := os.Stat(certFile.Path())
 	c.Assert(err, IsNil)
-	c.Check(info.Mode().Perm(), Equals, 0600)
+	c.Check(info.Mode().Perm(), Equals, os.FileMode(0600))
 }
 
 func (CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
@@ -45,7 +45,7 @@ func (CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
 	defer certFile.Delete()
 	info, err := os.Stat(certFile.tempDir)
 	c.Assert(err, IsNil)
-	c.Check(info.Mode().Perm(), Equals, 0700)
+	c.Check(info.Mode().Perm(), Equals, os.FileMode(0700))
 }
 
 func (CertFileSuite) TestDeleteRemovesFile(c *C) {
