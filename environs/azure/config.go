@@ -68,7 +68,8 @@ func (prov azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironCon
 	return result, nil
 }
 
-// Validate is specified in the EnvironProvider interface.
+// Validate ensures that config is a valid configuration for this
+// provider like specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Config, error) {
 	// Validate base configuration change before validating Azure specifics.
 	err := config.Validate(cfg, oldCfg)
