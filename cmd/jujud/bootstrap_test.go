@@ -48,15 +48,16 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var (
-	testPassword     = "my-admin-secret"
-	testPasswordHash = utils.PasswordHash("my-admin-secret")
-)
+var testPassword     = "my-admin-secret"
+
+func testPasswordHash() string {
+	return utils.PasswordHash(testPassword)
+}
 
 func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf *agent.Conf, cmd *BootstrapCommand, err error) {
 	bootConf := &agent.Conf{
 		DataDir:     s.dataDir,
-		OldPassword: testPasswordHash,
+		OldPassword: testPasswordHash(),
 		StateInfo: &state.Info{
 			Tag:    "bootstrap",
 			Addrs:  []string{testing.MgoAddr},
@@ -73,7 +74,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf
 
 	machineConf = &agent.Conf{
 		DataDir:     s.dataDir,
-		OldPassword: testPasswordHash,
+		OldPassword: testPasswordHash(),
 		StateInfo: &state.Info{
 			Tag:    "machine-0",
 			Addrs:  []string{testing.MgoAddr},
@@ -102,7 +103,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoAddr},
 		CACert:   []byte(testing.CACert),
-		Password: testPasswordHash,
+		Password: testPasswordHash(),
 	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -129,7 +130,7 @@ func (s *BootstrapSuite) TestSetConstraints(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoAddr},
 		CACert:   []byte(testing.CACert),
-		Password: testPasswordHash,
+		Password: testPasswordHash(),
 	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -158,7 +159,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	st, err := state.Open(&state.Info{
 		Addrs:    []string{testing.MgoAddr},
 		CACert:   []byte(testing.CACert),
-		Password: testPasswordHash,
+		Password: testPasswordHash(),
 	}, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer st.Close()
@@ -197,7 +198,7 @@ func (s *BootstrapSuite) TestInitialPassword(c *C) {
 	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Check we can log in to mongo as admin.
-	info.Tag, info.Password = "", testPasswordHash
+	info.Tag, info.Password = "", testPasswordHash()
 	st, err := state.Open(info, state.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	// Reset password so the tests can continue to use the same server.
