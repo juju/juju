@@ -1143,12 +1143,6 @@ func (s *ServiceSuite) TestSubordinateConstraints(c *C) {
 	c.Assert(err, Equals, state.ErrSubordinateConstraints)
 }
 
-type unitSlice []*state.Unit
-
-func (m unitSlice) Len() int           { return len(m) }
-func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
-
 func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 	// Alive unit...
 	alive, err := s.mysql.AddUnit()

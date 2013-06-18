@@ -484,36 +484,6 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
 	c.Assert(m.Clean(), Equals, false)
 }
 
-type machineInfo struct {
-	tools      *state.Tools
-	instanceId string
-}
-
-func tools(tools int, url string) *state.Tools {
-	return &state.Tools{
-		URL: url,
-		Binary: version.Binary{
-			Number: version.Number{
-				Major: 0, Minor: 0, Patch: tools,
-			},
-			Series: "series",
-			Arch:   "arch",
-		},
-	}
-}
-
-var watchMachineTests = []func(m *state.Machine) error{
-	func(m *state.Machine) error {
-		return nil
-	},
-	func(m *state.Machine) error {
-		return m.SetProvisioned("m-foo", "fake_nonce")
-	},
-	func(m *state.Machine) error {
-		return m.SetAgentTools(tools(3, "baz"))
-	},
-}
-
 func (s *MachineSuite) TestWatchMachine(c *C) {
 	w := s.machine.Watch()
 	defer AssertStop(c, w)
@@ -530,7 +500,10 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentTools(tools(3, "baz"))
+	err = machine.SetAgentTools(&state.Tools{
+		URL:    "foo",
+		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	})
 	c.Assert(err, IsNil)
 	err = machine.Destroy()
 	c.Assert(err, IsNil)
