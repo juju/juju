@@ -48,7 +48,7 @@ func (s *BootstrapSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var testPassword     = "my-admin-secret"
+var testPassword = "my-admin-secret"
 
 func testPasswordHash() string {
 	return utils.PasswordHash(testPassword)
