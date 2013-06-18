@@ -74,6 +74,10 @@ type MachineConfig struct {
 	// MachineId identifies the new machine.
 	MachineId string
 
+	// MachineContainerType specifies the type of container that the machine
+	// is.  If the machine is not a container, then the type is "".
+	MachineContainerType string
+
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
 	// If no keys are supplied, there can be no ssh access to the node.
@@ -115,6 +119,11 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	}
 	c.AddSSHAuthorizedKeys(cfg.AuthorizedKeys)
 	c.AddPackage("git")
+	// Perfectly reasonable to install lxc on environment instances and kvm
+	// containers.
+	if cfg.MachineContainerType != "lxc" {
+		c.AddPackage("lxc")
+	}
 
 	addScripts(c,
 		"set -xe", // ensure we run all the scripts or abort.

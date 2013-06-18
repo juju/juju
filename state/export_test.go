@@ -47,27 +47,12 @@ func SetBeforeHook(c *C, st *State, f func()) (checkRan func()) {
 	return SetTransactionHooks(c, st, TransactionHook{Before: f})
 }
 
-// TestingEnvironConfig returns a default environment configuration.
-func TestingEnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
-		"type":            "test",
-		"name":            "test-name",
-		"default-series":  "test-series",
-		"authorized-keys": "test-keys",
-		"agent-version":   "9.9.9.9",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
-	c.Assert(err, IsNil)
-	return cfg
-}
-
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
 func TestingInitialize(c *C, cfg *config.Config) *State {
 	if cfg == nil {
-		cfg = TestingEnvironConfig(c)
+		cfg = testing.EnvironConfig(c)
 	}
 	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
 	c.Assert(err, IsNil)
@@ -123,6 +108,10 @@ func addCharm(c *C, st *State, series string, ch charm.Charm) *Charm {
 	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
 	c.Assert(err, IsNil)
 	return sch
+}
+
+func MachineIdLessThan(id1, id2 string) bool {
+	return machineIdLessThan(id1, id2)
 }
 
 func init() {

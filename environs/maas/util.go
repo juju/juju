@@ -8,8 +8,8 @@ import (
 	"launchpad.net/goyaml"
 	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/url"
 	"strings"
@@ -17,7 +17,7 @@ import (
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.
 // "/MAAS/api/1.0/nodes/system_id/" => "system_id"
-func extractSystemId(instanceId state.InstanceId) string {
+func extractSystemId(instanceId instance.Id) string {
 	trimmed := strings.TrimRight(string(instanceId), "/")
 	split := strings.Split(trimmed, "/")
 	return split[len(split)-1]
@@ -26,7 +26,7 @@ func extractSystemId(instanceId state.InstanceId) string {
 // getSystemIdValues returns a url.Values object with all the 'system_ids'
 // from the given instanceIds stored under the key 'id'.  This is used
 // to filter out instances when listing the nodes objects.
-func getSystemIdValues(instanceIds []state.InstanceId) url.Values {
+func getSystemIdValues(instanceIds []instance.Id) url.Values {
 	values := url.Values{}
 	for _, instanceId := range instanceIds {
 		values.Add("id", extractSystemId(instanceId))

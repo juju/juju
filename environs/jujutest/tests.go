@@ -12,8 +12,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -95,7 +95,7 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 
-	insts, err = e.Instances([]state.InstanceId{id0, id1})
+	insts, err = e.Instances([]instance.Id{id0, id1})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
@@ -107,10 +107,10 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Not(Equals), insts[1].Id())
 
-	err = e.StopInstances([]environs.Instance{inst0})
+	err = e.StopInstances([]instance.Instance{inst0})
 	c.Assert(err, IsNil)
 
-	insts, err = e.Instances([]state.InstanceId{id0, id1})
+	insts, err = e.Instances([]instance.Id{id0, id1})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], IsNil)
 	c.Assert(insts[1].Id(), Equals, id1)
