@@ -17,10 +17,10 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
@@ -65,43 +65,43 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 
-type instance struct {
+type ec2Instance struct {
 	e *environ
 	*ec2.Instance
 }
 
-func (inst *instance) String() string {
+func (inst *ec2Instance) String() string {
 	return inst.InstanceId
 }
 
-var _ environs.Instance = (*instance)(nil)
+var _ instance.Instance = (*ec2Instance)(nil)
 
-func (inst *instance) Id() state.InstanceId {
-	return state.InstanceId(inst.InstanceId)
+func (inst *ec2Instance) Id() instance.Id {
+	return instance.Id(inst.InstanceId)
 }
 
-func (inst *instance) DNSName() (string, error) {
+func (inst *ec2Instance) DNSName() (string, error) {
 	if inst.Instance.DNSName != "" {
 		return inst.Instance.DNSName, nil
 	}
 	// Fetch the instance information again, in case
 	// the DNS information has become available.
-	insts, err := inst.e.Instances([]state.InstanceId{inst.Id()})
+	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
 	if err != nil {
 		return "", err
 	}
-	freshInst := insts[0].(*instance).Instance
+	freshInst := insts[0].(*ec2Instance).Instance
 	if freshInst.DNSName == "" {
-		return "", environs.ErrNoDNSName
+		return "", instance.ErrNoDNSName
 	}
 	inst.Instance.DNSName = freshInst.DNSName
 	return freshInst.DNSName, nil
 }
 
-func (inst *instance) WaitDNSName() (string, error) {
+func (inst *ec2Instance) WaitDNSName() (string, error) {
 	for a := longAttempt.Start(); a.Next(); {
 		name, err := inst.DNSName()
-		if err == nil || err != environs.ErrNoDNSName {
+		if err == nil || err != instance.ErrNoDNSName {
 			return name, err
 		}
 	}
@@ -157,9 +157,9 @@ func (environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
 }
 
-func (environProvider) InstanceId() (state.InstanceId, error) {
+func (environProvider) InstanceId() (instance.Id, error) {
 	str, err := fetchMetadata("instance-id")
-	return state.InstanceId(str), err
+	return instance.Id(str), err
 }
 
 func (e *environ) Config() *config.Config {
@@ -257,6 +257,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
+	err = environs.VerifyStorage(e.Storage())
+	if err != nil {
+		return err
+	}
+
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
@@ -273,12 +278,12 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
-		StateInstances: []state.InstanceId{inst.Id()},
+		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
 		// more important.
-		e.StopInstances([]environs.Instance{inst})
+		e.StopInstances([]instance.Instance{inst})
 		return fmt.Errorf("cannot save state: %v", err)
 	}
 	// TODO make safe in the case of racing Bootstraps
@@ -313,7 +318,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 			if inst == nil {
 				continue
 			}
-			name := inst.(*instance).Instance.DNSName
+			name := inst.(*ec2Instance).Instance.DNSName
 			if name != "" {
 				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
 				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
@@ -334,24 +339,13 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		}, nil
 }
 
-// AssignmentPolicy for EC2 is to deploy units only on machines without other
-// units already assigned, and to launch new machines as required.
-func (e *environ) AssignmentPolicy() state.AssignmentPolicy {
-	// Until we get proper containers to install units into, we shouldn't
-	// reuse dirty machines, as we cannot guarantee that when units were
-	// removed, it was left in a clean state.  Once we have good
-	// containerisation for the units, we should be able to have the ability
-	// to assign back to unused machines.
-	return state.AssignNew
-}
-
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, err
@@ -408,7 +402,7 @@ const ebsStorage = "ebs"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
@@ -466,15 +460,15 @@ func (e *environ) startInstance(scfg *startInstanceParams) (environs.Instance, e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	inst := &instance{e, &instances.Instances[0]}
+	inst := &ec2Instance{e, &instances.Instances[0]}
 	log.Infof("environs/ec2: started instance %q", inst.Id())
 	return inst, nil
 }
 
-func (e *environ) StopInstances(insts []environs.Instance) error {
-	ids := make([]state.InstanceId, len(insts))
+func (e *environ) StopInstances(insts []instance.Instance) error {
+	ids := make([]instance.Id, len(insts))
 	for i, inst := range insts {
-		ids[i] = inst.(*instance).Id()
+		ids[i] = inst.(*ec2Instance).Id()
 	}
 	return e.terminateInstances(ids)
 }
@@ -483,7 +477,7 @@ func (e *environ) StopInstances(insts []environs.Instance) error {
 // id whose corresponding insts slot is nil.
 // It returns environs.ErrPartialInstances if the insts
 // slice has not been completely filled.
-func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Instance) error {
+func (e *environ) gatherInstances(ids []instance.Id, insts []instance.Instance) error {
 	var need []string
 	for i, inst := range insts {
 		if inst == nil {
@@ -513,7 +507,7 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Insta
 			for k := range r.Instances {
 				if r.Instances[k].InstanceId == string(id) {
 					inst := r.Instances[k]
-					insts[i] = &instance{e, &inst}
+					insts[i] = &ec2Instance{e, &inst}
 					n++
 				}
 			}
@@ -525,11 +519,11 @@ func (e *environ) gatherInstances(ids []state.InstanceId, insts []environs.Insta
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	insts := make([]environs.Instance, len(ids))
+	insts := make([]instance.Instance, len(ids))
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -554,7 +548,7 @@ func (e *environ) Instances(ids []state.InstanceId) ([]environs.Instance, error)
 	return insts, nil
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
+func (e *environ) AllInstances() ([]instance.Instance, error) {
 	filter := ec2.NewFilter()
 	filter.Add("instance-state-name", "pending", "running")
 	filter.Add("group-name", e.jujuGroupName())
@@ -562,24 +556,24 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
+	var insts []instance.Instance
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
-			insts = append(insts, &instance{e, &inst})
+			insts = append(insts, &ec2Instance{e, &inst})
 		}
 	}
 	return insts, nil
 }
 
-func (e *environ) Destroy(ensureInsts []environs.Instance) error {
+func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	log.Infof("environs/ec2: destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[state.InstanceId]bool)
-	var ids []state.InstanceId
+	found := make(map[instance.Id]bool)
+	var ids []instance.Id
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
 		found[inst.Id()] = true
@@ -588,7 +582,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*instance).InstanceId)
+		id := instance.Id(inst.(*ec2Instance).InstanceId)
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true
@@ -606,7 +600,7 @@ func (e *environ) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
+func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {
 	ipPerms := make([]ec2.IPPerm, len(ports))
 	for i, p := range ports {
 		ipPerms[i] = ec2.IPPerm{
@@ -619,7 +613,7 @@ func portsToIPPerms(ports []params.Port) []ec2.IPPerm {
 	return ipPerms
 }
 
-func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -649,7 +643,7 @@ func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -664,7 +658,7 @@ func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	g := ec2.SecurityGroup{Name: name}
 	resp, err := e.ec2().SecurityGroups([]ec2.SecurityGroup{g}, nil)
 	if err != nil {
@@ -679,7 +673,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
-			ports = append(ports, params.Port{
+			ports = append(ports, instance.Port{
 				Protocol: p.Protocol,
 				Number:   i,
 			})
@@ -689,7 +683,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 	return ports, nil
 }
 
-func (e *environ) OpenPorts(ports []params.Port) error {
+func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -701,7 +695,7 @@ func (e *environ) OpenPorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []params.Port) error {
+func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -713,7 +707,7 @@ func (e *environ) ClosePorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]params.Port, error) {
+func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())
@@ -725,7 +719,7 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-func (e *environ) terminateInstances(ids []state.InstanceId) error {
+func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}
@@ -772,7 +766,7 @@ func (e *environ) jujuGroupName() string {
 	return "juju-" + e.name
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -785,7 +779,7 @@ func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -798,7 +792,7 @@ func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) ([]params.Port, error) {
+func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())

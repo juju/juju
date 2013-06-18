@@ -7,6 +7,7 @@ import (
 	"bufio"
 	"fmt"
 	"io"
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -23,8 +24,8 @@ import (
 type HookContext struct {
 	unit *state.Unit
 
-	// config holds the service configuration.
-	config map[string]interface{}
+	// configSettings holds the service configuration.
+	configSettings charm.Settings
 
 	// id identifies the context.
 	id string
@@ -84,15 +85,19 @@ func (ctx *HookContext) ClosePort(protocol string, port int) error {
 	return ctx.unit.ClosePort(protocol, port)
 }
 
-func (ctx *HookContext) Config() (map[string]interface{}, error) {
-	if ctx.config == nil {
+func (ctx *HookContext) ConfigSettings() (charm.Settings, error) {
+	if ctx.configSettings == nil {
 		var err error
-		ctx.config, err = ctx.unit.ServiceConfig()
+		ctx.configSettings, err = ctx.unit.ConfigSettings()
 		if err != nil {
 			return nil, err
 		}
 	}
-	return ctx.config, nil
+	result := charm.Settings{}
+	for name, value := range ctx.configSettings {
+		result[name] = value
+	}
+	return result, nil
 }
 
 func (ctx *HookContext) HookRelation() (jujuc.ContextRelation, bool) {

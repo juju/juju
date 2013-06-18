@@ -13,10 +13,10 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"net/url"
 	"sync"
@@ -84,7 +84,7 @@ func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
 }
 
 // startBootstrapNode starts the juju bootstrap node for this environment.
-func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (environs.Instance, error) {
+func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Instance, error) {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
@@ -107,11 +107,15 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (environs.Ins
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	// TODO(fwereade): this should check for an existing environment before
 	// starting a new one -- even given raciness, it's better than nothing.
+	if err := environs.VerifyStorage(env.Storage()); err != nil {
+		return fmt.Errorf("provider storage is not writeable")
+	}
+
 	inst, err := env.startBootstrapNode(cons)
 	if err != nil {
 		return err
 	}
-	err = env.saveState(&bootstrapState{StateInstances: []state.InstanceId{inst.Id()}})
+	err = env.saveState(&bootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -352,7 +356,7 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 }
 
 // StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value, stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
 	if err != nil {
 		return nil, err
@@ -362,7 +366,7 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 }
 
 // StopInstances is specified in the Environ interface.
-func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
+func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(instances) == 0 {
 		return nil
@@ -381,7 +385,7 @@ func (environ *maasEnviron) StopInstances(instances []environs.Instance) error {
 }
 
 // releaseInstance releases a single instance.
-func (environ *maasEnviron) releaseInstance(inst environs.Instance) error {
+func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 	maasInst := inst.(*maasInstance)
 	maasObj := maasInst.maasObject
 	_, err := maasObj.CallPost("release", nil)
@@ -391,10 +395,10 @@ func (environ *maasEnviron) releaseInstance(inst environs.Instance) error {
 	return err
 }
 
-// Instances returns the environs.Instance objects corresponding to the given
-// slice of state.InstanceId.  Similar to what the ec2 provider does,
+// Instances returns the instance.Instance objects corresponding to the given
+// slice of instance.Id.  Similar to what the ec2 provider does,
 // Instances returns nil if the given slice is empty or nil.
-func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
@@ -406,7 +410,7 @@ func (environ *maasEnviron) Instances(ids []state.InstanceId) ([]environs.Instan
 // If the some of the intances could not be found, it returns the instance
 // that could be found plus the error environs.ErrPartialInstances in the error
 // return.
-func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instance, error) {
+func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
 	listNodeObjects, err := nodeListing.CallGet("list", filter)
@@ -417,7 +421,7 @@ func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instan
 	if err != nil {
 		return nil, err
 	}
-	instances := make([]environs.Instance, len(listNodes))
+	instances := make([]instance.Instance, len(listNodes))
 	for index, nodeObj := range listNodes {
 		node, err := nodeObj.GetMAASObject()
 		if err != nil {
@@ -434,8 +438,8 @@ func (environ *maasEnviron) instances(ids []state.InstanceId) ([]environs.Instan
 	return instances, nil
 }
 
-// AllInstances returns all the environs.Instance in this provider.
-func (environ *maasEnviron) AllInstances() ([]environs.Instance, error) {
+// AllInstances returns all the instance.Instance in this provider.
+func (environ *maasEnviron) AllInstances() ([]instance.Instance, error) {
 	return environ.instances(nil)
 }
 
@@ -452,13 +456,13 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 	return environs.EmptyStorage
 }
 
-func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
+func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 	log.Debugf("environs/maas: destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[state.InstanceId]bool)
+	found := make(map[instance.Id]bool)
 	for _, inst := range insts {
 		found[inst.Id()] = true
 	}
@@ -484,24 +488,20 @@ func (environ *maasEnviron) Destroy(ensureInsts []environs.Instance) error {
 	return st.deleteAll()
 }
 
-func (*maasEnviron) AssignmentPolicy() state.AssignmentPolicy {
-	return state.AssignUnused
-}
-
 // MAAS does not do firewalling so these port methods do nothing.
-func (*maasEnviron) OpenPorts([]params.Port) error {
+func (*maasEnviron) OpenPorts([]instance.Port) error {
 	log.Debugf("environs/maas: unimplemented OpenPorts() called")
 	return nil
 }
 
-func (*maasEnviron) ClosePorts([]params.Port) error {
+func (*maasEnviron) ClosePorts([]instance.Port) error {
 	log.Debugf("environs/maas: unimplemented ClosePorts() called")
 	return nil
 }
 
-func (*maasEnviron) Ports() ([]params.Port, error) {
+func (*maasEnviron) Ports() ([]instance.Port, error) {
 	log.Debugf("environs/maas: unimplemented Ports() called")
-	return []params.Port{}, nil
+	return []instance.Port{}, nil
 }
 
 func (*maasEnviron) Provider() environs.EnvironProvider {

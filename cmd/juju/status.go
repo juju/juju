@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -42,8 +43,8 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 type statusContext struct {
-	instances map[state.InstanceId]environs.Instance
-	machines  map[string]*state.Machine
+	instances map[instance.Id]instance.Instance
+	machines  map[string][]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
 }
@@ -55,14 +56,14 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	}
 	defer conn.Close()
 
-	var ctxt statusContext
-	if ctxt.machines, err = fetchAllMachines(conn.State); err != nil {
+	var context statusContext
+	if context.machines, err = fetchAllMachines(conn.State); err != nil {
 		return err
 	}
-	if ctxt.services, ctxt.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
+	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
 		return err
 	}
-	ctxt.instances, err = fetchAllInstances(conn.Environ)
+	context.instances, err = fetchAllInstances(conn.Environ)
 	if err != nil {
 		// We cannot see instances from the environment, but
 		// there's still lots of potentially useful info to print.
@@ -72,15 +73,15 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		Machines map[string]machineStatus `json:"machines"`
 		Services map[string]serviceStatus `json:"services"`
 	}{
-		Machines: ctxt.processMachines(),
-		Services: ctxt.processServices(),
+		Machines: context.processMachines(),
+		Services: context.processServices(),
 	}
 	return c.out.Write(ctx, result)
 }
 
 // fetchAllInstances returns a map from instance id to instance.
-func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Instance, error) {
-	m := make(map[state.InstanceId]environs.Instance)
+func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance, error) {
+	m := make(map[instance.Id]instance.Instance)
 	insts, err := env.AllInstances()
 	if err != nil {
 		return nil, err
@@ -91,15 +92,29 @@ func fetchAllInstances(env environs.Environ) (map[state.InstanceId]environs.Inst
 	return m, nil
 }
 
-// fetchAllMachines returns a map from machine id to machine.
-func fetchAllMachines(st *state.State) (map[string]*state.Machine, error) {
-	v := make(map[string]*state.Machine)
+// fetchAllMachines returns a map from top level machine id to machines, where machines[0] is the host
+// machine and machines[1..n] are any containers (including nested ones).
+func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
+	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, err
 	}
+	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
-		v[m.Id()] = m
+		parentId, ok := m.ParentId()
+		if !ok {
+			// Only top level host machines go directly into the machine map.
+			v[m.Id()] = []*state.Machine{m}
+		} else {
+			topParentId := state.TopParentId(m.Id())
+			machines, ok := v[topParentId]
+			if !ok {
+				panic(fmt.Errorf("unexpected machine id %q", parentId))
+			}
+			machines = append(machines, m)
+			v[topParentId] = machines
+		}
 	}
 	return v, nil
 }
@@ -128,15 +143,40 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 	return svcMap, unitMap, nil
 }
 
-func (ctxt *statusContext) processMachines() map[string]machineStatus {
+func (context *statusContext) processMachines() map[string]machineStatus {
 	machinesMap := make(map[string]machineStatus)
-	for _, m := range ctxt.machines {
-		machinesMap[m.Id()] = ctxt.processMachine(m)
+	for id, machines := range context.machines {
+		hostStatus := context.makeMachineStatus(machines[0])
+		context.processMachine(machines, &hostStatus, 0)
+		machinesMap[id] = hostStatus
 	}
 	return machinesMap
 }
 
-func (ctxt *statusContext) processMachine(machine *state.Machine) (status machineStatus) {
+func (context *statusContext) processMachine(machines []*state.Machine, host *machineStatus, startIndex int) (nextIndex int) {
+	nextIndex = startIndex + 1
+	currentHost := host
+	var previousContainer *machineStatus
+	for nextIndex < len(machines) {
+		machine := machines[nextIndex]
+		container := context.makeMachineStatus(machine)
+		if currentHost.Id == state.ParentId(machine.Id()) {
+			currentHost.Containers[machine.Id()] = container
+			previousContainer = &container
+			nextIndex++
+		} else {
+			if state.NestingLevel(machine.Id()) > state.NestingLevel(previousContainer.Id) {
+				nextIndex = context.processMachine(machines, previousContainer, nextIndex-1)
+			} else {
+				break
+			}
+		}
+	}
+	return
+}
+
+func (context *statusContext) makeMachineStatus(machine *state.Machine) (status machineStatus) {
+	status.Id = machine.Id()
 	status.Life,
 		status.AgentVersion,
 		status.AgentState,
@@ -146,7 +186,7 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 	instid, ok := machine.InstanceId()
 	if ok {
 		status.InstanceId = instid
-		instance, ok := ctxt.instances[instid]
+		instance, ok := context.instances[instid]
 		if ok {
 			status.DNSName, _ = instance.DNSName()
 		} else {
@@ -163,43 +203,44 @@ func (ctxt *statusContext) processMachine(machine *state.Machine) (status machin
 		// in the output.
 		status.AgentState = ""
 	}
+	status.Containers = make(map[string]machineStatus)
 	return
 }
 
-func (ctxt *statusContext) processServices() map[string]serviceStatus {
+func (context *statusContext) processServices() map[string]serviceStatus {
 	servicesMap := make(map[string]serviceStatus)
-	for _, s := range ctxt.services {
-		servicesMap[s.Name()] = ctxt.processService(s)
+	for _, s := range context.services {
+		servicesMap[s.Name()] = context.processService(s)
 	}
 	return servicesMap
 }
 
-func (ctxt *statusContext) processService(service *state.Service) (status serviceStatus) {
+func (context *statusContext) processService(service *state.Service) (status serviceStatus) {
 	url, _ := service.CharmURL()
 	status.Charm = url.String()
 	status.Exposed = service.IsExposed()
 	status.Life = processLife(service)
 	var err error
-	status.Relations, status.SubordinateTo, err = ctxt.processRelations(service)
+	status.Relations, status.SubordinateTo, err = context.processRelations(service)
 	if err != nil {
 		status.Err = err
 		return
 	}
 	if service.IsPrincipal() {
-		status.Units = ctxt.processUnits(ctxt.units[service.Name()])
+		status.Units = context.processUnits(context.units[service.Name()])
 	}
 	return status
 }
 
-func (ctxt *statusContext) processUnits(units map[string]*state.Unit) map[string]unitStatus {
+func (context *statusContext) processUnits(units map[string]*state.Unit) map[string]unitStatus {
 	unitsMap := make(map[string]unitStatus)
 	for _, unit := range units {
-		unitsMap[unit.Name()] = ctxt.processUnit(unit)
+		unitsMap[unit.Name()] = context.processUnit(unit)
 	}
 	return unitsMap
 }
 
-func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
+func (context *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
@@ -212,16 +253,16 @@ func (ctxt *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	if subUnits := unit.SubordinateNames(); len(subUnits) > 0 {
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
-			subUnit := ctxt.unitByName(name)
-			status.Subordinates[name] = ctxt.processUnit(subUnit)
+			subUnit := context.unitByName(name)
+			status.Subordinates[name] = context.processUnit(subUnit)
 		}
 	}
 	return
 }
 
-func (ctxt *statusContext) unitByName(name string) *state.Unit {
+func (context *statusContext) unitByName(name string) *state.Unit {
 	serviceName := strings.Split(name, "/")[0]
-	return ctxt.units[serviceName][name]
+	return context.units[serviceName][name]
 }
 
 func (*statusContext) processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
@@ -311,15 +352,17 @@ func processLife(entity lifer) string {
 }
 
 type machineStatus struct {
-	Err            error            `json:"-" yaml:",omitempty"`
-	AgentState     params.Status    `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
-	AgentStateInfo string           `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
-	AgentVersion   string           `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
-	DNSName        string           `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
-	InstanceId     state.InstanceId `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
-	InstanceState  string           `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
-	Life           string           `json:"life,omitempty" yaml:"life,omitempty"`
-	Series         string           `json:"series,omitempty" yaml:"series,omitempty"`
+	Err            error                    `json:"-" yaml:",omitempty"`
+	AgentState     params.Status            `json:"agent-state,omitempty" yaml:"agent-state,omitempty"`
+	AgentStateInfo string                   `json:"agent-state-info,omitempty" yaml:"agent-state-info,omitempty"`
+	AgentVersion   string                   `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
+	DNSName        string                   `json:"dns-name,omitempty" yaml:"dns-name,omitempty"`
+	InstanceId     instance.Id              `json:"instance-id,omitempty" yaml:"instance-id,omitempty"`
+	InstanceState  string                   `json:"instance-state,omitempty" yaml:"instance-state,omitempty"`
+	Life           string                   `json:"life,omitempty" yaml:"life,omitempty"`
+	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
+	Id             string                   `json:"-" yaml:"-"`
+	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types

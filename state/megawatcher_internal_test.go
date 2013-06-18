@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -64,7 +65,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	add(&params.MachineInfo{
 		Id:         "0",
@@ -85,7 +86,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		Life:        params.Life(Alive.String()),
 		Constraints: constraints.MustParse("mem=100M"),
-		Config:      map[string]interface{}{"blog-title": "boring"},
+		Config:      charm.Settings{"blog-title": "boring"},
 	})
 	pairs := map[string]string{"x": "12", "y": "99"}
 	err = wordpress.SetAnnotations(pairs)
@@ -101,7 +102,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		Name:     "logging",
 		CharmURL: serviceCharmURL(logging).String(),
 		Life:     params.Life(Alive.String()),
-		Config:   map[string]interface{}{},
+		Config:   charm.Settings{},
 	})
 
 	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
@@ -129,7 +130,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Service:   wordpress.Name(),
 			Series:    m.Series(),
 			MachineId: m.Id(),
-			Ports:     []params.Port{},
+			Ports:     []instance.Port{},
 			Status:    params.StatusPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
@@ -140,7 +141,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Annotations: pairs,
 		})
 
-		err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetStatus(params.StatusError, m.Tag())
 		c.Assert(err, IsNil)
@@ -175,7 +176,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
 			Series:  "series",
-			Ports:   []params.Port{},
+			Ports:   []instance.Port{},
 			Status:  params.StatusPending,
 		})
 	}
@@ -339,7 +340,7 @@ var allWatcherChangedTests = []struct {
 				PublicAddress:  "public",
 				PrivateAddress: "private",
 				MachineId:      "0",
-				Ports:          []params.Port{{"tcp", 12345}},
+				Ports:          []instance.Port{{"tcp", 12345}},
 				Status:         params.StatusError,
 				StatusInfo:     "failure",
 			},
@@ -371,7 +372,7 @@ var allWatcherChangedTests = []struct {
 				Service:       "wordpress",
 				Series:        "series",
 				PublicAddress: "public",
-				Ports:         []params.Port{{"udp", 17070}},
+				Ports:         []instance.Port{{"udp", 17070}},
 				Status:        params.StatusError,
 				StatusInfo:    "another failure",
 			},
@@ -411,7 +412,7 @@ var allWatcherChangedTests = []struct {
 				Exposed:  true,
 				CharmURL: "local:series/series-wordpress-3",
 				Life:     params.Life(Alive.String()),
-				Config:   map[string]interface{}{},
+				Config:   charm.Settings{},
 			},
 		},
 	}, {
@@ -421,7 +422,7 @@ var allWatcherChangedTests = []struct {
 			Exposed:     true,
 			CharmURL:    "local:series/series-wordpress-3",
 			Constraints: constraints.MustParse("mem=99M"),
-			Config:      map[string]interface{}{"blog-title": "boring"},
+			Config:      charm.Settings{"blog-title": "boring"},
 		}},
 		setUp: func(c *C, st *State) {
 			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
@@ -438,7 +439,7 @@ var allWatcherChangedTests = []struct {
 				CharmURL:    "local:series/series-wordpress-3",
 				Life:        params.Life(Alive.String()),
 				Constraints: constraints.MustParse("mem=99M"),
-				Config:      map[string]interface{}{"blog-title": "boring"},
+				Config:      charm.Settings{"blog-title": "boring"},
 			},
 		},
 	}, {
@@ -448,16 +449,12 @@ var allWatcherChangedTests = []struct {
 			// Note: CharmURL has a different revision number from
 			// the wordpress revision in the testing repo.
 			CharmURL: "local:series/series-wordpress-2",
-			Config:   map[string]interface{}{"foo": "bar"},
+			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *C, st *State) {
 			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
 			c.Assert(err, IsNil)
-			cfg, err := svc.Config()
-			c.Assert(err, IsNil)
-			cfg.Set("blog-title", "boring")
-			_, err = cfg.Write()
-			c.Assert(err, IsNil)
+			setServiceConfigAttr(c, svc, "blog-title", "boring")
 		},
 		change: watcher.Change{
 			C:  "services",
@@ -468,7 +465,7 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
 				Life:     params.Life(Alive.String()),
-				Config:   map[string]interface{}{"blog-title": "boring"},
+				Config:   charm.Settings{"blog-title": "boring"},
 			},
 		},
 	},
@@ -758,7 +755,7 @@ var allWatcherChangedTests = []struct {
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
 			CharmURL: "local:series/series-wordpress-3",
-			Config:   map[string]interface{}{"foo": "bar"},
+			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *C, st *State) {
 			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
@@ -773,7 +770,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
-				Config:   map[string]interface{}{"blog-title": "foo"},
+				Config:   charm.Settings{"blog-title": "foo"},
 			},
 		},
 	}, {
@@ -781,7 +778,7 @@ var allWatcherChangedTests = []struct {
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name:     "wordpress",
 			CharmURL: "local:series/series-wordpress-2", // Note different revno.
-			Config:   map[string]interface{}{"foo": "bar"},
+			Config:   charm.Settings{"foo": "bar"},
 		}},
 		setUp: func(c *C, st *State) {
 			svc, err := st.AddService("wordpress", AddTestingCharm(c, st, "wordpress"))
@@ -796,7 +793,7 @@ var allWatcherChangedTests = []struct {
 			&params.ServiceInfo{
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-2",
-				Config:   map[string]interface{}{"foo": "bar"},
+				Config:   charm.Settings{"foo": "bar"},
 			},
 		},
 	}, {
@@ -817,10 +814,7 @@ var allWatcherChangedTests = []struct {
 }
 
 func setServiceConfigAttr(c *C, svc *Service, attr string, val interface{}) {
-	cfg, err := svc.Config()
-	c.Assert(err, IsNil)
-	cfg.Set("blog-title", val)
-	_, err = cfg.Write()
+	err := svc.UpdateConfigSettings(charm.Settings{attr: val})
 	c.Assert(err, IsNil)
 }
 

@@ -17,8 +17,8 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"strings"
 )
@@ -113,13 +113,13 @@ func (t *LiveTests) TearDownTest(c *C) {
 
 func (t *LiveTests) TestInstanceAttributes(c *C) {
 	inst := testing.StartInstance(c, t.Env, "30")
-	defer t.Env.StopInstances([]environs.Instance{inst})
+	defer t.Env.StopInstances([]instance.Instance{inst})
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
-	insts, err := t.Env.Instances([]state.InstanceId{inst.Id()})
+	insts, err := t.Env.Instances([]instance.Id{inst.Id()})
 	c.Assert(err, IsNil)
 	c.Assert(len(insts), Equals, 1)
 
@@ -130,9 +130,9 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.InvalidStateInfo("31"), testing.InvalidAPIInfo("31"))
+	inst, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
 	c.Assert(err, IsNil)
-	defer t.Env.StopInstances([]environs.Instance{inst})
+	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
 }
@@ -173,14 +173,14 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	c.Assert(err, IsNil)
 
 	inst0 := testing.StartInstance(c, t.Env, "98")
-	defer t.Env.StopInstances([]environs.Instance{inst0})
+	defer t.Env.StopInstances([]instance.Instance{inst0})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
 	inst1 := testing.StartInstance(c, t.Env, "99")
-	defer t.Env.StopInstances([]environs.Instance{inst1})
+	defer t.Env.StopInstances([]instance.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
 	c.Assert(err, IsNil)
@@ -229,7 +229,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		msg := Commentf("reservation %#v", r)
 		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
 		inst := r.Instances[0]
-		switch state.InstanceId(inst.InstanceId) {
+		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
 			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
 			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
@@ -314,17 +314,17 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
 	inst2 := testing.StartInstance(c, t.Env, "41")
 
-	err := t.Env.StopInstances([]environs.Instance{inst0, inst1, inst2})
+	err := t.Env.StopInstances([]instance.Instance{inst0, inst1, inst2})
 	c.Check(err, IsNil)
 
-	var insts []environs.Instance
+	var insts []instance.Instance
 
 	// We need the retry logic here because we are waiting
 	// for Instances to return an error, and it will not retry
 	// if it succeeds.
 	gone := false
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]state.InstanceId{inst0.Id(), inst2.Id()})
+		insts, err = t.Env.Instances([]instance.Id{inst0.Id(), inst2.Id()})
 		if err == environs.ErrPartialInstances {
 			// instances not gone yet.
 			continue

@@ -28,7 +28,7 @@ var commonLogTests = []struct {
 }
 
 func assertLogs(c *C, ctx jujuc.Context, badge string) {
-	loggo.ConfigureLogging("juju=DEBUG")
+	loggo.ConfigureLoggers("juju=DEBUG")
 	writer := &loggo.TestWriter{}
 	old_writer, err := loggo.ReplaceDefaultWriter(writer)
 	c.Assert(err, IsNil)

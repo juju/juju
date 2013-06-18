@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -111,7 +112,7 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 
 	instid, ok := machines[0].InstanceId()
 	c.Assert(ok, Equals, true)
-	c.Assert(instid, Equals, state.InstanceId("dummy.instance.id"))
+	c.Assert(instid, Equals, instance.Id("dummy.instance.id"))
 
 	cons, err := st.EnvironConstraints()
 	c.Assert(err, IsNil)

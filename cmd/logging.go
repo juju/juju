@@ -57,9 +57,9 @@ func (l *Log) Start(ctx *Context) (err error) {
 		if l.Debug {
 			level = loggo.DEBUG
 		}
-		logger := loggo.GetLogger("juju")
-		logger.SetLogLevel(level)
+		// Set the level on the root logger.
+		loggo.GetLogger("").SetLogLevel(level)
 	}
-	loggo.ConfigureLogging(l.Config)
+	loggo.ConfigureLoggers(l.Config)
 	return nil
 }
