@@ -153,8 +153,6 @@ func (lxc *lxcContainer) Destroy() error {
 	return nil
 }
 
-// TODO: Destroy should also remove the directory... (or rename it and save it for later analysis)
-
 func (lxc *lxcContainer) Directory() string {
 	return filepath.Join(containerDir, lxc.Name())
 }
