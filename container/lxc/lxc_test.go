@@ -4,7 +4,6 @@
 package lxc_test
 
 import (
-	"fmt"
 	"path/filepath"
 	stdtesting "testing"
 
@@ -14,20 +13,16 @@ import (
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
-func TestPackage(t *stdtesting.T) {
-	testing.MgoTestPackage(t)
+func Test(t *stdtesting.T) {
+	TestingT(t)
 }
 
 type LxcSuite struct {
 	testing.LoggingSuite
-	testing.MgoSuite
-	home               *testing.FakeHome
 	containerDir       string
 	lxcDir             string
 	oldContainerDir    string
@@ -38,18 +33,14 @@ var _ = Suite(&LxcSuite{})
 
 func (s *LxcSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.MgoSuite.SetUpSuite(c)
 }
 
 func (s *LxcSuite) TearDownSuite(c *C) {
-	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *LxcSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.MgoSuite.SetUpTest(c)
-	s.home = testing.MakeSampleHome(c)
 	s.containerDir = c.MkDir()
 	s.oldContainerDir = lxc.SetContainerDir(s.containerDir)
 	s.lxcDir = c.MkDir()
@@ -59,8 +50,6 @@ func (s *LxcSuite) SetUpTest(c *C) {
 func (s *LxcSuite) TearDownTest(c *C) {
 	lxc.SetContainerDir(s.oldContainerDir)
 	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
-	s.home.Restore()
-	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
