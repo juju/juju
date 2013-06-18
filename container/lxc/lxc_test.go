@@ -61,7 +61,7 @@ func (s *LxcSuite) TestNewContainer(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(container.Id(), Equals, instance.Id("machine-2-lxc-0"))
 	machineId, ok := lxc.GetMachineId(container)
-	c.Assert(ok, Equals, true)
+	c.Assert(ok, IsTrue)
 	c.Assert(machineId, Equals, "2/lxc/0")
 }
 
@@ -73,7 +73,7 @@ func (s *LxcSuite) TestNewFromExisting(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(container.Id(), Equals, instance.Id("machine-1-lxc-0"))
 	machineId, ok := lxc.GetMachineId(container)
-	c.Assert(ok, Equals, true)
+	c.Assert(ok, IsTrue)
 	c.Assert(machineId, Equals, "1/lxc/0")
 }
 
