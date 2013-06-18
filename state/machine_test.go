@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -255,7 +256,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, _ := machine.InstanceId()
-	c.Assert(iid, Equals, state.InstanceId("spaceship/0"))
+	c.Assert(iid, Equals, instance.Id("spaceship/0"))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
@@ -271,7 +272,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 	iid, ok := machine.InstanceId()
 	c.Assert(ok, Equals, false)
-	c.Assert(iid, Equals, state.InstanceId(""))
+	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {

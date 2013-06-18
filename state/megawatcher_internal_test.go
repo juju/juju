@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -64,7 +65,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	m, err := s.State.AddMachine("series", JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
 	c.Assert(err, IsNil)
 	add(&params.MachineInfo{
 		Id:         "0",
@@ -129,7 +130,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Service:   wordpress.Name(),
 			Series:    m.Series(),
 			MachineId: m.Id(),
-			Ports:     []params.Port{},
+			Ports:     []instance.Port{},
 			Status:    params.StatusPending,
 		})
 		pairs := map[string]string{"name": fmt.Sprintf("bar %d", i)}
@@ -140,7 +141,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Annotations: pairs,
 		})
 
-		err = m.SetProvisioned(InstanceId("i-"+m.Tag()), "fake_nonce")
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetStatus(params.StatusError, m.Tag())
 		c.Assert(err, IsNil)
@@ -175,7 +176,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 			Name:    fmt.Sprintf("logging/%d", i),
 			Service: "logging",
 			Series:  "series",
-			Ports:   []params.Port{},
+			Ports:   []instance.Port{},
 			Status:  params.StatusPending,
 		})
 	}
@@ -339,7 +340,7 @@ var allWatcherChangedTests = []struct {
 				PublicAddress:  "public",
 				PrivateAddress: "private",
 				MachineId:      "0",
-				Ports:          []params.Port{{"tcp", 12345}},
+				Ports:          []instance.Port{{"tcp", 12345}},
 				Status:         params.StatusError,
 				StatusInfo:     "failure",
 			},
@@ -371,7 +372,7 @@ var allWatcherChangedTests = []struct {
 				Service:       "wordpress",
 				Series:        "series",
 				PublicAddress: "public",
-				Ports:         []params.Port{{"udp", 17070}},
+				Ports:         []instance.Port{{"udp", 17070}},
 				Status:        params.StatusError,
 				StatusInfo:    "another failure",
 			},

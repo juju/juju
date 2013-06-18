@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"testing"
@@ -63,7 +64,7 @@ var marshalTestCases = []struct {
 			Service:  "Shazam",
 			Series:   "precise",
 			CharmURL: "cs:~user/precise/wordpress-42",
-			Ports: []params.Port{
+			Ports: []instance.Port{
 				{
 					Protocol: "http",
 					Number:   80},

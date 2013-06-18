@@ -122,6 +122,10 @@ func (test bootstrapTest) run(c *C) {
 	if !c.Check(<-errc, IsNil) {
 		return
 	}
+	opPutBootstrapVerifyFile := (<-opc).(dummy.OpPutFile)
+	c.Check(opPutBootstrapVerifyFile.Env, Equals, "peckham")
+	c.Check(opPutBootstrapVerifyFile.FileName, Equals, "bootstrap-verify")
+
 	opBootstrap := (<-opc).(dummy.OpBootstrap)
 	c.Check(opBootstrap.Env, Equals, "peckham")
 	c.Check(opBootstrap.Constraints, DeepEquals, test.constraints)
