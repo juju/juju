@@ -3,6 +3,7 @@ package azure
 import (
 	"fmt"
 	"io/ioutil"
+	"launchpad.net/juju-core/utils"
 	"math/rand"
 	"os"
 	"path"
@@ -45,6 +46,9 @@ func (certFile *tempCertFile) Delete() {
 // which only the current user will be allowed to access.
 // You *must* clean up the file after use, by calling its Delete method.
 func newTempCertFile(data []byte) (certFile *tempCertFile, err error) {
+	// Add context to any error we may return.
+	defer utils.ErrorContextf(&err, "failed while writing temporary certificate file")
+
 	// Access permissions for these temporary files:
 	const (
 		// Owner can read/write temporary files.  Not backed up.
@@ -53,9 +57,6 @@ func newTempCertFile(data []byte) (certFile *tempCertFile, err error) {
 		// permission.
 		dirMode = fileMode | 0100
 	)
-
-	// Add context to any error we may return.
-	defer addErrorContext(&err, "failed while writing temporary certificate file")
 
 	certFile = new(tempCertFile)
 
