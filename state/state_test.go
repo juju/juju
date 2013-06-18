@@ -11,8 +11,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"sort"
@@ -307,28 +307,61 @@ func (s *StateSuite) TestAddContainerErrors(c *C) {
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", emptyCons, state.InstanceId("i-minvalid"), state.JobHostUnits)
+	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", emptyCons, state.InstanceId("i-mlazy"))
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"))
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
 	cons := constraints.MustParse("mem=4G")
-	m, err := s.State.InjectMachine("series", cons, state.InstanceId("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
-	c.Assert(instanceId, Equals, state.InstanceId("i-mindustrious"))
+	c.Assert(instanceId, Equals, instance.Id("i-mindustrious"))
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons, DeepEquals, mcons)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
+}
+
+func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
+	oneJob := []state.MachineJob{state.JobHostUnits}
+	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	c.Assert(err, IsNil)
+
+	// Add first container.
+	params := state.AddMachineParams{
+		ParentId:      "0",
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/0")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	mcons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(mcons, DeepEquals, emptyCons)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	s.assertMachineContainers(c, m0, []string{"0/lxc/0"})
+
+	// Add second container.
+	m, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, "0/lxc/1")
+	c.Assert(m.Series(), Equals, "series")
+	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.Jobs(), DeepEquals, oneJob)
+	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
 }
 
 func (s *StateSuite) TestReadMachine(c *C) {
@@ -346,12 +379,25 @@ func (s *StateSuite) TestMachineNotFound(c *C) {
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
+func (s *StateSuite) TestMachineIdLessThan(c *C) {
+	c.Assert(state.MachineIdLessThan("0", "0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0", "1"), Equals, true)
+	c.Assert(state.MachineIdLessThan("1", "0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("10", "2"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0", "0/lxc/0"), Equals, true)
+	c.Assert(state.MachineIdLessThan("0/lxc/0", "0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("1", "0/lxc/0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0/lxc/0", "1"), Equals, true)
+	c.Assert(state.MachineIdLessThan("0/lxc/0/lxc/1", "0/lxc/0"), Equals, false)
+	c.Assert(state.MachineIdLessThan("0/kvm/0", "0/lxc/0"), Equals, true)
+}
+
 func (s *StateSuite) TestAllMachines(c *C) {
 	numInserts := 42
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		err = m.SetProvisioned(state.InstanceId(fmt.Sprintf("foo-%d", i)), "fake_nonce")
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce")
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -726,7 +772,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// Dying machine...
 	dying, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = dying.SetProvisioned(state.InstanceId("i-blah"), "fake-nonce")
+	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
 	c.Assert(err, IsNil)
 	err = dying.Destroy()
 	c.Assert(err, IsNil)
@@ -774,7 +820,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	s.assertChange(c, w, "0")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(state.InstanceId("i-blah"), "fake-nonce")
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
@@ -794,7 +840,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	s.assertNoChange(c, w)
 }
 
-func (s *StateSuite) TestWatchMachinesWithContainerLifecycle(c *C) {
+func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
@@ -832,6 +878,73 @@ func (s *StateSuite) TestWatchMachinesWithContainerLifecycle(c *C) {
 	s.assertNoChange(c, w)
 }
 
+func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
+	// Add a host machine.
+	params := state.AddMachineParams{
+		Series: "series",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	machine, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+
+	otherMachine, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+
+	// Initial event is empty when no containers.
+	cw := machine.WatchContainers(state.LXC)
+	defer stop(c, cw)
+	s.assertChange(c, cw)
+
+	// Add a container of the required type: reported.
+	params.ParentId = machine.Id()
+	params.ContainerType = state.LXC
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertChange(c, cw, "0/lxc/0")
+
+	// Add a container of a different type: not reported.
+	params.ContainerType = state.KVM
+	m1, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Add a container of a different machine: not reported.
+	params.ParentId = otherMachine.Id()
+	params.ContainerType = state.LXC
+	m2, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Make the container Dying: reported.
+	err = m.Destroy()
+	c.Assert(err, IsNil)
+	s.assertChange(c, cw, "0/lxc/0")
+
+	// Make the other containers Dying: not reported.
+	err = m1.Destroy()
+	c.Assert(err, IsNil)
+	err = m2.Destroy()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Make the container Dead: reported.
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	s.assertChange(c, cw, "0/lxc/0")
+
+	// Make the other containers Dying: not reported.
+	err = m1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = m2.EnsureDead()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Remove the container: not reported.
+	err = m.Remove()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+}
+
 func (s *StateSuite) assertNoChange(c *C, w *state.LifecycleWatcher) {
 	s.State.StartSync()
 	select {
@@ -856,15 +969,15 @@ func (s *StateSuite) assertChange(c *C, w *state.LifecycleWatcher, expect ...str
 }
 
 var sortPortsTests = []struct {
-	have, want []params.Port
+	have, want []instance.Port
 }{
-	{nil, []params.Port{}},
-	{[]params.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []params.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
+	{nil, []instance.Port{}},
+	{[]instance.Port{{"b", 1}, {"a", 99}, {"a", 1}}, []instance.Port{{"a", 1}, {"a", 99}, {"b", 1}}},
 }
 
 func (*StateSuite) TestSortPorts(c *C) {
 	for _, t := range sortPortsTests {
-		p := make([]params.Port, len(t.have))
+		p := make([]instance.Port, len(t.have))
 		copy(p, t.have)
 		state.SortPorts(p)
 		c.Check(p, DeepEquals, t.want)
@@ -1558,4 +1671,22 @@ func assertCleanupChange(c *C, st *state.State, cw *state.CleanupWatcher) {
 		c.Fatalf("timed out waiting for change")
 	}
 	assertNoCleanupChange(c, st, cw)
+}
+
+func (s *StateSuite) TestNestingLevel(c *C) {
+	c.Assert(state.NestingLevel("0"), Equals, 0)
+	c.Assert(state.NestingLevel("0/lxc/1"), Equals, 1)
+	c.Assert(state.NestingLevel("0/lxc/1/kvm/0"), Equals, 2)
+}
+
+func (s *StateSuite) TestTopParentId(c *C) {
+	c.Assert(state.TopParentId("0"), Equals, "0")
+	c.Assert(state.TopParentId("0/lxc/1"), Equals, "0")
+	c.Assert(state.TopParentId("0/lxc/1/kvm/2"), Equals, "0")
+}
+
+func (s *StateSuite) TestParentId(c *C) {
+	c.Assert(state.ParentId("0"), Equals, "")
+	c.Assert(state.ParentId("0/lxc/1"), Equals, "0")
+	c.Assert(state.ParentId("0/lxc/1/kvm/0"), Equals, "0/lxc/1")
 }

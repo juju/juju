@@ -60,8 +60,8 @@ func hasInt(changes []int, id int) bool {
 type LifecycleWatcher struct {
 	commonWatcher
 	coll *mgo.Collection
-	// map[entityId]Life
-	filter func(ids []string) []string
+	// filter is an optional function returning true if key should be included in the change events.
+	filter func(key interface{}) bool
 	life   map[string]Life
 	out    chan []string
 }
@@ -69,15 +69,8 @@ type LifecycleWatcher struct {
 // WatchEnvironMachines returns a LifecycleWatcher that notifies of changes to
 // the lifecycles of the machines (but not containers) in the environment.
 func (st *State) WatchEnvironMachines() *LifecycleWatcher {
-	filter := func(ids []string) []string {
-		// Filter out ids which are for containers.
-		var machineIds []string
-		for _, id := range ids {
-			if !strings.Contains(id, "/") {
-				machineIds = append(machineIds, id)
-			}
-		}
-		return machineIds
+	filter := func(key interface{}) bool {
+		return !strings.Contains(key.(string), "/")
 	}
 	return newLifecycleWatcher(st, st.machines, filter)
 }
@@ -88,7 +81,8 @@ func (st *State) WatchServices() *LifecycleWatcher {
 	return newLifecycleWatcher(st, st.services, nil)
 }
 
-func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(ids []string) []string) *LifecycleWatcher {
+//func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(ids []string) []string) *LifecycleWatcher {
+func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(key interface{}) bool) *LifecycleWatcher {
 	w := &LifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          coll,
@@ -120,6 +114,9 @@ func (w *LifecycleWatcher) initial() (ids []string, err error) {
 	iter := w.coll.Find(nil).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
+		if w.filter != nil && !w.filter(doc.Id) {
+			continue
+		}
 		ids = append(ids, doc.Id)
 		if doc.Life != Dead {
 			w.life[doc.Id] = doc.Life
@@ -166,7 +163,7 @@ func (w *LifecycleWatcher) merge(ids []string, ch watcher.Change) ([]string, err
 
 func (w *LifecycleWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.coll.Name, in)
+	w.st.watcher.WatchCollectionWithFilter(w.coll.Name, in, w.filter)
 	defer w.st.watcher.UnwatchCollection(w.coll.Name, in)
 	ids, err := w.initial()
 	if err != nil {
@@ -182,9 +179,6 @@ func (w *LifecycleWatcher) loop() (err error) {
 		case ch := <-in:
 			if ids, err = w.merge(ids, ch); err != nil {
 				return err
-			}
-			if w.filter != nil {
-				ids = w.filter(ids)
 			}
 			if len(ids) > 0 {
 				out = w.out
@@ -1035,6 +1029,24 @@ type EntityWatcher struct {
 // Watch return a watcher for observing changes to a machine.
 func (m *Machine) Watch() *EntityWatcher {
 	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
+}
+
+// WatchContainers returns a watcher that notifies of changes to the lifecycle of containers on a machine.
+func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
+	filter := func(key interface{}) bool {
+		// Filter out ids which are not of the specified container type on this machine.
+		id := key.(string)
+		// Ignore containers on different machines.
+		if ParentId(id) != m.Id() {
+			return false
+		}
+		// Extract the container type from the id.
+		idParts := strings.Split(id, "/")
+		containerType := ContainerType(idParts[len(idParts)-2])
+		return ctype == containerType
+	}
+
+	return newLifecycleWatcher(m.st, m.st.machines, filter)
 }
 
 // Watch return a watcher for observing changes to a service.

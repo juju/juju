@@ -117,6 +117,32 @@ var (
 		"instance-id": "dummyenv-4",
 		"series":      "series",
 	}
+	machine1WithContainers = M{
+		"agent-state": "started",
+		"containers": M{
+			"1/lxc/0": M{
+				"agent-state": "started",
+				"containers": M{
+					"1/lxc/0/lxc/0": M{
+						"agent-state": "started",
+						"dns-name":    "dummyenv-3.dns",
+						"instance-id": "dummyenv-3",
+						"series":      "series",
+					},
+				},
+				"dns-name":    "dummyenv-2.dns",
+				"instance-id": "dummyenv-2",
+				"series":      "series",
+			},
+			"1/lxc/1": M{
+				"instance-id": "pending",
+				"series":      "series",
+			},
+		},
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
+		"series":      "series",
+	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
 		"exposed": false,
@@ -716,6 +742,59 @@ var statusTests = []testCase{
 				},
 			},
 		},
+	), test(
+		"machines with containers",
+		addMachine{"0", state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		setServiceExposed{"mysql", true},
+
+		addMachine{"1", state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"mysql", "1"},
+		setUnitStatus{"mysql/0", params.StatusStarted, ""},
+
+		// A container on machine 1.
+		addContainer{"1", "1/lxc/0", state.JobHostUnits},
+		startAliveMachine{"1/lxc/0"},
+		setMachineStatus{"1/lxc/0", params.StatusStarted, ""},
+		addAliveUnit{"mysql", "1/lxc/0"},
+		setUnitStatus{"mysql/1", params.StatusStarted, ""},
+		addContainer{"1", "1/lxc/1", state.JobHostUnits},
+
+		// A nested container.
+		addContainer{"1/lxc/0", "1/lxc/0/lxc/0", state.JobHostUnits},
+		startAliveMachine{"1/lxc/0/lxc/0"},
+		setMachineStatus{"1/lxc/0/lxc/0", params.StatusStarted, ""},
+
+		expect{
+			"machines with nested containers",
+			M{
+				"machines": M{
+					"0": machine0,
+					"1": machine1WithContainers,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+							},
+							"mysql/1": M{
+								"machine":     "1/lxc/0",
+								"agent-state": "started",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -730,6 +809,24 @@ func (am addMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.AddMachine("series", am.job)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, am.machineId)
+}
+
+type addContainer struct {
+	parentId  string
+	machineId string
+	job       state.MachineJob
+}
+
+func (ac addContainer) step(c *C, ctx *context) {
+	params := &state.AddMachineParams{
+		ParentId:      ac.parentId,
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{ac.job},
+	}
+	m, err := ctx.st.AddMachineWithConstraints(params)
+	c.Assert(err, IsNil)
+	c.Assert(m.Id(), Equals, ac.machineId)
 }
 
 type startMachine struct {

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 )
 
 // Error holds the error result of a single operation.
@@ -95,6 +96,13 @@ type ServiceDeploy struct {
 	ConfigYAML     string // Takes precedence over config if both are present.
 	Constraints    constraints.Value
 	ForceMachineId string
+}
+
+// ServiceSetCharm sets the charm for a given service.
+type ServiceSetCharm struct {
+	ServiceName string
+	CharmUrl    string
+	Force       bool
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -273,16 +281,6 @@ type CharmInfo struct {
 	CharmURL string
 }
 
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string
-	Number   int
-}
-
-func (p Port) String() string {
-	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
-}
-
 // Delta holds details of a change to the environment.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
@@ -428,7 +426,7 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Ports          []Port
+	Ports          []instance.Port
 	Status         Status
 	StatusInfo     string
 }

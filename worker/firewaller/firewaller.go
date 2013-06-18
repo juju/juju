@@ -8,9 +8,9 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
@@ -31,7 +31,7 @@ type Firewaller struct {
 	serviceds       map[string]*serviceData
 	exposedChange   chan *exposedChange
 	globalMode      bool
-	globalPortRef   map[params.Port]int
+	globalPortRef   map[instance.Port]int
 }
 
 // NewFirewaller returns a new Firewaller.
@@ -66,7 +66,7 @@ func (fw *Firewaller) loop() error {
 	}
 	if fw.environ.Config().FirewallMode() == config.FwGlobal {
 		fw.globalMode = true
-		fw.globalPortRef = make(map[params.Port]int)
+		fw.globalPortRef = make(map[instance.Port]int)
 	}
 	for {
 		select {
@@ -135,7 +135,7 @@ func (fw *Firewaller) startMachine(id string) error {
 		fw:     fw,
 		id:     id,
 		unitds: make(map[string]*unitData),
-		ports:  make([]params.Port, 0),
+		ports:  make([]instance.Port, 0),
 	}
 	m, err := machined.machine()
 	if errors.IsNotFoundError(err) {
@@ -194,7 +194,7 @@ func (fw *Firewaller) startUnit(unit *state.Unit, machineId string) error {
 	unitd.serviced = fw.serviceds[serviceName]
 	unitd.serviced.unitds[unitName] = unitd
 
-	ports := make([]params.Port, len(unitd.ports))
+	ports := make([]instance.Port, len(unitd.ports))
 	copy(ports, unitd.ports)
 
 	go unitd.watchLoop(ports)
@@ -223,7 +223,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 	if err != nil {
 		return err
 	}
-	collector := make(map[params.Port]bool)
+	collector := make(map[instance.Port]bool)
 	for _, unitd := range fw.unitds {
 		if unitd.serviced.exposed {
 			for _, port := range unitd.ports {
@@ -231,7 +231,7 @@ func (fw *Firewaller) reconcileGlobal() error {
 			}
 		}
 	}
-	wantedPorts := []params.Port{}
+	wantedPorts := []instance.Port{}
 	for port := range collector {
 		wantedPorts = append(wantedPorts, port)
 	}
@@ -273,7 +273,7 @@ func (fw *Firewaller) reconcileInstances() error {
 		if !ok {
 			return errors.NotFoundf("instance id for %v", m)
 		}
-		instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
+		instances, err := fw.environ.Instances([]instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
 			return nil
 		} else if err != nil {
@@ -364,7 +364,7 @@ func (fw *Firewaller) flushUnits(unitds []*unitData) error {
 // flushMachine opens and closes ports for the passed machine.
 func (fw *Firewaller) flushMachine(machined *machineData) error {
 	// Gather ports to open and close.
-	ports := map[params.Port]bool{}
+	ports := map[instance.Port]bool{}
 	for _, unitd := range machined.unitds {
 		if unitd.serviced.exposed {
 			for _, port := range unitd.ports {
@@ -372,7 +372,7 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 			}
 		}
 	}
-	want := []params.Port{}
+	want := []instance.Port{}
 	for port := range ports {
 		want = append(want, port)
 	}
@@ -388,9 +388,9 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 // flushGlobalPorts opens and closes global ports in the environment.
 // It keeps a reference count for ports so that only 0-to-1 and 1-to-0 events
 // modify the environment.
-func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []params.Port) error {
+func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []instance.Port) error {
 	// Filter which ports are really to open or close.
-	var toOpen, toClose []params.Port
+	var toOpen, toClose []instance.Port
 	for _, port := range rawOpen {
 		if fw.globalPortRef[port] == 0 {
 			toOpen = append(toOpen, port)
@@ -425,7 +425,7 @@ func (fw *Firewaller) flushGlobalPorts(rawOpen, rawClose []params.Port) error {
 }
 
 // flushGlobalPorts opens and closes ports global on the machine.
-func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []params.Port) error {
+func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose []instance.Port) error {
 	// If there's nothing to do, do nothing.
 	// This is important because when a machine is first created,
 	// it will have no instance id but also no open ports -
@@ -444,7 +444,7 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if !ok {
 		return errors.NotFoundf("instance id for %v", m)
 	}
-	instances, err := fw.environ.Instances([]state.InstanceId{instanceId})
+	instances, err := fw.environ.Instances([]instance.Id{instanceId})
 	if err != nil {
 		return err
 	}
@@ -582,7 +582,7 @@ type machineData struct {
 	fw     *Firewaller
 	id     string
 	unitds map[string]*unitData
-	ports  []params.Port
+	ports  []instance.Port
 }
 
 func (md *machineData) machine() (*state.Machine, error) {
@@ -623,7 +623,7 @@ func (md *machineData) Stop() error {
 // portsChange contains the changed ports for one specific unit.
 type portsChange struct {
 	unitd *unitData
-	ports []params.Port
+	ports []instance.Port
 }
 
 // unitData holds unit details and watches port changes.
@@ -633,11 +633,11 @@ type unitData struct {
 	unit     *state.Unit
 	serviced *serviceData
 	machined *machineData
-	ports    []params.Port
+	ports    []instance.Port
 }
 
 // watchLoop watches the unit for port changes.
-func (ud *unitData) watchLoop(latestPorts []params.Port) {
+func (ud *unitData) watchLoop(latestPorts []instance.Port) {
 	defer ud.tomb.Done()
 	w := ud.unit.Watch()
 	defer watcher.Stop(w, &ud.tomb)
@@ -672,7 +672,7 @@ func (ud *unitData) watchLoop(latestPorts []params.Port) {
 
 // samePorts returns whether old and new contain the same set of ports.
 // Both old and new must be sorted.
-func samePorts(old, new []params.Port) bool {
+func samePorts(old, new []instance.Port) bool {
 	if len(old) != len(new) {
 		return false
 	}
@@ -746,7 +746,7 @@ func (sd *serviceData) Stop() error {
 }
 
 // diff returns all the ports that exist in A but not B.
-func diff(A, B []params.Port) (missing []params.Port) {
+func diff(A, B []instance.Port) (missing []instance.Port) {
 next:
 	for _, a := range A {
 		for _, b := range B {
