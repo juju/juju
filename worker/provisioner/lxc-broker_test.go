@@ -107,4 +107,11 @@ func (s *lxcBrokerSuite) TestAllInstances(c *C) {
 	results, err := s.broker.AllInstances()
 	c.Assert(err, IsNil)
 	s.matchInstances(c, results, lxc0, lxc1)
+
+	err = s.broker.StopInstances([]instance.Instance{lxc1})
+	c.Assert(err, IsNil)
+	lxc2 := s.startInstance(c, "1/lxc/2")
+	results, err = s.broker.AllInstances()
+	c.Assert(err, IsNil)
+	s.matchInstances(c, results, lxc0, lxc2)
 }
