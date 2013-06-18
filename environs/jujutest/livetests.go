@@ -713,7 +713,7 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -726,7 +726,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
-	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
