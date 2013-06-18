@@ -107,11 +107,6 @@ func (env *azureEnviron) Destroy(insts []instance.Instance) error {
 	panic("unimplemented")
 }
 
-// AssignmentPolicy is specified in the Environ interface.
-func (env *azureEnviron) AssignmentPolicy() state.AssignmentPolicy {
-	panic("unimplemented")
-}
-
 // OpenPorts is specified in the Environ interface.
 func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
 	panic("unimplemented")

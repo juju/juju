@@ -19,7 +19,7 @@ var logger = loggo.GetLogger("juju.provisioner")
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	state     *state.State
+	st        *state.State
 	machineId string // Which machine runs the provisioner.
 	environ   environs.Environ
 	tomb      tomb.Tomb
@@ -46,7 +46,7 @@ func (o *configObserver) notify(cfg *config.Config) {
 // and allocates them to the new machines.
 func NewProvisioner(st *state.State, machineId string) *Provisioner {
 	p := &Provisioner{
-		state:     st,
+		st:        st,
 		machineId: machineId,
 	}
 	go func() {
@@ -57,7 +57,7 @@ func NewProvisioner(st *state.State, machineId string) *Provisioner {
 }
 
 func (p *Provisioner) loop() error {
-	environWatcher := p.state.WatchEnvironConfig()
+	environWatcher := p.st.WatchEnvironConfig()
 	defer watcher.Stop(environWatcher, &p.tomb)
 
 	var err error
@@ -66,18 +66,27 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 
+	// Get a new StateInfo from the environment: the one used to
+	// launch the agent may refer to localhost, which will be
+	// unhelpful when attempting to run an agent on a new machine.
+	stateInfo, apiInfo, err := p.environ.StateInfo()
+	if err != nil {
+		return err
+	}
+
 	// Start a new worker for the environment provider.
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher := p.state.WatchEnvironMachines()
+	machinesWatcher := p.st.WatchEnvironMachines()
 	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := newProvisionerTask(
 		p.machineId,
-		p.state,
+		p.st,
 		machinesWatcher,
 		environmentBroker,
-	)
+		stateInfo,
+		apiInfo)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
 	for {
@@ -94,11 +103,6 @@ func (p *Provisioner) loop() error {
 			}
 			if err := p.setConfig(cfg); err != nil {
 				logger.Errorf("loaded invalid environment configuration: %v", err)
-				// We *shouldn't* ever get into a state here where we have an
-				// invalid config.  If we do, stop the task and let jujud
-				// restart the provisioner, which will then wait for valid
-				// config.
-				return err
 			}
 		}
 	}
