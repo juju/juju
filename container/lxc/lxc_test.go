@@ -86,36 +86,6 @@ func (s *LxcSuite) TestNewFromExisting(c *C) {
 	c.Assert(machineId, Equals, "1/lxc/0")
 }
 
-func setupAuthentication(st *state.State, machine *state.Machine) (*state.Info, *api.Info, error) {
-	stateAddresses, err := st.Addresses()
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot get addresses from state: %v", err)
-	}
-	apiAddresses, err := st.APIAddresses()
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot get api addresses from state: %v", err)
-	}
-	password, err := utils.RandomPassword()
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
-	}
-	if err := machine.SetMongoPassword(password); err != nil {
-		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", machine, err)
-	}
-	cert := st.CACert()
-	return &state.Info{
-			Addrs:    stateAddresses,
-			CACert:   cert,
-			Tag:      machine.Tag(),
-			Password: password,
-		}, &api.Info{
-			Addrs:    apiAddresses,
-			CACert:   cert,
-			Tag:      machine.Tag(),
-			Password: password,
-		}, nil
-}
-
 func (s *LxcSuite) TestContainerCreate(c *C) {
 
 	machineId := "1/lxc/0"
