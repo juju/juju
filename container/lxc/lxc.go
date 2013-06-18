@@ -277,7 +277,7 @@ func uniqueDirectory(path, name string) string {
 	if os.IsNotExist(err) {
 		return dir
 	}
-	for i := 0; ; i++ {
+	for i := 1; ; i++ {
 		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
 		_, err := os.Stat(dir)
 		if os.IsNotExist(err) {

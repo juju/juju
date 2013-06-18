@@ -4,6 +4,8 @@
 package lxc_test
 
 import (
+	"fmt"
+	"os"
 	"path/filepath"
 	stdtesting "testing"
 
@@ -116,7 +118,6 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 }
 
 func (s *LxcSuite) TestContainerDestroy(c *C) {
-
 	factory := lxc.NewFactory(MockFactory())
 	container, err := factory.NewContainer("1/lxc/0")
 	c.Assert(err, IsNil)
@@ -130,4 +131,24 @@ func (s *LxcSuite) TestContainerDestroy(c *C) {
 	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
 	// but instead, in the removed container dir
 	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, name))
+}
+
+func (s *LxcSuite) TestContainerRemovedDirNameClash(c *C) {
+	factory := lxc.NewFactory(MockFactory())
+	container, err := factory.NewContainer("1/lxc/0")
+	c.Assert(err, IsNil)
+
+	name := string(container.Id())
+	targetDir := filepath.Join(s.removedDir, name)
+	err = os.MkdirAll(targetDir, 0755)
+	c.Assert(err, IsNil)
+
+	ContainerCreate(c, container)
+	err = container.Destroy()
+	c.Assert(err, IsNil)
+
+	// Check that the container dir is no longer in the container dir
+	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
+	// but instead, in the removed container dir with a ".1" suffix as there was already a directory there.
+	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, fmt.Sprintf("%s.1", name)))
 }
