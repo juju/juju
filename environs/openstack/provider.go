@@ -27,7 +27,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strconv"
@@ -159,12 +158,12 @@ func (p environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-ipv4")
 }
 
-func (p environProvider) InstanceId() (state.InstanceId, error) {
+func (p environProvider) InstanceId() (instance.Id, error) {
 	str, err := fetchInstanceUUID()
 	if err != nil {
 		str, err = fetchLegacyId()
 	}
-	return state.InstanceId(str), err
+	return instance.Id(str), err
 }
 
 // metadataHost holds the address of the instance metadata service.
@@ -283,8 +282,8 @@ func (inst *openstackInstance) String() string {
 
 var _ instance.Instance = (*openstackInstance)(nil)
 
-func (inst *openstackInstance) Id() state.InstanceId {
-	return state.InstanceId(inst.ServerDetail.Id)
+func (inst *openstackInstance) Id() instance.Id {
+	return instance.Id(inst.ServerDetail.Id)
 }
 
 // instanceAddress processes a map of networks to lists of IP
@@ -354,7 +353,7 @@ func (inst *openstackInstance) WaitDNSName() (string, error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (inst *openstackInstance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -367,7 +366,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []params.Port) 
 	return nil
 }
 
-func (inst *openstackInstance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
 			inst.e.Config().FirewallMode())
@@ -380,7 +379,7 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []params.Port)
 	return nil
 }
 
-func (inst *openstackInstance) Ports(machineId string) ([]params.Port, error) {
+func (inst *openstackInstance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
 			inst.e.Config().FirewallMode())
@@ -507,7 +506,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = e.saveState(&bootstrapState{
-		StateInstances: []state.InstanceId{inst.Id()},
+		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -841,7 +840,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 	log.Infof("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
-			if err := e.terminateInstances([]state.InstanceId{inst.Id()}); err != nil {
+			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
 				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
 			}
@@ -853,7 +852,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {
-	ids := make([]state.InstanceId, len(insts))
+	ids := make([]instance.Id, len(insts))
 	for i, inst := range insts {
 		instanceValue, ok := inst.(*openstackInstance)
 		if !ok {
@@ -868,7 +867,7 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 // collectInstances tries to get information on each instance id in ids.
 // It fills the slots in the given map for known servers with status
 // either ACTIVE or BUILD. Returns a list of missing ids.
-func (e *environ) collectInstances(ids []state.InstanceId, out map[state.InstanceId]instance.Instance) []state.InstanceId {
+func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
 	var err error
 	serversById := make(map[string]nova.ServerDetail)
 	if len(ids) == 1 {
@@ -888,7 +887,7 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 	if err != nil {
 		return ids
 	}
-	var missing []state.InstanceId
+	var missing []instance.Id
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
 			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
@@ -901,12 +900,12 @@ func (e *environ) collectInstances(ids []state.InstanceId, out map[state.Instanc
 	return missing
 }
 
-func (e *environ) Instances(ids []state.InstanceId) ([]instance.Instance, error) {
+func (e *environ) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		return nil, nil
 	}
 	missing := ids
-	found := make(map[state.InstanceId]instance.Instance)
+	found := make(map[instance.Id]instance.Instance)
 	// Make a series of requests to cope with eventual consistency.
 	// Each request will attempt to add more instances to the requested
 	// set.
@@ -950,8 +949,8 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
 	}
-	found := make(map[state.InstanceId]bool)
-	var ids []state.InstanceId
+	found := make(map[instance.Id]bool)
+	var ids []instance.Id
 	for _, inst := range insts {
 		ids = append(ids, inst.Id())
 		found[inst.Id()] = true
@@ -960,7 +959,7 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	// Add any instances we've been told about but haven't yet shown
 	// up in the instance list.
 	for _, inst := range ensureInsts {
-		id := state.InstanceId(inst.(*openstackInstance).Id())
+		id := instance.Id(inst.(*openstackInstance).Id())
 		if !found[id] {
 			ids = append(ids, id)
 			found[id] = true
@@ -1001,7 +1000,7 @@ func (e *environ) machinesFilter() *nova.Filter {
 	return filter
 }
 
-func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
+func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 	novaclient := e.nova()
 	group, err := novaclient.SecurityGroupByName(name)
 	if err != nil {
@@ -1023,7 +1022,7 @@ func (e *environ) openPortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
+func (e *environ) closePortsInGroup(name string, ports []instance.Port) error {
 	if len(ports) == 0 {
 		return nil
 	}
@@ -1050,14 +1049,14 @@ func (e *environ) closePortsInGroup(name string, ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
+func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	group, err := e.nova().SecurityGroupByName(name)
 	if err != nil {
 		return nil, err
 	}
 	for _, p := range (*group).Rules {
 		for i := *p.FromPort; i <= *p.ToPort; i++ {
-			ports = append(ports, params.Port{
+			ports = append(ports, instance.Port{
 				Protocol: *p.IPProtocol,
 				Number:   i,
 			})
@@ -1069,7 +1068,7 @@ func (e *environ) portsInGroup(name string) (ports []params.Port, err error) {
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
-func (e *environ) OpenPorts(ports []params.Port) error {
+func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
 			e.Config().FirewallMode())
@@ -1081,7 +1080,7 @@ func (e *environ) OpenPorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []params.Port) error {
+func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
 			e.Config().FirewallMode())
@@ -1093,7 +1092,7 @@ func (e *environ) ClosePorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() ([]params.Port, error) {
+func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
 			e.Config().FirewallMode())
@@ -1190,7 +1189,7 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 	return *group, nil
 }
 
-func (e *environ) terminateInstances(ids []state.InstanceId) error {
+func (e *environ) terminateInstances(ids []instance.Id) error {
 	if len(ids) == 0 {
 		return nil
 	}

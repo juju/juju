@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"regexp"
@@ -50,7 +50,7 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 
 	id, err := p.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, state.InstanceId("dummy.instance.id"))
+	c.Assert(id, Equals, instance.Id("dummy.instance.id"))
 }
 
 func registerLocalTests() {

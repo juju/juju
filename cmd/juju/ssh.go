@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -105,7 +106,7 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	for _ = range w.Changes() {
 		if instid, ok := machine.InstanceId(); ok {
 			w.Stop()
-			inst, err := c.Environ.Instances([]state.InstanceId{instid})
+			inst, err := c.Environ.Instances([]instance.Id{instid})
 			if err != nil {
 				return "", err
 			}

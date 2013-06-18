@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"strconv"
@@ -618,14 +619,14 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -633,7 +634,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -642,7 +643,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -652,7 +653,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -661,7 +662,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},

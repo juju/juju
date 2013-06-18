@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -113,7 +112,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
-	insts, err := t.Env.Instances([]state.InstanceId{id0, id0})
+	insts, err := t.Env.Instances([]instance.Id{id0, id0})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
@@ -138,7 +137,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dns, Not(Equals), "")
 
-	insts, err = t.Env.Instances([]state.InstanceId{id0, ""})
+	insts, err = t.Env.Instances([]instance.Id{id0, ""})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts, HasLen, 2)
 	c.Check(insts[0].Id(), Equals, id0)
@@ -150,7 +149,7 @@ func (t *LiveTests) TestStartStop(c *C) {
 	// The machine may not be marked as shutting down
 	// immediately. Repeat a few times to ensure we get the error.
 	for a := t.Attempt.Start(); a.Next(); {
-		insts, err = t.Env.Instances([]state.InstanceId{id0})
+		insts, err = t.Env.Instances([]instance.Id{id0})
 		if err != nil {
 			break
 		}
@@ -175,70 +174,70 @@ func (t *LiveTests) TestPorts(c *C) {
 	defer t.Env.StopInstances([]instance.Instance{inst2})
 
 	// Open some ports and check they're there.
-	err = inst1.OpenPorts("1", []params.Port{{"udp", 67}, {"tcp", 45}})
+	err = inst1.OpenPorts("1", []instance.Port{{"udp", 67}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"udp", 67}})
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	err = inst2.OpenPorts("2", []params.Port{{"tcp", 89}, {"tcp", 45}})
+	err = inst2.OpenPorts("2", []instance.Port{{"tcp", 89}, {"tcp", 45}})
 	c.Assert(err, IsNil)
 
 	// Check there's no crosstalk to another machine
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that opening the same port again is ok.
 	oldPorts, err := inst2.Ports("2")
 	c.Assert(err, IsNil)
-	err = inst2.OpenPorts("2", []params.Port{{"tcp", 45}})
+	err = inst2.OpenPorts("2", []instance.Port{{"tcp", 45}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
 	c.Assert(ports, DeepEquals, oldPorts)
 
 	// Check that opening the same port again and another port is ok.
-	err = inst2.OpenPorts("2", []params.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.OpenPorts("2", []instance.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 
-	err = inst2.ClosePorts("2", []params.Port{{"tcp", 45}, {"tcp", 99}})
+	err = inst2.ClosePorts("2", []instance.Port{{"tcp", 45}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
 	// Check that we can close ports and that there's no crosstalk.
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 89}})
 	ports, err = inst1.Ports("1")
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"udp", 67}})
 
 	// Check that we can close multiple ports.
-	err = inst1.ClosePorts("1", []params.Port{{"tcp", 45}, {"udp", 67}})
+	err = inst1.ClosePorts("1", []instance.Port{{"tcp", 45}, {"udp", 67}})
 	c.Assert(err, IsNil)
 	ports, err = inst1.Ports("1")
 	c.Assert(ports, HasLen, 0)
 
 	// Check that we can close ports that aren't there.
-	err = inst2.ClosePorts("2", []params.Port{{"tcp", 111}, {"udp", 222}})
+	err = inst2.ClosePorts("2", []instance.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
 	ports, err = inst2.Ports("2")
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 89}})
 
 	// Check errors when acting on environment.
-	err = t.Env.OpenPorts([]params.Port{{"tcp", 80}})
+	err = t.Env.OpenPorts([]instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
 
-	err = t.Env.ClosePorts([]params.Port{{"tcp", 80}})
+	err = t.Env.ClosePorts([]instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
 
 	_, err = t.Env.Ports()
@@ -273,34 +272,34 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(ports, HasLen, 0)
 	defer t.Env.StopInstances([]instance.Instance{inst2})
 
-	err = t.Env.OpenPorts([]params.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
+	err = t.Env.OpenPorts([]instance.Port{{"udp", 67}, {"tcp", 45}, {"tcp", 89}, {"tcp", 99}})
 	c.Assert(err, IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}, {"udp", 67}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}, {"tcp", 99}, {"udp", 67}})
 
 	// Check closing some ports.
-	err = t.Env.ClosePorts([]params.Port{{"tcp", 99}, {"udp", 67}})
+	err = t.Env.ClosePorts([]instance.Port{{"tcp", 99}, {"udp", 67}})
 	c.Assert(err, IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check that we can close ports that aren't there.
-	err = t.Env.ClosePorts([]params.Port{{"tcp", 111}, {"udp", 222}})
+	err = t.Env.ClosePorts([]instance.Port{{"tcp", 111}, {"udp", 222}})
 	c.Assert(err, IsNil)
 
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
-	c.Assert(ports, DeepEquals, []params.Port{{"tcp", 45}, {"tcp", 89}})
+	c.Assert(ports, DeepEquals, []instance.Port{{"tcp", 45}, {"tcp", 89}})
 
 	// Check errors when acting on instances.
-	err = inst1.OpenPorts("1", []params.Port{{"tcp", 80}})
+	err = inst1.OpenPorts("1", []instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
 
-	err = inst1.ClosePorts("1", []params.Port{{"tcp", 80}})
+	err = inst1.ClosePorts("1", []instance.Port{{"tcp", 80}})
 	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
 
 	_, err = inst1.Ports("1")
@@ -621,17 +620,17 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 		if !ok {
 			continue
 		}
-		_, err = t.Env.Instances([]state.InstanceId{instId})
+		_, err = t.Env.Instances([]instance.Id{instId})
 		c.Assert(err, IsNil)
 		return
 	}
 	c.Fatalf("provisioner failed to start machine after %v", waitAgent.Total)
 }
 
-func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId state.InstanceId) {
+func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId instance.Id) {
 	var err error
 	for a := waitAgent.Start(); a.Next(); {
-		_, err = t.Env.Instances([]state.InstanceId{instId})
+		_, err = t.Env.Instances([]instance.Id{instId})
 		if err == nil {
 			continue
 		}
@@ -647,7 +646,7 @@ func (t *LiveTests) assertStopInstance(c *C, env environs.Environ, instId state.
 // that matches that of the given instance. If the instance is nil,
 // It asserts that the instance id is unset.
 func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
-	var wantId, gotId state.InstanceId
+	var wantId, gotId instance.Id
 	var err error
 	if inst != nil {
 		wantId = inst.Id()
@@ -714,7 +713,7 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -727,7 +726,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
-	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.InvalidStateInfo("4"), testing.InvalidAPIInfo("4"))
+	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)

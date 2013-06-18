@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -139,7 +140,7 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	// fudge unit.SetPublicAddress
 	id, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
-	insts, err := s.Conn.Environ.Instances([]state.InstanceId{id})
+	insts, err := s.Conn.Environ.Instances([]instance.Id{id})
 	c.Assert(err, IsNil)
 	addr, err := insts[0].WaitDNSName()
 	c.Assert(err, IsNil)
