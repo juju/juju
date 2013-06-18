@@ -87,3 +87,24 @@ func (s *lxcBrokerSuite) TestStopInstance(c *C) {
 	err := s.broker.StopInstances([]instance.Instance{lxc0, lxc1, lxc2})
 	c.Assert(err, IsNil)
 }
+
+func (s *lxcBrokerSuite) matchInstances(c *C, result []instance.Instance, expected ...instance.Instance) {
+	resultMap := make(map[instance.Id]instance.Instance)
+	for _, i := range result {
+		resultMap[i.Id()] = i
+	}
+
+	expectedMap := make(map[instance.Id]instance.Instance)
+	for _, i := range expected {
+		expectedMap[i.Id()] = i
+	}
+	c.Assert(resultMap, DeepEquals, expectedMap)
+}
+
+func (s *lxcBrokerSuite) TestAllInstances(c *C) {
+	lxc0 := s.startInstance(c, "1/lxc/0")
+	lxc1 := s.startInstance(c, "1/lxc/1")
+	results, err := s.broker.AllInstances()
+	c.Assert(err, IsNil)
+	s.matchInstances(c, results, lxc0, lxc1)
+}
