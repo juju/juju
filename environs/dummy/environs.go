@@ -713,8 +713,8 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (instance *dummyInstance) Metadata() (*instance.Metadata, error) {
-	return &instance.metadata, nil
+func (instance *dummyInstance) Metadata() instance.Metadata {
+	return instance.metadata
 }
 
 func (inst *dummyInstance) DNSName() (string, error) {

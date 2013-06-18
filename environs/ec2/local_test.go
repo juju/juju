@@ -310,8 +310,7 @@ func (t *localServerSuite) TestStartInstanceMetadata(c *C) {
 	apiInfo.Tag = "machine-1"
 	inst, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, IsNil)
-	md, err := inst.Metadata()
-	c.Assert(err, IsNil)
+	md := inst.Metadata()
 	c.Check(*md.Arch, Equals, "amd64")
 	c.Check(*md.Mem, Equals, uint64(1740))
 	c.Check(*md.CpuCores, Equals, uint64(1))

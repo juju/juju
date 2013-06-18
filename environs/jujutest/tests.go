@@ -91,8 +91,7 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 	// Sanity check for image metadata.
-	md, err := inst0.Metadata()
-	c.Assert(err, IsNil)
+	md := inst0.Metadata()
 	c.Assert(md.Arch, NotNil)
 	c.Assert(md.Mem, NotNil)
 	c.Assert(md.CpuCores, NotNil)

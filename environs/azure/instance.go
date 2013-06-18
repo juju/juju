@@ -43,6 +43,6 @@ func (instance *azureInstance) Ports(machineId string) ([]instance.Port, error) 
 }
 
 // Metadata is specified in the Instance interface.
-func (instance *azureInstance) Metadata() (*instance.Metadata, error) {
+func (instance *azureInstance) Metadata() instance.Metadata {
 	panic("unimplemented")
 }

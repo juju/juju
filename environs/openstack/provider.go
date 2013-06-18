@@ -288,14 +288,14 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.ServerDetail.Id)
 }
 
-func (inst *openstackInstance) Metadata() (metadata *instance.Metadata, err error) {
-	metadata = &instance.Metadata{Arch: inst.arch}
+func (inst *openstackInstance) Metadata() instance.Metadata {
+	metadata := instance.Metadata{Arch: inst.arch}
 	if inst.instType != nil {
 		metadata.Mem = &inst.instType.Mem
 		metadata.CpuCores = &inst.instType.CpuCores
 		metadata.CpuPower = inst.instType.CpuPower
 	}
-	return
+	return metadata
 }
 
 // instanceAddress processes a map of networks to lists of IP
