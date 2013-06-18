@@ -12,6 +12,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/container/lxc/mock"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -62,7 +63,7 @@ func (s *LxcSuite) TearDownTest(c *C) {
 }
 
 func (s *LxcSuite) TestNewContainer(c *C) {
-	factory := lxc.NewFactory(MockFactory())
+	factory := lxc.NewFactory(mock.MockFactory())
 	container, err := factory.NewContainer("2/lxc/0")
 	c.Assert(err, IsNil)
 	c.Assert(container.Id(), Equals, instance.Id("machine-2-lxc-0"))
@@ -72,7 +73,7 @@ func (s *LxcSuite) TestNewContainer(c *C) {
 }
 
 func (s *LxcSuite) TestNewFromExisting(c *C) {
-	mock := MockFactory()
+	mock := mock.MockFactory()
 	mockLxc := mock.New("machine-1-lxc-0")
 	factory := lxc.NewFactory(mock)
 	container, err := factory.NewFromExisting(mockLxc)
@@ -103,7 +104,7 @@ func ContainerCreate(c *C, container container.Container) {
 
 func (s *LxcSuite) TestContainerCreate(c *C) {
 
-	factory := lxc.NewFactory(MockFactory())
+	factory := lxc.NewFactory(mock.MockFactory())
 	container, err := factory.NewContainer("1/lxc/0")
 	c.Assert(err, IsNil)
 
@@ -118,7 +119,7 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 }
 
 func (s *LxcSuite) TestContainerDestroy(c *C) {
-	factory := lxc.NewFactory(MockFactory())
+	factory := lxc.NewFactory(mock.MockFactory())
 	container, err := factory.NewContainer("1/lxc/0")
 	c.Assert(err, IsNil)
 
@@ -134,7 +135,7 @@ func (s *LxcSuite) TestContainerDestroy(c *C) {
 }
 
 func (s *LxcSuite) TestContainerRemovedDirNameClash(c *C) {
-	factory := lxc.NewFactory(MockFactory())
+	factory := lxc.NewFactory(mock.MockFactory())
 	container, err := factory.NewContainer("1/lxc/0")
 	c.Assert(err, IsNil)
 
