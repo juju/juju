@@ -5,8 +5,6 @@ package azure
 
 import (
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 type azureInstance struct{}
@@ -15,7 +13,7 @@ type azureInstance struct{}
 var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
-func (instance *azureInstance) Id() state.InstanceId {
+func (instance *azureInstance) Id() instance.Id {
 	panic("unimplemented")
 }
 
@@ -30,16 +28,16 @@ func (instance *azureInstance) WaitDNSName() (string, error) {
 }
 
 // OpenPorts is specified in the Instance interface.
-func (instance *azureInstance) OpenPorts(machineId string, ports []params.Port) error {
+func (instance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // ClosePorts is specified in the Instance interface.
-func (instance *azureInstance) ClosePorts(machineId string, ports []params.Port) error {
+func (instance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // Ports is specified in the Instance interface.
-func (instance *azureInstance) Ports(machineId string) ([]params.Port, error) {
+func (instance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
 	panic("unimplemented")
 }

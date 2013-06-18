@@ -15,45 +15,54 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate = "ubuntu-cloud"
-	containerDir    = "/var/lib/juju/containers"
+	defaultTemplate     = "ubuntu-cloud"
+	containerDir        = "/var/lib/juju/containers"
+	removedContainerDir = "/var/lib/juju/removed-containers"
+	lxcContainerDir     = "/var/lib/lxc"
 )
 
+type ContainerFactory interface {
+	NewContainer(machineId string) (container.Container, error)
+	NewFromExisting(existing golxc.Container) (container.Container, error)
+}
+
+type lxcFactory struct {
+	lxc golxc.ContainerFactory
+}
+
+func NewFactory(factory golxc.ContainerFactory) ContainerFactory {
+	return &lxcFactory{factory}
+}
+
 type lxcContainer struct {
-	*golxc.Container
+	golxc.Container
 	machineId string
 }
 
 // TODO(thumper): care about constraints...
-func NewContainer(machineId string) (container.Container, error) {
+func (factory *lxcFactory) NewContainer(machineId string) (container.Container, error) {
 	name := state.MachineTag(machineId)
 	return &lxcContainer{
-		Container: golxc.New(name),
+		Container: factory.lxc.New(name),
 		machineId: machineId,
 	}, nil
 }
 
-func NewFromExisting(existing *golxc.Container) (container.Container, error) {
+func (factory *lxcFactory) NewFromExisting(existing golxc.Container) (container.Container, error) {
 	machineId := state.MachineIdFromTag(existing.Name())
 	return &lxcContainer{
 		Container: existing,
 		machineId: machineId,
 	}, nil
-}
-
-// Instance represents the provider-specific notion of a machine, or in this
-// case, the container specific notion of a machine.
-func (lxc *lxcContainer) Instance() environs.Instance {
-	return lxc
 }
 
 func (lxc *lxcContainer) Create(
@@ -110,8 +119,7 @@ func (lxc *lxcContainer) Start() error {
 	// console output and a log file.
 	directory := lxc.Directory()
 	consoleFile := filepath.Join(directory, "console.log")
-	lxc.Container.LogFile = filepath.Join(directory, "container.log")
-	lxc.Container.LogLevel = golxc.LogDebug
+	lxc.Container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	// Experimentation has shown that passing the config file through at start
 	// time when it has mount points defined, causes those mounts to fail, and
 	// the container fails to start.  Passing the same config through at
@@ -123,18 +131,36 @@ func (lxc *lxcContainer) Start() error {
 	return err
 }
 
-// Defer the Stop and Destroy methods to the composed lxc.Container
+// Defer the Stop method to the composed lxc.Container
 
-// TODO: Destroy should also remove the directory... (or rename it and save it for later analysis)
+func (lxc *lxcContainer) Destroy() error {
+	err := lxc.Container.Destroy()
+	if err != nil {
+		logger.Errorf("failed to destroy lxc container: %v", err)
+		return err
+	}
+	// Move the directory.
+	logger.Tracef("create old container dir: %s", removedContainerDir)
+	if err := os.MkdirAll(removedContainerDir, 0755); err != nil {
+		logger.Errorf("failed to create removed container directory: %v", err)
+		return err
+	}
+	removedDir := uniqueDirectory(removedContainerDir, string(lxc.Id()))
+	if err := os.Rename(lxc.Directory(), removedDir); err != nil {
+		logger.Errorf("failed to rename container directory: %v", err)
+		return err
+	}
+	return nil
+}
 
 func (lxc *lxcContainer) Directory() string {
 	return filepath.Join(containerDir, lxc.Name())
 }
 
-const internalLogDir = "/var/lib/lxc/%s/rootfs/var/log/juju"
+const internalLogDir = "%s/%s/rootfs/var/log/juju"
 
 func (lxc *lxcContainer) InternalLogDir() string {
-	return fmt.Sprintf(internalLogDir, lxc.Name())
+	return fmt.Sprintf(internalLogDir, lxcContainerDir, lxc.Name())
 }
 
 const localConfig = `
@@ -142,14 +168,13 @@ lxc.network.type = veth
 lxc.network.link = lxcbr0
 lxc.network.flags = up
 
-lxc.mount.entry=/var/log/juju %s none defaults,bind 0 0
+lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
 `
 
 func (lxc *lxcContainer) WriteConfig() (string, error) {
 	// TODO(thumper): support different network settings.
-	config := fmt.Sprintf(localConfig, lxc.InternalLogDir())
 	configFilename := filepath.Join(lxc.Directory(), "lxc.conf")
-	if err := ioutil.WriteFile(configFilename, []byte(config), 0644); err != nil {
+	if err := ioutil.WriteFile(configFilename, []byte(localConfig), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil
@@ -206,38 +231,56 @@ func (lxc *lxcContainer) userData(
 }
 
 // Id returns a provider-generated identifier for the Instance.
-func (lxc *lxcContainer) Id() state.InstanceId {
-	return state.InstanceId(lxc.Name())
+func (lxc *lxcContainer) Id() instance.Id {
+	return instance.Id(lxc.Name())
 }
 
 // DNSName returns the DNS name for the instance.
 // If the name is not yet allocated, it will return
 // an ErrNoDNSName error.
 func (lxc *lxcContainer) DNSName() (string, error) {
-	return "", environs.ErrNoDNSName
+	return "", instance.ErrNoDNSName
 }
 
 // WaitDNSName returns the DNS name for the instance,
 // waiting until it is allocated if necessary.
 func (lxc *lxcContainer) WaitDNSName() (string, error) {
-	return "", environs.ErrNoDNSName
+	return "", instance.ErrNoDNSName
 }
 
 // OpenPorts opens the given ports on the instance, which
 // should have been started with the given machine id.
-func (lxc *lxcContainer) OpenPorts(machineId string, ports []params.Port) error {
+func (lxc *lxcContainer) OpenPorts(machineId string, ports []instance.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // ClosePorts closes the given ports on the instance, which
 // should have been started with the given machine id.
-func (lxc *lxcContainer) ClosePorts(machineId string, ports []params.Port) error {
+func (lxc *lxcContainer) ClosePorts(machineId string, ports []instance.Port) error {
 	return fmt.Errorf("not implemented")
 }
 
 // Ports returns the set of ports open on the instance, which
 // should have been started with the given machine id.
 // The ports are returned as sorted by state.SortPorts.
-func (lxc *lxcContainer) Ports(machineId string) ([]params.Port, error) {
+func (lxc *lxcContainer) Ports(machineId string) ([]instance.Port, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+// uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
+// does, the method starts appending .1, .2, etc until a unique name is found.
+func uniqueDirectory(path, name string) string {
+	dir := filepath.Join(path, name)
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return dir
+	}
+	for i := 1; ; i++ {
+		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
+		_, err := os.Stat(dir)
+		if os.IsNotExist(err) {
+			return dir
+		}
+	}
+	panic("never reached.")
 }

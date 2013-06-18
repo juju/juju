@@ -68,7 +68,7 @@ type provisionerTask struct {
 	apiInfo        *api.Info
 
 	// instance id -> instance
-	instances map[state.InstanceId]instance.Instance
+	instances map[instance.Id]instance.Instance
 	// machine id -> machine
 	machines map[string]*state.Machine
 }
@@ -159,7 +159,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 }
 
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
-	task.instances = make(map[state.InstanceId]instance.Instance)
+	task.instances = make(map[instance.Id]instance.Instance)
 
 	instances, err := task.broker.AllInstances()
 	if err != nil {
@@ -240,7 +240,7 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 // findUnknownInstances finds instances which are not associated with a machine.
 func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error) {
 	// Make a copy of the instances we know about.
-	instances := make(map[state.InstanceId]instance.Instance)
+	instances := make(map[instance.Id]instance.Instance)
 	for k, v := range task.instances {
 		instances[k] = v
 	}
