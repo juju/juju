@@ -13,7 +13,7 @@ import (
 
 type machinerSuite struct {
 	commonSuite
-	machiner   *machine.MachinerAPI
+	machiner *machine.MachinerAPI
 }
 
 var _ = Suite(&machinerSuite{})

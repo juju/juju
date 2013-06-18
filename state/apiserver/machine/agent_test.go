@@ -2,6 +2,8 @@ package machine_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/machine"
 )
 
@@ -42,3 +44,48 @@ func (s *agentSuite) TestAgentFailsWhenNotLoggedIn(c *C) {
 	c.Assert(err, ErrorMatches, "not logged in")
 }
 
+func (s *agentSuite) TestGetMachines(c *C) {
+	err := s.machine1.Destroy()
+	c.Assert(err, IsNil)
+	results, err := s.agent.GetMachines(params.Machines{
+		Ids: []string{"1", "0", "42"},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
+		Machines: []params.MachineAgentGetMachinesResult{{
+			Life: "dying",
+			Jobs: []params.MachineJob{params.JobHostUnits},
+		}, {
+			Error: &params.Error{
+				Code:    api.CodeUnauthorized,
+				Message: "permission denied",
+			},
+		}, {
+			Error: &params.Error{
+				Code:    api.CodeUnauthorized,
+				Message: "permission denied",
+			},
+		}},
+	})
+}
+
+func (s *agentSuite) TestGetNotFoundMachine(c *C) {
+	err := s.machine1.Destroy()
+	c.Assert(err, IsNil)
+	err = s.machine1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = s.machine1.Remove()
+	c.Assert(err, IsNil)
+	results, err := s.agent.GetMachines(params.Machines{
+		Ids: []string{"1"},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
+		Machines: []params.MachineAgentGetMachinesResult{{
+			Error: &params.Error{
+				Code:    api.CodeNotFound,
+				Message: "machine 1 not found",
+			},
+		}},
+	})
+}

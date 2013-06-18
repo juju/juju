@@ -1,4 +1,5 @@
 package machine_test
+
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
@@ -23,15 +24,15 @@ type commonSuite struct {
 func (s *commonSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 
-	// Create a machine so that we can login as its agent
 	var err error
-	s.machine0, err = s.State.AddMachine("series", state.JobManageEnviron)
+	s.machine0, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobManageState)
 	c.Assert(err, IsNil)
-	// Add another normal machine
+
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	// Create a fakeAuthorizer so we can check permissions.
+	// Create a fakeAuthorizer so we can check permissions,
+	// set up assuming machine 1 has logged in.
 	s.authorizer = fakeAuthorizer{
 		tag:          state.MachineTag(s.machine1.Id()),
 		loggedIn:     true,
