@@ -16,8 +16,13 @@ func AssertNonEmptyFileExists(c *C, filename string) {
 	c.Assert(fileInfo.Size(), GreaterThan, 0)
 }
 
-func AssertDirectoryExists(c *C, filename string) {
-	fileInfo, err := os.Stat(filename)
+func AssertDirectoryExists(c *C, path string) {
+	fileInfo, err := os.Stat(path)
 	c.Assert(err, IsNil)
 	c.Assert(fileInfo.IsDir(), IsTrue)
+}
+
+func AssertDirectoryDoesNotExist(c *C, path string) {
+	_, err := os.Stat(path)
+	c.Assert(os.IsNotExist(err), IsTrue)
 }

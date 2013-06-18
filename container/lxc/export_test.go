@@ -24,3 +24,9 @@ func SetLxcContainerDir(dir string) (old string) {
 	lxcContainerDir = dir
 	return
 }
+
+func SetRemovedContainerDir(dir string) (old string) {
+	old = removedContainerDir
+	removedContainerDir = dir
+	return
+}

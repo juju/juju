@@ -24,9 +24,10 @@ import (
 var logger = loggo.GetLogger("juju.container.lxc")
 
 var (
-	defaultTemplate = "ubuntu-cloud"
-	containerDir    = "/var/lib/juju/containers"
-	lxcContainerDir = "/var/lib/lxc"
+	defaultTemplate     = "ubuntu-cloud"
+	containerDir        = "/var/lib/juju/containers"
+	removedContainerDir = "/var/lib/juju/removed-containers"
+	lxcContainerDir     = "/var/lib/lxc"
 )
 
 type ContainerFactory interface {
@@ -130,7 +131,27 @@ func (lxc *lxcContainer) Start() error {
 	return err
 }
 
-// Defer the Stop and Destroy methods to the composed lxc.Container
+// Defer the Stop method to the composed lxc.Container
+
+func (lxc *lxcContainer) Destroy() error {
+	err := lxc.Container.Destroy()
+	if err != nil {
+		logger.Errorf("failed to destroy lxc container: %v", err)
+		return err
+	}
+	// Move the directory.
+	logger.Tracef("create old container dir: %s", removedContainerDir)
+	if err := os.MkdirAll(removedContainerDir, 0755); err != nil {
+		logger.Errorf("failed to create removed container directory: %v", err)
+		return err
+	}
+	removedDir := uniqueDirectory(removedContainerDir, string(lxc.Id()))
+	if err := os.Rename(lxc.Directory(), removedDir); err != nil {
+		logger.Errorf("failed to rename container directory: %v", err)
+		return err
+	}
+	return nil
+}
 
 // TODO: Destroy should also remove the directory... (or rename it and save it for later analysis)
 
@@ -246,4 +267,22 @@ func (lxc *lxcContainer) ClosePorts(machineId string, ports []instance.Port) err
 // The ports are returned as sorted by state.SortPorts.
 func (lxc *lxcContainer) Ports(machineId string) ([]instance.Port, error) {
 	return nil, fmt.Errorf("not implemented")
+}
+
+// uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
+// does, the method starts appending .1, .2, etc until a unique name is found.
+func uniqueDirectory(path, name string) string {
+	dir := filepath.Join(path, name)
+	_, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return dir
+	}
+	for i := 0; ; i++ {
+		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
+		_, err := os.Stat(dir)
+		if os.IsNotExist(err) {
+			return dir
+		}
+	}
+	panic("never reached.")
 }

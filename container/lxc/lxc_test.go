@@ -26,8 +26,10 @@ func Test(t *stdtesting.T) {
 type LxcSuite struct {
 	testing.LoggingSuite
 	containerDir       string
+	removedDir         string
 	lxcDir             string
 	oldContainerDir    string
+	oldRemovedDir      string
 	oldLxcContainerDir string
 }
 
@@ -45,6 +47,8 @@ func (s *LxcSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.containerDir = c.MkDir()
 	s.oldContainerDir = lxc.SetContainerDir(s.containerDir)
+	s.removedDir = c.MkDir()
+	s.oldRemovedDir = lxc.SetRemovedContainerDir(s.removedDir)
 	s.lxcDir = c.MkDir()
 	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
 }
@@ -109,4 +113,21 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "cloud-init"))
 	// Check the mount point has been created inside the container.
 	testing.AssertDirectoryExists(c, filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"))
+}
+
+func (s *LxcSuite) TestContainerDestroy(c *C) {
+
+	factory := lxc.NewFactory(MockFactory())
+	container, err := factory.NewContainer("1/lxc/0")
+	c.Assert(err, IsNil)
+
+	ContainerCreate(c, container)
+	err = container.Destroy()
+	c.Assert(err, IsNil)
+
+	name := string(container.Id())
+	// Check that the container dir is no longer in the container dir
+	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
+	// but instead, in the removed container dir
+	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, name))
 }
