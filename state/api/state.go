@@ -29,3 +29,9 @@ func (st *State) Client() *Client {
 func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
 }
+
+// MachineAgent returns a version of the state that provides
+// functionality required by the machine agent code.
+func (st *State) MachineAgent() *machineagent.State {
+	return machineagent.NewState(st)
+}
