@@ -53,14 +53,14 @@ type doneInfo struct {
 
 // NewRunner creates a new Runner.  When a worker finishes, if its error
 // is deemed fatal (determined by calling isFatal), all the other workers
-// will be stopped and the runner itself will finish.  Of all the errors
-// returned by the stopped workers, only the most important one
-// (determined by calling moreImportant) will be returned from
-// Runner.Wait.
+// will be stopped and the runner itself will finish.  Of all the fatal errors
+// returned by the stopped workers, only the most important one,
+// determined by calling moreImportant, will be returned from
+// Runner.Wait. Non-fatal errors will not be returned.
 //
 // The function isFatal(err) returns whether err is a fatal error.  The
 // function moreImportant(err0, err1) returns whether err0 is considered
-// more important than err1..
+// more important than err1.
 func NewRunner(isFatal func(error) bool, moreImportant func(err0, err1 error) bool) *Runner {
 	runner := &Runner{
 		startc:        make(chan startReq),
@@ -124,24 +124,41 @@ func Stop(worker Worker) error {
 	return worker.Wait()
 }
 
+type workerInfo struct {
+	start        func() (Worker, error)
+	worker       Worker
+	restartDelay time.Duration
+	stopping     bool
+}
+
 func (runner *Runner) run() error {
-	type workerInfo struct {
-		start        func() (Worker, error)
-		worker       Worker
-		restartDelay time.Duration
-		stopping     bool
-	}
 	// workers holds the current set of workers.  All workers with a
 	// running goroutine have an entry here.
 	workers := make(map[string]*workerInfo)
 	var finalError error
-loop:
+
+	// isDying holds whether the runner is currently dying.  When it
+	// is dying (whether as a result of being killed or due to a
+	// fatal error), all existing workers are killed, no new workers
+	// will be started, and the loop will exit when all existing
+	// workers have stopped.
+	isDying := false
+	tombDying := runner.tomb.Dying()
 	for {
+		if isDying && len(workers) == 0 {
+			return finalError
+		}
 		select {
-		case <-runner.tomb.Dying():
-			log.Infof("runner %p dying", runner)
-			break loop
+		case <-tombDying:
+			log.Infof("worker: runner is dying")
+			isDying = true
+			killAll(workers)
+			tombDying = nil
 		case req := <-runner.startc:
+			if isDying {
+				log.Infof("worker: ignoring start request for %q when dying", req.id)
+				break
+			}
 			info := workers[req.id]
 			if info == nil {
 				workers[req.id] = &workerInfo{
@@ -155,38 +172,41 @@ loop:
 				// The worker is already running, so leave it alone
 				break
 			}
-			// The worker previously existed and is currently
-			// being stopped.  When it eventually does stop,
-			// we'll restart it immediately with the new
-			// start function.
+			// The worker previously existed and is
+			// currently being stopped.  When it eventually
+			// does stop, we'll restart it immediately with
+			// the new start function.
 			info.start = req.start
 			info.restartDelay = 0
 		case id := <-runner.stopc:
-			info := workers[id]
-			if info == nil {
-				// The worker doesn't exist so nothing to do.
-				break
+			if info := workers[id]; info != nil {
+				killWorker(id, info)
 			}
-			if info.worker != nil {
-				log.Debugf("worker: killing %q", id)
-				info.worker.Kill()
-				info.worker = nil
-			}
-			info.stopping = true
-			info.start = nil
 		case info := <-runner.startedc:
-			workers[info.id].worker = info.worker
+			workerInfo := workers[info.id]
+			workerInfo.worker = info.worker
+			if isDying {
+				killWorker(info.id, workerInfo)
+			}
 		case info := <-runner.donec:
 			workerInfo := workers[info.id]
 			if !workerInfo.stopping && info.err == nil {
 				info.err = errors.New("unexpected quit")
 			}
 			if info.err != nil {
-				log.Errorf("worker: exited %q: %v", info.id, info.err)
 				if runner.isFatal(info.err) {
-					finalError = info.err
+					log.Errorf("worker: fatal %q: %v", info.id, info.err)
+					if finalError == nil || runner.moreImportant(info.err, finalError) {
+						finalError = info.err
+					}
 					delete(workers, info.id)
-					break loop
+					if !isDying {
+						isDying = true
+						killAll(workers)
+					}
+					break
+				} else {
+					log.Errorf("worker: exited %q: %v", info.id, info.err)
 				}
 			}
 			if workerInfo.start == nil {
@@ -199,24 +219,23 @@ loop:
 			workerInfo.restartDelay = RestartDelay
 		}
 	}
+	panic("unreachable")
+}
+
+func killAll(workers map[string]*workerInfo) {
 	for id, info := range workers {
-		if info.worker != nil {
-			log.Debugf("worker: killing %q", id)
-			info.worker.Kill()
-			info.worker = nil
-		}
+		killWorker(id, info)
 	}
-	for len(workers) > 0 {
-		info := <-runner.donec
-		if runner.moreImportant(info.err, finalError) {
-			finalError = info.err
-		}
-		if true || info.err != nil {
-			log.Errorf("worker: %q exited: %v", info.id, info.err)
-		}
-		delete(workers, info.id)
+}
+
+func killWorker(id string, info *workerInfo) {
+	if info.worker != nil {
+		log.Debugf("worker: killing %q", id)
+		info.worker.Kill()
+		info.worker = nil
 	}
-	return finalError
+	info.stopping = true
+	info.start = nil
 }
 
 // runWorker starts the given worker after waiting for the given delay.

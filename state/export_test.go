@@ -15,6 +15,38 @@ import (
 	"path/filepath"
 )
 
+type TransactionHook transactionHook
+
+// SetTransactionHooks queues up hooks to be applied to the next transactions,
+// and returns a function that asserts all hooks have been run (and removes any
+// that have not). Each hook function can freely execute its own transactions
+// without causing other hooks to be triggered.
+// It returns a function that asserts that all hooks have been run, and removes
+// any that have not. It is an error to set transaction hooks when any are
+// already queued; and setting transaction hooks renders the *State goroutine-
+// unsafe.
+func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) (checkRan func()) {
+	converted := make([]transactionHook, len(transactionHooks))
+	for i, hook := range transactionHooks {
+		converted[i] = transactionHook(hook)
+		c.Logf("%d: %#v", i, converted[i])
+	}
+	original := <-st.transactionHooks
+	st.transactionHooks <- converted
+	c.Assert(original, HasLen, 0)
+	return func() {
+		remaining := <-st.transactionHooks
+		st.transactionHooks <- nil
+		c.Assert(remaining, HasLen, 0)
+	}
+}
+
+// SetBeforeHook uses SetTransactionHooks to queue a single function to be run
+// immediately before the next transaction.
+func SetBeforeHook(c *C, st *State, f func()) (checkRan func()) {
+	return SetTransactionHooks(c, st, TransactionHook{Before: f})
+}
+
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.

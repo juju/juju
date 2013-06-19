@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 	"net"
 	"net/http"
@@ -106,7 +107,11 @@ func (srv *Server) Addr() string {
 }
 
 func (srv *Server) serveConn(wsConn *websocket.Conn) error {
-	conn := rpc.NewConn(jsoncodec.NewWebsocket(wsConn))
+	codec := jsoncodec.NewWebsocket(wsConn)
+	if loggo.GetLogger("").EffectiveLogLevel() >= loggo.DEBUG {
+		codec.SetLogging(true)
+	}
+	conn := rpc.NewConn(codec)
 	serverError := func(err error) error {
 		if err := common.ServerError(err); err != nil {
 			return err
