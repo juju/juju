@@ -27,8 +27,8 @@ type NotifyWatcher interface {
 	Changes() <-chan struct{}
 }
 
-// NotifyWatcherC makes it simple to verify the behaviour of any watcher
-// that uses a <-chan struct{} to communicate changes.
+// NotifyWatcherC embeds a gocheck.C and adds methods to help verify
+// the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*C
 	state   *state.State
@@ -64,6 +64,8 @@ func (c NotifyWatcherC) AssertClosed() {
 	}
 }
 
+// StringsWatcherC embeds a gocheck.C and adds methods to help verify
+// the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*C
 	state   *state.State
@@ -111,6 +113,8 @@ func (c StringsWatcherC) AssertClosed() {
 	}
 }
 
+// IntsWatcherC embeds a gocheck.C and adds methods to help verify
+// the behaviour of any watcher that uses a <-chan []int.
 type IntsWatcherC struct {
 	*C
 	state   *state.State
