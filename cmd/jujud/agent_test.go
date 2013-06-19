@@ -15,8 +15,6 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,154 +27,14 @@ type toolSuite struct {
 	coretesting.LoggingSuite
 }
 
-func assertDead(c *C, tasks []*testTask) {
-	for _, t := range tasks {
-		c.Assert(t.Dead(), Equals, true)
-	}
-}
-
-func (*toolSuite) TestRunTasksAllSuccess(c *C) {
-	tasks := newTestTasks(4)
-	for _, t := range tasks {
-		t.kill <- nil
-	}
-	err := runTasks(make(chan struct{}), taskSlice(tasks)...)
-	c.Assert(err, IsNil)
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestOneTaskError(c *C) {
-	tasks := newTestTasks(4)
-	for i, t := range tasks {
-		if i == 2 {
-			t.kill <- fmt.Errorf("kill")
-		}
-	}
-	err := runTasks(make(chan struct{}), taskSlice(tasks)...)
-	c.Assert(err, ErrorMatches, "kill")
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestTaskStop(c *C) {
-	tasks := newTestTasks(4)
-	tasks[2].stopErr = fmt.Errorf("stop")
-	stop := make(chan struct{})
-	close(stop)
-	err := runTasks(stop, taskSlice(tasks)...)
-	c.Assert(err, ErrorMatches, "stop")
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestUpgradeGetsPrecedence(c *C) {
-	tasks := newTestTasks(2)
-	tasks[1].stopErr = &UpgradeReadyError{}
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		tasks[0].kill <- fmt.Errorf("stop")
-	}()
-	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[1].stopErr)
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestDeadGetsPrecedence(c *C) {
-	tasks := newTestTasks(3)
-	tasks[1].stopErr = &UpgradeReadyError{}
-	tasks[2].stopErr = worker.ErrTerminateAgent
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		tasks[0].kill <- fmt.Errorf("stop")
-	}()
-	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[2].stopErr)
-	assertDead(c, tasks)
+func (*toolSuite) TestErrorImportance(c *C) {
+	panic("do it")
 }
 
 func mkTools(s string) *state.Tools {
 	return &state.Tools{
 		Binary: version.MustParseBinary(s + "-foo-bar"),
 	}
-}
-
-func (*toolSuite) TestUpgradeErrorLog(c *C) {
-	tasks := newTestTasks(7)
-	tasks[0].stopErr = fmt.Errorf("zero")
-	tasks[1].stopErr = fmt.Errorf("one")
-	tasks[2].stopErr = &UpgradeReadyError{NewTools: mkTools("1.1.1")}
-	tasks[3].kill <- fmt.Errorf("three")
-	tasks[4].stopErr = fmt.Errorf("four")
-	tasks[5].stopErr = &UpgradeReadyError{NewTools: mkTools("2.2.2")}
-	tasks[6].stopErr = fmt.Errorf("six")
-
-	expectLog := `
-(.|\n)*task3: three
-.*task0: zero
-.*task1: one
-.*task2: must restart: an agent upgrade is available
-.*task4: four
-.*task5: must restart: an agent upgrade is available
-.*task6: six
-(.|\n)*`[1:]
-
-	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[2].stopErr)
-	c.Assert(c.GetTestLog(), Matches, expectLog)
-}
-
-type testTask struct {
-	name string
-	tomb.Tomb
-	kill    chan error
-	stopErr error
-}
-
-func (t *testTask) Stop() error {
-	t.Kill(nil)
-	return t.Wait()
-}
-
-func (t *testTask) Dead() bool {
-	select {
-	case <-t.Tomb.Dead():
-		return true
-	default:
-	}
-	return false
-}
-
-func (t *testTask) run() {
-	defer t.Done()
-	select {
-	case <-t.Dying():
-		t.Kill(t.stopErr)
-	case err := <-t.kill:
-		t.Kill(err)
-		return
-	}
-}
-
-func (t *testTask) String() string {
-	return t.name
-}
-
-func newTestTasks(n int) []*testTask {
-	tasks := make([]*testTask, n)
-	for i := range tasks {
-		tasks[i] = &testTask{
-			kill: make(chan error, 1),
-			name: fmt.Sprintf("task%d", i),
-		}
-		go tasks[i].run()
-	}
-	return tasks
-}
-
-func taskSlice(tasks []*testTask) []task {
-	r := make([]task, len(tasks))
-	for i, t := range tasks {
-		r[i] = t
-	}
-	return r
 }
 
 type acCreator func() (cmd.Command, *AgentConf)

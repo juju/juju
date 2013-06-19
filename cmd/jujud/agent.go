@@ -8,14 +8,14 @@ import (
 	"io"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujud/tasks"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
-	"launchpad.net/tomb"
 	"time"
 )
 
@@ -48,58 +48,6 @@ func (c *AgentConf) read(tag string) error {
 	return err
 }
 
-type task interface {
-	Stop() error
-	Wait() error
-	String() string
-}
-
-// runTasks runs all the given tasks until any of them fails with an
-// error.  It then stops all of them and returns that error.  If a value
-// is received on the stop channel, the workers are stopped.
-func runTasks(stop <-chan struct{}, tasks ...task) error {
-	type errInfo struct {
-		index int
-		err   error
-	}
-	logged := make(map[int]bool)
-	done := make(chan errInfo, len(tasks))
-	for i, t := range tasks {
-		i, t := i, t
-		go func() {
-			done <- errInfo{i, t.Wait()}
-		}()
-	}
-	var err error
-waiting:
-	for _ = range tasks {
-		select {
-		case info := <-done:
-			if info.err != nil {
-				log.Errorf("%s: %v", tasks[info.index], info.err)
-				logged[info.index] = true
-				err = info.err
-				break waiting
-			}
-		case <-stop:
-			break waiting
-		}
-	}
-	// Stop all the tasks. We choose the most important error
-	// to return.
-	for i, t := range tasks {
-		err1 := t.Stop()
-		if !logged[i] && err1 != nil {
-			log.Errorf("%s: %v", t, err1)
-			logged[i] = true
-		}
-		if moreImportant(err1, err) {
-			err = err1
-		}
-	}
-	return err
-}
-
 func importance(err error) int {
 	switch {
 	case err == nil:
@@ -127,10 +75,23 @@ func isUpgraded(err error) bool {
 }
 
 type Agent interface {
-	Tomb() *tomb.Tomb
-	RunOnce(st *state.State, entity AgentState) error
 	Entity(st *state.State) (AgentState, error)
+	APIEntity(st *api.State) (AgentAPIState, error)
 	Tag() string
+}
+
+// The AgentState interface is implemented by state types
+// that represent running agents.
+type AgentState interface {
+	// SetAgentTools sets the tools that the agent is currently running.
+	SetAgentTools(tools *state.Tools) error
+	Tag() string
+	SetMongoPassword(password string) error
+	Life() state.Life
+}
+
+type AgentAPIState interface {
+	Life() params.Life
 }
 
 type fatalError struct {
@@ -177,6 +138,47 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 	return st, entity, nil
 }
 
+func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
+	// We let the API dial fail immediately because the
+	// runner's loop outside the caller of openAPIState will
+	// keep on retrying. If we block for ages here,
+	// then the worker that's calling this cannot 
+	// be interrupted.
+	st, newPassword, err := c.OpenAPI(api.DialOpts{})
+	if err != nil {
+		return nil, nil, err
+	}
+	entity, err := a.APIEntity(st)
+	if api.ErrCode(err) == api.CodeNotFound || err == nil && entity.Life() == params.Dead {
+		err = worker.ErrTerminateAgent
+	}
+	if err != nil {
+		st.Close()
+		return nil, nil, err
+	}
+	if newPassword == "" {
+		return st, entity, nil
+	}
+	// Make a copy of the configuration so that if we fail
+	// to write the configuration file, the configuration will
+	// still be valid.
+	c1 := *c
+	stateInfo := *c.StateInfo
+	c1.StateInfo = &stateInfo
+	apiInfo := *c.APIInfo
+	c1.APIInfo = &apiInfo
+
+	c1.OldPassword = c1.StateInfo.Password
+	c1.StateInfo.Password = newPassword
+	c1.APIInfo.Password = newPassword
+	if err := c1.Write(); err != nil {
+		return nil, nil, err
+	}
+	*c = c1
+	return st, entity, nil
+
+}
+
 // agentDone processes the error returned by
 // an exiting agent.
 func agentDone(err error) error {
@@ -192,30 +194,30 @@ func agentDone(err error) error {
 	return err
 }
 
-type closeTask struct {
-	task   tasks.Task
+type closeWorker struct {
+	worker   worker.Worker
 	closer io.Closer
 }
 
 // newCloseTask returns a task that wraps the given task,
 // closing the given closer when it finishes.
-func newCloseTask(task tasks.Task, closer io.Closer) tasks.Task {
-	return &closeTask{
-		task:   task,
+func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
+	return &closeWorker{
+		worker:   worker,
 		closer: closer,
 	}
 }
 
-func (c *closeTask) Kill() {
-	c.task.Kill()
+func (c *closeWorker) Kill() {
+	c.worker.Kill()
 }
 
-func (c *closeTask) Wait() error {
+func (c *closeWorker) Wait() error {
 	err := c.closer.Close()
 	if err != nil {
 		log.Errorf("close error: %v", err)
 	}
-	return c.task.Wait()
+	return c.worker.Wait()
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

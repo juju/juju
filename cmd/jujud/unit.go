@@ -7,8 +7,8 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/jujud/tasks"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 )
@@ -19,7 +19,7 @@ type UnitAgent struct {
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
-	runner   *tasks.Runner
+	runner   *worker.Runner
 }
 
 // Info returns usage information for the command.
@@ -46,40 +46,40 @@ func (a *UnitAgent) Init(args []string) error {
 	if err := a.Conf.checkArgs(args); err != nil {
 		return err
 	}
-	a.runner = tasks.NewRunner(isFatal, moreImportant)
+	a.runner = worker.NewRunner(isFatal, moreImportant)
 	return nil
 }
 
 // Stop stops the unit agent.
 func (a *UnitAgent) Stop() error {
-	return a.runner.Stop()
+	return worker.Stop(a.runner)
 }
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	if err := a.Conf.read(state.Tag()); err != nil {
+	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	a.runner.StartTask(a.Tasks)
+	a.runner.StartWorker("toplevel", a.Workers)
 	return agentDone(a.runner.Wait())
 }
 
-// Tasks returns a Runner running the unit agent tasks.
-func (a *UnitAgent) Tasks() (tasks.Task, error) {
+// Workers returns a worker that runs the unit agent workers.
+func (a *UnitAgent) Workers() (worker.Worker, error) {
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
 	}
 	unit := entity.(*state.Unit)
-	runner := tasks.NewRunner(allFatal, moreImportant),
-		runner.StartTask("upgrader", func() (tasks.Task, error) {
-			return NewUpgrader(st, unit, a.Conf.DataDir), nil
-		})
-	runner.StartTask("uniter", func() (tasks.Task, error) {
-		return uniter.NewUniter(st, unit.Name(), a.Conf.DataDir)
+	runner := worker.NewRunner(allFatal, moreImportant)
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		return NewUpgrader(st, unit, a.Conf.DataDir), nil
 	})
-	return newCloseTask(runner, st), nil
- }
+	runner.StartWorker("uniter", func() (worker.Worker, error) {
+		return uniter.NewUniter(st, unit.Name(), a.Conf.DataDir), nil
+	})
+	return newCloseWorker(runner, st), nil
+}
 
 func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 	return st.Unit(a.UnitName)
@@ -87,8 +87,4 @@ func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 
 func (a *UnitAgent) Tag() string {
 	return state.UnitTag(a.UnitName)
-}
-
-func (a *UnitAgent) Tomb() *tomb.Tomb {
-	return &a.tomb
 }

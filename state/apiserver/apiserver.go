@@ -63,6 +63,16 @@ func (srv *Server) Stop() error {
 	return srv.tomb.Wait()
 }
 
+// Kill implements worker.Worker.Kill.
+func (srv *Server) Kill() {
+	srv.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
+func (srv *Server) Wait() error {
+	return srv.tomb.Wait()
+}
+
 func (srv *Server) run(lis net.Listener) {
 	defer srv.tomb.Done()
 	defer srv.wg.Wait() // wait for any outstanding requests to complete.
