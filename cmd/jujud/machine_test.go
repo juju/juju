@@ -48,7 +48,7 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
-	err = m.SetPassword("machine-api-password")
+	err = m.SetPassword("machine-password")
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
 	conf.MachineNonce = state.BootstrapNonce
@@ -126,8 +126,11 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestDyingMachine(c *C) {
+	c.Logf("x1")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
+	c.Logf("x2")
 	a := s.newAgent(c, m)
+	c.Logf("x3")
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -136,7 +139,9 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 		c.Check(a.Stop(), IsNil)
 	}()
 	time.Sleep(1 * time.Second)
+	c.Logf("x4")
 	err := m.Destroy()
+	c.Logf("x5")
 	c.Assert(err, IsNil)
 	select {
 	case err := <-done:
@@ -256,14 +261,12 @@ func (s *MachineSuite) TestUpgrade(c *C) {
 	s.testUpgrade(c, a, currentTools)
 }
 
+// addAPIInfo adds information to the agent's configuration
+// for serving the API.
 func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	port := testing.FindTCPPort()
-	conf.APIInfo = &api.Info{
-		Addrs:    []string{fmt.Sprintf("localhost:%d", port)},
-		CACert:   []byte(testing.CACert),
-		Tag:      m.Tag(),
-		Password: "machine-api-password",
-	}
+	conf.APIInfo.Addrs = []string{fmt.Sprintf("localhost:%d", port)}
+	conf.APIInfo.CACert =   []byte(testing.CACert)
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)
 	conf.APIPort = port

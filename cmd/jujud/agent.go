@@ -11,9 +11,9 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"time"
@@ -195,7 +195,7 @@ func agentDone(err error) error {
 }
 
 type closeWorker struct {
-	worker   worker.Worker
+	worker worker.Worker
 	closer io.Closer
 }
 
@@ -203,7 +203,7 @@ type closeWorker struct {
 // closing the given closer when it finishes.
 func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
 	return &closeWorker{
-		worker:   worker,
+		worker: worker,
 		closer: closer,
 	}
 }

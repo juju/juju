@@ -9,8 +9,9 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -64,6 +65,7 @@ func (a *MachineAgent) Stop() error {
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	log.Infof("machine agent start; tag %v", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
@@ -80,17 +82,20 @@ func allFatal(error) bool {
 	return true
 }
 
-var stateJobs = map[state.MachineJob]bool{
-	state.JobHostUnits:     true,
-	state.JobManageEnviron: true,
-	state.JobServeAPI:      true,
+var stateJobs = map[params.MachineJob]bool{
+	params.JobHostUnits:     true,
+	params.JobManageEnviron: true,
+	params.JobServeAPI:      true,
 }
 
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
+	log.Infof("opening api state with conf %#v", a.Conf.Conf)
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
+		log.Infof("open api failure: %v", err)
 		return nil, err
 	}
+	log.Infof("open api success")
 	m := entity.(*api.Machine)
 	needsStateWorker := false
 	for _, job := range m.Jobs() {
@@ -104,13 +109,13 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	runner := worker.NewRunner(allFatal, moreImportant)
 	// No agents currently connect to the API, so just
 	// return the runner running nothing.
-	return runner, nil
+	return newCloseWorker(runner, st), nil
 }
 
 // StateJobs returns a worker running all the workers that require
 // a *state.State connection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	st, entity, err := a.Conf.OpenState()
+	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
 	}
@@ -180,7 +185,6 @@ func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
 	// this method when it's implemented in the API
 	return m, nil
 }
-
 
 func (a *MachineAgent) Tag() string {
 	return state.MachineTag(a.MachineId)

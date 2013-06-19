@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -209,10 +210,13 @@ func (c *Conf) WriteCommands() ([]string, error) {
 func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
 	info := *c.APIInfo
 	if info.Password != "" {
+		log.Infof("OpenAPI trying %#v", info)
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {
+			log.Infof("OpenAPI success")
 			return st, "", nil
 		}
+		log.Infof("OpenAPI failure: %v")
 		if api.ErrCode(err) != api.CodeUnauthorized {
 			return nil, "", err
 		}
@@ -222,10 +226,13 @@ func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 		// with the old password.
 	}
 	info.Password = c.OldPassword
+	log.Infof("OpenAPI trying old password %#v", info)
 	st, err = api.Open(&info, dialOpts)
 	if err != nil {
+		log.Infof("OpenAPI failure: %v")
 		return nil, "", err
 	}
+	log.Infof("OpenAPI success")
 	// We've succeeded in connecting with the old password, so
 	// we can now change it to something more private.
 	password, err := utils.RandomPassword()
