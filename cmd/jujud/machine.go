@@ -149,7 +149,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
 			})
-		case state.JobServeAPI:
+		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole

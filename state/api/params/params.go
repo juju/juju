@@ -28,6 +28,12 @@ func (e Error) Error() string {
 	return e.Message
 }
 
+// GoString implements fmt.GoStringer.  It means that a *Error shows its
+// contents correctly when printed with %#v.
+func (e Error) GoString() string {
+	return fmt.Sprintf("&params.Error{%q, %q}", e.Code, e.Message)
+}
+
 // ErrorResults holds the results of calling a bulk operation which
 // mutates multiple entites, like Machiner.SetStatus. The order and
 // number of elements matches the entities specified in the request.
@@ -90,6 +96,30 @@ type MachineLifeResult struct {
 // MachinesLifeResults holds the results of a Machiner.Life call.
 type MachinesLifeResults struct {
 	Machines []MachineLifeResult
+}
+
+// MachineAgentGetMachinesResults holds the results of a
+// machineagent.API.GetMachines call.
+type MachineAgentGetMachinesResults struct {
+	Machines []MachineAgentGetMachinesResult
+}
+
+// MachineJob values define responsibilities that machines may be
+// expected to fulfil.
+type MachineJob string
+
+const (
+	JobHostUnits     MachineJob = "JobHostUnits"
+	JobManageEnviron MachineJob = "JobManageEnviron"
+	JobManageState   MachineJob = "JobManageState"
+)
+
+// MachineAgentGetMachinesResult holds the results of a
+// machineagent.API.GetMachines call for a single machine.
+type MachineAgentGetMachinesResult struct {
+	Life  Life
+	Jobs  []MachineJob
+	Error *Error
 }
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.

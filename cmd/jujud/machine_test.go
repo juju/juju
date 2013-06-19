@@ -110,7 +110,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobServeAPI)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m)
@@ -253,7 +253,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 }
 
 func (s *MachineSuite) TestUpgrade(c *C) {
-	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)
+	m, conf, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
 	addAPIInfo(conf, m)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -278,7 +278,7 @@ var fastDialOpts = api.DialOpts{
 }
 
 func (s *MachineSuite) TestServeAPI(c *C) {
-	stm, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	stm, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, stm)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -335,8 +335,8 @@ var serveAPIWithBadConfTests = []struct {
 	"configuration does not have state server cert/key",
 }}
 
-func (s *MachineSuite) TestBadConfServeAPI(c *C) {
-	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+func (s *MachineSuite) TestServeAPIWithBadConf(c *C) {
+	m, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, m)
 	for i, t := range serveAPIWithBadConfTests {
 		c.Logf("test %d: %q", i, t.err)

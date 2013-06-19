@@ -71,7 +71,6 @@ func checkDummy(c *C, f charm.Charm, path string) {
 	switch f := f.(type) {
 	case *charm.Bundle:
 		c.Assert(f.Path, Equals, path)
-
 	case *charm.Dir:
 		c.Assert(f.Path, Equals, path)
 	}
