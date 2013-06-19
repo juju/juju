@@ -6,7 +6,7 @@ package azure
 import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 )
 
 type azureEnvironProvider struct{}
@@ -16,21 +16,6 @@ var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	panic("unimplemented")
-}
-
-// Validate is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
-	panic("unimplemented")
-}
-
-// BoilerplateConfig is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) BoilerplateConfig() string {
-	panic("unimplemented")
-}
-
-// SecretAttrs is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
 	panic("unimplemented")
 }
 
@@ -45,6 +30,6 @@ func (prov azureEnvironProvider) PrivateAddress() (string, error) {
 }
 
 // InstanceId is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) InstanceId() (state.InstanceId, error) {
+func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
 	panic("unimplemented")
 }

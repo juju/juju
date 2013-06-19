@@ -576,8 +576,6 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
-	attrs["state-port"] = config.DefaultStatePort
-	attrs["api-port"] = config.DefaultApiPort
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
 	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
@@ -600,93 +598,61 @@ type validationTest struct {
 	err   string
 }
 
-var validationTests = []validationTest{
-	{
-		about: "Can't change the type",
-		new: attrs{
-			"type": "type2",
-			"name": "my-name",
-		},
-		old: attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
-		err: `cannot change type from "my-type" to "type2"`,
-	}, {
-		about: "Can't change the name",
-		new: attrs{
-			"type": "my-type",
-			"name": "new-name",
-		},
-		old: attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
-		err: `cannot change name from "my-name" to "new-name"`,
-	}, {
-		about: "Can set agent version",
-		new: attrs{
-			"type":          "my-type",
-			"name":          "my-name",
-			"agent-version": "1.9.13",
-		},
-		old: attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
-	}, {
-		about: "Can't clear agent version",
-		new: attrs{
-			"type": "my-type",
-			"name": "my-name",
-		},
-		old: attrs{
-			"type":          "my-type",
-			"name":          "my-name",
-			"agent-version": "1.9.13",
-		},
-		err: `cannot clear agent-version`,
-	}, {
-		about: "Can't change the firewall-mode",
-		new: attrs{
-			"type":          "my-type",
-			"name":          "my-name",
-			"firewall-mode": config.FwInstance,
-		},
-		old: attrs{
-			"type":          "my-type",
-			"name":          "my-name",
-			"firewall-mode": config.FwGlobal,
-		},
-		err: `cannot change firewall-mode from "global" to "instance"`,
-	}, {
-		about: "Cannot change the state-port",
-		new: attrs{
-			"type":       "my-type",
-			"name":       "my-name",
-			"state-port": 42,
-		},
-		old: attrs{
-			"type":       "my-type",
-			"name":       "my-name",
-			"state-port": config.DefaultStatePort,
-		},
-		err: `cannot change state-port from 37017 to 42`,
-	}, {
-		about: "Cannot change the api-port",
-		new: attrs{
-			"type":     "my-type",
-			"name":     "my-name",
-			"api-port": 42,
-		},
-		old: attrs{
-			"type":     "my-type",
-			"name":     "my-name",
-			"api-port": config.DefaultApiPort,
-		},
-		err: `cannot change api-port from 17070 to 42`,
-	},
-}
+var validationTests = []validationTest{{
+	about: "Can't change the type",
+	new:   attrs{"type": "new-type"},
+	err:   `cannot change type from "my-type" to "new-type"`,
+}, {
+	about: "Can't change the name",
+	new:   attrs{"name": "new-name"},
+	err:   `cannot change name from "my-name" to "new-name"`,
+}, {
+	about: "Can set agent version",
+	new:   attrs{"agent-version": "1.9.13"},
+}, {
+	about: "Can change agent version",
+	old:   attrs{"agent-version": "1.9.13"},
+	new:   attrs{"agent-version": "1.9.27"},
+}, {
+	about: "Can't clear agent version",
+	old:   attrs{"agent-version": "1.9.27"},
+	err:   `cannot clear agent-version`,
+}, {
+	about: "Can't change the firewall-mode",
+	old:   attrs{"firewall-mode": config.FwGlobal},
+	new:   attrs{"firewall-mode": config.FwInstance},
+	err:   `cannot change firewall-mode from "global" to "instance"`,
+}, {
+	about: "Cannot change the state-port",
+	old:   attrs{"state-port": config.DefaultStatePort},
+	new:   attrs{"state-port": 42},
+	err:   `cannot change state-port from 37017 to 42`,
+}, {
+	about: "Cannot change the api-port",
+	old:   attrs{"api-port": config.DefaultApiPort},
+	new:   attrs{"api-port": 42},
+	err:   `cannot change api-port from 17070 to 42`,
+}, {
+	about: "Can change the state-port from explicit-default to implicit-default",
+	old:   attrs{"state-port": config.DefaultStatePort},
+}, {
+	about: "Can change the api-port from explicit-default to implicit-default",
+	old:   attrs{"api-port": config.DefaultApiPort},
+}, {
+	about: "Can change the state-port from implicit-default to explicit-default",
+	new:   attrs{"state-port": config.DefaultStatePort},
+}, {
+	about: "Can change the api-port from implicit-default to explicit-default",
+	new:   attrs{"api-port": config.DefaultApiPort},
+}, {
+	about: "Cannot change the state-port from implicit-default to different value",
+	new:   attrs{"state-port": 42},
+	err:   `cannot change state-port from 37017 to 42`,
+}, {
+	about: "Cannot change the api-port from implicit-default to different value",
+	new:   attrs{"api-port": 42},
+	err:   `cannot change api-port from 17070 to 42`,
+}}
 
 func (*ConfigSuite) TestValidateChange(c *C) {
 	files := []testing.TestFile{
@@ -696,19 +662,26 @@ func (*ConfigSuite) TestValidateChange(c *C) {
 	defer h.Restore()
 
 	for i, test := range validationTests {
-		c.Logf("test %d. %s", i, test.about)
-		newConfig, err := config.New(test.new)
-		c.Assert(err, IsNil)
-		oldConfig, err := config.New(test.old)
-		c.Assert(err, IsNil)
-
-		err = config.Validate(newConfig, oldConfig)
+		c.Logf("test %d: %s", i, test.about)
+		newConfig := newTestConfig(c, test.new)
+		oldConfig := newTestConfig(c, test.old)
+		err := config.Validate(newConfig, oldConfig)
 		if test.err == "" {
 			c.Assert(err, IsNil)
 		} else {
 			c.Assert(err, ErrorMatches, test.err)
 		}
 	}
+}
+
+func newTestConfig(c *C, explicit attrs) *config.Config {
+	final := attrs{"type": "my-type", "name": "my-name"}
+	for key, value := range explicit {
+		final[key] = value
+	}
+	result, err := config.New(final)
+	c.Assert(err, IsNil)
+	return result
 }
 
 var caCert = `

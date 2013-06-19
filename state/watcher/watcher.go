@@ -96,8 +96,9 @@ func (k watchKey) match(k1 watchKey) bool {
 }
 
 type watchInfo struct {
-	ch    chan<- Change
-	revno int64
+	ch     chan<- Change
+	revno  int64
+	filter func(interface{}) bool
 }
 
 type event struct {
@@ -171,14 +172,22 @@ func (w *Watcher) Watch(collection string, id interface{}, revno int64, ch chan<
 	if id == nil {
 		panic("watcher: cannot watch a document with nil id")
 	}
-	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno}})
+	w.sendReq(reqWatch{watchKey{collection, id}, watchInfo{ch, revno, nil}})
 }
 
 // WatchCollection starts watching the given collection.
 // An event will be sent onto ch whenever the txn-revno field is observed
 // to change after a transaction is applied for any document in the collection.
 func (w *Watcher) WatchCollection(collection string, ch chan<- Change) {
-	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0}})
+	w.WatchCollectionWithFilter(collection, ch, nil)
+}
+
+// WatchCollectionWithFilter starts watching the given collection.
+// An event will be sent onto ch whenever the txn-revno field is observed
+// to change after a transaction is applied for any document in the collection, so long as the
+// specified filter function returns true when called with the document id value.
+func (w *Watcher) WatchCollectionWithFilter(collection string, ch chan<- Change, filter func(interface{}) bool) {
+	w.sendReq(reqWatch{watchKey{collection, nil}, watchInfo{ch, 0, filter}})
 }
 
 // Unwatch stops watching the given collection and document id via ch.
@@ -413,6 +422,9 @@ func (w *Watcher) sync() error {
 				w.current[key] = revno
 				// Queue notifications for per-collection watches.
 				for _, info := range w.watches[watchKey{c.Name, nil}] {
+					if info.filter != nil && !info.filter(d[i]) {
+						continue
+					}
 					w.syncEvents = append(w.syncEvents, event{info.ch, key, revno})
 				}
 				// Queue notifications for per-document watches.

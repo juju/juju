@@ -18,7 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"regexp"
@@ -50,7 +50,7 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 
 	id, err := p.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, state.InstanceId("dummy.instance.id"))
+	c.Assert(id, Equals, instance.Id("dummy.instance.id"))
 }
 
 func registerLocalTests() {
@@ -297,6 +297,24 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 
 	_, err = ec2.LoadState(t.env)
 	c.Assert(err, NotNil)
+}
+
+func (t *localServerSuite) TestStartInstanceMetadata(c *C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	inst, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	c.Assert(err, IsNil)
+	md := inst.Metadata()
+	c.Check(*md.Arch, Equals, "amd64")
+	c.Check(*md.Mem, Equals, uint64(1740))
+	c.Check(*md.CpuCores, Equals, uint64(1))
+	c.Assert(*md.CpuPower, Equals, uint64(100))
 }
 
 // If match is true, CheckScripts checks that at least one script started

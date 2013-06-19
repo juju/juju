@@ -8,9 +8,9 @@ import (
 	"io"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -46,37 +46,7 @@ type EnvironProvider interface {
 	PrivateAddress() (string, error)
 
 	// InstanceId returns this machine's instance id.
-	InstanceId() (state.InstanceId, error)
-}
-
-var ErrNoDNSName = errors.New("DNS name not allocated")
-
-// Instance represents the provider-specific notion of a machine.
-type Instance interface {
-	// Id returns a provider-generated identifier for the Instance.
-	Id() state.InstanceId
-
-	// DNSName returns the DNS name for the instance.
-	// If the name is not yet allocated, it will return
-	// an ErrNoDNSName error.
-	DNSName() (string, error)
-
-	// WaitDNSName returns the DNS name for the instance,
-	// waiting until it is allocated if necessary.
-	WaitDNSName() (string, error)
-
-	// OpenPorts opens the given ports on the instance, which
-	// should have been started with the given machine id.
-	OpenPorts(machineId string, ports []params.Port) error
-
-	// ClosePorts closes the given ports on the instance, which
-	// should have been started with the given machine id.
-	ClosePorts(machineId string, ports []params.Port) error
-
-	// Ports returns the set of ports open on the instance, which
-	// should have been started with the given machine id.
-	// The ports are returned as sorted by state.SortPorts.
-	Ports(machineId string) ([]params.Port, error)
+	InstanceId() (instance.Id, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -164,10 +134,10 @@ type Environ interface {
 	// which must be unique within an environment, is used by juju to
 	// protect against the consequences of multiple instances being
 	// started with the same machine id.
-	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (Instance, error)
+	StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error)
 
 	// StopInstances shuts down the given instances.
-	StopInstances([]Instance) error
+	StopInstances([]instance.Instance) error
 
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
@@ -175,11 +145,11 @@ type Environ interface {
 	// some but not all the instances were found, the returned slice
 	// will have some nil slots, and an ErrPartialInstances error
 	// will be returned.
-	Instances(ids []state.InstanceId) ([]Instance, error)
+	Instances(ids []instance.Id) ([]instance.Instance, error)
 
 	// AllInstances returns all instances currently known to the
 	// environment.
-	AllInstances() ([]Instance, error)
+	AllInstances() ([]instance.Instance, error)
 
 	// Storage returns storage specific to the environment.
 	Storage() Storage
@@ -196,22 +166,22 @@ type Environ interface {
 	//
 	// When Destroy has been called, any Environ referring to the
 	// same remote environment may become invalid
-	Destroy(insts []Instance) error
+	Destroy(insts []instance.Instance) error
 
 	// OpenPorts opens the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	OpenPorts(ports []params.Port) error
+	OpenPorts(ports []instance.Port) error
 
 	// ClosePorts closes the given ports for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	ClosePorts(ports []params.Port) error
+	ClosePorts(ports []instance.Port) error
 
 	// Ports returns the ports opened for the whole environment.
 	// Must only be used if the environment was setup with the
 	// FwGlobal firewall mode.
-	Ports() ([]params.Port, error)
+	Ports() ([]instance.Port, error)
 
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider

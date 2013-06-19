@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -94,30 +95,61 @@ func IsMachineId(name string) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info           *Info
-	db             *mgo.Database
-	environments   *mgo.Collection
-	charms         *mgo.Collection
-	machines       *mgo.Collection
-	containerRefs  *mgo.Collection
-	relations      *mgo.Collection
-	relationScopes *mgo.Collection
-	services       *mgo.Collection
-	settings       *mgo.Collection
-	settingsrefs   *mgo.Collection
-	constraints    *mgo.Collection
-	units          *mgo.Collection
-	users          *mgo.Collection
-	presence       *mgo.Collection
-	cleanups       *mgo.Collection
-	annotations    *mgo.Collection
-	statuses       *mgo.Collection
-	runner         *txn.Runner
-	watcher        *watcher.Watcher
-	pwatcher       *presence.Watcher
+	info             *Info
+	db               *mgo.Database
+	environments     *mgo.Collection
+	charms           *mgo.Collection
+	machines         *mgo.Collection
+	containerRefs    *mgo.Collection
+	relations        *mgo.Collection
+	relationScopes   *mgo.Collection
+	services         *mgo.Collection
+	settings         *mgo.Collection
+	settingsrefs     *mgo.Collection
+	constraints      *mgo.Collection
+	units            *mgo.Collection
+	users            *mgo.Collection
+	presence         *mgo.Collection
+	cleanups         *mgo.Collection
+	annotations      *mgo.Collection
+	statuses         *mgo.Collection
+	runner           *txn.Runner
+	transactionHooks chan ([]transactionHook)
+	watcher          *watcher.Watcher
+	pwatcher         *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+}
+
+// transactionHook holds a pair of functions to be called before and after a
+// mgo/txn transaction is run. It is only used in testing.
+type transactionHook struct {
+	Before func()
+	After  func()
+}
+
+// runTransaction runs the supplied operations as a single mgo/txn transaction,
+// and includes a mechanism whereby tests can use SetTransactionHooks to induce
+// arbitrary state mutations before and after particular transactions.
+func (st *State) runTransaction(ops []txn.Op) error {
+	transactionHooks := <-st.transactionHooks
+	st.transactionHooks <- nil
+	if len(transactionHooks) > 0 {
+		defer func() {
+			if transactionHooks[0].After != nil {
+				transactionHooks[0].After()
+			}
+			if <-st.transactionHooks != nil {
+				panic("concurrent use of transaction hooks")
+			}
+			st.transactionHooks <- transactionHooks[1:]
+		}()
+		if transactionHooks[0].Before != nil {
+			transactionHooks[0].Before()
+		}
+	}
+	return st.runner.Run(ops, "", nil)
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -200,7 +232,7 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 // InjectMachine adds a new machine, corresponding to an existing provider
 // instance, configured to run the supplied jobs on the supplied series, using
 // the specified constraints.
-func (st *State) InjectMachine(series string, cons constraints.Value, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
@@ -275,7 +307,7 @@ type AddMachineParams struct {
 	Constraints   constraints.Value
 	ParentId      string
 	ContainerType ContainerType
-	instanceId    InstanceId
+	instanceId    instance.Id
 	nonce         string
 	Jobs          []MachineJob
 }
@@ -336,7 +368,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	}
 	ops = append(ops, machineOps...)
 
-	err = st.runner.Run(ops, "", nil)
+	err = st.runTransaction(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -378,10 +410,49 @@ type machineDocSlice []machineDoc
 func (ms machineDocSlice) Len() int      { return len(ms) }
 func (ms machineDocSlice) Swap(i, j int) { ms[i], ms[j] = ms[j], ms[i] }
 func (ms machineDocSlice) Less(i, j int) bool {
-	// There's nothing we can do with errors at this point.
-	m1, _ := strconv.Atoi(ms[i].Id)
-	m2, _ := strconv.Atoi(ms[j].Id)
-	return m1 < m2
+	return machineIdLessThan(ms[i].Id, ms[j].Id)
+}
+
+// machineIdLessThan returns true if id1 < id2, false otherwise.
+// Machine ids may include "/" separators if they are for a container so
+// the comparison is done by comparing the id component values from
+// left to right (most significant part to least significant). Ids for
+// host machines are always less than ids for their containers.
+func machineIdLessThan(id1, id2 string) bool {
+	// Most times, we are dealing with host machines and not containers, so we will
+	// try interpreting the ids as ints - this will be faster than dealing with the
+	// container ids below.
+	mint1, err1 := strconv.Atoi(id1)
+	mint2, err2 := strconv.Atoi(id2)
+	if err1 == nil && err2 == nil {
+		return mint1 < mint2
+	}
+	// We have at least one container id so it gets complicated.
+	idParts1 := strings.Split(id1, "/")
+	idParts2 := strings.Split(id2, "/")
+	nrParts1 := len(idParts1)
+	nrParts2 := len(idParts2)
+	minLen := nrParts1
+	if nrParts2 < minLen {
+		minLen = nrParts2
+	}
+	for x := 0; x < minLen; x++ {
+		m1 := idParts1[x]
+		m2 := idParts2[x]
+		if m1 == m2 {
+			continue
+		}
+		// See if the id part is a container type, and if so compare directly.
+		if x%2 == 1 {
+			return m1 < m2
+		}
+		// Compare the integer ids.
+		// There's nothing we can do with errors at this point.
+		mint1, _ := strconv.Atoi(m1)
+		mint2, _ := strconv.Atoi(m2)
+		return mint1 < mint2
+	}
+	return nrParts1 < nrParts2
 }
 
 // Machine returns the machine with the given id.
@@ -646,7 +717,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
-	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -888,7 +959,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Insert: doc,
 		})
 		// Run the transaction, and retry on abort.
-		if err = st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -1122,7 +1193,7 @@ func (st *State) Cleanup() error {
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := st.runner.Run(ops, "", nil); err != nil {
+		if err := st.runTransaction(ops); err != nil {
 			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}
