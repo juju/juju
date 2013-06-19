@@ -6,8 +6,8 @@ package provisioner
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -68,7 +68,7 @@ type provisionerTask struct {
 	apiInfo        *api.Info
 
 	// instance id -> instance
-	instances map[state.InstanceId]environs.Instance
+	instances map[instance.Id]instance.Instance
 	// machine id -> machine
 	machines map[string]*state.Machine
 }
@@ -159,7 +159,7 @@ func (task *provisionerTask) processMachines(ids []string) error {
 }
 
 func (task *provisionerTask) populateMachineMaps(ids []string) error {
-	task.instances = make(map[state.InstanceId]environs.Instance)
+	task.instances = make(map[instance.Id]instance.Instance)
 
 	instances, err := task.broker.AllInstances()
 	if err != nil {
@@ -238,9 +238,9 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances() ([]environs.Instance, error) {
+func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error) {
 	// Make a copy of the instances we know about.
-	instances := make(map[state.InstanceId]environs.Instance)
+	instances := make(map[instance.Id]instance.Instance)
 	for k, v := range task.instances {
 		instances[k] = v
 	}
@@ -250,7 +250,7 @@ func (task *provisionerTask) findUnknownInstances() ([]environs.Instance, error)
 			delete(instances, instId)
 		}
 	}
-	var unknown []environs.Instance
+	var unknown []instance.Instance
 	for _, i := range instances {
 		unknown = append(unknown, i)
 	}
@@ -258,11 +258,11 @@ func (task *provisionerTask) findUnknownInstances() ([]environs.Instance, error)
 	return unknown, nil
 }
 
-// instancesForMachines returns a list of environs.Instance that represent
+// instancesForMachines returns a list of instance.Instance that represent
 // the list of machines running in the provider. Missing machines are
 // omitted from the list.
-func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []environs.Instance {
-	var instances []environs.Instance
+func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []instance.Instance {
+	var instances []instance.Instance
 	for _, machine := range machines {
 		instId, ok := machine.InstanceId()
 		if ok {
@@ -276,7 +276,7 @@ func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []e
 	return instances
 }
 
-func (task *provisionerTask) stopInstances(instances []environs.Instance) error {
+func (task *provisionerTask) stopInstances(instances []instance.Instance) error {
 	// Although calling StopInstance with an empty slice should produce no change in the
 	// provider, environs like dummy do not consider this a noop.
 	if len(instances) == 0 {

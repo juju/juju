@@ -111,6 +111,16 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
 
+// ServiceSetCharm sets the charm for a given service.
+func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
+	args := params.ServiceSetCharm{
+		ServiceName: serviceName,
+		CharmUrl:    charmUrl,
+		Force:       force,
+	}
+	return c.st.Call("Client", "", "ServiceSetCharm", args, nil)
+}
+
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
 	args := params.AddServiceUnits{

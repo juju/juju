@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -116,6 +117,42 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	c.Assert(m.Life(), Equals, state.Dead)
 }
 
+func (s *MachineSuite) TestDestroyAbort(c *C) {
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.machine.Destroy(), IsNil)
+	})()
+	err := s.machine.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestDestroyCancel(c *C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(unit.AssignToMachine(s.machine), IsNil)
+	})()
+	err = s.machine.Destroy()
+	c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
+}
+
+func (s *MachineSuite) TestDestroyContention(c *C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	perturb := state.TransactionHook{
+		Before: func() { c.Assert(unit.AssignToMachine(s.machine), IsNil) },
+		After:  func() { c.Assert(unit.UnassignFromMachine(), IsNil) },
+	}
+	defer state.SetTransactionHooks(c, s.State, perturb, perturb, perturb)()
+	err = s.machine.Destroy()
+	c.Assert(err, ErrorMatches, "machine 0 cannot advance lifecycle: state changing too quickly; try again soon")
+}
+
 func (s *MachineSuite) TestRemove(c *C) {
 	err := s.machine.Remove()
 	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
@@ -127,6 +164,17 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	_, err = s.machine.Containers()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestRemoveAbort(c *C) {
+	err := s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.machine.Remove(), IsNil)
+	})()
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
@@ -192,6 +240,15 @@ func (s *MachineSuite) TestMachineTag(c *C) {
 	c.Assert(state.MachineTag("10/lxc/1"), Equals, "machine-10-lxc-1")
 }
 
+func (s *MachineSuite) TestMachineIdFromTag(c *C) {
+	c.Assert(state.MachineIdFromTag("machine-10"), Equals, "10")
+	// Check a container id.
+	c.Assert(state.MachineIdFromTag("machine-10-lxc-1"), Equals, "10/lxc/1")
+	// Check reversability.
+	nested := "2/kvm/0/lxc/3"
+	c.Assert(state.MachineIdFromTag(state.MachineTag(nested)), Equals, nested)
+}
+
 func (s *MachineSuite) TestSetMongoPassword(c *C) {
 	testSetMongoPassword(c, func(st *state.State) (entity, error) {
 		return st.Machine(s.machine.Id())
@@ -246,7 +303,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, _ := machine.InstanceId()
-	c.Assert(iid, Equals, state.InstanceId("spaceship/0"))
+	c.Assert(iid, Equals, instance.Id("spaceship/0"))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
@@ -262,7 +319,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 	iid, ok := machine.InstanceId()
 	c.Assert(ok, Equals, false)
-	c.Assert(iid, Equals, state.InstanceId(""))
+	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {

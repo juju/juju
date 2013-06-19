@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -67,7 +68,7 @@ type unitDoc struct {
 	MachineId      string
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
-	Ports          []params.Port
+	Ports          []instance.Port
 	Life           Life
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
@@ -173,7 +174,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	tools := *t
@@ -197,7 +198,7 @@ func (u *Unit) SetPassword(password string) error {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -233,7 +234,7 @@ func (u *Unit) Destroy() (err error) {
 		case err != nil:
 			return err
 		default:
-			if err := unit.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
 		}
@@ -338,7 +339,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: D{{"$set", D{{"life", Dead}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
@@ -367,7 +368,7 @@ func (u *Unit) Remove() (err error) {
 		if err != nil {
 			return err
 		}
-		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 		if err := svc.Refresh(); errors.IsNotFoundError(err) {
@@ -463,7 +464,7 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 	},
 		updateStatusOp(u.st, u.globalKey(), doc),
 	}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -472,7 +473,7 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	port := params.Port{Protocol: protocol, Number: number}
+	port := instance.Port{Protocol: protocol, Number: number}
 	defer utils.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -480,7 +481,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$addToSet", D{{"ports", port}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
@@ -498,7 +499,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	port := params.Port{Protocol: protocol, Number: number}
+	port := instance.Port{Protocol: protocol, Number: number}
 	defer utils.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -506,11 +507,11 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$pull", D{{"ports", port}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	newPorts := make([]params.Port, 0, len(u.doc.Ports))
+	newPorts := make([]instance.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
 		if p != port {
 			newPorts = append(newPorts, p)
@@ -521,8 +522,8 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 }
 
 // OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []params.Port {
-	ports := append([]params.Port{}, u.doc.Ports...)
+func (u *Unit) OpenedPorts() []instance.Port {
+	ports := append([]instance.Port{}, u.doc.Ports...)
 	SortPorts(ports)
 	return ports
 }
@@ -589,7 +590,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			}
 			ops = append(ops, decOps...)
 		}
-		if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 	}
@@ -738,7 +739,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Assert: massert,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}, {"$set", D{{"clean", false}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
 		m.doc.Clean = false
@@ -812,7 +813,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Assert: append(isAliveDoc, isUnassigned...),
 		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
 	})
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
 		return nil
@@ -898,7 +899,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -914,8 +915,8 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("machine")))
+	if err := u.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -926,12 +927,12 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: txn.DocExists,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, errors.NotFoundf("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -977,7 +978,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err == nil {
+	if err := u.st.runTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1000,7 +1001,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}
@@ -1008,7 +1009,7 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-type portSlice []params.Port
+type portSlice []instance.Port
 
 func (p portSlice) Len() int      { return len(p) }
 func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
@@ -1023,6 +1024,6 @@ func (p portSlice) Less(i, j int) bool {
 
 // SortPorts sorts the given ports, first by protocol,
 // then by number.
-func SortPorts(ports []params.Port) {
+func SortPorts(ports []instance.Port) {
 	sort.Sort(portSlice(ports))
 }

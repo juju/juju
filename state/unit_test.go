@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"sort"
@@ -164,23 +165,37 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, ok := s.unit.PublicAddress()
+	_, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PublicAddress()
+	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
+	err = s.unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, ok := s.unit.PrivateAddress()
+	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PrivateAddress()
+	address, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
+	err = s.unit.SetPrivateAddress("example.local")
+	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestRefresh(c *C) {
@@ -635,14 +650,14 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -650,7 +665,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -659,7 +674,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -669,7 +684,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -678,7 +693,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},

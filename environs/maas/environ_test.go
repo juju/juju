@@ -15,7 +15,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -133,7 +133,7 @@ func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	resourceURI, _ := node.GetField("resource_uri")
-	instanceIds := []state.InstanceId{state.InstanceId(resourceURI)}
+	instanceIds := []instance.Id{instance.Id(resourceURI)}
 
 	instances, err := suite.environ.Instances(instanceIds)
 
@@ -146,7 +146,7 @@ func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
 	// Instances returns nil if the given parameter is empty.
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
-	instances, err := suite.environ.Instances([]state.InstanceId{})
+	instances, err := suite.environ.Instances([]instance.Id{})
 
 	c.Check(err, IsNil)
 	c.Check(instances, IsNil)
@@ -187,9 +187,9 @@ func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *C) {
 	resourceURI1, _ := node1.GetField("resource_uri")
 	input2 := `{"system_id": "test2"}`
 	suite.testMAASObject.TestServer.NewNode(input2)
-	instanceId1 := state.InstanceId(resourceURI1)
-	instanceId2 := state.InstanceId("unknown systemID")
-	instanceIds := []state.InstanceId{instanceId1, instanceId2}
+	instanceId1 := instance.Id(resourceURI1)
+	instanceId2 := instance.Id("unknown systemID")
+	instanceIds := []instance.Id{instanceId1, instanceId2}
 
 	instances, err := suite.environ.Instances(instanceIds)
 
@@ -344,7 +344,7 @@ func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
 func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *C) {
 	suite.getInstance("test1")
 
-	err := suite.environ.StopInstances([]environs.Instance{})
+	err := suite.environ.StopInstances([]instance.Instance{})
 	c.Check(err, IsNil)
 	operations := suite.testMAASObject.TestServer.NodeOperations()
 	c.Check(operations, DeepEquals, map[string][]string{})
@@ -354,7 +354,7 @@ func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *C) {
 	instance1 := suite.getInstance("test1")
 	instance2 := suite.getInstance("test2")
 	suite.getInstance("test3")
-	instances := []environs.Instance{instance1, instance2}
+	instances := []instance.Instance{instance1, instance2}
 
 	err := suite.environ.StopInstances(instances)
 
@@ -369,8 +369,8 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
-	instance := &maasInstance{&node, suite.environ}
-	err := env.saveState(&bootstrapState{StateInstances: []state.InstanceId{instance.Id()}})
+	testInstance := &maasInstance{&node, suite.environ}
+	err := env.saveState(&bootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -394,12 +394,12 @@ func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 func (suite *EnvironSuite) TestDestroy(c *C) {
 	env := suite.makeEnviron()
 	suite.getInstance("test1")
-	instance := suite.getInstance("test2")
+	testInstance := suite.getInstance("test2")
 	data := makeRandomBytes(10)
 	suite.testMAASObject.TestServer.NewFile("filename", data)
 	storage := env.Storage()
 
-	err := env.Destroy([]environs.Instance{instance})
+	err := env.Destroy([]instance.Instance{testInstance})
 
 	c.Check(err, IsNil)
 	// Instances have been stopped.
