@@ -169,12 +169,15 @@ func Validate(cfg, old *Config) error {
 				return fmt.Errorf("cannot change %s from %q to %q", attr, oldValue, newValue)
 			}
 		}
-		for _, attr := range []string{"state-port", "api-port"} {
-			oldValue := old.asInt(attr)
-			newValue := cfg.asInt(attr)
-			if oldValue != newValue {
-				return fmt.Errorf("cannot change %s from %d to %d", attr, oldValue, newValue)
-			}
+		oldStatePort := old.StatePort()
+		newStatePort := cfg.StatePort()
+		if oldStatePort != newStatePort {
+			return fmt.Errorf("cannot change state-port from %d to %d", oldStatePort, newStatePort)
+		}
+		oldAPIPort := old.APIPort()
+		newAPIPort := cfg.APIPort()
+		if oldAPIPort != newAPIPort {
+			return fmt.Errorf("cannot change api-port from %d to %d", oldAPIPort, newAPIPort)
 		}
 		if _, oldFound := old.AgentVersion(); oldFound {
 			if _, newFound := cfg.AgentVersion(); !newFound {
@@ -230,12 +233,14 @@ func maybeReadFile(m map[string]interface{}, attr, defaultPath string) ([]byte, 
 
 // asString is a private helper method to keep the ugly string casting in once place.
 func (c *Config) asString(name string) string {
-	return c.m[name].(string)
+	value, _ := c.m[name].(string)
+	return value
 }
 
 // asInt is a private helper method to keep the ugly int casting in once place.
 func (c *Config) asInt(name string) int {
-	return c.m[name].(int)
+	value, _ := c.m[name].(int)
+	return value
 }
 
 // Type returns the environment type.
@@ -255,12 +260,18 @@ func (c *Config) DefaultSeries() string {
 
 // StatePort returns the state server port for the environment.
 func (c *Config) StatePort() int {
-	return c.asInt("state-port")
+	if port := c.asInt("state-port"); port != 0 {
+		return port
+	}
+	return DefaultStatePort
 }
 
 // APIPort returns the API server port for the environment.
 func (c *Config) APIPort() int {
-	return c.asInt("api-port")
+	if port := c.asInt("api-port"); port != 0 {
+		return port
+	}
+	return DefaultApiPort
 }
 
 // AuthorizedKeys returns the content for ssh's authorized_keys file.
@@ -385,8 +396,8 @@ var defaults = schema.Defaults{
 	"ca-private-key":            schema.Omit,
 	"ca-private-key-path":       "",
 	"ssl-hostname-verification": true,
-	"state-port":                DefaultStatePort,
-	"api-port":                  DefaultApiPort,
+	"state-port":                schema.Omit,
+	"api-port":                  schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
