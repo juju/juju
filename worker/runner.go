@@ -7,7 +7,6 @@ import (
 	"errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
-	"local/runtime/debug"
 	"time"
 )
 
