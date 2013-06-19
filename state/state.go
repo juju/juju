@@ -1081,6 +1081,15 @@ type cleanupDoc struct {
 	Prefix string
 }
 
+// NeedsCleanup returns true if documents previously marked for removal exist.
+func (st *State) NeedsCleanup() (bool, error) {
+	count, err := st.cleanups.Count()
+	if err != nil {
+		return false, err
+	}
+	return count > 0, nil
+}
+
 // Cleanup removes all documents that were previously marked for removal, if
 // any such exist. It should be called periodically by at least one element
 // of the system.
