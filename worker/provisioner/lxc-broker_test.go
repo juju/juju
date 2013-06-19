@@ -77,7 +77,7 @@ func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance
 func (s *lxcBrokerSuite) TestStartInstance(c *C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId)
-	c.Assert(lxc.Id(), Equals, instance.Id("machine-1-lxc-0"))
+	c.Assert(lxc.Id(), Equals, instance.Id("juju-machine-1-lxc-0"))
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *C) {
@@ -88,30 +88,17 @@ func (s *lxcBrokerSuite) TestStopInstance(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *lxcBrokerSuite) matchInstances(c *C, result []instance.Instance, expected ...instance.Instance) {
-	resultMap := make(map[instance.Id]instance.Instance)
-	for _, i := range result {
-		resultMap[i.Id()] = i
-	}
-
-	expectedMap := make(map[instance.Id]instance.Instance)
-	for _, i := range expected {
-		expectedMap[i.Id()] = i
-	}
-	c.Assert(resultMap, DeepEquals, expectedMap)
-}
-
 func (s *lxcBrokerSuite) TestAllInstances(c *C) {
 	lxc0 := s.startInstance(c, "1/lxc/0")
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	results, err := s.broker.AllInstances()
 	c.Assert(err, IsNil)
-	s.matchInstances(c, results, lxc0, lxc1)
+	testing.MatchInstances(c, results, lxc0, lxc1)
 
 	err = s.broker.StopInstances([]instance.Instance{lxc1})
 	c.Assert(err, IsNil)
 	lxc2 := s.startInstance(c, "1/lxc/2")
 	results, err = s.broker.AllInstances()
 	c.Assert(err, IsNil)
-	s.matchInstances(c, results, lxc0, lxc2)
+	testing.MatchInstances(c, results, lxc0, lxc2)
 }
