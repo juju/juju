@@ -48,29 +48,29 @@ options:
 
 func (s *ConfigSuite) TestReadSample(c *C) {
 	c.Assert(s.config.Options, DeepEquals, map[string]charm.Option{
-		"title": charm.Option{
+		"title": {
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
 			Type:        "string",
 		},
-		"username": charm.Option{
+		"username": {
 			Default:     "admin001",
 			Description: "The name of the initial account (given admin permissions).",
 			Type:        "string",
 		},
-		"outlook": charm.Option{
+		"outlook": {
 			Description: "No default outlook.",
 			Type:        "string",
 		},
-		"skill-level": charm.Option{
+		"skill-level": {
 			Description: "A number indicating skill.",
 			Type:        "int",
 		},
-		"agility-ratio": charm.Option{
+		"agility-ratio": {
 			Description: "A number from 0 to 1 indicating agility.",
 			Type:        "float",
 		},
-		"reticulate-splines": charm.Option{
+		"reticulate-splines": {
 			Description: "Whether to reticulate splines on launch, or not.",
 			Type:        "boolean",
 		},

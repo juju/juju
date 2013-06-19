@@ -21,6 +21,11 @@ func (mi *maasInstance) Id() instance.Id {
 	return instance.Id((*mi.maasObject).URI().String())
 }
 
+func (mi *maasInstance) Metadata() *instance.Metadata {
+	log.Debugf("environs/maas: unimplemented Metadata() called")
+	return nil
+}
+
 // refreshInstance refreshes the instance with the most up-to-date information
 // from the MAAS server.
 func (mi *maasInstance) refreshInstance() error {
