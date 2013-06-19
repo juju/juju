@@ -213,7 +213,7 @@ type httpToolsReader struct {
 	location string
 }
 
-// newHttpToolsReader creates a storage reader for the http 
+// newHttpToolsReader creates a storage reader for the http
 // access to the juju-core public store.
 func newHttpToolsReader() environs.StorageReader {
 	return &httpToolsReader{defaultToolsLocation}
