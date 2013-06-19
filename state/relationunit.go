@@ -128,7 +128,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
@@ -284,7 +284,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			}
 			ops = append(ops, relOps...)
 		}
-		if err = ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err = ru.st.runTransaction(ops); err != txn.ErrAborted {
 			if err != nil {
 				return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
 			}
