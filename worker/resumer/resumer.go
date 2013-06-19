@@ -6,23 +6,32 @@ package resumer
 import (
 	"fmt"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/tomb"
 	"time"
 )
 
+// defaultInterval is the standard value for the interval setting.
+const defaultInterval = time.Minute
+
 // interval sets how often the resuming is called.
-const interval = time.Minute
+var interval = defaultInterval
+
+// TransactionResumer defines the interface for types capable to
+// resume transactions.
+type TransactionResumer interface {
+	// ResumeTransactions resumes all pending transactions.
+	ResumeTransactions() error
+}
 
 // Resumer is responsible for a periodical resuming of pending transactions.
 type Resumer struct {
 	tomb tomb.Tomb
-	st   *state.State
+	tr   TransactionResumer
 }
 
-// NewResumer ...
-func NewResumer(st *state.State) *Resumer {
-	rr := &Resumer{st: st}
+// NewResumer periodically resumes pending transactions.
+func NewResumer(tr TransactionResumer) *Resumer {
+	rr := &Resumer{tr: tr}
 	go func() {
 		defer rr.tomb.Done()
 		rr.tomb.Kill(rr.loop())
@@ -53,7 +62,7 @@ func (rr *Resumer) loop() error {
 		case <-rr.tomb.Dying():
 			return tomb.ErrDying
 		case <-time.After(interval):
-			if err := rr.st.ResumeTransactions(); err != nil {
+			if err := rr.tr.ResumeTransactions(); err != nil {
 				log.Errorf("worker/resumer: cannot resume transactions: %v", err)
 			}
 		}
