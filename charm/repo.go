@@ -295,21 +295,11 @@ func charmNotFound(curl *URL, repoPath string) error {
 	return &NotFoundError{fmt.Sprintf("charm not found in %q: %s", repoPath, curl)}
 }
 
-func mightBeCharm(chPath string, info os.FileInfo) (bool, error) {
-	repoName := info.Name()
-	if info.Mode()&os.ModeSymlink != 0 {
-		var err error
-		if chPath, err = os.Readlink(chPath); err != nil {
-			return false, err
-		}
-		if info, err = os.Stat(chPath); err != nil {
-			return false, err
-		}
-	}
+func mightBeCharm(info os.FileInfo) bool {
 	if info.IsDir() {
-		return !strings.HasPrefix(repoName, "."), nil
+		return !strings.HasPrefix(info.Name(), ".")
 	}
-	return strings.HasSuffix(repoName, ".charm"), nil
+	return strings.HasSuffix(info.Name(), ".charm")
 }
 
 // Get returns a charm matching curl, if one exists. If curl has a revision of
@@ -337,9 +327,13 @@ func (r *LocalRepository) Get(curl *URL) (Charm, error) {
 	var latest Charm
 	for _, info := range infos {
 		chPath := filepath.Join(path, info.Name())
-		if ok, err := mightBeCharm(chPath, info); err != nil {
-			return nil, err
-		} else if !ok {
+		if info.Mode()&os.ModeSymlink != 0 {
+			var err error
+			if info, err = os.Stat(chPath); err != nil {
+				return nil, err
+			}
+		}
+		if !mightBeCharm(info) {
 			continue
 		}
 		if ch, err := Read(chPath); err != nil {
