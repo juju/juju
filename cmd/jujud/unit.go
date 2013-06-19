@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/jujud/tasks"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
@@ -18,6 +19,7 @@ type UnitAgent struct {
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
+	runner   *tasks.Runner
 }
 
 // Info returns usage information for the command.
@@ -41,45 +43,43 @@ func (a *UnitAgent) Init(args []string) error {
 	if !state.IsUnitName(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
-	return a.Conf.checkArgs(args)
+	if err := a.Conf.checkArgs(args); err != nil {
+		return err
+	}
+	a.runner = tasks.NewRunner(isFatal, moreImportant)
+	return nil
 }
 
 // Stop stops the unit agent.
 func (a *UnitAgent) Stop() error {
-	a.tomb.Kill(nil)
-	return a.tomb.Wait()
+	return a.runner.Stop()
 }
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	if err := a.Conf.read(state.UnitTag(a.UnitName)); err != nil {
+	if err := a.Conf.read(state.Tag()); err != nil {
 		return err
 	}
-	defer a.tomb.Done()
-	err := RunAgentLoop(a.Conf.Conf, a)
-	if ug, ok := err.(*UpgradeReadyError); ok {
-		if err1 := ug.ChangeAgentTools(); err1 != nil {
-			err = err1
-			// Return and let upstart deal with the restart.
-		}
-	}
-	return err
+	a.runner.StartTask(a.Tasks)
+	return agentDone(a.runner.Wait())
 }
 
-// RunOnce runs a unit agent once.
-func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
-	unit := e.(*state.Unit)
-	dataDir := a.Conf.DataDir
-	tasks := []task{
-		uniter.NewUniter(st, unit.Name(), dataDir),
-		NewUpgrader(st, unit, dataDir),
+// Tasks returns a Runner running the unit agent tasks.
+func (a *UnitAgent) Tasks() (tasks.Task, error) {
+	st, entity, err := openState(a.Conf.Conf, a)
+	if err != nil {
+		return nil, err
 	}
-	if unit.IsPrincipal() {
-		tasks = append(tasks,
-			newDeployer(st, unit.WatchSubordinateUnits(), dataDir))
-	}
-	return runTasks(a.tomb.Dying(), tasks...)
-}
+	unit := entity.(*state.Unit)
+	runner := tasks.NewRunner(allFatal, moreImportant),
+		runner.StartTask("upgrader", func() (tasks.Task, error) {
+			return NewUpgrader(st, unit, a.Conf.DataDir), nil
+		})
+	runner.StartTask("uniter", func() (tasks.Task, error) {
+		return uniter.NewUniter(st, unit.Name(), a.Conf.DataDir)
+	})
+	return newCloseTask(runner, st), nil
+ }
 
 func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 	return st.Unit(a.UnitName)

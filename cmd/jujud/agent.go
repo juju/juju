@@ -5,8 +5,10 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/jujud/tasks"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
@@ -131,32 +133,6 @@ type Agent interface {
 	Tag() string
 }
 
-// runLoop repeatedly calls runOnce until it returns worker.ErrTerminateAgent
-// or an upgraded error, or a value is received on stop.
-func runLoop(runOnce func() error, stop <-chan struct{}) error {
-	log.Noticef("agent starting")
-	for {
-		err := runOnce()
-		if err == worker.ErrTerminateAgent {
-			log.Noticef("entity is terminated")
-			return nil
-		}
-		if isFatal(err) {
-			return err
-		}
-		if err == nil {
-			log.Errorf("agent died with no error")
-		} else {
-			log.Errorf("%v", err)
-		}
-		if !isleep(retryDelay, stop) {
-			return nil
-		}
-		log.Noticef("rerunning agent")
-	}
-	panic("unreachable")
-}
-
 type fatalError struct {
 	Err string
 }
@@ -185,20 +161,6 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	return true
 }
 
-// RunAgentLoop repeatedly connects to the state server
-// and calls the agent's RunOnce method.
-func RunAgentLoop(c *agent.Conf, a Agent) error {
-	return runLoop(func() error {
-		st, entity, err := openState(c, a)
-		if err != nil {
-			return err
-		}
-		defer st.Close()
-		// TODO(rog) connect to API.
-		return a.RunOnce(st, entity)
-	}, a.Tomb().Dying())
-}
-
 func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 	st, err := c.OpenState()
 	if err != nil {
@@ -213,6 +175,47 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 		return nil, nil, err
 	}
 	return st, entity, nil
+}
+
+// agentDone processes the error returned by
+// an exiting agent.
+func agentDone(err error) error {
+	if err == worker.ErrTerminateAgent {
+		err = nil
+	}
+	if ug, ok := err.(*UpgradeReadyError); ok {
+		if err1 := ug.ChangeAgentTools(); err1 != nil {
+			err = err1
+			// Return and let upstart deal with the restart.
+		}
+	}
+	return err
+}
+
+type closeTask struct {
+	task   tasks.Task
+	closer io.Closer
+}
+
+// newCloseTask returns a task that wraps the given task,
+// closing the given closer when it finishes.
+func newCloseTask(task tasks.Task, closer io.Closer) tasks.Task {
+	return &closeTask{
+		task:   task,
+		closer: closer,
+	}
+}
+
+func (c *closeTask) Kill() {
+	c.task.Kill()
+}
+
+func (c *closeTask) Wait() error {
+	err := c.closer.Close()
+	if err != nil {
+		log.Errorf("close error: %v", err)
+	}
+	return c.task.Wait()
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context
