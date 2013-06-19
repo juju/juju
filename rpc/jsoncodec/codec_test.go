@@ -7,15 +7,19 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
+	"launchpad.net/juju-core/testing"
 	"reflect"
-	"testing"
+	"regexp"
+	stdtesting "testing"
 )
 
-type suite struct{}
+type suite struct {
+	testing.LoggingSuite
+}
 
-var _ = Suite(suite{})
+var _ = Suite(&suite{})
 
-func TestPackage(t *testing.T) {
+func TestPackage(t *stdtesting.T) {
 	TestingT(t)
 }
 
@@ -52,7 +56,7 @@ var readTests = []struct {
 	expectBody: &value{X: "result"},
 }}
 
-func (suite) TestRead(c *C) {
+func (*suite) TestRead(c *C) {
 	for i, test := range readTests {
 		c.Logf("test %d", i)
 		codec := jsoncodec.New(&testConn{
@@ -75,7 +79,97 @@ func (suite) TestRead(c *C) {
 	}
 }
 
-func (suite) TestErrorAfterClose(c *C) {
+func (*suite) TestReadHeaderLogsRequests(c *C) {
+	msg := `{"RequestId":1,"Type": "foo","Id": "id","Request":"frob","Params":{"X":"param"}}`
+	codec := jsoncodec.New(&testConn{
+		readMsgs: []string{msg, msg, msg},
+	})
+	// Check that logging is off by default
+	var h rpc.Header
+	err := codec.ReadHeader(&h)
+	c.Assert(err, IsNil)
+	c.Assert(c.GetTestLog(), Matches, "")
+
+	// Check that we see a log message when we switch logging on.
+	codec.SetLogging(true)
+	err = codec.ReadHeader(&h)
+	c.Assert(err, IsNil)
+	c.Assert(c.GetTestLog(), Matches, ".*DEBUG rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+
+	// Check that we can switch it off again
+	codec.SetLogging(false)
+	err = codec.ReadHeader(&h)
+	c.Assert(err, IsNil)
+	c.Assert(c.GetTestLog(), Matches, ".*DEBUG rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+}
+
+func (*suite) TestWriteMessageLogsRequests(c *C) {
+	codec := jsoncodec.New(&testConn{})
+	h := rpc.Header{
+		RequestId: 1,
+		Type:      "foo",
+		Id:        "id",
+		Request:   "frob",
+	}
+
+	// Check that logging is off by default
+	err := codec.WriteMessage(&h, value{X: "param"})
+	c.Assert(err, IsNil)
+	c.Assert(c.GetTestLog(), Matches, "")
+
+	// Check that we see a log message when we switch logging on.
+	codec.SetLogging(true)
+	err = codec.WriteMessage(&h, value{X: "param"})
+	c.Assert(err, IsNil)
+	msg := `{"RequestId":1,"Type":"foo","Id":"id","Request":"frob","Params":{"X":"param"}}`
+	c.Assert(c.GetTestLog(), Matches, `.*DEBUG rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+
+	// Check that we can switch it off again
+	codec.SetLogging(false)
+	err = codec.WriteMessage(&h, value{X: "param"})
+	c.Assert(err, IsNil)
+	c.Assert(c.GetTestLog(), Matches, `.*DEBUG rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+}
+
+func (*suite) TestConcurrentSetLoggingAndWrite(c *C) {
+	// If log messages are not set atomically, this
+	// test will fail when run under the race detector.
+	codec := jsoncodec.New(&testConn{})
+	done := make(chan struct{})
+	go func() {
+		codec.SetLogging(true)
+		done <- struct{}{}
+	}()
+	h := rpc.Header{
+		RequestId: 1,
+		Type:      "foo",
+		Id:        "id",
+		Request:   "frob",
+	}
+	err := codec.WriteMessage(&h, value{X: "param"})
+	c.Assert(err, IsNil)
+	<-done
+}
+
+func (*suite) TestConcurrentSetLoggingAndRead(c *C) {
+	// If log messages are not set atomically, this
+	// test will fail when run under the race detector.
+	msg := `{"RequestId":1,"Type": "foo","Id": "id","Request":"frob","Params":{"X":"param"}}`
+	codec := jsoncodec.New(&testConn{
+		readMsgs: []string{msg, msg, msg},
+	})
+	done := make(chan struct{})
+	go func() {
+		codec.SetLogging(true)
+		done <- struct{}{}
+	}()
+	var h rpc.Header
+	err := codec.ReadHeader(&h)
+	c.Assert(err, IsNil)
+	<-done
+}
+
+func (*suite) TestErrorAfterClose(c *C) {
 	conn := &testConn{
 		err: errors.New("some error"),
 	}
@@ -105,7 +199,7 @@ var writeTests = []struct {
 		Request:   "frob",
 	},
 	body:   &value{X: "param"},
-	expect: `{"RequestId": 1, "Type": "foo", "Id": "id", "Request": "frob", "Params": {"X": "param"}}`,
+	expect: `{"RequestId": 1, "Type": "foo","Id":"id", "Request": "frob", "Params": {"X": "param"}}`,
 }, {
 	hdr: &rpc.Header{
 		RequestId: 2,
@@ -121,7 +215,7 @@ var writeTests = []struct {
 	expect: `{"RequestId": 3, "Response": {"X": "result"}}`,
 }}
 
-func (suite) TestWrite(c *C) {
+func (*suite) TestWrite(c *C) {
 	for i, test := range writeTests {
 		c.Logf("test %d", i)
 		var conn testConn
