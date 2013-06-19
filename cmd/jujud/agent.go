@@ -213,11 +213,12 @@ func (c *closeWorker) Kill() {
 }
 
 func (c *closeWorker) Wait() error {
-	err := c.closer.Close()
-	if err != nil {
-		log.Errorf("close error: %v", err)
+	err := c.worker.Wait()
+	log.Infof("closeWorker: worker %T finished with error %v", c.worker, err)
+	if err := c.closer.Close(); err != nil {
+		log.Errorf("closeWorker: close error: %v", err)
 	}
-	return c.worker.Wait()
+	return err
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

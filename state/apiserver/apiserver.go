@@ -33,7 +33,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("state/api: listening on %q", addr)
+	log.Infof("state/api: listening on %q", lis.Addr())
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return nil, err

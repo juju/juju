@@ -53,16 +53,20 @@ func (a *UnitAgent) Init(args []string) error {
 
 // Stop stops the unit agent.
 func (a *UnitAgent) Stop() error {
-	return worker.Stop(a.runner)
+	a.runner.Kill()
+	return a.tomb.Wait()
 }
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
+	defer a.tomb.Done()
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
 	a.runner.StartWorker("toplevel", a.Workers)
-	return agentDone(a.runner.Wait())
+	err := agentDone(a.runner.Wait())
+	a.tomb.Kill(err)
+	return err
 }
 
 // Workers returns a worker that runs the unit agent workers.

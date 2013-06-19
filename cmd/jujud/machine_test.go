@@ -302,7 +302,15 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	c.Assert(string(instId), Equals, "ardbeg-0")
 
 	err = a.Stop()
-	c.Assert(err, IsNil)
+	// When shutting down, the API server can be shut down before
+	// the other workers that connect to it, so they get an error so
+	// they then die, causing Stop to return an error.  It's not
+	// easy to control the actual error that's received in this
+	// circumstance so we just log it rather than asserting that it
+	// is not nil.
+	if err != nil {
+		c.Logf("error shutting down: %v", err)
+	}
 
 	select {
 	case err := <-done:
@@ -327,7 +335,7 @@ var serveAPIWithBadConfTests = []struct {
 	"configuration does not have state server cert/key",
 }}
 
-func (s *MachineSuite) TestServeAPIWithBadConf(c *C) {
+func (s *MachineSuite) TestBadConfServeAPI(c *C) {
 	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
 	addAPIInfo(conf, m)
 	for i, t := range serveAPIWithBadConfTests {

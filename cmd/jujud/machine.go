@@ -58,13 +58,19 @@ func (a *MachineAgent) Init(args []string) error {
 	return nil
 }
 
+func (a *MachineAgent) Wait() error {
+	return a.tomb.Wait()
+}
+
 // Stop stops the machine agent.
 func (a *MachineAgent) Stop() error {
-	return worker.Stop(a.runner)
+	a.runner.Kill()
+	return a.tomb.Wait()
 }
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
+	defer a.tomb.Done()
 	log.Infof("machine agent start; tag %v", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
@@ -75,7 +81,9 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		a.runner.StartWorker("state", a.StateWorker)
 	}
 	a.runner.StartWorker("api", a.APIWorker)
-	return agentDone(a.runner.Wait())
+	err := agentDone(a.runner.Wait())
+	a.tomb.Kill(err)
+	return err
 }
 
 func allFatal(error) bool {

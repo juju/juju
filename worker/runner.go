@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"time"
+	"local/runtime/debug"
 )
 
 // RestartDelay holds the length of time that a worker
@@ -114,6 +115,7 @@ func (runner *Runner) Wait() error {
 }
 
 func (runner *Runner) Kill() {
+	log.Debugf("worker: killing runner %p %s", runner, debug.Callers(0, 20))
 	runner.tomb.Kill(nil)
 }
 
@@ -138,6 +140,7 @@ loop:
 	for {
 		select {
 		case <-runner.tomb.Dying():
+			log.Infof("runner %p dying", runner)
 			break loop
 		case req := <-runner.startc:
 			info := workers[req.id]
@@ -166,6 +169,7 @@ loop:
 				break
 			}
 			if info.worker != nil {
+				log.Debugf("worker: killing %q", id)
 				info.worker.Kill()
 				info.worker = nil
 			}
@@ -179,7 +183,7 @@ loop:
 				info.err = errors.New("unexpected quit")
 			}
 			if info.err != nil {
-				log.Errorf("worker: worker %q: %v", info.id, info.err)
+				log.Errorf("worker: exited %q: %v", info.id, info.err)
 				if runner.isFatal(info.err) {
 					finalError = info.err
 					delete(workers, info.id)
@@ -196,8 +200,9 @@ loop:
 			workerInfo.restartDelay = RestartDelay
 		}
 	}
-	for _, info := range workers {
+	for id, info := range workers {
 		if info.worker != nil {
+			log.Debugf("worker: killing %q", id)
 			info.worker.Kill()
 			info.worker = nil
 		}
@@ -207,8 +212,8 @@ loop:
 		if runner.moreImportant(info.err, finalError) {
 			finalError = info.err
 		}
-		if info.err != nil {
-			log.Errorf("worker: worker %q: %v", info.id, info.err)
+		if true || info.err != nil {
+			log.Errorf("worker: %q exited: %v", info.id, info.err)
 		}
 		delete(workers, info.id)
 	}
@@ -218,6 +223,7 @@ loop:
 // runWorker starts the given worker after waiting for the given delay.
 func (runner *Runner) runWorker(delay time.Duration, id string, start func() (Worker, error)) {
 	if delay > 0 {
+		log.Infof("worker: restarting %q in %v", id, delay)
 		select {
 		case <-runner.tomb.Dying():
 			runner.donec <- doneInfo{id, nil}
@@ -225,6 +231,7 @@ func (runner *Runner) runWorker(delay time.Duration, id string, start func() (Wo
 		case <-time.After(delay):
 		}
 	}
+	log.Infof("worker: start %q", id)
 	worker, err := start()
 	if err == nil {
 		runner.startedc <- startInfo{id, worker}
