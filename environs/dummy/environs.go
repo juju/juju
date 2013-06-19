@@ -565,7 +565,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		machineId: machineId,
 		series:    series,
 		// We will just assume the instance metadata exactly matches the supplied constraints (if specified).
-		metadata: instance.Metadata{
+		metadata: &instance.Metadata{
 			Arch:     cons.Arch,
 			Mem:      cons.Mem,
 			CpuCores: cons.CpuCores,
@@ -706,14 +706,14 @@ type dummyInstance struct {
 	id        instance.Id
 	machineId string
 	series    string
-	metadata  instance.Metadata
+	metadata  *instance.Metadata
 }
 
 func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (instance *dummyInstance) Metadata() instance.Metadata {
+func (instance *dummyInstance) Metadata() *instance.Metadata {
 	return instance.metadata
 }
 

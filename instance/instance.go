@@ -52,7 +52,7 @@ type Instance interface {
 	Ports(machineId string) ([]Port, error)
 
 	// Metadata returns the characteristics of the instance.
-	Metadata() Metadata
+	Metadata() *Metadata
 }
 
 // Metadata represents the characteristics of the instance (if known).
