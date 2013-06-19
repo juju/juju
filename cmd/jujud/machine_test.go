@@ -110,7 +110,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobServeAPI)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m)
@@ -248,7 +248,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 }
 
 func (s *MachineSuite) TestUpgrade(c *C) {
-	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)
+	m, conf, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
 	addAPIInfo(conf, m)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -270,7 +270,7 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 }
 
 func (s *MachineSuite) TestServeAPI(c *C) {
-	stm, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	stm, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, stm)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -320,7 +320,7 @@ var serveAPIWithBadConfTests = []struct {
 }}
 
 func (s *MachineSuite) TestServeAPIWithBadConf(c *C) {
-	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	m, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, m)
 	for i, t := range serveAPIWithBadConfTests {
 		c.Logf("test %d: %q", i, t.err)
