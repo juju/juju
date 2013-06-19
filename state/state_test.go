@@ -116,7 +116,7 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
-	{state.JobServeAPI, "JobServeAPI"},
+	{state.JobManageState, "JobManageState"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
 }
@@ -154,7 +154,7 @@ func (s *StateSuite) TestAddMachines(c *C) {
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
-		state.JobServeAPI,
+		state.JobManageState,
 	}
 	m1, err := s.State.AddMachine("blahblah", allJobs...)
 	c.Assert(err, IsNil)

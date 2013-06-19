@@ -131,7 +131,7 @@ func (s *BootstrapSuite) TestMachinerWorkers(c *C) {
 	m, err := st.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{
-		state.JobManageEnviron, state.JobServeAPI, state.JobHostUnits,
+		state.JobManageEnviron, state.JobManageState, state.JobHostUnits,
 	})
 }
 
