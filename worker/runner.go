@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/tomb"
 	"time"
-	"local/runtime/debug"
 )
 
 // RestartDelay holds the length of time that a worker
@@ -115,7 +114,7 @@ func (runner *Runner) Wait() error {
 }
 
 func (runner *Runner) Kill() {
-	log.Debugf("worker: killing runner %p %s", runner, debug.Callers(0, 20))
+	log.Debugf("worker: killing runner %p", runner)
 	runner.tomb.Kill(nil)
 }
 

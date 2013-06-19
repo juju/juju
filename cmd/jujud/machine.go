@@ -143,14 +143,14 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				return newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir), nil
 			})
 		case state.JobManageEnviron:
-			runner.StartWorker("provisioner", func() (tasks.Task, error) {
+			runner.StartWorker("provisioner", func() (worker.Worker, error) {
 				return provisioner.NewProvisioner(st, a.MachineId), nil
 			})
-			runner.StartWorker("firewaller", func() (tasks.Task, error) {
+			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
 			})
 		case state.JobServeAPI:
-			runner.StartWorker("apiserver", func() (tasks.Task, error) {
+			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
 				// it is currently not a recoverable error, so we kill the whole
 				// agent, potentially enabling human intervention to fix
