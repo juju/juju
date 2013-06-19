@@ -76,7 +76,7 @@ func StartContainer(c *C, manager lxc.ContainerManager, machineId string) instan
 	return inst
 }
 
-func (s *LxcSuite) TestContainerCreate(c *C) {
+func (s *LxcSuite) TestStartContainer(c *C) {
 	manager := lxc.NewContainerManager(MockFactory(), "")
 	instance := StartContainer(c, manager, "1/lxc/0")
 
@@ -88,8 +88,7 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 	testing.AssertDirectoryExists(c, filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"))
 }
 
-func (s *LxcSuite) TestContainerDestroy(c *C) {
-
+func (s *LxcSuite) TestStopContainer(c *C) {
 	manager := lxc.NewContainerManager(MockFactory(), "")
 	instance := StartContainer(c, manager, "1/lxc/0")
 
@@ -103,7 +102,7 @@ func (s *LxcSuite) TestContainerDestroy(c *C) {
 	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, name))
 }
 
-func (s *LxcSuite) TestContainerRemovedDirNameClash(c *C) {
+func (s *LxcSuite) TestStopContainerNameClash(c *C) {
 	manager := lxc.NewContainerManager(MockFactory(), "")
 	instance := StartContainer(c, manager, "1/lxc/0")
 
@@ -119,4 +118,31 @@ func (s *LxcSuite) TestContainerRemovedDirNameClash(c *C) {
 	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
 	// but instead, in the removed container dir with a ".1" suffix as there was already a directory there.
 	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, fmt.Sprintf("%s.1", name)))
+}
+
+func (s *LxcSuite) TestNamedManagerPrefix(c *C) {
+	manager := lxc.NewContainerManager(MockFactory(), "eric")
+	instance := StartContainer(c, manager, "1/lxc/0")
+	c.Assert(string(instance.Id()), Equals, "eric-machine-1-lxc-0")
+}
+
+func (s *LxcSuite) TestListContainers(c *C) {
+	factory := MockFactory()
+	foo := lxc.NewContainerManager(factory, "foo")
+	bar := lxc.NewContainerManager(factory, "bar")
+
+	foo1 := StartContainer(c, foo, "1/lxc/0")
+	foo2 := StartContainer(c, foo, "1/lxc/1")
+	foo3 := StartContainer(c, foo, "1/lxc/2")
+
+	bar1 := StartContainer(c, bar, "1/lxc/0")
+	bar2 := StartContainer(c, bar, "1/lxc/1")
+
+	result, err := foo.ListContainers()
+	c.Assert(err, IsNil)
+	testing.MatchInstances(c, result, foo1, foo2, foo3)
+
+	result, err = bar.ListContainers()
+	c.Assert(err, IsNil)
+	testing.MatchInstances(c, result, bar1, bar2)
 }
