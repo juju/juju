@@ -94,13 +94,13 @@ func (*suite) TestReadHeaderLogsRequests(c *C) {
 	codec.SetLogging(true)
 	err = codec.ReadHeader(&h)
 	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, ".*DEBUG rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.ReadHeader(&h)
 	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, ".*DEBUG rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
 }
 
 func (*suite) TestWriteMessageLogsRequests(c *C) {
@@ -122,13 +122,13 @@ func (*suite) TestWriteMessageLogsRequests(c *C) {
 	err = codec.WriteMessage(&h, value{X: "param"})
 	c.Assert(err, IsNil)
 	msg := `{"RequestId":1,"Type":"foo","Id":"id","Request":"frob","Params":{"X":"param"}}`
-	c.Assert(c.GetTestLog(), Matches, `.*DEBUG rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.WriteMessage(&h, value{X: "param"})
 	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, `.*DEBUG rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
 }
 
 func (*suite) TestConcurrentSetLoggingAndWrite(c *C) {
