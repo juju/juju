@@ -122,13 +122,13 @@ func (s *LxcSuite) TestStopContainerNameClash(c *C) {
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *C) {
-	manager := lxc.NewContainerManager(MockFactory(), "eric")
+	manager := lxc.NewContainerManager(mock.MockFactory(), "eric")
 	instance := StartContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), Equals, "eric-machine-1-lxc-0")
 }
 
 func (s *LxcSuite) TestListContainers(c *C) {
-	factory := MockFactory()
+	factory := mock.MockFactory()
 	foo := lxc.NewContainerManager(factory, "foo")
 	bar := lxc.NewContainerManager(factory, "bar")
 
