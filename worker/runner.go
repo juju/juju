@@ -57,7 +57,7 @@ type doneInfo struct {
 // will be stopped and the runner itself will finish.  Of all the fatal errors
 // returned by the stopped workers, only the most important one,
 // determined by calling moreImportant, will be returned from
-// Runner.Wait (non-fatal errors will not be returned from Wait).
+// Runner.Wait. Non-fatal errors will not be returned.
 //
 // The function isFatal(err) returns whether err is a fatal error.  The
 // function moreImportant(err0, err1) returns whether err0 is considered
