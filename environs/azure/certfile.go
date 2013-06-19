@@ -58,7 +58,7 @@ func newTempCertFile(data []byte) (certFile *tempCertFile, err error) {
 		dirMode = fileMode | 0100
 	)
 
-	certFile = new(tempCertFile)
+	certFile = &tempCertFile{}
 
 	// We'll randomize the file's name, so that even someone with access
 	// to the temporary directory (perhaps a group member sneaking in
