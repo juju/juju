@@ -269,6 +269,11 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	conf.APIPort = port
 }
 
+var fastDialOpts = api.DialOpts{
+	Timeout:    1 * time.Second,
+	RetryDelay: 10 * time.Millisecond,
+}
+
 func (s *MachineSuite) TestServeAPI(c *C) {
 	stm, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, stm)
@@ -280,7 +285,7 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 		done <- a.Run(nil)
 	}()
 
-	st, err := api.Open(conf.APIInfo)
+	st, err := api.Open(conf.APIInfo, fastDialOpts)
 	c.Assert(err, IsNil)
 	defer st.Close()
 
