@@ -68,6 +68,8 @@ var _ environs.Environ = (*environ)(nil)
 type ec2Instance struct {
 	e *environ
 	*ec2.Instance
+	arch     *string
+	instType *instances.InstanceType
 }
 
 func (inst *ec2Instance) String() string {
@@ -78,6 +80,16 @@ var _ instance.Instance = (*ec2Instance)(nil)
 
 func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
+}
+
+func (inst *ec2Instance) Metadata() *instance.Metadata {
+	metadata := &instance.Metadata{Arch: inst.arch}
+	if inst.instType != nil {
+		metadata.Mem = &inst.instType.Mem
+		metadata.CpuCores = &inst.instType.CpuCores
+		metadata.CpuPower = inst.instType.CpuPower
+	}
+	return metadata
 }
 
 func (inst *ec2Instance) DNSName() (string, error) {
@@ -447,7 +459,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 			MinCount:       1,
 			MaxCount:       1,
 			UserData:       userData,
-			InstanceType:   spec.InstanceTypeName,
+			InstanceType:   spec.InstanceType.Name,
 			SecurityGroups: groups,
 		})
 		if err == nil || ec2ErrCode(err) != "InvalidGroup.NotFound" {
@@ -460,7 +472,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 	if len(instances.Instances) != 1 {
 		return nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
 	}
-	inst := &ec2Instance{e, &instances.Instances[0]}
+	inst := &ec2Instance{
+		e:        e,
+		Instance: &instances.Instances[0],
+		arch:     &spec.Image.Arch,
+		instType: &spec.InstanceType,
+	}
 	log.Infof("environs/ec2: started instance %q", inst.Id())
 	return inst, nil
 }
@@ -507,7 +524,8 @@ func (e *environ) gatherInstances(ids []instance.Id, insts []instance.Instance) 
 			for k := range r.Instances {
 				if r.Instances[k].InstanceId == string(id) {
 					inst := r.Instances[k]
-					insts[i] = &ec2Instance{e, &inst}
+					// TODO(wallyworld): lookup the details to fill in the instance type data
+					insts[i] = &ec2Instance{e: e, Instance: &inst}
 					n++
 				}
 			}
@@ -560,7 +578,8 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 	for _, r := range resp.Reservations {
 		for i := range r.Instances {
 			inst := r.Instances[i]
-			insts = append(insts, &ec2Instance{e, &inst})
+			// TODO(wallyworld): lookup the details to fill in the instance type data
+			insts = append(insts, &ec2Instance{e: e, Instance: &inst})
 		}
 	}
 	return insts, nil

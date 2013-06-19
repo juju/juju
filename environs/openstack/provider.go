@@ -271,9 +271,11 @@ type environ struct {
 var _ environs.Environ = (*environ)(nil)
 
 type openstackInstance struct {
-	e *environ
 	*nova.ServerDetail
-	address string
+	e        *environ
+	instType *instances.InstanceType
+	arch     *string
+	address  string
 }
 
 func (inst *openstackInstance) String() string {
@@ -284,6 +286,16 @@ var _ instance.Instance = (*openstackInstance)(nil)
 
 func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.ServerDetail.Id)
+}
+
+func (inst *openstackInstance) Metadata() *instance.Metadata {
+	metadata := &instance.Metadata{Arch: inst.arch}
+	if inst.instType != nil {
+		metadata.Mem = &inst.instType.Mem
+		metadata.CpuCores = &inst.instType.CpuCores
+		metadata.CpuPower = inst.instType.CpuPower
+	}
+	return metadata
 }
 
 // instanceAddress processes a map of networks to lists of IP
@@ -820,7 +832,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
 			Name:               e.machineFullName(scfg.machineId),
-			FlavorId:           spec.InstanceTypeId,
+			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
 			SecurityGroupNames: groupNames,
@@ -836,7 +848,12 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 	if err != nil {
 		return nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
-	inst := &openstackInstance{e, detail, ""}
+	inst := &openstackInstance{
+		e:            e,
+		ServerDetail: detail,
+		arch:         &spec.Image.Arch,
+		instType:     &spec.InstanceType,
+	}
 	log.Infof("environs/openstack: started instance %q", inst.Id())
 	if scfg.withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
@@ -891,7 +908,8 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
 			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
-				out[id] = &openstackInstance{e, &server, ""}
+				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
+				out[id] = &openstackInstance{e: e, ServerDetail: &server}
 			}
 			continue
 		}
@@ -937,7 +955,11 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 	for _, server := range servers {
 		if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 			var s = server
-			insts = append(insts, &openstackInstance{e, &s, ""})
+			// TODO(wallyworld): lookup the flavor details to fill in the instance type data
+			insts = append(insts, &openstackInstance{
+				e:            e,
+				ServerDetail: &s,
+			})
 		}
 	}
 	return insts, err
