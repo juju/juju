@@ -335,7 +335,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 		}
 		return nil
 	}
-	if err := machine.SetProvisioned(inst.Id(), nonce); err != nil {
+	if err := machine.SetProvisioned(inst.Id(), nonce, inst.Metadata()); err != nil {
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and

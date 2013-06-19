@@ -64,6 +64,7 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
+	metadata      *instanceMetadata
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -102,6 +103,35 @@ func machineGlobalKey(id string) string {
 // globalKey returns the global database key for the machine.
 func (m *Machine) globalKey() string {
 	return machineGlobalKey(m.doc.Id)
+}
+
+type instanceMetadata struct {
+	Id       string  `bson:"_id"`
+	Arch     *string `bson:"arch,omitempty"`
+	Mem      *uint64 `bson:"mem,omitempty"`
+	CpuCores *uint64 `bson:"cpucpores,omitempty"`
+	CpuPower *uint64 `bson:"cpupower,omitempty"`
+}
+
+// TODO(wallyworld): move this method to a service.
+func (m *Machine) Metadata() (*instance.Metadata, error) {
+	metadata := &instance.Metadata{}
+	if m.doc.metadata == nil {
+		var md instanceMetadata
+		err := m.st.machineMetadata.FindId(m.Id()).One(&md)
+		if err == mgo.ErrNotFound {
+			return metadata, nil
+		}
+		if err != nil {
+			return nil, err
+		}
+		m.doc.metadata = &md
+	}
+	metadata.Arch = m.doc.metadata.Arch
+	metadata.Mem = m.doc.metadata.Mem
+	metadata.CpuCores = m.doc.metadata.CpuCores
+	metadata.CpuPower = m.doc.metadata.CpuPower
+	return metadata, nil
 }
 
 const machineTagPrefix = "machine-"
@@ -475,25 +505,43 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// SetProvisioned sets the provider specific machine id and nonce for
+// SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set instance id of machine %q", m)
+func (m *Machine) SetProvisioned(id instance.Id, nonce string, metadata *instance.Metadata) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
 	}
 	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Assert: append(isAliveDoc, notSetYet...),
-		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
-	}}
+	if metadata == nil {
+		metadata = &instance.Metadata{}
+	}
+	md := &instanceMetadata{
+		Arch:     metadata.Arch,
+		Mem:      metadata.Mem,
+		CpuCores: metadata.CpuCores,
+		CpuPower: metadata.CpuPower,
+	}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(isAliveDoc, notSetYet...),
+			Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
+		},
+		{
+			C:      m.st.machineMetadata.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocMissing,
+			Insert: md,
+		},
+	}
 
 	if err = m.st.runTransaction(ops); err == nil {
 		m.doc.InstanceId = id
 		m.doc.Nonce = nonce
+		m.doc.metadata = md
 		return nil
 	} else if err != txn.ErrAborted {
 		return err

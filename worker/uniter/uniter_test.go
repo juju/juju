@@ -1038,7 +1038,7 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	machine, err := ctx.st.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce")
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit

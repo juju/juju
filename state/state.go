@@ -100,6 +100,7 @@ type State struct {
 	environments     *mgo.Collection
 	charms           *mgo.Collection
 	machines         *mgo.Collection
+	machineMetadata  *mgo.Collection
 	containerRefs    *mgo.Collection
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection

@@ -36,7 +36,7 @@ func preventUnitDestroyRemove(c *C, st *state.State, u *state.Unit) {
 	c.Assert(err, IsNil)
 	m, err := st.Machine(mid)
 	c.Assert(err, IsNil)
-	err = m.SetProvisioned("i-malive", "fake_nonce")
+	err = m.SetProvisioned("i-malive", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 }
 
@@ -397,7 +397,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce")
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -772,7 +772,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// Dying machine...
 	dying, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
+	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	err = dying.Destroy()
 	c.Assert(err, IsNil)
@@ -820,7 +820,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	s.assertChange(c, w, "0")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
 
