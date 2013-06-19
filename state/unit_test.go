@@ -165,23 +165,37 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, ok := s.unit.PublicAddress()
+	_, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PublicAddress()
+	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
+	err = s.unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, ok := s.unit.PrivateAddress()
+	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PrivateAddress()
+	address, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
+	err = s.unit.SetPrivateAddress("example.local")
+	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestRefresh(c *C) {

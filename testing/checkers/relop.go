@@ -48,5 +48,5 @@ func (checker *greaterThanChecker) Check(params []interface{}, names []string) (
 		return p0value.Float() > p1value.Float(), ""
 	default:
 	}
-	return false, "obtained value not supported"
+	return false, fmt.Sprintf("obtained value %s:%#v not supported", p0value.Kind(), params[0])
 }

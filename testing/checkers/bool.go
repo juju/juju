@@ -17,6 +17,8 @@ var IsTrue Checker = &isTrueChecker{
 	&CheckerInfo{Name: "IsTrue", Params: []string{"obtained"}},
 }
 
+var IsFalse Checker = Not(IsTrue)
+
 func (checker *isTrueChecker) Check(params []interface{}, names []string) (result bool, error string) {
 	value, result := params[0].(bool)
 	if result {

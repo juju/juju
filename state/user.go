@@ -32,7 +32,7 @@ func (st *State) AddUser(name, password string) (*User, error) {
 		Assert: txn.DocMissing,
 		Insert: &u.doc,
 	}}
-	err := st.runner.Run(ops, "", nil)
+	err := st.runTransaction(ops)
 	if err == txn.ErrAborted {
 		err = fmt.Errorf("user already exists")
 	}
@@ -98,7 +98,7 @@ func (u *User) SetPasswordHash(pwHash string) error {
 		Id:     u.Name(),
 		Update: D{{"$set", D{{"passwordhash", pwHash}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of user %q: %v", u.Name(), err)
 	}
 	u.doc.PasswordHash = pwHash
