@@ -186,7 +186,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	s.Conn = conn
 	s.State = conn.State
 
-	apiConn, err := juju.NewAPIConn(environ)
+	apiConn, err := juju.NewAPIConn(environ, api.DialOpts{})
 	c.Assert(err, IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State

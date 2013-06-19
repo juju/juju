@@ -64,7 +64,7 @@ func (s *loginSuite) TestBadLogin(c *C) {
 		info.Tag = ""
 		info.Password = ""
 		func() {
-			st, err := api.Open(info)
+			st, err := api.Open(info, fastDialOpts)
 			c.Assert(err, IsNil)
 			defer st.Close()
 

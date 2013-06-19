@@ -206,10 +206,10 @@ func (c *Conf) WriteCommands() ([]string, error) {
 // to the state should be changed accordingly - the caller should write the
 // configuration with StateInfo.Password set to newPassword, then
 // set the entity's password accordingly.
-func (c *Conf) OpenAPI() (st *api.State, newPassword string, err error) {
+func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
 	info := *c.APIInfo
 	if info.Password != "" {
-		st, err := api.Open(&info)
+		st, err := api.Open(&info, dialOpts)
 		if err == nil {
 			return st, "", nil
 		}
@@ -222,7 +222,7 @@ func (c *Conf) OpenAPI() (st *api.State, newPassword string, err error) {
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	st, err = api.Open(&info)
+	st, err = api.Open(&info, dialOpts)
 	if err != nil {
 		return nil, "", err
 	}
