@@ -26,8 +26,8 @@ type machinerSuite struct {
 	server *apiserver.Server
 	st     *api.State
 
-	machine  *state.Machine
-	mstate *machiner.State
+	machine *state.Machine
+	mstate  *machiner.State
 }
 
 var _ = Suite(&machinerSuite{})

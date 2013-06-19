@@ -7,8 +7,8 @@ import "launchpad.net/juju-core/state/api/params"
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	id       string
-	life     params.Life
+	id     string
+	life   params.Life
 	mstate *State
 }
 

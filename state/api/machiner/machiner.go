@@ -46,8 +46,8 @@ func (m *State) Machine(id string) (*Machine, error) {
 		return nil, err
 	}
 	return &Machine{
-		id:       id,
-		life:     life,
+		id:     id,
+		life:   life,
 		mstate: m,
 	}, nil
 }

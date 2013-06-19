@@ -274,6 +274,7 @@ var fastDialOpts = api.DialOpts{
 	Timeout:    1 * time.Second,
 	RetryDelay: 10 * time.Millisecond,
 }
+
 func (s *MachineSuite) TestServeAPI(c *C) {
 	stm, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, stm)
