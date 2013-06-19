@@ -8,7 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/instance"
 )
 
 type EnvironProviderSuite struct {
@@ -68,7 +68,7 @@ func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFromMachineFile(
 	provider := suite.environ.Provider()
 	returnedInstanceId, err := provider.InstanceId()
 	c.Assert(err, IsNil)
-	c.Check(returnedInstanceId, Equals, state.InstanceId(instanceId))
+	c.Check(returnedInstanceId, Equals, instance.Id(instanceId))
 }
 
 // PublicAddress and PrivateAddress return the hostname of the machine read

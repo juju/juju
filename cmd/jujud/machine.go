@@ -122,7 +122,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st, a.MachineId),
 				firewaller.NewFirewaller(st))
-		case state.JobServeAPI:
+		case state.JobManageState:
 			// Ignore because it's started independently.
 			continue
 		default:
@@ -173,7 +173,7 @@ func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
 	m := entity.(*state.Machine)
 	runAPI := false
 	for _, job := range m.Jobs() {
-		if job == state.JobServeAPI {
+		if job == state.JobManageState {
 			runAPI = true
 			break
 		}

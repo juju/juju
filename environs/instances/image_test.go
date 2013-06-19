@@ -162,18 +162,14 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 		instanceTypes: []InstanceType{
 			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &pv, Mem: 512},
 		},
-		instanceTypeId:   "1",
-		instanceTypeName: "it-1",
 	},
 	{
 		desc:    "multiple images exists in metadata, use most recent",
 		region:  "test",
 		imageId: "ami-00000035",
 		instanceTypes: []InstanceType{
-			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &hvm, Mem: 512},
+			{Id: "1", Name: "it-1", Arches: []string{"amd64"}, VType: &hvm, Mem: 512, CpuCores: 2},
 		},
-		instanceTypeId:   "1",
-		instanceTypeName: "it-1",
 	},
 	{
 		desc:   "no image exists in metadata",
@@ -228,8 +224,9 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			continue
 		}
 		c.Check(spec.Image.Id, Equals, t.imageId)
-		c.Check(spec.InstanceTypeId, Equals, t.instanceTypeId)
-		c.Check(spec.InstanceTypeName, Equals, t.instanceTypeName)
+		if len(t.instanceTypes) == 1 {
+			c.Check(spec.InstanceType, DeepEquals, t.instanceTypes[0])
+		}
 	}
 }
 

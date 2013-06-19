@@ -74,7 +74,7 @@ func (a *annotator) SetAnnotations(pairs map[string]string) (err error) {
 		} else {
 			ops = a.updateOps(toUpdate, toRemove)
 		}
-		if err := a.st.runner.Run(ops, "", nil); err == nil {
+		if err := a.st.runTransaction(ops); err == nil {
 			return nil
 		} else if err != txn.ErrAborted {
 			return err

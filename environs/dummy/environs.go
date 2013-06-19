@@ -29,11 +29,11 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -75,7 +75,7 @@ type OpStartInstance struct {
 	Env          string
 	MachineId    string
 	MachineNonce string
-	Instance     environs.Instance
+	Instance     instance.Instance
 	Constraints  constraints.Value
 	Info         *state.Info
 	APIInfo      *api.Info
@@ -84,24 +84,27 @@ type OpStartInstance struct {
 
 type OpStopInstances struct {
 	Env       string
-	Instances []environs.Instance
+	Instances []instance.Instance
 }
 
 type OpOpenPorts struct {
 	Env        string
 	MachineId  string
-	InstanceId state.InstanceId
-	Ports      []params.Port
+	InstanceId instance.Id
+	Ports      []instance.Port
 }
 
 type OpClosePorts struct {
 	Env        string
 	MachineId  string
-	InstanceId state.InstanceId
-	Ports      []params.Port
+	InstanceId instance.Id
+	Ports      []instance.Port
 }
 
-type OpPutFile GenericOperation
+type OpPutFile struct {
+	Env      string
+	FileName string
+}
 
 // environProvider represents the dummy provider.  There is only ever one
 // instance of this type (providerInstance)
@@ -122,8 +125,8 @@ type environState struct {
 	ops           chan<- Operation
 	mu            sync.Mutex
 	maxId         int // maximum instance id allocated so far.
-	insts         map[state.InstanceId]*instance
-	globalPorts   map[params.Port]bool
+	insts         map[instance.Id]*dummyInstance
+	globalPorts   map[instance.Port]bool
 	firewallMode  config.FirewallMode
 	bootstrapped  bool
 	storageDelay  time.Duration
@@ -224,8 +227,8 @@ func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 	s := &environState{
 		name:         name,
 		ops:          ops,
-		insts:        make(map[state.InstanceId]*instance),
-		globalPorts:  make(map[params.Port]bool),
+		insts:        make(map[instance.Id]*dummyInstance),
+		globalPorts:  make(map[instance.Port]bool),
 		firewallMode: fwmode,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
@@ -385,8 +388,8 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
-func (*environProvider) InstanceId() (state.InstanceId, error) {
-	return state.InstanceId("dummy.instance.id"), nil
+func (*environProvider) InstanceId() (instance.Id, error) {
+	return instance.Id("dummy.instance.id"), nil
 }
 
 func (*environProvider) BoilerplateConfig() string {
@@ -432,6 +435,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	}
 	if _, ok := e.Config().CACert(); !ok {
 		return fmt.Errorf("no CA certificate in environment configuration")
+	}
+	if err := environs.VerifyStorage(e.Storage()); err != nil {
+		return err
 	}
 
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
@@ -515,7 +521,7 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-func (e *environ) Destroy([]environs.Instance) error {
+func (e *environ) Destroy([]instance.Instance) error {
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
@@ -527,7 +533,7 @@ func (e *environ) Destroy([]environs.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (environs.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -552,12 +558,32 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if apiInfo.Tag != state.MachineTag(machineId) {
 		return nil, fmt.Errorf("entity tag must match started machine")
 	}
-	i := &instance{
+	i := &dummyInstance{
 		state:     e.state,
-		id:        state.InstanceId(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
-		ports:     make(map[params.Port]bool),
+		id:        instance.Id(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
+		ports:     make(map[instance.Port]bool),
 		machineId: machineId,
 		series:    series,
+		// We will just assume the instance metadata exactly matches the supplied constraints (if specified).
+		metadata: &instance.Metadata{
+			Arch:     cons.Arch,
+			Mem:      cons.Mem,
+			CpuCores: cons.CpuCores,
+			CpuPower: cons.CpuPower,
+		},
+	}
+	// Fill in some expected instance metadata if constraints not specified.
+	if i.metadata.Arch == nil {
+		arch := "amd64"
+		i.metadata.Arch = &arch
+	}
+	if i.metadata.Mem == nil {
+		mem := uint64(1024)
+		i.metadata.Mem = &mem
+	}
+	if i.metadata.CpuCores == nil {
+		cores := uint64(1)
+		i.metadata.CpuCores = &cores
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -574,7 +600,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	return i, nil
 }
 
-func (e *environ) StopInstances(is []environs.Instance) error {
+func (e *environ) StopInstances(is []instance.Instance) error {
 	defer delay()
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
@@ -582,7 +608,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, i := range is {
-		delete(e.state.insts, i.(*instance).id)
+		delete(e.state.insts, i.(*dummyInstance).id)
 	}
 	e.state.ops <- OpStopInstances{
 		Env:       e.state.name,
@@ -591,7 +617,7 @@ func (e *environ) StopInstances(is []environs.Instance) error {
 	return nil
 }
 
-func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, err error) {
+func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err error) {
 	defer delay()
 	if err := e.checkBroken("Instances"); err != nil {
 		return nil, err
@@ -616,12 +642,12 @@ func (e *environ) Instances(ids []state.InstanceId) (insts []environs.Instance, 
 	return
 }
 
-func (e *environ) AllInstances() ([]environs.Instance, error) {
+func (e *environ) AllInstances() ([]instance.Instance, error) {
 	defer delay()
 	if err := e.checkBroken("AllInstances"); err != nil {
 		return nil, err
 	}
-	var insts []environs.Instance
+	var insts []instance.Instance
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	for _, v := range e.state.insts {
@@ -630,7 +656,7 @@ func (e *environ) AllInstances() ([]environs.Instance, error) {
 	return insts, nil
 }
 
-func (e *environ) OpenPorts(ports []params.Port) error {
+func (e *environ) OpenPorts(ports []instance.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -643,7 +669,7 @@ func (e *environ) OpenPorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) ClosePorts(ports []params.Port) error {
+func (e *environ) ClosePorts(ports []instance.Port) error {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -656,7 +682,7 @@ func (e *environ) ClosePorts(ports []params.Port) error {
 	return nil
 }
 
-func (e *environ) Ports() (ports []params.Port, err error) {
+func (e *environ) Ports() (ports []instance.Port, err error) {
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if e.state.firewallMode != config.FwGlobal {
@@ -674,28 +700,33 @@ func (*environ) Provider() environs.EnvironProvider {
 	return &providerInstance
 }
 
-type instance struct {
+type dummyInstance struct {
 	state     *environState
-	ports     map[params.Port]bool
-	id        state.InstanceId
+	ports     map[instance.Port]bool
+	id        instance.Id
 	machineId string
 	series    string
+	metadata  *instance.Metadata
 }
 
-func (inst *instance) Id() state.InstanceId {
+func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *instance) DNSName() (string, error) {
+func (instance *dummyInstance) Metadata() *instance.Metadata {
+	return instance.metadata
+}
+
+func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
 	return string(inst.id) + ".dns", nil
 }
 
-func (inst *instance) WaitDNSName() (string, error) {
+func (inst *dummyInstance) WaitDNSName() (string, error) {
 	return inst.DNSName()
 }
 
-func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
+func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	defer delay()
 	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
 	if inst.state.firewallMode != config.FwInstance {
@@ -719,7 +750,7 @@ func (inst *instance) OpenPorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
+func (inst *dummyInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
@@ -742,7 +773,7 @@ func (inst *instance) ClosePorts(machineId string, ports []params.Port) error {
 	return nil
 }
 
-func (inst *instance) Ports(machineId string) (ports []params.Port, err error) {
+func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err error) {
 	defer delay()
 	if inst.state.firewallMode != config.FwInstance {
 		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",

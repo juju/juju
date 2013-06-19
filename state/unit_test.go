@@ -7,9 +7,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"sort"
 	"strconv"
 	"time"
 )
@@ -104,27 +104,11 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 	c.Assert(err, IsNil)
 	w, err := s.unit.WatchConfigSettings()
 	c.Assert(err, IsNil)
-	defer stop(c, w)
+	defer AssertStop(c, w)
 
-	// Check initial event.
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case <-w.Changes():
-			c.Fatalf("unexpected change")
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	assertChange := func() {
-		s.State.Sync()
-		select {
-		case <-w.Changes():
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("change not received")
-		}
-		assertNoChange()
-	}
-	assertChange()
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
 	err = s.service.UpdateConfigSettings(charm.Settings{
@@ -135,27 +119,27 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, IsNil)
-	assertChange()
+	wc.AssertOneChange()
 
 	// Non-change is not reported.
 	err = s.service.UpdateConfigSettings(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Change service's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
 	err = s.service.SetCharm(newCharm, false)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Change service config for new charm; nothing detected.
 	err = s.service.UpdateConfigSettings(charm.Settings{
 		"key": 42.0,
 	})
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// NOTE: if we were to change the unit to use the new charm, we'd see
 	// another event, because the originally-watched document will become
@@ -164,23 +148,37 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, ok := s.unit.PublicAddress()
+	_, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PublicAddress()
+	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
+	err = s.unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, ok := s.unit.PrivateAddress()
+	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PrivateAddress()
+	address, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	})()
+	err = s.unit.SetPrivateAddress("example.local")
+	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestRefresh(c *C) {
@@ -635,14 +633,14 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -650,7 +648,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -659,7 +657,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -669,7 +667,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -678,7 +676,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -862,33 +860,9 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
-	defer stop(c, w)
-	assertChange := func(units ...string) {
-		s.State.Sync()
-		select {
-		case ch, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			if len(units) > 0 {
-				sort.Strings(ch)
-				sort.Strings(units)
-				c.Assert(ch, DeepEquals, units)
-			} else {
-				c.Assert(ch, HasLen, 0)
-			}
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("timed out waiting for %#v", units)
-		}
-	}
-	assertChange()
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case ch, ok := <-w.Changes():
-			c.Fatalf("unexpected change: %#v, %v", ch, ok)
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
-	assertNoChange()
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a couple of subordinates, check change.
 	subCharm := s.AddTestingCharm(c, "logging")
@@ -913,14 +887,12 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 		c.Assert(units, HasLen, 1)
 		subUnits = append(subUnits, units[0])
 	}
-	assertChange(subUnits[0].Name(), subUnits[1].Name())
-	assertNoChange()
+	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
 
 	// Set one to Dying, check change.
 	err := subUnits[0].Destroy()
 	c.Assert(err, IsNil)
-	assertChange(subUnits[0].Name())
-	assertNoChange()
+	wc.AssertOneChange(subUnits[0].Name())
 
 	// Set both to Dead, and remove one; check change.
 	err = subUnits[0].EnsureDead()
@@ -929,117 +901,59 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	err = subUnits[1].Remove()
 	c.Assert(err, IsNil)
-	assertChange(subUnits[0].Name(), subUnits[1].Name())
-	assertNoChange()
+	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
 
 	// Stop watcher, check closed.
-	err = w.Stop()
-	c.Assert(err, IsNil)
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, false)
-	default:
-	}
+	AssertStop(c, w)
+	wc.AssertClosed()
 
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
-	defer stop(c, w)
-	assertChange(subUnits[0].Name())
+	defer AssertStop(c, w)
+	wc = StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
 	err = subUnits[0].Remove()
 	c.Assert(err, IsNil)
-	assertNoChange()
-}
-
-type unitInfo struct {
-	PublicAddress string
-	Life          state.Life
-}
-
-var watchUnitTests = []struct {
-	test func(m *state.Unit) error
-	want unitInfo
-}{
-	{
-		func(u *state.Unit) error {
-			return u.SetPublicAddress("example.foobar.com")
-		},
-		unitInfo{
-			PublicAddress: "example.foobar.com",
-		},
-	},
-	{
-		func(u *state.Unit) error {
-			return u.SetPublicAddress("ubuntu.com")
-		},
-		unitInfo{
-			PublicAddress: "ubuntu.com",
-		},
-	},
-	{
-		func(u *state.Unit) error {
-			return u.Destroy()
-		},
-		unitInfo{
-			Life: state.Dying,
-		},
-	},
+	wc.AssertNoChange()
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
 	preventUnitDestroyRemove(c, s.State, s.unit)
-	altunit, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, IsNil)
-	err = altunit.SetPublicAddress("newer-address")
-	c.Assert(err, IsNil)
-	_, ok := s.unit.PublicAddress()
-	c.Assert(ok, Equals, false)
-
 	w := s.unit.Watch()
-	defer func() {
-		c.Assert(w.Stop(), IsNil)
-	}()
-	s.State.Sync()
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-		err := s.unit.Refresh()
-		c.Assert(err, IsNil)
-		addr, ok := s.unit.PublicAddress()
-		c.Assert(ok, Equals, true)
-		c.Assert(addr, Equals, "newer-address")
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change: %v", s.unit)
-	}
+	defer AssertStop(c, w)
 
-	for i, test := range watchUnitTests {
-		c.Logf("test %d", i)
-		err := test.test(altunit)
-		c.Assert(err, IsNil)
-		s.State.StartSync()
-		select {
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			err := s.unit.Refresh()
-			c.Assert(err, IsNil)
-			var info unitInfo
-			info.Life = s.unit.Life()
-			c.Assert(err, IsNil)
-			if test.want.PublicAddress != "" {
-				info.PublicAddress, ok = s.unit.PublicAddress()
-				c.Assert(ok, Equals, true)
-			}
-			c.Assert(info, DeepEquals, test.want)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %v", test.want)
-		}
-	}
-	select {
-	case got, ok := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v, %v", got, ok)
-	case <-time.After(100 * time.Millisecond):
-	}
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
+
+	// Make one change (to a separate instance), check one event.
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	err = unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Make two changes, check one event.
+	err = unit.SetPrivateAddress("example.foobar")
+	c.Assert(err, IsNil)
+	err = unit.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	AssertStop(c, w)
+	wc.AssertClosed()
+
+	// Remove unit, start new watch, check single event.
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	w = s.unit.Watch()
+	defer AssertStop(c, w)
+	NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
