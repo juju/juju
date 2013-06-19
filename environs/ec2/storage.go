@@ -4,13 +4,23 @@
 package ec2
 
 import (
+	"encoding/xml"
 	"fmt"
+	"hash/crc32"
 	"io"
-	"launchpad.net/goamz/s3"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
+	"io/ioutil"
+	"net"
+	"net/http"
+	"sort"
+	"strings"
 	"sync"
 	"time"
+
+	"launchpad.net/goamz/s3"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/version"
 )
 
 func NewStorage(bucket *s3.Bucket) environs.Storage {
@@ -163,4 +173,204 @@ func maybeNotFound(err error) error {
 		return &errors.NotFoundError{err, ""}
 	}
 	return err
+}
+
+// listBucketResult is the top level XML element of the storage index.
+type listBucketResult struct {
+	XMLName     xml.Name `xml: "ListBucketResult"`
+	Name        string
+	Prefix      string
+	Marker      string
+	MaxKeys     int
+	IsTruncated bool
+	Contents    []*contents
+}
+
+// content describes one entry of the storage index.
+type contents struct {
+	XMLName      xml.Name `xml: "Contents"`
+	Key          string
+	LastModified time.Time
+	ETag         string
+	Size         int
+	StorageClass string
+}
+
+// HttpStorageReader implements the environs.StorageReader interface
+// to access an EC2 storage via HTTP.
+type HttpStorageReader struct {
+	location string
+}
+
+// NewHttpStorageReader creates a storage reader for the HTTP
+// access to an EC2 storage like the juju-dist storage.
+func NewHttpStorageReader(location string) environs.StorageReader {
+	return &HttpStorageReader{location}
+}
+
+// Get opens the given storage file and returns a ReadCloser
+// that can be used to read its contents.
+func (h *HttpStorageReader) Get(name string) (io.ReadCloser, error) {
+	locationName, err := h.URL(name)
+	if err != nil {
+		return nil, err
+	}
+	resp, err := http.Get(locationName)
+	if err != nil && resp.StatusCode == http.StatusNotFound {
+		return nil, &errors.NotFoundError{err, ""}
+	}
+	return resp.Body, nil
+}
+
+// List lists all names in the storage with the given prefix.
+func (h *HttpStorageReader) List(prefix string) ([]string, error) {
+	lbr, err := h.getListBucketResult()
+	if err != nil {
+		return nil, err
+	}
+	var names []string
+	for _, c := range lbr.Contents {
+		if strings.HasPrefix(c.Key, prefix) {
+			names = append(names, c.Key)
+		}
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// URL returns a URL that can be used to access the given storage file.
+func (h *HttpStorageReader) URL(name string) (string, error) {
+	if strings.HasSuffix(h.location, "/") {
+		return h.location + name, nil
+	}
+	return h.location + "/" + name, nil
+}
+
+// getListBucketResult retrieves the index of the storage,
+func (h *HttpStorageReader) getListBucketResult() (*listBucketResult, error) {
+	resp, err := http.Get(h.location)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	buf, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	var lbr listBucketResult
+	err = xml.Unmarshal(buf, &lbr)
+	if err != nil {
+		return nil, err
+	}
+	return &lbr, nil
+}
+
+// HttpTestStorage acts like an EC2 storage which can be
+// accessed by HTTP.
+type HttpTestStorage struct {
+	location string
+	files    map[string][]byte
+	listener net.Listener
+}
+
+func NewHttpTestStorage(ip string) (*HttpTestStorage, error) {
+	var err error
+	s := &HttpTestStorage{
+		files: make(map[string][]byte),
+	}
+	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", ip, 0))
+	if err != nil {
+		return nil, fmt.Errorf("cannot start test listener: %v", err)
+	}
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
+		switch req.Method {
+		case "GET":
+			if req.URL.Path == "/" {
+				s.handleIndex(w, req)
+			} else {
+				s.handleGet(w, req)
+			}
+		default:
+			http.Error(w, "method "+req.Method+" is not supported", http.StatusMethodNotAllowed)
+		}
+	})
+	s.location = fmt.Sprintf("http://%s:%d/", ip, s.listener.Addr().(*net.TCPAddr).Port)
+
+	go http.Serve(s.listener, mux)
+
+	return s, nil
+}
+
+// Stop stops the HTTP test storage.
+func (s *HttpTestStorage) Stop() error {
+	return s.listener.Close()
+}
+
+// Location returns the location that has to be used in the tests.
+func (s *HttpTestStorage) Location() string {
+	return s.location
+}
+
+// PutBinary stores a faked binary in the HTTP test storage.
+func (s *HttpTestStorage) PutBinary(v version.Binary) {
+	data := v.String()
+	name := tools.StorageName(v)
+	parts := strings.Split(name, "/")
+	if len(parts) > 1 {
+		// Also create paths as entries. Needed for
+		// the correct contents of the list bucket result.
+		path := ""
+		for i := 0; i < len(parts)-1; i++ {
+			path = path + parts[i] + "/"
+			s.files[path] = []byte{}
+		}
+	}
+	s.files[name] = []byte(data)
+}
+
+// handleIndex returns the index XML file to the client.
+func (s *HttpTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
+	lbr := &listBucketResult{
+		Name:        "juju-dist",
+		Prefix:      "",
+		Marker:      "",
+		MaxKeys:     1000,
+		IsTruncated: false,
+	}
+	names := []string{}
+	for name := range s.files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		h := crc32.NewIEEE()
+		h.Write([]byte(s.files[name]))
+		contents := &contents{
+			Key:          name,
+			LastModified: time.Now(),
+			ETag:         fmt.Sprintf("%x", h.Sum(nil)),
+			Size:         len([]byte(s.files[name])),
+			StorageClass: "STANDARD",
+		}
+		lbr.Contents = append(lbr.Contents, contents)
+	}
+	buf, err := xml.Marshal(lbr)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/xml")
+	w.Write(buf)
+}
+
+// handleGet returns a storage file to the client.
+func (s *HttpTestStorage) handleGet(w http.ResponseWriter, req *http.Request) {
+	data, ok := s.files[req.URL.Path[1:]]
+	if !ok {
+		http.Error(w, "404 file not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(data)
 }
