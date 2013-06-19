@@ -270,7 +270,7 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 }
 
 var fastDialOpts = api.DialOpts{
-	Timeout: 1 * time.Second,
+	Timeout:    1 * time.Second,
 	RetryDelay: 10 * time.Millisecond,
 }
 
