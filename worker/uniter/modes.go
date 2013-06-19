@@ -353,7 +353,7 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			default:
 				return nil, fmt.Errorf("unknown resolved mode %q", rm)
 			}
-			if e := u.unit.ClearResolved(); e != nil {
+			if e := u.f.ClearResolved(); e != nil {
 				return nil, e
 			}
 			if err == errHookFailed {
@@ -386,7 +386,7 @@ func ModeConflicted(curl *charm.URL) Mode {
 				return nil, tomb.ErrDying
 			case <-u.f.ResolvedEvents():
 				err = u.charm.Snapshotf("Upgrade conflict resolved.")
-				if e := u.unit.ClearResolved(); e != nil {
+				if e := u.f.ClearResolved(); e != nil {
 					return nil, e
 				}
 				if err != nil {
