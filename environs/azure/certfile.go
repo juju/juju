@@ -52,7 +52,7 @@ func newTempCertFile(data []byte) (certFile *tempCertFile, err error) {
 	// Access permissions for these temporary files:
 	const (
 		// Owner can read/write temporary files.  Not backed up.
-		fileMode = 0600 | os.ModeTemporary
+		fileMode = 0600 | os.ModeTemporary | os.ModeExclusive
 		// Temporary dirs are like files, but owner also has "x"
 		// permission.
 		dirMode = fileMode | 0100
