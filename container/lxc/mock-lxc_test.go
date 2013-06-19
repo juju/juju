@@ -9,6 +9,9 @@ import (
 	"launchpad.net/golxc"
 )
 
+// This file provides a mock implementation of the golxc interfaces
+// ContainerFactory and Container.
+
 type mockFactory struct {
 	instances map[string]golxc.Container
 }

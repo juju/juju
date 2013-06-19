@@ -10,14 +10,11 @@ import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/container"
 	"launchpad.net/juju-core/container/lxc"
-	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -58,34 +55,11 @@ func (s *LxcSuite) SetUpTest(c *C) {
 func (s *LxcSuite) TearDownTest(c *C) {
 	lxc.SetContainerDir(s.oldContainerDir)
 	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
+	lxc.SetRemovedContainerDir(s.oldRemovedDir)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *LxcSuite) TestNewContainer(c *C) {
-	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer("2/lxc/0")
-	c.Assert(err, IsNil)
-	c.Assert(container.Id(), Equals, instance.Id("machine-2-lxc-0"))
-	machineId, ok := lxc.GetMachineId(container)
-	c.Assert(ok, IsTrue)
-	c.Assert(machineId, Equals, "2/lxc/0")
-}
-
-func (s *LxcSuite) TestNewFromExisting(c *C) {
-	mock := MockFactory()
-	mockLxc := mock.New("machine-1-lxc-0")
-	factory := lxc.NewFactory(mock)
-	container, err := factory.NewFromExisting(mockLxc)
-	c.Assert(err, IsNil)
-	c.Assert(container.Id(), Equals, instance.Id("machine-1-lxc-0"))
-	machineId, ok := lxc.GetMachineId(container)
-	c.Assert(ok, IsTrue)
-	c.Assert(machineId, Equals, "1/lxc/0")
-}
-
-func ContainerCreate(c *C, container container.Container) {
-	machineId, ok := lxc.GetMachineId(container)
-	c.Assert(ok, IsTrue)
+func StartContainer(c *C, manager lxc.ContainerManager, machineId string) instance.Instance {
 	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
@@ -97,19 +71,16 @@ func ContainerCreate(c *C, container container.Container) {
 		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
 	}
 
-	err := container.Create(series, nonce, tools, config, stateInfo, apiInfo)
+	inst, err := manager.StartContainer(machineId, series, nonce, tools, config, stateInfo, apiInfo)
 	c.Assert(err, IsNil)
+	return inst
 }
 
 func (s *LxcSuite) TestContainerCreate(c *C) {
+	manager := lxc.NewContainerManager(MockFactory(), "")
+	instance := StartContainer(c, manager, "1/lxc/0")
 
-	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer("1/lxc/0")
-	c.Assert(err, IsNil)
-
-	ContainerCreate(c, container)
-
-	name := string(container.Id())
+	name := string(instance.Id())
 	// Check our container config files.
 	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "lxc.conf"))
 	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "cloud-init"))
@@ -118,15 +89,14 @@ func (s *LxcSuite) TestContainerCreate(c *C) {
 }
 
 func (s *LxcSuite) TestContainerDestroy(c *C) {
-	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer("1/lxc/0")
+
+	manager := lxc.NewContainerManager(MockFactory(), "")
+	instance := StartContainer(c, manager, "1/lxc/0")
+
+	err := manager.StopContainer(instance)
 	c.Assert(err, IsNil)
 
-	ContainerCreate(c, container)
-	err = container.Destroy()
-	c.Assert(err, IsNil)
-
-	name := string(container.Id())
+	name := string(instance.Id())
 	// Check that the container dir is no longer in the container dir
 	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
 	// but instead, in the removed container dir
@@ -134,17 +104,15 @@ func (s *LxcSuite) TestContainerDestroy(c *C) {
 }
 
 func (s *LxcSuite) TestContainerRemovedDirNameClash(c *C) {
-	factory := lxc.NewFactory(MockFactory())
-	container, err := factory.NewContainer("1/lxc/0")
-	c.Assert(err, IsNil)
+	manager := lxc.NewContainerManager(MockFactory(), "")
+	instance := StartContainer(c, manager, "1/lxc/0")
 
-	name := string(container.Id())
+	name := string(instance.Id())
 	targetDir := filepath.Join(s.removedDir, name)
-	err = os.MkdirAll(targetDir, 0755)
+	err := os.MkdirAll(targetDir, 0755)
 	c.Assert(err, IsNil)
 
-	ContainerCreate(c, container)
-	err = container.Destroy()
+	err = manager.StopContainer(instance)
 	c.Assert(err, IsNil)
 
 	// Check that the container dir is no longer in the container dir
