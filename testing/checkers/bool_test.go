@@ -15,6 +15,10 @@ var _ = Suite(&BoolSuite{})
 func (s *BoolSuite) TestIsTrue(c *C) {
 	c.Assert(true, IsTrue)
 	c.Assert(false, Not(IsTrue))
+
+	result, msg := IsTrue.Check([]interface{}{"foo"}, nil)
+	c.Assert(result, Equals, false)
+	c.Assert(msg, Equals, `expected type bool, recieved string:"foo"`)
 }
 
 func (s *BoolSuite) TestIsFalse(c *C) {
