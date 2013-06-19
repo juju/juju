@@ -114,7 +114,7 @@ func (runner *Runner) Wait() error {
 }
 
 func (runner *Runner) Kill() {
-	log.Debugf("worker: killing runner %p %s", runner, debug.Callers(0, 20))
+	log.Debugf("worker: killing runner %p %s", runner)
 	runner.tomb.Kill(nil)
 }
 
