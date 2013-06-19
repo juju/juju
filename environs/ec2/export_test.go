@@ -391,7 +391,7 @@ var TestInstanceTypeCosts = instanceTypeCost{
 }
 
 var TestRegions = map[string]aws.Region{
-	"test": aws.Region{
+	"test": {
 		Name:        "test",
 		EC2Endpoint: "https://ec2.endpoint.com",
 	},

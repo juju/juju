@@ -4,6 +4,9 @@
 package checkers
 
 import (
+	"fmt"
+	"reflect"
+
 	. "launchpad.net/gocheck"
 )
 
@@ -17,10 +20,16 @@ var IsTrue Checker = &isTrueChecker{
 	&CheckerInfo{Name: "IsTrue", Params: []string{"obtained"}},
 }
 
+var IsFalse Checker = Not(IsTrue)
+
 func (checker *isTrueChecker) Check(params []interface{}, names []string) (result bool, error string) {
-	value, result := params[0].(bool)
-	if result {
-		return value, ""
+
+	value := reflect.ValueOf(params[0])
+
+	switch value.Kind() {
+	case reflect.Bool:
+		return value.Bool(), ""
 	}
-	return false, "obtained value not a bool"
+
+	return false, fmt.Sprintf("expected type bool, recieved %s:%#v", value.Kind(), params[0])
 }

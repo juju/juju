@@ -95,30 +95,61 @@ func IsMachineId(name string) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info           *Info
-	db             *mgo.Database
-	environments   *mgo.Collection
-	charms         *mgo.Collection
-	machines       *mgo.Collection
-	containerRefs  *mgo.Collection
-	relations      *mgo.Collection
-	relationScopes *mgo.Collection
-	services       *mgo.Collection
-	settings       *mgo.Collection
-	settingsrefs   *mgo.Collection
-	constraints    *mgo.Collection
-	units          *mgo.Collection
-	users          *mgo.Collection
-	presence       *mgo.Collection
-	cleanups       *mgo.Collection
-	annotations    *mgo.Collection
-	statuses       *mgo.Collection
-	runner         *txn.Runner
-	watcher        *watcher.Watcher
-	pwatcher       *presence.Watcher
+	info             *Info
+	db               *mgo.Database
+	environments     *mgo.Collection
+	charms           *mgo.Collection
+	machines         *mgo.Collection
+	containerRefs    *mgo.Collection
+	relations        *mgo.Collection
+	relationScopes   *mgo.Collection
+	services         *mgo.Collection
+	settings         *mgo.Collection
+	settingsrefs     *mgo.Collection
+	constraints      *mgo.Collection
+	units            *mgo.Collection
+	users            *mgo.Collection
+	presence         *mgo.Collection
+	cleanups         *mgo.Collection
+	annotations      *mgo.Collection
+	statuses         *mgo.Collection
+	runner           *txn.Runner
+	transactionHooks chan ([]transactionHook)
+	watcher          *watcher.Watcher
+	pwatcher         *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+}
+
+// transactionHook holds a pair of functions to be called before and after a
+// mgo/txn transaction is run. It is only used in testing.
+type transactionHook struct {
+	Before func()
+	After  func()
+}
+
+// runTransaction runs the supplied operations as a single mgo/txn transaction,
+// and includes a mechanism whereby tests can use SetTransactionHooks to induce
+// arbitrary state mutations before and after particular transactions.
+func (st *State) runTransaction(ops []txn.Op) error {
+	transactionHooks := <-st.transactionHooks
+	st.transactionHooks <- nil
+	if len(transactionHooks) > 0 {
+		defer func() {
+			if transactionHooks[0].After != nil {
+				transactionHooks[0].After()
+			}
+			if <-st.transactionHooks != nil {
+				panic("concurrent use of transaction hooks")
+			}
+			st.transactionHooks <- transactionHooks[1:]
+		}()
+		if transactionHooks[0].Before != nil {
+			transactionHooks[0].Before()
+		}
+	}
+	return st.runner.Run(ops, "", nil)
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -337,7 +368,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	}
 	ops = append(ops, machineOps...)
 
-	err = st.runner.Run(ops, "", nil)
+	err = st.runTransaction(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -686,7 +717,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
-	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -928,7 +959,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Insert: doc,
 		})
 		// Run the transaction, and retry on abort.
-		if err = st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -1162,7 +1193,7 @@ func (st *State) Cleanup() error {
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := st.runner.Run(ops, "", nil); err != nil {
+		if err := st.runTransaction(ops); err != nil {
 			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}

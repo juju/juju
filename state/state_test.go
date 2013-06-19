@@ -840,7 +840,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	s.assertNoChange(c, w)
 }
 
-func (s *StateSuite) TestWatchMachinesWithContainerLifecycle(c *C) {
+func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer stop(c, w)
@@ -876,6 +876,73 @@ func (s *StateSuite) TestWatchMachinesWithContainerLifecycle(c *C) {
 	err = m.Remove()
 	c.Assert(err, IsNil)
 	s.assertNoChange(c, w)
+}
+
+func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
+	// Add a host machine.
+	params := state.AddMachineParams{
+		Series: "series",
+		Jobs:   []state.MachineJob{state.JobHostUnits},
+	}
+	machine, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+
+	otherMachine, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+
+	// Initial event is empty when no containers.
+	cw := machine.WatchContainers(state.LXC)
+	defer stop(c, cw)
+	s.assertChange(c, cw)
+
+	// Add a container of the required type: reported.
+	params.ParentId = machine.Id()
+	params.ContainerType = state.LXC
+	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertChange(c, cw, "0/lxc/0")
+
+	// Add a container of a different type: not reported.
+	params.ContainerType = state.KVM
+	m1, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Add a container of a different machine: not reported.
+	params.ParentId = otherMachine.Id()
+	params.ContainerType = state.LXC
+	m2, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Make the container Dying: reported.
+	err = m.Destroy()
+	c.Assert(err, IsNil)
+	s.assertChange(c, cw, "0/lxc/0")
+
+	// Make the other containers Dying: not reported.
+	err = m1.Destroy()
+	c.Assert(err, IsNil)
+	err = m2.Destroy()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Make the container Dead: reported.
+	err = m.EnsureDead()
+	c.Assert(err, IsNil)
+	s.assertChange(c, cw, "0/lxc/0")
+
+	// Make the other containers Dying: not reported.
+	err = m1.EnsureDead()
+	c.Assert(err, IsNil)
+	err = m2.EnsureDead()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
+
+	// Remove the container: not reported.
+	err = m.Remove()
+	c.Assert(err, IsNil)
+	s.assertNoChange(c, cw)
 }
 
 func (s *StateSuite) assertNoChange(c *C, w *state.LifecycleWatcher) {
