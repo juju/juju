@@ -192,7 +192,7 @@ var (
 	vAll    = append(v1all, v200p64)
 )
 
-// testStorage acts like the juju distribution storage at S3 
+// testStorage acts like the juju distribution storage at S3
 // to provide the juju tools.
 type testStorage struct {
 	location string
