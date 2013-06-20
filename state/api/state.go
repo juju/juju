@@ -6,6 +6,7 @@ package api
 import (
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/upgrader"
 )
 
 // Login authenticates as the entity with the given name and password.
@@ -37,4 +38,9 @@ func (st *State) Machiner() (*machiner.Machiner, error) {
 		return nil, err
 	}
 	return machiner.New(st), nil
+}
+
+// Upgrader returns access to the Upgrader API
+func (st *State) Upgrader() (*upgrader.Upgrader, error) {
+	return &upgrader.Upgrader{}, nil
 }

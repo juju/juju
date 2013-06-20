@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	//"launchpad.net/juju-core/state/api/upgrader"
+	"launchpad.net/juju-core/state/api/upgrader"
 	//"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
@@ -23,10 +23,12 @@ func TestAll(t *stdtesting.T) {
 type upgraderSuite struct {
 	testing.JujuConnSuite
 
-	server *apiserver.Server
+	server   *apiserver.Server
 	stateAPI *api.State
 
-	machine  *state.Machine
+	machine *state.Machine
+
+	upgrader *upgrader.Upgrader
 }
 
 var _ = Suite(&upgraderSuite{})
@@ -67,9 +69,9 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(s.stateAPI, NotNil)
 
 	// Create the upgrader facade.
-	//s.machiner, err = s.stateAPI.Machiner()
-	//c.Assert(err, IsNil)
-	//c.Assert(s.machiner, NotNil)
+	s.upgrader, err = s.stateAPI.Upgrader()
+	c.Assert(err, IsNil)
+	c.Assert(s.upgrader, NotNil)
 }
 
 func (s *upgraderSuite) TearDownTest(c *C) {
@@ -84,3 +86,5 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
+func (s *upgraderSuite) TestSetup(c *C) {
+}
