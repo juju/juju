@@ -5,6 +5,7 @@ package machineagent
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -56,6 +57,10 @@ func (st *State) Machine(id string) (*Machine, error) {
 	}, nil
 }
 
+func (m *Machine) Tag() string {
+	return state.MachineTag(m.id)
+}
+
 func (m *Machine) Id() string {
 	return m.id
 }
@@ -66,6 +71,24 @@ func (m *Machine) Life() params.Life {
 
 func (m *Machine) Jobs() []params.MachineJob {
 	return m.doc.Jobs
+}
+
+func (m *Machine) SetPassword(password string) error {
+	var results params.ErrorResults
+	args := params.PasswordChanges{
+		Changes: []params.PasswordChange{{
+			Tag:      m.Tag(),
+			Password: password,
+		}},
+	}
+	err := m.st.caller.Call("MachineAgent", "", "SetPasswords", args, &results)
+	if err != nil {
+		return err
+	}
+	if len(results.Errors) > 0 && results.Errors[0] != nil {
+		return results.Errors[0]
+	}
+	return nil
 }
 
 func (m *Machine) Refresh() error {
