@@ -146,7 +146,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 		createSettingsOp(st, environGlobalKey, cfg.AllAttrs()),
 		createEnvironmentOp(st, cfg.Name(), uuid.String()),
 	}
-	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		// The config was created in the meantime.
 		return st, nil
 	} else if err != nil {
@@ -215,6 +215,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		environments:   db.C("environments"),
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
+		containerRefs:  db.C("containerRefs"),
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
@@ -246,6 +247,8 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 			return nil, fmt.Errorf("cannot create database index: %v", err)
 		}
 	}
+	st.transactionHooks = make(chan ([]transactionHook), 1)
+	st.transactionHooks <- nil
 	return st, nil
 }
 

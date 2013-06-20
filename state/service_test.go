@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"sort"
-	"time"
 )
 
 type ServiceSuite struct {
@@ -226,9 +225,9 @@ options:
 var setCharmConfigTests = []struct {
 	summary     string
 	startconfig string
-	startvalues map[string]interface{}
+	startvalues charm.Settings
 	endconfig   string
-	endvalues   map[string]interface{}
+	endvalues   charm.Settings
 	err         string
 }{
 	{
@@ -242,18 +241,18 @@ var setCharmConfigTests = []struct {
 	}, {
 		summary:     "add string key and preserve existing values",
 		startconfig: stringConfig,
-		startvalues: map[string]interface{}{"key": "foo", "other": "bar"},
+		startvalues: charm.Settings{"key": "foo"},
 		endconfig:   newStringConfig,
-		endvalues:   map[string]interface{}{"key": "foo", "other": "bar"},
+		endvalues:   charm.Settings{"key": "foo"},
 	}, {
 		summary:     "remove string key",
 		startconfig: stringConfig,
-		startvalues: map[string]interface{}{"key": "value"},
+		startvalues: charm.Settings{"key": "value"},
 		endconfig:   emptyConfig,
 	}, {
 		summary:     "remove float key",
 		startconfig: floatConfig,
-		startvalues: map[string]interface{}{"key": 123.45},
+		startvalues: charm.Settings{"key": 123.45},
 		endconfig:   emptyConfig,
 	}, {
 		summary:     "change key type without values",
@@ -262,9 +261,8 @@ var setCharmConfigTests = []struct {
 	}, {
 		summary:     "change key type with values",
 		startconfig: stringConfig,
-		startvalues: map[string]interface{}{"key": "value"},
+		startvalues: charm.Settings{"key": "value"},
 		endconfig:   floatConfig,
-		err:         `unexpected type in service configuration "key"="value"; expected float`,
 	},
 }
 
@@ -282,15 +280,12 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 		origCh := charms[t.startconfig]
 		svc, err := s.State.AddService("wordpress", origCh)
 		c.Assert(err, IsNil)
-		cfg, err := svc.Config()
-		c.Assert(err, IsNil)
-		cfg.Update(t.startvalues)
-		_, err = cfg.Write()
+		err = svc.UpdateConfigSettings(t.startvalues)
 		c.Assert(err, IsNil)
 
 		newCh := charms[t.endconfig]
 		err = svc.SetCharm(newCh, false)
-		var expectVals map[string]interface{}
+		var expectVals charm.Settings
 		var expectCh *state.Charm
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
@@ -305,12 +300,12 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 		sch, _, err := svc.Charm()
 		c.Assert(err, IsNil)
 		c.Assert(sch.URL(), DeepEquals, expectCh.URL())
-		cfg, err = svc.Config()
+		settings, err := svc.ConfigSettings()
 		c.Assert(err, IsNil)
 		if len(expectVals) == 0 {
-			c.Assert(cfg.Map(), HasLen, 0)
+			c.Assert(settings, HasLen, 0)
 		} else {
-			c.Assert(cfg.Map(), DeepEquals, expectVals)
+			c.Assert(settings, DeepEquals, expectVals)
 		}
 
 		err = svc.Destroy()
@@ -318,124 +313,78 @@ func (s *ServiceSuite) TestSetCharmConfig(c *C) {
 	}
 }
 
-func serviceSet(options map[string]string) func(svc *state.Service) error {
-	return func(svc *state.Service) error {
-		return svc.SetConfig(options)
-	}
-}
-
-func serviceSetYAML(yaml string) func(svc *state.Service) error {
-	return func(svc *state.Service) error {
-		return svc.SetConfigYAML([]byte(yaml))
-	}
-}
-
-var serviceSetTests = []struct {
+var serviceUpdateConfigSettingsTests = []struct {
 	about   string
-	initial map[string]interface{}
-	set     func(st *state.Service) error
-	expect  map[string]interface{} // resulting configuration of the dummy service.
-	err     string                 // error regex
+	initial charm.Settings
+	update  charm.Settings
+	expect  charm.Settings
+	err     string
 }{{
-	about: "unknown option",
-	set:   serviceSet(map[string]string{"foo": "bar"}),
-	err:   `Unknown configuration option: "foo"`,
+	about:  "unknown option",
+	update: charm.Settings{"foo": "bar"},
+	err:    `unknown option "foo"`,
 }, {
-	about: "set outlook",
-	set:   serviceSet(map[string]string{"outlook": "positive"}),
-	expect: map[string]interface{}{
-		"outlook": "positive",
-	},
+	about:  "bad type",
+	update: charm.Settings{"skill-level": "profound"},
+	err:    `option "skill-level" expected int, got "profound"`,
 }, {
-	about: "unset outlook and set title",
-	initial: map[string]interface{}{
-		"outlook": "positive",
-	},
-	set: serviceSet(map[string]string{
-		"outlook": "",
-		"title":   "sir",
-	},
-	),
-	expect: map[string]interface{}{
-		"title": "sir",
-	},
+	about:  "set string",
+	update: charm.Settings{"outlook": "positive"},
+	expect: charm.Settings{"outlook": "positive"},
 }, {
-	about: "set a default value",
-	initial: map[string]interface{}{
-		"title": "sir",
-	},
-	set: serviceSet(map[string]string{"username": "admin001"}),
-	expect: map[string]interface{}{
-		"username": "admin001",
-		"title":    "sir",
-	},
+	about:   "unset string and set another",
+	initial: charm.Settings{"outlook": "positive"},
+	update:  charm.Settings{"outlook": nil, "title": "sir"},
+	expect:  charm.Settings{"title": "sir"},
 }, {
-	about: "unset a default value, set a different default",
-	initial: map[string]interface{}{
-		"username": "admin001",
-		"title":    "sir",
-	},
-	set: serviceSet(map[string]string{
-		"username": "",
-		"title":    "My Title",
-	},
-	),
-	expect: map[string]interface{}{
-		"title": "My Title",
-	},
+	about:  "unset missing string",
+	update: charm.Settings{"outlook": nil},
 }, {
-	about: "bad configuration",
-	set:   serviceSetYAML("345"),
-	err:   "malformed YAML data",
+	about:   `empty strings unset string values`,
+	initial: charm.Settings{"outlook": "positive"},
+	update:  charm.Settings{"outlook": "", "title": ""},
 }, {
-	about:  "config with no options",
-	set:    serviceSetYAML("{}"),
-	expect: map[string]interface{}{},
+	about:   "preserve existing value",
+	initial: charm.Settings{"title": "sir"},
+	update:  charm.Settings{"username": "admin001"},
+	expect:  charm.Settings{"username": "admin001", "title": "sir"},
 }, {
-	about: "set some attributes",
-	initial: map[string]interface{}{
-		"title": "sir",
-	},
-	set: serviceSetYAML("skill-level: 9000\nusername: admin001\n\n"),
-	expect: map[string]interface{}{
-		"title":       "sir",
-		"username":    "admin001",
-		"skill-level": int64(9000), // yaml int types are int64
-	},
+	about:   "unset a default value, set a different default",
+	initial: charm.Settings{"username": "admin001", "title": "sir"},
+	update:  charm.Settings{"username": nil, "title": "My Title"},
+	expect:  charm.Settings{"title": "My Title"},
 }, {
-	about: "remove an attribute by setting to empty string",
-	initial: map[string]interface{}{
-		"title":    "sir",
-		"username": "foo",
-	},
-	set: serviceSetYAML("title: ''\n"),
-	expect: map[string]interface{}{
-		"username": "foo",
-	},
-},
-}
+	about:  "non-string type",
+	update: charm.Settings{"skill-level": 303},
+	expect: charm.Settings{"skill-level": int64(303)},
+}, {
+	about:   "unset non-string type",
+	initial: charm.Settings{"skill-level": 303},
+	update:  charm.Settings{"skill-level": nil},
+}}
 
-func (s *ServiceSuite) TestSet(c *C) {
+func (s *ServiceSuite) TestUpdateConfigSettings(c *C) {
 	sch := s.AddTestingCharm(c, "dummy")
-	for i, t := range serviceSetTests {
+	for i, t := range serviceUpdateConfigSettingsTests {
 		c.Logf("test %d. %s", i, t.about)
 		svc, err := s.State.AddService("dummy-service", sch)
 		c.Assert(err, IsNil)
 		if t.initial != nil {
-			cfg, err := svc.Config()
-			c.Assert(err, IsNil)
-			cfg.Update(t.initial)
-			_, err = cfg.Write()
+			err := svc.UpdateConfigSettings(t.initial)
 			c.Assert(err, IsNil)
 		}
-		err = t.set(svc)
+		err = svc.UpdateConfigSettings(t.update)
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)
 		} else {
 			c.Assert(err, IsNil)
-			cfg, err := svc.Config()
+			settings, err := svc.ConfigSettings()
 			c.Assert(err, IsNil)
-			c.Assert(cfg.Map(), DeepEquals, t.expect)
+			expect := t.expect
+			if expect == nil {
+				expect = charm.Settings{}
+			}
+			c.Assert(settings, DeepEquals, expect)
 		}
 		err = svc.Destroy()
 		c.Assert(err, IsNil)
@@ -1114,25 +1063,6 @@ func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	c.Assert(err, ErrorMatches, `unit "mysql/0" not found`)
 }
 
-func (s *ServiceSuite) TestServiceConfig(c *C) {
-	env, err := s.mysql.Config()
-	c.Assert(err, IsNil)
-	err = env.Read()
-	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{})
-
-	env.Update(map[string]interface{}{"spam": "eggs", "eggs": "spam"})
-	env.Update(map[string]interface{}{"spam": "spam", "chaos": "emeralds"})
-	_, err = env.Write()
-	c.Assert(err, IsNil)
-
-	env, err = s.mysql.Config()
-	c.Assert(err, IsNil)
-	err = env.Read()
-	c.Assert(err, IsNil)
-	c.Assert(env.Map(), DeepEquals, map[string]interface{}{"spam": "spam", "eggs": "spam", "chaos": "emeralds"})
-}
-
 func uint64p(val uint64) *uint64 {
 	return &val
 }
@@ -1213,303 +1143,99 @@ func (s *ServiceSuite) TestSubordinateConstraints(c *C) {
 	c.Assert(err, Equals, state.ErrSubordinateConstraints)
 }
 
-type unitSlice []*state.Unit
+func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
+	// Alive unit...
+	alive, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
 
-func (m unitSlice) Len() int           { return len(m) }
-func (m unitSlice) Swap(i, j int)      { m[i], m[j] = m[j], m[i] }
-func (m unitSlice) Less(i, j int) bool { return m[i].Name() < m[j].Name() }
+	// Dying unit...
+	dying, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, s.State, dying)
+	err = dying.Destroy()
+	c.Assert(err, IsNil)
 
-var serviceUnitsWatchTests = []struct {
-	summary string
-	test    func(*C, *state.State, *state.Service)
-	changes []string
-}{
-	{
-		"Check initial empty event",
-		func(_ *C, _ *state.State, _ *state.Service) {},
-		[]string(nil),
-	}, {
-		"Add a unit",
-		func(c *C, s *state.State, service *state.Service) {
-			_, err := service.AddUnit()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/0"},
-	}, {
-		"Add a unit, ignore unrelated change",
-		func(c *C, s *state.State, service *state.Service) {
-			_, err := service.AddUnit()
-			c.Assert(err, IsNil)
-			unit0, err := service.Unit("mysql/0")
-			c.Assert(err, IsNil)
-			err = unit0.SetPublicAddress("what.ever")
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/1"},
-	}, {
-		"Add two units at once",
-		func(c *C, s *state.State, service *state.Service) {
-			unit2, err := service.AddUnit()
-			c.Assert(err, IsNil)
-			preventUnitDestroyRemove(c, s, unit2)
-			_, err = service.AddUnit()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/2", "mysql/3"},
-	}, {
-		"Report dying unit",
-		func(c *C, s *state.State, service *state.Service) {
-			unit0, err := service.Unit("mysql/0")
-			c.Assert(err, IsNil)
-			preventUnitDestroyRemove(c, s, unit0)
-			err = unit0.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/0"},
-	}, {
-		// I'm preserving these tests in amber, not fixing them.
-		"Report another dying unit for no clear reason",
-		func(c *C, s *state.State, service *state.Service) {
-			unit2, err := service.Unit("mysql/2")
-			c.Assert(err, IsNil)
-			err = unit2.Destroy()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/2"},
-	}, {
-		"Report multiple dead or dying units",
-		func(c *C, s *state.State, service *state.Service) {
-			unit0, err := service.Unit("mysql/0")
-			c.Assert(err, IsNil)
-			err = unit0.EnsureDead()
-			c.Assert(err, IsNil)
-			unit1, err := service.Unit("mysql/1")
-			c.Assert(err, IsNil)
-			err = unit1.EnsureDead()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/0", "mysql/1"},
-	}, {
-		"Report dying unit along with a new, alive unit",
-		func(c *C, s *state.State, service *state.Service) {
-			unit3, err := service.Unit("mysql/3")
-			c.Assert(err, IsNil)
-			preventUnitDestroyRemove(c, s, unit3)
-			err = unit3.Destroy()
-			c.Assert(err, IsNil)
-			_, err = service.AddUnit()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/3", "mysql/4"},
-	}, {
-		"Report multiple dead units and multiple new, alive, units",
-		func(c *C, s *state.State, service *state.Service) {
-			unit3, err := service.Unit("mysql/3")
-			c.Assert(err, IsNil)
-			err = unit3.EnsureDead()
-			c.Assert(err, IsNil)
-			unit4, err := service.Unit("mysql/4")
-			c.Assert(err, IsNil)
-			err = unit4.EnsureDead()
-			c.Assert(err, IsNil)
-			_, err = service.AddUnit()
-			c.Assert(err, IsNil)
-			_, err = service.AddUnit()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/3", "mysql/4", "mysql/5", "mysql/6"},
-	}, {
-		"Add many, and remove many at once",
-		func(c *C, s *state.State, service *state.Service) {
-			units := [20]*state.Unit{}
-			var err error
-			for i := 0; i < len(units); i++ {
-				units[i], err = service.AddUnit()
-				c.Assert(err, IsNil)
-			}
-			for i := 10; i < len(units); i++ {
-				err = units[i].Destroy()
-				c.Assert(err, IsNil)
-			}
-		},
-		[]string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/15", "mysql/16", "mysql/7", "mysql/8", "mysql/9"},
-	}, {
-		"Change many at once",
-		func(c *C, s *state.State, service *state.Service) {
-			units := [10]*state.Unit{}
-			var err error
-			for i := 0; i < len(units); i++ {
-				units[i], err = service.Unit("mysql/" + fmt.Sprint(i+7))
-				c.Assert(err, IsNil)
-			}
-			for _, unit := range units {
-				preventUnitDestroyRemove(c, s, unit)
-				err = unit.Destroy()
-				c.Assert(err, IsNil)
-			}
-			err = units[8].EnsureDead()
-			c.Assert(err, IsNil)
-			err = units[9].EnsureDead()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/10", "mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/15", "mysql/16", "mysql/7", "mysql/8", "mysql/9"},
-	}, {
-		"Report dead when first seen and also add a new unit",
-		func(c *C, s *state.State, service *state.Service) {
-			unit, err := service.AddUnit()
-			c.Assert(err, IsNil)
-			err = unit.EnsureDead()
-			c.Assert(err, IsNil)
-			_, err = service.AddUnit()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/27", "mysql/28"},
-	}, {
-		"report only units assigned to this machine",
-		func(c *C, s *state.State, service *state.Service) {
-			_, err := service.AddUnit()
-			c.Assert(err, IsNil)
-			_, err = service.AddUnit()
-			c.Assert(err, IsNil)
-			ch, _, err := service.Charm()
-			c.Assert(err, IsNil)
-			svc, err := s.AddService("bacon", ch)
-			c.Assert(err, IsNil)
-			_, err = svc.AddUnit()
-			c.Assert(err, IsNil)
-			_, err = svc.AddUnit()
-			c.Assert(err, IsNil)
-			unit10, err := service.Unit("mysql/10")
-			c.Assert(err, IsNil)
-			err = unit10.EnsureDead()
-			c.Assert(err, IsNil)
-			err = unit10.Remove()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/10", "mysql/29", "mysql/30"},
-	}, {
-		"Report previously known machines that are removed",
-		func(c *C, s *state.State, service *state.Service) {
-			unit30, err := service.Unit("mysql/30")
-			c.Assert(err, IsNil)
-			err = unit30.EnsureDead()
-			c.Assert(err, IsNil)
-			err = unit30.Remove()
-			c.Assert(err, IsNil)
-		},
-		[]string{"mysql/30"},
-	},
+	// Dead unit...
+	dead, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, s.State, dead)
+	err = dead.Destroy()
+	c.Assert(err, IsNil)
+	err = dead.EnsureDead()
+	c.Assert(err, IsNil)
+
+	// Gone unit.
+	gone, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	err = gone.Destroy()
+	c.Assert(err, IsNil)
+
+	// All except gone unit are reported in initial event.
+	w := s.mysql.WatchUnits()
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange(alive.Name(), dying.Name(), dead.Name())
+
+	// Remove them all; alive/dying changes reported; dead never mentioned again.
+	err = alive.Destroy()
+	c.Assert(err, IsNil)
+	err = dying.EnsureDead()
+	c.Assert(err, IsNil)
+	err = dying.Remove()
+	c.Assert(err, IsNil)
+	err = dead.Remove()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(alive.Name(), dying.Name())
 }
 
-func (s *ServiceSuite) TestWatchUnits(c *C) {
-	unitWatcher := s.mysql.WatchUnits()
-	defer func() {
-		c.Assert(unitWatcher.Stop(), IsNil)
-	}()
-	all := []string{}
-	for i, test := range serviceUnitsWatchTests {
-		c.Logf("test %d: %s", i, test.summary)
-		test.test(c, s.State, s.mysql)
-		s.State.StartSync()
-		all = append(all, test.changes...)
-		var got []string
-		want := append([]string(nil), test.changes...)
-		sort.Strings(want)
-		for {
-			select {
-			case new, ok := <-unitWatcher.Changes():
-				c.Assert(ok, Equals, true)
-				got = append(got, new...)
-				if len(got) < len(want) {
-					continue
-				}
-				sort.Strings(got)
-				c.Assert(got, DeepEquals, want)
-			case <-time.After(500 * time.Millisecond):
-				c.Fatalf("did not get change, want: %#v", want)
-			}
-			break
-		}
-	}
+func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
+	// Empty initial event when no units.
+	w := s.mysql.WatchUnits()
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
-	// Check that removing units for which we already got a Dead event
-	// does not yield any more events.
-	for _, uname := range all {
-		unit, err := s.State.Unit(uname)
-		if errors.IsNotFoundError(err) || unit.Life() != state.Dead {
-			continue
-		}
-		c.Assert(err, IsNil)
-		err = unit.Remove()
-		c.Assert(err, IsNil)
-	}
-	s.State.StartSync()
-	select {
-	case got := <-unitWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
-
-	// Stop the watcher and restart it, check that it returns non-nil
-	// initial event.
-	c.Assert(unitWatcher.Stop(), IsNil)
-	unitWatcher = s.mysql.WatchUnits()
-	s.State.StartSync()
-	want := []string{"mysql/11", "mysql/12", "mysql/13", "mysql/14", "mysql/2", "mysql/28", "mysql/29", "mysql/5", "mysql/6", "mysql/7", "mysql/8", "mysql/9"}
-	select {
-	case got, ok := <-unitWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		sort.Strings(got)
-		c.Assert(got, DeepEquals, want)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change, want: %#v", want)
-	}
-
-	// ignore unrelated change for non-alive unit.
-	unit2, err := s.mysql.Unit("mysql/2")
+	// Create one unit, check one change.
+	quick, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	err = unit2.SetPublicAddress("what.ever")
+	wc.AssertOneChange(quick.Name())
+
+	// Destroy that unit (short-circuited to removal), check one change.
+	err = quick.Destroy()
 	c.Assert(err, IsNil)
-	s.State.StartSync()
-	select {
-	case got := <-unitWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
+	wc.AssertOneChange(quick.Name())
+
+	// Create another, chck one change.
+	slow, err := s.mysql.AddUnit()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(slow.Name())
+
+	// Change unit itself, no change.
+	preventUnitDestroyRemove(c, s.State, slow)
+	wc.AssertNoChange()
+
+	// Make unit Dying, change detected.
+	err = slow.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(slow.Name())
+
+	// Make unit Dead, change detected.
+	err = slow.EnsureDead()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(slow.Name())
+
+	// Remove unit, final change not detected.
+	err = slow.Remove()
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
 }
 
 func (s *ServiceSuite) TestWatchRelations(c *C) {
+	// TODO(fwereade) split this test up a bit.
 	w := s.mysql.WatchRelations()
-	defer func() { c.Assert(w.Stop(), IsNil) }()
-
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case got := <-w.Changes():
-			c.Fatalf("expected nothing, got %#v", got)
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
-	assertChange := func(want ...int) {
-		s.State.Sync()
-		select {
-		case got, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			if len(want) == 0 {
-				c.Assert(got, HasLen, 0)
-			} else {
-				sort.Ints(got)
-				sort.Ints(want)
-				c.Assert(got, DeepEquals, want)
-			}
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("expected %#v, got nothing", want)
-		}
-		assertNoChange()
-	}
-
-	// Check initial event, and lack of followup.
-	assertChange()
+	defer AssertStop(c, w)
+	wc := IntsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a relation; check change.
 	mysqlep, err := s.mysql.Endpoint("server")
@@ -1528,34 +1254,27 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 		return rel
 	}
 	rel0 := addRelation()
-	assertChange(0)
+	wc.AssertOneChange(0)
 
 	// Add another relation; check change.
 	addRelation()
-	assertChange(1)
+	wc.AssertOneChange(1)
 
 	// Destroy a relation; check change.
 	err = rel0.Destroy()
 	c.Assert(err, IsNil)
-	assertChange(0)
+	wc.AssertOneChange(0)
 
 	// Stop watcher; check change chan is closed.
-	err = w.Stop()
-	c.Assert(err, IsNil)
-	assertClosed := func() {
-		select {
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, false)
-		default:
-			c.Fatalf("Changes not closed")
-		}
-	}
-	assertClosed()
+	AssertStop(c, w)
+	wc.AssertClosed()
 
 	// Add a new relation; start a new watcher; check initial event.
 	rel2 := addRelation()
 	w = s.mysql.WatchRelations()
-	assertChange(1, 2)
+	defer AssertStop(c, w)
+	wc = IntsWatcherC{c, s.State, w}
+	wc.AssertOneChange(1, 2)
 
 	// Add a unit to the new relation; check no change.
 	unit, err := s.mysql.AddUnit()
@@ -1564,19 +1283,19 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	c.Assert(err, IsNil)
 	err = ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Destroy the relation with the unit in scope, and add another; check
 	// changes.
 	err = rel2.Destroy()
 	c.Assert(err, IsNil)
 	addRelation()
-	assertChange(2, 3)
+	wc.AssertOneChange(2, 3)
 
 	// Leave scope, destroying the relation, and check that change as well.
 	err = ru2.LeaveScope()
 	c.Assert(err, IsNil)
-	assertChange(2)
+	wc.AssertOneChange(2)
 }
 
 func removeAllUnits(c *C, s *state.Service) {
@@ -1590,158 +1309,38 @@ func removeAllUnits(c *C, s *state.Service) {
 	}
 }
 
-var watchServiceTests = []struct {
-	test    func(m *state.Service) error
-	Exposed bool
-	Life    state.Life
-}{
-	{
-		test: func(s *state.Service) error {
-			return s.SetExposed()
-		},
-		Exposed: true,
-	}, {
-		test: func(s *state.Service) error {
-			return s.ClearExposed()
-		},
-		Exposed: false,
-	}, {
-		test: func(s *state.Service) error {
-			if _, err := s.AddUnit(); err != nil {
-				return err
-			}
-			return s.Destroy()
-		},
-		Life: state.Dying,
-	},
-}
-
 func (s *ServiceSuite) TestWatchService(c *C) {
-	altservice, err := s.State.Service(s.mysql.Name())
-	c.Assert(err, IsNil)
-	err = altservice.SetCharm(s.charm, true)
-	c.Assert(err, IsNil)
-	_, force, err := s.mysql.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(force, Equals, false)
-
 	w := s.mysql.Watch()
-	defer func() {
-		c.Assert(w.Stop(), IsNil)
-	}()
-	s.State.Sync()
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-		err := s.mysql.Refresh()
-		c.Assert(err, IsNil)
-		_, force, err := s.mysql.Charm()
-		c.Assert(err, IsNil)
-		c.Assert(force, Equals, true)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change: %v", s.mysql)
-	}
+	defer AssertStop(c, w)
 
-	for i, test := range watchServiceTests {
-		c.Logf("test %d", i)
-		err := test.test(altservice)
-		c.Assert(err, IsNil)
-		s.State.StartSync()
-		select {
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			err := s.mysql.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(s.mysql.Life(), Equals, test.Life)
-			c.Assert(s.mysql.IsExposed(), Equals, test.Exposed)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %v %v", test.Exposed, test.Life)
-		}
-	}
-	s.State.StartSync()
-	select {
-	case got, ok := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v, %v", got, ok)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
-func (s *ServiceSuite) TestWatchServiceConfig(c *C) {
-	config, err := s.mysql.Config()
+	// Make one change (to a separate instance), check one event.
+	service, err := s.State.Service(s.mysql.Name())
 	c.Assert(err, IsNil)
-	c.Assert(config.Keys(), HasLen, 0)
-
-	u, err := s.mysql.AddUnit()
+	err = service.SetExposed()
 	c.Assert(err, IsNil)
+	wc.AssertOneChange()
 
-	_, err = u.WatchServiceConfig()
-	c.Assert(err, ErrorMatches, "unit charm not set")
-
-	err = u.SetCharmURL(s.charm.URL())
+	// Make two changes, check one event.
+	err = service.ClearExposed()
 	c.Assert(err, IsNil)
-
-	configWatcher, err := u.WatchServiceConfig()
+	err = service.SetCharm(s.charm, true)
 	c.Assert(err, IsNil)
-	defer func() {
-		c.Assert(configWatcher.Stop(), IsNil)
-	}()
+	wc.AssertOneChange()
 
-	s.State.StartSync()
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
+	// Stop, check closed.
+	AssertStop(c, w)
+	wc.AssertClosed()
 
-	// Two change events.
-	config.Set("foo", "bar")
-	config.Set("baz", "yadda")
-	changes, err := config.Write()
+	// Remove machine, start new watch, check single event.
+	err = service.Destroy()
 	c.Assert(err, IsNil)
-	c.Assert(changes, DeepEquals, []state.ItemChange{{
-		Key:      "baz",
-		Type:     state.ItemAdded,
-		NewValue: "yadda",
-	}, {
-		Key:      "foo",
-		Type:     state.ItemAdded,
-		NewValue: "bar",
-	}})
-
-	s.State.StartSync()
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda", "foo": "bar"})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-
-	config.Delete("foo")
-	changes, err = config.Write()
-	c.Assert(err, IsNil)
-	c.Assert(changes, DeepEquals, []state.ItemChange{{
-		Key:      "foo",
-		Type:     state.ItemDeleted,
-		OldValue: "bar",
-	}})
-
-	s.State.StartSync()
-	select {
-	case got, ok := <-configWatcher.Changes():
-		c.Assert(ok, Equals, true)
-		c.Assert(got.Map(), DeepEquals, map[string]interface{}{"baz": "yadda"})
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change")
-	}
-
-	select {
-	case got := <-configWatcher.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(100 * time.Millisecond):
-	}
+	w = s.mysql.Watch()
+	defer AssertStop(c, w)
+	NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *ServiceSuite) TestAnnotatorForService(c *C) {

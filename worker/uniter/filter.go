@@ -56,8 +56,20 @@ type filter struct {
 	// we risk getting notifications for the wrong settings version).
 	setCharm chan *charm.URL
 
-	// charmChanged is used to report back after setting a charm URL.
-	charmChanged chan struct{}
+	// didSetCharm is used to report back after setting a charm URL.
+	didSetCharm chan struct{}
+
+	// clearResolved is used to request that the unit's resolved flag
+	// be cleared. This must be done on the filter's goroutine so that
+	// it can immediately trigger the unit change handler, and thus
+	// ensure that subsquent requests for resolved events -- that land
+	// before the next watcher update for the unit -- do not erroneously
+	// send out stale values.
+	clearResolved chan struct{}
+
+	// didClearResolved is used to report back after clearing the resolved
+	// flag.
+	didClearResolved chan struct{}
 
 	// The following fields hold state that is collected while running,
 	// and used to detect interesting changes to express as events.
@@ -89,7 +101,9 @@ func newFilter(st *state.State, unitName string) (*filter, error) {
 		wantResolved:      make(chan struct{}),
 		discardConfig:     make(chan struct{}),
 		setCharm:          make(chan *charm.URL),
-		charmChanged:      make(chan struct{}),
+		didSetCharm:       make(chan struct{}),
+		clearResolved:     make(chan struct{}),
+		didClearResolved:  make(chan struct{}),
 	}
 	go func() {
 		defer f.tomb.Done()
@@ -177,7 +191,7 @@ func (f *filter) SetCharm(curl *charm.URL) error {
 	select {
 	case <-f.tomb.Dying():
 		return tomb.ErrDying
-	case <-f.charmChanged:
+	case <-f.didSetCharm:
 		return nil
 	}
 	panic("unreachable")
@@ -190,6 +204,24 @@ func (f *filter) WantResolvedEvent() {
 	case <-f.tomb.Dying():
 	case f.wantResolved <- nothing:
 	}
+}
+
+// ClearResolved notifies the filter that a resolved event has been handled
+// and should not be reported again.
+func (f *filter) ClearResolved() error {
+	select {
+	case <-f.tomb.Dying():
+		return tomb.ErrDying
+	case f.clearResolved <- nothing:
+	}
+	select {
+	case <-f.tomb.Dying():
+		return tomb.ErrDying
+	case <-f.didClearResolved:
+		log.Debugf("resolved clear completed")
+		return nil
+	}
+	panic("unreachable")
 }
 
 // DiscardConfigEvent indicates that the filter should discard any pending
@@ -222,10 +254,10 @@ func (f *filter) loop(unitName string) (err error) {
 	defer watcher.Stop(servicew, &f.tomb)
 	// configw and relationsw can get restarted, so we need to use
 	// their eventual values in the defer calls.
-	var configw *state.ConfigWatcher
-	var configChanges <-chan *state.Settings
+	var configw *state.EntityWatcher
+	var configChanges <-chan struct{}
 	if curl, ok := f.unit.CharmURL(); ok {
-		configw, err = f.unit.WatchServiceConfig()
+		configw, err = f.unit.WatchConfigSettings()
 		if err != nil {
 			return err
 		}
@@ -315,9 +347,9 @@ func (f *filter) loop(unitName string) (err error) {
 			select {
 			case <-f.tomb.Dying():
 				return tomb.ErrDying
-			case f.charmChanged <- nothing:
+			case f.didSetCharm <- nothing:
 			}
-			configw, err = f.unit.WatchServiceConfig()
+			configw, err = f.unit.WatchConfigSettings()
 			if err != nil {
 				return err
 			}
@@ -343,6 +375,20 @@ func (f *filter) loop(unitName string) (err error) {
 			log.Debugf("worker/uniter/filter: want resolved event")
 			if f.resolved != state.ResolvedNone {
 				f.outResolved = f.outResolvedOn
+			}
+		case <-f.clearResolved:
+			log.Debugf("worker/uniter/filter: resolved event handled")
+			f.outResolved = nil
+			if err := f.unit.ClearResolved(); err != nil {
+				return err
+			}
+			if err = f.unitChanged(); err != nil {
+				return err
+			}
+			select {
+			case <-f.tomb.Dying():
+				return tomb.ErrDying
+			case f.didClearResolved <- nothing:
 			}
 		case <-discardConfig:
 			log.Debugf("worker/uniter/filter: discarded config event")

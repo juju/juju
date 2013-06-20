@@ -13,31 +13,31 @@ var (
 
 // Errorf logs a message using the ERROR priority.
 func Errorf(format string, a ...interface{}) error {
-	logger.Log(loggo.ERROR, format, a...)
+	logger.Logf(loggo.ERROR, format, a...)
 	return nil
 }
 
 // Warningf logs a message using the WARNING priority.
 func Warningf(format string, a ...interface{}) error {
-	logger.Log(loggo.WARNING, format, a...)
+	logger.Logf(loggo.WARNING, format, a...)
 	return nil
 }
 
 // Noticef logs a message using the NOTICE priority.
 // Notice doesn't really convert to the loggo priorities...
 func Noticef(format string, a ...interface{}) error {
-	logger.Log(loggo.INFO, format, a...)
+	logger.Logf(loggo.INFO, format, a...)
 	return nil
 }
 
 // Infof logs a message using the INFO priority.
 func Infof(format string, a ...interface{}) error {
-	logger.Log(loggo.INFO, format, a...)
+	logger.Logf(loggo.INFO, format, a...)
 	return nil
 }
 
 // Debugf logs a message using the DEBUG priority.
 func Debugf(format string, a ...interface{}) (err error) {
-	logger.Log(loggo.DEBUG, format, a...)
+	logger.Logf(loggo.DEBUG, format, a...)
 	return nil
 }

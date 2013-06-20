@@ -6,8 +6,8 @@ package maas
 import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 )
 
 type maasEnvironProvider struct{}
@@ -78,11 +78,11 @@ func (prov maasEnvironProvider) PrivateAddress() (string, error) {
 }
 
 // InstanceId is specified in the EnvironProvider interface.
-func (maasEnvironProvider) InstanceId() (state.InstanceId, error) {
+func (maasEnvironProvider) InstanceId() (instance.Id, error) {
 	info := machineInfo{}
 	err := info.load()
 	if err != nil {
 		return "", err
 	}
-	return state.InstanceId(info.InstanceId), nil
+	return instance.Id(info.InstanceId), nil
 }

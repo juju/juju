@@ -3,13 +3,12 @@ package jsoncodec
 import (
 	"code.google.com/p/go.net/websocket"
 	"encoding/json"
-	"launchpad.net/juju-core/rpc"
 	"net"
 )
 
 // NewWebsocket returns an rpc codec that uses the given websocket
 // connection to send and receive messages.
-func NewWebsocket(conn *websocket.Conn) rpc.Codec {
+func NewWebsocket(conn *websocket.Conn) *Codec {
 	return New(wsJSONConn{conn})
 }
 
@@ -31,7 +30,7 @@ func (conn wsJSONConn) Close() error {
 
 // NewNet returns an rpc codec that uses the given net
 // connection to send and receive messages.
-func NewNet(conn net.Conn) rpc.Codec {
+func NewNet(conn net.Conn) *Codec {
 	return New(&netConn{
 		enc:  json.NewEncoder(conn),
 		dec:  json.NewDecoder(conn),

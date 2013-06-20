@@ -60,7 +60,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	info.Tag = s.machine.Tag()
 	info.Password = defaultPassword(s.machine)
 	c.Logf("opening state; entity %q, password %q", info.Tag, info.Password)
-	s.st, err = api.Open(info)
+	s.st, err = api.Open(info, api.DialOpts{})
 	c.Assert(err, IsNil)
 	c.Assert(s.st, NotNil)
 

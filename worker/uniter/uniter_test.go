@@ -332,6 +332,33 @@ func (s *UniterSuite) TestUniterStartHook(c *C) {
 	s.runUniterTests(c, startHookTests)
 }
 
+var multipleErrorsTests = []uniterTest{
+	ut(
+		"resolved is cleared before moving on to next hook",
+		createCharm{badHooks: []string{"install", "config-changed", "start"}},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "install"`,
+		},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "config-changed"`,
+		},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "start"`,
+		},
+	),
+}
+
+func (s *UniterSuite) TestUniterMultipleErrors(c *C) {
+	s.runUniterTests(c, startHookTests)
+}
+
 var configChangedHookTests = []uniterTest{
 	ut(
 		"config-changed hook fail and resolve",
@@ -1320,10 +1347,7 @@ func (s fixHook) step(c *C, ctx *context) {
 type changeConfig map[string]interface{}
 
 func (s changeConfig) step(c *C, ctx *context) {
-	node, err := ctx.svc.Config()
-	c.Assert(err, IsNil)
-	node.Update(s)
-	_, err = node.Write()
+	err := ctx.svc.UpdateConfigSettings(charm.Settings(s))
 	c.Assert(err, IsNil)
 }
 

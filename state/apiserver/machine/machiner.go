@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machiner
+package machine
 
 import (
 	"launchpad.net/juju-core/state"
@@ -9,26 +9,26 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
-// Machiner implements the API used by the machiner worker.
-type Machiner struct {
+// MachinerAPI implements the API used by the machiner worker.
+type MachinerAPI struct {
 	st               *state.State
 	resourceRegistry common.ResourceRegistry
 	auth             common.Authorizer
 }
 
-// New creates a new instance of the Machiner facade.
-func New(st *state.State, resourceRegistry common.ResourceRegistry, authorizer common.Authorizer) (*Machiner, error) {
+// NewMachinerAPI creates a new instance of the Machiner API.
+func NewMachinerAPI(st *state.State, resourceRegistry common.ResourceRegistry, authorizer common.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.IsLoggedIn() {
 		return nil, common.ErrNotLoggedIn
 	}
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &Machiner{st, resourceRegistry, authorizer}, nil
+	return &MachinerAPI{st, resourceRegistry, authorizer}, nil
 }
 
 // SetStatus sets the status of each given machine.
-func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults, error) {
+func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Errors: make([]*params.Error, len(args.Machines)),
 	}
@@ -39,7 +39,7 @@ func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults
 		machine, err := m.st.Machine(arg.Id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				err = machine.SetStatus(arg.Status, arg.Info)
@@ -51,7 +51,7 @@ func (m *Machiner) SetStatus(args params.MachinesSetStatus) (params.ErrorResults
 }
 
 // Watch starts an EntityWatcher for each given machine.
-func (m *Machiner) Watch(args params.Machines) (params.MachinesWatchResults, error) {
+func (m *MachinerAPI) Watch(args params.Machines) (params.MachinesWatchResults, error) {
 	result := params.MachinesWatchResults{
 		Results: make([]params.MachineWatchResult, len(args.Ids)),
 	}
@@ -62,7 +62,7 @@ func (m *Machiner) Watch(args params.Machines) (params.MachinesWatchResults, err
 		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				watcher := machine.Watch()
@@ -75,7 +75,7 @@ func (m *Machiner) Watch(args params.Machines) (params.MachinesWatchResults, err
 }
 
 // Life returns the lifecycle state of each given machine.
-func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error) {
+func (m *MachinerAPI) Life(args params.Machines) (params.MachinesLifeResults, error) {
 	result := params.MachinesLifeResults{
 		Machines: make([]params.MachineLifeResult, len(args.Ids)),
 	}
@@ -86,7 +86,7 @@ func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error
 		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				result.Machines[i].Life = params.Life(machine.Life().String())
@@ -99,7 +99,7 @@ func (m *Machiner) Life(args params.Machines) (params.MachinesLifeResults, error
 
 // EnsureDead changes the lifecycle of each given machine to Dead if
 // it's Alive or Dying. It does nothing otherwise.
-func (m *Machiner) EnsureDead(args params.Machines) (params.ErrorResults, error) {
+func (m *MachinerAPI) EnsureDead(args params.Machines) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Errors: make([]*params.Error, len(args.Ids)),
 	}
@@ -110,7 +110,7 @@ func (m *Machiner) EnsureDead(args params.Machines) (params.ErrorResults, error)
 		machine, err := m.st.Machine(id)
 		if err == nil {
 			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine) {
+			if !m.auth.AuthOwner(machine.Tag()) {
 				err = common.ErrPerm
 			} else {
 				err = machine.EnsureDead()

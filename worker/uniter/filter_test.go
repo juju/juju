@@ -161,21 +161,31 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
+		assertNoChange()
 	}
 	assertChange(state.ResolvedRetryHooks)
+
+	// Ask for the event again, and check it's resent.
+	f.WantResolvedEvent()
+	assertChange(state.ResolvedRetryHooks)
+
+	// Clear the resolved status *via the filter*; check not resent...
+	err = f.ClearResolved()
+	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// Request a few events, and change the unit a few times; when
-	// we finally receive, only the most recent state is sent.
+	// ...even when requested.
 	f.WantResolvedEvent()
-	err = s.unit.ClearResolved()
+	assertNoChange()
+
+	// Induce several events; only latest state is reported.
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	f.WantResolvedEvent()
+	err = f.ClearResolved()
+	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	f.WantResolvedEvent()
 	assertChange(state.ResolvedNoHooks)
-	assertNoChange()
 }
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
@@ -266,6 +276,9 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	}
 	assertNoChange()
 
+	// Set the charm URL to trigger config events.
+	err = f.SetCharm(s.wpcharm.URL())
+	c.Assert(err, IsNil)
 	assertChange := func() {
 		s.State.Sync()
 		select {
@@ -276,34 +289,23 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		}
 		assertNoChange()
 	}
-
-	// Set the charm URL to trigger config events.
-	err = f.SetCharm(s.wpcharm.URL())
-	c.Assert(err, IsNil)
 	assertChange()
-
-	// Make sure the charm URL is set now.
-	s.unit.Refresh()
-	curl, ok := s.unit.CharmURL()
-	c.Assert(ok, Equals, true)
-	c.Assert(curl, DeepEquals, s.wpcharm.URL())
 
 	// Change the config; new event received.
-	node, err := s.wordpress.Config()
-	c.Assert(err, IsNil)
-	node.Set("skill-level", 9001)
-	_, err = node.Write()
-	c.Assert(err, IsNil)
+	changeConfig := func(title interface{}) {
+		err := s.wordpress.UpdateConfigSettings(charm.Settings{
+			"blog-title": title,
+		})
+		c.Assert(err, IsNil)
+	}
+	changeConfig("20,000 leagues in the cloud")
 	assertChange()
 
-	// Change the config a couple of times, then reset the events.
-	node.Set("title", "20,000 leagues in the cloud")
-	_, err = node.Write()
-	c.Assert(err, IsNil)
-	node.Set("outlook", "precipitous")
-	_, err = node.Write()
-	c.Assert(err, IsNil)
-	// We make sure the event has come into the filter before we tell it to discard any received.
+	// Change the config a few more times, then reset the events. We sync to
+	// make sure the event has come into the filter before we tell it to discard
+	// all received events.
+	changeConfig(nil)
+	changeConfig("the curious incident of the dog in the cloud")
 	s.State.Sync()
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -318,12 +320,8 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertNoChange()
 
 	// Further changes are still collapsed as appropriate.
-	node.Set("skill-level", 123)
-	_, err = node.Write()
-	c.Assert(err, IsNil)
-	node.Set("outlook", "expressive")
-	_, err = node.Write()
-	c.Assert(err, IsNil)
+	changeConfig("forsooth")
+	changeConfig("imagination failure")
 	assertChange()
 }
 

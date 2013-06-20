@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 )
 
 // Error holds the error result of a single operation.
@@ -25,6 +26,12 @@ func (e Error) ErrorCode() string {
 // Error implements the error interface.
 func (e Error) Error() string {
 	return e.Message
+}
+
+// GoString implements fmt.GoStringer.  It means that a *Error shows its
+// contents correctly when printed with %#v.
+func (e Error) GoString() string {
+	return fmt.Sprintf("&params.Error{%q, %q}", e.Code, e.Message)
 }
 
 // ErrorResults holds the results of calling a bulk operation which
@@ -97,6 +104,30 @@ type MachinesLifeResults struct {
 	Machines []MachineLifeResult
 }
 
+// MachineAgentGetMachinesResults holds the results of a
+// machineagent.API.GetMachines call.
+type MachineAgentGetMachinesResults struct {
+	Machines []MachineAgentGetMachinesResult
+}
+
+// MachineJob values define responsibilities that machines may be
+// expected to fulfil.
+type MachineJob string
+
+const (
+	JobHostUnits     MachineJob = "JobHostUnits"
+	JobManageEnviron MachineJob = "JobManageEnviron"
+	JobManageState   MachineJob = "JobManageState"
+)
+
+// MachineAgentGetMachinesResult holds the results of a
+// machineagent.API.GetMachines call for a single machine.
+type MachineAgentGetMachinesResult struct {
+	Life  Life
+	Jobs  []MachineJob
+	Error *Error
+}
+
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
 	ServiceName    string
@@ -105,8 +136,14 @@ type ServiceDeploy struct {
 	Config         map[string]string
 	ConfigYAML     string // Takes precedence over config if both are present.
 	Constraints    constraints.Value
-	BumpRevision   bool
 	ForceMachineId string
+}
+
+// ServiceSetCharm sets the charm for a given service.
+type ServiceSetCharm struct {
+	ServiceName string
+	CharmUrl    string
+	Force       bool
 }
 
 // ServiceExpose holds the parameters for making the ServiceExpose call.
@@ -285,16 +322,6 @@ type CharmInfo struct {
 	CharmURL string
 }
 
-// Port identifies a network port number for a particular protocol.
-type Port struct {
-	Protocol string
-	Number   int
-}
-
-func (p Port) String() string {
-	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
-}
-
 // Delta holds details of a change to the environment.
 type Delta struct {
 	// If Removed is true, the entity has been removed;
@@ -440,7 +467,7 @@ type UnitInfo struct {
 	PublicAddress  string
 	PrivateAddress string
 	MachineId      string
-	Ports          []Port
+	Ports          []instance.Port
 	Status         Status
 	StatusInfo     string
 }

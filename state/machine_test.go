@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/version"
@@ -28,6 +29,30 @@ func (s *MachineSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *MachineSuite) TestContainerDefaults(c *C) {
+	c.Assert(string(s.machine.ContainerType()), Equals, "")
+	containers, err := s.machine.Containers()
+	c.Assert(err, IsNil)
+	c.Assert(containers, DeepEquals, []string(nil))
+}
+
+func (s *MachineSuite) TestParentId(c *C) {
+	parentId, ok := s.machine.ParentId()
+	c.Assert(parentId, Equals, "")
+	c.Assert(ok, Equals, false)
+	params := state.AddMachineParams{
+		ParentId:      s.machine.Id(),
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	parentId, ok = container.ParentId()
+	c.Assert(parentId, Equals, s.machine.Id())
+	c.Assert(ok, Equals, true)
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
@@ -36,6 +61,24 @@ func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
 	err = m.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 1 is required by the environment")
+}
+
+func (s *MachineSuite) TestLifeMachineWithContainer(c *C) {
+	// A machine hosting a container must not advance lifecycle.
+	params := state.AddMachineParams{
+		ParentId:      s.machine.Id(),
+		ContainerType: state.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	_, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	err = s.machine.Destroy()
+	c.Assert(err, FitsTypeOf, &state.HasContainersError{})
+	c.Assert(err, ErrorMatches, `machine 0 is hosting containers "0/lxc/0"`)
+	err1 := s.machine.EnsureDead()
+	c.Assert(err1, DeepEquals, err)
+	c.Assert(s.machine.Life(), Equals, state.Alive)
 }
 
 func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
@@ -74,6 +117,42 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 	c.Assert(m.Life(), Equals, state.Dead)
 }
 
+func (s *MachineSuite) TestDestroyAbort(c *C) {
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.machine.Destroy(), IsNil)
+	})()
+	err := s.machine.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestDestroyCancel(c *C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(unit.AssignToMachine(s.machine), IsNil)
+	})()
+	err = s.machine.Destroy()
+	c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
+}
+
+func (s *MachineSuite) TestDestroyContention(c *C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+
+	perturb := state.TransactionHook{
+		Before: func() { c.Assert(unit.AssignToMachine(s.machine), IsNil) },
+		After:  func() { c.Assert(unit.UnassignFromMachine(), IsNil) },
+	}
+	defer state.SetTransactionHooks(c, s.State, perturb, perturb, perturb)()
+	err = s.machine.Destroy()
+	c.Assert(err, ErrorMatches, "machine 0 cannot advance lifecycle: state changing too quickly; try again soon")
+}
+
 func (s *MachineSuite) TestRemove(c *C) {
 	err := s.machine.Remove()
 	c.Assert(err, ErrorMatches, "cannot remove machine 0: machine is not dead")
@@ -83,6 +162,19 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	_, err = s.machine.Containers()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	err = s.machine.Remove()
+	c.Assert(err, IsNil)
+}
+
+func (s *MachineSuite) TestRemoveAbort(c *C) {
+	err := s.machine.EnsureDead()
+	c.Assert(err, IsNil)
+
+	defer state.SetBeforeHook(c, s.State, func() {
+		c.Assert(s.machine.Remove(), IsNil)
+	})()
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
@@ -144,6 +236,17 @@ func (s *MachineSuite) TestTag(c *C) {
 
 func (s *MachineSuite) TestMachineTag(c *C) {
 	c.Assert(state.MachineTag("10"), Equals, "machine-10")
+	// Check a container id.
+	c.Assert(state.MachineTag("10/lxc/1"), Equals, "machine-10-lxc-1")
+}
+
+func (s *MachineSuite) TestMachineIdFromTag(c *C) {
+	c.Assert(state.MachineIdFromTag("machine-10"), Equals, "10")
+	// Check a container id.
+	c.Assert(state.MachineIdFromTag("machine-10-lxc-1"), Equals, "10/lxc/1")
+	// Check reversability.
+	nested := "2/kvm/0/lxc/3"
+	c.Assert(state.MachineIdFromTag(state.MachineTag(nested)), Equals, nested)
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *C) {
@@ -200,7 +303,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, _ := machine.InstanceId()
-	c.Assert(iid, Equals, state.InstanceId("spaceship/0"))
+	c.Assert(iid, Equals, instance.Id("spaceship/0"))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
@@ -216,7 +319,7 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	c.Assert(err, IsNil)
 	iid, ok := machine.InstanceId()
 	c.Assert(ok, Equals, false)
-	c.Assert(iid, Equals, state.InstanceId(""))
+	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
@@ -391,117 +494,119 @@ func sortedUnitNames(units []*state.Unit) []string {
 	return names
 }
 
-type machineInfo struct {
-	tools      *state.Tools
-	instanceId string
+func (s *MachineSuite) assertMachineDirtyAfterAddingUnit(c *C) (*state.Machine, *state.Service, *state.Unit) {
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, true)
+
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	unit, err := svc.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToMachine(m)
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+	return m, svc, unit
 }
 
-func tools(tools int, url string) *state.Tools {
-	return &state.Tools{
-		URL: url,
-		Binary: version.Binary{
-			Number: version.Number{
-				Major: 0, Minor: 0, Patch: tools,
-			},
-			Series: "series",
-			Arch:   "arch",
-		},
-	}
+func (s *MachineSuite) TestMachineDirtyAfterAddingUnit(c *C) {
+	s.assertMachineDirtyAfterAddingUnit(c)
 }
 
-var watchMachineTests = []func(m *state.Machine) error{
-	func(m *state.Machine) error {
-		return nil
-	},
-	func(m *state.Machine) error {
-		return m.SetProvisioned("m-foo", "fake_nonce")
-	},
-	func(m *state.Machine) error {
-		return m.SetAgentTools(tools(3, "baz"))
-	},
+func (s *MachineSuite) TestMachineDirtyAfterUnassigningUnit(c *C) {
+	m, _, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	err := unit.UnassignFromMachine()
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
+}
+
+func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
+	m, svc, unit := s.assertMachineDirtyAfterAddingUnit(c)
+	err := unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	err = svc.Destroy()
+	c.Assert(err, IsNil)
+	c.Assert(m.Clean(), Equals, false)
 }
 
 func (s *MachineSuite) TestWatchMachine(c *C) {
 	w := s.machine.Watch()
-	defer func() {
-		c.Assert(w.Stop(), IsNil)
-	}()
-	for i, test := range watchMachineTests {
-		c.Logf("test %d", i)
-		err := test(s.machine)
-		c.Assert(err, IsNil)
-		s.State.StartSync()
-		select {
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-		case <-time.After(5 * time.Second):
-			c.Fatalf("did not get change")
-		}
-	}
-	select {
-	case got := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v", got)
-	case <-time.After(50 * time.Millisecond):
-	}
+	defer AssertStop(c, w)
+
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
+
+	// Make one change (to a separate instance), check one event.
+	machine, err := s.State.Machine(s.machine.Id())
+	c.Assert(err, IsNil)
+	err = machine.SetProvisioned("m-foo", "fake_nonce")
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Make two changes, check one event.
+	err = machine.SetAgentTools(&state.Tools{
+		URL:    "foo",
+		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	})
+	c.Assert(err, IsNil)
+	err = machine.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	AssertStop(c, w)
+	wc.AssertClosed()
+
+	// Remove machine, start new watch, check single event.
+	err = machine.EnsureDead()
+	c.Assert(err, IsNil)
+	err = machine.Remove()
+	c.Assert(err, IsNil)
+	w = s.machine.Watch()
+	defer AssertStop(c, w)
+	NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
-	defer stop(c, w)
-	assertNoChange := func() {
-		s.State.Sync()
-		select {
-		case <-time.After(50 * time.Millisecond):
-		case got, ok := <-w.Changes():
-			c.Fatalf("unexpected change: %#v, %v", got, ok)
-		}
-	}
-	assertChange := func(expect ...string) {
-		s.State.Sync()
-		select {
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("timed out")
-		case got, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			if len(expect) == 0 {
-				c.Assert(got, HasLen, 0)
-			} else {
-				sort.Strings(expect)
-				sort.Strings(got)
-				c.Assert(expect, DeepEquals, got)
-			}
-		}
-		assertNoChange()
-	}
-	assertChange()
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
-	// Change machine; no change.
+	// Change machine, and create a unit independently; no change.
 	err := s.machine.SetProvisioned("cheese", "fake_nonce")
 	c.Assert(err, IsNil)
-
-	// Assign a unit; change detected.
+	wc.AssertNoChange()
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, IsNil)
-	err = mysql0.AssignToMachine(s.machine)
+	wc.AssertNoChange()
+
+	// Assign that unit (to a separate machine instance); change detected.
+	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	assertChange("mysql/0")
+	err = mysql0.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange("mysql/0")
 
 	// Change the unit; no change.
 	err = mysql0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
 	mysql1, err := mysql.AddUnit()
 	c.Assert(err, IsNil)
-	err = mysql1.AssignToMachine(s.machine)
+	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 	err = mysql0.Destroy()
 	c.Assert(err, IsNil)
-	assertChange("mysql/0", "mysql/1")
+	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Add a subordinate to the Alive unit; no change.
 	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
@@ -516,108 +621,80 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	c.Assert(err, IsNil)
 	logging0, err := logging.Unit("logging/0")
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
 	err = logging0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Make the Dying unit Dead; change detected.
 	err = mysql0.EnsureDead()
 	c.Assert(err, IsNil)
-	assertChange("mysql/0")
+	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	assertClosed := func() {
-		select {
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("not closed")
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, false)
-		}
-	}
-	stop(c, w)
-	assertClosed()
+	AssertStop(c, w)
+	wc.AssertClosed()
 
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
-	defer stop(c, w)
-	assertChange("mysql/0", "mysql/1")
+	defer AssertStop(c, w)
+	wc = StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Remove the Dead unit; no change.
 	err = mysql0.Remove()
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Destroy the subordinate; no change.
 	err = logging0.Destroy()
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Unassign the unit; check change.
 	err = mysql1.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	assertChange("mysql/1")
+	wc.AssertOneChange("mysql/1")
 }
 
 func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
-	defer stop(c, w)
-	assertNoChange := func() {
-		s.State.Sync()
-		select {
-		case <-time.After(50 * time.Millisecond):
-		case got, ok := <-w.Changes():
-			c.Fatalf("unexpected change: %#v, %v", got, ok)
-		}
-	}
-	assertChange := func(expect ...string) {
-		s.State.Sync()
-		select {
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("timed out")
-		case got, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			if len(expect) == 0 {
-				c.Assert(got, HasLen, 0)
-			} else {
-				sort.Strings(expect)
-				sort.Strings(got)
-				c.Assert(expect, DeepEquals, got)
-			}
-		}
-		assertNoChange()
-	}
-	assertChange()
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Change machine; no change.
 	err := s.machine.SetProvisioned("cheese", "fake_nonce")
 	c.Assert(err, IsNil)
+	wc.AssertNoChange()
 
-	// Assign a unit; change detected.
+	// Assign a unit (to a separate instance); change detected.
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, IsNil)
-	err = mysql0.AssignToMachine(s.machine)
+	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	assertChange("mysql/0")
+	err = mysql0.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange("mysql/0")
 
 	// Change the unit; no change.
 	err = mysql0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Assign another unit and make the first Dying; check both changes detected.
 	mysql1, err := mysql.AddUnit()
 	c.Assert(err, IsNil)
-	err = mysql1.AssignToMachine(s.machine)
+	err = mysql1.AssignToMachine(machine)
 	c.Assert(err, IsNil)
 	err = mysql0.Destroy()
 	c.Assert(err, IsNil)
-	assertChange("mysql/0", "mysql/1")
+	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Add a subordinate to the Alive unit; change detected.
 	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
@@ -632,49 +709,42 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	c.Assert(err, IsNil)
 	logging0, err := logging.Unit("logging/0")
 	c.Assert(err, IsNil)
-	assertChange("logging/0")
+	wc.AssertOneChange("logging/0")
 
 	// Change the subordinate; no change.
 	err = logging0.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Make the Dying unit Dead; change detected.
 	err = mysql0.EnsureDead()
 	c.Assert(err, IsNil)
-	assertChange("mysql/0")
+	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	assertClosed := func() {
-		select {
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("not closed")
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, false)
-		}
-	}
-	stop(c, w)
-	assertClosed()
+	AssertStop(c, w)
+	wc.AssertClosed()
 
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
-	defer stop(c, w)
-	assertChange("mysql/0", "mysql/1", "logging/0")
+	defer AssertStop(c, w)
+	wc = StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange("mysql/0", "mysql/1", "logging/0")
 
 	// Remove the Dead unit; no change.
 	err = mysql0.Remove()
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
-	// Destroy the subordinate; no change.
+	// Destroy the subordinate; change detected.
 	err = logging0.Destroy()
 	c.Assert(err, IsNil)
-	assertChange("logging/0")
+	wc.AssertOneChange("logging/0")
 
 	// Unassign the principal; check subordinate departure also reported.
 	err = mysql1.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	assertChange("mysql/1", "logging/0")
+	wc.AssertOneChange("mysql/1", "logging/0")
 }
 
 func (s *MachineSuite) TestAnnotatorForMachine(c *C) {
