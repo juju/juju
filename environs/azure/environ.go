@@ -129,6 +129,13 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 	panic("unimplemented")
 }
 
+// azureManagementContext wraps two things: a gwacl.ManagementAPI (effectively
+// a session on the Azure management API) and a tempCertFile, which keeps track
+// of the temporary certificate file that needs to be deleted once we're done
+// with this particular session.
+// Since it embeds *gwacl.ManagementAPI, you can use it much as if it were a
+// pointer to a ManagementAPI object.  Just don't forget to release it after
+// use.
 type azureManagementContext struct {
 	*gwacl.ManagementAPI
 	certFile *tempCertFile
