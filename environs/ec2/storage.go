@@ -6,10 +6,8 @@ package ec2
 import (
 	"encoding/xml"
 	"fmt"
-	"hash/crc32"
 	"io"
 	"io/ioutil"
-	"net"
 	"net/http"
 	"sort"
 	"strings"
@@ -18,9 +16,7 @@ import (
 
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/version"
 )
 
 func NewStorage(bucket *s3.Bucket) environs.Storage {
@@ -176,24 +172,14 @@ func maybeNotFound(err error) error {
 }
 
 // listBucketResult is the top level XML element of the storage index.
+// We only need the contents.
 type listBucketResult struct {
-	XMLName     xml.Name `xml: "ListBucketResult"`
-	Name        string
-	Prefix      string
-	Marker      string
-	MaxKeys     int
-	IsTruncated bool
-	Contents    []*contents
+	Contents []*contents
 }
 
-// content describes one entry of the storage index.
+// contents describes one entry of the storage index.
 type contents struct {
-	XMLName      xml.Name `xml: "Contents"`
-	Key          string
-	LastModified time.Time
-	ETag         string
-	Size         int
-	StorageClass string
+	Key string
 }
 
 // HTTPStorageReader implements the environs.StorageReader interface
@@ -263,116 +249,4 @@ func (h *HTTPStorageReader) getListBucketResult() (*listBucketResult, error) {
 		return nil, err
 	}
 	return &lbr, nil
-}
-
-// HTTPTestStorage acts like an EC2 storage which can be
-// accessed by HTTP.
-type HTTPTestStorage struct {
-	location string
-	files    map[string][]byte
-	listener net.Listener
-}
-
-// NewHTTPTestStorage creates a storage server for tests 
-// with the HTTPStorageReader.
-func NewHTTPTestStorage(ip string) (*HTTPTestStorage, error) {
-	var err error
-	s := &HTTPTestStorage{
-		files: make(map[string][]byte),
-	}
-	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", ip, 0))
-	if err != nil {
-		return nil, fmt.Errorf("cannot start test listener: %v", err)
-	}
-	mux := http.NewServeMux()
-	mux.HandleFunc("/", func(w http.ResponseWriter, req *http.Request) {
-		switch req.Method {
-		case "GET":
-			if req.URL.Path == "/" {
-				s.handleIndex(w, req)
-			} else {
-				s.handleGet(w, req)
-			}
-		default:
-			http.Error(w, "method "+req.Method+" is not supported", http.StatusMethodNotAllowed)
-		}
-	})
-	s.location = fmt.Sprintf("http://%s:%d/", ip, s.listener.Addr().(*net.TCPAddr).Port)
-
-	go http.Serve(s.listener, mux)
-
-	return s, nil
-}
-
-// Stop stops the HTTP test storage.
-func (s *HTTPTestStorage) Stop() error {
-	return s.listener.Close()
-}
-
-// Location returns the location that has to be used in the tests.
-func (s *HTTPTestStorage) Location() string {
-	return s.location
-}
-
-// PutBinary stores a faked binary in the HTTP test storage.
-func (s *HTTPTestStorage) PutBinary(v version.Binary) {
-	data := v.String()
-	name := tools.StorageName(v)
-	parts := strings.Split(name, "/")
-	if len(parts) > 1 {
-		// Also create paths as entries. Needed for
-		// the correct contents of the list bucket result.
-		path := ""
-		for i := 0; i < len(parts)-1; i++ {
-			path = path + parts[i] + "/"
-			s.files[path] = []byte{}
-		}
-	}
-	s.files[name] = []byte(data)
-}
-
-// handleIndex returns the index XML file to the client.
-func (s *HTTPTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
-	lbr := &listBucketResult{
-		Name:        "juju-dist",
-		Prefix:      "",
-		Marker:      "",
-		MaxKeys:     1000,
-		IsTruncated: false,
-	}
-	names := []string{}
-	for name := range s.files {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	for _, name := range names {
-		h := crc32.NewIEEE()
-		h.Write([]byte(s.files[name]))
-		contents := &contents{
-			Key:          name,
-			LastModified: time.Now(),
-			ETag:         fmt.Sprintf("%x", h.Sum(nil)),
-			Size:         len([]byte(s.files[name])),
-			StorageClass: "STANDARD",
-		}
-		lbr.Contents = append(lbr.Contents, contents)
-	}
-	buf, err := xml.Marshal(lbr)
-	if err != nil {
-		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
-		return
-	}
-	w.Header().Set("Content-Type", "application/xml")
-	w.Write(buf)
-}
-
-// handleGet returns a storage file to the client.
-func (s *HTTPTestStorage) handleGet(w http.ResponseWriter, req *http.Request) {
-	data, ok := s.files[req.URL.Path[1:]]
-	if !ok {
-		http.Error(w, "404 file not found", http.StatusNotFound)
-		return
-	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Write(data)
 }

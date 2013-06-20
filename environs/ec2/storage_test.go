@@ -9,11 +9,12 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/version"
 )
 
 type storageSuite struct {
-	storage *ec2.HTTPTestStorage
+	storage *testing.EC2HTTPTestStorage
 }
 
 var _ = Suite(&storageSuite{})
@@ -21,7 +22,7 @@ var _ = Suite(&storageSuite{})
 func (s *storageSuite) SetUpTest(c *C) {
 	var err error
 
-	s.storage, err = ec2.NewHTTPTestStorage("127.0.0.1")
+	s.storage, err = testing.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
 	for _, v := range versions {
