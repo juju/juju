@@ -225,7 +225,8 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	// Change the password in the configuration and check
 	// that it falls back to using the initial password
 	c.Assert(refreshConfig(conf), IsNil)
-	conf.StateInfo.Password = "spurious"
+
+	conf.APIInfo.Password = "spurious"
 	conf.OldPassword = newPassword
 	c.Assert(conf.Write(), IsNil)
 
@@ -234,10 +235,10 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 
 	// Check that it's changed the password again
 	c.Assert(refreshConfig(conf), IsNil)
-	c.Assert(conf.StateInfo.Password, Not(Equals), "spurious")
-	c.Assert(conf.StateInfo.Password, Not(Equals), newPassword)
+	c.Assert(conf.APIInfo.Password, Not(Equals), "spurious")
+	c.Assert(conf.APIInfo.Password, Not(Equals), newPassword)
 
-	info.Password = conf.StateInfo.Password
+	info.Password = conf.APIInfo.Password
 	testOpenState(c, info, nil)
 }
 

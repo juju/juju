@@ -1135,6 +1135,7 @@ func (st *State) SetAdminMongoPassword(password string) error {
 }
 
 func (st *State) setMongoPassword(name, password string) error {
+	log.Infof("state: set mongo password for %q to %q", name, password)
 	if err := st.db.AddUser(name, password, false); err != nil {
 		return fmt.Errorf("cannot set password in juju db for %q: %v", name, err)
 	}
