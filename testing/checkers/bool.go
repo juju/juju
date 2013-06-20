@@ -31,5 +31,5 @@ func (checker *isTrueChecker) Check(params []interface{}, names []string) (resul
 		return value.Bool(), ""
 	}
 
-	return false, fmt.Sprintf("expected type bool, recieved %s:%#v", value.Kind(), params[0])
+	return false, fmt.Sprintf("expected bool:true, received %s:%#v", value.Kind(), params[0])
 }
