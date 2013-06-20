@@ -945,6 +945,36 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	s.assertNoChange(c, cw)
 }
 
+func (s *StateSuite) TestWatchMachineMetadata(c *C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	w, err := machine.WatchMetadata()
+	c.Assert(err, IsNil)
+	defer stop(c, w)
+
+	// Provision a machine: reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, IsNil)
+	s.assertEntityChange(c, w, "machine metadata")
+}
+
+func (s *StateSuite) assertEntityChange(c *C, w *state.EntityWatcher, expect string) {
+	s.State.Sync()
+	select {
+	case , ok := <-w.Changes():
+		c.Assert(ok, Equals, true)
+	case <-time.After(500 * time.Millisecond):
+		c.Fatalf("timed out waiting for %#v", expect)
+	}
+	s.State.StartSync()
+	select {
+	case ch, ok := <-w.Changes():
+		c.Fatalf("unexpected change: %#v, %v", ch, ok)
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 func (s *StateSuite) assertNoChange(c *C, w *state.LifecycleWatcher) {
 	s.State.StartSync()
 	select {

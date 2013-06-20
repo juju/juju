@@ -1049,7 +1049,7 @@ func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
 	return newLifecycleWatcher(m.st, m.st.machines, filter)
 }
 
-// Watch return a watcher for observing changes to a machine's instance metadata.
+// WatchMetadata returns a watcher for observing changes to a machine's instance metadata.
 func (m *Machine) WatchMetadata() (*EntityWatcher, error) {
 	_, err := m.Metadata()
 	txnRevno := int64(-1)
