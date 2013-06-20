@@ -49,3 +49,8 @@ func (lxc *lxcInstance) ClosePorts(machineId string, ports []instance.Port) erro
 func (lxc *lxcInstance) Ports(machineId string) ([]instance.Port, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
+// Metadata returns the characteristics of the instance.
+func (lxc *lxcInstance) Metadata() *instance.Metadata {
+	return nil
+}
