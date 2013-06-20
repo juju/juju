@@ -53,7 +53,7 @@ type containerManager struct {
 	name string
 }
 
-// NewContainerManager returns an manager object that can start and stop lxc
+// NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
 func NewContainerManager(factory golxc.ContainerFactory, name string) ContainerManager {
