@@ -27,40 +27,70 @@ func makeEnviron(c *C) *azureEnviron {
 	}
 }
 
-// A note on locking tests.  Proper locking is hard to test for.  Tests here
-// use a fixed pattern to verify that a function obeys a particular lock:
+// exerciseLockingFunction verifies that a function obeys a given lock.
 //
-// 1. Create a channel for the function's result.
-// 2. Grab the lock.
-// 3. Launch goroutine 1: invoke the function and report result to the channel.
-// 4. Launch goroutine 2: modify the object and then release the lock.
-// 5. Retrieve result from the channel.
-// 6. Test that the result reflects goroutine 2's modification.
-// 7. Test that the lock was released in the end.
+// Use this as a building block in your own tests for proper locking.
+// Parameters are the lock that you expect your function to block on; the
+// function that you want to test for proper locking on that lock; and a
+// marker callback whose effect you can observe.
 //
-// If the function obeys the lock, it can't complete until goroutine 2 has
-// completed.  If it doesn't, it can.  The pattern aims for this scenario:
+// There needs to be a testable interaction between your "function" and your
+// "marker," such that you can see from the result of "function" which of the
+// two executed first.  So the "marker" must make a change that your "function"
+// can observe, and the "function" must return a result that you can look at
+// later to see whether it ran before or after the "marker."  You will get that
+// result back as the return value.
 //
-//  The mainline code blocks on the channel.
-//  Goroutine 1 starts.  It invokes the function you want to test.
-//  The function tries to grab the lock, and blocks.
-//  Goroutine 2 starts.  It releases the lock and exits.
-//  The function in goroutine 1 is now unblocked.
+// If the function that you're actually testing does not return anything that
+// you can check for the marker effect, then pass a wrapper function that first
+// invokes the function whose locking you want to test, and then records a
+// result that shows whether the marker has run.
 //
-// It would be simpler to have just one goroutine (and skip the channel), and
-// release the lock inline.  But then the ordering depends on a more
-// fundamental choice within the language implementation: it may choose to
-// start running a goroutine immediately at the "go" statement, or it may
-// continue executing the inline code and postpone execution of the goroutine
-// until the inline code blocks.
+// After calling this function, you should test that:
+// 1. The lock has been released.
+// 2. Your "marker" function was completed before "function" executed.
 //
-// The pattern is still not a full guarantee that the lock is obeyed.  The
-// language implementation might choose to run the goroutines in LIFO order,
-// and then the locking would not be exercised.  The lock would simply be
-// available by the time goroutine 1 ran, and the test would never fail unless
-// the function you're testing neglected to release the lock.  But as long as
-// there is a reasonable chance of the first goroutine starting before the
-// second, there is a chance of exposing a function that disobeys the lock.
+// The "marker" will be executed while holding "lock."
+//
+// The return value of "function" must be suitable for transmission through a
+// channel.
+func exerciseLockingFunction(lock sync.Locker, function func() interface{}, marker func()) interface{} {
+	// Here's the scenario this test aims for:
+	// 1. We grab the lock.
+	// 2. Goroutine invokes "function."
+	// 3. Since the lock is not available, goroutine should block there.
+	// 4. Execute "marker," while "function" is still blocked.
+	// 5. Release the lock.
+	// 6. Now execution of "function" can complete.
+	//
+	// If "function" blocks on "lock," then you should see the effect of
+	// "marker" already present in the result.  If it doesn't, then
+	// "function" will execute straight through.  In single-thread
+	// execution you'll see a result that predates execution of the marker,
+	// or in multi-thread execution the result will be indeterminate.
+	result := make(chan interface{})
+	proceed := make(chan bool)
+
+	lock.Lock()
+	go func() {
+		proceed <- true
+		result <- function()
+	}()
+
+	// Wait for the goroutine to start.  It should get stuck on "function."
+	<-proceed
+
+	// TODO: In Go 1.1, call runtime.GoSched a few times to give a
+	// misbehaved "function" plenty of rope to hang itself.
+
+	// Run the marker, while still holding the lock.  If "function" is
+	// well-behaved, it's still waiting for us to do this.
+	marker()
+	// And now, finally, allow "function" to complete.
+	lock.Unlock()
+
+	return <-result
+}
 
 func (EnvironSuite) TestGetSnapshot(c *C) {
 	original := azureEnviron{name: "this-env", ecfg: new(azureEnvironConfig)}
@@ -81,31 +111,14 @@ func (EnvironSuite) TestGetSnapshot(c *C) {
 }
 
 func (EnvironSuite) TestGetSnapshotLocksEnviron(c *C) {
-	// This tests follows the locking-test pattern.  See comment above.
-	// If you want to change how this works, you probably want to update
-	// any other tests with the same pattern as well.
 	original := azureEnviron{name: "old-name"}
-	// 1. Result comes out of this channel.
-	snaps := make(chan *azureEnviron)
-	// 2. Stop a well-behaved getSnapshot from running (for now).
-	original.Lock()
-	// 3. Goroutine 1: ask for a snapshot.  The point of the test is that
-	// this blocks until we release our lock.
-	go func() {
-		snaps <- original.getSnapshot()
-	}()
-	// 4. Goroutine 2: release the lock.  The getSnapshot call can't
-	// complete until we've done this.
-	go func() {
-		original.name = "new-name"
-		original.Unlock()
-	}()
-	// 5. Let the goroutines do their work.
-	snapshot := <-snaps
-	// 6. Test: the snapshot was made only after the lock was released.
-	c.Check(snapshot.name, Equals, "new-name")
-	// 7. Test: getSnapshot released the lock.
+	snapshot := exerciseLockingFunction(
+		&original,
+		func() interface{} { return original.getSnapshot() },
+		func() { original.name = "new-name" })
+
 	c.Check(original.Mutex, Equals, sync.Mutex{})
+	c.Check(snapshot.(*azureEnviron).name, Equals, "new-name")
 }
 
 func (EnvironSuite) TestName(c *C) {
@@ -121,30 +134,14 @@ func (EnvironSuite) TestConfigReturnsConfig(c *C) {
 }
 
 func (EnvironSuite) TestConfigLocksEnviron(c *C) {
-	// This tests follows the locking-test pattern.  See comment above.
-	// If you want to change how this works, you probably want to update
-	// any other tests with the same pattern as well.
 	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
 	newConfig := new(config.Config)
-	// 1. Create results channel.
-	configs := make(chan *config.Config)
-	// 2. Stop a well-behaved Config() from running, for now.
-	env.Lock()
-	// 3. Goroutine 1: call Config().  We want to test that this locks.
-	go func() {
-		configs <- env.Config()
-	}()
-	// 4. Goroutine 2: change the Environ object, and release the lock.
-	go func() {
-		env.ecfg = &azureEnvironConfig{Config: newConfig}
-		env.Unlock()
-	}()
-	// 5. Let the goroutines do their work.
-	config := <-configs
-	// 6. Test that goroutine 2 completed before Config did.
-	c.Check(config, Equals, newConfig)
-	// 7. Test: Config() released the lock.
+	config := exerciseLockingFunction(
+		&env,
+		func() interface{} { return env.Config() },
+		func() { env.ecfg = &azureEnvironConfig{Config: newConfig} })
 	c.Check(env.Mutex, Equals, sync.Mutex{})
+	c.Check(config, Equals, newConfig)
 }
 
 // TODO: Temporarily deactivating this code.  Passing certificate in-memory
