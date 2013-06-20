@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/machineagent"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
@@ -104,7 +105,7 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	log.Infof("open api success")
-	m := entity.(*api.Machine)
+	m := entity.(*machineagent.Machine)
 	needsStateWorker := false
 	for _, job := range m.Jobs() {
 		needsStateWorker = needsStateWorker || stateJobs[job]
@@ -185,7 +186,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 }
 
 func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
-	m, err := st.Machine(a.MachineId)
+	m, err := st.MachineAgent().Machine(a.MachineId)
 	if err != nil {
 		return nil, err
 	}
