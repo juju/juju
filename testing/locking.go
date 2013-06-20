@@ -26,7 +26,7 @@ func TestLockingFunction(lock *sync.Mutex, function func()) {
 	events := make(chan string, 2)
 	// Synchronization channel, to make sure that the function starts
 	// trying to run at the point where we're going to make it block.
-	proceed := make(chan bool)
+	proceed := make(chan bool, 1)
 
 	goroutine := func() {
 		proceed <- true
@@ -37,6 +37,8 @@ func TestLockingFunction(lock *sync.Mutex, function func()) {
 	lock.Lock()
 	go goroutine()
 	// Make the goroutine start now.  It should block inside "function()."
+	// (It's fine, technically even better, if the goroutine started right
+	// away, and this channel is buffered specifically so that it can.)
 	<-proceed
 
 	// Give a misbehaved function plenty of rope to hang itself.  We don't
