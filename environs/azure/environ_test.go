@@ -50,7 +50,7 @@ func testLockingFunction(c *C, lock *sync.Mutex, function func()) {
 
 	lock.Lock()
 	go goroutine()
-	// Kick off the goroutine.  It should block in "function()."
+	// Make the goroutine start here.  It should block in "function()."
 	<-proceed
 
 	// TODO: In Go 1.1, call runtime.GoSched a few times to give a
