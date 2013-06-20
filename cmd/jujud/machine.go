@@ -78,9 +78,15 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
 	if a.MachineId == "0" {
-		a.runner.StartWorker("state", a.StateWorker)
+		a.runner.StartWorker("state", func() (worker.Worker, error) {
+			// TODO(rog) use method expression when we can use go1.1 features.
+			return a.StateWorker()
+		})
 	}
-	a.runner.StartWorker("api", a.APIWorker)
+	a.runner.StartWorker("api", func() (worker.Worker, error) {
+		// TODO(rog) use method expression when we can use go1.1 features.
+		return a.APIWorker()
+	})
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
 	return err
@@ -112,7 +118,10 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 	if needsStateWorker {
 		// Start any workers that require a state connection.
 		// Note the idempotency of StartWorker.
-		a.runner.StartWorker("state", a.StateWorker)
+		a.runner.StartWorker("state", func() (worker.Worker, error) {
+			// TODO(rog) use method expression when we can use go1.1 features.
+			return a.StateWorker()
+		})
 	}
 	runner := worker.NewRunner(allFatal, moreImportant)
 	// No agents currently connect to the API, so just
