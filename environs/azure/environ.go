@@ -129,21 +129,44 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 	panic("unimplemented")
 }
 
-// TODO: Temporarily deactivating this code.  Passing certificate in-memory
-// may require gwacl change.
-/*
+type azureManagementContext struct {
+	*gwacl.ManagementAPI
+	certFile *tempCertFile
+}
+
 // getManagementAPI obtains a context object for interfacing with Azure's
 // management API.
 // For now, each invocation just returns a separate object.  This is probably
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
-func (env *azureEnviron) getManagementAPI() (*gwacl.ManagementAPI, error) {
+func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	snap := env.getSnapshot()
 	subscription := snap.ecfg.ManagementSubscriptionId()
-	cert := snap.ecfg.ManagementCertificate()
-	return gwacl.NewManagementAPI(subscription, cert)
+	certData := snap.ecfg.ManagementCertificate()
+	certFile, err := newTempCertFile([]byte(certData))
+	if err != nil {
+		return nil, err
+	}
+	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	if err != nil {
+		return nil, err
+	}
+	context := azureManagementContext{
+		ManagementAPI: mgtAPI,
+		certFile: certFile,
+		}
+	return &context, nil
 }
-*/
+
+// releaseManagementAPI frees up a context object for interfacing with Azure's
+// management API.
+func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
+	// For now, all that needs doing is to delete the temporary certificate
+	// file.  We may do cleverer things later, such as connection pooling
+	// where this method returns a context to the pool.
+	context.certFile.Delete()
+}
+
 
 // getStorageContext obtains a context object for interfacing with Azure's
 // storage API.
