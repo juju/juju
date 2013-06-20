@@ -285,6 +285,17 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceMetadata(c *C) {
+	err := environs.Bootstrap(s.Env, constraints.Value{})
+	c.Assert(err, IsNil)
+	inst := testing.StartInstanceWithConstraints(c, s.Env, "100", constraints.MustParse("mem=1024"))
+	md := inst.Metadata()
+	c.Check(*md.Arch, Equals, "amd64")
+	c.Check(*md.Mem, Equals, uint64(2048))
+	c.Check(*md.CpuCores, Equals, uint64(1))
+	c.Assert(md.CpuPower, IsNil)
+}
+
 var instanceGathering = []struct {
 	ids []instance.Id
 	err error
@@ -428,7 +439,7 @@ func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, "id-y")
-	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
+	c.Assert(spec.InstanceType.Name, Equals, "m1.tiny")
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {

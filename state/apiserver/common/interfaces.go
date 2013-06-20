@@ -25,7 +25,7 @@ type Authorizer interface {
 
 	// AuthOwner returns whether the authenticated entity is the same
 	// as the given entity.
-	AuthOwner(entity Tagger) bool
+	AuthOwner(tag string) bool
 
 	// AuthEnvironManager returns whether the authenticated entity is
 	// a machine running the environment manager job.
