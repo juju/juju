@@ -58,6 +58,5 @@ func (broker *lxcBroker) StopInstances(instances []instance.Instance) error {
 
 // AllInstances only returns running containers.
 func (broker *lxcBroker) AllInstances() (result []instance.Instance, err error) {
-	// TODO(thumper): work on some prefix to avoid getting *all* containers.
 	return broker.manager.ListContainers()
 }
