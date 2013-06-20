@@ -66,10 +66,7 @@ func (p *Provisioner) loop() error {
 		return err
 	}
 
-	// Get a new StateInfo from the environment: the one used to
-	// launch the agent may refer to localhost, which will be
-	// unhelpful when attempting to run an agent on a new machine.
-	stateInfo, apiInfo, err := p.environ.StateInfo()
+	auth, err := NewSimpleAuthenticator(p.environ)
 	if err != nil {
 		return err
 	}
@@ -81,12 +78,12 @@ func (p *Provisioner) loop() error {
 	machinesWatcher := p.st.WatchEnvironMachines()
 	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := NewProvisionerTask(
+		fmt.Sprintf("environ provisioner for machine %s", p.machineId),
 		p.machineId,
 		p.st,
 		machinesWatcher,
 		environmentBroker,
-		stateInfo,
-		apiInfo)
+		auth)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
 	for {

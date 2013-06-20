@@ -22,6 +22,7 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
+	String() string
 }
 
 type Watcher interface {
@@ -35,20 +36,20 @@ type MachineGetter interface {
 }
 
 func NewProvisionerTask(
+	name string,
 	machineId string,
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker Broker,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
+	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
+		name:           string,
 		machineId:      machineId,
 		machineGetter:  machineGetter,
 		machineWatcher: watcher,
 		broker:         broker,
-		stateInfo:      stateInfo,
-		apiInfo:        apiInfo,
+		auth:           auth,
 		machines:       make(map[string]*state.Machine),
 	}
 	go func() {
@@ -59,13 +60,13 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
+	name           string
 	machineId      string
 	machineGetter  MachineGetter
 	machineWatcher Watcher
 	broker         Broker
 	tomb           tomb.Tomb
-	stateInfo      *state.Info
-	apiInfo        *api.Info
+	auth           AuthenticationProvider
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
@@ -94,6 +95,10 @@ func (task *provisionerTask) Dying() <-chan struct{} {
 
 func (task *provisionerTask) Err() error {
 	return task.tomb.Err()
+}
+
+func (task *provisionerTask) String() string {
+	return task.name
 }
 
 func (task *provisionerTask) loop() error {
@@ -300,11 +305,7 @@ func (task *provisionerTask) startMachines(machines []*state.Machine) error {
 }
 
 func (task *provisionerTask) startMachine(machine *state.Machine) error {
-	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
-	// however as the PA only knows one state.Info, and that info is used by MAs and
-	// UAs to locate the state for this environment, it is logical to use the same
-	// state.Info as the PA.
-	stateInfo, apiInfo, err := task.setupAuthentication(machine)
+	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
 		logger.Errorf("failed to setup authentication: %v", err)
 		return err
@@ -352,21 +353,4 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	}
 	logger.Infof("started machine %s as instance %s", machine, inst.Id())
 	return nil
-}
-
-func (task *provisionerTask) setupAuthentication(machine *state.Machine) (*state.Info, *api.Info, error) {
-	password, err := utils.RandomPassword()
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
-	}
-	if err := machine.SetMongoPassword(password); err != nil {
-		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", machine, err)
-	}
-	stateInfo := *task.stateInfo
-	stateInfo.Tag = machine.Tag()
-	stateInfo.Password = password
-	apiInfo := *task.apiInfo
-	apiInfo.Tag = machine.Tag()
-	apiInfo.Password = password
-	return &stateInfo, &apiInfo, nil
 }
