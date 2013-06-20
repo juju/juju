@@ -17,7 +17,7 @@ type azureStorage struct {
 // for using an azureStorage independently from an environ object in tests.
 type storageContext interface {
 	getContainer() string
-	getStorageContext() *gwacl.StorageContext
+	getStorageContext() (*gwacl.StorageContext, error)
 }
 
 // environStorageContext is a storageContext which gets its information from
@@ -30,10 +30,8 @@ func (context *environStorageContext) getContainer() string {
 	return context.environ.getSnapshot().ecfg.StorageContainerName()
 }
 
-func (context *environStorageContext) getStorageContext() *gwacl.StorageContext {
-	// TODO: uncomment this.
-	//return context.environ.getStorageContext()
-	return nil
+func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
+	return context.environ.getStorageContext()
 }
 
 func NewStorage(env *azureEnviron) environs.Storage {
@@ -46,13 +44,21 @@ var _ environs.Storage = (*azureStorage)(nil)
 
 // Get is specified in the StorageReader interface.
 func (storage *azureStorage) Get(name string) (io.ReadCloser, error) {
-	return storage.getStorageContext().GetBlob(storage.getContainer(), name)
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return nil, err
+	}
+	return context.GetBlob(storage.getContainer(), name)
 }
 
 // List is specified in the StorageReader interface.
 func (storage *azureStorage) List(prefix string) ([]string, error) {
 	request := &gwacl.ListBlobsRequest{Container: storage.getContainer(), Prefix: prefix, Marker: ""}
-	blobList, err := storage.getStorageContext().ListAllBlobs(request)
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return nil, err
+	}
+	blobList, err := context.ListAllBlobs(request)
 	if err != nil {
 		return nil, err
 	}
@@ -71,10 +77,18 @@ func (storage *azureStorage) URL(name string) (string, error) {
 // Put is specified in the StorageWriter interface.
 func (storage *azureStorage) Put(name string, r io.Reader, length int64) error {
 	limitedReader := io.LimitReader(r, length)
-	return storage.getStorageContext().UploadBlockBlob(storage.getContainer(), name, limitedReader)
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.UploadBlockBlob(storage.getContainer(), name, limitedReader)
 }
 
 // Remove is specified in the StorageWriter interface.
 func (storage *azureStorage) Remove(name string) error {
-	return storage.getStorageContext().DeleteBlob(storage.getContainer(), name)
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.DeleteBlob(storage.getContainer(), name)
 }
