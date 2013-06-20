@@ -26,8 +26,8 @@ type machinerSuite struct {
 	server *apiserver.Server
 	st     *api.State
 
-	machine  *state.Machine
-	machiner *machiner.Machiner
+	machine *state.Machine
+	mstate  *machiner.State
 }
 
 var _ = Suite(&machinerSuite{})
@@ -65,9 +65,8 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	c.Assert(s.st, NotNil)
 
 	// Create the machiner facade.
-	s.machiner, err = s.st.Machiner()
-	c.Assert(err, IsNil)
-	c.Assert(s.machiner, NotNil)
+	s.mstate = s.st.Machiner()
+	c.Assert(s.mstate, NotNil)
 }
 
 func (s *machinerSuite) TearDownTest(c *C) {
@@ -84,18 +83,18 @@ func (s *machinerSuite) TearDownTest(c *C) {
 }
 
 func (s *machinerSuite) TestMachineAndMachineId(c *C) {
-	machine, err := s.machiner.Machine("42")
+	machine, err := s.mstate.Machine("42")
 	c.Assert(err, ErrorMatches, "machine 42 not found")
 	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
 	c.Assert(machine, IsNil)
 
-	machine, err = s.machiner.Machine("0")
+	machine, err = s.mstate.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(machine.Id(), Equals, "0")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
-	machine, err := s.machiner.Machine("0")
+	machine, err := s.mstate.Machine("0")
 	c.Assert(err, IsNil)
 
 	status, info, err := s.machine.Status()
@@ -115,7 +114,7 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine.Life(), Equals, state.Alive)
 
-	machine, err := s.machiner.Machine("0")
+	machine, err := s.mstate.Machine("0")
 	c.Assert(err, IsNil)
 
 	err = machine.EnsureDead()
@@ -142,7 +141,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 }
 
 func (s *machinerSuite) TestRefresh(c *C) {
-	machine, err := s.machiner.Machine("0")
+	machine, err := s.mstate.Machine("0")
 	c.Assert(err, IsNil)
 	c.Assert(machine.Life(), Equals, params.Life("alive"))
 

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -293,13 +294,9 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	defer st.Close()
 
 	// This just verifies we can log in successfully.
-	machiner, err := st.Machiner()
+	m, err := st.Machiner().Machine(stm.Id())
 	c.Assert(err, IsNil)
-	c.Assert(machiner, NotNil)
-
-	instId, ok := stm.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(string(instId), Equals, "ardbeg-0")
+	c.Assert(m.Life(), Equals, params.Life("alive"))
 
 	err = a.Stop()
 	// When shutting down, the API server can be shut down before
