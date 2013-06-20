@@ -1,3 +1,6 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package machineagent
 import (
 	"fmt"
@@ -46,6 +49,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 		return nil, err
 	}
 	return &Machine{
+		st: st,
 		id: id,
 		doc: *doc,
 	}, nil
