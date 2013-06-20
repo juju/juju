@@ -962,7 +962,7 @@ func (s *StateSuite) TestWatchMachineMetadata(c *C) {
 func (s *StateSuite) assertEntityChange(c *C, w *state.EntityWatcher, expect string) {
 	s.State.Sync()
 	select {
-	case , ok := <-w.Changes():
+	case _, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
 	case <-time.After(500 * time.Millisecond):
 		c.Fatalf("timed out waiting for %#v", expect)
