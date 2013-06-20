@@ -58,8 +58,10 @@ type Instance interface {
 // Metadata represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type Metadata struct {
-	Arch     *string
-	Mem      *uint64
-	CpuCores *uint64
-	CpuPower *uint64
+	InstanceId Id
+	Nonce      string
+	Arch       *string
+	Mem        *uint64
+	CpuCores   *uint64
+	CpuPower   *uint64
 }

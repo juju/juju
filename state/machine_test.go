@@ -162,6 +162,8 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	_, err = s.machine.Metadata()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	_, err = s.machine.Containers()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = s.machine.Remove()
@@ -345,13 +347,18 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 }
 
 func (s *MachineSuite) TestMachineSetProvisionedUpdatesMetadata(c *C) {
+	// Before provisioning, there is no metadata.
+	_, err := s.machine.Metadata()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	arch := "amd64"
 	mem := uint64(4096)
 	expected := &instance.Metadata{
-		Arch: &arch,
-		Mem:  &mem,
+		InstanceId: "umbrella/0",
+		Nonce:      "fake_nonce",
+		Arch:       &arch,
+		Mem:        &mem,
 	}
-	err := s.machine.SetProvisioned("umbrella/0", "fake_nonce", expected)
+	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", expected)
 	c.Assert(err, IsNil)
 	md, err := s.machine.Metadata()
 	c.Assert(err, IsNil)
@@ -371,11 +378,11 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 
 	// Either one should not be empty.
 	err := s.machine.SetProvisioned("umbrella/0", "", nil)
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
 	err = s.machine.SetProvisioned("", "fake_nonce", nil)
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
 	err = s.machine.SetProvisioned("", "", nil)
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
 
 	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, IsNil)
@@ -389,7 +396,7 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 
 	// Try it twice, it should fail.
 	err = s.machine.SetProvisioned("doesn't-matter", "phony", nil)
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": already set`)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": already set`)
 
 	// Check it with invalid nonce.
 	c.Assert(s.machine.CheckProvisioned("not-really"), Equals, false)
@@ -408,14 +415,18 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
+	m1Id, _ := m1.InstanceId()
+	c.Assert(m1Id, Equals, oldId)
 	err = m0.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	newId, _ := m0.InstanceId()
 
-	m1Id, _ := m1.InstanceId()
-	c.Assert(m1Id, Equals, oldId)
+	// Straight after provisioning the instance id will be correct without needing a refresh.
+	m1Id, _ = m1.InstanceId()
+	c.Assert(m1Id, Equals, newId)
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
+	// The instance id is still correct after a refresh.
 	m1Id, _ = m1.InstanceId()
 	c.Assert(m1Id, Equals, newId)
 
@@ -575,9 +586,6 @@ var watchMachineTests = []func(m *state.Machine) error{
 		return nil
 	},
 	func(m *state.Machine) error {
-		return m.SetProvisioned("m-foo", "fake_nonce", nil)
-	},
-	func(m *state.Machine) error {
 		return m.SetAgentTools(tools(3, "baz"))
 	},
 }
@@ -637,9 +645,10 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	}
 	assertChange()
 
-	// Change machine; no change.
+	// Provision the machine; no change.
 	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
 	c.Assert(err, IsNil)
+	assertNoChange()
 
 	// Assign a unit; change detected.
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
