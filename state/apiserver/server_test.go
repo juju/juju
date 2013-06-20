@@ -13,6 +13,8 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
+var fastDialOpts = api.DialOpts{}
+
 type serverSuite struct {
 	baseSuite
 }
@@ -39,7 +41,7 @@ func (s *serverSuite) TestStop(c *C) {
 		Password: "password",
 		Addrs:    []string{srv.Addr()},
 		CACert:   []byte(coretesting.CACert),
-	})
+	}, fastDialOpts)
 	c.Assert(err, IsNil)
 	defer st.Close()
 
