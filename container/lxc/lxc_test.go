@@ -15,6 +15,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -82,10 +83,10 @@ func (s *LxcSuite) TestStartContainer(c *C) {
 
 	name := string(instance.Id())
 	// Check our container config files.
-	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "lxc.conf"))
-	testing.AssertNonEmptyFileExists(c, filepath.Join(s.containerDir, name, "cloud-init"))
+	c.Assert(filepath.Join(s.containerDir, name, "lxc.conf"), IsNonEmptyFile)
+	c.Assert(filepath.Join(s.containerDir, name, "cloud-init"), IsNonEmptyFile)
 	// Check the mount point has been created inside the container.
-	testing.AssertDirectoryExists(c, filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"))
+	c.Assert(filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"), IsDirectory)
 }
 
 func (s *LxcSuite) TestStopContainer(c *C) {
@@ -97,9 +98,9 @@ func (s *LxcSuite) TestStopContainer(c *C) {
 
 	name := string(instance.Id())
 	// Check that the container dir is no longer in the container dir
-	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
+	c.Assert(filepath.Join(s.containerDir, name), DoesNotExist)
 	// but instead, in the removed container dir
-	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, name))
+	c.Assert(filepath.Join(s.removedDir, name), IsDirectory)
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *C) {
@@ -115,9 +116,9 @@ func (s *LxcSuite) TestStopContainerNameClash(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that the container dir is no longer in the container dir
-	testing.AssertDirectoryDoesNotExist(c, filepath.Join(s.containerDir, name))
+	c.Assert(filepath.Join(s.containerDir, name), DoesNotExist)
 	// but instead, in the removed container dir with a ".1" suffix as there was already a directory there.
-	testing.AssertDirectoryExists(c, filepath.Join(s.removedDir, fmt.Sprintf("%s.1", name)))
+	c.Assert(filepath.Join(s.removedDir, fmt.Sprintf("%s.1", name)), IsDirectory)
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *C) {
