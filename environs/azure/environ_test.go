@@ -31,9 +31,11 @@ func makeEnviron(c *C) *azureEnviron {
 // testLockingFunction verifies that a function obeys a given lock.
 //
 // Use this as a building block in your own tests for proper locking.
-// Parameters are a gocheck object to run assertions on; the lock that you
-// expect your function to block on; and the function that you want to test
-// for proper locking on that lock.
+// Parameters are a the lock that you expect your function to block on, and
+// the function that you want to test for proper locking on that lock.
+//
+// This helper attempts to verify that the function both obtains and releases
+// the lock.  It will panic if the function fails to do either.
 func testLockingFunction(lock *sync.Mutex, function func()) {
 	// We record two events that must happen in the right order.
 	// Buffer the channel so that we don't get hung up during attempts
