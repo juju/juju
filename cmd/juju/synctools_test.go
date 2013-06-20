@@ -8,7 +8,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/environs/ec2"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/testing"
@@ -21,7 +20,7 @@ type syncToolsSuite struct {
 	targetEnv    environs.Environ
 	origVersion  version.Binary
 	origLocation string
-	storage      *ec2.HTTPTestStorage
+	storage      *envtesting.EC2HTTPTestStorage
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
@@ -44,7 +43,7 @@ environments:
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source environment and populate its public tools.
-	s.storage, err = ec2.NewHTTPTestStorage("127.0.0.1")
+	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
 	for _, vers := range vAll {
