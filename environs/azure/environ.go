@@ -71,7 +71,16 @@ func (env *azureEnviron) Config() *config.Config {
 
 // SetConfig is specified in the Environ interface.
 func (env *azureEnviron) SetConfig(cfg *config.Config) error {
-	panic("unimplemented")
+	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	env.Lock()
+	defer env.Unlock()
+
+	env.ecfg = ecfg
+	return nil
 }
 
 // StartInstance is specified in the Environ interface.

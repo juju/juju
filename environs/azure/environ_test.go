@@ -87,3 +87,43 @@ func (EnvironSuite) TestGetStorageContext(c *C) {
 	c.Check(storage.Account, Equals, env.ecfg.StorageAccountName())
 	c.Check(storage.Key, Equals, env.ecfg.StorageAccountKey())
 }
+
+func (EnvironSuite) TestSetConfigValidates(c *C) {
+	env := makeEnviron(c)
+	originalCfg := env.ecfg
+	attrs := makeAzureConfigMap(c)
+	// This config is not valid.  It lacks essential information.
+	delete(attrs, "management-subscription-id")
+	badCfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	err = env.SetConfig(badCfg)
+
+	// Since the config was not valid, SetConfig returns an error.  It
+	// does not update the environment's config either.
+	c.Check(err, NotNil)
+	c.Check(env.ecfg, Equals, originalCfg)
+}
+
+func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+	env := makeEnviron(c)
+	// We're going to set a new config.  It can be recognized by its
+	// unusual default Ubuntu release series: 7.04 Feisty Fawn.
+	attrs := makeAzureConfigMap(c)
+	attrs["default-series"] = "feisty"
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	err = env.SetConfig(cfg)
+	c.Assert(err, IsNil)
+
+	c.Check(env.ecfg.Config.DefaultSeries(), Equals, "feisty")
+}
+
+func (EnvironSuite) TestSetConfigLocksEnviron(c *C) {
+	env := makeEnviron(c)
+	cfg, err := config.New(makeAzureConfigMap(c))
+	c.Assert(err, IsNil)
+
+	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
+}
