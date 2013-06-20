@@ -68,16 +68,31 @@ func (EnvironSuite) TestConfigLocksEnviron(c *C) {
 	testing.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
-// TODO: Temporarily deactivating this code.  Passing certificate in-memory
-// may require gwacl change.
-/*
 func (EnvironSuite) TestGetManagementAPI(c *C) {
 	env := makeEnviron(c)
-	management, err := env.getManagementAPI()
+	context, err := env.getManagementAPI()
 	c.Assert(err, IsNil)
-	c.Check(management, NotNil)
+	defer env.releaseManagementAPI(context)
+	c.Check(context, NotNil)
+	c.Check(context.ManagementAPI, NotNil)
+	c.Check(context.certFile, NotNil)
 }
-*/
+
+func (EnvironSuite) TestReleaseManagementAPIAcceptsNil(c *C) {
+	env := makeEnviron(c)
+	env.releaseManagementAPI(nil)
+	// The real test is that this does not panic.
+}
+
+func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
+	env := makeEnviron(c)
+	context := azureManagementContext{
+		ManagementAPI: nil,
+		certFile:      nil,
+	}
+	env.releaseManagementAPI(&context)
+	// The real test is that this does not panic.
+}
 
 func (EnvironSuite) TestGetStorageContext(c *C) {
 	env := makeEnviron(c)
