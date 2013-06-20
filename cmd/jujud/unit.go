@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 )
@@ -71,6 +72,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // Workers returns a worker that runs the unit agent workers.
 func (a *UnitAgent) Workers() (worker.Worker, error) {
+	log.Infof("unit agent opening start and starting workers")
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
@@ -81,6 +83,7 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 		return NewUpgrader(st, unit, a.Conf.DataDir), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
+		log.Infof("uniter calling NewUniter")
 		return uniter.NewUniter(st, unit.Name(), a.Conf.DataDir), nil
 	})
 	return newCloseWorker(runner, st), nil

@@ -77,7 +77,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
-	defer a.tomb.Done()
 	if a.MachineId == "0" {
 		a.runner.StartWorker("state", a.StateWorker)
 	}
@@ -128,6 +127,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
 	runner := worker.NewRunner(allFatal, moreImportant)
