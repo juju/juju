@@ -13,7 +13,7 @@ import (
 )
 
 type storageSuite struct {
-	storage *ec2.HttpTestStorage
+	storage *ec2.HTTPTestStorage
 }
 
 var _ = Suite(&storageSuite{})
@@ -21,7 +21,7 @@ var _ = Suite(&storageSuite{})
 func (s *storageSuite) SetUpTest(c *C) {
 	var err error
 
-	s.storage, err = ec2.NewHttpTestStorage("127.0.0.1")
+	s.storage, err = ec2.NewHTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
 	for _, v := range versions {
@@ -33,8 +33,8 @@ func (s *storageSuite) TearDownTest(c *C) {
 	c.Assert(s.storage.Stop(), IsNil)
 }
 
-func (s *storageSuite) TestHttpStorage(c *C) {
-	sr := ec2.NewHttpStorageReader(s.storage.Location())
+func (s *storageSuite) TestHTTPStorage(c *C) {
+	sr := ec2.NewHTTPStorageReader(s.storage.Location())
 	list, err := sr.List("tools/juju-")
 	c.Assert(err, IsNil)
 	c.Assert(len(list), Equals, 6)

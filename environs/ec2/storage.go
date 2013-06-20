@@ -196,21 +196,21 @@ type contents struct {
 	StorageClass string
 }
 
-// HttpStorageReader implements the environs.StorageReader interface
+// HTTPStorageReader implements the environs.StorageReader interface
 // to access an EC2 storage via HTTP.
-type HttpStorageReader struct {
+type HTTPStorageReader struct {
 	location string
 }
 
-// NewHttpStorageReader creates a storage reader for the HTTP
+// NewHTTPStorageReader creates a storage reader for the HTTP
 // access to an EC2 storage like the juju-dist storage.
-func NewHttpStorageReader(location string) environs.StorageReader {
-	return &HttpStorageReader{location}
+func NewHTTPStorageReader(location string) environs.StorageReader {
+	return &HTTPStorageReader{location}
 }
 
 // Get opens the given storage file and returns a ReadCloser
 // that can be used to read its contents.
-func (h *HttpStorageReader) Get(name string) (io.ReadCloser, error) {
+func (h *HTTPStorageReader) Get(name string) (io.ReadCloser, error) {
 	locationName, err := h.URL(name)
 	if err != nil {
 		return nil, err
@@ -223,7 +223,7 @@ func (h *HttpStorageReader) Get(name string) (io.ReadCloser, error) {
 }
 
 // List lists all names in the storage with the given prefix.
-func (h *HttpStorageReader) List(prefix string) ([]string, error) {
+func (h *HTTPStorageReader) List(prefix string) ([]string, error) {
 	lbr, err := h.getListBucketResult()
 	if err != nil {
 		return nil, err
@@ -239,7 +239,7 @@ func (h *HttpStorageReader) List(prefix string) ([]string, error) {
 }
 
 // URL returns a URL that can be used to access the given storage file.
-func (h *HttpStorageReader) URL(name string) (string, error) {
+func (h *HTTPStorageReader) URL(name string) (string, error) {
 	if strings.HasSuffix(h.location, "/") {
 		return h.location + name, nil
 	}
@@ -247,7 +247,7 @@ func (h *HttpStorageReader) URL(name string) (string, error) {
 }
 
 // getListBucketResult retrieves the index of the storage,
-func (h *HttpStorageReader) getListBucketResult() (*listBucketResult, error) {
+func (h *HTTPStorageReader) getListBucketResult() (*listBucketResult, error) {
 	resp, err := http.Get(h.location)
 	if err != nil {
 		return nil, err
@@ -265,17 +265,19 @@ func (h *HttpStorageReader) getListBucketResult() (*listBucketResult, error) {
 	return &lbr, nil
 }
 
-// HttpTestStorage acts like an EC2 storage which can be
+// HTTPTestStorage acts like an EC2 storage which can be
 // accessed by HTTP.
-type HttpTestStorage struct {
+type HTTPTestStorage struct {
 	location string
 	files    map[string][]byte
 	listener net.Listener
 }
 
-func NewHttpTestStorage(ip string) (*HttpTestStorage, error) {
+// NewHTTPTestStorage creates a storage server for tests 
+// with the HTTPStorageReader.
+func NewHTTPTestStorage(ip string) (*HTTPTestStorage, error) {
 	var err error
-	s := &HttpTestStorage{
+	s := &HTTPTestStorage{
 		files: make(map[string][]byte),
 	}
 	s.listener, err = net.Listen("tcp", fmt.Sprintf("%s:%d", ip, 0))
@@ -303,17 +305,17 @@ func NewHttpTestStorage(ip string) (*HttpTestStorage, error) {
 }
 
 // Stop stops the HTTP test storage.
-func (s *HttpTestStorage) Stop() error {
+func (s *HTTPTestStorage) Stop() error {
 	return s.listener.Close()
 }
 
 // Location returns the location that has to be used in the tests.
-func (s *HttpTestStorage) Location() string {
+func (s *HTTPTestStorage) Location() string {
 	return s.location
 }
 
 // PutBinary stores a faked binary in the HTTP test storage.
-func (s *HttpTestStorage) PutBinary(v version.Binary) {
+func (s *HTTPTestStorage) PutBinary(v version.Binary) {
 	data := v.String()
 	name := tools.StorageName(v)
 	parts := strings.Split(name, "/")
@@ -330,7 +332,7 @@ func (s *HttpTestStorage) PutBinary(v version.Binary) {
 }
 
 // handleIndex returns the index XML file to the client.
-func (s *HttpTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
+func (s *HTTPTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
 	lbr := &listBucketResult{
 		Name:        "juju-dist",
 		Prefix:      "",
@@ -365,7 +367,7 @@ func (s *HttpTestStorage) handleIndex(w http.ResponseWriter, req *http.Request) 
 }
 
 // handleGet returns a storage file to the client.
-func (s *HttpTestStorage) handleGet(w http.ResponseWriter, req *http.Request) {
+func (s *HTTPTestStorage) handleGet(w http.ResponseWriter, req *http.Request) {
 	data, ok := s.files[req.URL.Path[1:]]
 	if !ok {
 		http.Error(w, "404 file not found", http.StatusNotFound)

@@ -21,7 +21,7 @@ type syncToolsSuite struct {
 	targetEnv    environs.Environ
 	origVersion  version.Binary
 	origLocation string
-	storage      *ec2.HttpTestStorage
+	storage      *ec2.HTTPTestStorage
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
@@ -44,7 +44,7 @@ environments:
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source environment and populate its public tools.
-	s.storage, err = ec2.NewHttpTestStorage("127.0.0.1")
+	s.storage, err = ec2.NewHTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
 	for _, vers := range vAll {

@@ -106,7 +106,7 @@ func copyTools(
 }
 
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
-	sourceStorage := ec2.NewHttpStorageReader(defaultToolsLocation)
+	sourceStorage := ec2.NewHTTPStorageReader(defaultToolsLocation)
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		log.Errorf("unable to read %q from environment", c.EnvName)
