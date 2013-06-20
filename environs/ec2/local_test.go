@@ -278,8 +278,12 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	series := t.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, md, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
+	c.Check(*md.Arch, Equals, "amd64")
+	c.Check(*md.Mem, Equals, uint64(1740))
+	c.Check(*md.CpuCores, Equals, uint64(1))
+	c.Assert(*md.CpuPower, Equals, uint64(100))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
 	c.Assert(inst, NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
@@ -308,9 +312,8 @@ func (t *localServerSuite) TestStartInstanceMetadata(c *C) {
 	c.Assert(info, NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	_, md, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, IsNil)
-	md := inst.Metadata()
 	c.Check(*md.Arch, Equals, "amd64")
 	c.Check(*md.Mem, Equals, uint64(1740))
 	c.Check(*md.CpuCores, Equals, uint64(1))
