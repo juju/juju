@@ -8,6 +8,7 @@ import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -87,4 +88,38 @@ func (s *suite) TestMachineRefresh(c *C) {
 	err = m.Refresh()
 	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+}
+
+func (s *suite) TestMachineSetPassword(c *C) {
+	m, err := s.st.MachineAgent().Machine(s.machine.Id())
+	c.Assert(err, IsNil)
+
+	err = m.SetPassword("foo")
+	c.Assert(err, IsNil)
+
+	err = s.machine.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(s.machine.PasswordValid("bar"), Equals, false)
+	c.Assert(s.machine.PasswordValid("foo"), Equals, true)
+
+	// Check that we cannot log in to mongo with the wrong password.
+	info := s.StateInfo(c)
+	info.Tag = m.Tag()
+	info.Password = "bar"
+	err = tryOpenState(info)
+	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+
+	// Check that we can log in with the correct password
+	info.Password = "foo"
+	st, err := state.Open(info, state.DialOpts{})
+	c.Assert(err, IsNil)
+	st.Close()
+}
+
+func tryOpenState(info *state.Info) error {
+	st, err := state.Open(info, state.DialOpts{})
+	if err == nil {
+		st.Close()
+	}
+	return err
 }
