@@ -147,8 +147,18 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	if err != nil {
 		return nil, err
 	}
+	// After this point, if we need to leave prematurely, we had better
+	// make sure we clean up that certificate file.
+	defer func() {
+		err := recover()
+		if err != nil {
+			certFile.Delete()
+			panic(err)
+		}
+	}()
 	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
 	if err != nil {
+		certFile.Delete()
 		return nil, err
 	}
 	context := azureManagementContext{
@@ -161,6 +171,11 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 // releaseManagementAPI frees up a context object for interfacing with Azure's
 // management API.
 func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
+	// Be tolerant to incomplete context objects, in case we ever get
+	// called during cleanup of a failed attempt to create one.
+	if context == nil || context.certFile == nil {
+		return
+	}
 	// For now, all that needs doing is to delete the temporary certificate
 	// file.  We may do cleverer things later, such as connection pooling
 	// where this method returns a context to the pool.
