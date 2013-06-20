@@ -836,8 +836,8 @@ type startMachine struct {
 func (sm startMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
-	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
-	err = m.SetProvisioned(inst.Id(), "fake_nonce", nil)
+	inst, md := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned(inst.Id(), "fake_nonce", md)
 	c.Assert(err, IsNil)
 }
 
@@ -848,8 +848,8 @@ type startMissingMachine struct {
 func (sm startMissingMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
-	testing.StartInstance(c, ctx.conn.Environ, m.Id())
-	err = m.SetProvisioned("i-missing", "fake_nonce", nil)
+	_, md := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned("i-missing", "fake_nonce", md)
 	c.Assert(err, IsNil)
 }
 
@@ -868,8 +868,8 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 	agentAlive, err := m.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(agentAlive, Equals, true)
-	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
-	err = m.SetProvisioned(inst.Id(), "fake_nonce", nil)
+	inst, md := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	err = m.SetProvisioned(inst.Id(), "fake_nonce", md)
 	c.Assert(err, IsNil)
 	ctx.pingers[m.Id()] = pinger
 }

@@ -108,7 +108,7 @@ func (t *LiveTests) Destroy(c *C) {
 // TestStartStop is similar to Tests.TestStartStop except
 // that it does not assume a pristine environment.
 func (t *LiveTests) TestStartStop(c *C) {
-	inst := testing.StartInstance(c, t.Env, "0")
+	inst, _ := testing.StartInstance(c, t.Env, "0")
 	c.Assert(inst, NotNil)
 	id0 := inst.Id()
 
@@ -159,14 +159,14 @@ func (t *LiveTests) TestStartStop(c *C) {
 }
 
 func (t *LiveTests) TestPorts(c *C) {
-	inst1 := testing.StartInstance(c, t.Env, "1")
+	inst1, _ := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, NotNil)
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 	ports, err := inst1.Ports("1")
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2 := testing.StartInstance(c, t.Env, "2")
+	inst2, _ := testing.StartInstance(c, t.Env, "2")
 	c.Assert(inst2, NotNil)
 	ports, err = inst2.Ports("2")
 	c.Assert(err, IsNil)
@@ -260,13 +260,13 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create instances and check open ports on both instances.
-	inst1 := testing.StartInstance(c, t.Env, "1")
+	inst1, _ := testing.StartInstance(c, t.Env, "1")
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 	ports, err := t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
 
-	inst2 := testing.StartInstance(c, t.Env, "2")
+	inst2, _ := testing.StartInstance(c, t.Env, "2")
 	ports, err = t.Env.Ports()
 	c.Assert(err, IsNil)
 	c.Assert(ports, HasLen, 0)
@@ -713,7 +713,7 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -726,7 +726,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
-	inst, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)

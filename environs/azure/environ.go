@@ -73,7 +73,8 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // StartInstance is specified in the Environ interface.
-func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
+func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.Metadata, error) {
 	panic("unimplemented")
 }
 

@@ -112,8 +112,13 @@ func (t *LiveTests) TearDownTest(c *C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *C) {
-	inst := testing.StartInstance(c, t.Env, "30")
+	inst, md := testing.StartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]instance.Instance{inst})
+	// Sanity check for image metadata.
+	c.Assert(md.Arch, NotNil)
+	c.Assert(md.Mem, NotNil)
+	c.Assert(md.CpuCores, NotNil)
+	c.Assert(md.CpuPower, NotNil)
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, IsNil)
@@ -130,11 +135,15 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
+	inst, md, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
+	c.Assert(*md.Arch, Equals, "amd64")
+	c.Assert(*md.Mem, Equals, uint64(3840))
+	c.Assert(*md.CpuCores, Equals, uint64(1))
+	c.Assert(*md.CpuPower, Equals, uint64(200))
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {
@@ -172,14 +181,14 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 		})
 	c.Assert(err, IsNil)
 
-	inst0 := testing.StartInstance(c, t.Env, "98")
+	inst0, _ := testing.StartInstance(c, t.Env, "98")
 	defer t.Env.StopInstances([]instance.Instance{inst0})
 
 	// Create a same-named group for the second instance
 	// before starting it, to check that it's reused correctly.
 	oldMachineGroup := createGroup(c, ec2conn, groups[2].Name, "old machine group")
 
-	inst1 := testing.StartInstance(c, t.Env, "99")
+	inst1, _ := testing.StartInstance(c, t.Env, "99")
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
@@ -310,9 +319,9 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
-	inst0 := testing.StartInstance(c, t.Env, "40")
+	inst0, _ := testing.StartInstance(c, t.Env, "40")
 	inst1 := ec2.FabricateInstance(inst0, "i-aaaaaaaa")
-	inst2 := testing.StartInstance(c, t.Env, "41")
+	inst2, _ := testing.StartInstance(c, t.Env, "41")
 
 	err := t.Env.StopInstances([]instance.Instance{inst0, inst1, inst2})
 	c.Check(err, IsNil)

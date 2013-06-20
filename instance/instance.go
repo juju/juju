@@ -50,9 +50,6 @@ type Instance interface {
 	// should have been started with the given machine id.
 	// The ports are returned as sorted by state.SortPorts.
 	Ports(machineId string) ([]Port, error)
-
-	// Metadata returns the characteristics of the instance.
-	Metadata() *Metadata
 }
 
 // Metadata represents the characteristics of the instance (if known).

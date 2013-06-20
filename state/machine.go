@@ -117,6 +117,7 @@ type machineMetadata struct {
 	Mem        *uint64     `bson:"mem,omitempty"`
 	CpuCores   *uint64     `bson:"cpucpores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
+	TxnRevno   int64       `bson:"txn-revno"`
 }
 
 // TODO(wallyworld): move this method to a service.

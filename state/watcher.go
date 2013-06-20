@@ -1049,6 +1049,19 @@ func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
 	return newLifecycleWatcher(m.st, m.st.machines, filter)
 }
 
+// Watch return a watcher for observing changes to a machine's instance metadata.
+func (m *Machine) WatchMetadata() (*EntityWatcher, error) {
+	_, err := m.Metadata()
+	txnRevno := int64(-1)
+	if err != nil && !errors.IsNotFoundError(err) {
+		return nil, err
+	}
+	if err == nil {
+		txnRevno = m.doc.metadata.TxnRevno
+	}
+	return newEntityWatcher(m.st, m.st.machineMetadata.Name, m.doc.Id, txnRevno), nil
+}
+
 // Watch return a watcher for observing changes to a service.
 func (s *Service) Watch() *EntityWatcher {
 	return newEntityWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)

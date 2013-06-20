@@ -505,7 +505,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	inst, err := e.startInstance(&startInstanceParams{
+	// TODO(wallyworld) - save bootstrap machine metadata
+	inst, _, err := e.startInstance(&startInstanceParams{
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
 		series:        e.Config().DefaultSeries(),
@@ -673,10 +674,11 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return e.imageBaseURLs, nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.Metadata, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	return e.startInstance(&startInstanceParams{
 		machineId:     machineId,
@@ -783,13 +785,13 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.Metadata, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		return nil, nil, fmt.Errorf("expected single series, got %v", series)
 	}
 	if series[0] != scfg.series {
-		return nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+		return nil, nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
@@ -799,20 +801,20 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 		Constraints: scfg.constraints,
 	})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
-		return nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
+		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 	userData, err := e.userData(scfg, tools[0])
 	if err != nil {
-		return nil, fmt.Errorf("cannot make user data: %v", err)
+		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
-			return nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
+			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
@@ -821,7 +823,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 	config := e.Config()
 	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
 	if err != nil {
-		return nil, fmt.Errorf("cannot set up groups: %v", err)
+		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
 	var groupNames = make([]nova.SecurityGroupName, len(groups))
 	for i, g := range groups {
@@ -842,11 +844,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 		}
 	}
 	if err != nil {
-		return nil, fmt.Errorf("cannot run instance: %v", err)
+		return nil, nil, fmt.Errorf("cannot run instance: %v", err)
 	}
 	detail, err := e.nova().GetServer(server.Id)
 	if err != nil {
-		return nil, fmt.Errorf("cannot get started instance: %v", err)
+		return nil, nil, fmt.Errorf("cannot get started instance: %v", err)
 	}
 	inst := &openstackInstance{
 		e:            e,
@@ -861,11 +863,11 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, e
 				// ignore the failure at this stage, just log it
 				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
 			}
-			return nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
+			return nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
 		log.Infof("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
-	return inst, nil
+	return inst, inst.Metadata(), nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {

@@ -34,8 +34,8 @@ type ProvisionerSuite struct {
 	testing.JujuConnSuite
 	op  <-chan dummy.Operation
 	cfg *config.Config
-	// machineConstraints are used when adding a machine and then later in test assertions.
-	machineConstraints constraints.Value
+	//	// defaultConstraints are used when adding a machine and then later in test assertions.
+	defaultConstraints constraints.Value
 }
 
 var _ = Suite(&ProvisionerSuite{})
@@ -49,7 +49,7 @@ var _ worker.Worker = (*provisioner.Provisioner)(nil)
 
 func (s *ProvisionerSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.machineConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=2 cpu-power=200")
+	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1")
 }
 
 func (s *ProvisionerSuite) SetUpTest(c *C) {
@@ -108,7 +108,7 @@ func stop(c *C, s stopper) {
 }
 
 func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", s.machineConstraints)
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints)
 }
 
 func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (inst instance.Instance) {
@@ -147,10 +147,12 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				md, err := m.Metadata()
 				c.Assert(err, IsNil)
 				c.Assert(*md, DeepEquals, instance.Metadata{
-					Arch:     s.machineConstraints.Arch,
-					Mem:      s.machineConstraints.Mem,
-					CpuCores: s.machineConstraints.CpuCores,
-					CpuPower: s.machineConstraints.CpuPower,
+					InstanceId: inst.Id(),
+					Nonce:      o.MachineNonce,
+					Arch:       cons.Arch,
+					Mem:        cons.Mem,
+					CpuCores:   cons.CpuCores,
+					CpuPower:   cons.CpuPower,
 				})
 				st.Close()
 				return
@@ -224,6 +226,27 @@ func (s *ProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool
 	}
 }
 
+func (s *ProvisionerSuite) waitInstanceMetadata(c *C, m *state.Machine, check func() bool) {
+	w, err := m.WatchMetadata()
+	c.Assert(err, IsNil)
+	defer stop(c, w)
+	timeout := time.After(500 * time.Millisecond)
+	resync := time.After(0)
+	for {
+		select {
+		case <-w.Changes():
+			if check() {
+				return
+			}
+		case <-resync:
+			resync = time.After(50 * time.Millisecond)
+			s.State.StartSync()
+		case <-timeout:
+			c.Fatalf("instance metadata for machine %v wait timed out", m)
+		}
+	}
+}
+
 // waitRemoved waits for the supplied machine to be removed from state.
 func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 	s.waitMachine(c, m, func() bool {
@@ -240,9 +263,9 @@ func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
 func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
-	s.waitMachine(c, m, func() bool {
-		err := m.Refresh()
-		c.Assert(err, IsNil)
+	s.waitInstanceMetadata(c, m, func() bool {
+		//		err := m.Refresh()
+		//		c.Assert(err, IsNil)
 		if actual, ok := m.InstanceId(); ok {
 			c.Assert(actual, Equals, expect)
 			return true
@@ -261,7 +284,7 @@ func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
 	params := state.AddMachineParams{
 		Series:      config.DefaultSeries,
 		Jobs:        []state.MachineJob{state.JobHostUnits},
-		Constraints: s.machineConstraints,
+		Constraints: s.defaultConstraints,
 	}
 	return s.State.AddMachineWithConstraints(&params)
 }
@@ -285,7 +308,7 @@ func (s *ProvisionerSuite) TestConstraints(c *C) {
 	// Create a machine with non-standard constraints.
 	m, err := s.addMachine()
 	c.Assert(err, IsNil)
-	cons := constraints.MustParse("mem=4G arch=amd64")
+	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2")
 	err = m.SetConstraints(cons)
 	c.Assert(err, IsNil)
 
@@ -542,5 +565,5 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", s.machineConstraints)
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints)
 }
