@@ -47,10 +47,9 @@ func (s *agentSuite) TestAgentFailsWhenNotLoggedIn(c *C) {
 func (s *agentSuite) TestGetMachines(c *C) {
 	err := s.machine1.Destroy()
 	c.Assert(err, IsNil)
-	results, err := s.agent.GetMachines(params.Machines{
+	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1", "0", "42"},
 	})
-	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{{
 			Life: "dying",
