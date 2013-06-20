@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
@@ -223,19 +222,119 @@ func (*runnerSuite) TestAllWorkersStoppedWhenOneDiesWithFatalError(c *C) {
 	}
 }
 
+func (*runnerSuite) TestFatalErrorWhileStarting(c *C) {
+	// Original deadlock problem that this tests for:
+	// A worker dies with fatal error while another worker
+	// is inside start(). runWorker can't send startInfo on startedc.
+	runner := worker.NewRunner(allFatal, noImportance)
+
+	slowStarter := newTestWorkerStarter()
+	// make the startNotify channel synchronous so
+	// we can delay the start indefinitely.
+	slowStarter.startNotify = make(chan bool)
+
+	err := runner.StartWorker("slow starter", testWorkerStart(slowStarter))
+	c.Assert(err, IsNil)
+
+	fatalStarter := newTestWorkerStarter()
+	fatalStarter.startErr = fmt.Errorf("a fatal error")
+
+	err = runner.StartWorker("fatal worker", testWorkerStart(fatalStarter))
+	c.Assert(err, IsNil)
+
+	// Wait for the runner loop to react to the fatal
+	// error and go into final shutdown mode.
+	time.Sleep(10 * time.Millisecond)
+
+	// At this point, the loop is in shutdown mode, but the
+	// slowStarter's worker is still in its start function.
+	// When the start function continues (the first assertStarted
+	// allows that to happen) and returns the new Worker,
+	// runWorker will try to send it on runner.startedc.
+	// This test makes sure that succeeds ok.
+
+	slowStarter.assertStarted(c, true)
+	slowStarter.assertStarted(c, false)
+	err = runner.Wait()
+	c.Assert(err, Equals, fatalStarter.startErr)
+}
+
+func (*runnerSuite) TestFatalErrorWhileSelfStartWorker(c *C) {
+	// Original deadlock problem that this tests for:
+	// A worker tries to call StartWorker in its start function
+	// at the same time another worker dies with a fatal error.
+	// It might not be able to send on startc.
+	runner := worker.NewRunner(allFatal, noImportance)
+
+	selfStarter := newTestWorkerStarter()
+	// make the startNotify channel synchronous so
+	// we can delay the start indefinitely.
+	selfStarter.startNotify = make(chan bool)
+	selfStarter.hook = func() {
+		runner.StartWorker("another", func() (worker.Worker, error) {
+			return nil, fmt.Errorf("no worker started")
+		})
+	}
+	err := runner.StartWorker("self starter", testWorkerStart(selfStarter))
+	c.Assert(err, IsNil)
+
+	fatalStarter := newTestWorkerStarter()
+	fatalStarter.startErr = fmt.Errorf("a fatal error")
+
+	err = runner.StartWorker("fatal worker", testWorkerStart(fatalStarter))
+	c.Assert(err, IsNil)
+
+	// Wait for the runner loop to react to the fatal
+	// error and go into final shutdown mode.
+	time.Sleep(10 * time.Millisecond)
+
+	// At this point, the loop is in shutdown mode, but the
+	// selfStarter's worker is still in its start function.
+	// When the start function continues (the first assertStarted
+	// allows that to happen) it will try to create a new
+	// worker. This failed in an earlier version of the code because the
+	// loop was not ready to receive start requests.
+
+	selfStarter.assertStarted(c, true)
+	selfStarter.assertStarted(c, false)
+	err = runner.Wait()
+	c.Assert(err, Equals, fatalStarter.startErr)
+}
+
 type testWorkerStarter struct {
-	startCount  int32
+	startCount int32
+
+	// startNotify receives true when the worker starts
+	// and false when it exits. If startErr is non-nil,
+	// it sends false only.
 	startNotify chan bool
-	stopWait    chan struct{}
-	die         chan error
-	stopErr     error
-	startErr    error
+
+	// If stopWait is non-nil, the worker will
+	// wait for a value to be sent on it before
+	// exiting.
+	stopWait chan struct{}
+
+	// Sending a value on die causes the worker
+	// to die with the given error.
+	die chan error
+
+	// If startErr is non-nil, the worker will die immediately
+	// with this error after starting.
+	startErr error
+
+	// If stopErr is non-nil, the worker will die with this
+	// error when asked to stop.
+	stopErr error
+
+	// The hook function is called after starting the worker.
+	hook func()
 }
 
 func newTestWorkerStarter() *testWorkerStarter {
 	return &testWorkerStarter{
 		die:         make(chan error, 1),
 		startNotify: make(chan bool, 100),
+		hook:        func() {},
 	}
 }
 
@@ -259,11 +358,13 @@ func (starter *testWorkerStarter) start() (worker.Worker, error) {
 		panic(fmt.Errorf("unexpected start count %d; expected 1", count))
 	}
 	if starter.startErr != nil {
+		starter.startNotify <- false
 		return nil, starter.startErr
 	}
 	task := &testWorker{
 		starter: starter,
 	}
+	starter.startNotify <- true
 	go task.run()
 	return task, nil
 }
@@ -283,7 +384,8 @@ func (t *testWorker) Wait() error {
 
 func (t *testWorker) run() {
 	defer t.tomb.Done()
-	t.starter.startNotify <- true
+
+	t.starter.hook()
 	select {
 	case <-t.tomb.Dying():
 		t.tomb.Kill(t.starter.stopErr)
@@ -291,9 +393,7 @@ func (t *testWorker) run() {
 		t.tomb.Kill(err)
 	}
 	if t.starter.stopWait != nil {
-		log.Infof("waiting for stop")
 		<-t.starter.stopWait
-		log.Infof("stop request received")
 	}
 	t.starter.startNotify <- false
 	if count := atomic.AddInt32(&t.starter.startCount, -1); count != 0 {

@@ -53,7 +53,28 @@ var openAttempt = utils.AttemptStrategy{
 	Delay: 500 * time.Millisecond,
 }
 
-func Open(info *Info) (*State, error) {
+// DialOpts holds configuration parameters that control the
+// Dialing behavior when connecting to a state server.
+type DialOpts struct {
+	// Timeout is the amount of time to wait contacting
+	// a state server.
+	Timeout time.Duration
+
+	// RetryDelay is the amount of time to wait between
+	// unsucssful connection attempts.
+	RetryDelay time.Duration
+}
+
+// DefaultDialOpts returns a DialOpts representing the default
+// parameters for contacting a state server.
+func DefaultDialOpts() DialOpts {
+	return DialOpts{
+		Timeout:    10 * time.Minute,
+		RetryDelay: 2 * time.Second,
+	}
+}
+
+func Open(info *Info, opts DialOpts) (*State, error) {
 	// TODO Select a random address from info.Addrs
 	// and only fail when we've tried all the addresses.
 	// TODO what does "origin" really mean, and is localhost always ok?
@@ -72,6 +93,10 @@ func Open(info *Info) (*State, error) {
 		ServerName: "anything",
 	}
 	var conn *websocket.Conn
+	openAttempt := utils.AttemptStrategy{
+		Total: opts.Timeout,
+		Delay: opts.RetryDelay,
+	}
 	for a := openAttempt.Start(); a.Next(); {
 		log.Infof("state/api: dialing %q", cfg.Location)
 		conn, err = websocket.DialConfig(cfg)

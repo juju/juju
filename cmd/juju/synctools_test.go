@@ -4,6 +4,15 @@
 package main
 
 import (
+	"encoding/xml"
+	"fmt"
+	"hash/crc32"
+	"net"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -16,10 +25,12 @@ import (
 
 type syncToolsSuite struct {
 	testing.LoggingSuite
-	home        *testing.FakeHome
-	targetEnv   environs.Environ
-	origAttrs   map[string]interface{}
-	origVersion version.Binary
+	home         *testing.FakeHome
+	targetEnv    environs.Environ
+	origVersion  version.Binary
+	origLocation string
+	listener     net.Listener
+	storage      *testStorage
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
@@ -42,30 +53,20 @@ environments:
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source environment and populate its public tools.
-	dummyAttrs := map[string]interface{}{
-		"name":         "test-source",
-		"type":         "dummy",
-		"state-server": false,
-		// Note: Without this, you get "no public ssh keys found", which seems
-		// a bit odd for the "dummy" environment
-		"authorized-keys": "I-am-not-a-real-key",
-	}
-	env, err := environs.NewFromAttrs(dummyAttrs)
+	s.listener, s.storage, err = listen("127.0.0.1", 0)
 	c.Assert(err, IsNil)
-	c.Assert(env, NotNil)
-	envtesting.RemoveAllTools(c, env)
-	store := env.PublicStorage().(environs.Storage)
+
 	for _, vers := range vAll {
-		envtesting.UploadFakeToolsVersion(c, store, vers)
+		s.storage.putFakeToolsVersion(vers)
 	}
-	// Overwrite the official source bucket to the new dummy 'test-source',
-	// saving the original value for cleanup
-	s.origAttrs = officialBucketAttrs
-	officialBucketAttrs = dummyAttrs
+
+	s.origLocation = defaultToolsLocation
+	defaultToolsLocation = s.storage.location
 }
 
 func (s *syncToolsSuite) TearDownTest(c *C) {
-	officialBucketAttrs = s.origAttrs
+	c.Assert(s.listener.Close(), IsNil)
+	defaultToolsLocation = s.origLocation
 	dummy.Reset()
 	s.home.Restore()
 	version.Current = s.origVersion
@@ -190,3 +191,107 @@ var (
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	vAll    = append(v1all, v200p64)
 )
+
+// testStorage acts like the juju distribution storage at S3
+// to provide the juju tools.
+type testStorage struct {
+	location string
+	files    map[string][]byte
+}
+
+// ServeHTTP handles the HTTP requests to the storage mock.
+func (t *testStorage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	switch req.Method {
+	case "GET":
+		if req.URL.Path == "/" {
+			t.handleIndex(w, req)
+		} else {
+			t.handleGet(w, req)
+		}
+	default:
+		http.Error(w, "method "+req.Method+" is not supported", http.StatusMethodNotAllowed)
+	}
+}
+
+// handleIndex returns the index XML file to the client.
+func (t *testStorage) handleIndex(w http.ResponseWriter, req *http.Request) {
+	lbr := &listBucketResult{
+		Name:        "juju-dist",
+		Prefix:      "",
+		Marker:      "",
+		MaxKeys:     1000,
+		IsTruncated: false,
+	}
+	names := []string{}
+	for name := range t.files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		h := crc32.NewIEEE()
+		h.Write([]byte(t.files[name]))
+		contents := &contents{
+			Key:          name,
+			LastModified: time.Now(),
+			ETag:         fmt.Sprintf("%x", h.Sum(nil)),
+			Size:         len([]byte(t.files[name])),
+			StorageClass: "STANDARD",
+		}
+		lbr.Contents = append(lbr.Contents, contents)
+	}
+	buf, err := xml.Marshal(lbr)
+	if err != nil {
+		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "application/xml")
+	w.Write(buf)
+}
+
+// handleGet returns a storage file to the client.
+func (t *testStorage) handleGet(w http.ResponseWriter, req *http.Request) {
+	data, ok := t.files[req.URL.Path]
+	if !ok {
+		http.Error(w, "404 file not found", http.StatusNotFound)
+		return
+	}
+	w.Header().Set("Content-Type", "application/octet-stream")
+	w.Write(data)
+}
+
+// putFakeToolsVersion stores a faked binary in the tools storage.
+func (t *testStorage) putFakeToolsVersion(vers version.Binary) {
+	data := vers.String()
+	name := tools.StorageName(vers)
+	parts := strings.Split(name, "/")
+	if len(parts) > 1 {
+		// Also create paths as entries. Needed for
+		// the correct contents of the list bucket result.
+		path := ""
+		for i := 0; i < len(parts)-1; i++ {
+			path = path + parts[i] + "/"
+			t.files[path] = []byte{}
+		}
+	}
+	t.files[name] = []byte(data)
+}
+
+// listen starts an HTTP listener to serve the
+// provider storage.
+func listen(ip string, port int) (net.Listener, *testStorage, error) {
+	storage := &testStorage{
+		files: make(map[string][]byte),
+	}
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", ip, port))
+	if err != nil {
+		return nil, nil, fmt.Errorf("cannot start listener: %v", err)
+	}
+	mux := http.NewServeMux()
+	mux.Handle("/", storage)
+
+	go http.Serve(listener, mux)
+
+	storage.location = fmt.Sprintf("http://%s:%d/", ip, listener.Addr().(*net.TCPAddr).Port)
+
+	return listener, storage, nil
+}
