@@ -16,8 +16,8 @@ import (
 type machinerSuite struct {
 	commonSuite
 
-	resourcesRegistry fakeResourceRegistry
-	machiner          *machine.MachinerAPI
+	resources fakeResourceRegistry
+	machiner  *machine.MachinerAPI
 }
 
 var _ = Suite(&machinerSuite{})
@@ -36,12 +36,12 @@ func (s *machinerSuite) SetUpTest(c *C) {
 
 	// Create the resource registry separately to track invocations to
 	// Register.
-	s.resourcesRegistry = make(fakeResourceRegistry)
+	s.resources = make(fakeResourceRegistry)
 
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPI(
 		s.State,
-		s.resourcesRegistry,
+		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, IsNil)
@@ -57,7 +57,7 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.machineAgent = false
-	aMachiner, err := machine.NewMachinerAPI(s.State, s.resourcesRegistry, anAuthorizer)
+	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "permission denied")
@@ -66,7 +66,7 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.loggedIn = false
-	aMachiner, err := machine.NewMachinerAPI(s.State, s.resourcesRegistry, anAuthorizer)
+	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "not logged in")
@@ -159,7 +159,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 }
 
 func (s *machinerSuite) TestWatch(c *C) {
-	c.Assert(s.resourcesRegistry, HasLen, 0)
+	c.Assert(s.resources, HasLen, 0)
 
 	args := params.Machines{
 		Ids: []string{"1", "0", "42"},
@@ -172,8 +172,8 @@ func (s *machinerSuite) TestWatch(c *C) {
 	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
 
 	// Just verify the resource was registered and stop it.
-	c.Assert(s.resourcesRegistry, HasLen, 1)
+	c.Assert(s.resources, HasLen, 1)
 	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
-	err = s.resourcesRegistry["0"].Stop()
+	err = s.resources["0"].Stop()
 	c.Assert(err, IsNil)
 }
