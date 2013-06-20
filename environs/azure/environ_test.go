@@ -144,6 +144,7 @@ func (EnvironSuite) TestSetConfigInitialisesName(c *C) {
 
 func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	// Once the environment's name has been set, it cannot be updated.
+	// Global validation rejects such a change.
 	// This matters because the attribute is cached, and not protected by
 	// a lock.
 	env := makeEnviron(c)
