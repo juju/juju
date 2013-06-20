@@ -5,22 +5,62 @@ package azure
 
 import (
 	"io"
+	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 )
 
-type azureStorage struct{}
+type azureStorage struct {
+	storageContext
+}
+
+// storageContext is an abstraction that is there only to accommodate the need
+// for using an azureStorage independently from an environ object in tests.
+type storageContext interface {
+	getContainer() string
+	getStorageContext() *gwacl.StorageContext
+}
+
+// environStorageContext is a storageContext which gets its information from
+// an azureEnviron object.
+type environStorageContext struct {
+	environ *azureEnviron
+}
+
+func (context *environStorageContext) getContainer() string {
+	return context.environ.getSnapshot().ecfg.StorageContainerName()
+}
+
+func (context *environStorageContext) getStorageContext() *gwacl.StorageContext {
+	// TODO: uncomment this.
+	//return context.environ.getStorageContext()
+	return nil
+}
+
+func NewStorage(env *azureEnviron) environs.Storage {
+	context := &environStorageContext{environ: env}
+	return &azureStorage{context}
+}
 
 // azureStorage implements Storage.
 var _ environs.Storage = (*azureStorage)(nil)
 
 // Get is specified in the StorageReader interface.
 func (storage *azureStorage) Get(name string) (io.ReadCloser, error) {
-	panic("unimplemented")
+	return storage.getStorageContext().GetBlob(storage.getContainer(), name)
 }
 
 // List is specified in the StorageReader interface.
 func (storage *azureStorage) List(prefix string) ([]string, error) {
-	panic("unimplemented")
+	request := &gwacl.ListBlobsRequest{Container: storage.getContainer(), Prefix: prefix, Marker: ""}
+	blobList, err := storage.getStorageContext().ListAllBlobs(request)
+	if err != nil {
+		return nil, err
+	}
+	names := make([]string, len(blobList.Blobs))
+	for index, blob := range blobList.Blobs {
+		names[index] = blob.Name
+	}
+	return names, nil
 }
 
 // URL is specified in the StorageReader interface.
@@ -30,10 +70,11 @@ func (storage *azureStorage) URL(name string) (string, error) {
 
 // Put is specified in the StorageWriter interface.
 func (storage *azureStorage) Put(name string, r io.Reader, length int64) error {
-	panic("unimplemented")
+	limitedReader := io.LimitReader(r, length)
+	return storage.getStorageContext().UploadBlockBlob(storage.getContainer(), name, limitedReader)
 }
 
 // Remove is specified in the StorageWriter interface.
 func (storage *azureStorage) Remove(name string) error {
-	panic("unimplemented")
+	return storage.getStorageContext().DeleteBlob(storage.getContainer(), name)
 }
