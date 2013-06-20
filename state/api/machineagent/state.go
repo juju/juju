@@ -2,6 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package machineagent
+
 import (
 	"fmt"
 	"launchpad.net/juju-core/state/api/common"
@@ -38,8 +39,8 @@ func (st *State) getMachine(id string) (*params.MachineAgentGetMachinesResult, e
 }
 
 type Machine struct {
-	st *State
-	id string
+	st  *State
+	id  string
 	doc params.MachineAgentGetMachinesResult
 }
 
@@ -49,8 +50,8 @@ func (st *State) Machine(id string) (*Machine, error) {
 		return nil, err
 	}
 	return &Machine{
-		st: st,
-		id: id,
+		st:  st,
+		id:  id,
 		doc: *doc,
 	}, nil
 }

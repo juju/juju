@@ -21,7 +21,7 @@ func TestAll(t *stdtesting.T) {
 
 type suite struct {
 	testing.JujuConnSuite
-	st *api.State
+	st      *api.State
 	machine *state.Machine
 }
 

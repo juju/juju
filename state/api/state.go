@@ -4,8 +4,8 @@
 package api
 
 import (
-	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/machineagent"
+	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 )
 

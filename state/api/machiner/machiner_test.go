@@ -20,7 +20,7 @@ func TestAll(t *stdtesting.T) {
 
 type machinerSuite struct {
 	testing.JujuConnSuite
-	st *api.State
+	st      *api.State
 	machine *state.Machine
 }
 
