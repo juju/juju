@@ -86,5 +86,10 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
+func (s *upgraderSuite) TestNew(c *C) {
+	upgrader := upgrader.New(s.stateAPI)
+	c.Assert(upgrader, NotNil)
+}
+
 func (s *upgraderSuite) TestSetup(c *C) {
 }

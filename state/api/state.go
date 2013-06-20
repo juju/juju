@@ -42,5 +42,5 @@ func (st *State) Machiner() (*machiner.Machiner, error) {
 
 // Upgrader returns access to the Upgrader API
 func (st *State) Upgrader() (*upgrader.Upgrader, error) {
-	return &upgrader.Upgrader{}, nil
+	return upgrader.New(st), nil
 }

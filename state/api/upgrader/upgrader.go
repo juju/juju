@@ -7,7 +7,12 @@ import "launchpad.net/juju-core/state/api/common"
 
 //import "launchpad.net/juju-core/state/api/params"
 
-// Machiner provides access to the Upgrader API facade.
+// Upgrader provides access to the Upgrader API facade.
 type Upgrader struct {
 	caller common.Caller
+}
+
+// New creates a new client-side Upgrader facade.
+func New(caller common.Caller) *Upgrader {
+	return &Upgrader{caller}
 }
