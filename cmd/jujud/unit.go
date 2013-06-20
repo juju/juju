@@ -78,14 +78,19 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 		return nil, err
 	}
 	unit := entity.(*state.Unit)
+	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return NewUpgrader(st, unit, a.Conf.DataDir), nil
+		return NewUpgrader(st, unit, dataDir), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
-		log.Infof("uniter calling NewUniter")
-		return uniter.NewUniter(st, unit.Name(), a.Conf.DataDir), nil
+		return uniter.NewUniter(st, unit.Name(), dataDir), nil
 	})
+	if unit.IsPrincipal() {
+		runner.StartWorker("deployer", func() (worker.Worker, error) {
+			return newDeployer(st, unit.WatchSubordinateUnits(), dataDir), nil
+		})
+	}
 	return newCloseWorker(runner, st), nil
 }
 

@@ -95,6 +95,7 @@ func runStop(r runner) error {
 	go func() {
 		done <- r.Run(nil)
 	}()
+	time.Sleep(2 * time.Second)
 	go func() {
 		done <- r.Stop()
 	}()
@@ -109,6 +110,7 @@ func runStop(r runner) error {
 type entity interface {
 	state.Tagger
 	SetMongoPassword(string) error
+	SetPassword(string) error
 }
 
 // agentSuite is a fixture to be used by agent test suites.
@@ -192,13 +194,14 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	// Check that it starts initially and changes the password
 	err = ent.SetMongoPassword("initial")
 	c.Assert(err, IsNil)
+	err = ent.SetPassword("initial")
+	c.Assert(err, IsNil)
 
 	setOldPassword := func(password string) {
 		conf.OldPassword = password
 		err = conf.Write()
 		c.Assert(err, IsNil)
 	}
-
 	setOldPassword("initial")
 	err = runStop(newAgent())
 	c.Assert(err, IsNil)

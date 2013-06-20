@@ -216,7 +216,7 @@ func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 			log.Infof("OpenAPI success")
 			return st, "", nil
 		}
-		log.Infof("OpenAPI failure: %v")
+		log.Infof("OpenAPI failure: %v", err)
 		if api.ErrCode(err) != api.CodeUnauthorized {
 			return nil, "", err
 		}
@@ -240,6 +240,7 @@ func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 		st.Close()
 		return nil, "", err
 	}
+	log.Infof("returning new password %q", password)
 	return st, password, nil
 }
 

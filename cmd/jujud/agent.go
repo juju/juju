@@ -92,6 +92,7 @@ type AgentState interface {
 
 type AgentAPIState interface {
 	Life() params.Life
+	SetPassword(password string) error
 }
 
 type fatalError struct {
@@ -139,6 +140,7 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 }
 
 func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
+	log.Infof("agent: openAPIState; api password %q; oldpassword: %q", c.APIInfo.Password, c.OldPassword)
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
@@ -175,6 +177,9 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 		return nil, nil, err
 	}
 	*c = c1
+	if err := entity.SetPassword(newPassword); err != nil {
+		return nil, nil, err
+	}
 	return st, entity, nil
 
 }
