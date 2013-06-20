@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
@@ -44,7 +43,7 @@ func NewProvisionerTask(
 	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		name:           string,
+		name:           name,
 		machineId:      machineId,
 		machineGetter:  machineGetter,
 		machineWatcher: watcher,

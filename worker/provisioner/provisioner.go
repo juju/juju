@@ -78,7 +78,7 @@ func (p *Provisioner) loop() error {
 	machinesWatcher := p.st.WatchEnvironMachines()
 	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := NewProvisionerTask(
-		fmt.Sprintf("environ provisioner for machine %s", p.machineId),
+		"environ provisioner for machine "+p.machineId,
 		p.machineId,
 		p.st,
 		machinesWatcher,

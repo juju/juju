@@ -6,14 +6,10 @@ package provisioner
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/worker"
 )
 
 // AuthenticationProvider defines the single function that the provisioner
@@ -24,7 +20,7 @@ type AuthenticationProvider interface {
 
 // NewSimpleAuthenticator gets the state and api info once from the environ.
 func NewSimpleAuthenticator(environ environs.Environ) (AuthenticationProvider, error) {
-	stateInfo, apiInfo, err := p.environ.StateInfo()
+	stateInfo, apiInfo, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
 	}
