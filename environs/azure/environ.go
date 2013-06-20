@@ -153,8 +153,8 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	}
 	context := azureManagementContext{
 		ManagementAPI: mgtAPI,
-		certFile: certFile,
-		}
+		certFile:      certFile,
+	}
 	return &context, nil
 }
 
@@ -166,7 +166,6 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 	// where this method returns a context to the pool.
 	context.certFile.Delete()
 }
-
 
 // getStorageContext obtains a context object for interfacing with Azure's
 // storage API.

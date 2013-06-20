@@ -167,7 +167,7 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	env := makeEnviron(c)
 	context := azureManagementContext{
 		ManagementAPI: nil,
-		certFile: nil,
+		certFile:      nil,
 	}
 	env.releaseManagementAPI(&context)
 	// The real test is that this does not panic.
