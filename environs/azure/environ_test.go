@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"errors"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"sync"
@@ -33,7 +34,7 @@ func makeEnviron(c *C) *azureEnviron {
 // Parameters are a gocheck object to run assertions on; the lock that you
 // expect your function to block on; and the function that you want to test
 // for proper locking on that lock.
-func testLockingFunction(c *C, lock *sync.Mutex, function func()) {
+func testLockingFunction(lock *sync.Mutex, function func()) {
 	// We record two events that must happen in the right order.
 	// Buffer the channel so that we don't get hung up during attempts
 	// to push the events in.
@@ -45,7 +46,7 @@ func testLockingFunction(c *C, lock *sync.Mutex, function func()) {
 	goroutine := func() {
 		proceed <- true
 		function()
-		events <- "function completed"
+		events <- "complete function"
 	}
 
 	lock.Lock()
@@ -56,18 +57,53 @@ func testLockingFunction(c *C, lock *sync.Mutex, function func()) {
 	// TODO: In Go 1.1, call runtime.GoSched a few times to give a
 	// misbehaved "function" plenty of rope to hang itself.
 
-	events <- "releasing lock"
+	events <- "release lock"
 	lock.Unlock()
 
 	// Now that we've released the lock, the function is unblocked.  Read
 	// the 2 events.  (This will wait until the function has completed.)
 	firstEvent := <-events
 	secondEvent := <-events
-	c.Check(firstEvent, Equals, "releasing lock")
-	c.Check(secondEvent, Equals, "function completed")
+	if firstEvent != "release lock" || secondEvent != "complete function" {
+		panic(errors.New("function did not obey lock"))
+	}
 
-	// Check that the function has released the lock.
-	c.Check(*lock, Equals, sync.Mutex{})
+	// Also, the function must have released the lock.
+	blankLock := sync.Mutex{}
+	if *lock != blankLock {
+		panic(errors.New("function did not release lock"))
+	}
+}
+
+func (EnvironSuite) TestTestLockingFunctionPassesCorrectLock(c *C) {
+	lock := sync.Mutex{}
+	function := func() {
+		lock.Lock()
+		lock.Unlock()
+	}
+	// testLockingFunction succeeds.
+	testLockingFunction(&lock, function)
+}
+
+func (EnvironSuite) TestTestLockingFunctionDetectsDisobeyedLock(c *C) {
+	lock := sync.Mutex{}
+	function := func() {}
+	c.Check(
+		func() { testLockingFunction(&lock, function) },
+		Panics,
+		errors.New("function did not obey lock"))
+}
+
+func (EnvironSuite) TestTestLockingFunctionDetectsFailureToReleaseLock(c *C) {
+	lock := sync.Mutex{}
+	defer lock.Unlock()
+	function := func() {
+		lock.Lock()
+	}
+	c.Check(
+		func() { testLockingFunction(&lock, function) },
+		Panics,
+		errors.New("function did not release lock"))
 }
 
 func (EnvironSuite) TestGetSnapshot(c *C) {
@@ -90,7 +126,7 @@ func (EnvironSuite) TestGetSnapshot(c *C) {
 
 func (EnvironSuite) TestGetSnapshotLocksEnviron(c *C) {
 	original := azureEnviron{}
-	testLockingFunction(c, &original.Mutex, func() { original.getSnapshot() })
+	testLockingFunction(&original.Mutex, func() { original.getSnapshot() })
 }
 
 func (EnvironSuite) TestName(c *C) {
@@ -107,7 +143,7 @@ func (EnvironSuite) TestConfigReturnsConfig(c *C) {
 
 func (EnvironSuite) TestConfigLocksEnviron(c *C) {
 	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
-	testLockingFunction(c, &env.Mutex, func() { env.Config() })
+	testLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
 // TODO: Temporarily deactivating this code.  Passing certificate in-memory
