@@ -6,6 +6,7 @@ package state
 import (
 	"fmt"
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
@@ -26,24 +27,32 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.MachineInfo{
-		Id:         m.Id,
-		InstanceId: string(m.InstanceId),
+		Id: m.Id,
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
-		// so fetch the associated machine status.
+		// so fetch the associated machine status and instance metadata.
+		//First the status.
 		sdoc, err := getStatus(st, machineGlobalKey(m.Id))
 		if err != nil {
 			return err
 		}
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
+		// Second the instance metadata.
+		machineMetadata, err := getMachineMetadata(st, m.Id)
+		if err == nil {
+			info.InstanceId = string(machineMetadata.InstanceId)
+		} else if !errors.IsNotFoundError(err) {
+			return err
+		}
 	} else {
-		// The entry already exists, so preserve the current status.
+		// The entry already exists, so preserve the current status and instance metadata.
 		oldInfo := oldInfo.(*params.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
+		info.InstanceId = oldInfo.InstanceId
 	}
 	store.Update(info)
 	return nil
@@ -59,6 +68,26 @@ func (svc *backingMachine) removed(st *State, store *multiwatcher.Store, id inte
 
 func (m *backingMachine) mongoId() interface{} {
 	return m.Id
+}
+
+type backingMachineMetadata machineMetadata
+
+func (md *backingMachineMetadata) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+	mId := (&params.MachineInfo{Id: id.(string)}).EntityId()
+	newInfo := *store.Get(mId).(*params.MachineInfo)
+	newInfo.InstanceId = string(md.InstanceId)
+	store.Update(&newInfo)
+	return nil
+}
+
+func (md *backingMachineMetadata) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	// If the metadata is removed, the machine will follow not long after,
+	// so do nothing.
+	return nil
+}
+
+func (md *backingMachineMetadata) mongoId() interface{} {
+	panic("cannot find mongo id from metadata document")
 }
 
 type backingUnit unitDoc
@@ -391,6 +420,7 @@ type backingEntityDoc interface {
 
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
+	_ backingEntityDoc = (*backingMachineMetadata)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingService)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
@@ -437,6 +467,10 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection:    st.annotations,
 		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
+	}, {
+		Collection:    st.machineMetadata,
+		infoSliceType: reflect.TypeOf([]backingMachineMetadata(nil)),
+		subsidiary:    true,
 	}, {
 		Collection:    st.statuses,
 		infoSliceType: reflect.TypeOf([]backingStatus(nil)),

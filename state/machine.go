@@ -124,11 +124,7 @@ type machineMetadata struct {
 func (m *Machine) Metadata() (*instance.Metadata, error) {
 	metadata := &instance.Metadata{}
 	if m.doc.metadata == nil {
-		var md machineMetadata
-		err := m.st.machineMetadata.FindId(m.Id()).One(&md)
-		if err == mgo.ErrNotFound {
-			return nil, errors.NotFoundf("metadata for machine %v", m.Id())
-		}
+		md, err := getMachineMetadata(m.st, m.Id())
 		if err != nil {
 			return nil, err
 		}
@@ -141,6 +137,18 @@ func (m *Machine) Metadata() (*instance.Metadata, error) {
 	metadata.CpuCores = m.doc.metadata.CpuCores
 	metadata.CpuPower = m.doc.metadata.CpuPower
 	return metadata, nil
+}
+
+func getMachineMetadata(st *State, id string) (machineMetadata, error) {
+	var md machineMetadata
+	err := st.machineMetadata.FindId(id).One(&md)
+	if err == mgo.ErrNotFound {
+		return machineMetadata{}, errors.NotFoundf("metadata for machine %v", id)
+	}
+	if err != nil {
+		return machineMetadata{}, fmt.Errorf("cannot get metadata for machine %v: %v", id, err)
+	}
+	return md, nil
 }
 
 const machineTagPrefix = "machine-"
