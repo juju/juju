@@ -182,34 +182,33 @@ type contents struct {
 	Key string
 }
 
-// HTTPStorageReader implements the environs.StorageReader interface
+// httpStorageReader implements the environs.StorageReader interface
 // to access an EC2 storage via HTTP.
-type HTTPStorageReader struct {
-	location string
+type httpStorageReader struct {
+	url string
 }
 
 // NewHTTPStorageReader creates a storage reader for the HTTP
 // access to an EC2 storage like the juju-dist storage.
-func NewHTTPStorageReader(location string) environs.StorageReader {
-	return &HTTPStorageReader{location}
+func NewHTTPStorageReader(url string) environs.StorageReader {
+	return &httpStorageReader{url}
 }
 
-// Get opens the given storage file and returns a ReadCloser
-// that can be used to read its contents.
-func (h *HTTPStorageReader) Get(name string) (io.ReadCloser, error) {
-	locationName, err := h.URL(name)
+// Get implements environs.StorageReader.Get.
+func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
+	nameURL, err := h.URL(name)
 	if err != nil {
 		return nil, err
 	}
-	resp, err := http.Get(locationName)
+	resp, err := http.Get(nameURL)
 	if err != nil && resp.StatusCode == http.StatusNotFound {
 		return nil, &errors.NotFoundError{err, ""}
 	}
 	return resp.Body, nil
 }
 
-// List lists all names in the storage with the given prefix.
-func (h *HTTPStorageReader) List(prefix string) ([]string, error) {
+// List implements environs.StorageReader.List.
+func (h *httpStorageReader) List(prefix string) ([]string, error) {
 	lbr, err := h.getListBucketResult()
 	if err != nil {
 		return nil, err
@@ -224,17 +223,17 @@ func (h *HTTPStorageReader) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-// URL returns a URL that can be used to access the given storage file.
-func (h *HTTPStorageReader) URL(name string) (string, error) {
-	if strings.HasSuffix(h.location, "/") {
-		return h.location + name, nil
+// URL implements environs.StorageReader.URL.
+func (h *httpStorageReader) URL(name string) (string, error) {
+	if strings.HasSuffix(h.url, "/") {
+		return h.url + name, nil
 	}
-	return h.location + "/" + name, nil
+	return h.url + "/" + name, nil
 }
 
 // getListBucketResult retrieves the index of the storage,
-func (h *HTTPStorageReader) getListBucketResult() (*listBucketResult, error) {
-	resp, err := http.Get(h.location)
+func (h *httpStorageReader) getListBucketResult() (*listBucketResult, error) {
+	resp, err := http.Get(h.url)
 	if err != nil {
 		return nil, err
 	}
