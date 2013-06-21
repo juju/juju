@@ -406,7 +406,7 @@ func (s *openSuite) TestOpenAPINoPassword(c *C) {
 	conf.OldPassword = conf.APIInfo.Password
 	conf.APIInfo.Password = ""
 
-	st, newPassword, err := conf.OpenAPI(fastDialOpts)
+	st, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")

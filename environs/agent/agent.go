@@ -210,13 +210,11 @@ func (c *Conf) WriteCommands() ([]string, error) {
 func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
 	info := *c.APIInfo
 	if info.Password != "" {
-		log.Infof("OpenAPI trying %#v", info)
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {
 			log.Infof("OpenAPI success")
 			return st, "", nil
 		}
-		log.Infof("OpenAPI failure: %v", err)
 		if api.ErrCode(err) != api.CodeUnauthorized {
 			return nil, "", err
 		}
@@ -226,7 +224,6 @@ func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	log.Infof("OpenAPI trying old password %#v", info)
 	st, err = api.Open(&info, dialOpts)
 	if err != nil {
 		log.Infof("OpenAPI failure: %v")

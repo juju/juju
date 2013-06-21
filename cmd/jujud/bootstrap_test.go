@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
-	"local/runtime/debug"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -177,7 +176,7 @@ func testOpenState(c *C, info *state.Info, expectErrType error) {
 		st.Close()
 	}
 	if expectErrType != nil {
-		c.Assert(err, FitsTypeOf, expectErrType, Commentf("callers: %s", debug.Callers(0, 20)))
+		c.Assert(err, FitsTypeOf, expectErrType)
 	} else {
 		c.Assert(err, IsNil)
 	}
