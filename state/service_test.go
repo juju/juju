@@ -870,7 +870,7 @@ func (s *ServiceSuite) TestReadUnitWhenDying(c *C) {
 	// Test that we can still read units when the service is Dying...
 	unit, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	preventUnitDestroyRemove(c, s.State, unit)
+	preventUnitDestroyRemove(c, unit)
 	err = s.mysql.Destroy()
 	c.Assert(err, IsNil)
 	_, err = s.mysql.AllUnits()
@@ -1052,6 +1052,52 @@ func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *C, refresh bool) {
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
+func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *C) {
+	// Add 5 units; block quick-remove of mysql/1 and mysql/3
+	units := make([]*state.Unit, 5)
+	for i := 0; i < 5; i++ {
+		unit, err := s.mysql.AddUnit()
+		c.Assert(err, IsNil)
+		units[i] = unit
+		if i%2 != 0 {
+			preventUnitDestroyRemove(c, unit)
+		}
+	}
+
+	// Check state is clean.
+	dirty, err := s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(dirty, Equals, false)
+
+	// Destroy mysql, and check units are not touched.
+	err = s.mysql.Destroy()
+	c.Assert(err, IsNil)
+	for _, unit := range units {
+		assertUnitLife(c, unit, state.Alive)
+	}
+
+	// Check a cleanup doc was added.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(dirty, Equals, true)
+
+	// Run the cleanup and check the units.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	for i, unit := range units {
+		if i%2 != 0 {
+			assertUnitLife(c, unit, state.Dying)
+		} else {
+			assertUnitRemoved(c, unit)
+		}
+	}
+
+	// Check we're now clean.
+	dirty, err = s.State.NeedsCleanup()
+	c.Assert(err, IsNil)
+	c.Assert(dirty, Equals, false)
+}
+
 func (s *ServiceSuite) TestReadUnitWithChangingState(c *C) {
 	// Check that reading a unit after removing the service
 	// fails nicely.
@@ -1151,14 +1197,14 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 	// Dying unit...
 	dying, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	preventUnitDestroyRemove(c, s.State, dying)
+	preventUnitDestroyRemove(c, dying)
 	err = dying.Destroy()
 	c.Assert(err, IsNil)
 
 	// Dead unit...
 	dead, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	preventUnitDestroyRemove(c, s.State, dead)
+	preventUnitDestroyRemove(c, dead)
 	err = dead.Destroy()
 	c.Assert(err, IsNil)
 	err = dead.EnsureDead()
@@ -1211,7 +1257,7 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
 	wc.AssertOneChange(slow.Name())
 
 	// Change unit itself, no change.
-	preventUnitDestroyRemove(c, s.State, slow)
+	preventUnitDestroyRemove(c, slow)
 	wc.AssertNoChange()
 
 	// Make unit Dying, change detected.

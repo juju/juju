@@ -157,7 +157,7 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
 
-	defer state.SetBeforeHook(c, s.State, func() {
+	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.unit.Destroy(), IsNil)
 	})()
 	err = s.unit.SetPublicAddress("example.foobar.com")
@@ -174,7 +174,7 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
 
-	defer state.SetBeforeHook(c, s.State, func() {
+	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.unit.Destroy(), IsNil)
 	})()
 	err = s.unit.SetPrivateAddress("example.local")
@@ -260,7 +260,7 @@ func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	curl, ok := s.unit.CharmURL()
 	c.Assert(ok, Equals, false)
 	c.Assert(curl, IsNil)
@@ -292,11 +292,11 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 }
 
 func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	for i := 0; i < 4; i++ {
 		unit, err := s.service.AddUnit()
 		c.Assert(err, IsNil)
-		preventUnitDestroyRemove(c, s.State, unit)
+		preventUnitDestroyRemove(c, unit)
 	}
 
 	// Destroy 2 of them; check they become Dying.
@@ -328,12 +328,85 @@ func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
 	s.assertUnitLife(c, "wordpress/4", state.Dying)
 }
 
-func (s *UnitSuite) TestShortCircuitDestroyUnassignedUnit(c *C) {
-	// A unit without subordinates or assigned machine is removed directly.
+func (s *UnitSuite) TestDestroySetStatusRetry(c *C) {
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.SetStatus(params.StatusStarted, "")
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitLife(c, s.unit, state.Dying)
+	})()
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroySetCharmRetry(c *C) {
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.SetCharmURL(s.charm.URL())
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+	})()
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroyChangeCharmRetry(c *C) {
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
+	err = s.service.SetCharm(newCharm, false)
+	c.Assert(err, IsNil)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.SetCharmURL(newCharm.URL())
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+	})()
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroyAssignRetry(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.AssignToMachine(machine)
+		c.Assert(err, IsNil)
+	}, func() {
+		// Check the unit was properly removed from the machine.
+		err := machine.Destroy()
+		c.Assert(err, IsNil)
+		assertUnitRemoved(c, s.unit)
+	},
+	)()
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroyUnassignRetry(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.UnassignFromMachine()
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+	})()
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestShortCircuitDestroyUnit(c *C) {
+	// A unit that has not set any status is removed directly.
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitRemoved(c, s.unit)
+	assertUnitRemoved(c, s.unit)
 }
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *C) {
@@ -351,21 +424,36 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *C) {
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitLife(c, s.unit.Name(), state.Dying)
+	assertUnitLife(c, s.unit, state.Dying)
 }
 
-func (s *UnitSuite) TestShortCircuitDestroyWithUnprovisionedMachine(c *C) {
-	// A unit with an assigned but unprovisioned machine is removed directly.
-	err := s.unit.AssignToNewMachine()
-	c.Assert(err, IsNil)
-	err = s.unit.Destroy()
-	c.Assert(err, IsNil)
-	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitRemoved(c, s.unit)
+func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *C) {
+	for i, test := range []struct {
+		status params.Status
+		info   string
+	}{{
+		params.StatusInstalled, "",
+	}, {
+		params.StatusStarted, "",
+	}, {
+		params.StatusError, "blah",
+	}, {
+		params.StatusStopped, "",
+	}} {
+		c.Logf("test %d: %s", i, test.status)
+		unit, err := s.service.AddUnit()
+		c.Assert(err, IsNil)
+		err = unit.SetStatus(test.status, test.info)
+		c.Assert(err, IsNil)
+		err = unit.Destroy()
+		c.Assert(err, IsNil)
+		c.Assert(unit.Life(), Equals, state.Dying)
+		assertUnitLife(c, unit, state.Dying)
+	}
 }
 
-func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
-	// A unit assigned to a provisioned machine is set to Dying.
+func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *C) {
+	// A unit assigned to a provisioned machine is still removed directly.
 	err := s.unit.AssignToNewMachine()
 	c.Assert(err, IsNil)
 	mid, err := s.unit.AssignedMachineId()
@@ -377,7 +465,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitLife(c, s.unit.Name(), state.Dying)
+	assertUnitRemoved(c, s.unit)
 }
 
 func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
@@ -410,11 +498,15 @@ func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
 func (s *UnitSuite) assertUnitLife(c *C, name string, life state.Life) {
 	unit, err := s.State.Unit(name)
 	c.Assert(err, IsNil)
+	assertUnitLife(c, unit, life)
+}
+
+func assertUnitLife(c *C, unit *state.Unit, life state.Life) {
 	c.Assert(unit.Refresh(), IsNil)
 	c.Assert(unit.Life(), Equals, life)
 }
 
-func (s *UnitSuite) assertUnitRemoved(c *C, unit *state.Unit) {
+func assertUnitRemoved(c *C, unit *state.Unit) {
 	err := unit.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = unit.Destroy()
@@ -440,7 +532,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
@@ -684,7 +776,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	testWhenDying(c, s.unit, noErr, deadErr, func() error {
 		return s.unit.OpenPort("tcp", 20)
 	}, func() error {
@@ -693,7 +785,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
@@ -920,7 +1012,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	w := s.unit.Watch()
 	defer AssertStop(c, w)
 

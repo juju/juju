@@ -59,9 +59,9 @@ func (s *Service) Name() string {
 	return s.doc.Name
 }
 
-// TAg returns a name identifying the service that is safe to use
+// Tag returns a name identifying the service that is safe to use
 // as a file name.  The returned name will be different from other
-// TAg values returned by any other entities from the same state.
+// Tag values returned by any other entities from the same state.
 func (s *Service) Tag() string {
 	return "service-" + s.Name()
 }
@@ -107,17 +107,16 @@ func (s *Service) Destroy() (err error) {
 	}()
 	svc := &Service{st: s.st, doc: s.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := svc.destroyOps()
-		switch {
-		case err == errRefresh:
-		case err == errAlreadyDying:
+		switch ops, err := svc.destroyOps(); err {
+		case errRefresh:
+		case errAlreadyDying:
 			return nil
-		case err != nil:
-			return err
-		default:
+		case nil:
 			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
+		default:
+			return err
 		}
 		if err := svc.Refresh(); errors.IsNotFoundError(err) {
 			return nil
@@ -185,6 +184,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 	// about is that *some* unit is, or is not, keeping the service from
 	// being removed: the difference between 1 unit and 1000 is irrelevant.
 	if s.doc.UnitCount > 0 {
+		ops = append(ops, s.st.newCleanupOp("units", s.doc.Name+"/"))
 		notLastRefs = append(notLastRefs, D{{"unitcount", D{{"$gt", 0}}}}...)
 	} else {
 		notLastRefs = append(notLastRefs, D{{"unitcount", 0}}...)
@@ -639,10 +639,14 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
 		})
 	}
+	observedFieldsMatch := D{
+		{"charmurl", u.doc.CharmURL},
+		{"machineid", u.doc.MachineId},
+	}
 	ops = append(ops, txn.Op{
 		C:      s.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: asserts,
+		Assert: append(observedFieldsMatch, asserts...),
 		Remove: true,
 	},
 		removeConstraintsOp(s.st, u.globalKey()),
@@ -651,7 +655,9 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 	)
 	if u.doc.CharmURL != nil {
 		decOps, err := settingsDecRefOps(s.st, s.doc.Name, u.doc.CharmURL)
-		if err != nil {
+		if errors.IsNotFoundError(err) {
+			return nil, errRefresh
+		} else if err != nil {
 			return nil, err
 		}
 		ops = append(ops, decOps...)
@@ -823,7 +829,9 @@ func settingsIncRefOp(st *State, serviceName string, curl *charm.URL, canCreate 
 func settingsDecRefOps(st *State, serviceName string, curl *charm.URL) ([]txn.Op, error) {
 	key := serviceSettingsKey(serviceName, curl)
 	var doc settingsRefsDoc
-	if err := st.settingsrefs.FindId(key).One(&doc); err != nil {
+	if err := st.settingsrefs.FindId(key).One(&doc); err == mgo.ErrNotFound {
+		return nil, errors.NotFoundf("service %q settings for charm %q", serviceName, curl)
+	} else if err != nil {
 		return nil, err
 	}
 	if doc.RefCount == 1 {

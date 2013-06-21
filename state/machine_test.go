@@ -118,7 +118,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 }
 
 func (s *MachineSuite) TestDestroyAbort(c *C) {
-	defer state.SetBeforeHook(c, s.State, func() {
+	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.machine.Destroy(), IsNil)
 	})()
 	err := s.machine.Destroy()
@@ -131,7 +131,7 @@ func (s *MachineSuite) TestDestroyCancel(c *C) {
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 
-	defer state.SetBeforeHook(c, s.State, func() {
+	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(unit.AssignToMachine(s.machine), IsNil)
 	})()
 	err = s.machine.Destroy()
@@ -172,7 +172,7 @@ func (s *MachineSuite) TestRemoveAbort(c *C) {
 	err := s.machine.EnsureDead()
 	c.Assert(err, IsNil)
 
-	defer state.SetBeforeHook(c, s.State, func() {
+	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.machine.Remove(), IsNil)
 	})()
 	err = s.machine.Remove()

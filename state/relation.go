@@ -7,7 +7,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	errors "launchpad.net/juju-core/errors"
@@ -208,16 +207,8 @@ func (r *Relation) removeOps(ignoreService string, departingUnit *Unit) ([]txn.O
 			Update: D{{"$inc", D{{"relationcount", -1}}}},
 		})
 	}
-	cDoc := &cleanupDoc{
-		Id:     bson.NewObjectId(),
-		Kind:   "settings",
-		Prefix: fmt.Sprintf("r#%d#", r.Id()),
-	}
-	return append(ops, txn.Op{
-		C:      r.st.cleanups.Name,
-		Id:     cDoc.Id,
-		Insert: cDoc,
-	}), nil
+	cleanupOp := r.st.newCleanupOp("settings", fmt.Sprintf("r#%d#", r.Id()))
+	return append(ops, cleanupOp), nil
 }
 
 // Id returns the integer internal relation key. This is exposed

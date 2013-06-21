@@ -41,10 +41,28 @@ func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) (
 	}
 }
 
-// SetBeforeHook uses SetTransactionHooks to queue a single function to be run
-// immediately before the next transaction.
-func SetBeforeHook(c *C, st *State, f func()) (checkRan func()) {
-	return SetTransactionHooks(c, st, TransactionHook{Before: f})
+// SetBeforeHooks uses SetTransactionHooks to queue N functions to be run
+// immediately before the next N transactions. Nil values are accepted, and
+// useful, in that they can be used to ensure that a transaction is run at
+// the expected time, without having to make any changes or assert any state.
+func SetBeforeHooks(c *C, st *State, fs ...func()) (checkRan func()) {
+	transactionHooks := make([]TransactionHook, len(fs))
+	for i, f := range fs {
+		transactionHooks[i] = TransactionHook{Before: f}
+	}
+	return SetTransactionHooks(c, st, transactionHooks...)
+}
+
+// SetRetryHooks uses SetTransactionHooks to inject a block function designed
+// to disrupt a transaction built against recent state, and a check function
+// designed to verify that the replacement transaction against the new state
+// has been applied as expected.
+func SetRetryHooks(c *C, st *State, block, check func()) (checkRan func()) {
+	return SetTransactionHooks(c, st, TransactionHook{
+		Before: block,
+	}, TransactionHook{
+		After: check,
+	})
 }
 
 // TestingInitialize initializes the state and returns it. If state was not
