@@ -4,6 +4,7 @@
 package api
 
 import (
+	"launchpad.net/juju-core/state/api/machineagent"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -28,4 +29,10 @@ func (st *State) Client() *Client {
 // required by the machiner worker.
 func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// MachineAgent returns a version of the state that provides
+// functionality required by the machine agent code.
+func (st *State) MachineAgent() *machineagent.State {
+	return machineagent.NewState(st)
 }
