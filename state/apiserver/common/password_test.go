@@ -37,7 +37,8 @@ func (passwordSuite) TestSetPasswords(c *C) {
 		return tag != "x0"
 	})
 	var changes []params.PasswordChange
-	for tag := range st.entities {
+	for i := 0; i < 4; i++ {
+		tag := fmt.Sprintf("x%d", i)
 		changes = append(changes, params.PasswordChange{
 			Tag:      tag,
 			Password: fmt.Sprintf("%spass", tag),
