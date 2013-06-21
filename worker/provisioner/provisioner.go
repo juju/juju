@@ -6,6 +6,7 @@ package provisioner
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"launchpad.net/golxc"
 	"launchpad.net/juju-core/environs"
@@ -128,6 +129,8 @@ func (p *Provisioner) loop() error {
 func (p *Provisioner) getMachine() (*state.Machine, error) {
 	if p.machine == nil {
 		var err error
+		// Give the machiner time to have actually started up and signed in to set tools.
+		time.Sleep(1 * time.Second)
 		if p.machine, err = p.st.Machine(p.machineId); err != nil {
 			logger.Errorf("machine %s is not in state", p.machineId)
 			return nil, err
