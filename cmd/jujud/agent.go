@@ -140,7 +140,6 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 }
 
 func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
-	log.Infof("agent: openAPIState; api password %q; oldpassword: %q", c.APIInfo.Password, c.OldPassword)
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
@@ -170,7 +169,6 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 	apiInfo := *c.APIInfo
 	c1.APIInfo = &apiInfo
 
-	c1.OldPassword = c1.StateInfo.Password
 	c1.StateInfo.Password = newPassword
 	c1.APIInfo.Password = newPassword
 	if err := c1.Write(); err != nil {
@@ -219,7 +217,6 @@ func (c *closeWorker) Kill() {
 
 func (c *closeWorker) Wait() error {
 	err := c.worker.Wait()
-	log.Infof("closeWorker: worker %T finished with error %v", c.worker, err)
 	if err := c.closer.Close(); err != nil {
 		log.Errorf("closeWorker: close error: %v", err)
 	}

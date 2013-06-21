@@ -11,9 +11,9 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/machineagent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -101,29 +101,12 @@ func runWithTimeout(r runner) error {
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
 
-// runStop runs an agent, immediately stops it,
-// and returns the resulting error status.
-func runStop(r runner) error {
-	done := make(chan error, 1)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	time.Sleep(2 * time.Second)
-	go func() {
-		done <- r.Stop()
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(5 * time.Second):
-	}
-	return fmt.Errorf("timed out waiting for agent to finish")
-}
-
 type entity interface {
 	state.Tagger
 	SetMongoPassword(string) error
 	SetPassword(string) error
+	PasswordValid(string) bool
+	Refresh() error
 }
 
 // agentSuite is a fixture to be used by agent test suites.
@@ -200,59 +183,67 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
 	return tools
 }
 
-func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
+func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, IsNil)
 
 	// Check that it starts initially and changes the password
-	err = ent.SetMongoPassword("initial")
-	c.Assert(err, IsNil)
 	err = ent.SetPassword("initial")
 	c.Assert(err, IsNil)
 
-	setOldPassword := func(password string) {
-		conf.OldPassword = password
-		err = conf.Write()
-		c.Assert(err, IsNil)
-	}
-	setOldPassword("initial")
-	err = runStop(newAgent())
+	conf.OldPassword = "initial"
+	conf.APIInfo.Password = ""
+	conf.StateInfo.Password = ""
+	err = conf.Write()
 	c.Assert(err, IsNil)
 
-	// Check that we can no longer gain access with the initial password.
-	info := s.StateInfo(c)
-	info.Tag = ent.Tag()
-	info.Password = "initial"
-	testOpenState(c, info, errors.Unauthorizedf(""))
+	assertOpen := func(conf *agent.Conf) {
+		st, gotEnt, err := openAPIState(conf, agentCmd)
+		c.Assert(err, IsNil)
+		c.Assert(st, NotNil)
+		st.Close()
+		c.Assert(gotEnt.(*machineagent.Machine).Tag(), Equals, ent.Tag())
+	}
+	assertOpen(conf)
+
+	// Check that the initial password is no longer valid.
+	err = ent.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(ent.PasswordValid("initial"), Equals, false)
+
+	// Check that the passwords in the configuration are correct.
+	c.Assert(ent.PasswordValid(conf.APIInfo.Password), Equals, true)
+	c.Assert(conf.StateInfo.Password, Equals, conf.APIInfo.Password)
+	c.Assert(conf.OldPassword, Equals, "initial")
+
+	// Read the configuration and check the same
+	c.Assert(refreshConfig(conf), IsNil)
+	c.Assert(ent.PasswordValid(conf.APIInfo.Password), Equals, true)
+	c.Assert(conf.StateInfo.Password, Equals, conf.APIInfo.Password)
+	c.Assert(conf.OldPassword, Equals, "initial")
 
 	// Read the configuration and check that we can connect with it.
 	c.Assert(refreshConfig(conf), IsNil)
+
+	// Check we can open the API with the new configuration.
+	assertOpen(conf)
+
 	newPassword := conf.StateInfo.Password
-
-	testOpenState(c, conf.StateInfo, nil)
-
-	// Check that it starts again ok
-	err = runStop(newAgent())
-	c.Assert(err, IsNil)
 
 	// Change the password in the configuration and check
 	// that it falls back to using the initial password
 	c.Assert(refreshConfig(conf), IsNil)
-
 	conf.APIInfo.Password = "spurious"
 	conf.OldPassword = newPassword
 	c.Assert(conf.Write(), IsNil)
+	assertOpen(conf)
 
-	err = runStop(newAgent())
-	c.Assert(err, IsNil)
-
-	// Check that it's changed the password again
-	c.Assert(refreshConfig(conf), IsNil)
+	// Check that it's changed the password again...
 	c.Assert(conf.APIInfo.Password, Not(Equals), "spurious")
 	c.Assert(conf.APIInfo.Password, Not(Equals), newPassword)
 
-	info.Password = conf.APIInfo.Password
-	testOpenState(c, info, nil)
+	// ... and that we can still open the state with the new configuration.
+	assertOpen(conf)
 }
 
 func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) {

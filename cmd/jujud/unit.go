@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker"
@@ -75,7 +74,6 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // Workers returns a worker that runs the unit agent workers.
 func (a *UnitAgent) Workers() (worker.Worker, error) {
-	log.Infof("unit agent opening start and starting workers")
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err

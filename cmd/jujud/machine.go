@@ -59,6 +59,7 @@ func (a *MachineAgent) Init(args []string) error {
 	return nil
 }
 
+// Wait waits for the machine agent to finish.
 func (a *MachineAgent) Wait() error {
 	return a.tomb.Wait()
 }
@@ -72,7 +73,7 @@ func (a *MachineAgent) Stop() error {
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
-	log.Infof("machine agent start; tag %v", a.Tag())
+	log.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
@@ -103,13 +104,10 @@ var stateJobs = map[params.MachineJob]bool{
 }
 
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
-	log.Infof("opening api state with conf %#v", a.Conf.Conf)
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
-		log.Infof("open api failure: %v", err)
 		return nil, err
 	}
-	log.Infof("open api success")
 	m := entity.(*machineagent.Machine)
 	needsStateWorker := false
 	for _, job := range m.Jobs() {
