@@ -129,21 +129,58 @@ func (env *azureEnviron) Provider() environs.EnvironProvider {
 	panic("unimplemented")
 }
 
-// TODO: Temporarily deactivating this code.  Passing certificate in-memory
-// may require gwacl change.
-/*
+// azureManagementContext wraps two things: a gwacl.ManagementAPI (effectively
+// a session on the Azure management API) and a tempCertFile, which keeps track
+// of the temporary certificate file that needs to be deleted once we're done
+// with this particular session.
+// Since it embeds *gwacl.ManagementAPI, you can use it much as if it were a
+// pointer to a ManagementAPI object.  Just don't forget to release it after
+// use.
+type azureManagementContext struct {
+	*gwacl.ManagementAPI
+	certFile *tempCertFile
+}
+
 // getManagementAPI obtains a context object for interfacing with Azure's
 // management API.
 // For now, each invocation just returns a separate object.  This is probably
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
-func (env *azureEnviron) getManagementAPI() (*gwacl.ManagementAPI, error) {
+func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	snap := env.getSnapshot()
 	subscription := snap.ecfg.ManagementSubscriptionId()
-	cert := snap.ecfg.ManagementCertificate()
-	return gwacl.NewManagementAPI(subscription, cert)
+	certData := snap.ecfg.ManagementCertificate()
+	certFile, err := newTempCertFile([]byte(certData))
+	if err != nil {
+		return nil, err
+	}
+	// After this point, if we need to leave prematurely, we should clean
+	// up that certificate file.
+	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	if err != nil {
+		certFile.Delete()
+		return nil, err
+	}
+	context := azureManagementContext{
+		ManagementAPI: mgtAPI,
+		certFile:      certFile,
+	}
+	return &context, nil
 }
-*/
+
+// releaseManagementAPI frees up a context object obtained through
+// getManagementAPI.
+func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
+	// Be tolerant to incomplete context objects, in case we ever get
+	// called during cleanup of a failed attempt to create one.
+	if context == nil || context.certFile == nil {
+		return
+	}
+	// For now, all that needs doing is to delete the temporary certificate
+	// file.  We may do cleverer things later, such as connection pooling
+	// where this method returns a context to the pool.
+	context.certFile.Delete()
+}
 
 // getStorageContext obtains a context object for interfacing with Azure's
 // storage API.

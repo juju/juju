@@ -646,6 +646,7 @@ func addRU(c *C, svc *state.Service, rel *state.Relation, principal *state.Unit)
 		}
 		c.Assert(u, NotNil)
 	}
+	preventUnitDestroyRemove(c, u)
 	ru, err := rel.Unit(u)
 	c.Assert(err, IsNil)
 	return u, ru
