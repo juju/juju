@@ -208,6 +208,18 @@ type ServiceDestroy struct {
 	ServiceName string
 }
 
+// PasswordChanges holds the parameters for making a SetPasswords call.
+type PasswordChanges struct {
+	Changes []PasswordChange
+}
+
+// PasswordChange specifies a password change for the entity
+// with the given tag.
+type PasswordChange struct {
+	Tag      string
+	Password string
+}
+
 // Creds holds credentials for identifying an entity.
 type Creds struct {
 	AuthTag  string
