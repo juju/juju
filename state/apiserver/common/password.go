@@ -1,3 +1,6 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package common
 
 import (
@@ -6,8 +9,12 @@ import (
 )
 
 type PasswordChanger struct {
-	st        *state.State
+	st        authGetter
 	canChange func(tag string) bool
+}
+
+type authGetter interface {
+	Authenticator(tag string) (state.TaggedAuthenticator, error)
 }
 
 func NewPasswordChanger(st *state.State, canChange func(tag string) bool) *PasswordChanger {
