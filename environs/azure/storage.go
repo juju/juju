@@ -7,6 +7,7 @@ import (
 	"io"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 )
 
 type azureStorage struct {
@@ -50,7 +51,11 @@ func (storage *azureStorage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	return context.GetBlob(storage.getContainer(), name)
+	reader, err := context.GetBlob(storage.getContainer(), name)
+	if gwacl.IsNotFoundError(err) {
+		return nil, errors.NotFoundf("file '%s' not found", name)
+	}
+	return reader, err
 }
 
 // List is specified in the StorageReader interface.

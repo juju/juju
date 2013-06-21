@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 	"net/http"
 	"strings"
 )
@@ -145,14 +146,21 @@ func (StorageSuite) TestGet(c *C) {
 	c.Check(string(data), Equals, blobContent)
 }
 
+func (StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
+	container := "container"
+	filename := "blobname"
+	response := makeResponse("not found", http.StatusNotFound)
+	azStorage, _ := makeAzureStorage(response, container)
+	_, err := azStorage.Get(filename)
+	c.Assert(err, NotNil)
+	c.Check(errors.IsNotFoundError(err), Equals, true)
+}
+
 func (StorageSuite) TestPut(c *C) {
 	blobContent := "test blob"
 	container := "container"
 	filename := "blobname"
-	response := &http.Response{
-		Status:     fmt.Sprintf("%d", http.StatusCreated),
-		StatusCode: http.StatusCreated,
-	}
+	response := makeResponse("", http.StatusCreated)
 	azStorage, transport := makeAzureStorage(response, container)
 	err := azStorage.Put(filename, strings.NewReader(blobContent), 10)
 	c.Assert(err, IsNil)
@@ -165,10 +173,7 @@ func (StorageSuite) TestPut(c *C) {
 func (StorageSuite) TestRemove(c *C) {
 	container := "container"
 	filename := "blobname"
-	response := &http.Response{
-		Status:     fmt.Sprintf("%d", http.StatusAccepted),
-		StatusCode: http.StatusAccepted,
-	}
+	response := makeResponse("", http.StatusAccepted)
 	azStorage, transport := makeAzureStorage(response, container)
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
@@ -177,4 +182,13 @@ func (StorageSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	c.Check(transport.Request.Method, Equals, "DELETE")
+}
+
+func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
+	container := "container"
+	filename := "blobname"
+	response := makeResponse("", http.StatusNotFound)
+	azStorage, _ := makeAzureStorage(response, container)
+	err := azStorage.Remove(filename)
+	c.Assert(err, IsNil)
 }
