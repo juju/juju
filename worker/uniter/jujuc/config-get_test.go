@@ -18,7 +18,12 @@ type ConfigGetSuite struct {
 
 var _ = Suite(&ConfigGetSuite{})
 
-var configGetYamlMap = "monsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
+var (
+	configGetYamlMap    = "monsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
+	configGetYamlMapAll = "empty: null\nmonsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
+	configGetJsonMap    = `{"monsters":false,"spline-reticulation":45,"title":"My Title","username":"admin001"}` + "\n"
+	configGetJsonMapAll = `{"empty":null,"monsters":false,"spline-reticulation":45,"title":"My Title","username":"admin001"}` + "\n"
+)
 
 var configGetTests = []struct {
 	args []string
@@ -35,7 +40,9 @@ var configGetTests = []struct {
 	{[]string{"--format", "json", "missing"}, "null\n"},
 	{nil, configGetYamlMap},
 	{[]string{"--format", "yaml"}, configGetYamlMap},
-	{[]string{"--format", "json"}, `{"monsters":false,"spline-reticulation":45,"title":"My Title","username":"admin001"}` + "\n"},
+	{[]string{"--format", "json"}, configGetJsonMap},
+	{[]string{"--all", "--format", "yaml"}, configGetYamlMapAll},
+	{[]string{"--all", "--format", "json"}, configGetJsonMapAll},
 }
 
 func (s *ConfigGetSuite) TestOutputFormat(c *C) {
@@ -63,6 +70,8 @@ func (s *ConfigGetSuite) TestHelp(c *C) {
 purpose: print service configuration
 
 options:
+-a, --all  (= false)
+    write also keys without values
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")

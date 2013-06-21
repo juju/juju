@@ -99,6 +99,7 @@ func (c *Context) ClosePort(protocol string, port int) error {
 
 func (c *Context) ConfigSettings() (charm.Settings, error) {
 	return charm.Settings{
+		"empty":               nil,
 		"monsters":            false,
 		"spline-reticulation": 45.0,
 		"title":               "My Title",
