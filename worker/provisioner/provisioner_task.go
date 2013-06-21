@@ -21,7 +21,6 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
-	String() string
 }
 
 type Watcher interface {
@@ -35,7 +34,6 @@ type MachineGetter interface {
 }
 
 func NewProvisionerTask(
-	name string,
 	machineId string,
 	machineGetter MachineGetter,
 	watcher Watcher,
@@ -43,7 +41,6 @@ func NewProvisionerTask(
 	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		name:           name,
 		machineId:      machineId,
 		machineGetter:  machineGetter,
 		machineWatcher: watcher,
@@ -59,7 +56,6 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	name           string
 	machineId      string
 	machineGetter  MachineGetter
 	machineWatcher Watcher
@@ -94,10 +90,6 @@ func (task *provisionerTask) Dying() <-chan struct{} {
 
 func (task *provisionerTask) Err() error {
 	return task.tomb.Err()
-}
-
-func (task *provisionerTask) String() string {
-	return task.name
 }
 
 func (task *provisionerTask) loop() error {

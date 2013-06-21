@@ -4,8 +4,10 @@
 package provisioner
 
 import (
+	"fmt"
 	"sync"
 
+	"launchpad.net/golxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -15,12 +17,23 @@ import (
 	"launchpad.net/tomb"
 )
 
-var logger = loggo.GetLogger("juju.provisioner")
+type ProvisionerType string
+
+var (
+	logger = loggo.GetLogger("juju.provisioner")
+
+	// ENVIRON provisioners create machines from the environment
+	ENVIRON ProvisionerType = "environ"
+	// LXC provisioners create lxc containers on their parent machine
+	LXC ProvisionerType = "lxc"
+)
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
+	pt        ProvisionerType
 	st        *state.State
 	machineId string // Which machine runs the provisioner.
+	machine   *state.Machine
 	environ   environs.Environ
 	tomb      tomb.Tomb
 
@@ -44,8 +57,9 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(st *state.State, machineId string) *Provisioner {
+func NewProvisioner(pt ProvisionerType, st *state.State, machineId string) *Provisioner {
 	p := &Provisioner{
+		pt:        pt,
 		st:        st,
 		machineId: machineId,
 	}
@@ -75,14 +89,11 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher := p.st.WatchEnvironMachines()
-	environmentBroker := newEnvironBroker(p.environ)
 	environmentProvisioner := NewProvisionerTask(
-		"environ provisioner for machine "+p.machineId,
 		p.machineId,
 		p.st,
-		machinesWatcher,
-		environmentBroker,
+		p.getWatcher(),
+		p.getBroker(),
 		auth)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
@@ -104,6 +115,48 @@ func (p *Provisioner) loop() error {
 		}
 	}
 	panic("not reached")
+}
+
+func (p *Provisioner) getMachine() *state.Machine {
+	if p.machine == nil {
+		var err error
+		if p.machine, err = p.st.Machine(p.machineId); err != nil {
+			logger.Errorf("machine %s is not in state", p.machineId)
+		}
+	}
+	return p.machine
+}
+
+func (p *Provisioner) getWatcher() Watcher {
+	switch p.pt {
+	case ENVIRON:
+		return p.st.WatchEnvironMachines()
+	case LXC:
+		machine := p.getMachine()
+		return machine.WatchContainers(state.LXC)
+	}
+	return nil
+}
+
+func (p *Provisioner) getBroker() Broker {
+	switch p.pt {
+	case ENVIRON:
+		return newEnvironBroker(p.environ)
+	case LXC:
+		machine := p.getMachine()
+		config, err := p.st.EnvironConfig()
+		if err != nil {
+			logger.Errorf("cannot get environ config for lxc broker")
+			return nil
+		}
+		tools, err := machine.AgentTools()
+		if err != nil {
+			logger.Errorf("cannot get tools from machine for lxc broker")
+			return nil
+		}
+		return NewLxcBroker(golxc.Factory(), config, tools)
+	}
+	return nil
 }
 
 // setConfig updates the environment configuration and notifies
@@ -133,7 +186,7 @@ func (p *Provisioner) Wait() error {
 }
 
 func (p *Provisioner) String() string {
-	return "provisioning worker"
+	return fmt.Sprintf("%s provisioning worker for machine %s", string(p.pt), p.machineId)
 }
 
 // Stop stops the Provisioner and returns any error encountered while

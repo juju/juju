@@ -235,13 +235,17 @@ func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instanc
 	})
 }
 
+func (s *ProvisionerSuite) newEnvironProvisioner(machineId string) *provisioner.Provisioner {
+	return provisioner.NewProvisioner(provisioner.ENVIRON, s.State, machineId)
+}
+
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	c.Assert(p.Stop(), IsNil)
 }
 
 func (s *ProvisionerSuite) TestSimple(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// Check that an instance is provisioned when the machine is created...
@@ -264,14 +268,14 @@ func (s *ProvisionerSuite) TestConstraints(c *C) {
 	c.Assert(err, IsNil)
 
 	// Start a provisioner and check those constraints are used.
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 	s.checkStartInstanceCustom(c, m, "pork", cons)
 }
 
 func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed(c *C) {
 	brokenMsg := breakDummyProvider(c, s.State, "StartInstance")
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created...
@@ -291,13 +295,13 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 
 	// Restart the PA to make sure the machine is skipped again.
 	stop(c, p)
-	p = provisioner.NewProvisioner(s.State, "0")
+	p = s.newEnvironProvisioner("0")
 	defer stop(c, p)
 	s.checkNoOperations(c)
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// create a machine to host the container.
@@ -330,7 +334,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 	err := s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// try to create a machine
@@ -345,7 +349,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	err := s.invalidateEnvironment(c)
 	c.Assert(err, IsNil)
 
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// try to create a machine
@@ -362,7 +366,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPublished(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// place a new machine into the state
@@ -383,7 +387,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 }
 
 func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRestart(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// create a machine
@@ -393,7 +397,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 
 	// restart the PA
 	stop(c, p)
-	p = provisioner.NewProvisioner(s.State, "0")
+	p = s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// check that there is only one machine known
@@ -407,7 +411,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 }
 
 func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// create a machine
@@ -429,14 +433,14 @@ func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *C) {
 	c.Assert(m1.Remove(), IsNil)
 
 	// start a new provisioner to shut them both down
-	p = provisioner.NewProvisioner(s.State, "0")
+	p = s.newEnvironProvisioner("0")
 	defer stop(c, p)
 	s.checkStopInstances(c, i0, i1)
 	s.waitRemoved(c, m0)
 }
 
 func (s *ProvisionerSuite) TestDyingMachines(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// provision a machine
@@ -456,7 +460,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *C) {
 	c.Assert(err, IsNil)
 
 	// start the provisioner and wait for it to reap the useless machine
-	p = provisioner.NewProvisioner(s.State, "0")
+	p = s.newEnvironProvisioner("0")
 	defer stop(c, p)
 	s.checkNoOperations(c)
 	s.waitRemoved(c, m1)
@@ -468,7 +472,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *C) {
 }
 
 func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublished(c *C) {
-	p := provisioner.NewProvisioner(s.State, "0")
+	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// place a new machine into the state

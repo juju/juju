@@ -113,6 +113,12 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 		NewUpgrader(st, m, dataDir),
 		machiner.NewMachiner(st, m.Id()),
 	}
+	// At this stage, since we don't embed lxc containers, just start an lxc
+	// provisioner task for non-lxc containers.
+	if m.ContainerType() != state.LXC {
+		tasks = append(tasks,
+			provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId))
+	}
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
@@ -120,7 +126,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 				newDeployer(st, m.WatchPrincipalUnits(), dataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
-				provisioner.NewProvisioner(st, a.MachineId),
+				provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId),
 				firewaller.NewFirewaller(st))
 		case state.JobManageState:
 			// Ignore because it's started independently.
