@@ -117,3 +117,13 @@ func MachineIdLessThan(id1, id2 string) bool {
 func init() {
 	logSize = logSizeTests
 }
+
+// MinimumUnitsRevno returns the Revno of the minimumUnits document
+// associated with the given service name.
+func MinimumUnitsRevno(st *State, serviceName string) (int, error) {
+	var doc minimumUnitsDoc
+	if err := st.minimumUnits.FindId(serviceName).One(&doc); err != nil {
+		return 0, err
+	}
+	return doc.Revno, nil
+}
