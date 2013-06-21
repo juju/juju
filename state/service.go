@@ -38,6 +38,7 @@ type serviceDoc struct {
 	UnitCount     int
 	RelationCount int
 	Exposed       bool
+	MinimumUnits  int
 	TxnRevno      int64 `bson:"txn-revno"`
 }
 
