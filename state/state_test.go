@@ -951,6 +951,9 @@ func (s *StateSuite) TestWatchMachineMetadata(c *C) {
 	c.Assert(err, IsNil)
 	w, err := machine.WatchMetadata()
 	c.Assert(err, IsNil)
+	// Consume the first watcher sync event
+	_, ok := <-w.Changes()
+	c.Assert(ok, Equals, true)
 	defer stop(c, w)
 
 	// Provision a machine: reported.
