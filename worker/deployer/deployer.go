@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
+	"fmt"
 )
 
 // Deployer is responsible for deploying and recalling unit agents, according
@@ -129,8 +130,11 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if err != nil {
 		return err
 	}
+	if err := unit.SetPassword(initialPassword); err != nil {
+		return fmt.Errorf("cannot set password for unit %q: %v", unit, err)
+	}
 	if err := unit.SetMongoPassword(initialPassword); err != nil {
-		return err
+		return fmt.Errorf("cannot set mongo password for unit %q: %v", unit, err)
 	}
 	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
 		return err

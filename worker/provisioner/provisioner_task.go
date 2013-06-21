@@ -359,8 +359,11 @@ func (task *provisionerTask) setupAuthentication(machine *state.Machine) (*state
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
 	}
+	if err := machine.SetPassword(password); err != nil {
+		return nil, nil, fmt.Errorf("cannot set mongo password for machine %v: %v", machine, err)
+	}
 	if err := machine.SetMongoPassword(password); err != nil {
-		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", machine, err)
+		return nil, nil, fmt.Errorf("cannot set mongo password for machine %v: %v", machine, err)
 	}
 	stateInfo := *task.stateInfo
 	stateInfo.Tag = machine.Tag()
