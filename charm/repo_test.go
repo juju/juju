@@ -531,3 +531,13 @@ func (s *LocalRepoSuite) TestIgnoresUnpromisingNames(c *C) {
 	s.checkNotFoundErr(c, err, charmURL)
 	c.Assert(c.GetTestLog(), Equals, "")
 }
+
+func (s *LocalRepoSuite) TestFindsSymlinks(c *C) {
+	realPath := testing.Charms.ClonedDirPath(c.MkDir(), "dummy")
+	linkPath := filepath.Join(s.seriesPath, "dummy")
+	err := os.Symlink(realPath, linkPath)
+	c.Assert(err, IsNil)
+	ch, err := s.repo.Get(charm.MustParseURL("local:series/dummy"))
+	c.Assert(err, IsNil)
+	checkDummy(c, ch, linkPath)
+}

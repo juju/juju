@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -334,7 +335,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	defer conn.Close()
 
 	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env)
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
 	c.Assert(err, IsNil)
 	defer conn.Close()
 

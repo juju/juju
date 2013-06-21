@@ -174,7 +174,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	tools := *t
@@ -198,7 +198,7 @@ func (u *Unit) SetPassword(password string) error {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -234,7 +234,7 @@ func (u *Unit) Destroy() (err error) {
 		case err != nil:
 			return err
 		default:
-			if err := unit.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
 		}
@@ -339,7 +339,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: D{{"$set", D{{"life", Dead}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
@@ -368,7 +368,7 @@ func (u *Unit) Remove() (err error) {
 		if err != nil {
 			return err
 		}
-		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 		if err := svc.Refresh(); errors.IsNotFoundError(err) {
@@ -464,7 +464,7 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 	},
 		updateStatusOp(u.st, u.globalKey(), doc),
 	}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -481,7 +481,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$addToSet", D{{"ports", port}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
@@ -507,7 +507,7 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$pull", D{{"ports", port}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
@@ -590,7 +590,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			}
 			ops = append(ops, decOps...)
 		}
-		if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 	}
@@ -739,7 +739,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Assert: massert,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}, {"$set", D{{"clean", false}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
 		m.doc.Clean = false
@@ -813,7 +813,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Assert: append(isAliveDoc, isUnassigned...),
 		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
 	})
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
 		return nil
@@ -899,7 +899,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -915,8 +915,8 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("machine")))
+	if err := u.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -927,12 +927,12 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: txn.DocExists,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, errors.NotFoundf("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -978,7 +978,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err == nil {
+	if err := u.st.runTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1001,7 +1001,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}
