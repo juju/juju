@@ -1055,7 +1055,7 @@ func (s *ServiceSuite) assertDestroyWithReferencedRelation(c *C, refresh bool) {
 func (s *ServiceSuite) TestDestroyQueuesUnitCleanup(c *C) {
 	// Add 5 units; block quick-remove of mysql/1 and mysql/3
 	units := make([]*state.Unit, 5)
-	for i := 0; i < 5; i++ {
+	for i := range units {
 		unit, err := s.mysql.AddUnit()
 		c.Assert(err, IsNil)
 		units[i] = unit

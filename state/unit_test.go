@@ -159,7 +159,7 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.unit.Destroy(), IsNil)
-	})()
+	}).Check()
 	err = s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
@@ -176,7 +176,7 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.unit.Destroy(), IsNil)
-	})()
+	}).Check()
 	err = s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
@@ -334,7 +334,7 @@ func (s *UnitSuite) TestDestroySetStatusRetry(c *C) {
 		c.Assert(err, IsNil)
 	}, func() {
 		assertUnitLife(c, s.unit, state.Dying)
-	})()
+	}).Check()
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -345,7 +345,7 @@ func (s *UnitSuite) TestDestroySetCharmRetry(c *C) {
 		c.Assert(err, IsNil)
 	}, func() {
 		assertUnitRemoved(c, s.unit)
-	})()
+	}).Check()
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -362,7 +362,7 @@ func (s *UnitSuite) TestDestroyChangeCharmRetry(c *C) {
 		c.Assert(err, IsNil)
 	}, func() {
 		assertUnitRemoved(c, s.unit)
-	})()
+	}).Check()
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -375,12 +375,12 @@ func (s *UnitSuite) TestDestroyAssignRetry(c *C) {
 		err := s.unit.AssignToMachine(machine)
 		c.Assert(err, IsNil)
 	}, func() {
-		// Check the unit was properly removed from the machine.
-		err := machine.Destroy()
-		c.Assert(err, IsNil)
 		assertUnitRemoved(c, s.unit)
-	},
-	)()
+		// Also check the unit ref was properly removed from the machine doc --
+		// if it weren't, we wouldn't be able to make the machine Dead.
+		err := machine.EnsureDead()
+		c.Assert(err, IsNil)
+	}).Check()
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -396,7 +396,7 @@ func (s *UnitSuite) TestDestroyUnassignRetry(c *C) {
 		c.Assert(err, IsNil)
 	}, func() {
 		assertUnitRemoved(c, s.unit)
-	})()
+	}).Check()
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -453,7 +453,8 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *C) {
 }
 
 func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *C) {
-	// A unit assigned to a provisioned machine is still removed directly.
+	// A unit assigned to a provisioned machine is still removed directly so
+	// long as it has not set status.
 	err := s.unit.AssignToNewMachine()
 	c.Assert(err, IsNil)
 	mid, err := s.unit.AssignedMachineId()

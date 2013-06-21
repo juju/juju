@@ -120,7 +120,7 @@ func (s *MachineSuite) TestLifeJobHostUnits(c *C) {
 func (s *MachineSuite) TestDestroyAbort(c *C) {
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.machine.Destroy(), IsNil)
-	})()
+	}).Check()
 	err := s.machine.Destroy()
 	c.Assert(err, IsNil)
 }
@@ -133,7 +133,7 @@ func (s *MachineSuite) TestDestroyCancel(c *C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(unit.AssignToMachine(s.machine), IsNil)
-	})()
+	}).Check()
 	err = s.machine.Destroy()
 	c.Assert(err, FitsTypeOf, &state.HasAssignedUnitsError{})
 }
@@ -148,7 +148,9 @@ func (s *MachineSuite) TestDestroyContention(c *C) {
 		Before: func() { c.Assert(unit.AssignToMachine(s.machine), IsNil) },
 		After:  func() { c.Assert(unit.UnassignFromMachine(), IsNil) },
 	}
-	defer state.SetTransactionHooks(c, s.State, perturb, perturb, perturb)()
+	defer state.SetTransactionHooks(
+		c, s.State, perturb, perturb, perturb,
+	).Check()
 	err = s.machine.Destroy()
 	c.Assert(err, ErrorMatches, "machine 0 cannot advance lifecycle: state changing too quickly; try again soon")
 }
@@ -174,7 +176,7 @@ func (s *MachineSuite) TestRemoveAbort(c *C) {
 
 	defer state.SetBeforeHooks(c, s.State, func() {
 		c.Assert(s.machine.Remove(), IsNil)
-	})()
+	}).Check()
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }

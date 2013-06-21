@@ -1152,6 +1152,8 @@ type cleanupDoc struct {
 	Prefix string
 }
 
+// newCleanupOp returns a txn.Op that creates a cleanup document with a unique
+// id and the supplied kind and prefix.
 func (st *State) newCleanupOp(kind, prefix string) txn.Op {
 	doc := &cleanupDoc{
 		Id:     bson.NewObjectId(),
