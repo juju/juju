@@ -332,6 +332,33 @@ func (s *UniterSuite) TestUniterStartHook(c *C) {
 	s.runUniterTests(c, startHookTests)
 }
 
+var multipleErrorsTests = []uniterTest{
+	ut(
+		"resolved is cleared before moving on to next hook",
+		createCharm{badHooks: []string{"install", "config-changed", "start"}},
+		serveCharm{},
+		createUniter{},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "install"`,
+		},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "config-changed"`,
+		},
+		resolveError{state.ResolvedNoHooks},
+		waitUnit{
+			status: params.StatusError,
+			info:   `hook failed: "start"`,
+		},
+	),
+}
+
+func (s *UniterSuite) TestUniterMultipleErrors(c *C) {
+	s.runUniterTests(c, startHookTests)
+}
+
 var configChangedHookTests = []uniterTest{
 	ut(
 		"config-changed hook fail and resolve",

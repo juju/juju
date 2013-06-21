@@ -19,7 +19,7 @@ type APIConn struct {
 // NewAPIConn returns a new Conn that uses the
 // given environment. The environment must have already
 // been bootstrapped.
-func NewAPIConn(environ environs.Environ) (*APIConn, error) {
+func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, error) {
 	_, info, err := environ.StateInfo()
 	if err != nil {
 		return nil, err
@@ -31,7 +31,7 @@ func NewAPIConn(environ environs.Environ) (*APIConn, error) {
 	}
 	info.Password = password
 
-	st, err := api.Open(info)
+	st, err := api.Open(info, dialOpts)
 	// TODO(rog): handle errUnauthorized when the API handles passwords.
 	if err != nil {
 		return nil, err

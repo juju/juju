@@ -161,21 +161,31 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
+		assertNoChange()
 	}
 	assertChange(state.ResolvedRetryHooks)
+
+	// Ask for the event again, and check it's resent.
+	f.WantResolvedEvent()
+	assertChange(state.ResolvedRetryHooks)
+
+	// Clear the resolved status *via the filter*; check not resent...
+	err = f.ClearResolved()
+	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// Request a few events, and change the unit a few times; when
-	// we finally receive, only the most recent state is sent.
+	// ...even when requested.
 	f.WantResolvedEvent()
-	err = s.unit.ClearResolved()
+	assertNoChange()
+
+	// Induce several events; only latest state is reported.
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	f.WantResolvedEvent()
+	err = f.ClearResolved()
+	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	f.WantResolvedEvent()
 	assertChange(state.ResolvedNoHooks)
-	assertNoChange()
 }
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {

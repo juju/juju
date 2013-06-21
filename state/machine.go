@@ -32,13 +32,13 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
-	JobServeAPI
+	JobManageState
 )
 
-var jobNames = []string{
-	JobHostUnits:     "JobHostUnits",
-	JobManageEnviron: "JobManageEnviron",
-	JobServeAPI:      "JobServeAPI",
+var jobNames = []params.MachineJob{
+	JobHostUnits:     params.JobHostUnits,
+	JobManageEnviron: params.JobManageEnviron,
+	JobManageState:   params.JobManageState,
 }
 
 func (job MachineJob) String() string {
@@ -46,7 +46,7 @@ func (job MachineJob) String() string {
 	if j <= 0 || j >= len(jobNames) {
 		return fmt.Sprintf("<unknown job %d>", j)
 	}
-	return jobNames[j]
+	return string(jobNames[j])
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.

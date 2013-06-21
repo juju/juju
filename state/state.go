@@ -1223,6 +1223,11 @@ func (st *State) Cleanup() error {
 	return nil
 }
 
+// ResumeTransactions resumes all pending transactions.
+func (st *State) ResumeTransactions() error {
+	return st.runner.ResumeAll()
+}
+
 var tagPrefix = map[byte]string{
 	'm': "machine-",
 	's': "service-",

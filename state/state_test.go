@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"net/url"
-	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -117,7 +116,7 @@ var jobStringTests = []struct {
 }{
 	{state.JobHostUnits, "JobHostUnits"},
 	{state.JobManageEnviron, "JobManageEnviron"},
-	{state.JobServeAPI, "JobServeAPI"},
+	{state.JobManageState, "JobManageState"},
 	{0, "<unknown job 0>"},
 	{5, "<unknown job 5>"},
 }
@@ -155,7 +154,7 @@ func (s *StateSuite) TestAddMachines(c *C) {
 	allJobs := []state.MachineJob{
 		state.JobHostUnits,
 		state.JobManageEnviron,
-		state.JobServeAPI,
+		state.JobManageState,
 	}
 	m1, err := s.State.AddMachine("blahblah", allJobs...)
 	c.Assert(err, IsNil)
@@ -726,42 +725,44 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
 
 	// All except gone are reported in initial event.
 	w := s.State.WatchServices()
-	defer stop(c, w)
-	s.assertChange(c, w, alive.Name(), dying.Name())
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange(alive.Name(), dying.Name())
 
 	// Remove them all; alive/dying changes reported.
 	err = alive.Destroy()
 	c.Assert(err, IsNil)
 	err = keepDying.Destroy()
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, alive.Name(), dying.Name())
+	wc.AssertOneChange(alive.Name(), dying.Name())
 }
 
 func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
 	// Initial event is empty when no services.
 	w := s.State.WatchServices()
-	defer stop(c, w)
-	s.assertChange(c, w)
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a service: reported.
 	service, err := s.State.AddService("service", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "service")
+	wc.AssertOneChange("service")
 
 	// Change the service: not reported.
 	keepDying, err := service.AddUnit()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 
 	// Make it Dying: reported.
 	err = service.Destroy()
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "service")
+	wc.AssertOneChange("service")
 
 	// Make it Dead(/removed): reported.
 	err = keepDying.Destroy()
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "service")
+	wc.AssertOneChange("service")
 }
 
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
@@ -793,8 +794,9 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 
 	// All except gone machine are reported in initial event.
 	w := s.State.WatchEnvironMachines()
-	defer stop(c, w)
-	s.assertChange(c, w, alive.Id(), dying.Id(), dead.Id())
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange(alive.Id(), dying.Id(), dead.Id())
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
 	err = alive.Destroy()
@@ -805,46 +807,48 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	c.Assert(err, IsNil)
 	err = dead.Remove()
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, alive.Id(), dying.Id())
+	wc.AssertOneChange(alive.Id(), dying.Id())
 }
 
 func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
-	defer stop(c, w)
-	s.assertChange(c, w)
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "0")
+	wc.AssertOneChange("0")
 
 	// Change the machine: not reported.
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 
 	// Make it Dying: reported.
 	err = machine.Destroy()
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "0")
+	wc.AssertOneChange("0")
 
 	// Make it Dead: reported.
 	err = machine.EnsureDead()
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "0")
+	wc.AssertOneChange("0")
 
 	// Remove it: not reported.
 	err = machine.Remove()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
-	defer stop(c, w)
-	s.assertChange(c, w)
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a machine: reported.
 	params := state.AddMachineParams{
@@ -853,29 +857,29 @@ func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	}
 	machine, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	s.assertChange(c, w, "0")
+	wc.AssertOneChange("0")
 
 	// Add a container: not reported.
 	params.ParentId = machine.Id()
 	params.ContainerType = state.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 
 	// Make the container Dying: not reported.
 	err = m.Destroy()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 
 	// Make the container Dead: not reported.
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 
 	// Remove the container: not reported.
 	err = m.Remove()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, w)
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
@@ -891,58 +895,59 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	c.Assert(err, IsNil)
 
 	// Initial event is empty when no containers.
-	cw := machine.WatchContainers(state.LXC)
-	defer stop(c, cw)
-	s.assertChange(c, cw)
+	w := machine.WatchContainers(state.LXC)
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a container of the required type: reported.
 	params.ParentId = machine.Id()
 	params.ContainerType = state.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	s.assertChange(c, cw, "0/lxc/0")
+	wc.AssertOneChange("0/lxc/0")
 
 	// Add a container of a different type: not reported.
 	params.ContainerType = state.KVM
 	m1, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, cw)
+	wc.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
 	params.ContainerType = state.LXC
 	m2, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, cw)
+	wc.AssertNoChange()
 
 	// Make the container Dying: reported.
 	err = m.Destroy()
 	c.Assert(err, IsNil)
-	s.assertChange(c, cw, "0/lxc/0")
+	wc.AssertOneChange("0/lxc/0")
 
 	// Make the other containers Dying: not reported.
 	err = m1.Destroy()
 	c.Assert(err, IsNil)
 	err = m2.Destroy()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, cw)
+	wc.AssertNoChange()
 
 	// Make the container Dead: reported.
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
-	s.assertChange(c, cw, "0/lxc/0")
+	wc.AssertOneChange("0/lxc/0")
 
-	// Make the other containers Dying: not reported.
+	// Make the other containers Dead: not reported.
 	err = m1.EnsureDead()
 	c.Assert(err, IsNil)
 	err = m2.EnsureDead()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, cw)
+	wc.AssertNoChange()
 
 	// Remove the container: not reported.
 	err = m.Remove()
 	c.Assert(err, IsNil)
-	s.assertNoChange(c, cw)
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachineMetadata(c *C) {
@@ -951,54 +956,16 @@ func (s *StateSuite) TestWatchMachineMetadata(c *C) {
 	c.Assert(err, IsNil)
 	w, err := machine.WatchMetadata()
 	c.Assert(err, IsNil)
-	// Consume the first watcher sync event
-	_, ok := <-w.Changes()
-	c.Assert(ok, Equals, true)
-	defer stop(c, w)
+	defer AssertStop(c, w)
+
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Provision a machine: reported.
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
-	s.assertEntityChange(c, w, "machine metadata")
-}
-
-func (s *StateSuite) assertEntityChange(c *C, w *state.EntityWatcher, expect string) {
-	s.State.Sync()
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("timed out waiting for %#v", expect)
-	}
-	s.State.StartSync()
-	select {
-	case ch, ok := <-w.Changes():
-		c.Fatalf("unexpected change: %#v, %v", ch, ok)
-	case <-time.After(100 * time.Millisecond):
-	}
-}
-
-func (s *StateSuite) assertNoChange(c *C, w *state.LifecycleWatcher) {
-	s.State.StartSync()
-	select {
-	case ids, ok := <-w.Changes():
-		c.Fatalf("unexpected change: %v %v", ids, ok)
-	case <-time.After(50 * time.Millisecond):
-	}
-}
-
-func (s *StateSuite) assertChange(c *C, w *state.LifecycleWatcher, expect ...string) {
-	s.State.Sync()
-	select {
-	case actual, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-		sort.Strings(actual)
-		sort.Strings(expect)
-		c.Assert(actual, DeepEquals, expect)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("timed out waiting for %v", expect)
-	}
-	s.assertNoChange(c, w)
+	wc.AssertOneChange()
 }
 
 var sortPortsTests = []struct {
@@ -1082,8 +1049,9 @@ type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	w := s.State.WatchEnvironConfig()
-	defer stop(c, w)
+	defer AssertStop(c, w)
 
+	// TODO(fwereade) just use an EntityWatcher and NotifyWatcherC to test it.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
@@ -1588,18 +1556,14 @@ func (s *StateSuite) TestCleanup(c *C) {
 }
 
 func (s *StateSuite) TestWatchCleanups(c *C) {
-	cw := s.State.WatchCleanups()
-	err := cw.Stop()
-	c.Assert(err, IsNil)
-
-	cw = s.State.WatchCleanups()
-	defer stop(c, cw)
-
 	// Check initial event.
-	assertCleanupChange(c, s.State, cw)
+	w := s.State.WatchCleanups()
+	defer AssertStop(c, w)
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
-	// Adding relations doesn't emit events.
-	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	// Set up two relations for later use, check no events.
+	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
@@ -1607,67 +1571,44 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	c.Assert(err, IsNil)
 	relM, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoCleanupChange(c, s.State, cw)
 	_, err = s.State.AddService("varnish", s.AddTestingCharm(c, "varnish"))
 	c.Assert(err, IsNil)
 	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
 	c.Assert(err, IsNil)
 	relV, err := s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
-	assertNoCleanupChange(c, s.State, cw)
+	wc.AssertNoChange()
 
-	// Destroy relations and cleanup.
+	// Destroy one relation, check one change.
 	err = relM.Destroy()
 	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
-	err = s.State.Cleanup()
-	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
-	err = relV.Destroy()
-	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
-	err = s.State.Cleanup()
-	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
+	wc.AssertOneChange()
 
-	// Verify that Cleanup() doesn't emit unnecessary events.
+	// Handle that cleanup doc and create another, check one change.
 	err = s.State.Cleanup()
-	c.Assert(err, IsNil)
-	assertNoCleanupChange(c, s.State, cw)
-
-	// Not calling Cleanup() queues up the changes.
-	eps, err = s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
-	relM, err = s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
-	assertNoCleanupChange(c, s.State, cw)
-	eps, err = s.State.InferEndpoints([]string{"wordpress", "varnish"})
-	c.Assert(err, IsNil)
-	relV, err = s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
-	assertNoCleanupChange(c, s.State, cw)
-	err = relM.Destroy()
 	c.Assert(err, IsNil)
 	err = relV.Destroy()
 	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
+	wc.AssertOneChange()
 
-	// Cleanup() deletes each document in an extra transaction which
-	// leads to multiple events. This behavior will be changed in a
-	// follow-up.
+	// Clean up final doc, check change.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
+	wc.AssertOneChange()
+
+	// Stop watcher, check closed.
+	AssertStop(c, w)
+	wc.AssertClosed()
 }
 
-func (s *StateSuite) TestWatchCleanupsPeer(c *C) {
-	cw := s.State.WatchCleanups()
-	defer stop(c, cw)
-
+func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 	// Check initial event.
-	assertCleanupChange(c, s.State, cw)
+	w := s.State.WatchCleanups()
+	defer AssertStop(c, w)
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
-	// Adding services with peer relation doesn't emit events.
+	// Create two peer relations by creating their services.
 	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, IsNil)
 	_, err = riak.Endpoint("ring")
@@ -1676,34 +1617,19 @@ func (s *StateSuite) TestWatchCleanupsPeer(c *C) {
 	c.Assert(err, IsNil)
 	_, err = allHooks.Endpoint("self")
 	c.Assert(err, IsNil)
-	assertNoCleanupChange(c, s.State, cw)
+	wc.AssertNoChange()
 
-	// Check that multiple events are coalesced.
+	// Destroy them both, check one change.
 	err = riak.Destroy()
 	c.Assert(err, IsNil)
 	err = allHooks.Destroy()
 	c.Assert(err, IsNil)
-	assertCleanupChange(c, s.State, cw)
-}
+	wc.AssertOneChange()
 
-func assertNoCleanupChange(c *C, st *state.State, cw *state.CleanupWatcher) {
-	st.StartSync()
-	select {
-	case _, ok := <-cw.Changes():
-		c.Fatalf("unexpected change; ok: %v", ok)
-	case <-time.After(50 * time.Millisecond):
-	}
-}
-
-func assertCleanupChange(c *C, st *state.State, cw *state.CleanupWatcher) {
-	st.Sync()
-	select {
-	case _, ok := <-cw.Changes():
-		c.Assert(ok, Equals, true)
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("timed out waiting for change")
-	}
-	assertNoCleanupChange(c, st, cw)
+	// Clean them both up, check one change.
+	err = s.State.Cleanup()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
 }
 
 func (s *StateSuite) TestNestingLevel(c *C) {
