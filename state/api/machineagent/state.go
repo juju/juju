@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// State provides access to a machiner worker's view of the state.
+// State provides access to a machiner agent's view of the state.
 type State struct {
 	caller common.Caller
 }
