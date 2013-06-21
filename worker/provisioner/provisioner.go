@@ -89,11 +89,19 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
+	machineBroker, err := p.getBroker()
+	if err != nil {
+		return err
+	}
+	machineWatcher, err := p.getWatcher()
+	if err != nil {
+		return err
+	}
 	environmentProvisioner := NewProvisionerTask(
 		p.machineId,
 		p.st,
-		p.getWatcher(),
-		p.getBroker(),
+		machineWatcher,
+		machineBroker,
 		auth)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
@@ -117,46 +125,53 @@ func (p *Provisioner) loop() error {
 	panic("not reached")
 }
 
-func (p *Provisioner) getMachine() *state.Machine {
+func (p *Provisioner) getMachine() (*state.Machine, error) {
 	if p.machine == nil {
 		var err error
 		if p.machine, err = p.st.Machine(p.machineId); err != nil {
 			logger.Errorf("machine %s is not in state", p.machineId)
+			return nil, err
 		}
 	}
-	return p.machine
+	return p.machine, nil
 }
 
-func (p *Provisioner) getWatcher() Watcher {
+func (p *Provisioner) getWatcher() (Watcher, error) {
 	switch p.pt {
 	case ENVIRON:
-		return p.st.WatchEnvironMachines()
+		return p.st.WatchEnvironMachines(), nil
 	case LXC:
-		machine := p.getMachine()
-		return machine.WatchContainers(state.LXC)
+		machine, err := p.getMachine()
+		if err != nil {
+			return nil, err
+		}
+		return machine.WatchContainers(state.LXC), nil
 	}
-	return nil
+	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getBroker() Broker {
+func (p *Provisioner) getBroker() (Broker, error) {
 	switch p.pt {
 	case ENVIRON:
-		return newEnvironBroker(p.environ)
+		return newEnvironBroker(p.environ), nil
 	case LXC:
-		machine := p.getMachine()
+		machine, err := p.getMachine()
+		if err != nil {
+			return nil, err
+		}
 		config, err := p.st.EnvironConfig()
 		if err != nil {
 			logger.Errorf("cannot get environ config for lxc broker")
-			return nil
+			return nil, err
 		}
 		tools, err := machine.AgentTools()
 		if err != nil {
 			logger.Errorf("cannot get tools from machine for lxc broker")
-			return nil
+			return nil, err
 		}
-		return NewLxcBroker(golxc.Factory(), config, tools)
+		return NewLxcBroker(golxc.Factory(), config, tools), nil
 	}
-	return nil
+	return nil, fmt.Errorf("unknown provisioner type")
 }
 
 // setConfig updates the environment configuration and notifies
