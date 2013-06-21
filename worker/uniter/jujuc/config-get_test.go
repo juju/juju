@@ -4,12 +4,15 @@
 package jujuc_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
-	"path/filepath"
 )
 
 type ConfigGetSuite struct {
@@ -18,14 +21,7 @@ type ConfigGetSuite struct {
 
 var _ = Suite(&ConfigGetSuite{})
 
-var (
-	configGetYamlMap    = "monsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
-	configGetYamlMapAll = "empty: null\nmonsters: false\nspline-reticulation: 45\ntitle: My Title\nusername: admin001\n"
-	configGetJsonMap    = `{"monsters":false,"spline-reticulation":45,"title":"My Title","username":"admin001"}` + "\n"
-	configGetJsonMapAll = `{"empty":null,"monsters":false,"spline-reticulation":45,"title":"My Title","username":"admin001"}` + "\n"
-)
-
-var configGetTests = []struct {
+var configGetKeyTests = []struct {
 	args []string
 	out  string
 }{
@@ -38,15 +34,10 @@ var configGetTests = []struct {
 	{[]string{"missing"}, ""},
 	{[]string{"--format", "yaml", "missing"}, ""},
 	{[]string{"--format", "json", "missing"}, "null\n"},
-	{nil, configGetYamlMap},
-	{[]string{"--format", "yaml"}, configGetYamlMap},
-	{[]string{"--format", "json"}, configGetJsonMap},
-	{[]string{"--all", "--format", "yaml"}, configGetYamlMapAll},
-	{[]string{"--all", "--format", "json"}, configGetJsonMapAll},
 }
 
-func (s *ConfigGetSuite) TestOutputFormat(c *C) {
-	for i, t := range configGetTests {
+func (s *ConfigGetSuite) TestOutputFormatKey(c *C) {
+	for i, t := range configGetKeyTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "config-get")
@@ -56,6 +47,76 @@ func (s *ConfigGetSuite) TestOutputFormat(c *C) {
 		c.Assert(code, Equals, 0)
 		c.Assert(bufferString(ctx.Stderr), Equals, "")
 		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
+	}
+}
+
+var (
+	configGetYamlMap = map[string]interface{}{
+		"monsters":            false,
+		"spline-reticulation": 45,
+		"title":               "My Title",
+		"username":            "admin001",
+	}
+	configGetJsonMap = map[string]interface{}{
+		"monsters":            false,
+		"spline-reticulation": 45.0,
+		"title":               "My Title",
+		"username":            "admin001",
+	}
+	configGetYamlMapAll = map[string]interface{}{
+		"empty":               nil,
+		"monsters":            false,
+		"spline-reticulation": 45,
+		"title":               "My Title",
+		"username":            "admin001",
+	}
+	configGetJsonMapAll = map[string]interface{}{
+		"empty":               nil,
+		"monsters":            false,
+		"spline-reticulation": 45.0,
+		"title":               "My Title",
+		"username":            "admin001",
+	}
+)
+
+const (
+	formatYaml = iota
+	formatJson
+)
+
+var configGetAllTests = []struct {
+	args   []string
+	format int
+	out    map[string]interface{}
+}{
+	{nil, formatYaml, configGetYamlMap},
+	{[]string{"--format", "yaml"}, formatYaml, configGetYamlMap},
+	{[]string{"--format", "json"}, formatJson, configGetJsonMap},
+	{[]string{"--all", "--format", "yaml"}, formatYaml, configGetYamlMapAll},
+	{[]string{"--all", "--format", "json"}, formatJson, configGetJsonMapAll},
+	{[]string{"-a", "--format", "yaml"}, formatYaml, configGetYamlMapAll},
+	{[]string{"-a", "--format", "json"}, formatJson, configGetJsonMapAll},
+}
+
+func (s *ConfigGetSuite) TestOutputFormatAll(c *C) {
+	for i, t := range configGetAllTests {
+		c.Logf("test %d: %#v", i, t.args)
+		hctx := s.GetHookContext(c, -1, "")
+		com, err := jujuc.NewCommand(hctx, "config-get")
+		c.Assert(err, IsNil)
+		ctx := testing.Context(c)
+		code := cmd.Main(com, ctx, t.args)
+		c.Assert(code, Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), Equals, "")
+
+		out := map[string]interface{}{}
+		switch t.format {
+		case formatYaml:
+			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), IsNil)
+		case formatJson:
+			c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &out), IsNil)
+		}
+		c.Assert(out, DeepEquals, t.out)
 	}
 }
 
@@ -71,13 +132,15 @@ purpose: print service configuration
 
 options:
 -a, --all  (= false)
-    write also keys without values
+    print all keys
 --format  (= smart)
     specify output format (json|smart|yaml)
 -o, --output (= "")
     specify an output file
 
-If a key is given, only the value for that key will be printed.
+If a key is given, only the value for that key will be printed. Otherwise
+all keys with a value are printed. With the argument --all also empty keys
+are printed.
 `)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
@@ -101,4 +164,14 @@ func (s *ConfigGetSuite) TestUnknownArg(c *C) {
 	com, err := jujuc.NewCommand(hctx, "config-get")
 	c.Assert(err, IsNil)
 	testing.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
+}
+
+func (s *ConfigGetSuite) TestAllPlusKey(c *C) {
+	hctx := s.GetHookContext(c, -1, "")
+	com, err := jujuc.NewCommand(hctx, "config-get")
+	c.Assert(err, IsNil)
+	ctx := testing.Context(c)
+	code := cmd.Main(com, ctx, []string{"--all", "--format", "json", "monsters"})
+	c.Assert(code, Equals, 2)
+	c.Assert(bufferString(ctx.Stderr), Equals, "error: cannot use argument --all together with key \"monsters\"\n")
 }

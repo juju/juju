@@ -18,6 +18,10 @@ import (
 
 func TestPackage(t *testing.T) { TestingT(t) }
 
+func bufferBytes(stream io.Writer) []byte {
+	return stream.(*bytes.Buffer).Bytes()
+}
+
 func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
