@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -110,7 +111,7 @@ func (s *MachineSuite) TestRunStop(c *C) {
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *C) {
-	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobServeAPI)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits, state.JobManageState)
 	err := m.EnsureDead()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, m)
@@ -248,7 +249,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 }
 
 func (s *MachineSuite) TestUpgrade(c *C) {
-	m, conf, currentTools := s.primeAgent(c, state.JobServeAPI, state.JobManageEnviron, state.JobHostUnits)
+	m, conf, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
 	addAPIInfo(conf, m)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -269,8 +270,13 @@ func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	conf.APIPort = port
 }
 
+var fastDialOpts = api.DialOpts{
+	Timeout:    1 * time.Second,
+	RetryDelay: 10 * time.Millisecond,
+}
+
 func (s *MachineSuite) TestServeAPI(c *C) {
-	stm, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	stm, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, stm)
 	err := conf.Write()
 	c.Assert(err, IsNil)
@@ -280,18 +286,14 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 		done <- a.Run(nil)
 	}()
 
-	st, err := api.Open(conf.APIInfo)
+	st, err := api.Open(conf.APIInfo, fastDialOpts)
 	c.Assert(err, IsNil)
 	defer st.Close()
 
 	// This just verifies we can log in successfully.
-	machiner, err := st.Machiner()
+	m, err := st.Machiner().Machine(stm.Id())
 	c.Assert(err, IsNil)
-	c.Assert(machiner, NotNil)
-
-	instId, ok := stm.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(string(instId), Equals, "ardbeg-0")
+	c.Assert(m.Life(), Equals, params.Life("alive"))
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
@@ -320,7 +322,7 @@ var serveAPIWithBadConfTests = []struct {
 }}
 
 func (s *MachineSuite) TestServeAPIWithBadConf(c *C) {
-	m, conf, _ := s.primeAgent(c, state.JobServeAPI)
+	m, conf, _ := s.primeAgent(c, state.JobManageState)
 	addAPIInfo(conf, m)
 	for i, t := range serveAPIWithBadConfTests {
 		c.Logf("test %d: %q", i, t.err)

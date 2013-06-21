@@ -132,7 +132,7 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 			Storage:     &storage,
 		})
 		c.Assert(err, IsNil)
-		c.Check(spec.InstanceTypeName, Equals, t.itype)
+		c.Check(spec.InstanceType.Name, Equals, t.itype)
 		c.Check(spec.Image.Id, Equals, t.image)
 	}
 }

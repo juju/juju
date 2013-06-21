@@ -79,12 +79,18 @@ func FakeAPIInfo(machineId string) *api.Info {
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
 func StartInstance(c *C, env environs.Environ, machineId string) instance.Instance {
+	return StartInstanceWithConstraints(c, env, machineId, constraints.Value{})
+}
+
+// StartInstanceWithConstraints is a test helper function that starts an instance on the
+// environment with the specified constraints, using the current series and invalid info states.
+func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string, cons constraints.Value) instance.Instance {
 	series := config.DefaultSeries
 	inst, err := env.StartInstance(
 		machineId,
 		"fake_nonce",
 		series,
-		constraints.Value{},
+		cons,
 		FakeStateInfo(machineId),
 		FakeAPIInfo(machineId),
 	)
@@ -150,6 +156,19 @@ func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	return apiInfo
 }
 
+// OpenAPIAs opens the API using the given identity tag
+// and password for authentication.
+func (s *JujuConnSuite) OpenAPIAs(c *C, tag, password string) *api.State {
+	_, info, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, IsNil)
+	info.Tag = tag
+	info.Password = password
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	return st
+}
+
 func (s *JujuConnSuite) setUpConn(c *C) {
 	if s.RootDir != "" {
 		panic("JujuConnSuite.setUpConn without teardown")
@@ -186,7 +205,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	s.Conn = conn
 	s.State = conn.State
 
-	apiConn, err := juju.NewAPIConn(environ)
+	apiConn, err := juju.NewAPIConn(environ, api.DialOpts{})
 	c.Assert(err, IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State

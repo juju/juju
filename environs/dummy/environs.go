@@ -565,6 +565,26 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		ports:     make(map[instance.Port]bool),
 		machineId: machineId,
 		series:    series,
+		// We will just assume the instance metadata exactly matches the supplied constraints (if specified).
+		metadata: &instance.Metadata{
+			Arch:     cons.Arch,
+			Mem:      cons.Mem,
+			CpuCores: cons.CpuCores,
+			CpuPower: cons.CpuPower,
+		},
+	}
+	// Fill in some expected instance metadata if constraints not specified.
+	if i.metadata.Arch == nil {
+		arch := "amd64"
+		i.metadata.Arch = &arch
+	}
+	if i.metadata.Mem == nil {
+		mem := uint64(1024)
+		i.metadata.Mem = &mem
+	}
+	if i.metadata.CpuCores == nil {
+		cores := uint64(1)
+		i.metadata.CpuCores = &cores
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -687,10 +707,15 @@ type dummyInstance struct {
 	id        instance.Id
 	machineId string
 	series    string
+	metadata  *instance.Metadata
 }
 
 func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
+}
+
+func (instance *dummyInstance) Metadata() *instance.Metadata {
+	return instance.metadata
 }
 
 func (inst *dummyInstance) DNSName() (string, error) {

@@ -114,7 +114,7 @@ func (c *BootstrapCommand) configureBootstrapMachine(st *state.State, cfg *confi
 	// Upgrader, and it's a capability we'll always want to have
 	// available for the aforementioned use case.
 	jobs := []state.MachineJob{
-		state.JobManageEnviron, state.JobServeAPI, state.JobHostUnits,
+		state.JobManageEnviron, state.JobManageState, state.JobHostUnits,
 	}
 	m, err := st.InjectMachine(version.Current.Series, c.Constraints, instanceId, jobs...)
 	if err != nil {

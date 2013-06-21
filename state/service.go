@@ -115,7 +115,7 @@ func (s *Service) Destroy() (err error) {
 		case err != nil:
 			return err
 		default:
-			if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
 		}
@@ -249,7 +249,7 @@ func (s *Service) setExposed(exposed bool) (err error) {
 		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"exposed", exposed}}}},
 	}}
-	if err := s.st.runner.Run(ops, "", nil); err != nil {
+	if err := s.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set exposed flag for service %q to %v: %v", s, exposed, onAbort(err, errNotAlive))
 	}
 	s.doc.Exposed = exposed
@@ -484,7 +484,7 @@ func (s *Service) SetCharm(ch *Charm, force bool) (err error) {
 			}
 		}
 
-		if err := s.st.runner.Run(ops, "", nil); err == nil {
+		if err := s.st.runTransaction(ops); err == nil {
 			s.doc.CharmURL = ch.URL()
 			s.doc.ForceCharm = force
 			return nil
@@ -605,7 +605,7 @@ func (s *Service) AddUnit() (unit *Unit, err error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := s.st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+	if err := s.st.runTransaction(ops); err == txn.ErrAborted {
 		if alive, err := isAlive(s.st.services, s.doc.Name); err != nil {
 			return nil, err
 		} else if !alive {
@@ -786,7 +786,7 @@ func (s *Service) SetConstraints(cons constraints.Value) (err error) {
 		},
 		setConstraintsOp(s.st, s.globalKey(), cons),
 	}
-	return onAbort(s.st.runner.Run(ops, "", nil), errNotAlive)
+	return onAbort(s.st.runTransaction(ops), errNotAlive)
 }
 
 // settingsIncRefOp returns an operation that increments the ref count

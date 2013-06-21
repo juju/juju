@@ -123,7 +123,7 @@ func (s *baseSuite) openAs(c *C, tag string) *api.State {
 	info.Tag = tag
 	info.Password = fmt.Sprintf("%s password", tag)
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
-	st, err := api.Open(info)
+	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	return st
