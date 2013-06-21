@@ -24,7 +24,7 @@ type ResumerSuite struct {
 var _ = Suite(&ResumerSuite{})
 
 func (s *ResumerSuite) TestRunStopWithState(c *C) {
-	// Test with state ensures that state fulfills the 
+	// Test with state ensures that state fulfills the
 	// TransactionResumer interface.
 	rr := resumer.NewResumer(s.State)
 
