@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -11,7 +12,6 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
-	"fmt"
 )
 
 // Deployer is responsible for deploying and recalling unit agents, according

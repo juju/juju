@@ -99,7 +99,7 @@ func allFatal(error) bool {
 var stateJobs = map[params.MachineJob]bool{
 	params.JobHostUnits:     true,
 	params.JobManageEnviron: true,
-	params.JobManageState:      true,
+	params.JobManageState:   true,
 }
 
 func (a *MachineAgent) APIWorker() (worker.Worker, error) {
@@ -148,7 +148,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	})
 	for _, job := range m.Jobs() {
 		switch job {
- 		case state.JobHostUnits:
+		case state.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
 				return newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir), nil
 			})

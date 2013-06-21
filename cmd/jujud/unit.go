@@ -7,10 +7,10 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 )

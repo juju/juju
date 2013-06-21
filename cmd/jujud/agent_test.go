@@ -5,6 +5,7 @@ package main
 
 import (
 	"bytes"
+	stderrors "errors"
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
@@ -15,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -27,8 +29,19 @@ type toolSuite struct {
 	coretesting.LoggingSuite
 }
 
+var errorImportanceTests = []error{
+	nil,
+	stderrors.New("foo"),
+	&UpgradeReadyError{},
+	worker.ErrTerminateAgent,
+}
+
 func (*toolSuite) TestErrorImportance(c *C) {
-	panic("do it")
+	for i, err0 := range errorImportanceTests {
+		for j, err1 := range errorImportanceTests {
+			c.Assert(moreImportant(err0, err1), Equals, i > j)
+		}
+	}
 }
 
 func mkTools(s string) *state.Tools {
