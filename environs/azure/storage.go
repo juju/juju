@@ -26,6 +26,8 @@ type environStorageContext struct {
 	environ *azureEnviron
 }
 
+var _ storageContext = (*environStorageContext)(nil)
+
 func (context *environStorageContext) getContainer() string {
 	return context.environ.getSnapshot().ecfg.StorageContainerName()
 }
@@ -53,11 +55,11 @@ func (storage *azureStorage) Get(name string) (io.ReadCloser, error) {
 
 // List is specified in the StorageReader interface.
 func (storage *azureStorage) List(prefix string) ([]string, error) {
-	request := &gwacl.ListBlobsRequest{Container: storage.getContainer(), Prefix: prefix, Marker: ""}
 	context, err := storage.getStorageContext()
 	if err != nil {
 		return nil, err
 	}
+	request := &gwacl.ListBlobsRequest{Container: storage.getContainer(), Prefix: prefix, Marker: ""}
 	blobList, err := context.ListAllBlobs(request)
 	if err != nil {
 		return nil, err

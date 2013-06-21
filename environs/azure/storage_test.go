@@ -88,8 +88,8 @@ func makeAzureStorage(response *http.Response, container string) (azureStorage, 
 	transport := &TestTransport{Response: response}
 	client := &http.Client{Transport: transport}
 	context := &testStorageContext{container: container, storageContext: gwacl.NewTestStorageContext(client)}
-	azureStorage := azureStorage{context}
-	return azureStorage, transport
+	azStorage := azureStorage{context}
+	return azStorage, transport
 }
 
 var blobListResponse = `
@@ -115,9 +115,9 @@ var blobListResponse = `
 func (StorageSuite) TestList(c *C) {
 	container := "container"
 	response := makeResponse(blobListResponse, http.StatusOK)
-	azureStorage, transport := makeAzureStorage(response, container)
+	azStorage, transport := makeAzureStorage(response, container)
 	prefix := "prefix"
-	names, err := azureStorage.List(prefix)
+	names, err := azStorage.List(prefix)
 	c.Assert(err, IsNil)
 	// The prefix has been passed down as a query parameter.
 	c.Check(transport.Request.URL.Query()["prefix"], DeepEquals, []string{prefix})
@@ -131,13 +131,13 @@ func (StorageSuite) TestGet(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse(blobContent, http.StatusOK)
-	azureStorage, transport := makeAzureStorage(response, container)
-	reader, err := azureStorage.Get(filename)
+	azStorage, transport := makeAzureStorage(response, container)
+	reader, err := azStorage.Get(filename)
 	c.Assert(err, IsNil)
 	c.Assert(reader, NotNil)
 	defer reader.Close()
 
-	context, err := azureStorage.getStorageContext()
+	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	data, err := ioutil.ReadAll(reader)
@@ -153,11 +153,11 @@ func (StorageSuite) TestPut(c *C) {
 		Status:     fmt.Sprintf("%d", http.StatusCreated),
 		StatusCode: http.StatusCreated,
 	}
-	azureStorage, transport := makeAzureStorage(response, container)
-	err := azureStorage.Put(filename, strings.NewReader(blobContent), 10)
+	azStorage, transport := makeAzureStorage(response, container)
+	err := azStorage.Put(filename, strings.NewReader(blobContent), 10)
 	c.Assert(err, IsNil)
 
-	context, err := azureStorage.getStorageContext()
+	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 }
@@ -169,11 +169,11 @@ func (StorageSuite) TestRemove(c *C) {
 		Status:     fmt.Sprintf("%d", http.StatusAccepted),
 		StatusCode: http.StatusAccepted,
 	}
-	azureStorage, transport := makeAzureStorage(response, container)
-	err := azureStorage.Remove(filename)
+	azStorage, transport := makeAzureStorage(response, container)
+	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 
-	context, err := azureStorage.getStorageContext()
+	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	c.Check(transport.Request.Method, Equals, "DELETE")
