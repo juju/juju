@@ -47,7 +47,7 @@ func (s *agentSuite) TestAgentFailsWhenNotLoggedIn(c *C) {
 func (s *agentSuite) TestGetMachines(c *C) {
 	err := s.machine1.Destroy()
 	c.Assert(err, IsNil)
-	results, err := s.agent.GetMachines(params.Machines{
+	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1", "0", "42"},
 	})
 	c.Assert(err, IsNil)
@@ -76,7 +76,7 @@ func (s *agentSuite) TestGetNotFoundMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine1.Remove()
 	c.Assert(err, IsNil)
-	results, err := s.agent.GetMachines(params.Machines{
+	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1"},
 	})
 	c.Assert(err, IsNil)
