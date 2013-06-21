@@ -104,13 +104,13 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 func (s *machinerSuite) TestRefresh(c *C) {
 	machine, err := s.st.Machiner().Machine("0")
 	c.Assert(err, IsNil)
-	c.Assert(machine.Life(), Equals, params.Life("alive"))
+	c.Assert(machine.Life(), Equals, params.Alive)
 
 	err = machine.EnsureDead()
 	c.Assert(err, IsNil)
-	c.Assert(machine.Life(), Equals, params.Life("alive"))
+	c.Assert(machine.Life(), Equals, params.Alive)
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(machine.Life(), Equals, params.Life("dead"))
+	c.Assert(machine.Life(), Equals, params.Dead)
 }

@@ -127,11 +127,8 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestDyingMachine(c *C) {
-	c.Logf("x1")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	c.Logf("x2")
 	a := s.newAgent(c, m)
-	c.Logf("x3")
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -139,10 +136,7 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 	defer func() {
 		c.Check(a.Stop(), IsNil)
 	}()
-	time.Sleep(1 * time.Second)
-	c.Logf("x4")
 	err := m.Destroy()
-	c.Logf("x5")
 	c.Assert(err, IsNil)
 	select {
 	case err := <-done:
@@ -312,7 +306,7 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	// This just verifies we can log in successfully.
 	m, err := st.Machiner().Machine(stm.Id())
 	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Life("alive"))
+	c.Assert(m.Life(), Equals, params.Alive)
 
 	err = a.Stop()
 	// When shutting down, the API server can be shut down before

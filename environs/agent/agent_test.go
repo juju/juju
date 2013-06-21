@@ -366,15 +366,13 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	st.Close()
 }
 
-var fastDialOpts = api.DialOpts{}
-
 func (s *openSuite) TestOpenAPINormal(c *C) {
 	conf := agent.Conf{
 		APIInfo: s.APIInfo(c),
 	}
 	conf.OldPassword = "irrelevant"
 
-	st, newPassword, err := conf.OpenAPI(fastDialOpts)
+	st, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Equals, "")
@@ -388,7 +386,7 @@ func (s *openSuite) TestOpenAPIFallbackPassword(c *C) {
 	conf.OldPassword = conf.APIInfo.Password
 	conf.APIInfo.Password = "not the right password"
 
-	st, newPassword, err := conf.OpenAPI(fastDialOpts)
+	st, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")
