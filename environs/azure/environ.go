@@ -79,6 +79,13 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	env.Lock()
 	defer env.Unlock()
 
+	if env.ecfg != nil {
+		_, err = azureEnvironProvider{}.Validate(cfg, env.ecfg.Config)
+		if err != nil {
+			return err
+		}
+	}
+
 	if env.name == "" {
 		// Initialization is the only time we write to the name.
 		env.name = cfg.Name()

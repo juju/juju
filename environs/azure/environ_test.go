@@ -129,8 +129,7 @@ func (EnvironSuite) TestSetConfigLocksEnviron(c *C) {
 }
 
 func (EnvironSuite) TestSetConfigInitialisesName(c *C) {
-	env := makeEnviron(c)
-	env.name = ""
+	env := azureEnviron{}
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "my-shiny-new-env"
 	cfg, err := config.New(attrs)
@@ -145,8 +144,7 @@ func (EnvironSuite) TestSetConfigInitialisesName(c *C) {
 func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	// Once the environment's name has been set, it cannot be updated.
 	// Global validation rejects such a change.
-	// This matters because the attribute is cached, and not protected by
-	// a lock.
+	// This matters because the attribute is not protected by a lock.
 	env := makeEnviron(c)
 	originalName := env.Name()
 	attrs := makeAzureConfigMap(c)
@@ -155,7 +153,7 @@ func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	c.Assert(err, IsNil)
 
 	err = env.SetConfig(cfg)
-	c.Assert(err, IsNil)
 
+	c.Assert(err, NotNil)
 	c.Check(env.Name(), Equals, originalName)
 }
