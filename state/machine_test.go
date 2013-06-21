@@ -571,12 +571,12 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc := NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
-	// Make one change (to a separate instance), check one event.
 	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
+	// Provisioning does not emit a machine event.
 	err = machine.SetProvisioned("m-foo", "fake_nonce", nil)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange()
+	wc.AssertNoChange()
 
 	// Make two changes, check one event.
 	err = machine.SetAgentTools(&state.Tools{
