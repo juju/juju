@@ -17,9 +17,6 @@ type MachinerAPI struct {
 
 // NewMachinerAPI creates a new instance of the Machiner API.
 func NewMachinerAPI(st *state.State, authorizer common.Authorizer) (*MachinerAPI, error) {
-	if !authorizer.IsLoggedIn() {
-		return nil, common.ErrNotLoggedIn
-	}
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

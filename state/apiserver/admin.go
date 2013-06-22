@@ -4,18 +4,19 @@
 package apiserver
 
 import (
+	stderrors "errors"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	"launchpad.net/juju-core/state/apiserver/machiner"
-	"launchpad.net/juju-core/state/multiwatcher"
+	"sync"
 )
 
 func newStateServer(srv *Server, rpcConn *rpc.Conn) *initialRoot {
 	r := &initialRoot{
-		srv:       srv,
-		rpcConn:   rpcConn,
+		srv:     srv,
+		rpcConn: rpcConn,
 	}
 	r.admin = &srvAdmin{
 		root: r,
@@ -27,15 +28,8 @@ func newStateServer(srv *Server, rpcConn *rpc.Conn) *initialRoot {
 // when connecting to the API. We start serving a different
 // API once the user has logged in.
 type initialRoot struct {
-	srv       *Server
-	rpcConn   *rpc.Conn
-
-	admin     *srvAdmin
-}
-
-type initialRoot struct {
-	srv       *Server
-	rpcConn   *rpc.Conn
+	srv     *Server
+	rpcConn *rpc.Conn
 
 	admin *srvAdmin
 }
@@ -43,7 +37,7 @@ type initialRoot struct {
 // Admin returns an object that provides API access
 // to methods that can be called even when not
 // authenticated.
-func (r *loginRoot) Admin(id string) (*srvAdmin, error) {
+func (r *initialRoot) Admin(id string) (*srvAdmin, error) {
 	if id != "" {
 		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
@@ -55,10 +49,12 @@ func (r *loginRoot) Admin(id string) (*srvAdmin, error) {
 // clients can access. It holds any methods
 // that are needed to log in.
 type srvAdmin struct {
-	mu     sync.Mutex
-	root *srvRoot
+	mu       sync.Mutex
+	root     *initialRoot
 	loggedIn bool
 }
+
+var errAlreadyLoggedIn = stderrors.New("already logged in")
 
 // Login logs in with the provided credentials.
 // All subsequent requests on the connection will
@@ -83,9 +79,17 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	}
 	// We have authenticated the user; now choose an appropriate
 	// API to serve to them.
-	switch entity.(type) {
-	case *state.User:
-	case *state.Unit:
-	case *state.Machine:
+	newRoot, err := a.apiRootForEntity(entity)
+	if err != nil {
+		return err
 	}
+	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator) (interface{}, error) {
+	// TODO(rog) choose appropriate object to serve.
+	return newSrvRoot(a.root.srv, entity), nil
 }
