@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package client
 
 import (
 	"fmt"
@@ -11,6 +11,30 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
+
+type API struct {
+	st *state.State
+	auth common.Authorizer
+	resources 
+}
+
+// NewAPI creates a new instance of the Machiner API.
+func NewAPI(st *state.State, authorizer common.Authorizer) (*API, error) {
+	return &API{st, authorizer}, nil
+}
+
+// Client returns an object that provides access
+// to methods accessible to non-agent clients.
+func (r *API) Client(id string) (*API, error) {
+	if err := r.requireClient(); err != nil {
+		return nil, err
+	}
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return r.client, nil
+}
 
 // srvClient serves client-specific API methods.
 type srvClient struct {
