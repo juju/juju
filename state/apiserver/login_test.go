@@ -61,25 +61,26 @@ func (s *loginSuite) TestBadLogin(c *C) {
 	}
 	for i, t := range badLoginTests {
 		c.Logf("test %d; entity %q; password %q", i, t.tag, t.password)
+		// Note that Open does not log in if the tag and password
+		// are empty. This allows us to test operations on the connection
+		// before calling Login, which we could not do if Open
+		// always logged in.
 		info.Tag = ""
 		info.Password = ""
 		func() {
-			st, err := api.Open(info)
+			st, err := api.Open(info, fastDialOpts)
 			c.Assert(err, IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner()
+			_, err = st.Machiner().Machine("0")
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
 
-			// TODO (dimitern) This a really awkward way of testing -
-			// calling Login again here to reauth on the same
-			// connection. Seems wrong.
 			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
-			_, err = st.Machiner()
+			_, err = st.Machiner().Machine("0")
 			c.Assert(err, ErrorMatches, "not logged in")
 			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
 		}()

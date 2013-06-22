@@ -12,13 +12,12 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 )
 
 type BootstrapState struct {
-	StateInstances []state.InstanceId
+	StateInstances []instance.Id
 }
 
 func LoadState(e environs.Environ) (*BootstrapState, error) {
@@ -150,7 +149,12 @@ func EC2ErrCode(err error) string {
 // given an existing instance and a new id.
 func FabricateInstance(inst instance.Instance, newId string) instance.Instance {
 	oldi := inst.(*ec2Instance)
-	newi := &ec2Instance{oldi.e, &ec2.Instance{}}
+	newi := &ec2Instance{
+		e:        oldi.e,
+		Instance: &ec2.Instance{},
+		arch:     oldi.arch,
+		instType: oldi.instType,
+	}
 	*newi.Instance = *oldi.Instance
 	newi.InstanceId = newId
 	return newi
@@ -392,7 +396,7 @@ var TestInstanceTypeCosts = instanceTypeCost{
 }
 
 var TestRegions = map[string]aws.Region{
-	"test": aws.Region{
+	"test": {
 		Name:        "test",
 		EC2Endpoint: "https://ec2.endpoint.com",
 	},

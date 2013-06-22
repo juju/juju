@@ -7,14 +7,19 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
+
+// defaultToolsUrl leads to the juju distribution on S3.
+var defaultToolsLocation string = "https://juju-dist.s3.amazonaws.com/"
 
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
@@ -55,15 +60,6 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
-}
-
-var officialBucketAttrs = map[string]interface{}{
-	"name":            "juju-public",
-	"type":            "ec2",
-	"control-bucket":  "juju-dist",
-	"access-key":      "",
-	"secret-key":      "",
-	"authorized-keys": "not-really", // We shouldn't need ssh access
 }
 
 func copyOne(
@@ -110,11 +106,7 @@ func copyTools(
 }
 
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
-	sourceEnv, err := environs.NewFromAttrs(officialBucketAttrs)
-	if err != nil {
-		log.Errorf("failed to initialize the official bucket environment")
-		return err
-	}
+	sourceStorage := ec2.NewHTTPStorageReader(defaultToolsLocation)
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		log.Errorf("unable to read %q from environment", c.EnvName)
@@ -123,7 +115,6 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 
 	fmt.Fprintf(ctx.Stderr, "listing the source bucket\n")
 	majorVersion := version.Current.Major
-	sourceStorage := sourceEnv.PublicStorage()
 	sourceTools, err := tools.ReadList(sourceStorage, majorVersion)
 	if err != nil {
 		return err

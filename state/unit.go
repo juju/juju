@@ -10,6 +10,7 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -67,7 +68,7 @@ type unitDoc struct {
 	MachineId      string
 	Resolved       ResolvedMode
 	Tools          *Tools `bson:",omitempty"`
-	Ports          []params.Port
+	Ports          []instance.Port
 	Life           Life
 	TxnRevno       int64 `bson:"txn-revno"`
 	PasswordHash   string
@@ -173,7 +174,7 @@ func (u *Unit) SetAgentTools(t *Tools) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
+	if err := u.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	tools := *t
@@ -197,7 +198,7 @@ func (u *Unit) SetPassword(password string) error {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set password of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -225,17 +226,16 @@ func (u *Unit) Destroy() (err error) {
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := unit.destroyOps()
-		switch {
-		case err == errRefresh:
-		case err == errAlreadyDying:
+		switch ops, err := unit.destroyOps(); err {
+		case errRefresh:
+		case errAlreadyDying:
 			return nil
-		case err != nil:
-			return err
-		default:
-			if err := unit.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		case nil:
+			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
+		default:
+			return err
 		}
 		if err := unit.Refresh(); errors.IsNotFoundError(err) {
 			return nil
@@ -253,59 +253,75 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	if u.doc.Life != Alive {
 		return nil, errAlreadyDying
 	}
-	// In many cases, we just want to set Dying and let the agents deal with it.
-	defaultOps := []txn.Op{{
+
+	// Where possible, we'd like to be able to short-circuit unit destruction
+	// such that units can be removed directly rather than waiting for their
+	// agents to start, observe Dying, set Dead, and shut down; this takes a
+	// long time and is vexing to users. This turns out to be possible if and
+	// only if the unit agent has not yet set its status; this implies that the
+	// most the unit could possibly have done is to run its install hook.
+	//
+	// There's no harm in removing a unit that's run its install hook only --
+	// or, at least, there is no more harm than there is in removing a unit
+	// that's run its stop hook, and that's the usual condition.
+	//
+	// Principals with subordinates are never eligible for this shortcut,
+	// because the unit agent must inevitably have set a status before getting
+	// to the point where it can actually create its subordinate.
+	//
+	// Subordinates should be eligible for the shortcut but are not currently
+	// considered, on the basis that (1) they were created by active principals
+	// and can be expected to be deployed pretty soon afterwards, so we don't
+	// lose much time and (2) by maintaining this restriction, I can reduce
+	// the number of tests that have to change and defer that improvement to
+	// its own CL.
+	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"life", Dying}}}},
 	}}
-
-	// Subordinates, and principals with subordinates, are left for the agents.
 	if u.doc.Principal != "" {
-		return defaultOps, nil
+		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {
-		return defaultOps, nil
+		return setDyingOps, nil
 	}
 
-	// If the (known principal) unit has no assigned machine id, the unit can
-	// be removed directly.
-	asserts := D{{"machineid", u.doc.MachineId}}
-	asserts = append(asserts, unitHasNoSubordinates...)
-	asserts = append(asserts, isAliveDoc...)
-	if u.doc.MachineId == "" {
-		return u.removeOps(asserts)
-	}
-
-	// If the unit's machine has an instance id, leave it for the agents.
-	m, err := u.st.Machine(u.doc.MachineId)
+	sdocId := u.globalKey()
+	sdoc, err := getStatus(u.st, sdocId)
 	if errors.IsNotFoundError(err) {
-		return nil, errRefresh
+		return nil, errAlreadyDying
 	} else if err != nil {
 		return nil, err
 	}
-	if _, found := m.InstanceId(); found {
-		return defaultOps, nil
+	if sdoc.Status != params.StatusPending {
+		return setDyingOps, nil
 	}
-
-	// Units assigned to unprovisioned machines can be removed directly.
 	ops := []txn.Op{{
-		C:      u.st.machines.Name,
-		Id:     u.doc.MachineId,
-		Assert: D{{"instanceid", ""}},
+		C:      u.st.statuses.Name,
+		Id:     sdocId,
+		Assert: D{{"status", params.StatusPending}},
 	}}
-	removeOps, err := u.removeOps(asserts)
-	if err != nil {
+	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
+	removeOps, err := u.removeOps(removeAsserts)
+	if err == errAlreadyRemoved {
+		return nil, errAlreadyDying
+	} else if err != nil {
 		return nil, err
 	}
 	return append(ops, removeOps...), nil
 }
 
+var errAlreadyRemoved = stderrors.New("entity has already been removed")
+
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts D) ([]txn.Op, error) {
 	svc, err := u.st.Service(u.doc.Service)
-	if err != nil {
+	if errors.IsNotFoundError(err) {
+		// If the service has been removed, the unit must already have been.
+		return nil, errAlreadyRemoved
+	} else if err != nil {
 		return nil, err
 	}
 	return svc.removeUnitOps(u, asserts)
@@ -338,7 +354,7 @@ func (u *Unit) EnsureDead() (err error) {
 		Assert: append(notDeadDoc, unitHasNoSubordinates...),
 		Update: D{{"$set", D{{"life", Dead}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+	if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if notDead, err := isNotDead(u.st.units, u.doc.Name); err != nil {
@@ -357,22 +373,17 @@ func (u *Unit) Remove() (err error) {
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
-	svc, err := u.st.Service(u.doc.Service)
-	if err != nil {
-		return err
-	}
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := svc.removeUnitOps(unit, isDeadDoc)
-		if err != nil {
-			return err
-		}
-		if err := svc.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
-			return err
-		}
-		if err := svc.Refresh(); errors.IsNotFoundError(err) {
+		switch ops, err := unit.removeOps(isDeadDoc); err {
+		case errRefresh:
+		case errAlreadyRemoved:
 			return nil
-		} else if err != nil {
+		case nil:
+			if err := u.st.runTransaction(ops); err != txn.ErrAborted {
+				return err
+			}
+		default:
 			return err
 		}
 		if err := unit.Refresh(); errors.IsNotFoundError(err) {
@@ -463,7 +474,7 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 	},
 		updateStatusOp(u.st, u.globalKey(), doc),
 	}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot set status of unit %q: %v", u, onAbort(err, errDead))
 	}
@@ -472,7 +483,7 @@ func (u *Unit) SetStatus(status params.Status, info string) error {
 
 // OpenPort sets the policy of the port with protocol and number to be opened.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
-	port := params.Port{Protocol: protocol, Number: number}
+	port := instance.Port{Protocol: protocol, Number: number}
 	defer utils.ErrorContextf(&err, "cannot open port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -480,7 +491,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$addToSet", D{{"ports", port}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
@@ -498,7 +509,7 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to be closed.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
-	port := params.Port{Protocol: protocol, Number: number}
+	port := instance.Port{Protocol: protocol, Number: number}
 	defer utils.ErrorContextf(&err, "cannot close port %v for unit %q", port, u)
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -506,11 +517,11 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$pull", D{{"ports", port}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return onAbort(err, errDead)
 	}
-	newPorts := make([]params.Port, 0, len(u.doc.Ports))
+	newPorts := make([]instance.Port, 0, len(u.doc.Ports))
 	for _, p := range u.doc.Ports {
 		if p != port {
 			newPorts = append(newPorts, p)
@@ -521,8 +532,8 @@ func (u *Unit) ClosePort(protocol string, number int) (err error) {
 }
 
 // OpenedPorts returns a slice containing the open ports of the unit.
-func (u *Unit) OpenedPorts() []params.Port {
-	ports := append([]params.Port{}, u.doc.Ports...)
+func (u *Unit) OpenedPorts() []instance.Port {
+	ports := append([]instance.Port{}, u.doc.Ports...)
 	SortPorts(ports)
 	return ports
 }
@@ -589,7 +600,7 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 			}
 			ops = append(ops, decOps...)
 		}
-		if err := u.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := u.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 	}
@@ -738,7 +749,7 @@ func (u *Unit) assignToMachine(m *Machine, unused bool) (err error) {
 		Assert: massert,
 		Update: D{{"$addToSet", D{{"principals", u.doc.Name}}}, {"$set", D{{"clean", false}}}},
 	}}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = m.doc.Id
 		m.doc.Clean = false
@@ -812,7 +823,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Assert: append(isAliveDoc, isUnassigned...),
 		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
 	})
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
 		return nil
@@ -898,7 +909,7 @@ func (u *Unit) UnassignFromMachine() (err error) {
 			Update: D{{"$pull", D{{"principals", u.doc.Name}}}},
 		})
 	}
-	err = u.st.runner.Run(ops, "", nil)
+	err = u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot unassign unit %q from machine: %v", u, onAbort(err, errors.NotFoundf("machine")))
 	}
@@ -914,8 +925,8 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"publicaddress", address}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err != nil {
-		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("machine")))
+	if err := u.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set public address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
 	}
 	u.doc.PublicAddress = address
 	return nil
@@ -926,12 +937,12 @@ func (u *Unit) SetPrivateAddress(address string) error {
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
-		Assert: txn.DocExists,
+		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"privateaddress", address}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
-		return fmt.Errorf("cannot set private address of unit %q: %v", u, errors.NotFoundf("unit"))
+		return fmt.Errorf("cannot set private address of unit %q: %v", u, onAbort(err, errors.NotFoundf("unit")))
 	}
 	u.doc.PrivateAddress = address
 	return nil
@@ -977,7 +988,7 @@ func (u *Unit) SetResolved(mode ResolvedMode) (err error) {
 		Assert: append(notDeadDoc, resolvedNotSet...),
 		Update: D{{"$set", D{{"resolved", mode}}}},
 	}}
-	if err := u.st.runner.Run(ops, "", nil); err == nil {
+	if err := u.st.runTransaction(ops); err == nil {
 		u.doc.Resolved = mode
 		return nil
 	} else if err != txn.ErrAborted {
@@ -1000,7 +1011,7 @@ func (u *Unit) ClearResolved() error {
 		Assert: txn.DocExists,
 		Update: D{{"$set", D{{"resolved", ResolvedNone}}}},
 	}}
-	err := u.st.runner.Run(ops, "", nil)
+	err := u.st.runTransaction(ops)
 	if err != nil {
 		return fmt.Errorf("cannot clear resolved mode for unit %q: %v", u, errors.NotFoundf("unit"))
 	}
@@ -1008,7 +1019,7 @@ func (u *Unit) ClearResolved() error {
 	return nil
 }
 
-type portSlice []params.Port
+type portSlice []instance.Port
 
 func (p portSlice) Len() int      { return len(p) }
 func (p portSlice) Swap(i, j int) { p[i], p[j] = p[j], p[i] }
@@ -1023,6 +1034,6 @@ func (p portSlice) Less(i, j int) bool {
 
 // SortPorts sorts the given ports, first by protocol,
 // then by number.
-func SortPorts(ports []params.Port) {
+func SortPorts(ports []instance.Port) {
 	sort.Sort(portSlice(ports))
 }

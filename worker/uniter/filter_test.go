@@ -63,6 +63,8 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	assertNotClosed()
 
 	// Set dying.
+	err = s.unit.SetStatus(params.StatusStarted, "")
+	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	assertClosed := func() {
@@ -84,6 +86,21 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	// Set dead.
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
+	s.assertTerminateAgent(c, f)
+}
+
+func (s *FilterSuite) TestUnitRemoval(c *C) {
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+
+	// short-circuit to remove because no status set.
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+	s.assertTerminateAgent(c, f)
+}
+
+func (s *FilterSuite) assertTerminateAgent(c *C, f *filter) {
 	s.State.StartSync()
 	select {
 	case <-f.Dead():
@@ -104,6 +121,8 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 		c.Fatalf("unexpected receive")
 	}
 
+	err = s.unit.SetStatus(params.StatusStarted, "")
+	c.Assert(err, IsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 	timeout := time.After(500 * time.Millisecond)
@@ -161,21 +180,31 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 		case <-time.After(50 * time.Millisecond):
 			c.Fatalf("timed out")
 		}
+		assertNoChange()
 	}
 	assertChange(state.ResolvedRetryHooks)
+
+	// Ask for the event again, and check it's resent.
+	f.WantResolvedEvent()
+	assertChange(state.ResolvedRetryHooks)
+
+	// Clear the resolved status *via the filter*; check not resent...
+	err = f.ClearResolved()
+	c.Assert(err, IsNil)
 	assertNoChange()
 
-	// Request a few events, and change the unit a few times; when
-	// we finally receive, only the most recent state is sent.
+	// ...even when requested.
 	f.WantResolvedEvent()
-	err = s.unit.ClearResolved()
+	assertNoChange()
+
+	// Induce several events; only latest state is reported.
+	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	f.WantResolvedEvent()
+	err = f.ClearResolved()
+	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
 	c.Assert(err, IsNil)
-	f.WantResolvedEvent()
 	assertChange(state.ResolvedNoHooks)
-	assertNoChange()
 }
 
 func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {

@@ -80,6 +80,9 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 
 	// Collect the operations necessary to enter scope, as follows:
 	// * Check unit and relation state, and incref the relation.
+	// * TODO(fwereade): check unit status == params.StatusStarted (this
+	//   breaks a bunch of tests in a boring but noisy-to-fix way, and is
+	//   being saved for a followup).
 	unitName, relationKey := ru.unit.doc.Name, ru.relation.doc.Key
 	ops := []txn.Op{{
 		C:      ru.st.units.Name,
@@ -128,7 +131,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 	}
 
 	// Now run the complete transaction, or figure out why we can't.
-	if err := ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+	if err := ru.st.runTransaction(ops); err != txn.ErrAborted {
 		return err
 	}
 	if count, err := ru.st.relationScopes.FindId(ruKey).Count(); err != nil {
@@ -284,7 +287,7 @@ func (ru *RelationUnit) LeaveScope() error {
 			}
 			ops = append(ops, relOps...)
 		}
-		if err = ru.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err = ru.st.runTransaction(ops); err != txn.ErrAborted {
 			if err != nil {
 				return fmt.Errorf("cannot leave scope for %s: %v", desc, err)
 			}

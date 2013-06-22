@@ -7,9 +7,9 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"sort"
 	"strconv"
 	"time"
 )
@@ -104,27 +104,11 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 	c.Assert(err, IsNil)
 	w, err := s.unit.WatchConfigSettings()
 	c.Assert(err, IsNil)
-	defer stop(c, w)
+	defer AssertStop(c, w)
 
-	// Check initial event.
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case <-w.Changes():
-			c.Fatalf("unexpected change")
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	assertChange := func() {
-		s.State.Sync()
-		select {
-		case <-w.Changes():
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("change not received")
-		}
-		assertNoChange()
-	}
-	assertChange()
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
 	err = s.service.UpdateConfigSettings(charm.Settings{
@@ -135,27 +119,27 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, IsNil)
-	assertChange()
+	wc.AssertOneChange()
 
 	// Non-change is not reported.
 	err = s.service.UpdateConfigSettings(charm.Settings{
 		"blog-title": "sauceror central",
 	})
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Change service's charm; nothing detected.
 	newCharm := s.AddConfigCharm(c, "wordpress", floatConfig, 123)
 	err = s.service.SetCharm(newCharm, false)
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// Change service config for new charm; nothing detected.
 	err = s.service.UpdateConfigSettings(charm.Settings{
 		"key": 42.0,
 	})
 	c.Assert(err, IsNil)
-	assertNoChange()
+	wc.AssertNoChange()
 
 	// NOTE: if we were to change the unit to use the new charm, we'd see
 	// another event, because the originally-watched document will become
@@ -164,23 +148,37 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
-	address, ok := s.unit.PublicAddress()
+	_, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPublicAddress("example.foobar.com")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PublicAddress()
+	address, ok := s.unit.PublicAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.foobar.com")
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	}).Check()
+	err = s.unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
-	address, ok := s.unit.PrivateAddress()
+	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)
+
 	err := s.unit.SetPrivateAddress("example.local")
 	c.Assert(err, IsNil)
-	address, ok = s.unit.PrivateAddress()
+	address, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, true)
 	c.Assert(address, Equals, "example.local")
+
+	defer state.SetBeforeHooks(c, s.State, func() {
+		c.Assert(s.unit.Destroy(), IsNil)
+	}).Check()
+	err = s.unit.SetPrivateAddress("example.local")
+	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
 
 func (s *UnitSuite) TestRefresh(c *C) {
@@ -262,7 +260,7 @@ func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
 }
 
 func (s *UnitSuite) TestUnitCharm(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	curl, ok := s.unit.CharmURL()
 	c.Assert(ok, Equals, false)
 	c.Assert(curl, IsNil)
@@ -294,11 +292,11 @@ func (s *UnitSuite) TestUnitCharm(c *C) {
 }
 
 func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	for i := 0; i < 4; i++ {
 		unit, err := s.service.AddUnit()
 		c.Assert(err, IsNil)
-		preventUnitDestroyRemove(c, s.State, unit)
+		preventUnitDestroyRemove(c, unit)
 	}
 
 	// Destroy 2 of them; check they become Dying.
@@ -330,12 +328,85 @@ func (s *UnitSuite) TestDestroyPrincipalUnits(c *C) {
 	s.assertUnitLife(c, "wordpress/4", state.Dying)
 }
 
-func (s *UnitSuite) TestShortCircuitDestroyUnassignedUnit(c *C) {
-	// A unit without subordinates or assigned machine is removed directly.
+func (s *UnitSuite) TestDestroySetStatusRetry(c *C) {
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.SetStatus(params.StatusStarted, "")
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitLife(c, s.unit, state.Dying)
+	}).Check()
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroySetCharmRetry(c *C) {
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.SetCharmURL(s.charm.URL())
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+	}).Check()
+	err := s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroyChangeCharmRetry(c *C) {
+	err := s.unit.SetCharmURL(s.charm.URL())
+	c.Assert(err, IsNil)
+	newCharm := s.AddConfigCharm(c, "mysql", "options: {}", 99)
+	err = s.service.SetCharm(newCharm, false)
+	c.Assert(err, IsNil)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.SetCharmURL(newCharm.URL())
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+	}).Check()
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroyAssignRetry(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.AssignToMachine(machine)
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+		// Also check the unit ref was properly removed from the machine doc --
+		// if it weren't, we wouldn't be able to make the machine Dead.
+		err := machine.EnsureDead()
+		c.Assert(err, IsNil)
+	}).Check()
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestDestroyUnassignRetry(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	defer state.SetRetryHooks(c, s.State, func() {
+		err := s.unit.UnassignFromMachine()
+		c.Assert(err, IsNil)
+	}, func() {
+		assertUnitRemoved(c, s.unit)
+	}).Check()
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestShortCircuitDestroyUnit(c *C) {
+	// A unit that has not set any status is removed directly.
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitRemoved(c, s.unit)
+	assertUnitRemoved(c, s.unit)
 }
 
 func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *C) {
@@ -353,21 +424,37 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithSubordinates(c *C) {
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitLife(c, s.unit.Name(), state.Dying)
+	assertUnitLife(c, s.unit, state.Dying)
 }
 
-func (s *UnitSuite) TestShortCircuitDestroyWithUnprovisionedMachine(c *C) {
-	// A unit with an assigned but unprovisioned machine is removed directly.
-	err := s.unit.AssignToNewMachine()
-	c.Assert(err, IsNil)
-	err = s.unit.Destroy()
-	c.Assert(err, IsNil)
-	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitRemoved(c, s.unit)
+func (s *UnitSuite) TestCannotShortCircuitDestroyWithStatus(c *C) {
+	for i, test := range []struct {
+		status params.Status
+		info   string
+	}{{
+		params.StatusInstalled, "",
+	}, {
+		params.StatusStarted, "",
+	}, {
+		params.StatusError, "blah",
+	}, {
+		params.StatusStopped, "",
+	}} {
+		c.Logf("test %d: %s", i, test.status)
+		unit, err := s.service.AddUnit()
+		c.Assert(err, IsNil)
+		err = unit.SetStatus(test.status, test.info)
+		c.Assert(err, IsNil)
+		err = unit.Destroy()
+		c.Assert(err, IsNil)
+		c.Assert(unit.Life(), Equals, state.Dying)
+		assertUnitLife(c, unit, state.Dying)
+	}
 }
 
-func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
-	// A unit assigned to a provisioned machine is set to Dying.
+func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *C) {
+	// A unit assigned to a provisioned machine is still removed directly so
+	// long as it has not set status.
 	err := s.unit.AssignToNewMachine()
 	c.Assert(err, IsNil)
 	mid, err := s.unit.AssignedMachineId()
@@ -379,7 +466,7 @@ func (s *UnitSuite) TestCannotShortCircuitDestroyWithProvisionedMachine(c *C) {
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	c.Assert(s.unit.Life(), Equals, state.Dying)
-	s.assertUnitLife(c, s.unit.Name(), state.Dying)
+	assertUnitRemoved(c, s.unit)
 }
 
 func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
@@ -412,11 +499,15 @@ func (s *UnitSuite) TestDestroySubordinateUnits(c *C) {
 func (s *UnitSuite) assertUnitLife(c *C, name string, life state.Life) {
 	unit, err := s.State.Unit(name)
 	c.Assert(err, IsNil)
+	assertUnitLife(c, unit, life)
+}
+
+func assertUnitLife(c *C, unit *state.Unit, life state.Life) {
 	c.Assert(unit.Refresh(), IsNil)
 	c.Assert(unit.Life(), Equals, life)
 }
 
-func (s *UnitSuite) assertUnitRemoved(c *C, unit *state.Unit) {
+func assertUnitRemoved(c *C, unit *state.Unit) {
 	err := unit.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	err = unit.Destroy()
@@ -442,7 +533,7 @@ func (s *UnitSuite) TestSetMongoPassword(c *C) {
 }
 
 func (s *UnitSuite) TestSetPassword(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.Unit(s.unit.Name())
 	})
@@ -635,14 +726,14 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err := s.unit.OpenPort("tcp", 80)
 	c.Assert(err, IsNil)
 	open := s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 	})
 
 	err = s.unit.OpenPort("udp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 80},
 		{"udp", 53},
 	})
@@ -650,7 +741,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 53)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"udp", 53},
@@ -659,7 +750,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.OpenPort("tcp", 443)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 80},
 		{"tcp", 443},
@@ -669,7 +760,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -678,7 +769,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 	err = s.unit.ClosePort("tcp", 80)
 	c.Assert(err, IsNil)
 	open = s.unit.OpenedPorts()
-	c.Assert(open, DeepEquals, []params.Port{
+	c.Assert(open, DeepEquals, []instance.Port{
 		{"tcp", 53},
 		{"tcp", 443},
 		{"udp", 53},
@@ -686,7 +777,7 @@ func (s *UnitSuite) TestOpenedPorts(c *C) {
 }
 
 func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	testWhenDying(c, s.unit, noErr, deadErr, func() error {
 		return s.unit.OpenPort("tcp", 20)
 	}, func() error {
@@ -695,7 +786,7 @@ func (s *UnitSuite) TestOpenClosePortWhenDying(c *C) {
 }
 
 func (s *UnitSuite) TestSetClearResolvedWhenNotAlive(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
+	preventUnitDestroyRemove(c, s.unit)
 	err := s.unit.Destroy()
 	c.Assert(err, IsNil)
 	err = s.unit.SetResolved(state.ResolvedNoHooks)
@@ -862,33 +953,9 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
-	defer stop(c, w)
-	assertChange := func(units ...string) {
-		s.State.Sync()
-		select {
-		case ch, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			if len(units) > 0 {
-				sort.Strings(ch)
-				sort.Strings(units)
-				c.Assert(ch, DeepEquals, units)
-			} else {
-				c.Assert(ch, HasLen, 0)
-			}
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("timed out waiting for %#v", units)
-		}
-	}
-	assertChange()
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case ch, ok := <-w.Changes():
-			c.Fatalf("unexpected change: %#v, %v", ch, ok)
-		case <-time.After(100 * time.Millisecond):
-		}
-	}
-	assertNoChange()
+	defer AssertStop(c, w)
+	wc := StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
 
 	// Add a couple of subordinates, check change.
 	subCharm := s.AddTestingCharm(c, "logging")
@@ -913,14 +980,12 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 		c.Assert(units, HasLen, 1)
 		subUnits = append(subUnits, units[0])
 	}
-	assertChange(subUnits[0].Name(), subUnits[1].Name())
-	assertNoChange()
+	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
 
 	// Set one to Dying, check change.
 	err := subUnits[0].Destroy()
 	c.Assert(err, IsNil)
-	assertChange(subUnits[0].Name())
-	assertNoChange()
+	wc.AssertOneChange(subUnits[0].Name())
 
 	// Set both to Dead, and remove one; check change.
 	err = subUnits[0].EnsureDead()
@@ -929,117 +994,59 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	err = subUnits[1].Remove()
 	c.Assert(err, IsNil)
-	assertChange(subUnits[0].Name(), subUnits[1].Name())
-	assertNoChange()
+	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
 
 	// Stop watcher, check closed.
-	err = w.Stop()
-	c.Assert(err, IsNil)
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, false)
-	default:
-	}
+	AssertStop(c, w)
+	wc.AssertClosed()
 
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
-	defer stop(c, w)
-	assertChange(subUnits[0].Name())
+	defer AssertStop(c, w)
+	wc = StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
 	err = subUnits[0].Remove()
 	c.Assert(err, IsNil)
-	assertNoChange()
-}
-
-type unitInfo struct {
-	PublicAddress string
-	Life          state.Life
-}
-
-var watchUnitTests = []struct {
-	test func(m *state.Unit) error
-	want unitInfo
-}{
-	{
-		func(u *state.Unit) error {
-			return u.SetPublicAddress("example.foobar.com")
-		},
-		unitInfo{
-			PublicAddress: "example.foobar.com",
-		},
-	},
-	{
-		func(u *state.Unit) error {
-			return u.SetPublicAddress("ubuntu.com")
-		},
-		unitInfo{
-			PublicAddress: "ubuntu.com",
-		},
-	},
-	{
-		func(u *state.Unit) error {
-			return u.Destroy()
-		},
-		unitInfo{
-			Life: state.Dying,
-		},
-	},
+	wc.AssertNoChange()
 }
 
 func (s *UnitSuite) TestWatchUnit(c *C) {
-	preventUnitDestroyRemove(c, s.State, s.unit)
-	altunit, err := s.State.Unit(s.unit.Name())
-	c.Assert(err, IsNil)
-	err = altunit.SetPublicAddress("newer-address")
-	c.Assert(err, IsNil)
-	_, ok := s.unit.PublicAddress()
-	c.Assert(ok, Equals, false)
-
+	preventUnitDestroyRemove(c, s.unit)
 	w := s.unit.Watch()
-	defer func() {
-		c.Assert(w.Stop(), IsNil)
-	}()
-	s.State.Sync()
-	select {
-	case _, ok := <-w.Changes():
-		c.Assert(ok, Equals, true)
-		err := s.unit.Refresh()
-		c.Assert(err, IsNil)
-		addr, ok := s.unit.PublicAddress()
-		c.Assert(ok, Equals, true)
-		c.Assert(addr, Equals, "newer-address")
-	case <-time.After(500 * time.Millisecond):
-		c.Fatalf("did not get change: %v", s.unit)
-	}
+	defer AssertStop(c, w)
 
-	for i, test := range watchUnitTests {
-		c.Logf("test %d", i)
-		err := test.test(altunit)
-		c.Assert(err, IsNil)
-		s.State.StartSync()
-		select {
-		case _, ok := <-w.Changes():
-			c.Assert(ok, Equals, true)
-			err := s.unit.Refresh()
-			c.Assert(err, IsNil)
-			var info unitInfo
-			info.Life = s.unit.Life()
-			c.Assert(err, IsNil)
-			if test.want.PublicAddress != "" {
-				info.PublicAddress, ok = s.unit.PublicAddress()
-				c.Assert(ok, Equals, true)
-			}
-			c.Assert(info, DeepEquals, test.want)
-		case <-time.After(500 * time.Millisecond):
-			c.Fatalf("did not get change: %v", test.want)
-		}
-	}
-	select {
-	case got, ok := <-w.Changes():
-		c.Fatalf("got unexpected change: %#v, %v", got, ok)
-	case <-time.After(100 * time.Millisecond):
-	}
+	// Initial event.
+	wc := NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
+
+	// Make one change (to a separate instance), check one event.
+	unit, err := s.State.Unit(s.unit.Name())
+	c.Assert(err, IsNil)
+	err = unit.SetPublicAddress("example.foobar.com")
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Make two changes, check one event.
+	err = unit.SetPrivateAddress("example.foobar")
+	c.Assert(err, IsNil)
+	err = unit.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Stop, check closed.
+	AssertStop(c, w)
+	wc.AssertClosed()
+
+	// Remove unit, start new watch, check single event.
+	err = unit.EnsureDead()
+	c.Assert(err, IsNil)
+	err = unit.Remove()
+	c.Assert(err, IsNil)
+	w = s.unit.Watch()
+	defer AssertStop(c, w)
+	NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {

@@ -15,19 +15,65 @@ import (
 	"path/filepath"
 )
 
-// TestingEnvironConfig returns a default environment configuration.
-func TestingEnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
-		"type":            "test",
-		"name":            "test-name",
-		"default-series":  "test-series",
-		"authorized-keys": "test-keys",
-		"agent-version":   "9.9.9.9",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+// transactionHook holds Before and After func()s that will be called
+// respectively before and after a particular state transaction is executed.
+type TransactionHook transactionHook
+
+// TransactionChecker values are returned from the various Set*Hooks calls,
+// and should be run after the code under test has been executed to check
+// that the expected number of transactions were run.
+type TransactionChecker func()
+
+func (c TransactionChecker) Check() {
+	c()
+}
+
+// SetTransactionHooks queues up hooks to be applied to the next transactions,
+// and returns a function that asserts all hooks have been run (and removes any
+// that have not). Each hook function can freely execute its own transactions
+// without causing other hooks to be triggered.
+// It returns a function that asserts that all hooks have been run, and removes
+// any that have not. It is an error to set transaction hooks when any are
+// already queued; and setting transaction hooks renders the *State goroutine-
+// unsafe.
+func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) TransactionChecker {
+	converted := make([]transactionHook, len(transactionHooks))
+	for i, hook := range transactionHooks {
+		converted[i] = transactionHook(hook)
+		c.Logf("%d: %#v", i, converted[i])
+	}
+	original := <-st.transactionHooks
+	st.transactionHooks <- converted
+	c.Assert(original, HasLen, 0)
+	return func() {
+		remaining := <-st.transactionHooks
+		st.transactionHooks <- nil
+		c.Assert(remaining, HasLen, 0)
+	}
+}
+
+// SetBeforeHooks uses SetTransactionHooks to queue N functions to be run
+// immediately before the next N transactions. Nil values are accepted, and
+// useful, in that they can be used to ensure that a transaction is run at
+// the expected time, without having to make any changes or assert any state.
+func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
+	transactionHooks := make([]TransactionHook, len(fs))
+	for i, f := range fs {
+		transactionHooks[i] = TransactionHook{Before: f}
+	}
+	return SetTransactionHooks(c, st, transactionHooks...)
+}
+
+// SetRetryHooks uses SetTransactionHooks to inject a block function designed
+// to disrupt a transaction built against recent state, and a check function
+// designed to verify that the replacement transaction against the new state
+// has been applied as expected.
+func SetRetryHooks(c *C, st *State, block, check func()) TransactionChecker {
+	return SetTransactionHooks(c, st, TransactionHook{
+		Before: block,
+	}, TransactionHook{
+		After: check,
 	})
-	c.Assert(err, IsNil)
-	return cfg
 }
 
 // TestingInitialize initializes the state and returns it. If state was not
@@ -35,7 +81,7 @@ func TestingEnvironConfig(c *C) *config.Config {
 // configuration will be used.
 func TestingInitialize(c *C, cfg *config.Config) *State {
 	if cfg == nil {
-		cfg = TestingEnvironConfig(c)
+		cfg = testing.EnvironConfig(c)
 	}
 	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
 	c.Assert(err, IsNil)

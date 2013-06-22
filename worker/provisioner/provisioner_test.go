@@ -222,7 +222,7 @@ func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
-func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect state.InstanceId) {
+func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
 	s.waitMachine(c, m, func() bool {
 		err := m.Refresh()
 		c.Assert(err, IsNil)

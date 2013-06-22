@@ -13,6 +13,8 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
+var fastDialOpts = api.DialOpts{}
+
 type serverSuite struct {
 	baseSuite
 }
@@ -39,17 +41,17 @@ func (s *serverSuite) TestStop(c *C) {
 		Password: "password",
 		Addrs:    []string{srv.Addr()},
 		CACert:   []byte(coretesting.CACert),
-	})
+	}, fastDialOpts)
 	c.Assert(err, IsNil)
 	defer st.Close()
 
-	_, err = st.Machiner()
+	_, err = st.Machiner().Machine(stm.Id())
 	c.Assert(err, IsNil)
 
 	err = srv.Stop()
 	c.Assert(err, IsNil)
 
-	_, err = st.Machiner()
+	_, err = st.Machiner().Machine(stm.Id())
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {

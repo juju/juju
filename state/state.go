@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -94,30 +95,61 @@ func IsMachineId(name string) bool {
 // State represents the state of an environment
 // managed by juju.
 type State struct {
-	info           *Info
-	db             *mgo.Database
-	environments   *mgo.Collection
-	charms         *mgo.Collection
-	machines       *mgo.Collection
-	containerRefs  *mgo.Collection
-	relations      *mgo.Collection
-	relationScopes *mgo.Collection
-	services       *mgo.Collection
-	settings       *mgo.Collection
-	settingsrefs   *mgo.Collection
-	constraints    *mgo.Collection
-	units          *mgo.Collection
-	users          *mgo.Collection
-	presence       *mgo.Collection
-	cleanups       *mgo.Collection
-	annotations    *mgo.Collection
-	statuses       *mgo.Collection
-	runner         *txn.Runner
-	watcher        *watcher.Watcher
-	pwatcher       *presence.Watcher
+	info             *Info
+	db               *mgo.Database
+	environments     *mgo.Collection
+	charms           *mgo.Collection
+	machines         *mgo.Collection
+	containerRefs    *mgo.Collection
+	relations        *mgo.Collection
+	relationScopes   *mgo.Collection
+	services         *mgo.Collection
+	settings         *mgo.Collection
+	settingsrefs     *mgo.Collection
+	constraints      *mgo.Collection
+	units            *mgo.Collection
+	users            *mgo.Collection
+	presence         *mgo.Collection
+	cleanups         *mgo.Collection
+	annotations      *mgo.Collection
+	statuses         *mgo.Collection
+	runner           *txn.Runner
+	transactionHooks chan ([]transactionHook)
+	watcher          *watcher.Watcher
+	pwatcher         *presence.Watcher
 	// mu guards allManager.
 	mu         sync.Mutex
 	allManager *multiwatcher.StoreManager
+}
+
+// transactionHook holds a pair of functions to be called before and after a
+// mgo/txn transaction is run. It is only used in testing.
+type transactionHook struct {
+	Before func()
+	After  func()
+}
+
+// runTransaction runs the supplied operations as a single mgo/txn transaction,
+// and includes a mechanism whereby tests can use SetTransactionHooks to induce
+// arbitrary state mutations before and after particular transactions.
+func (st *State) runTransaction(ops []txn.Op) error {
+	transactionHooks := <-st.transactionHooks
+	st.transactionHooks <- nil
+	if len(transactionHooks) > 0 {
+		defer func() {
+			if transactionHooks[0].After != nil {
+				transactionHooks[0].After()
+			}
+			if <-st.transactionHooks != nil {
+				panic("concurrent use of transaction hooks")
+			}
+			st.transactionHooks <- transactionHooks[1:]
+		}()
+		if transactionHooks[0].Before != nil {
+			transactionHooks[0].Before()
+		}
+	}
+	return st.runner.Run(ops, "", nil)
 }
 
 func (st *State) Watch() *multiwatcher.Watcher {
@@ -200,7 +232,7 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 // InjectMachine adds a new machine, corresponding to an existing provider
 // instance, configured to run the supplied jobs on the supplied series, using
 // the specified constraints.
-func (st *State) InjectMachine(series string, cons constraints.Value, instanceId InstanceId, jobs ...MachineJob) (m *Machine, err error) {
+func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
@@ -275,7 +307,7 @@ type AddMachineParams struct {
 	Constraints   constraints.Value
 	ParentId      string
 	ContainerType ContainerType
-	instanceId    InstanceId
+	instanceId    instance.Id
 	nonce         string
 	Jobs          []MachineJob
 }
@@ -336,7 +368,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	}
 	ops = append(ops, machineOps...)
 
-	err = st.runner.Run(ops, "", nil)
+	err = st.runTransaction(ops)
 	if err != nil {
 		return nil, err
 	}
@@ -685,7 +717,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 	// Run the transaction; happily, there's never any reason to retry,
 	// because all the possible failed assertions imply that the service
 	// already exists.
-	if err := st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+	if err := st.runTransaction(ops); err == txn.ErrAborted {
 		return nil, fmt.Errorf("service already exists")
 	} else if err != nil {
 		return nil, err
@@ -927,7 +959,7 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 			Insert: doc,
 		})
 		// Run the transaction, and retry on abort.
-		if err = st.runner.Run(ops, "", nil); err == txn.ErrAborted {
+		if err = st.runTransaction(ops); err == txn.ErrAborted {
 			continue
 		} else if err != nil {
 			return nil, err
@@ -1120,6 +1152,21 @@ type cleanupDoc struct {
 	Prefix string
 }
 
+// newCleanupOp returns a txn.Op that creates a cleanup document with a unique
+// id and the supplied kind and prefix.
+func (st *State) newCleanupOp(kind, prefix string) txn.Op {
+	doc := &cleanupDoc{
+		Id:     bson.NewObjectId(),
+		Kind:   kind,
+		Prefix: prefix,
+	}
+	return txn.Op{
+		C:      st.cleanups.Name,
+		Id:     doc.Id,
+		Insert: doc,
+	}
+}
+
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
 	count, err := st.cleanups.Count()
@@ -1136,32 +1183,25 @@ func (st *State) Cleanup() error {
 	doc := cleanupDoc{}
 	iter := st.cleanups.Find(nil).Iter()
 	for iter.Next(&doc) {
-		var c *mgo.Collection
-		var sel interface{}
+		var err error
 		switch doc.Kind {
 		case "settings":
-			c = st.settings
-			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
+			err = st.cleanupSettings(doc.Prefix)
+		case "units":
+			err = st.cleanupUnits(doc.Prefix)
 		default:
-			log.Warningf("state: ignoring unknown cleanup kind %q", doc.Kind)
-			continue
+			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
-		if count, err := c.Find(sel).Count(); err != nil {
-			return fmt.Errorf("cannot detect cleanup targets: %v", err)
-		} else if count != 0 {
-			// Documents marked for cleanup are not otherwise referenced in the
-			// system, and will not be under watch, and are therefore safe to
-			// delete directly.
-			if _, err := c.RemoveAll(sel); err != nil {
-				return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
-			}
+		if err != nil {
+			log.Warningf("cleanup failed: %v", err)
+			continue
 		}
 		ops := []txn.Op{{
 			C:      st.cleanups.Name,
 			Id:     doc.Id,
 			Remove: true,
 		}}
-		if err := st.runner.Run(ops, "", nil); err != nil {
+		if err := st.runTransaction(ops); err != nil {
 			return fmt.Errorf("cannot remove empty cleanup document: %v", err)
 		}
 	}
@@ -1169,6 +1209,44 @@ func (st *State) Cleanup() error {
 		return fmt.Errorf("cannot read cleanup document: %v", err)
 	}
 	return nil
+}
+
+func (st *State) cleanupSettings(prefix string) error {
+	// Documents marked for cleanup are not otherwise referenced in the
+	// system, and will not be under watch, and are therefore safe to
+	// delete directly.
+	sel := D{{"_id", D{{"$regex", "^" + prefix}}}}
+	if count, err := st.settings.Find(sel).Count(); err != nil {
+		return fmt.Errorf("cannot detect cleanup targets: %v", err)
+	} else if count != 0 {
+		if _, err := st.settings.RemoveAll(sel); err != nil {
+			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
+		}
+	}
+	return nil
+}
+
+func (st *State) cleanupUnits(prefix string) error {
+	// This won't miss units, because a Dying service cannot have units added
+	// to it. But we do have to remove the units themselves via individual
+	// transactions, because they could be in any state at all.
+	unit := &Unit{st: st}
+	sel := D{{"_id", D{{"$regex", "^" + prefix}}}, {"life", Alive}}
+	iter := st.units.Find(sel).Iter()
+	for iter.Next(&unit.doc) {
+		if err := unit.Destroy(); err != nil {
+			return err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("cannot read unit document: %v", err)
+	}
+	return nil
+}
+
+// ResumeTransactions resumes all pending transactions.
+func (st *State) ResumeTransactions() error {
+	return st.runner.ResumeAll()
 }
 
 var tagPrefix = map[byte]string{

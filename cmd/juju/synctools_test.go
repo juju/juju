@@ -16,10 +16,11 @@ import (
 
 type syncToolsSuite struct {
 	testing.LoggingSuite
-	home        *testing.FakeHome
-	targetEnv   environs.Environ
-	origAttrs   map[string]interface{}
-	origVersion version.Binary
+	home         *testing.FakeHome
+	targetEnv    environs.Environ
+	origVersion  version.Binary
+	origLocation string
+	storage      *envtesting.EC2HTTPTestStorage
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
@@ -42,30 +43,20 @@ environments:
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source environment and populate its public tools.
-	dummyAttrs := map[string]interface{}{
-		"name":         "test-source",
-		"type":         "dummy",
-		"state-server": false,
-		// Note: Without this, you get "no public ssh keys found", which seems
-		// a bit odd for the "dummy" environment
-		"authorized-keys": "I-am-not-a-real-key",
-	}
-	env, err := environs.NewFromAttrs(dummyAttrs)
+	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
-	c.Assert(env, NotNil)
-	envtesting.RemoveAllTools(c, env)
-	store := env.PublicStorage().(environs.Storage)
+
 	for _, vers := range vAll {
-		envtesting.UploadFakeToolsVersion(c, store, vers)
+		s.storage.PutBinary(vers)
 	}
-	// Overwrite the official source bucket to the new dummy 'test-source',
-	// saving the original value for cleanup
-	s.origAttrs = officialBucketAttrs
-	officialBucketAttrs = dummyAttrs
+
+	s.origLocation = defaultToolsLocation
+	defaultToolsLocation = s.storage.Location()
 }
 
 func (s *syncToolsSuite) TearDownTest(c *C) {
-	officialBucketAttrs = s.origAttrs
+	c.Assert(s.storage.Stop(), IsNil)
+	defaultToolsLocation = s.origLocation
 	dummy.Reset()
 	s.home.Restore()
 	version.Current = s.origVersion

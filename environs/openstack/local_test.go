@@ -19,7 +19,6 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"net/http"
@@ -56,7 +55,7 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 
 	id, err := p.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, state.InstanceId("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
+	c.Assert(id, Equals, instance.Id("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
 }
 
 func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
@@ -90,7 +89,7 @@ func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
 
 	id, err := p.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(id, Equals, state.InstanceId("2748"))
+	c.Assert(id, Equals, instance.Id("2748"))
 }
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -286,49 +285,60 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *localServerSuite) TestStartInstanceMetadata(c *C) {
+	err := environs.Bootstrap(s.Env, constraints.Value{})
+	c.Assert(err, IsNil)
+	inst := testing.StartInstanceWithConstraints(c, s.Env, "100", constraints.MustParse("mem=1024"))
+	md := inst.Metadata()
+	c.Check(*md.Arch, Equals, "amd64")
+	c.Check(*md.Mem, Equals, uint64(2048))
+	c.Check(*md.CpuCores, Equals, uint64(1))
+	c.Assert(md.CpuPower, IsNil)
+}
+
 var instanceGathering = []struct {
-	ids []state.InstanceId
+	ids []instance.Id
 	err error
 }{
-	{ids: []state.InstanceId{"id0"}},
-	{ids: []state.InstanceId{"id0", "id0"}},
-	{ids: []state.InstanceId{"id0", "id1"}},
-	{ids: []state.InstanceId{"id1", "id0"}},
-	{ids: []state.InstanceId{"id1", "id0", "id1"}},
+	{ids: []instance.Id{"id0"}},
+	{ids: []instance.Id{"id0", "id0"}},
+	{ids: []instance.Id{"id0", "id1"}},
+	{ids: []instance.Id{"id1", "id0"}},
+	{ids: []instance.Id{"id1", "id0", "id1"}},
 	{
-		ids: []state.InstanceId{""},
+		ids: []instance.Id{""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []state.InstanceId{"", ""},
+		ids: []instance.Id{"", ""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []state.InstanceId{"", "", ""},
+		ids: []instance.Id{"", "", ""},
 		err: environs.ErrNoInstances,
 	},
 	{
-		ids: []state.InstanceId{"id0", ""},
+		ids: []instance.Id{"id0", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []state.InstanceId{"", "id1"},
+		ids: []instance.Id{"", "id1"},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []state.InstanceId{"id0", "id1", ""},
+		ids: []instance.Id{"id0", "id1", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []state.InstanceId{"id0", "", "id0"},
+		ids: []instance.Id{"id0", "", "id0"},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []state.InstanceId{"id0", "id0", ""},
+		ids: []instance.Id{"id0", "id0", ""},
 		err: environs.ErrPartialInstances,
 	},
 	{
-		ids: []state.InstanceId{"", "id0", "id1"},
+		ids: []instance.Id{"", "id0", "id1"},
 		err: environs.ErrPartialInstances,
 	},
 }
@@ -345,7 +355,7 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 
 	for i, test := range instanceGathering {
 		c.Logf("test %d: find %v -> expect len %d, err: %v", i, test.ids, len(test.ids), test.err)
-		ids := make([]state.InstanceId, len(test.ids))
+		ids := make([]instance.Id, len(test.ids))
 		for j, id := range test.ids {
 			switch id {
 			case "id0":
@@ -429,7 +439,7 @@ func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {
 	spec, err := openstack.FindInstanceSpec(s.Env, "raring", "amd64", "mem=512M")
 	c.Assert(err, IsNil)
 	c.Assert(spec.Image.Id, Equals, "id-y")
-	c.Assert(spec.InstanceTypeName, Equals, "m1.tiny")
+	c.Assert(spec.InstanceType.Name, Equals, "m1.tiny")
 }
 
 func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {

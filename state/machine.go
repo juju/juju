@@ -9,16 +9,13 @@ import (
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
 	"strings"
 	"time"
 )
-
-// An InstanceId is a provider-specific identifier associated with an
-// instance (physical or virtual machine allocated in the provider).
-type InstanceId string
 
 // Machine represents the state of a machine.
 type Machine struct {
@@ -35,13 +32,13 @@ const (
 	_ MachineJob = iota
 	JobHostUnits
 	JobManageEnviron
-	JobServeAPI
+	JobManageState
 )
 
-var jobNames = []string{
-	JobHostUnits:     "JobHostUnits",
-	JobManageEnviron: "JobManageEnviron",
-	JobServeAPI:      "JobServeAPI",
+var jobNames = []params.MachineJob{
+	JobHostUnits:     params.JobHostUnits,
+	JobManageEnviron: params.JobManageEnviron,
+	JobManageState:   params.JobManageState,
 }
 
 func (job MachineJob) String() string {
@@ -49,7 +46,7 @@ func (job MachineJob) String() string {
 	if j <= 0 || j >= len(jobNames) {
 		return fmt.Sprintf("<unknown job %d>", j)
 	}
-	return jobNames[j]
+	return string(jobNames[j])
 }
 
 // machineDoc represents the internal state of a machine in MongoDB.
@@ -59,7 +56,7 @@ type machineDoc struct {
 	Nonce         string
 	Series        string
 	ContainerType string
-	InstanceId    InstanceId
+	InstanceId    instance.Id
 	Principals    []string
 	Life          Life
 	Tools         *Tools `bson:",omitempty"`
@@ -166,7 +163,7 @@ func (m *Machine) SetAgentTools(t *Tools) (err error) {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"tools", t}}}},
 	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
+	if err := m.st.runTransaction(ops); err != nil {
 		return onAbort(err, errDead)
 	}
 	tools := *t
@@ -190,7 +187,7 @@ func (m *Machine) SetPassword(password string) error {
 		Assert: notDeadDoc,
 		Update: D{{"$set", D{{"passwordhash", hp}}}},
 	}}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
+	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set password of machine %v: %v", m, onAbort(err, errDead))
 	}
 	m.doc.PasswordHash = hp
@@ -361,7 +358,7 @@ func (original *Machine) advanceLifecycle(life Life) (err error) {
 			}
 		}
 		// Run the transaction...
-		if err := m.st.runner.Run([]txn.Op{op}, "", nil); err != txn.ErrAborted {
+		if err := m.st.runTransaction([]txn.Op{op}); err != txn.ErrAborted {
 			return err
 		}
 		// ...and retry on abort.
@@ -394,7 +391,7 @@ func (m *Machine) Remove() (err error) {
 	ops = append(ops, removeContainerRefOps(m.st, m.Id())...)
 	// The only abort conditions in play indicate that the machine has already
 	// been removed.
-	return onAbort(m.st.runner.Run(ops, "", nil), nil)
+	return onAbort(m.st.runTransaction(ops), nil)
 }
 
 // Refresh refreshes the contents of the machine from the underlying
@@ -452,7 +449,7 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 
 // InstanceId returns the provider specific instance id for this machine
 // and whether it has been set.
-func (m *Machine) InstanceId() (InstanceId, bool) {
+func (m *Machine) InstanceId() (instance.Id, bool) {
 	return m.doc.InstanceId, m.doc.InstanceId != ""
 }
 
@@ -480,7 +477,7 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id and nonce for
 // this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
+func (m *Machine) SetProvisioned(id instance.Id, nonce string) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance id of machine %q", m)
 
 	if id == "" || nonce == "" {
@@ -494,7 +491,7 @@ func (m *Machine) SetProvisioned(id InstanceId, nonce string) (err error) {
 		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 	}}
 
-	if err = m.st.runner.Run(ops, "", nil); err == nil {
+	if err = m.st.runTransaction(ops); err == nil {
 		m.doc.InstanceId = id
 		m.doc.Nonce = nonce
 		return nil
@@ -551,7 +548,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		if m.doc.InstanceId != "" {
 			return fmt.Errorf("machine is already provisioned")
 		}
-		if err := m.st.runner.Run(ops, "", nil); err != txn.ErrAborted {
+		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 		if m, err = m.st.Machine(m.doc.Id); err != nil {
@@ -591,7 +588,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 	},
 		updateStatusOp(m.st, m.globalKey(), doc),
 	}
-	if err := m.st.runner.Run(ops, "", nil); err != nil {
+	if err := m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set status of machine %q: %v", m, onAbort(err, errNotAlive))
 	}
 	return nil
