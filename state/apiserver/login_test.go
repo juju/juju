@@ -8,10 +8,11 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 )
 
 type loginSuite struct {
-	baseSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = Suite(&loginSuite{})

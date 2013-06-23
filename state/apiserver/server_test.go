@@ -10,13 +10,19 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
+
+func TestAll(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
 
 var fastDialOpts = api.DialOpts{}
 
 type serverSuite struct {
-	baseSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = Suite(&serverSuite{})

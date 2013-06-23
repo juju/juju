@@ -5,15 +5,18 @@ package apiserver
 
 import (
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
+type clientAPI struct {*client.API}
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
-	client    *srvClient
+	clientAPI
 	state     *srvState
 	srv       *Server
 	resources *resources
@@ -27,9 +30,7 @@ func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 		resources: newResources(),
 		entity:    entity,
 	}
-	r.client = &srvClient{
-		root: r,
-	}
+	r.clientAPI = clientAPI{client.NewAPI(srv.state, r.resources, r)}
 	r.state = &srvState{
 		root: r,
 	}
@@ -190,19 +191,6 @@ func (r *srvRoot) State(id string) (*srvState, error) {
 	return r.state, nil
 }
 
-// Client returns an object that provides access
-// to methods accessible to non-agent clients.
-func (r *srvRoot) Client(id string) (*srvClient, error) {
-	if err := r.requireClient(); err != nil {
-		return nil, err
-	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.client, nil
-}
-
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
 	_, ok := r.entity.(*state.Machine)
@@ -219,4 +207,8 @@ func (r *srvRoot) AuthOwner(tag string) bool {
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
+}
+
+func (r *srvRoot) AuthClient() bool {
+	return !isAgent(r.entity)
 }

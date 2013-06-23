@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/apiserver/client"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -487,9 +487,9 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *C) {
 
 func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 	mockStore := coretesting.NewMockCharmStore()
-	origStore := apiserver.CharmStore
-	apiserver.CharmStore = mockStore
-	return mockStore, func() { apiserver.CharmStore = origStore }
+	origStore := client.CharmStore
+	client.CharmStore = mockStore
+	return mockStore, func() { client.CharmStore = origStore }
 }
 
 func addCharm(c *C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
