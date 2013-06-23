@@ -6,11 +6,11 @@ package apiserver_test
 import (
 	"io"
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
-	jujutesting "launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
 )

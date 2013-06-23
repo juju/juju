@@ -47,7 +47,7 @@ type fakeAuthorizer struct {
 	loggedIn     bool
 	manager      bool
 	machineAgent bool
-	client bool
+	client       bool
 }
 
 func (fa fakeAuthorizer) AuthOwner(tag string) bool {

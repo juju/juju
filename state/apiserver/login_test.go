@@ -5,10 +5,10 @@ package apiserver_test
 
 import (
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	jujutesting "launchpad.net/juju-core/juju/testing"
 )
 
 type loginSuite struct {

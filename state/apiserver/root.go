@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
-type clientAPI struct {*client.API}
+type clientAPI struct{ *client.API }
 
 // srvRoot represents a single client's connection to the state
 // after it has logged in.

@@ -8,17 +8,17 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
 type API struct {
-	state *state.State
-	auth common.Authorizer
+	state     *state.State
+	auth      common.Authorizer
 	resources common.ResourceRegistry
-	client *Client
+	client    *Client
 }
 
 // Client serves client-specific API methods.
@@ -29,8 +29,8 @@ type Client struct {
 // NewAPI creates a new instance of the Client API.
 func NewAPI(st *state.State, resources common.ResourceRegistry, authorizer common.Authorizer) *API {
 	r := &API{
-		state: st,
-		auth: authorizer,
+		state:     st,
+		auth:      authorizer,
 		resources: resources,
 	}
 	r.client = &Client{
