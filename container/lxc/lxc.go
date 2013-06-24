@@ -49,8 +49,8 @@ type ContainerManager interface {
 }
 
 type containerManager struct {
-	golxc.ContainerFactory
-	name string
+	lxcObjectFactory golxc.ContainerFactory
+	name             string
 }
 
 // NewContainerManager returns a manager object that can start and stop lxc
@@ -71,7 +71,10 @@ func (manager *containerManager) StartContainer(
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
-	container := manager.New(name)
+	// Note here that the lxcObjectFacotry only returns a valid container
+	// object, and doesn't actually construct the underlying lxc container on
+	// disk.
+	container := manager.lxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -127,7 +130,7 @@ func (manager *containerManager) StartContainer(
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
-	container := manager.New(name)
+	container := manager.lxcObjectFactory.New(name)
 	if err := container.Stop(); err != nil {
 		logger.Errorf("failed to stop lxc container: %v", err)
 		return err
