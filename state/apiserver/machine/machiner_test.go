@@ -171,9 +171,18 @@ func (s *machinerSuite) TestWatch(c *C) {
 	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
 
-	// Just verify the resource was registered and stop it.
+	// Verify the resource was registered
 	c.Assert(s.resources, HasLen, 1)
 	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
-	err = s.resources["0"].Stop()
+	resource := s.resources["0"]
+
+	// Check that the watcher does... something
+	channel := resource.(*state.EntityWatcher).Changes()
+	select {
+	case ev := <-channel:
+		c.Assert(ev, NotNil)
+	}
+
+	err = resource.Stop()
 	c.Assert(err, IsNil)
 }
