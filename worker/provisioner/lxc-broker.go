@@ -16,6 +16,8 @@ import (
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
+var _ Broker = (*lxcBroker)(nil)
+
 func NewLxcBroker(factory golxc.ContainerFactory, config *config.Config, tools *state.Tools) Broker {
 	return &lxcBroker{
 		golxc:   factory,

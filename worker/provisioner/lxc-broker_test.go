@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/golxc"
 	"launchpad.net/juju-core/constraints"
@@ -13,6 +15,7 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
@@ -78,27 +81,47 @@ func (s *lxcBrokerSuite) TestStartInstance(c *C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId)
 	c.Assert(lxc.Id(), Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), IsDirectory)
+	s.assertInstances(c, lxc)
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *C) {
 	lxc0 := s.startInstance(c, "1/lxc/0")
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	lxc2 := s.startInstance(c, "1/lxc/2")
-	err := s.broker.StopInstances([]instance.Instance{lxc0, lxc1, lxc2})
+
+	err := s.broker.StopInstances([]instance.Instance{lxc0})
 	c.Assert(err, IsNil)
+	s.assertInstances(c, lxc1, lxc2)
+	c.Assert(s.lxcContainerDir(lxc0), DoesNotExist)
+	c.Assert(s.lxcRemovedContainerDir(lxc0), IsDirectory)
+
+	err = s.broker.StopInstances([]instance.Instance{lxc1, lxc2})
+	c.Assert(err, IsNil)
+	s.assertInstances(c)
 }
 
 func (s *lxcBrokerSuite) TestAllInstances(c *C) {
 	lxc0 := s.startInstance(c, "1/lxc/0")
 	lxc1 := s.startInstance(c, "1/lxc/1")
-	results, err := s.broker.AllInstances()
-	c.Assert(err, IsNil)
-	testing.MatchInstances(c, results, lxc0, lxc1)
+	s.assertInstances(c, lxc0, lxc1)
 
-	err = s.broker.StopInstances([]instance.Instance{lxc1})
+	err := s.broker.StopInstances([]instance.Instance{lxc1})
 	c.Assert(err, IsNil)
 	lxc2 := s.startInstance(c, "1/lxc/2")
-	results, err = s.broker.AllInstances()
+	s.assertInstances(c, lxc0, lxc2)
+}
+
+func (s *lxcBrokerSuite) assertInstances(c *C, inst ...instance.Instance) {
+	results, err := s.broker.AllInstances()
 	c.Assert(err, IsNil)
-	testing.MatchInstances(c, results, lxc0, lxc2)
+	testing.MatchInstances(c, results, inst...)
+}
+
+func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {
+	return filepath.Join(s.containerDir, string(inst.Id()))
+}
+
+func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
+	return filepath.Join(s.removedDir, string(inst.Id()))
 }
