@@ -5,7 +5,6 @@ package maas
 
 import (
 	"encoding/base64"
-	"errors"
 	"fmt"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/constraints"
@@ -47,17 +46,13 @@ type maasEnviron struct {
 
 var _ environs.Environ = (*maasEnviron)(nil)
 
-var couldNotAllocate = errors.New("Could not allocate MAAS environment object.")
-
 func NewEnviron(cfg *config.Config) (*maasEnviron, error) {
 	env := new(maasEnviron)
-	if env == nil {
-		return nil, couldNotAllocate
-	}
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
+	env.name = cfg.Name()
 	env.storageUnlocked = NewStorage(env)
 	return env, nil
 }
@@ -218,7 +213,6 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 		return err
 	}
 
-	env.name = cfg.Name()
 	env.ecfgUnlocked = ecfg
 
 	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth(), apiVersion)
