@@ -18,7 +18,7 @@ type Broker interface {
 	// consequences of multiple instances being started with the same machine
 	// id.
 	StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-		info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.Metadata, error)
+		info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error)
 
 	// StopInstances shuts down the given instances.
 	StopInstances([]instance.Instance) error

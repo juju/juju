@@ -78,13 +78,14 @@ func FakeAPIInfo(machineId string) *api.Info {
 
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
-func StartInstance(c *C, env environs.Environ, machineId string) (instance.Instance, *instance.Metadata) {
+func StartInstance(c *C, env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics) {
 	return StartInstanceWithConstraints(c, env, machineId, constraints.Value{})
 }
 
 // StartInstanceWithConstraints is a test helper function that starts an instance on the
 // environment with the specified constraints, using the current series and invalid info states.
-func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string, cons constraints.Value) (instance.Instance, *instance.Metadata) {
+func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
+	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
 	series := config.DefaultSeries
 	inst, metadata, err := env.StartInstance(
 		machineId,
@@ -153,6 +154,19 @@ func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	c.Assert(err, IsNil)
 	apiInfo.Password = "dummy-secret"
 	return apiInfo
+}
+
+// OpenAPIAs opens the API using the given identity tag
+// and password for authentication.
+func (s *JujuConnSuite) OpenAPIAs(c *C, tag, password string) *api.State {
+	_, info, err := s.APIConn.Environ.StateInfo()
+	c.Assert(err, IsNil)
+	info.Tag = tag
+	info.Password = password
+	st, err := api.Open(info, api.DialOpts{})
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	return st
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {

@@ -534,7 +534,7 @@ func (e *environ) Destroy([]instance.Instance) error {
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.Metadata, error) {
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
@@ -566,26 +566,26 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		machineId: machineId,
 		series:    series,
 	}
-	// We will just assume the instance metadata exactly matches the supplied constraints (if specified).
-	metadata := &instance.Metadata{
+	// We will just assume the instance hardware characteristics exactly matches
+	// the supplied constraints (if specified).
+	hc := &instance.HardwareCharacteristics{
 		Arch:     cons.Arch,
 		Mem:      cons.Mem,
 		CpuCores: cons.CpuCores,
 		CpuPower: cons.CpuPower,
 	}
-
-	// Fill in some expected instance metadata if constraints not specified.
-	if metadata.Arch == nil {
+	// Fill in some expected instance hardware characteristics if constraints not specified.
+	if hc.Arch == nil {
 		arch := "amd64"
-		metadata.Arch = &arch
+		hc.Arch = &arch
 	}
-	if metadata.Mem == nil {
+	if hc.Mem == nil {
 		mem := uint64(1024)
-		metadata.Mem = &mem
+		hc.Mem = &mem
 	}
-	if metadata.CpuCores == nil {
+	if hc.CpuCores == nil {
 		cores := uint64(1)
-		metadata.CpuCores = &cores
+		hc.CpuCores = &cores
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -599,7 +599,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		APIInfo:      apiInfo,
 		Secret:       e.ecfg().secret(),
 	}
-	return i, metadata, nil
+	return i, hc, nil
 }
 
 func (e *environ) StopInstances(is []instance.Instance) error {

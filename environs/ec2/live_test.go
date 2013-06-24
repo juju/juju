@@ -112,13 +112,13 @@ func (t *LiveTests) TearDownTest(c *C) {
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
 func (t *LiveTests) TestInstanceAttributes(c *C) {
-	inst, md := testing.StartInstance(c, t.Env, "30")
+	inst, hc := testing.StartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]instance.Instance{inst})
-	// Sanity check for image metadata.
-	c.Assert(md.Arch, NotNil)
-	c.Assert(md.Mem, NotNil)
-	c.Assert(md.CpuCores, NotNil)
-	c.Assert(md.CpuPower, NotNil)
+	// Sanity check for hardware characteristics.
+	c.Assert(hc.Arch, NotNil)
+	c.Assert(hc.Mem, NotNil)
+	c.Assert(hc.CpuCores, NotNil)
+	c.Assert(hc.CpuPower, NotNil)
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
 	c.Assert(err, IsNil)
@@ -135,15 +135,15 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, md, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
+	inst, hc, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
 	c.Assert(err, IsNil)
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
 	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
-	c.Assert(*md.Arch, Equals, "amd64")
-	c.Assert(*md.Mem, Equals, uint64(3840))
-	c.Assert(*md.CpuCores, Equals, uint64(1))
-	c.Assert(*md.CpuPower, Equals, uint64(200))
+	c.Assert(*hc.Arch, Equals, "amd64")
+	c.Assert(*hc.Mem, Equals, uint64(3840))
+	c.Assert(*hc.CpuCores, Equals, uint64(1))
+	c.Assert(*hc.CpuPower, Equals, uint64(200))
 }
 
 func (t *LiveTests) TestInstanceGroups(c *C) {

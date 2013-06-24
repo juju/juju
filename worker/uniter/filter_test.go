@@ -63,6 +63,8 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	assertNotClosed()
 
 	// Set dying.
+	err = s.unit.SetStatus(params.StatusStarted, "")
+	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
 	assertClosed := func() {
@@ -84,6 +86,21 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	// Set dead.
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
+	s.assertTerminateAgent(c, f)
+}
+
+func (s *FilterSuite) TestUnitRemoval(c *C) {
+	f, err := newFilter(s.State, s.unit.Name())
+	c.Assert(err, IsNil)
+	defer f.Stop()
+
+	// short-circuit to remove because no status set.
+	err = s.unit.Destroy()
+	c.Assert(err, IsNil)
+	s.assertTerminateAgent(c, f)
+}
+
+func (s *FilterSuite) assertTerminateAgent(c *C, f *filter) {
 	s.State.StartSync()
 	select {
 	case <-f.Dead():
@@ -104,6 +121,8 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 		c.Fatalf("unexpected receive")
 	}
 
+	err = s.unit.SetStatus(params.StatusStarted, "")
+	c.Assert(err, IsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 	timeout := time.After(500 * time.Millisecond)

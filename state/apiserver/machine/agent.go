@@ -14,6 +14,7 @@ import (
 type AgentAPI struct {
 	st   *state.State
 	auth common.Authorizer
+	*common.PasswordChanger
 }
 
 // NewAgentAPI returns an object implementing the machine agent API
@@ -25,13 +26,17 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
+	canChangePassword := func(tag string) bool {
+		return auth.AuthOwner(tag)
+	}
 	return &AgentAPI{
-		st:   st,
-		auth: auth,
+		st:              st,
+		auth:            auth,
+		PasswordChanger: common.NewPasswordChanger(st, canChangePassword),
 	}, nil
 }
 
-func (api *AgentAPI) GetMachines(args params.Machines) (params.MachineAgentGetMachinesResults, error) {
+func (api *AgentAPI) GetMachines(args params.Machines) params.MachineAgentGetMachinesResults {
 	results := params.MachineAgentGetMachinesResults{
 		Machines: make([]params.MachineAgentGetMachinesResult, len(args.Ids)),
 	}
@@ -40,7 +45,7 @@ func (api *AgentAPI) GetMachines(args params.Machines) (params.MachineAgentGetMa
 		result.Error = common.ServerError(err)
 		results.Machines[i] = result
 	}
-	return results, nil
+	return results
 }
 
 func (api *AgentAPI) getMachine(id string) (result params.MachineAgentGetMachinesResult, err error) {
