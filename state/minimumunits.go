@@ -4,6 +4,7 @@
 package state
 
 import (
+	"errors"
 	"fmt"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/log"
@@ -14,24 +15,26 @@ import (
 // service MinimumUnits field and on the number of alive units for the service.
 // A new document is created when MinimumUnits is set to a non zero value.
 // A document is deleted when either the associated service is destroyed
-// or MinimumUnits is restored to zero. The MinimumUnitsWatcher reacts to
-// changes sending events, each one describing one or more services. A worker
-// reacts to those events ensuring the number of units for the service is
-// never less than the actual alive units: new units are added if required
-// (see EnsureMinimumUnits below).
+// or MinimumUnits is restored to zero. The Revno is increased when
+// MinimumUnits for a service is increased or when a unit is destroyed.
+// TODO(frankban): the MinimumUnitsWatcher reacts to changes sending events,
+// each one describing one or more services. A worker reacts to those events
+// ensuring the number of units for the service is never less than the actual
+// alive units: new units are added if required (see EnsureMinimumUnits below).
 type minimumUnitsDoc struct {
 	// Since the referred entity type is always the Service, it is safe here
 	// to use the service name as id in place of its globalKey.
 	ServiceName string `bson:"_id"`
-	// Revno is increased whenever a service unit is destroyed or a service
-	// MinimumUnits is set.
-	Revno    int
-	TxnRevno int64 `bson:"txn-revno"`
+	Revno       int
+	TxnRevno    int64 `bson:"txn-revno"`
 }
 
-// SetMinimumUnits changes the minimum units count for the service.
+// SetMinimumUnits changes the amount of minimum units required by the service.
 func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set minimum units for service %q", s)
+	if minimumUnits < 0 {
+		return errors.New("minimum units must be a positive number")
+	}
 	serviceName := s.doc.Name
 	serviceOp := txn.Op{
 		C:      s.st.services.Name,
@@ -41,29 +44,36 @@ func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 	}
 	// Removing the document never fails. Racing clients trying to create the
 	// document generate one failure, but the second attempt should succeed.
-	// If the referred-to service advanced his life cycle to a not alive state,
-	// the second attempt fails and an error is returned.
-	for i := 0; i < 2; i++ {
+	// If one client tries to update the document, and a racing client removes
+	// it, the former should be able to re-create the document in the second
+	// attempt. If the referred-to service advanced his life cycle to a not
+	// alive state, an error is returned after two failing attempts.
+	for i := 0; i < 3; i++ {
+		log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: %d loop %d <--------------", minimumUnits, i)
 		ops := []txn.Op{serviceOp}
 		if count, err := s.st.minimumUnits.FindId(serviceName).Count(); err != nil {
 			return err
 		} else if count == 0 {
-			if minimumUnits == 0 {
-				return nil
+			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: count 0")
+			if i == 2 {
+				log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: ERR not alive")
+				return errors.New("service is no longer alive")
 			}
-			if i != 0 {
-				return fmt.Errorf("service %s is no longer alive", s.doc.Name)
+			if minimumUnits != 0 {
+				ops = append(ops, minimumUnitsInsertOp(s.st, s.doc.Name))
 			}
-			ops = append(ops, minimumUnitsInsertOp(s.st, s.doc.Name))
 		} else {
+			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: count %d", count)
 			if minimumUnits == 0 {
+				log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: minimumUnits 0")
 				ops = append(ops, minimumUnitsRemoveOp(s.st, s.doc.Name))
 			} else if minimumUnits > s.doc.MinimumUnits {
 				ops = append(ops, minimumUnitsUpdateOp(s.st, s.doc.Name))
 			}
 		}
+		log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: SET %#v", ops)
 		if err := s.st.runTransaction(ops); err == nil {
-			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: SET!")
+			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: DONE!")
 			s.doc.MinimumUnits = minimumUnits
 			return nil
 		} else if err != txn.ErrAborted {

@@ -147,6 +147,7 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			st.transactionHooks <- transactionHooks[1:]
 		}()
 		if transactionHooks[0].Before != nil {
+			log.Debugf("------------ BEFORE---------------")
 			transactionHooks[0].Before()
 		}
 	}

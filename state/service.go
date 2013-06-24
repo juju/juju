@@ -113,6 +113,7 @@ func (s *Service) Destroy() (err error) {
 		case errAlreadyDying:
 			return nil
 		case nil:
+			ops = append(ops, minimumUnitsRemoveOp(s.st, s.doc.Name))
 			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
@@ -200,6 +201,9 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		Id:     s.doc.Name,
 		Assert: notLastRefs,
 		Update: update,
+		// Remove the minimum units document here. There is no reason to do
+		// that if the service has no units, since having no units also means
+		// not requiring minimum units, i.e. the doc should be already missing.
 	}), nil
 }
 
