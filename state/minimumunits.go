@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -49,31 +48,24 @@ func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 	// attempt. If the referred-to service advanced his life cycle to a not
 	// alive state, an error is returned after two failing attempts.
 	for i := 0; i < 3; i++ {
-		log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: %d loop %d <--------------", minimumUnits, i)
 		ops := []txn.Op{serviceOp}
 		if count, err := s.st.minimumUnits.FindId(serviceName).Count(); err != nil {
 			return err
 		} else if count == 0 {
-			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: count 0")
 			if i == 2 {
-				log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: ERR not alive")
 				return errors.New("service is no longer alive")
 			}
 			if minimumUnits != 0 {
 				ops = append(ops, minimumUnitsInsertOp(s.st, s.doc.Name))
 			}
 		} else {
-			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: count %d", count)
 			if minimumUnits == 0 {
-				log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: minimumUnits 0")
 				ops = append(ops, minimumUnitsRemoveOp(s.st, s.doc.Name))
 			} else if minimumUnits > s.doc.MinimumUnits {
 				ops = append(ops, minimumUnitsUpdateOp(s.st, s.doc.Name))
 			}
 		}
-		log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: SET %#v", ops)
 		if err := s.st.runTransaction(ops); err == nil {
-			log.Debugf("- DEBUG-REMOVEME ---> minimumunits/SetMinimumUnits: DONE!")
 			s.doc.MinimumUnits = minimumUnits
 			return nil
 		} else if err != txn.ErrAborted {
@@ -86,7 +78,6 @@ func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 // minimumUnitsInsertOp returns the operation required to insert a minimum
 // units document for the service in MongoDB.
 func minimumUnitsInsertOp(st *State, serviceName string) txn.Op {
-	log.Debugf("- DEBUG-REMOVEME ---> minimumunits/insert")
 	return txn.Op{
 		C:      st.minimumUnits.Name,
 		Id:     serviceName,
@@ -102,7 +93,6 @@ func minimumUnitsInsertOp(st *State, serviceName string) txn.Op {
 // Revno. If the service does not require a minimum amount of units, then
 // the operation is a noop.
 func minimumUnitsIncreaseOp(st *State, serviceName string) txn.Op {
-	log.Debugf("- DEBUG-REMOVEME ---> minimumunits/increase")
 	return txn.Op{
 		C:      st.minimumUnits.Name,
 		Id:     serviceName,
@@ -113,7 +103,6 @@ func minimumUnitsIncreaseOp(st *State, serviceName string) txn.Op {
 // minimumUnitsUpdateOp returns the operation required to increase the
 // minimum units revno for the service in MongoDB. The document must exist.
 func minimumUnitsUpdateOp(st *State, serviceName string) txn.Op {
-	log.Debugf("- DEBUG-REMOVEME ---> minimumunits/update")
 	op := minimumUnitsIncreaseOp(st, serviceName)
 	op.Assert = txn.DocExists
 	return op
@@ -122,7 +111,6 @@ func minimumUnitsUpdateOp(st *State, serviceName string) txn.Op {
 // minimumUnitsRemoveOp returns the operation required to remove the minimum
 // units document from MongoDB.
 func minimumUnitsRemoveOp(st *State, serviceName string) txn.Op {
-	log.Debugf("- DEBUG-REMOVEME ---> minimumunits/remove")
 	return txn.Op{
 		C:      st.minimumUnits.Name,
 		Id:     serviceName,
@@ -154,11 +142,9 @@ func (s *Service) EnsureMinimumUnits() error {
 		return err
 	}
 	missing := s.MinimumUnits() - aliveUnits
-	log.Debugf("- DEBUG-REMOVEME ---> minimumunits/EnsureMinimumUnits: minimum: %v, alive: %v, missing: %v\n", s.MinimumUnits(), aliveUnits, missing)
 	if missing <= 0 {
 		return nil
 	}
-	log.Debugf("- DEBUG-REMOVEME ---> minimumunits/EnsureMinimumUnits: %v ADD UNITS!", s.Name())
 	for i := 0; i < missing; i++ {
 		unit, err := s.AddUnit()
 		if err != nil {

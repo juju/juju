@@ -10,7 +10,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"path/filepath"
@@ -70,7 +69,6 @@ func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
 // designed to verify that the replacement transaction against the new state
 // has been applied as expected.
 func SetRetryHooks(c *C, st *State, block, check func()) TransactionChecker {
-	log.Debugf("------------ SetRetryHooks---------------")
 	return SetTransactionHooks(c, st, TransactionHook{
 		Before: block,
 	}, TransactionHook{
