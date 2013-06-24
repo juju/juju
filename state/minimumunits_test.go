@@ -304,14 +304,12 @@ func (s *MinimumUnitsSuite) TestEnsureMinimumUnits(c *C) {
 		err = service.SetMinimumUnits(t.minimum)
 		c.Assert(err, IsNil)
 		// Destroy units if required.
-		if t.destroy > 0 {
-			allUnits, err := service.AllUnits()
+		allUnits, err := service.AllUnits()
+		c.Assert(err, IsNil)
+		for i := 0; i < t.destroy; i++ {
+			preventUnitDestroyRemove(c, allUnits[i])
+			err = allUnits[i].Destroy()
 			c.Assert(err, IsNil)
-			for i := 0; i < t.destroy; i++ {
-				preventUnitDestroyRemove(c, allUnits[i])
-				err = allUnits[i].Destroy()
-				c.Assert(err, IsNil)
-			}
 		}
 		// Ensure the minimum amount of units is correctly restored.
 		err = service.EnsureMinimumUnits()
