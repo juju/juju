@@ -177,7 +177,7 @@ func (s *MinimumUnitsSuite) TestMinimumUnitsRemoveDestroyServiceBefore(c *C) {
 	s.testDestroyServiceBefore(c, 1, 0)
 }
 
-func (s *MinimumUnitsSuite) TestMinimumUnitsRequiredByService(c *C) {
+func (s *MinimumUnitsSuite) TestMinimumUnitsSetDestroyEntities(c *C) {
 	err := s.service.SetMinimumUnits(1)
 	c.Assert(err, IsNil)
 	s.assertRevno(c, 0, nil)
@@ -200,7 +200,7 @@ func (s *MinimumUnitsSuite) TestMinimumUnitsRequiredByService(c *C) {
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
 
-func (s *MinimumUnitsSuite) TestMinimumUnitsNotRequiredByService(c *C) {
+func (s *MinimumUnitsSuite) TestMinimumUnitsNotSetDestroyEntities(c *C) {
 	// Add a unit to the service.
 	unit, err := s.service.AddUnit()
 	c.Assert(err, IsNil)
@@ -304,12 +304,14 @@ func (s *MinimumUnitsSuite) TestEnsureMinimumUnits(c *C) {
 		err = service.SetMinimumUnits(t.minimum)
 		c.Assert(err, IsNil)
 		// Destroy units if required.
-		allUnits, err := service.AllUnits()
-		c.Assert(err, IsNil)
-		for i := 0; i < t.destroy; i++ {
-			preventUnitDestroyRemove(c, allUnits[i])
-			err = allUnits[i].Destroy()
+		if t.destroy > 0 {
+			allUnits, err := service.AllUnits()
 			c.Assert(err, IsNil)
+			for i := 0; i < t.destroy; i++ {
+				preventUnitDestroyRemove(c, allUnits[i])
+				err = allUnits[i].Destroy()
+				c.Assert(err, IsNil)
+			}
 		}
 		// Ensure the minimum amount of units is correctly restored.
 		err = service.EnsureMinimumUnits()

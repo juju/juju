@@ -14,8 +14,8 @@ import (
 // service MinimumUnits field and on the number of alive units for the service.
 // A new document is created when MinimumUnits is set to a non zero value.
 // A document is deleted when either the associated service is destroyed
-// or MinimumUnits is restored to zero. The Revno is increased when
-// MinimumUnits for a service is increased or when a unit is destroyed.
+// or MinimumUnits is restored to zero. The Revno is increased when either
+// MinimumUnits for a service is increased or a unit is destroyed.
 // TODO(frankban): the MinimumUnitsWatcher reacts to changes sending events,
 // each one describing one or more services. A worker reacts to those events
 // ensuring the number of units for the service is never less than the actual
