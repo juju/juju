@@ -154,7 +154,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	containers, err := manager.List()
+	containers, err := manager.lxcObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return
