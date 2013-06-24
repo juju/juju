@@ -219,3 +219,133 @@ func (s *MinimumUnitsSuite) TestMinimumUnitsNotRequiredByService(c *C) {
 	c.Assert(s.service.Life(), Not(Equals), state.Alive)
 	s.assertRevno(c, 0, mgo.ErrNotFound)
 }
+
+func assertAliveUnits(c *C, service *state.Service, expected int) {
+	count, err := service.AliveUnitsCount()
+	c.Assert(err, IsNil)
+	c.Assert(count, Equals, expected)
+}
+
+func (s *MinimumUnitsSuite) TestAliveUnitsCount(c *C) {
+	assertAliveUnits(c, s.service, 0)
+	// Add three units to the service.
+	for i := 0; i < 3; i++ {
+		_, err := s.service.AddUnit()
+		c.Assert(err, IsNil)
+	}
+	// Now there are three alive units.
+	assertAliveUnits(c, s.service, 3)
+	// Destroy a unit, preventing it from being removed.
+	allUnits, err := s.service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(allUnits, HasLen, 3)
+	preventUnitDestroyRemove(c, allUnits[0])
+	err = allUnits[0].Destroy()
+	c.Assert(err, IsNil)
+	// Ensure the number of alive units changed.
+	assertAliveUnits(c, s.service, 2)
+}
+
+var ensureMinimumUnitsTests = []struct {
+	about    string
+	initial  int
+	minimum  int
+	destroy  int
+	expected int
+}{
+	{
+		about: "no minimum units set",
+	},
+	{
+		about:    "initial units > minimum units",
+		initial:  2,
+		minimum:  1,
+		expected: 2,
+	},
+	{
+		about:    "initial units == minimum units",
+		initial:  2,
+		minimum:  2,
+		expected: 2,
+	},
+	{
+		about:    "initial units < minimum units",
+		initial:  1,
+		minimum:  2,
+		expected: 2,
+	},
+	{
+		about:    "alive units < minimum units",
+		initial:  2,
+		minimum:  2,
+		destroy:  1,
+		expected: 2,
+	},
+	{
+		about:    "add multiple units",
+		initial:  6,
+		minimum:  5,
+		destroy:  4,
+		expected: 5,
+	},
+}
+
+func (s *MinimumUnitsSuite) TestEnsureMinimumUnits(c *C) {
+	var err error
+	service := s.service
+	for i, t := range ensureMinimumUnitsTests {
+		c.Logf("test %d. %s", i, t.about)
+		// Set up initial units if required.
+		for i := 0; i < t.initial; i++ {
+			_, err = service.AddUnit()
+			c.Assert(err, IsNil)
+		}
+		// Set up minimum units if required.
+		err = service.SetMinimumUnits(t.minimum)
+		c.Assert(err, IsNil)
+		// Destroy units if required.
+		allUnits, err := service.AllUnits()
+		c.Assert(err, IsNil)
+		for i := 0; i < t.destroy; i++ {
+			preventUnitDestroyRemove(c, allUnits[i])
+			err = allUnits[i].Destroy()
+			c.Assert(err, IsNil)
+		}
+		// Ensure the minimum amount of units is correctly restored.
+		err = service.EnsureMinimumUnits()
+		c.Assert(err, IsNil)
+		assertAliveUnits(c, service, t.expected)
+		// Clean up the minimumUnits document and the units.
+		err = service.SetMinimumUnits(0)
+		c.Assert(err, IsNil)
+		err = s.State.Cleanup()
+		c.Assert(err, IsNil)
+		allUnits, err = service.AllUnits()
+		c.Assert(err, IsNil)
+		for _, unit := range allUnits {
+			err = unit.Destroy()
+			c.Assert(err, IsNil)
+		}
+	}
+}
+
+func (s *MinimumUnitsSuite) TestEnsureMinimumUnitsNotAlive(c *C) {
+	err := s.service.SetMinimumUnits(2)
+	c.Assert(err, IsNil)
+	unit, err := s.service.AddUnit()
+	c.Assert(err, IsNil)
+	preventUnitDestroyRemove(c, unit)
+	err = s.service.Destroy()
+	c.Assert(err, IsNil)
+	err = s.service.EnsureMinimumUnits()
+	c.Assert(err, ErrorMatches, `.* cannot add unit to service .* not alive`)
+}
+
+func (s *MinimumUnitsSuite) TestEnsureMinimumUnitsNotFound(c *C) {
+	err := s.service.SetMinimumUnits(2)
+	c.Assert(err, IsNil)
+	err = s.service.Destroy()
+	c.Assert(err, IsNil)
+	err = s.service.EnsureMinimumUnits()
+	c.Assert(err, ErrorMatches, `.* cannot add unit to service .* not found`)
+}
