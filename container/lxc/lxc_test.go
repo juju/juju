@@ -5,11 +5,13 @@ package lxc_test
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -84,7 +86,23 @@ func (s *LxcSuite) TestStartContainer(c *C) {
 	name := string(instance.Id())
 	// Check our container config files.
 	c.Assert(filepath.Join(s.containerDir, name, "lxc.conf"), IsNonEmptyFile)
-	c.Assert(filepath.Join(s.containerDir, name, "cloud-init"), IsNonEmptyFile)
+	cloudInitFilename := filepath.Join(s.containerDir, name, "cloud-init")
+	c.Assert(cloudInitFilename, IsNonEmptyFile)
+	data, err := ioutil.ReadFile(cloudInitFilename)
+	c.Assert(err, IsNil)
+	c.Assert(string(data), HasPrefix, "#cloud-config\n")
+
+	x := make(map[interface{}]interface{})
+	err = goyaml.Unmarshal(data, &x)
+	c.Assert(err, IsNil)
+
+	var scripts []string
+	for _, s := range x["runcmd"].([]interface{}) {
+		scripts = append(scripts, s.(string))
+	}
+
+	c.Assert(scripts[len(scripts)-1], Equals, "start jujud-machine-1-lxc-0")
+
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"), IsDirectory)
 }
