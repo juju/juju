@@ -83,14 +83,15 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
-// Machiner returns an object that provides access to the Machiner API.
-// The id argument is reserved for future use and must currently
-// be empty.
+// Machiner returns an object that provides access to the Machiner API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty.
 func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 	if id != "" {
+		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return machine.NewMachinerAPI(r.srv.state, r)
+	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
 }
 
 // MachineAgent returns an object that provides access to the machine
