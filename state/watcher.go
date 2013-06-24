@@ -302,6 +302,102 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	return nil
 }
 
+// MinimumUnitsWatcher notifies about MinimumUnits changes of the services
+// requiring a minimum amount of units to be alive. The first event returned
+// by the watcher is the set of service names requiring a minimum amount of
+// units. Subsequent events (new sets of service names) are generated when a
+// service increases the minimum amount of units, or when one or more units
+// belonging to a service are destroyed.
+type MinimumUnitsWatcher struct {
+	commonWatcher
+	known map[string]int
+	out   chan []string
+}
+
+func newMinimumUnitsWatcher(st *State) *MinimumUnitsWatcher {
+	w := &MinimumUnitsWatcher{
+		commonWatcher: commonWatcher{st: st},
+		known:         make(map[string]int),
+		out:           make(chan []string),
+	}
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		w.tomb.Kill(w.loop())
+	}()
+	return w
+}
+
+func (st *State) WatchMinimumUnits() *MinimumUnitsWatcher {
+	return newMinimumUnitsWatcher(st)
+}
+
+func (w *MinimumUnitsWatcher) initial() (serviceNames []string, err error) {
+	doc := &minimumUnitsDoc{}
+	iter := w.st.minimumUnits.Find(nil).Iter()
+	for iter.Next(doc) {
+		w.known[doc.ServiceName] = doc.Revno
+		serviceNames = append(serviceNames, doc.ServiceName)
+	}
+	if iter.Err() != nil {
+		return nil, err
+	}
+	return serviceNames, nil
+}
+
+func (w *MinimumUnitsWatcher) merge(
+	serviceNames []string, change watcher.Change) ([]string, error) {
+	doc := minimumUnitsDoc{}
+	serviceName := change.Id.(string)
+	if err := w.st.minimumUnits.FindId(serviceName).One(&doc); err == mgo.ErrNotFound {
+		delete(w.known, serviceName)
+		return serviceNames, nil
+	} else if err != nil {
+		return nil, err
+	}
+	revno, known := w.known[serviceName]
+	w.known[serviceName] = doc.Revno
+	if (!known || doc.Revno > revno) && !hasString(serviceNames, serviceName) {
+		serviceNames = append(serviceNames, serviceName)
+	}
+	return serviceNames, nil
+}
+
+func (w *MinimumUnitsWatcher) loop() (err error) {
+	ch := make(chan watcher.Change)
+	w.st.watcher.WatchCollection(w.st.minimumUnits.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.minimumUnits.Name, ch)
+	serviceNames, err := w.initial()
+	if err != nil {
+		return err
+	}
+	out := w.out
+	for {
+		select {
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case change := <-ch:
+			serviceNames, err = w.merge(serviceNames, change)
+			if err != nil {
+				return err
+			}
+			if len(serviceNames) > 0 {
+				out = w.out
+			}
+		case out <- serviceNames:
+			out = nil
+			serviceNames = nil
+		}
+	}
+	return nil
+}
+
+func (w *MinimumUnitsWatcher) Changes() <-chan []string {
+	return w.out
+}
+
 // ServiceRelationsWatcher notifies about the lifecycle changes of the
 // relations the service is in. The first event returned by the watcher is
 // the set of ids of all relations that the service is part of, irrespective
