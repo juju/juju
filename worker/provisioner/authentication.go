@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// AuthenticationProvider defines the single function that the provisioner
+// AuthenticationProvider defines the single method that the provisioner
 // task needs to set up authentication for a machine.
 type AuthenticationProvider interface {
 	SetupAuthentication(*state.Machine) (*state.Info, *api.Info, error)
@@ -38,7 +38,7 @@ func (auth *simpleAuth) SetupAuthentication(machine *state.Machine) (*state.Info
 		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
 	}
 	if err := machine.SetMongoPassword(password); err != nil {
-		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", machine, err)
+		return nil, nil, fmt.Errorf("cannot set mongo password for machine %v: %v", machine, err)
 	}
 	stateInfo := *auth.stateInfo
 	stateInfo.Tag = machine.Tag()
