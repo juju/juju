@@ -14,14 +14,9 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
-	"testing"
 
 	"launchpad.net/juju-core/environs/local"
 )
-
-func TestLocal(t *testing.T) {
-	TestingT(t)
-}
 
 type backendSuite struct{}
 

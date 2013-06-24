@@ -43,8 +43,7 @@ func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
 
 // Config is specified in the Environ interface.
 func (env *localEnviron) Config() *config.Config {
-	snap := env.getSnapshot()
-	return snap.ecfg.Config
+	panic("unimplemented")
 }
 
 // SetConfig is specified in the Environ interface.
