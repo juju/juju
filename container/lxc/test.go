@@ -1,6 +1,10 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// Functions defined in this file should *ONLY* be used for testing.  These
+// functions are exported for testing purposes only, and shouldn't be called
+// from code that isn't in a test file.
+
 package lxc
 
 // SetContainerDir allows tests in other packages to override the
