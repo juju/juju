@@ -357,13 +357,13 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 
 // StartInstance is specified in the Environ interface.
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.Metadata, error) {
+	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
 	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
-	// TODO(wallyworld) - return instance metadata as well
+	// TODO(bug 1193998) - return instance hardware characteristics as well
 	inst, err := environ.obtainNode(machineID, cons, possibleTools, mcfg)
 	return inst, nil, err
 }

@@ -78,13 +78,14 @@ func FakeAPIInfo(machineId string) *api.Info {
 
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
-func StartInstance(c *C, env environs.Environ, machineId string) (instance.Instance, *instance.Metadata) {
+func StartInstance(c *C, env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics) {
 	return StartInstanceWithConstraints(c, env, machineId, constraints.Value{})
 }
 
 // StartInstanceWithConstraints is a test helper function that starts an instance on the
 // environment with the specified constraints, using the current series and invalid info states.
-func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string, cons constraints.Value) (instance.Instance, *instance.Metadata) {
+func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
+	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
 	series := config.DefaultSeries
 	inst, metadata, err := env.StartInstance(
 		machineId,

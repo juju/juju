@@ -87,13 +87,13 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, md := testing.StartInstance(c, e, "0")
+	inst0, hc := testing.StartInstance(c, e, "0")
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
-	// Sanity check for image metadata.
-	c.Assert(md.Arch, NotNil)
-	c.Assert(md.Mem, NotNil)
-	c.Assert(md.CpuCores, NotNil)
+	// Sanity check for hardware characteristics.
+	c.Assert(hc.Arch, NotNil)
+	c.Assert(hc.Mem, NotNil)
+	c.Assert(hc.CpuCores, NotNil)
 
 	inst1, _ := testing.StartInstance(c, e, "1")
 	c.Assert(inst1, NotNil)

@@ -82,14 +82,14 @@ func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
-func (inst *ec2Instance) Metadata() *instance.Metadata {
-	metadata := &instance.Metadata{Arch: inst.arch}
+func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteristics {
+	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
-		metadata.Mem = &inst.instType.Mem
-		metadata.CpuCores = &inst.instType.CpuCores
-		metadata.CpuPower = inst.instType.CpuPower
+		hc.Mem = &inst.instType.Mem
+		hc.CpuCores = &inst.instType.CpuCores
+		hc.CpuPower = inst.instType.CpuPower
 	}
-	return metadata
+	return hc
 }
 
 func (inst *ec2Instance) DNSName() (string, error) {
@@ -359,7 +359,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 }
 
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.Metadata, error) {
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
@@ -416,7 +416,7 @@ const ebsStorage = "ebs"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
-func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.Metadata, error) {
+func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, nil, fmt.Errorf("expected single series, got %v", series)
@@ -481,7 +481,7 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *
 		instType: &spec.InstanceType,
 	}
 	log.Infof("environs/ec2: started instance %q", inst.Id())
-	return inst, inst.Metadata(), nil
+	return inst, inst.hardwareCharacteristics(), nil
 }
 
 func (e *environ) StopInstances(insts []instance.Instance) error {

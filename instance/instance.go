@@ -52,9 +52,9 @@ type Instance interface {
 	Ports(machineId string) ([]Port, error)
 }
 
-// Metadata represents the characteristics of the instance (if known).
+// HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
-type Metadata struct {
+type HardwareCharacteristics struct {
 	Arch     *string
 	Mem      *uint64
 	CpuCores *uint64
