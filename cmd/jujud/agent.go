@@ -189,9 +189,9 @@ func agentDone(err error) error {
 		err = nil
 	}
 	if ug, ok := err.(*UpgradeReadyError); ok {
-		if err1 := ug.ChangeAgentTools(); err1 != nil {
-			err = err1
+		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
+			return err
 		}
 	}
 	return err
@@ -202,7 +202,7 @@ type closeWorker struct {
 	closer io.Closer
 }
 
-// newCloseTask returns a task that wraps the given task,
+// newCloseWorker returns a task that wraps the given task,
 // closing the given closer when it finishes.
 func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
 	return &closeWorker{
