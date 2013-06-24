@@ -31,6 +31,14 @@ func (registry fakeResourceRegistry) Register(resource common.Resource) string {
 	return id
 }
 
+func (registry fakeResourceRegistry) Get(id string) common.Resource {
+	panic("unimplemented")
+}
+
+func (registry fakeResourceRegistry) Stop(id string) error {
+	panic("unimplemented")
+}
+
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.commonSuite.SetUpTest(c)
 
