@@ -38,6 +38,7 @@ type serviceDoc struct {
 	UnitCount     int
 	RelationCount int
 	Exposed       bool
+	MinimumUnits  int
 	TxnRevno      int64 `bson:"txn-revno"`
 }
 
@@ -112,6 +113,7 @@ func (s *Service) Destroy() (err error) {
 		case errAlreadyDying:
 			return nil
 		case nil:
+			ops = append(ops, minimumUnitsRemoveOp(s.st, s.doc.Name))
 			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
