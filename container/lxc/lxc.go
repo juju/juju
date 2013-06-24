@@ -49,8 +49,8 @@ type ContainerManager interface {
 }
 
 type containerManager struct {
-	golxc.ContainerFactory
-	name string
+	lxcObjectFactory golxc.ContainerFactory
+	name             string
 }
 
 // NewContainerManager returns a manager object that can start and stop lxc
@@ -71,7 +71,10 @@ func (manager *containerManager) StartContainer(
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}
-	container := manager.New(name)
+	// Note here that the lxcObjectFacotry only returns a valid container
+	// object, and doesn't actually construct the underlying lxc container on
+	// disk.
+	container := manager.lxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -117,6 +120,10 @@ func (manager *containerManager) StartContainer(
 	consoleFile := filepath.Join(directory, "console.log")
 	container.SetLogFile(filepath.Join(directory, "container.log"), golxc.LogDebug)
 	logger.Tracef("start the container")
+	// We explicitly don't pass through the config file to the container.Start
+	// method as we have passed it through at container creation time.  This
+	// is necessary to get the appropriate rootfs reference without explicitly
+	// setting it ourselves.
 	if err = container.Start("", consoleFile); err != nil {
 		logger.Errorf("container failed to start: %v", err)
 		return nil, err
@@ -127,7 +134,7 @@ func (manager *containerManager) StartContainer(
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
-	container := manager.New(name)
+	container := manager.lxcObjectFactory.New(name)
 	if err := container.Stop(); err != nil {
 		logger.Errorf("failed to stop lxc container: %v", err)
 		return err
@@ -142,7 +149,11 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		logger.Errorf("failed to create removed container directory: %v", err)
 		return err
 	}
-	removedDir := uniqueDirectory(removedContainerDir, name)
+	removedDir, err := uniqueDirectory(removedContainerDir, name)
+	if err != nil {
+		logger.Errorf("was not able to generate a unique directory: %v", err)
+		return err
+	}
 	if err := os.Rename(jujuContainerDirectory(name), removedDir); err != nil {
 		logger.Errorf("failed to rename container directory: %v", err)
 		return err
@@ -151,7 +162,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	containers, err := manager.List()
+	containers, err := manager.lxcObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return
@@ -231,7 +242,7 @@ func cloudInitUserData(
 	machineConfig := &cloudinit.MachineConfig{
 		MachineId:            machineId,
 		MachineNonce:         nonce,
-		MachineContainerType: "lxc",
+		MachineContainerType: state.LXC,
 		StateInfo:            stateInfo,
 		APIInfo:              apiInfo,
 		DataDir:              "/var/lib/juju",
@@ -253,18 +264,20 @@ func cloudInitUserData(
 
 // uniqueDirectory returns "path/name" if that directory doesn't exist.  If it
 // does, the method starts appending .1, .2, etc until a unique name is found.
-func uniqueDirectory(path, name string) string {
+func uniqueDirectory(path, name string) (string, error) {
 	dir := filepath.Join(path, name)
 	_, err := os.Stat(dir)
 	if os.IsNotExist(err) {
-		return dir
+		return dir, nil
 	}
 	for i := 1; ; i++ {
 		dir := filepath.Join(path, fmt.Sprintf("%s.%d", name, i))
 		_, err := os.Stat(dir)
 		if os.IsNotExist(err) {
-			return dir
+			return dir, nil
+		} else if err != nil {
+			return "", err
 		}
 	}
-	panic("never reached.")
+	panic("unreachable")
 }
