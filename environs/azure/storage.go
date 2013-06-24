@@ -53,7 +53,7 @@ func (storage *azureStorage) Get(name string) (io.ReadCloser, error) {
 	}
 	reader, err := context.GetBlob(storage.getContainer(), name)
 	if gwacl.IsNotFoundError(err) {
-		return nil, errors.NotFoundf("file '%s' not found", name)
+		return nil, errors.NotFoundf("file %q not found", name)
 	}
 	return reader, err
 }
