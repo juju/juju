@@ -82,9 +82,9 @@ func (context *testStorageContext) getStorageContext() (*gwacl.StorageContext, e
 
 // makeAzureStorage creates a test azureStorage object that will talk to a
 // fake http server set up to always return the given http.Response object.
-// makeAzureStorage returns a azureStorage object and a TestTransport object.
+// makeAzureStorage returns an azureStorage object and a TestTransport object.
 // The TestTransport object can be used to check that the expected query has
-// been issue to the test server.
+// been issued to the test server.
 func makeAzureStorage(response *http.Response, container string) (azureStorage, *TestTransport) {
 	transport := &TestTransport{Response: response}
 	client := &http.Client{Transport: transport}
