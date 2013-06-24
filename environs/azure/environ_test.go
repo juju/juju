@@ -4,8 +4,11 @@
 package azure
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"sync"
 )
@@ -101,4 +104,29 @@ func (EnvironSuite) TestGetStorageContext(c *C) {
 	c.Assert(storage, NotNil)
 	c.Check(storage.Account, Equals, env.ecfg.StorageAccountName())
 	c.Check(storage.Key, Equals, env.ecfg.StorageAccountKey())
+}
+
+func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
+	env := makeEnviron(c)
+	setDummyStorage(env)
+	_, _, err := env.StateInfo()
+	c.Check(errors.IsNotFoundError(err), Equals, true)
+}
+
+func (EnvironSuite) TestStateInfo(c *C) {
+	env := makeEnviron(c)
+	setDummyStorage(env)
+	instanceID := "my-instance"
+	err := env.saveState(&bootstrapState{
+		StateInstances: []instance.Id{instance.Id(instanceID)}})
+	c.Assert(err, IsNil)
+
+	stateInfo, apiInfo, err := env.StateInfo()
+	c.Assert(err, IsNil)
+
+	config := env.Config()
+	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
+	c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
 }
