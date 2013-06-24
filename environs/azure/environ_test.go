@@ -102,6 +102,10 @@ func (EnvironSuite) TestSetConfigValidates(c *C) {
 	// Since the config was not valid, SetConfig returns an error.  It
 	// does not update the environment's config either.
 	c.Check(err, NotNil)
+	c.Check(
+		err,
+		ErrorMatches,
+		"management-subscription-id: expected string, got nothing")
 	c.Check(env.ecfg, Equals, originalCfg)
 }
 
@@ -155,5 +159,9 @@ func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	err = env.SetConfig(cfg)
 
 	c.Assert(err, NotNil)
+	c.Check(
+		err,
+		ErrorMatches,
+		`cannot change name from ".*" to "new-name"`)
 	c.Check(env.Name(), Equals, originalName)
 }
