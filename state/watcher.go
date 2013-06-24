@@ -1049,9 +1049,9 @@ func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
 	return newLifecycleWatcher(m.st, m.st.machines, filter)
 }
 
-// WatchMetadata returns a watcher for observing changes to a machine's instance metadata.
-func (m *Machine) WatchMetadata() (*EntityWatcher, error) {
-	_, err := m.Metadata()
+// WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
+func (m *Machine) WatchHardwareCharacteristics() (*EntityWatcher, error) {
+	_, err := m.HardwareCharacteristics()
 	var txnRevno int64
 	if err != nil && !errors.IsNotFoundError(err) {
 		return nil, err

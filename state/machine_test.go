@@ -164,7 +164,7 @@ func (s *MachineSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
-	_, err = s.machine.Metadata()
+	_, err = s.machine.HardwareCharacteristics()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	_, err = s.machine.Containers()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
@@ -348,13 +348,13 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	c.Assert(string(iid), Equals, "")
 }
 
-func (s *MachineSuite) TestMachineSetProvisionedUpdatesMetadata(c *C) {
-	// Before provisioning, there is no metadata.
-	_, err := s.machine.Metadata()
+func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *C) {
+	// Before provisioning, there is no hardware characteristics.
+	_, err := s.machine.HardwareCharacteristics()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
 	arch := "amd64"
 	mem := uint64(4096)
-	expected := &instance.Metadata{
+	expected := &instance.HardwareCharacteristics{
 		InstanceId: "umbrella/0",
 		Nonce:      "fake_nonce",
 		Arch:       &arch,
@@ -362,14 +362,14 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesMetadata(c *C) {
 	}
 	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", expected)
 	c.Assert(err, IsNil)
-	md, err := s.machine.Metadata()
+	md, err := s.machine.HardwareCharacteristics()
 	c.Assert(err, IsNil)
 	c.Assert(*md, DeepEquals, *expected)
 
-	// Reload machine and check metadata
+	// Reload machine and check again.
 	err = s.machine.Refresh()
 	c.Assert(err, IsNil)
-	md, err = s.machine.Metadata()
+	md, err = s.machine.HardwareCharacteristics()
 	c.Assert(err, IsNil)
 	c.Assert(*md, DeepEquals, *expected)
 }

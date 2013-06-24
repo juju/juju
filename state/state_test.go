@@ -944,11 +944,11 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchMachineMetadata(c *C) {
+func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	w, err := machine.WatchMetadata()
+	w, err := machine.WatchHardwareCharacteristics()
 	c.Assert(err, IsNil)
 	defer AssertStop(c, w)
 

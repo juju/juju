@@ -121,25 +121,25 @@ type machineMetadata struct {
 }
 
 // TODO(wallyworld): move this method to a service.
-func (m *Machine) Metadata() (*instance.Metadata, error) {
-	metadata := &instance.Metadata{}
+func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	hc := &instance.HardwareCharacteristics{}
 	if m.doc.metadata == nil {
-		md, err := getMachineMetadata(m.st, m.Id())
+		md, err := getMachineHardwareCharacteristics(m.st, m.Id())
 		if err != nil {
 			return nil, err
 		}
 		m.doc.metadata = &md
 	}
-	metadata.InstanceId = m.doc.metadata.InstanceId
-	metadata.Nonce = m.doc.metadata.Nonce
-	metadata.Arch = m.doc.metadata.Arch
-	metadata.Mem = m.doc.metadata.Mem
-	metadata.CpuCores = m.doc.metadata.CpuCores
-	metadata.CpuPower = m.doc.metadata.CpuPower
-	return metadata, nil
+	hc.InstanceId = m.doc.metadata.InstanceId
+	hc.Nonce = m.doc.metadata.Nonce
+	hc.Arch = m.doc.metadata.Arch
+	hc.Mem = m.doc.metadata.Mem
+	hc.CpuCores = m.doc.metadata.CpuCores
+	hc.CpuPower = m.doc.metadata.CpuPower
+	return hc, nil
 }
 
-func getMachineMetadata(st *State, id string) (machineMetadata, error) {
+func getMachineHardwareCharacteristics(st *State, id string) (machineMetadata, error) {
 	var md machineMetadata
 	err := st.machineMetadata.FindId(id).One(&md)
 	if err == mgo.ErrNotFound {
@@ -507,11 +507,11 @@ func (m *Machine) InstanceId() (instance.Id, bool) {
 	if m.doc.InstanceId != "" {
 		return m.doc.InstanceId, true
 	}
-	md, err := m.Metadata()
+	hc, err := m.HardwareCharacteristics()
 	if err != nil {
 		return "", false
 	}
-	return md.InstanceId, md.InstanceId != ""
+	return hc.InstanceId, hc.InstanceId != ""
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -538,23 +538,23 @@ func (m *Machine) Units() (units []*Unit, err error) {
 
 // SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string, metadata *instance.Metadata) (err error) {
+func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
 	}
-	if metadata == nil {
-		metadata = &instance.Metadata{}
+	if characteristics == nil {
+		characteristics = &instance.HardwareCharacteristics{}
 	}
-	md := &machineMetadata{
+	hc := &machineMetadata{
 		Id:         m.doc.Id,
 		InstanceId: id,
 		Nonce:      nonce,
-		Arch:       metadata.Arch,
-		Mem:        metadata.Mem,
-		CpuCores:   metadata.CpuCores,
-		CpuPower:   metadata.CpuPower,
+		Arch:       characteristics.Arch,
+		Mem:        characteristics.Mem,
+		CpuCores:   characteristics.CpuCores,
+		CpuPower:   characteristics.CpuPower,
 	}
 	ops := []txn.Op{
 		{
@@ -563,14 +563,14 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, metadata *instanc
 			Assert: isAliveDoc,
 		}, {
 			C:      m.st.machineMetadata.Name,
-			Id:     md.Id,
+			Id:     hc.Id,
 			Assert: txn.DocMissing,
-			Insert: md,
+			Insert: hc,
 		},
 	}
 
 	if err = m.st.runTransaction(ops); err == nil {
-		m.doc.metadata = md
+		m.doc.metadata = hc
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
@@ -590,11 +590,11 @@ func (m *Machine) CheckProvisioned(nonce string) bool {
 	if m.doc.InstanceId != "" {
 		return m.doc.Nonce == nonce
 	}
-	md, err := m.Metadata()
+	hc, err := m.HardwareCharacteristics()
 	if err != nil {
 		return false
 	}
-	return md.InstanceId != "" && md.Nonce == nonce
+	return hc.InstanceId != "" && hc.Nonce == nonce
 }
 
 // String returns a unique description of this machine.

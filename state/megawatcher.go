@@ -41,7 +41,7 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 		// Second the instance metadata.
-		machineMetadata, err := getMachineMetadata(st, m.Id)
+		machineMetadata, err := getMachineHardwareCharacteristics(st, m.Id)
 		if err == nil {
 			info.InstanceId = string(machineMetadata.InstanceId)
 		} else if !errors.IsNotFoundError(err) {

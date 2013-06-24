@@ -142,11 +142,11 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				st, err := state.Open(o.Info, state.DefaultDialOpts())
 				c.Assert(err, IsNil)
 
-				// All provisioned machines in this test suite have their metadata attributes set to
-				// the same values as the constraints due to the dummy environment being used.
-				md, err := m.Metadata()
+				// All provisioned machines in this test suite have their hardware characteristics
+				// attributes set to the same values as the constraints due to the dummy environment being used.
+				hc, err := m.HardwareCharacteristics()
 				c.Assert(err, IsNil)
-				c.Assert(*md, DeepEquals, instance.Metadata{
+				c.Assert(*hc, DeepEquals, instance.HardwareCharacteristics{
 					InstanceId: inst.Id(),
 					Nonce:      o.MachineNonce,
 					Arch:       cons.Arch,
@@ -226,8 +226,8 @@ func (s *ProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool
 	}
 }
 
-func (s *ProvisionerSuite) waitInstanceMetadata(c *C, m *state.Machine, check func() bool) {
-	w, err := m.WatchMetadata()
+func (s *ProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Machine, check func() bool) {
+	w, err := m.WatchHardwareCharacteristics()
 	c.Assert(err, IsNil)
 	defer stop(c, w)
 	timeout := time.After(500 * time.Millisecond)
@@ -242,7 +242,7 @@ func (s *ProvisionerSuite) waitInstanceMetadata(c *C, m *state.Machine, check fu
 			resync = time.After(50 * time.Millisecond)
 			s.State.StartSync()
 		case <-timeout:
-			c.Fatalf("instance metadata for machine %v wait timed out", m)
+			c.Fatalf("hardware characteristics for machine %v wait timed out", m)
 		}
 	}
 }
@@ -263,7 +263,7 @@ func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
 func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
-	s.waitInstanceMetadata(c, m, func() bool {
+	s.waitHardwareCharacteristics(c, m, func() bool {
 		//		err := m.Refresh()
 		//		c.Assert(err, IsNil)
 		if actual, ok := m.InstanceId(); ok {
