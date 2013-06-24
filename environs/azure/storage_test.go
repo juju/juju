@@ -162,7 +162,7 @@ func (StorageSuite) TestPut(c *C) {
 	filename := "blobname"
 	response := makeResponse("", http.StatusCreated)
 	azStorage, transport := makeAzureStorage(response, container)
-	err := azStorage.Put(filename, strings.NewReader(blobContent), 10)
+	err := azStorage.Put(filename, strings.NewReader(blobContent), int64(len(blobContent)))
 	c.Assert(err, IsNil)
 
 	context, err := azStorage.getStorageContext()
@@ -182,6 +182,15 @@ func (StorageSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	c.Check(transport.Request.Method, Equals, "DELETE")
+}
+
+func (StorageSuite) TestRemoveErrors(c *C) {
+	container := "container"
+	filename := "blobname"
+	response := makeResponse("", http.StatusForbidden)
+	azStorage, _ := makeAzureStorage(response, container)
+	err := azStorage.Remove(filename)
+	c.Assert(err, NotNil)
 }
 
 func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
