@@ -244,7 +244,8 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	apiInfo.Tag = "machine-1"
 	series := version.Current.Series
 	nonce := "12345"
-	instance, err := env.StartInstance("1", nonce, series, constraints.Value{}, stateInfo, apiInfo)
+	// TODO(wallyworld) - test instance metadata
+	instance, _, err := env.StartInstance("1", nonce, series, constraints.Value{}, stateInfo, apiInfo)
 	c.Assert(err, IsNil)
 	c.Check(instance, NotNil)
 
@@ -272,7 +273,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
+	instance, _, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, IsNil)
 	c.Check(err, ErrorMatches, "no tools available")
 	c.Check(err, FitsTypeOf, (*errors.NotFoundError)(nil))
