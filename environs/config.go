@@ -144,10 +144,20 @@ func ReadEnvirons(path string) (*Environs, error) {
 // WriteEnvirons creates a new juju environments.yaml file with the specified contents.
 func WriteEnvirons(path string, fileContents string) (string, error) {
 	environsFilepath := environsPath(path)
-	if err := os.MkdirAll(filepath.Dir(environsFilepath), 0755); err != nil {
+	environsDir := filepath.Dir(environsFilepath)
+	_, err := os.Lstat(environsDir)
+	if err == nil {
+		if err := os.Chmod(environsDir, 0700); err != nil {
+			return "", err
+		}
+	} else if os.IsNotExist(err) {
+		if err := os.MkdirAll(environsDir, 0700); err != nil {
+			return "", err
+		}
+	} else {
 		return "", err
 	}
-	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0666); err != nil {
+	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0600); err != nil {
 		return "", err
 	}
 	return environsFilepath, nil

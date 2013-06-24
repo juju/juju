@@ -4,12 +4,14 @@
 package environs_test
 
 import (
+	"os"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
-	"path/filepath"
 )
 
 type suite struct{}
@@ -154,6 +156,13 @@ environments:
 	c.Assert(err, IsNil)
 	path := testing.HomePath(".juju", "environments.yaml")
 	c.Assert(path, Equals, outfile)
+
+	info, err := os.Lstat(path)
+	c.Assert(err, IsNil)
+	c.Assert(uint32(info.Mode().Perm()), Equals, uint32(0600))
+	info, err = os.Lstat(filepath.Dir(path))
+	c.Assert(err, IsNil)
+	c.Assert(uint32(info.Mode().Perm()), Equals, uint32(0700))
 
 	es, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
