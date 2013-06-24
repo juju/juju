@@ -4,6 +4,7 @@
 package api
 
 import (
+	"launchpad.net/juju-core/state/api/machineagent"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -24,17 +25,14 @@ func (st *State) Client() *Client {
 	return &Client{st}
 }
 
-// Machiner returns an object that can be used to access the Machiner
-// API facade.
-func (st *State) Machiner() (*machiner.Machiner, error) {
-	// Just verify we're allowed to access it.
-	args := params.Machines{
-		Ids: []string{},
-	}
-	var result params.MachinesLifeResults
-	err := st.Call("Machiner", "", "Life", args, &result)
-	if err != nil {
-		return nil, err
-	}
-	return machiner.New(st), nil
+// Machiner returns a version of the state that provides functionality
+// required by the machiner worker.
+func (st *State) Machiner() *machiner.State {
+	return machiner.NewState(st)
+}
+
+// MachineAgent returns a version of the state that provides
+// functionality required by the machine agent code.
+func (st *State) MachineAgent() *machineagent.State {
+	return machineagent.NewState(st)
 }
