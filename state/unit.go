@@ -226,17 +226,16 @@ func (u *Unit) Destroy() (err error) {
 	}()
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := unit.destroyOps()
-		switch {
-		case err == errRefresh:
-		case err == errAlreadyDying:
+		switch ops, err := unit.destroyOps(); err {
+		case errRefresh:
+		case errAlreadyDying:
 			return nil
-		case err != nil:
-			return err
-		default:
+		case nil:
 			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
+		default:
+			return err
 		}
 		if err := unit.Refresh(); errors.IsNotFoundError(err) {
 			return nil
@@ -254,59 +253,75 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	if u.doc.Life != Alive {
 		return nil, errAlreadyDying
 	}
-	// In many cases, we just want to set Dying and let the agents deal with it.
-	defaultOps := []txn.Op{{
+
+	// Where possible, we'd like to be able to short-circuit unit destruction
+	// such that units can be removed directly rather than waiting for their
+	// agents to start, observe Dying, set Dead, and shut down; this takes a
+	// long time and is vexing to users. This turns out to be possible if and
+	// only if the unit agent has not yet set its status; this implies that the
+	// most the unit could possibly have done is to run its install hook.
+	//
+	// There's no harm in removing a unit that's run its install hook only --
+	// or, at least, there is no more harm than there is in removing a unit
+	// that's run its stop hook, and that's the usual condition.
+	//
+	// Principals with subordinates are never eligible for this shortcut,
+	// because the unit agent must inevitably have set a status before getting
+	// to the point where it can actually create its subordinate.
+	//
+	// Subordinates should be eligible for the shortcut but are not currently
+	// considered, on the basis that (1) they were created by active principals
+	// and can be expected to be deployed pretty soon afterwards, so we don't
+	// lose much time and (2) by maintaining this restriction, I can reduce
+	// the number of tests that have to change and defer that improvement to
+	// its own CL.
+	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"life", Dying}}}},
 	}}
-
-	// Subordinates, and principals with subordinates, are left for the agents.
 	if u.doc.Principal != "" {
-		return defaultOps, nil
+		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {
-		return defaultOps, nil
+		return setDyingOps, nil
 	}
 
-	// If the (known principal) unit has no assigned machine id, the unit can
-	// be removed directly.
-	asserts := D{{"machineid", u.doc.MachineId}}
-	asserts = append(asserts, unitHasNoSubordinates...)
-	asserts = append(asserts, isAliveDoc...)
-	if u.doc.MachineId == "" {
-		return u.removeOps(asserts)
-	}
-
-	// If the unit's machine has an instance id, leave it for the agents.
-	m, err := u.st.Machine(u.doc.MachineId)
+	sdocId := u.globalKey()
+	sdoc, err := getStatus(u.st, sdocId)
 	if errors.IsNotFoundError(err) {
-		return nil, errRefresh
+		return nil, errAlreadyDying
 	} else if err != nil {
 		return nil, err
 	}
-	if _, found := m.InstanceId(); found {
-		return defaultOps, nil
+	if sdoc.Status != params.StatusPending {
+		return setDyingOps, nil
 	}
-
-	// Units assigned to unprovisioned machines can be removed directly.
 	ops := []txn.Op{{
-		C:      u.st.machines.Name,
-		Id:     u.doc.MachineId,
-		Assert: D{{"instanceid", ""}},
+		C:      u.st.statuses.Name,
+		Id:     sdocId,
+		Assert: D{{"status", params.StatusPending}},
 	}}
-	removeOps, err := u.removeOps(asserts)
-	if err != nil {
+	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
+	removeOps, err := u.removeOps(removeAsserts)
+	if err == errAlreadyRemoved {
+		return nil, errAlreadyDying
+	} else if err != nil {
 		return nil, err
 	}
 	return append(ops, removeOps...), nil
 }
 
+var errAlreadyRemoved = stderrors.New("entity has already been removed")
+
 // removeOps returns the operations necessary to remove the unit, assuming
 // the supplied asserts apply to the unit document.
 func (u *Unit) removeOps(asserts D) ([]txn.Op, error) {
 	svc, err := u.st.Service(u.doc.Service)
-	if err != nil {
+	if errors.IsNotFoundError(err) {
+		// If the service has been removed, the unit must already have been.
+		return nil, errAlreadyRemoved
+	} else if err != nil {
 		return nil, err
 	}
 	return svc.removeUnitOps(u, asserts)
@@ -358,22 +373,17 @@ func (u *Unit) Remove() (err error) {
 	if u.doc.Life != Dead {
 		return stderrors.New("unit is not dead")
 	}
-	svc, err := u.st.Service(u.doc.Service)
-	if err != nil {
-		return err
-	}
 	unit := &Unit{st: u.st, doc: u.doc}
 	for i := 0; i < 5; i++ {
-		ops, err := svc.removeUnitOps(unit, isDeadDoc)
-		if err != nil {
-			return err
-		}
-		if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
-			return err
-		}
-		if err := svc.Refresh(); errors.IsNotFoundError(err) {
+		switch ops, err := unit.removeOps(isDeadDoc); err {
+		case errRefresh:
+		case errAlreadyRemoved:
 			return nil
-		} else if err != nil {
+		case nil:
+			if err := u.st.runTransaction(ops); err != txn.ErrAborted {
+				return err
+			}
+		default:
 			return err
 		}
 		if err := unit.Refresh(); errors.IsNotFoundError(err) {

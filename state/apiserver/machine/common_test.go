@@ -49,10 +49,6 @@ type fakeAuthorizer struct {
 	machineAgent bool
 }
 
-func (fa fakeAuthorizer) IsLoggedIn() bool {
-	return fa.loggedIn
-}
-
 func (fa fakeAuthorizer) AuthOwner(tag string) bool {
 	return fa.tag == tag
 }
