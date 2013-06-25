@@ -78,15 +78,16 @@ func FakeAPIInfo(machineId string) *api.Info {
 
 // StartInstance is a test helper function that starts an instance on the
 // environment using the current series and invalid info states.
-func StartInstance(c *C, env environs.Environ, machineId string) instance.Instance {
+func StartInstance(c *C, env environs.Environ, machineId string) (instance.Instance, *instance.HardwareCharacteristics) {
 	return StartInstanceWithConstraints(c, env, machineId, constraints.Value{})
 }
 
 // StartInstanceWithConstraints is a test helper function that starts an instance on the
 // environment with the specified constraints, using the current series and invalid info states.
-func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string, cons constraints.Value) instance.Instance {
+func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
+	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
 	series := config.DefaultSeries
-	inst, err := env.StartInstance(
+	inst, metadata, err := env.StartInstance(
 		machineId,
 		"fake_nonce",
 		series,
@@ -95,7 +96,7 @@ func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string, 
 		FakeAPIInfo(machineId),
 	)
 	c.Assert(err, IsNil)
-	return inst
+	return inst, metadata
 }
 
 const AdminSecret = "dummy-secret"

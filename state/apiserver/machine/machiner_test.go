@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"strconv"
+	"time"
 )
 
 type machinerSuite struct {
@@ -162,9 +163,23 @@ func (s *machinerSuite) TestWatch(c *C) {
 	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
 
-	// Just verify the resource was registered and stop it.
+	// Verify the resource was registered and stop when done
 	c.Assert(s.resources, HasLen, 1)
 	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
-	err = s.resources["0"].Stop()
-	c.Assert(err, IsNil)
+	resource := s.resources["0"]
+	defer func() {
+		err := resource.Stop()
+		c.Assert(err, IsNil)
+	}()
+
+	// Check that the watcher returns an initial event
+	channel := resource.(*state.EntityWatcher).Changes()
+	// Should use helpers from state/watcher_test.go when generalised
+	select {
+	case _, ok := <-channel:
+		c.Assert(ok, Equals, true)
+		// The value is just an empty struct currently
+	case <-time.After(50 * time.Millisecond):
+		c.Fatal("timeout waiting for entity watcher")
+	}
 }

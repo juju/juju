@@ -48,3 +48,20 @@ type ResourceRegistry interface {
 	// subsequent API requests to refer to the resource.
 	Register(resource Resource) string
 }
+
+// Resource represents any resource that should be cleaned up when an
+// API connection terminates. The Stop method will be called when
+// that happens.
+type Resource interface {
+	Stop() error
+}
+
+// ResourceRegistry is an interface that allows the registration of
+// resources that will be cleaned up when an API connection
+// terminates. It is typically implemented by an API server.
+type ResourceRegistry interface {
+	// Register registers the given resource. It returns a unique
+	// identifier for the resource which can then be used in
+	// subsequent API requests to refer to the resource.
+	Register(resource Resource) string
+}

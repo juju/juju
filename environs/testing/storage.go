@@ -46,7 +46,7 @@ type EC2HTTPTestStorage struct {
 	listener net.Listener
 }
 
-// NewEC2HTTPTestStorage creates a storage server for tests 
+// NewEC2HTTPTestStorage creates a storage server for tests
 // with the HTTPStorageReader.
 func NewEC2HTTPTestStorage(ip string) (*EC2HTTPTestStorage, error) {
 	var err error

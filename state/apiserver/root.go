@@ -30,7 +30,7 @@ func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 		resources: newResources(),
 		entity:    entity,
 	}
-	r.clientAPI = clientAPI{client.NewAPI(srv.state, r.resources, r)}
+	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
 	r.state = &srvState{
 		root: r,
 	}
@@ -207,7 +207,6 @@ func (r *srvRoot) AuthOwner(tag string) bool {
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
-}
 
 func (r *srvRoot) AuthClient() bool {
 	return !isAgent(r.entity)
