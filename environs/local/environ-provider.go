@@ -112,6 +112,10 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 	return nil, nil
 }
 
+// Location specific methods that are able to be called by any instance that
+// has been created by this provider type.  So a machine agent may well call
+// these methods to find out its own address or instance id.
+
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
 func (environProvider) PublicAddress() (string, error) {
 	panic("unimplemented")
