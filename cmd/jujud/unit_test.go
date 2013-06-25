@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"time"
 )
 
@@ -139,7 +140,7 @@ waitStarted:
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c)
 	err = logging0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {

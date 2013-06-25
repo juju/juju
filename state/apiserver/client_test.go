@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type clientSuite struct {
@@ -318,7 +319,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *C) {
 		)
 		c.Check(err, ErrorMatches, expect)
 		_, err = s.State.Service("service")
-		c.Assert(errors.IsNotFoundError(err), Equals, true)
+		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	}
 }
 
@@ -407,7 +408,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *C) {
 	)
 	c.Assert(err, ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *clientSuite) TestClientServiceSetCharm(c *C) {

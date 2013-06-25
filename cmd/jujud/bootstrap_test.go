@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -141,7 +142,7 @@ func testOpenState(c *C, info *state.Info, expectErr error) {
 		st.Close()
 	}
 	if expectErr != nil {
-		c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+		c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 	} else {
 		c.Assert(err, IsNil)
 	}

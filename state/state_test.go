@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"net/url"
 	"strconv"
 	"strings"
@@ -75,8 +76,8 @@ func (s *StateSuite) TestAPIAddresses(c *C) {
 func (s *StateSuite) TestIsNotFound(c *C) {
 	err1 := fmt.Errorf("unrelated error")
 	err2 := errors.NotFoundf("foo")
-	c.Assert(errors.IsNotFoundError(err1), Equals, false)
-	c.Assert(errors.IsNotFoundError(err2), Equals, true)
+	c.Assert(err1, Not(checkers.Satisfies), errors.IsNotFoundError)
+	c.Assert(err2, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *StateSuite) TestAddCharm(c *C) {
@@ -369,7 +370,7 @@ func (s *StateSuite) TestReadMachine(c *C) {
 func (s *StateSuite) TestMachineNotFound(c *C) {
 	_, err := s.State.Machine("0")
 	c.Assert(err, ErrorMatches, "machine 0 not found")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *StateSuite) TestMachineIdLessThan(c *C) {
@@ -447,7 +448,7 @@ func (s *StateSuite) TestAddService(c *C) {
 func (s *StateSuite) TestServiceNotFound(c *C) {
 	_, err := s.State.Service("bummer")
 	c.Assert(err, ErrorMatches, `service "bummer" not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *StateSuite) TestAllServices(c *C) {
@@ -1167,11 +1168,11 @@ func (s *StateSuite) TestOpenWithoutSetMongoPassword(c *C) {
 	info := state.TestingStateInfo()
 	info.Tag, info.Password = "arble", "bar"
 	err := tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	info.Tag, info.Password = "arble", ""
 	err = tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	info.Tag, info.Password = "", ""
 	err = tryOpenState(info)
@@ -1268,7 +1269,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	info.Tag = ent.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	// Check that we can log in with the correct password.
 	info.Password = "foo"
@@ -1286,7 +1287,7 @@ func testSetMongoPassword(c *C, getEntity func(st *state.State) (entity, error))
 	// Check that we cannot log in with the old password.
 	info.Password = "foo"
 	err = tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	// Check that we can log in with the correct password.
 	info.Password = "bar"
@@ -1314,7 +1315,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *C) {
 	defer s.State.SetAdminMongoPassword("")
 	info := state.TestingStateInfo()
 	err = tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	info.Password = "foo"
 	err = tryOpenState(info)
@@ -1344,17 +1345,17 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, erro
 	e, err := getEntity("machine-1234")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `machine 1234 not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	e, err = getEntity("unit-foo-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo/654" not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	e, err = getEntity("unit-foo-bar-654")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `unit "foo-bar/654" not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
@@ -1390,7 +1391,7 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 	e, err := getEntity("user-arble")
 	c.Check(e, IsNil)
 	c.Assert(err, ErrorMatches, `user "arble" not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, IsNil)

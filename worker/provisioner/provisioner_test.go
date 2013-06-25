@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
@@ -119,7 +120,7 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, HasLen, 2)
 				c.Assert(nonceParts[0], Equals, state.MachineTag("0"))
-				c.Assert(utils.IsValidUUIDString(nonceParts[1]), Equals, true)
+				c.Assert(nonceParts[1], checkers.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
 

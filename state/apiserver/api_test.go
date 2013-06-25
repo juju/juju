@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	stdtesting "testing"
 	"time"
 )
@@ -73,7 +74,7 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 	c.Assert(err, IsNil)
 
 	err = service.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 // apiAuthenticator represents a simple authenticator object with only the

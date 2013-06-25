@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing/checkers"
 	"sort"
 	"time"
 )
@@ -281,7 +282,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *C) {
 	err = pr.ru1.LeaveScope()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	// The settings were not themselves actually deleted yet...
 	assertSettings()
