@@ -8,22 +8,41 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	"strconv"
+	"time"
 )
 
 type machinerSuite struct {
 	commonSuite
-	machiner *machine.MachinerAPI
+
+	resources fakeResourceRegistry
+	machiner  *machine.MachinerAPI
 }
 
 var _ = Suite(&machinerSuite{})
 
+// fakeResourceRegistry implements the common.ResourceRegistry interface.
+type fakeResourceRegistry map[string]common.Resource
+
+func (registry fakeResourceRegistry) Register(resource common.Resource) string {
+	id := strconv.Itoa(len(registry))
+	registry[id] = resource
+	return id
+}
+
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.commonSuite.SetUpTest(c)
+
+	// Create the resource registry separately to track invocations to
+	// Register.
+	s.resources = make(fakeResourceRegistry)
 
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPI(
 		s.State,
+		s.resources,
 		s.authorizer,
 	)
 	c.Assert(err, IsNil)
@@ -39,19 +58,10 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.machineAgent = false
-	aMachiner, err := machine.NewMachinerAPI(s.State, anAuthorizer)
+	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "permission denied")
-}
-
-func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.loggedIn = false
-	aMachiner, err := machine.NewMachinerAPI(s.State, anAuthorizer)
-	c.Assert(err, NotNil)
-	c.Assert(aMachiner, IsNil)
-	c.Assert(err, ErrorMatches, "not logged in")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
@@ -138,4 +148,38 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	err = s.machine1.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
+}
+
+func (s *machinerSuite) TestWatch(c *C) {
+	c.Assert(s.resources, HasLen, 0)
+
+	args := params.Machines{
+		Ids: []string{"1", "0", "42"},
+	}
+	result, err := s.machiner.Watch(args)
+	c.Assert(err, IsNil)
+	c.Assert(result.Results, HasLen, 3)
+	c.Assert(result.Results[0].Error, IsNil)
+	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources, HasLen, 1)
+	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
+	resource := s.resources["0"]
+	defer func() {
+		err := resource.Stop()
+		c.Assert(err, IsNil)
+	}()
+
+	// Check that the watcher returns an initial event
+	channel := resource.(*state.EntityWatcher).Changes()
+	// Should use helpers from state/watcher_test.go when generalised
+	select {
+	case _, ok := <-channel:
+		c.Assert(ok, Equals, true)
+		// The value is just an empty struct currently
+	case <-time.After(50 * time.Millisecond):
+		c.Fatal("timeout waiting for entity watcher")
+	}
 }
