@@ -5,6 +5,7 @@ package azure
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 	"sync"
@@ -94,6 +95,40 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
+func (EnvironSuite) TestStorage(c *C) {
+	env := makeEnviron(c)
+	baseStorage := env.Storage()
+	storage, ok := baseStorage.(*azureStorage)
+	c.Check(ok, Equals, true)
+	c.Assert(storage, NotNil)
+	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.StorageContainerName())
+	context, err := storage.getStorageContext()
+	c.Assert(err, IsNil)
+	c.Check(context.Account, Equals, env.ecfg.StorageAccountName())
+	c.Check(context.Key, Equals, env.ecfg.StorageAccountKey())
+}
+
+func (EnvironSuite) TestPublicStorage(c *C) {
+	env := makeEnviron(c)
+	baseStorage := env.PublicStorage()
+	storage, ok := baseStorage.(*azureStorage)
+	c.Assert(storage, NotNil)
+	c.Check(ok, Equals, true)
+	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.PublicStorageContainerName())
+	context, err := storage.getStorageContext()
+	c.Assert(err, IsNil)
+	c.Check(context.Account, Equals, env.ecfg.PublicStorageAccountName())
+	c.Check(context.Key, Equals, "")
+}
+
+func (EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
+	env := makeEnviron(c)
+	env.ecfg.attrs["public-storage-container-name"] = ""
+	env.ecfg.attrs["public-storage-account-name"] = ""
+	storage := env.PublicStorage()
+	c.Check(storage, Equals, environs.EmptyStorage)
+}
+
 func (EnvironSuite) TestGetStorageContext(c *C) {
 	env := makeEnviron(c)
 	storage, err := env.getStorageContext()
@@ -101,4 +136,13 @@ func (EnvironSuite) TestGetStorageContext(c *C) {
 	c.Assert(storage, NotNil)
 	c.Check(storage.Account, Equals, env.ecfg.StorageAccountName())
 	c.Check(storage.Key, Equals, env.ecfg.StorageAccountKey())
+}
+
+func (EnvironSuite) TestGetPublicStorageContext(c *C) {
+	env := makeEnviron(c)
+	storage, err := env.getPublicStorageContext()
+	c.Assert(err, IsNil)
+	c.Assert(storage, NotNil)
+	c.Check(storage.Account, Equals, env.ecfg.PublicStorageAccountName())
+	c.Check(storage.Key, Equals, "")
 }

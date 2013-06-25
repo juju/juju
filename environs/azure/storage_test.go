@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"net/http"
 	"strings"
@@ -19,29 +18,6 @@ type StorageSuite struct {
 }
 
 var _ = Suite(new(StorageSuite))
-
-func (StorageSuite) TestNewStorage(c *C) {
-	attrs := makeAzureConfigMap(c)
-	container := "test container name"
-	accountName := "test account name"
-	accountKey := "test account key"
-	attrs["storage-container-name"] = container
-	attrs["storage-account-name"] = accountName
-	attrs["storage-account-key"] = accountKey
-	provider := azureEnvironProvider{}
-	config, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	azureConfig, err := provider.newConfig(config)
-	c.Assert(err, IsNil)
-	environ := &azureEnviron{name: "azure", ecfg: azureConfig}
-	storage := NewStorage(environ).(*azureStorage)
-
-	c.Check(storage.storageContext.getContainer(), Equals, container)
-	context, err := storage.getStorageContext()
-	c.Assert(err, IsNil)
-	c.Check(context.Key, Equals, accountKey)
-	c.Check(context.Account, Equals, accountName)
-}
 
 // TestTransport is used as an http.Client.Transport for testing.  It records
 // the latest request, and returns a predetermined Response and error.
@@ -200,4 +176,15 @@ func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
 	azStorage, _ := makeAzureStorage(response, container)
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
+}
+
+func (StorageSuite) TestURL(c *C) {
+	container := "container"
+	filename := "blobname"
+	azStorage, _ := makeAzureStorage(nil, container)
+	URL, err := azStorage.URL(filename)
+	c.Assert(err, IsNil)
+	context, err := azStorage.getStorageContext()
+	c.Assert(err, IsNil)
+	c.Check(URL, Matches, context.GetFileURL(container, filename))
 }
