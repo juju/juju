@@ -10,24 +10,22 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
-// srvRoot represents a single client's connection to the state.
+// srvRoot represents a single client's connection to the state
+// after it has logged in.
 type srvRoot struct {
-	admin     *srvAdmin
 	client    *srvClient
 	state     *srvState
 	srv       *Server
 	resources *resources
 
-	user authUser
+	entity state.TaggedAuthenticator
 }
 
-func newStateServer(srv *Server) *srvRoot {
+func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
 		resources: newResources(),
-	}
-	r.admin = &srvAdmin{
-		root: r,
+		entity:    entity,
 	}
 	r.client = &srvClient{
 		root: r,
@@ -44,27 +42,12 @@ func (r *srvRoot) Kill() {
 	r.resources.stopAll()
 }
 
-// Admin returns an object that provides API access
-// to methods that can be called even when not
-// authenticated.
-func (r *srvRoot) Admin(id string) (*srvAdmin, error) {
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.admin, nil
-}
-
 // requireAgent checks whether the current client is an agent and hence
 // may access the agent APIs.  We filter out non-agents when calling one
 // of the accessor functions (Machine, Unit, etc) which avoids us making
 // the check in every single request method.
 func (r *srvRoot) requireAgent() error {
-	e := r.user.authenticator()
-	if e == nil {
-		return common.ErrNotLoggedIn
-	}
-	if !isAgent(e) {
+	if !isAgent(r.entity) {
 		return common.ErrPerm
 	}
 	return nil
@@ -73,11 +56,7 @@ func (r *srvRoot) requireAgent() error {
 // requireClient returns an error unless the current
 // client is a juju client user.
 func (r *srvRoot) requireClient() error {
-	e := r.user.authenticator()
-	if e == nil {
-		return common.ErrNotLoggedIn
-	}
-	if isAgent(e) {
+	if isAgent(r.entity) {
 		return common.ErrPerm
 	}
 	return nil
@@ -113,11 +92,7 @@ func (r *srvRoot) User(name string) (*srvUser, error) {
 	// When we provide support for user administration,
 	// this will need to be changed to allow access to
 	// the administrator.
-	e := r.user.authenticator()
-	if e == nil {
-		return nil, common.ErrNotLoggedIn
-	}
-	if e.Tag() != name {
+	if r.entity.Tag() != name {
 		return nil, common.ErrPerm
 	}
 	u, err := r.srv.state.User(name)
@@ -228,34 +203,20 @@ func (r *srvRoot) Client(id string) (*srvClient, error) {
 	return r.client, nil
 }
 
-// IsLoggedIn returns whether the user is currently logged in and
-// authenticated.
-func (r *srvRoot) IsLoggedIn() bool {
-	return r.user.authenticator() != nil
-}
-
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
-	if !r.IsLoggedIn() {
-		return false
-	}
-	e := r.user.authenticator()
-	if _, ok := e.(*state.Machine); !ok {
-		return false
-	}
-	return true
+	_, ok := r.entity.(*state.Machine)
+	return ok
 }
 
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
 func (r *srvRoot) AuthOwner(tag string) bool {
-	authUser := r.user.authenticator()
-	return authUser.Tag() == tag
+	return r.entity.Tag() == tag
 }
 
 // AuthEnvironManager returns whether the authenticated user is a
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
-	authUser := r.user.authenticator()
-	return isMachineWithJob(authUser, state.JobManageEnviron)
+	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }

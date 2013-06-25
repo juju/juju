@@ -64,15 +64,6 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	c.Assert(err, ErrorMatches, "permission denied")
 }
 
-func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.loggedIn = false
-	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
-	c.Assert(err, NotNil)
-	c.Assert(aMachiner, IsNil)
-	c.Assert(err, ErrorMatches, "not logged in")
-}
-
 func (s *machinerSuite) TestSetStatus(c *C) {
 	err := s.machine0.SetStatus(params.StatusStarted, "blah")
 	c.Assert(err, IsNil)

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -159,6 +160,7 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
 
+	// check that unassigned units don't trigger any deployments.
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	u0, err := svc.AddUnit()
@@ -167,24 +169,39 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c)
 
+	// assign u0, check it's deployed.
 	err = u0.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u0.Name())
 
+	// "start the agent" for u0 to prevent short-circuited remove-on-destroy;
+	// check that it's kept deployed despite being Dying.
+	err = u0.SetStatus(params.StatusStarted, "")
+	c.Assert(err, IsNil)
 	err = u0.Destroy()
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u0.Name())
 
+	// add u1 to the machine, check it's deployed.
 	err = u1.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u0.Name(), u1.Name())
 
+	// make u0 dead; check the deployer recalls the unit and removes it from
+	// state.
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u1.Name())
-
 	err = u0.Refresh()
 	c.Assert(errors.IsNotFoundError(err), Equals, true)
+
+	// short-circuit-remove u1 after it's been deployed; check it's recalled
+	// and removed from state.
+	err = u1.Destroy()
+	c.Assert(err, IsNil)
+	err = u1.Refresh()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	ctx.waitDeployed(c)
 }
 
 func (s *MachineSuite) TestManageEnviron(c *C) {
@@ -290,13 +307,9 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	defer st.Close()
 
 	// This just verifies we can log in successfully.
-	machiner, err := st.Machiner()
+	m, err := st.Machiner().Machine(stm.Id())
 	c.Assert(err, IsNil)
-	c.Assert(machiner, NotNil)
-
-	instId, ok := stm.InstanceId()
-	c.Assert(ok, Equals, true)
-	c.Assert(string(instId), Equals, "ardbeg-0")
+	c.Assert(m.Life(), Equals, params.Life("alive"))
 
 	err = a.Stop()
 	c.Assert(err, IsNil)
