@@ -61,10 +61,12 @@ func (context *testStorageContext) getStorageContext() (*gwacl.StorageContext, e
 // makeAzureStorage returns an azureStorage object and a TestTransport object.
 // The TestTransport object can be used to check that the expected query has
 // been issued to the test server.
-func makeAzureStorage(response *http.Response, container string) (azureStorage, *TestTransport) {
+func makeAzureStorage(response *http.Response, container string, account string) (azureStorage, *TestTransport) {
 	transport := &TestTransport{Response: response}
 	client := &http.Client{Transport: transport}
-	context := &testStorageContext{container: container, storageContext: gwacl.NewTestStorageContext(client)}
+	storageContext := gwacl.NewTestStorageContext(client)
+	storageContext.Account = account
+	context := &testStorageContext{container: container, storageContext: storageContext}
 	azStorage := azureStorage{context}
 	return azStorage, transport
 }
@@ -92,7 +94,7 @@ var blobListResponse = `
 func (StorageSuite) TestList(c *C) {
 	container := "container"
 	response := makeResponse(blobListResponse, http.StatusOK)
-	azStorage, transport := makeAzureStorage(response, container)
+	azStorage, transport := makeAzureStorage(response, container, "account")
 	prefix := "prefix"
 	names, err := azStorage.List(prefix)
 	c.Assert(err, IsNil)
@@ -108,7 +110,7 @@ func (StorageSuite) TestGet(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse(blobContent, http.StatusOK)
-	azStorage, transport := makeAzureStorage(response, container)
+	azStorage, transport := makeAzureStorage(response, container, "account")
 	reader, err := azStorage.Get(filename)
 	c.Assert(err, IsNil)
 	c.Assert(reader, NotNil)
@@ -126,7 +128,7 @@ func (StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("not found", http.StatusNotFound)
-	azStorage, _ := makeAzureStorage(response, container)
+	azStorage, _ := makeAzureStorage(response, container, "account")
 	_, err := azStorage.Get(filename)
 	c.Assert(err, NotNil)
 	c.Check(errors.IsNotFoundError(err), Equals, true)
@@ -137,7 +139,7 @@ func (StorageSuite) TestPut(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusCreated)
-	azStorage, transport := makeAzureStorage(response, container)
+	azStorage, transport := makeAzureStorage(response, container, "account")
 	err := azStorage.Put(filename, strings.NewReader(blobContent), int64(len(blobContent)))
 	c.Assert(err, IsNil)
 
@@ -150,7 +152,7 @@ func (StorageSuite) TestRemove(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusAccepted)
-	azStorage, transport := makeAzureStorage(response, container)
+	azStorage, transport := makeAzureStorage(response, container, "account")
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 
@@ -164,7 +166,7 @@ func (StorageSuite) TestRemoveErrors(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusForbidden)
-	azStorage, _ := makeAzureStorage(response, container)
+	azStorage, _ := makeAzureStorage(response, container, "account")
 	err := azStorage.Remove(filename)
 	c.Assert(err, NotNil)
 }
@@ -173,7 +175,7 @@ func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
-	azStorage, _ := makeAzureStorage(response, container)
+	azStorage, _ := makeAzureStorage(response, container, "account")
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 }
@@ -181,10 +183,9 @@ func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
 func (StorageSuite) TestURL(c *C) {
 	container := "container"
 	filename := "blobname"
-	azStorage, _ := makeAzureStorage(nil, container)
+	account := "account"
+	azStorage, _ := makeAzureStorage(nil, container, account)
 	URL, err := azStorage.URL(filename)
 	c.Assert(err, IsNil)
-	context, err := azStorage.getStorageContext()
-	c.Assert(err, IsNil)
-	c.Check(URL, Matches, context.GetFileURL(container, filename))
+	c.Check(URL, Matches, fmt.Sprintf("http://%s.blob.core.windows.net/%s/%s", account, container, filename))
 }
