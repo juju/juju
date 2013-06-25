@@ -4,12 +4,14 @@
 package local_test
 
 import (
+	"fmt"
 	"path/filepath"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
+	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/loggo"
 )
 
@@ -28,9 +30,9 @@ var _ = local.Provider
 func (s *providerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	loggo.GetLogger("juju.environs.local").SetLogLevel(loggo.TRACE)
-	public := filepath.Join(c.MkDir(), "%s", "public")
-	private := filepath.Join(c.MkDir(), "%s", "private")
-	s.oldPublic, s.oldPrivate = local.SetDefaultStorageDirs(public, private)
+	s.public = filepath.Join(c.MkDir(), "%s", "public")
+	s.private = filepath.Join(c.MkDir(), "%s", "private")
+	s.oldPublic, s.oldPrivate = local.SetDefaultStorageDirs(s.public, s.private)
 }
 
 func (s *providerSuite) TearDownTest(c *C) {
@@ -38,7 +40,7 @@ func (s *providerSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (*providerSuite) TestValidateConfig(c *C) {
+func (s *providerSuite) TestValidateConfig(c *C) {
 	minimal := map[string]interface{}{
 		"name": "test",
 		"type": "local",
@@ -52,6 +54,13 @@ func (*providerSuite) TestValidateConfig(c *C) {
 
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, IsNil)
+	unknownAttrs := valid.UnknownAttrs()
 
-	_ = valid
+	publicDir := fmt.Sprintf(s.public, "test")
+	c.Assert(publicDir, IsDirectory)
+	c.Assert(unknownAttrs["public-storage"], Equals, publicDir)
+
+	privateDir := fmt.Sprintf(s.private, "test")
+	c.Assert(privateDir, IsDirectory)
+	c.Assert(unknownAttrs["private-storage"], Equals, privateDir)
 }

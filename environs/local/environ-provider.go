@@ -75,7 +75,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	dir := localConfig.publicStorageDir()
 	if dir == "" {
 		dir = fmt.Sprintf(defaultPublicStorageDir, cfg.Name())
-		localConfig.attrs["public-storate"] = dir
+		localConfig.attrs["public-storage"] = dir
 	}
 	if err := ensureDirExists(dir); err != nil {
 		return nil, err
@@ -84,7 +84,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	dir = localConfig.privateStorageDir()
 	if dir == "" {
 		dir = fmt.Sprintf(defaultPrivateStorageDir, cfg.Name())
-		localConfig.attrs["private-storate"] = dir
+		localConfig.attrs["private-storage"] = dir
 	}
 	if err := ensureDirExists(dir); err != nil {
 		return nil, err
