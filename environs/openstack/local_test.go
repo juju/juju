@@ -280,20 +280,19 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *C) {
 	c.Assert(err, IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
-	inst := testing.StartInstance(c, env, "100")
+	inst, _ := testing.StartInstance(c, env, "100")
 	err = s.Env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, IsNil)
 }
 
-func (s *localServerSuite) TestStartInstanceMetadata(c *C) {
+func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	err := environs.Bootstrap(s.Env, constraints.Value{})
 	c.Assert(err, IsNil)
-	inst := testing.StartInstanceWithConstraints(c, s.Env, "100", constraints.MustParse("mem=1024"))
-	md := inst.Metadata()
-	c.Check(*md.Arch, Equals, "amd64")
-	c.Check(*md.Mem, Equals, uint64(2048))
-	c.Check(*md.CpuCores, Equals, uint64(1))
-	c.Assert(md.CpuPower, IsNil)
+	_, hc := testing.StartInstanceWithConstraints(c, s.Env, "100", constraints.MustParse("mem=1024"))
+	c.Check(*hc.Arch, Equals, "amd64")
+	c.Check(*hc.Mem, Equals, uint64(2048))
+	c.Check(*hc.CpuCores, Equals, uint64(1))
+	c.Assert(hc.CpuPower, IsNil)
 }
 
 var instanceGathering = []struct {
@@ -344,9 +343,9 @@ var instanceGathering = []struct {
 }
 
 func (s *localServerSuite) TestInstancesGathering(c *C) {
-	inst0 := testing.StartInstance(c, s.Env, "100")
+	inst0, _ := testing.StartInstance(c, s.Env, "100")
 	id0 := inst0.Id()
-	inst1 := testing.StartInstance(c, s.Env, "101")
+	inst1, _ := testing.StartInstance(c, s.Env, "101")
 	id1 := inst1.Id()
 	defer func() {
 		err := s.Env.StopInstances([]instance.Instance{inst0, inst1})
@@ -414,7 +413,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	series := s.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, err := s.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, _, err := s.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 
 	err = s.env.Destroy(append(insts, inst1))

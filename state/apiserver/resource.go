@@ -5,14 +5,10 @@ package apiserver
 
 import (
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"strconv"
 	"sync"
 )
-
-// resource represents the interface provided by state watchers and pingers.
-type resource interface {
-	Stop() error
-}
 
 // resources holds all the resources for a connection.
 type resources struct {
@@ -25,7 +21,7 @@ type resources struct {
 // Stop RPC method for all resources.
 type srvResource struct {
 	rs       *resources
-	resource resource
+	resource common.Resource
 	id       string
 }
 
@@ -55,9 +51,9 @@ func (rs *resources) get(id string) *srvResource {
 	return rs.rs[id]
 }
 
-// register records the given watcher and returns
-// a srvResource instance for it.
-func (rs *resources) register(r resource) *srvResource {
+// Register records the given watcher and returns
+// its id.
+func (rs *resources) Register(r common.Resource) string {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
 	rs.maxId++
@@ -67,7 +63,7 @@ func (rs *resources) register(r resource) *srvResource {
 		resource: r,
 	}
 	rs.rs[sr.id] = sr
-	return sr
+	return sr.id
 }
 
 func (rs *resources) stopAll() {

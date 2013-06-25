@@ -322,7 +322,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	// part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
 	nonce := fmt.Sprintf("%s:%s", state.MachineTag(task.machineId), uuid.String())
-	inst, err := task.broker.StartInstance(machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
+	inst, _, err := task.broker.StartInstance(machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an

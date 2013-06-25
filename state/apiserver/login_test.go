@@ -72,17 +72,15 @@ func (s *loginSuite) TestBadLogin(c *C) {
 			c.Assert(err, IsNil)
 			defer st.Close()
 
-			_, err = st.Machiner()
-			c.Assert(err, ErrorMatches, "not logged in")
-			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized, Commentf("error %#v", err))
+			_, err = st.Machiner().Machine("0")
+			c.Assert(err, ErrorMatches, `unknown object type "Machiner"`)
 
 			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
 			c.Assert(api.ErrCode(err), Equals, t.code)
 
-			_, err = st.Machiner()
-			c.Assert(err, ErrorMatches, "not logged in")
-			c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+			_, err = st.Machiner().Machine("0")
+			c.Assert(err, ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
 }

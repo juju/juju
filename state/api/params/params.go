@@ -60,6 +60,17 @@ type MachinesSetStatus struct {
 	Machines []MachineSetStatus
 }
 
+// EntityWatchResult holds an EntityWatcher id and an error (if any).
+type EntityWatchResult struct {
+	EntityWatcherId string
+	Error           *Error
+}
+
+// MachinesWatchResults holds the parameters for making a Machiner.Watch call.
+type MachinesWatchResults struct {
+	Results []EntityWatchResult
+}
+
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {
@@ -206,6 +217,18 @@ type DestroyServiceUnits struct {
 // ServiceDestroy holds the parameters for making the ServiceDestroy call.
 type ServiceDestroy struct {
 	ServiceName string
+}
+
+// PasswordChanges holds the parameters for making a SetPasswords call.
+type PasswordChanges struct {
+	Changes []PasswordChange
+}
+
+// PasswordChange specifies a password change for the entity
+// with the given tag.
+type PasswordChange struct {
+	Tag      string
+	Password string
 }
 
 // Creds holds credentials for identifying an entity.
