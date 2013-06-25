@@ -177,7 +177,7 @@ func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
 	resource := s.resources["0"]
 	defer func() {
-		err = resource.Stop()
+		err := resource.Stop()
 		c.Assert(err, IsNil)
 	}()
 
