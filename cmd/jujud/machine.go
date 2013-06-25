@@ -117,7 +117,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	// provisioner task for non-lxc containers.
 	if m.ContainerType() != state.LXC {
 		tasks = append(tasks,
-			provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId))
+			provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir))
 	}
 	for _, j := range m.Jobs() {
 		switch j {
@@ -126,7 +126,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 				newDeployer(st, m.WatchPrincipalUnits(), dataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
-				provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId),
+				provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir),
 				firewaller.NewFirewaller(st))
 		case state.JobManageState:
 			// Ignore because it's started independently.

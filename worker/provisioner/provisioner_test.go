@@ -236,7 +236,7 @@ func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instanc
 }
 
 func (s *ProvisionerSuite) newEnvironProvisioner(machineId string) *provisioner.Provisioner {
-	return provisioner.NewProvisioner(provisioner.ENVIRON, s.State, machineId)
+	return provisioner.NewProvisioner(provisioner.ENVIRON, s.State, machineId, "")
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *C) {
