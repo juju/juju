@@ -364,6 +364,20 @@ func (c *Config) Apply(attrs map[string]interface{}) (*Config, error) {
 	return New(m)
 }
 
+func (c *Config) Clone() *Config {
+	result := &Config{
+		m: make(map[string]interface{}),
+		t: make(map[string]interface{}),
+	}
+	for k, v := range c.m {
+		result.m[k] = v
+	}
+	for k, v := range c.t {
+		result.t[k] = v
+	}
+	return result
+}
+
 var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),

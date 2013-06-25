@@ -4,6 +4,7 @@
 package local
 
 import (
+	"net"
 	"sync"
 
 	"launchpad.net/juju-core/constraints"
@@ -18,12 +19,11 @@ import (
 var _ environs.Environ = (*localEnviron)(nil)
 
 type localEnviron struct {
-	// Except where indicated otherwise, all fields in this object should
-	// only be accessed using a lock or a snapshot.
-	sync.Mutex
-
-	// name is immutable; it can be accessed without locking.
-	name string
+	localMutex      sync.Mutex
+	config          *environConfig
+	name            string
+	publicListener  net.Listener
+	privateListener net.Listener
 }
 
 // Name is specified in the Environ interface.
@@ -43,12 +43,35 @@ func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
 
 // Config is specified in the Environ interface.
 func (env *localEnviron) Config() *config.Config {
-	panic("unimplemented")
+	env.localMutex.Lock()
+	defer env.localMutex.Unlock()
+	return env.config.Clone()
 }
 
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
-	panic("unimplemented")
+	config, err := provider.newConfig(cfg)
+	if err != nil {
+		logger.Errorf("failed to create new environ config: %v", err)
+		return err
+	}
+	env.localMutex.Lock()
+	defer env.localMutex.Unlock()
+	env.config = config
+	env.name = config.Name()
+	// Recreate local storage?
+	publicListener, err := listen("/var/lib/juju/storage/public", "127.0.0.1", 0)
+	if err != nil {
+		return err
+	}
+	privateListener, err := listen("/var/lib/juju/storage/private", "127.0.0.1", 0)
+	if err != nil {
+		publicListener.Close()
+		return err
+	}
+	env.publicListener = publicListener
+	env.privateListener = privateListener
+	return nil
 }
 
 // StartInstance is specified in the Environ interface.

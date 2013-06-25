@@ -20,8 +20,7 @@ import (
 // code may be useful in storage-free environs. Here it requires
 // additional authentication work before it's viable.
 type storageBackend struct {
-	environName string
-	path        string
+	path string
 }
 
 // ServeHTTP handles the HTTP requests to the container.
@@ -128,10 +127,9 @@ func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) 
 
 // listen starts an HTTP listener to serve the
 // provider storage.
-func listen(dataPath, environName, ip string, port int) (net.Listener, error) {
+func listen(dataPath, ip string, port int) (net.Listener, error) {
 	backend := &storageBackend{
-		environName: environName,
-		path:        filepath.Join(dataPath, environName),
+		path: dataPath,
 	}
 	if err := os.MkdirAll(backend.path, 0777); err != nil {
 		return nil, err

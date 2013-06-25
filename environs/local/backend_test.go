@@ -7,7 +7,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
 	"net"
 	"net/http"
 	"os"
@@ -15,14 +14,13 @@ import (
 	"strings"
 	"sync"
 
+	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/local"
 )
 
 type backendSuite struct{}
 
 var _ = Suite(&backendSuite{})
-
-const environName = "test-environ"
 
 var testSetMu sync.Mutex
 
@@ -32,7 +30,7 @@ func nextTestSet(c *C) (int, net.Listener, string) {
 	defer testSetMu.Unlock()
 
 	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, environName, "127.0.0.1", 0)
+	listener, err := local.Listen(dataDir, "127.0.0.1", 0)
 	c.Assert(err, IsNil)
 	port := listener.Addr().(*net.TCPAddr).Port
 
@@ -247,7 +245,7 @@ func (s *backendSuite) TestPut(c *C) {
 		}
 		c.Assert(resp.StatusCode, Equals, 201)
 
-		fp := filepath.Join(dataDir, environName, tc.name)
+		fp := filepath.Join(dataDir, tc.name)
 		b, err := ioutil.ReadFile(fp)
 		c.Assert(err, IsNil)
 		c.Assert(string(b), Equals, tc.content)
@@ -289,7 +287,7 @@ func (s *backendSuite) TestRemove(c *C) {
 	createTestData(c, dataDir)
 
 	check := func(tc testCase) {
-		fp := filepath.Join(dataDir, environName, tc.name)
+		fp := filepath.Join(dataDir, tc.name)
 		dir, _ := filepath.Split(fp)
 		err := os.MkdirAll(dir, 0777)
 		c.Assert(err, IsNil)
@@ -322,14 +320,14 @@ func createTestData(c *C, dataDir string) {
 		c.Assert(err, IsNil)
 	}
 
-	dir := filepath.Join(dataDir, environName)
+	dir := filepath.Join(dataDir)
 
 	writeData(dir, "foo", "this is file 'foo'")
 	writeData(dir, "bar", "this is file 'bar'")
 	writeData(dir, "baz", "this is file 'baz'")
 	writeData(dir, "yadda", "this is file 'yadda'")
 
-	dir = filepath.Join(dataDir, environName, "inner")
+	dir = filepath.Join(dataDir, "inner")
 	err := os.MkdirAll(dir, 0777)
 	c.Assert(err, IsNil)
 

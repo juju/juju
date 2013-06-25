@@ -19,17 +19,19 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 
 type environProvider struct{}
 
+var provider environProvider
+
 func init() {
 	environs.RegisterProvider("local", &environProvider{})
 }
 
-const (
+var (
 	defaultPublicStorageDir  = "/var/lib/juju/local/%s/public"
-	defaultPrivateStorageDir = "/var/lib/juju/local/%s/public"
+	defaultPrivateStorageDir = "/var/lib/juju/local/%s/private"
 )
 
 // Open implements environs.EnvironProvider.Open.
-func (*environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	environ := &localEnviron{}
 	err := environ.SetConfig(cfg)
@@ -59,7 +61,7 @@ func ensureDirExists(path string) error {
 }
 
 // Validate implements environs.EnvironProvider.Validate.
-func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
@@ -69,20 +71,22 @@ func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 		return nil, err
 	}
 	localConfig := &environConfig{cfg, v.(map[string]interface{})}
-	if localConfig.publicStorageDir() == "" {
-		dir := fmt.Sprintf(defaultPublicStorageDir, cfg.Name())
-		if err := ensureDirExists(dir); err != nil {
-			return nil, err
-		}
+	dir := localConfig.publicStorageDir()
+	if dir == "" {
+		dir = fmt.Sprintf(defaultPublicStorageDir, cfg.Name())
 		localConfig.attrs["public-storate"] = dir
 	}
+	if err := ensureDirExists(dir); err != nil {
+		return nil, err
+	}
 
-	if localConfig.privateStorageDir() == "" {
+	dir = localConfig.privateStorageDir()
+	if dir == "" {
 		dir := fmt.Sprintf(defaultPrivateStorageDir, cfg.Name())
-		if err := ensureDirExists(dir); err != nil {
-			return nil, err
-		}
 		localConfig.attrs["private-storate"] = dir
+	}
+	if err := ensureDirExists(dir); err != nil {
+		return nil, err
 	}
 
 	// Apply the coerced unknown values back into the config.
@@ -90,33 +94,40 @@ func (*environProvider) Validate(cfg, old *config.Config) (valid *config.Config,
 }
 
 // BoilerplateConfig implements environs.EnvironProvider.BoilerplateConfig.
-func (*environProvider) BoilerplateConfig() string {
-	panic("unimplemented")
+func (environProvider) BoilerplateConfig() string {
+	return `
+## https://juju.ubuntu.com/get-started/local/
+local:
+  type: local
+  # override if your workstation is running a different series to which you are deploying
+  # default-series: precise
+
+`[1:]
 }
 
 // SecretAttrs implements environs.EnvironProvider.SecretAttrs.
-func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
+func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
 	// don't have any secret attrs
 	return nil, nil
 }
 
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
-func (*environProvider) PublicAddress() (string, error) {
+func (environProvider) PublicAddress() (string, error) {
 	panic("unimplemented")
 }
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
-func (*environProvider) PrivateAddress() (string, error) {
+func (environProvider) PrivateAddress() (string, error) {
 	panic("unimplemented")
 }
 
 // InstanceId implements environs.EnvironProvider.InstanceId.
-func (*environProvider) InstanceId() (instance.Id, error) {
+func (environProvider) InstanceId() (instance.Id, error) {
 	panic("unimplemented")
 }
 
-func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := p.Validate(cfg, nil)
+func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := provider.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}
