@@ -10,11 +10,11 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"public-storate":  schema.String(),
+		"public-storage":  schema.String(),
 		"private-storage": schema.String(),
 	},
 	schema.Defaults{
-		"public-storate":  "",
+		"public-storage":  "",
 		"private-storage": "",
 	},
 )
@@ -25,7 +25,7 @@ type environConfig struct {
 }
 
 func (c *environConfig) publicStorageDir() string {
-	return c.attrs["public-storate"].(string)
+	return c.attrs["public-storage"].(string)
 }
 
 func (c *environConfig) privateStorageDir() string {

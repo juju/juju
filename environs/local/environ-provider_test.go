@@ -40,8 +40,8 @@ func (s *providerSuite) TearDownTest(c *C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *providerSuite) TestValidateConfig(c *C) {
-	minimal := map[string]interface{}{
+func minimalConfigValues() map[string]interface{} {
+	return map[string]interface{}{
 		"name": "test",
 		"type": "local",
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
@@ -49,6 +49,10 @@ func (s *providerSuite) TestValidateConfig(c *C) {
 		"ca-cert":        testing.CACert,
 		"ca-private-key": testing.CAKey,
 	}
+}
+
+func (s *providerSuite) TestValidateConfig(c *C) {
+	minimal := minimalConfigValues()
 	testConfig, err := config.New(minimal)
 	c.Assert(err, IsNil)
 
@@ -63,4 +67,21 @@ func (s *providerSuite) TestValidateConfig(c *C) {
 	privateDir := fmt.Sprintf(s.private, "test")
 	c.Assert(privateDir, IsDirectory)
 	c.Assert(unknownAttrs["private-storage"], Equals, privateDir)
+}
+
+func (s *providerSuite) TestValidateConfigWithStorage(c *C) {
+	values := minimalConfigValues()
+	public := c.MkDir()
+	private := c.MkDir()
+	values["public-storage"] = public
+	values["private-storage"] = private
+	testConfig, err := config.New(values)
+	c.Assert(err, IsNil)
+
+	valid, err := local.Provider.Validate(testConfig, nil)
+	c.Assert(err, IsNil)
+	unknownAttrs := valid.UnknownAttrs()
+
+	c.Assert(unknownAttrs["public-storage"], Equals, public)
+	c.Assert(unknownAttrs["private-storage"], Equals, private)
 }
