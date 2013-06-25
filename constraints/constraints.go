@@ -5,6 +5,7 @@ package constraints
 
 import (
 	"fmt"
+	"launchpad.net/juju-core/instance"
 	"math"
 	"strconv"
 	"strings"
@@ -32,11 +33,17 @@ type Value struct {
 	// Mem, if not nil, indicates that a machine must have at least that many
 	// megabytes of RAM.
 	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
+
+	// Container, if not nil, indicates that a machine must be the specified container type.
+	Container *instance.ContainerType `json:"container,omitempty" yaml:"container,omitempty"`
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
 func (v Value) String() string {
 	var strs []string
+	if v.Container != nil {
+		strs = append(strs, "container="+string(*v.Container))
+	}
 	if v.Arch != nil {
 		strs = append(strs, "arch="+*v.Arch)
 	}
@@ -59,6 +66,9 @@ func (v Value) String() string {
 // WithFallbacks returns a copy of v with nil values taken from v0.
 func (v Value) WithFallbacks(v0 Value) Value {
 	v1 := v0
+	if v.Container != nil {
+		v1.Container = v.Container
+	}
 	if v.Arch != nil {
 		v1.Arch = v.Arch
 	}
@@ -137,6 +147,8 @@ func (v *Value) setRaw(raw string) error {
 	name, str := raw[:eq], raw[eq+1:]
 	var err error
 	switch name {
+	case "container":
+		err = v.setContainer(str)
 	case "arch":
 		err = v.setArch(str)
 	case "cpu-cores":
@@ -150,6 +162,52 @@ func (v *Value) setRaw(raw string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("bad %q constraint: %v", name, err)
+	}
+	return nil
+}
+
+// SetYAML is required to unmarshall a constraints.Value object
+// to ensure the container attribute is correctly handled when it is empty.
+func (v *Value) SetYAML(tag string, value interface{}) bool {
+	values := value.(map[interface{}]interface{})
+	for k, val := range values {
+		vstr := fmt.Sprintf("%v", val)
+		var err error
+		switch k {
+		case "container":
+			ctype := instance.ContainerType(vstr)
+			v.Container = &ctype
+		case "arch":
+			v.Arch = &vstr
+		case "cpu-cores":
+			v.CpuCores, err = parseUint64(vstr)
+		case "cpu-power":
+			v.CpuPower, err = parseUint64(vstr)
+		case "mem":
+			v.Mem, err = parseUint64(vstr)
+		default:
+			return false
+		}
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (v *Value) setContainer(str string) error {
+	if v.Container != nil {
+		return fmt.Errorf("already set")
+	}
+	if str == "" {
+		ctype := instance.ContainerType("")
+		v.Container = &ctype
+	} else {
+		ctype, err := instance.ParseSupportedContainerType(str)
+		if err != nil {
+			return err
+		}
+		v.Container = &ctype
 	}
 	return nil
 }

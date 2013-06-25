@@ -306,7 +306,7 @@ type AddMachineParams struct {
 	Series        string
 	Constraints   constraints.Value
 	ParentId      string
-	ContainerType ContainerType
+	ContainerType instance.ContainerType
 	instanceId    instance.Id
 	nonce         string
 	Jobs          []MachineJob

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -56,7 +57,7 @@ func (s *AddMachineSuite) TestAddMachineWithConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, expectedCons)
 }
 
-func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string, ctype state.ContainerType) {
+func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string, ctype instance.ContainerType) {
 	m, err := s.State.Machine(parentId)
 	c.Assert(err, IsNil)
 	containers, err := m.Containers()
@@ -71,7 +72,7 @@ func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string
 }
 
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *C) {
-	for i, ctype := range state.SupportedContainerTypes {
+	for i, ctype := range instance.SupportedContainerTypes {
 		err := runAddMachine(c, fmt.Sprintf("/%s", ctype))
 		c.Assert(err, IsNil)
 		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/0", ctype), ctype)
@@ -83,7 +84,7 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = runAddMachine(c)
 	c.Assert(err, IsNil)
-	for i, container := range state.SupportedContainerTypes {
+	for i, container := range instance.SupportedContainerTypes {
 		err := runAddMachine(c, fmt.Sprintf("1/%s", container))
 		c.Assert(err, IsNil)
 		s._assertAddContainer(c, "1", fmt.Sprintf("1/%s/%d", container, i), container)
@@ -93,4 +94,6 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *C) {
 func (s *AddMachineSuite) TestAddMachineErrors(c *C) {
 	err := runAddMachine(c, ":foo")
 	c.Assert(err, ErrorMatches, `malformed container argument ":foo"`)
+	err = runAddMachine(c, "/lxc", "--constraints", "container=lxc")
+	c.Assert(err, ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
 }

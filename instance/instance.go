@@ -8,6 +8,29 @@ import (
 	"fmt"
 )
 
+type ContainerType string
+
+const (
+	LXC = ContainerType("lxc")
+	KVM = ContainerType("kvm")
+)
+
+// SupportedContainerTypes is used to validate add-machine arguments.
+var SupportedContainerTypes []ContainerType = []ContainerType{
+	LXC,
+}
+
+// ParseSupportedContainerType converts the specified string into a supported
+// ContainerType instance or returns an error if the container type is invalid.
+func ParseSupportedContainerType(ctype string) (ContainerType, error) {
+	for _, supportedType := range SupportedContainerTypes {
+		if ContainerType(ctype) == supportedType {
+			return supportedType, nil
+		}
+	}
+	return "", fmt.Errorf("invalid container type %q", ctype)
+}
+
 var ErrNoDNSName = errors.New("DNS name not allocated")
 
 // An instance Id is a provider-specific identifier associated with an
