@@ -19,7 +19,7 @@ type azureEnviron struct {
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
 
-	// name is immutable; it can be accessed without locking.
+	// name is immutable; once initialized, it does not need locking.
 	name string
 
 	// ecfg is the environment's Azure-specific configuration.
@@ -71,11 +71,33 @@ func (env *azureEnviron) Config() *config.Config {
 
 // SetConfig is specified in the Environ interface.
 func (env *azureEnviron) SetConfig(cfg *config.Config) error {
-	panic("unimplemented")
+	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	env.Lock()
+	defer env.Unlock()
+
+	if env.ecfg != nil {
+		_, err = azureEnvironProvider{}.Validate(cfg, env.ecfg.Config)
+		if err != nil {
+			return err
+		}
+	}
+
+	if env.name == "" {
+		// Initialization is the only time we write to the name.
+		env.name = cfg.Name()
+	}
+
+	env.ecfg = ecfg
+	return nil
 }
 
 // StartInstance is specified in the Environ interface.
-func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
+func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	panic("unimplemented")
 }
 
