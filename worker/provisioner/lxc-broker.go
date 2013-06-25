@@ -34,15 +34,15 @@ type lxcBroker struct {
 	tools   *state.Tools
 }
 
-func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
+func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	inst, err := broker.manager.StartContainer(machineId, series, machineNonce, broker.tools, broker.config, info, apiInfo)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
-		return nil, err
+		return nil, nil, err
 	}
-	return inst, nil
+	return inst, nil, nil
 }
 
 // StopInstances shuts down the given instances.
