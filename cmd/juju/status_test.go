@@ -836,7 +836,7 @@ type startMachine struct {
 func (sm startMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
-	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	inst, _ := testing.StartInstance(c, ctx.conn.Environ, m.Id())
 	err = m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
 }
@@ -868,7 +868,7 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 	agentAlive, err := m.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(agentAlive, Equals, true)
-	inst := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	inst, _ := testing.StartInstance(c, ctx.conn.Environ, m.Id())
 	err = m.SetProvisioned(inst.Id(), "fake_nonce")
 	c.Assert(err, IsNil)
 	ctx.pingers[m.Id()] = pinger
