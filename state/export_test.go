@@ -15,7 +15,18 @@ import (
 	"path/filepath"
 )
 
+// transactionHook holds Before and After func()s that will be called
+// respectively before and after a particular state transaction is executed.
 type TransactionHook transactionHook
+
+// TransactionChecker values are returned from the various Set*Hooks calls,
+// and should be run after the code under test has been executed to check
+// that the expected number of transactions were run.
+type TransactionChecker func()
+
+func (c TransactionChecker) Check() {
+	c()
+}
 
 // SetTransactionHooks queues up hooks to be applied to the next transactions,
 // and returns a function that asserts all hooks have been run (and removes any
@@ -25,7 +36,7 @@ type TransactionHook transactionHook
 // any that have not. It is an error to set transaction hooks when any are
 // already queued; and setting transaction hooks renders the *State goroutine-
 // unsafe.
-func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) (checkRan func()) {
+func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) TransactionChecker {
 	converted := make([]transactionHook, len(transactionHooks))
 	for i, hook := range transactionHooks {
 		converted[i] = transactionHook(hook)
@@ -41,10 +52,28 @@ func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) (
 	}
 }
 
-// SetBeforeHook uses SetTransactionHooks to queue a single function to be run
-// immediately before the next transaction.
-func SetBeforeHook(c *C, st *State, f func()) (checkRan func()) {
-	return SetTransactionHooks(c, st, TransactionHook{Before: f})
+// SetBeforeHooks uses SetTransactionHooks to queue N functions to be run
+// immediately before the next N transactions. Nil values are accepted, and
+// useful, in that they can be used to ensure that a transaction is run at
+// the expected time, without having to make any changes or assert any state.
+func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
+	transactionHooks := make([]TransactionHook, len(fs))
+	for i, f := range fs {
+		transactionHooks[i] = TransactionHook{Before: f}
+	}
+	return SetTransactionHooks(c, st, transactionHooks...)
+}
+
+// SetRetryHooks uses SetTransactionHooks to inject a block function designed
+// to disrupt a transaction built against recent state, and a check function
+// designed to verify that the replacement transaction against the new state
+// has been applied as expected.
+func SetRetryHooks(c *C, st *State, block, check func()) TransactionChecker {
+	return SetTransactionHooks(c, st, TransactionHook{
+		Before: block,
+	}, TransactionHook{
+		After: check,
+	})
 }
 
 // TestingInitialize initializes the state and returns it. If state was not

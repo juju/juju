@@ -7,9 +7,9 @@ import "launchpad.net/juju-core/state/api/params"
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	id       string
-	life     params.Life
-	machiner *Machiner
+	id     string
+	life   params.Life
+	mstate *State
 }
 
 // SetStatus sets the status of the machine.
@@ -20,7 +20,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 			{Id: m.id, Status: status, Info: info},
 		},
 	}
-	err := m.machiner.caller.Call("Machiner", "", "SetStatus", args, &result)
+	err := m.mstate.caller.Call("Machiner", "", "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.machiner.machineLife(m.id)
+	life, err := m.mstate.machineLife(m.id)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func (m *Machine) EnsureDead() error {
 	args := params.Machines{
 		Ids: []string{m.id},
 	}
-	err := m.machiner.caller.Call("Machiner", "", "EnsureDead", args, &result)
+	err := m.mstate.caller.Call("Machiner", "", "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}

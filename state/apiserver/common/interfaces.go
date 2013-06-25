@@ -15,10 +15,6 @@ type Tagger interface {
 // implemented by an API server to allow an API implementation to ask
 // questions about the client that is currently connected.
 type Authorizer interface {
-	// IsLoggedIn returns whether the user is currently logged in and
-	// authenticated.
-	IsLoggedIn() bool
-
 	// AuthMachineAgent returns whether the authenticated entity is a
 	// machine agent.
 	AuthMachineAgent() bool

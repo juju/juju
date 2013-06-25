@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -18,7 +19,7 @@ type azureEnviron struct {
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
 
-	// name is immutable; it can be accessed without locking.
+	// name is immutable; once initialized, it does not need locking.
 	name string
 
 	// ecfg is the environment's Azure-specific configuration.
@@ -64,16 +65,39 @@ func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
 
 // Config is specified in the Environ interface.
 func (env *azureEnviron) Config() *config.Config {
-	panic("unimplemented")
+	snap := env.getSnapshot()
+	return snap.ecfg.Config
 }
 
 // SetConfig is specified in the Environ interface.
 func (env *azureEnviron) SetConfig(cfg *config.Config) error {
-	panic("unimplemented")
+	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
+	if err != nil {
+		return err
+	}
+
+	env.Lock()
+	defer env.Unlock()
+
+	if env.ecfg != nil {
+		_, err = azureEnvironProvider{}.Validate(cfg, env.ecfg.Config)
+		if err != nil {
+			return err
+		}
+	}
+
+	if env.name == "" {
+		// Initialization is the only time we write to the name.
+		env.name = cfg.Name()
+	}
+
+	env.ecfg = ecfg
+	return nil
 }
 
 // StartInstance is specified in the Environ interface.
-func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
+func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	panic("unimplemented")
 }
 
@@ -125,4 +149,72 @@ func (env *azureEnviron) Ports() ([]instance.Port, error) {
 // Provider is specified in the Environ interface.
 func (env *azureEnviron) Provider() environs.EnvironProvider {
 	panic("unimplemented")
+}
+
+// azureManagementContext wraps two things: a gwacl.ManagementAPI (effectively
+// a session on the Azure management API) and a tempCertFile, which keeps track
+// of the temporary certificate file that needs to be deleted once we're done
+// with this particular session.
+// Since it embeds *gwacl.ManagementAPI, you can use it much as if it were a
+// pointer to a ManagementAPI object.  Just don't forget to release it after
+// use.
+type azureManagementContext struct {
+	*gwacl.ManagementAPI
+	certFile *tempCertFile
+}
+
+// getManagementAPI obtains a context object for interfacing with Azure's
+// management API.
+// For now, each invocation just returns a separate object.  This is probably
+// wasteful (each context gets its own SSL connection) and may need optimizing
+// later.
+func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
+	snap := env.getSnapshot()
+	subscription := snap.ecfg.ManagementSubscriptionId()
+	certData := snap.ecfg.ManagementCertificate()
+	certFile, err := newTempCertFile([]byte(certData))
+	if err != nil {
+		return nil, err
+	}
+	// After this point, if we need to leave prematurely, we should clean
+	// up that certificate file.
+	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	if err != nil {
+		certFile.Delete()
+		return nil, err
+	}
+	context := azureManagementContext{
+		ManagementAPI: mgtAPI,
+		certFile:      certFile,
+	}
+	return &context, nil
+}
+
+// releaseManagementAPI frees up a context object obtained through
+// getManagementAPI.
+func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
+	// Be tolerant to incomplete context objects, in case we ever get
+	// called during cleanup of a failed attempt to create one.
+	if context == nil || context.certFile == nil {
+		return
+	}
+	// For now, all that needs doing is to delete the temporary certificate
+	// file.  We may do cleverer things later, such as connection pooling
+	// where this method returns a context to the pool.
+	context.certFile.Delete()
+}
+
+// getStorageContext obtains a context object for interfacing with Azure's
+// storage API.
+// For now, each invocation just returns a separate object.  This is probably
+// wasteful (each context gets its own SSL connection) and may need optimizing
+// later.
+func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
+	snap := env.getSnapshot()
+	context := gwacl.StorageContext{
+		Account: snap.ecfg.StorageAccountName(),
+		Key:     snap.ecfg.StorageAccountKey(),
+	}
+	// There is currently no way for this to fail.
+	return &context, nil
 }

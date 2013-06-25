@@ -1152,6 +1152,21 @@ type cleanupDoc struct {
 	Prefix string
 }
 
+// newCleanupOp returns a txn.Op that creates a cleanup document with a unique
+// id and the supplied kind and prefix.
+func (st *State) newCleanupOp(kind, prefix string) txn.Op {
+	doc := &cleanupDoc{
+		Id:     bson.NewObjectId(),
+		Kind:   kind,
+		Prefix: prefix,
+	}
+	return txn.Op{
+		C:      st.cleanups.Name,
+		Id:     doc.Id,
+		Insert: doc,
+	}
+}
+
 // NeedsCleanup returns true if documents previously marked for removal exist.
 func (st *State) NeedsCleanup() (bool, error) {
 	count, err := st.cleanups.Count()
@@ -1168,25 +1183,18 @@ func (st *State) Cleanup() error {
 	doc := cleanupDoc{}
 	iter := st.cleanups.Find(nil).Iter()
 	for iter.Next(&doc) {
-		var c *mgo.Collection
-		var sel interface{}
+		var err error
 		switch doc.Kind {
 		case "settings":
-			c = st.settings
-			sel = D{{"_id", D{{"$regex", "^" + doc.Prefix}}}}
+			err = st.cleanupSettings(doc.Prefix)
+		case "units":
+			err = st.cleanupUnits(doc.Prefix)
 		default:
-			log.Warningf("state: ignoring unknown cleanup kind %q", doc.Kind)
-			continue
+			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
-		if count, err := c.Find(sel).Count(); err != nil {
-			return fmt.Errorf("cannot detect cleanup targets: %v", err)
-		} else if count != 0 {
-			// Documents marked for cleanup are not otherwise referenced in the
-			// system, and will not be under watch, and are therefore safe to
-			// delete directly.
-			if _, err := c.RemoveAll(sel); err != nil {
-				return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
-			}
+		if err != nil {
+			log.Warningf("cleanup failed: %v", err)
+			continue
 		}
 		ops := []txn.Op{{
 			C:      st.cleanups.Name,
@@ -1201,6 +1209,44 @@ func (st *State) Cleanup() error {
 		return fmt.Errorf("cannot read cleanup document: %v", err)
 	}
 	return nil
+}
+
+func (st *State) cleanupSettings(prefix string) error {
+	// Documents marked for cleanup are not otherwise referenced in the
+	// system, and will not be under watch, and are therefore safe to
+	// delete directly.
+	sel := D{{"_id", D{{"$regex", "^" + prefix}}}}
+	if count, err := st.settings.Find(sel).Count(); err != nil {
+		return fmt.Errorf("cannot detect cleanup targets: %v", err)
+	} else if count != 0 {
+		if _, err := st.settings.RemoveAll(sel); err != nil {
+			return fmt.Errorf("cannot remove documents marked for cleanup: %v", err)
+		}
+	}
+	return nil
+}
+
+func (st *State) cleanupUnits(prefix string) error {
+	// This won't miss units, because a Dying service cannot have units added
+	// to it. But we do have to remove the units themselves via individual
+	// transactions, because they could be in any state at all.
+	unit := &Unit{st: st}
+	sel := D{{"_id", D{{"$regex", "^" + prefix}}}, {"life", Alive}}
+	iter := st.units.Find(sel).Iter()
+	for iter.Next(&unit.doc) {
+		if err := unit.Destroy(); err != nil {
+			return err
+		}
+	}
+	if err := iter.Err(); err != nil {
+		return fmt.Errorf("cannot read unit document: %v", err)
+	}
+	return nil
+}
+
+// ResumeTransactions resumes all pending transactions.
+func (st *State) ResumeTransactions() error {
+	return st.runner.ResumeAll()
 }
 
 var tagPrefix = map[byte]string{
