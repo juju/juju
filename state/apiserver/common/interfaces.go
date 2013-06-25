@@ -15,10 +15,6 @@ type Tagger interface {
 // implemented by an API server to allow an API implementation to ask
 // questions about the client that is currently connected.
 type Authorizer interface {
-	// IsLoggedIn returns whether the user is currently logged in and
-	// authenticated.
-	IsLoggedIn() bool
-
 	// AuthMachineAgent returns whether the authenticated entity is a
 	// machine agent.
 	AuthMachineAgent() bool
@@ -43,16 +39,16 @@ type Resource interface {
 // resources that will be cleaned up when an API connection
 // terminates. It is typically implemented by an API server.
 type ResourceRegistry interface {
-	// RegisterResource registers the given resource. It returns a unique
+	// Register registers the given resource. It returns a unique
 	// identifier for the resource which can then be used in
 	// subsequent API requests to refer to the resource.
 	Register(resource Resource) string
 
-	// GetResource returns the resource for the given id, or
+	// Get returns the resource for the given id, or
 	// nil if there is no such resource.
 	Get(id string) Resource
 
-	// StopResource stops the resource with the given id and unregisters it.
+	// Stop stops the resource with the given id and unregisters it.
 	// It returns any error from the underlying Stop call.
 	// It does not return an error if the resource has already
 	// been unregistered.

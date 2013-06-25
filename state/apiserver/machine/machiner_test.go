@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"strconv"
+	"time"
 )
 
 type machinerSuite struct {
@@ -69,15 +70,6 @@ func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
 	c.Assert(err, ErrorMatches, "permission denied")
-}
-
-func (s *machinerSuite) TestMachinerFailsWhenNotLoggedIn(c *C) {
-	anAuthorizer := s.authorizer
-	anAuthorizer.loggedIn = false
-	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
-	c.Assert(err, NotNil)
-	c.Assert(aMachiner, IsNil)
-	c.Assert(err, ErrorMatches, "not logged in")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
@@ -179,18 +171,23 @@ func (s *machinerSuite) TestWatch(c *C) {
 	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
 	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
 
-	// Verify the resource was registered
+	// Verify the resource was registered and stop when done
 	c.Assert(s.resources, HasLen, 1)
 	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
 	resource := s.resources["0"]
+	defer func() {
+		err := resource.Stop()
+		c.Assert(err, IsNil)
+	}()
 
-	// Check that the watcher does... something
+	// Check that the watcher returns an initial event
 	channel := resource.(*state.EntityWatcher).Changes()
+	// Should use helpers from state/watcher_test.go when generalised
 	select {
-	case ev := <-channel:
-		c.Assert(ev, NotNil)
+	case _, ok := <-channel:
+		c.Assert(ok, Equals, true)
+		// The value is just an empty struct currently
+	case <-time.After(50 * time.Millisecond):
+		c.Fatal("timeout waiting for entity watcher")
 	}
-
-	err = resource.Stop()
-	c.Assert(err, IsNil)
 }
