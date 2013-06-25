@@ -72,7 +72,7 @@ func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance
 	series := "series"
 	nonce := "fake-nonce"
 	cons := constraints.Value{}
-	lxc, err := s.broker.StartInstance(machineId, nonce, series, cons, stateInfo, apiInfo)
+	lxc, _, err := s.broker.StartInstance(machineId, nonce, series, cons, stateInfo, apiInfo)
 	c.Assert(err, IsNil)
 	return lxc
 }
