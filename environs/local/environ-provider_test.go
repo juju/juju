@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/loggo"
 )
 
 type providerSuite struct {
@@ -26,6 +27,7 @@ var _ = local.Provider
 
 func (s *providerSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
+	loggo.GetLogger("juju.environs.local").SetLogLevel(loggo.TRACE)
 	public := filepath.Join(c.MkDir(), "%s", "public")
 	private := filepath.Join(c.MkDir(), "%s", "private")
 	s.oldPublic, s.oldPrivate = local.SetDefaultStorageDirs(public, private)
@@ -47,5 +49,9 @@ func (*providerSuite) TestValidateConfig(c *C) {
 	}
 	testConfig, err := config.New(minimal)
 	c.Assert(err, IsNil)
-	_ = testConfig
+
+	valid, err := local.Provider.Validate(testConfig, nil)
+	c.Assert(err, IsNil)
+
+	_ = valid
 }

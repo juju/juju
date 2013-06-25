@@ -44,6 +44,7 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 func ensureDirExists(path string) error {
 	// If the directory doesn't exist, try to make it.
+	logger.Tracef("ensure %q dir exists", path)
 	fileInfo, err := os.Stat(path)
 	if os.IsNotExist(err) {
 		// Try to make the directory.
@@ -82,7 +83,7 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 
 	dir = localConfig.privateStorageDir()
 	if dir == "" {
-		dir := fmt.Sprintf(defaultPrivateStorageDir, cfg.Name())
+		dir = fmt.Sprintf(defaultPrivateStorageDir, cfg.Name())
 		localConfig.attrs["private-storate"] = dir
 	}
 	if err := ensureDirExists(dir); err != nil {
