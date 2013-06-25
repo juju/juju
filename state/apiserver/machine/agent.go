@@ -20,9 +20,6 @@ type AgentAPI struct {
 // NewAgentAPI returns an object implementing the machine agent API
 // with the given authorizer representing the currently logged in client.
 func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
-	if !auth.IsLoggedIn() {
-		return nil, common.ErrNotLoggedIn
-	}
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

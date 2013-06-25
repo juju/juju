@@ -35,15 +35,6 @@ func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *C) {
 	c.Assert(err, ErrorMatches, "permission denied")
 }
 
-func (s *agentSuite) TestAgentFailsWhenNotLoggedIn(c *C) {
-	auth := s.authorizer
-	auth.loggedIn = false
-	api, err := machine.NewAgentAPI(s.State, auth)
-	c.Assert(err, NotNil)
-	c.Assert(api, IsNil)
-	c.Assert(err, ErrorMatches, "not logged in")
-}
-
 func (s *agentSuite) TestGetMachines(c *C) {
 	err := s.machine1.Destroy()
 	c.Assert(err, IsNil)
