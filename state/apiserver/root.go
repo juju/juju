@@ -207,6 +207,7 @@ func (r *srvRoot) AuthOwner(tag string) bool {
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
+}
 
 func (r *srvRoot) AuthClient() bool {
 	return !isAgent(r.entity)
