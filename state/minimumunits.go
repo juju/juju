@@ -10,8 +10,8 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// minimumUnitsDoc allows for keeping track of relevant changes on the
-// service MinimumUnits field and on the number of alive units for the service.
+// minimumUnitsDoc keeps track of relevant changes on the service's
+// MinimumUnits field and on the number of alive units for the service.
 // A new document is created when MinimumUnits is set to a non zero value.
 // A document is deleted when either the associated service is destroyed
 // or MinimumUnits is restored to zero. The Revno is increased when either
@@ -21,8 +21,8 @@ import (
 // ensuring the number of units for the service is never less than the actual
 // alive units: new units are added if required (see EnsureMinimumUnits below).
 type minimumUnitsDoc struct {
-	// Since the referred entity type is always the Service, it is safe here
-	// to use the service name as id in place of its globalKey.
+	// ServiceName is safe to be used here in place of its globalKey, since
+	// the referred entity type is always the Service.
 	ServiceName string `bson:"_id"`
 	Revno       int
 	TxnRevno    int64 `bson:"txn-revno"`
