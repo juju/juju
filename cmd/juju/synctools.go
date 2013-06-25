@@ -5,24 +5,21 @@ package main
 
 import (
 	"bytes"
-	"encoding/xml"
 	"fmt"
 	"io"
-	"io/ioutil"
-	"net/http"
-	"sort"
-	"strings"
-	"time"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
+
+// defaultToolsUrl leads to the juju distribution on S3.
+var defaultToolsLocation string = "https://juju-dist.s3.amazonaws.com/"
 
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
@@ -63,15 +60,6 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *SyncToolsCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
-}
-
-var officialBucketAttrs = map[string]interface{}{
-	"name":            "juju-public",
-	"type":            "ec2",
-	"control-bucket":  "juju-dist",
-	"access-key":      "",
-	"secret-key":      "",
-	"authorized-keys": "not-really", // We shouldn't need ssh access
 }
 
 func copyOne(
@@ -118,7 +106,7 @@ func copyTools(
 }
 
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
-	sourceStorage := newHttpToolsReader()
+	sourceStorage := ec2.NewHTTPStorageReader(defaultToolsLocation)
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		log.Errorf("unable to read %q from environment", c.EnvName)
@@ -181,97 +169,4 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	fmt.Fprintf(ctx.Stderr, "copied %d tools\n", len(missing))
 	return nil
-}
-
-// defaultToolsUrl leads to the juju distribution on S3.
-var defaultToolsLocation string = "https://juju-dist.s3.amazonaws.com/"
-
-// listBucketResult is the top level XML element of the storage index.
-type listBucketResult struct {
-	XMLName     xml.Name `xml: "ListBucketResult"`
-	Name        string
-	Prefix      string
-	Marker      string
-	MaxKeys     int
-	IsTruncated bool
-	Contents    []*contents
-}
-
-// content describes one entry of the storage index.
-type contents struct {
-	XMLName      xml.Name `xml: "Contents"`
-	Key          string
-	LastModified time.Time
-	ETag         string
-	Size         int
-	StorageClass string
-}
-
-// httpToolsReader implements the environs.StorageReader interface by
-// accessing the juju-core public store simply using http.
-type httpToolsReader struct {
-	location string
-}
-
-// newHttpToolsReader creates a storage reader for the http
-// access to the juju-core public store.
-func newHttpToolsReader() environs.StorageReader {
-	return &httpToolsReader{defaultToolsLocation}
-}
-
-// Get opens the given storage file and returns a ReadCloser
-// that can be used to read its contents.
-func (h *httpToolsReader) Get(name string) (io.ReadCloser, error) {
-	locationName, err := h.URL(name)
-	if err != nil {
-		return nil, err
-	}
-	resp, err := http.Get(locationName)
-	if err != nil && resp.StatusCode == http.StatusNotFound {
-		return nil, &errors.NotFoundError{err, ""}
-	}
-	return resp.Body, nil
-}
-
-// List lists all names in the storage with the given prefix.
-func (h *httpToolsReader) List(prefix string) ([]string, error) {
-	lbr, err := h.getListBucketResult()
-	if err != nil {
-		return nil, err
-	}
-	var names []string
-	for _, c := range lbr.Contents {
-		if strings.HasPrefix(c.Key, prefix) {
-			names = append(names, c.Key)
-		}
-	}
-	sort.Strings(names)
-	return names, nil
-}
-
-// URL returns a URL that can be used to access the given storage file.
-func (h *httpToolsReader) URL(name string) (string, error) {
-	if strings.HasSuffix(h.location, "/") {
-		return h.location + name, nil
-	}
-	return h.location + "/" + name, nil
-}
-
-// getListBucketResult retrieves the index of the storage,
-func (h *httpToolsReader) getListBucketResult() (*listBucketResult, error) {
-	resp, err := http.Get(h.location)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	buf, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	var lbr listBucketResult
-	err = xml.Unmarshal(buf, &lbr)
-	if err != nil {
-		return nil, err
-	}
-	return &lbr, nil
 }
