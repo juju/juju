@@ -123,9 +123,15 @@ type Environ interface {
 	// Config returns the current configuration of this Environ.
 	Config() *config.Config
 
-	// SetConfig updates the Environs configuration.
+	// SetConfig updates the Environ's configuration.
+	//
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
+	//
+	// Juju takes care not to share an Environ between concurrent workers,
+	// but the provider implementation itself may contain concurrent code,
+	// or call SetConfig at any time.  The implementation may need some
+	// locking to avoid undefined behaviour.
 	SetConfig(cfg *config.Config) error
 
 	// StartInstance asks for a new instance to be created, associated
