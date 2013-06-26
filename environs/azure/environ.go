@@ -44,6 +44,7 @@ type azureEnviron struct {
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
 
+// NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	env := azureEnviron{name: cfg.Name()}
 	err := env.SetConfig(cfg)
@@ -52,7 +53,9 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	}
 
 	// Set up storage.
-	env.storage = &azureStorage{storageContext: &environStorageContext{environ: &env}}
+	env.storage = &azureStorage{
+		storageContext: &environStorageContext{environ: &env},
+	}
 
 	// Set up public storage.
 	publicContext := publicEnvironStorageContext{environ: &env}
@@ -118,7 +121,7 @@ func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("environs/azure: error  getting state instance: %v", err.Error())
+			log.Debugf("environs/azure: error getting state instance: %v", err.Error())
 			return nil, nil, err
 		}
 		log.Debugf("environs/azure: started processing instances: %#v", insts)
@@ -190,7 +193,7 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	panic("unimplemented")
+	return nil, fmt.Errorf("azureEnviron.Instances unimplemented")
 }
 
 // AllInstances is specified in the Environ interface.
