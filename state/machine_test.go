@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
@@ -535,10 +536,10 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
 
 func (s *MachineSuite) TestWatchMachine(c *C) {
 	w := s.machine.Watch()
-	defer AssertStop(c, w)
+	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := testing.NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -559,7 +560,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Remove machine, start new watch, check single event.
@@ -568,15 +569,15 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	err = machine.Remove()
 	c.Assert(err, IsNil)
 	w = s.machine.Watch()
-	defer AssertStop(c, w)
-	NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	defer testing.AssertStop(c, w)
+	testing.NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Change machine, and create a unit independently; no change.
@@ -636,13 +637,13 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Remove the Dead unit; no change.
@@ -664,8 +665,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Change machine; no change.
@@ -724,13 +725,13 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange("mysql/0", "mysql/1", "logging/0")
 
 	// Remove the Dead unit; no change.
