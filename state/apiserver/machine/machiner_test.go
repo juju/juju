@@ -10,42 +10,24 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	"strconv"
 	"time"
 )
 
 type machinerSuite struct {
 	commonSuite
 
-	resources fakeResourceRegistry
+	resources *common.Resources
 	machiner  *machine.MachinerAPI
 }
 
 var _ = Suite(&machinerSuite{})
-
-// fakeResourceRegistry implements the common.ResourceRegistry interface.
-type fakeResourceRegistry map[string]common.Resource
-
-func (registry fakeResourceRegistry) Register(resource common.Resource) string {
-	id := strconv.Itoa(len(registry))
-	registry[id] = resource
-	return id
-}
-
-func (registry fakeResourceRegistry) Get(id string) common.Resource {
-	panic("unimplemented")
-}
-
-func (registry fakeResourceRegistry) Stop(id string) error {
-	panic("unimplemented")
-}
 
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.commonSuite.SetUpTest(c)
 
 	// Create the resource registry separately to track invocations to
 	// Register.
-	s.resources = make(fakeResourceRegistry)
+	s.resources = common.NewResources()
 
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPI(
@@ -159,7 +141,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 }
 
 func (s *machinerSuite) TestWatch(c *C) {
-	c.Assert(s.resources, HasLen, 0)
+	c.Assert(s.resources.Count(), Equals, 0)
 
 	args := params.Machines{
 		Ids: []string{"1", "0", "42"},
@@ -172,9 +154,9 @@ func (s *machinerSuite) TestWatch(c *C) {
 	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources, HasLen, 1)
-	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
-	resource := s.resources["0"]
+	c.Assert(s.resources.Count(), Equals, 1)
+	c.Assert(result.Results[0].EntityWatcherId, Equals, "1")
+	resource := s.resources.Get("1")
 	defer func() {
 		err := resource.Stop()
 		c.Assert(err, IsNil)

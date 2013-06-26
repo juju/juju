@@ -19,7 +19,7 @@ type srvRoot struct {
 	clientAPI
 	state     *srvState
 	srv       *Server
-	resources *resources
+	resources *common.Resources
 
 	entity state.TaggedAuthenticator
 }
@@ -27,7 +27,7 @@ type srvRoot struct {
 func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
-		resources: newResources(),
+		resources: common.NewResources(),
 		entity:    entity,
 	}
 	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
@@ -40,7 +40,7 @@ func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
-	r.resources.stopAll()
+	r.resources.StopAll()
 }
 
 // requireAgent checks whether the current client is an agent and hence
