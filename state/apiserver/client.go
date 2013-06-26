@@ -37,7 +37,7 @@ func (c *srvClient) Status() (api.Status, error) {
 func (c *srvClient) WatchAll() (params.AllWatcherId, error) {
 	w := c.root.srv.state.Watch()
 	return params.AllWatcherId{
-		AllWatcherId: c.root.resources.register(w).id,
+		AllWatcherId: c.root.resources.Register(w),
 	}, nil
 }
 

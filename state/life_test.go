@@ -95,7 +95,7 @@ func (l *unitLife) id() (coll string, id interface{}) {
 func (l *unitLife) setup(s *LifeSuite, c *C) state.Living {
 	unit, err := s.svc.AddUnit()
 	c.Assert(err, IsNil)
-	preventUnitDestroyRemove(c, s.State, unit)
+	preventUnitDestroyRemove(c, unit)
 	l.unit = unit
 	return l.unit
 }

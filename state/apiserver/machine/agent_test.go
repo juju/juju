@@ -35,19 +35,10 @@ func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *C) {
 	c.Assert(err, ErrorMatches, "permission denied")
 }
 
-func (s *agentSuite) TestAgentFailsWhenNotLoggedIn(c *C) {
-	auth := s.authorizer
-	auth.loggedIn = false
-	api, err := machine.NewAgentAPI(s.State, auth)
-	c.Assert(err, NotNil)
-	c.Assert(api, IsNil)
-	c.Assert(err, ErrorMatches, "not logged in")
-}
-
 func (s *agentSuite) TestGetMachines(c *C) {
 	err := s.machine1.Destroy()
 	c.Assert(err, IsNil)
-	results, err := s.agent.GetMachines(params.Machines{
+	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1", "0", "42"},
 	})
 	c.Assert(err, IsNil)
@@ -76,7 +67,7 @@ func (s *agentSuite) TestGetNotFoundMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine1.Remove()
 	c.Assert(err, IsNil)
-	results, err := s.agent.GetMachines(params.Machines{
+	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1"},
 	})
 	c.Assert(err, IsNil)

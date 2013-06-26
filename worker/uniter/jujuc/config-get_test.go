@@ -138,9 +138,9 @@ options:
 -o, --output (= "")
     specify an output file
 
-If a key is given, only the value for that key will be printed. Otherwise
-all keys with a value are printed. With the argument --all also empty keys
-are printed.
+When no <key> is supplied, all keys with values or defaults are printed. If
+--all is set, all known keys are printed; those without defaults or values are
+reported as null. <key> and --all are mutually exclusive.
 `)
 	c.Assert(bufferString(ctx.Stderr), Equals, "")
 }
