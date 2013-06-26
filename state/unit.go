@@ -231,7 +231,6 @@ func (u *Unit) Destroy() (err error) {
 		case errAlreadyDying:
 			return nil
 		case nil:
-			ops = append(ops, minUnitsIncreaseOp(unit.st, unit.ServiceName()))
 			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
@@ -276,12 +275,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
+	minUnitsOp := minUnitsIncreaseOp(u.st, u.ServiceName())
 	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"life", Dying}}}},
-	}}
+	}, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {
@@ -302,7 +302,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		C:      u.st.statuses.Name,
 		Id:     sdocId,
 		Assert: D{{"status", params.StatusPending}},
-	}}
+	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
 	removeOps, err := u.removeOps(removeAsserts)
 	if err == errAlreadyRemoved {

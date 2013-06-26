@@ -64,6 +64,8 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 	return ErrExcessiveContention
 }
 
+// setMinUnitsOps returns the operations required to set MinUnits on the
+// service and to create/update/remove the minUnits document in MongoDB.
 func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 	state := service.st
 	serviceName := service.Name()
