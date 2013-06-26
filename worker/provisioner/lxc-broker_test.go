@@ -22,7 +22,7 @@ import (
 
 type lxcBrokerSuite struct {
 	testing.LoggingSuite
-	golxc              golxc.ContainerFactory
+	oldFactory         golxc.ContainerFactory
 	broker             provisioner.Broker
 	containerDir       string
 	removedDir         string
@@ -50,18 +50,19 @@ func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.oldRemovedDir = lxc.SetRemovedContainerDir(s.removedDir)
 	s.lxcDir = c.MkDir()
 	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
-	s.golxc = mock.MockFactory()
+	s.oldFactory = provisioner.SetLxcFactory(mock.MockFactory())
 	tools := &state.Tools{
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
 	}
-	s.broker = provisioner.NewLxcBroker(s.golxc, testing.EnvironConfig(c), tools)
+	s.broker = provisioner.NewLxcBroker(testing.EnvironConfig(c), tools)
 }
 
 func (s *lxcBrokerSuite) TearDownTest(c *C) {
 	lxc.SetContainerDir(s.oldContainerDir)
 	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
 	lxc.SetRemovedContainerDir(s.oldRemovedDir)
+	provisioner.SetLxcFactory(s.oldFactory)
 	s.LoggingSuite.TearDownTest(c)
 }
 

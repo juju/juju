@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"sync"
 
-	"launchpad.net/golxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
@@ -170,7 +169,7 @@ func (p *Provisioner) getBroker() (Broker, error) {
 			logger.Errorf("cannot get tools from machine for lxc broker")
 			return nil, err
 		}
-		return NewLxcBroker(golxc.Factory(), config, tools), nil
+		return NewLxcBroker(config, tools), nil
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }
