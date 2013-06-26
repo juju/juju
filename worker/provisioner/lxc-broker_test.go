@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"time"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/golxc"
@@ -156,6 +157,7 @@ type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
 	machineId string
+	events    chan mock.Event
 }
 
 var _ = Suite(&lxcProvisionerSuite{})
@@ -185,9 +187,38 @@ func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	s.machineId = m.Id()
+
+	s.events = make(chan mock.Event, 25)
+	s.factory.AddListener(s.events)
+}
+
+func (s *lxcProvisionerSuite) expectStarted(c *C, machine *state.Machine) {
+	event := <-s.events
+	c.Assert(event.Action, Equals, mock.Started)
+	err := machine.Refresh()
+	c.Assert(err, IsNil)
+	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
+}
+
+func (s *lxcProvisionerSuite) expectStopped(c *C, machine *state.Machine) {
+	event := <-s.events
+	c.Assert(event.Action, Equals, mock.Stopped)
+	inst, ok := machine.InstanceId()
+	c.Assert(ok, IsTrue)
+	c.Assert(string(inst), Equals, event.InstanceId)
+}
+
+func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
+	select {
+	case event := <-s.events:
+		c.Fatalf("unexpected event %#v", event)
+	case <-time.After(200 * time.Millisecond):
+		return
+	}
 }
 
 func (s *lxcProvisionerSuite) TearDownTest(c *C) {
+	close(s.events)
 	s.lxcSuite.TearDownTest(c)
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
@@ -209,8 +240,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *C) {
 	_, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	// the PA should not attempt to create it
-	s.checkNoOperations(c)
+	s.expectNoEvents(c)
 }
 
 func (s *lxcProvisionerSuite) addContainer(c *C) *state.Machine {
@@ -230,10 +260,11 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *C) {
 	defer stop(c, p)
 
 	container := s.addContainer(c)
-	instance := s.checkStartInstance(c, container)
+
+	s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(container.EnsureDead(), IsNil)
-	s.checkStopInstances(c, instance)
+	s.expectStopped(c, container)
 	s.waitRemoved(c, container)
 }
