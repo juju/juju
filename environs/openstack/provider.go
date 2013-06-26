@@ -130,7 +130,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
-	e.name = ecfg.Name()
+	e.name = cfg.Name()
 	return e, nil
 }
 
