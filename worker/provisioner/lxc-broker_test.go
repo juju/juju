@@ -236,7 +236,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *C) {
 	p := s.newLxcProvisioner()
 	defer stop(c, p)
 
-	// Check that an instance is provisioned when the machine is created...
+	// Check that an instance is not provisioned when the machine is created.
 	_, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
 	c.Assert(err, IsNil)
 
