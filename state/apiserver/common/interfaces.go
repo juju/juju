@@ -26,6 +26,10 @@ type Authorizer interface {
 	// AuthEnvironManager returns whether the authenticated entity is
 	// a machine running the environment manager job.
 	AuthEnvironManager() bool
+
+	// AuthClient returns whether the authenticated entity
+	// is a client user.
+	AuthClient() bool
 }
 
 // Resource represents any resource that should be cleaned up when an
