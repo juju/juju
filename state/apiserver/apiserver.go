@@ -112,13 +112,7 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 		codec.SetLogging(true)
 	}
 	conn := rpc.NewConn(codec)
-	serverError := func(err error) error {
-		if err := common.ServerError(err); err != nil {
-			return err
-		}
-		return nil
-	}
-	if err := conn.Serve(newStateServer(srv), serverError); err != nil {
+	if err := conn.Serve(newStateServer(srv, conn), serverError); err != nil {
 		return err
 	}
 	conn.Start()
@@ -127,6 +121,13 @@ func (srv *Server) serveConn(wsConn *websocket.Conn) error {
 	case <-srv.tomb.Dying():
 	}
 	return conn.Close()
+}
+
+func serverError(err error) error {
+	if err := common.ServerError(err); err != nil {
+		return err
+	}
+	return nil
 }
 
 var logRequests = true

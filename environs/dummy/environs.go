@@ -534,30 +534,31 @@ func (e *environ) Destroy([]instance.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
+func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
+	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	defer delay()
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
 	if machineNonce == "" {
-		return nil, fmt.Errorf("cannot start instance: missing machine nonce")
+		return nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
-		return nil, fmt.Errorf("no CA certificate in environment configuration")
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
 	if info.Tag != state.MachineTag(machineId) {
-		return nil, fmt.Errorf("entity tag must match started machine")
+		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	if apiInfo.Tag != state.MachineTag(machineId) {
-		return nil, fmt.Errorf("entity tag must match started machine")
+		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	i := &dummyInstance{
 		state:     e.state,
@@ -565,26 +566,27 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		ports:     make(map[instance.Port]bool),
 		machineId: machineId,
 		series:    series,
-		// We will just assume the instance metadata exactly matches the supplied constraints (if specified).
-		metadata: &instance.Metadata{
-			Arch:     cons.Arch,
-			Mem:      cons.Mem,
-			CpuCores: cons.CpuCores,
-			CpuPower: cons.CpuPower,
-		},
 	}
-	// Fill in some expected instance metadata if constraints not specified.
-	if i.metadata.Arch == nil {
+	// We will just assume the instance hardware characteristics exactly matches
+	// the supplied constraints (if specified).
+	hc := &instance.HardwareCharacteristics{
+		Arch:     cons.Arch,
+		Mem:      cons.Mem,
+		CpuCores: cons.CpuCores,
+		CpuPower: cons.CpuPower,
+	}
+	// Fill in some expected instance hardware characteristics if constraints not specified.
+	if hc.Arch == nil {
 		arch := "amd64"
-		i.metadata.Arch = &arch
+		hc.Arch = &arch
 	}
-	if i.metadata.Mem == nil {
+	if hc.Mem == nil {
 		mem := uint64(1024)
-		i.metadata.Mem = &mem
+		hc.Mem = &mem
 	}
-	if i.metadata.CpuCores == nil {
+	if hc.CpuCores == nil {
 		cores := uint64(1)
-		i.metadata.CpuCores = &cores
+		hc.CpuCores = &cores
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -598,7 +600,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		APIInfo:      apiInfo,
 		Secret:       e.ecfg().secret(),
 	}
-	return i, nil
+	return i, hc, nil
 }
 
 func (e *environ) StopInstances(is []instance.Instance) error {
@@ -707,15 +709,10 @@ type dummyInstance struct {
 	id        instance.Id
 	machineId string
 	series    string
-	metadata  *instance.Metadata
 }
 
 func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
-}
-
-func (instance *dummyInstance) Metadata() *instance.Metadata {
-	return instance.metadata
 }
 
 func (inst *dummyInstance) DNSName() (string, error) {
@@ -735,7 +732,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) er
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
@@ -781,7 +778,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("Ports with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
