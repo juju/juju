@@ -17,7 +17,7 @@ import (
 
 // PingPeriod defines how often the internal connection health check
 // will run. It's a variable so it can be changed in tests.
-var PingPeriod = 5 * time.Minute
+var PingPeriod = 1 * time.Minute
 
 type State struct {
 	client *rpc.Conn
