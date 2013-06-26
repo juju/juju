@@ -1608,9 +1608,9 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 	wc.AssertOneChange()
 }
 
-func (s *StateSuite) TestWatchMinimumUnits(c *C) {
+func (s *StateSuite) TestWatchMinUnits(c *C) {
 	// Check initial event.
-	w := s.State.WatchMinimumUnits()
+	w := s.State.WatchMinUnits()
 	defer AssertStop(c, w)
 	wc := StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
@@ -1633,27 +1633,27 @@ func (s *StateSuite) TestWatchMinimumUnits(c *C) {
 	wc.AssertNoChange()
 
 	// Add minimum units to a service.
-	err = wordpress.SetMinimumUnits(2)
+	err = wordpress.SetMinUnits(2)
 	c.Assert(err, IsNil)
 	// Check one event.
 	wc.AssertOneChange(wordpressName)
 
 	// Decrease minimum units for a service.
-	err = wordpress.SetMinimumUnits(1)
+	err = wordpress.SetMinUnits(1)
 	c.Assert(err, IsNil)
 	// Check no events.
 	wc.AssertNoChange()
 
 	// Increase minimum units for two services.
-	err = mysql.SetMinimumUnits(1)
+	err = mysql.SetMinUnits(1)
 	c.Assert(err, IsNil)
-	err = wordpress.SetMinimumUnits(3)
+	err = wordpress.SetMinUnits(3)
 	c.Assert(err, IsNil)
 	// Check one event.
 	wc.AssertOneChange(mysql.Name(), wordpressName)
 
 	// Remove minimum units for a service.
-	err = mysql.SetMinimumUnits(0)
+	err = mysql.SetMinUnits(0)
 	c.Assert(err, IsNil)
 	// Check no events.
 	wc.AssertNoChange()
@@ -1667,7 +1667,7 @@ func (s *StateSuite) TestWatchMinimumUnits(c *C) {
 	wc.AssertOneChange(wordpressName)
 
 	// Two events: destroy a unit and increase minimum units for a service.
-	err = wordpress.SetMinimumUnits(5)
+	err = wordpress.SetMinUnits(5)
 	c.Assert(err, IsNil)
 	err = wordpress1.Destroy()
 	c.Assert(err, IsNil)

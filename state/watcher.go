@@ -302,20 +302,19 @@ func (w *ServiceUnitsWatcher) loop() (err error) {
 	return nil
 }
 
-// MinimumUnitsWatcher notifies about MinimumUnits changes of the services
-// requiring a minimum amount of units to be alive. The first event returned
-// by the watcher is the set of service names requiring a minimum amount of
-// units. Subsequent events (new sets of service names) are generated when a
-// service increases the minimum amount of units, or when one or more units
-// belonging to a service are destroyed.
-type MinimumUnitsWatcher struct {
+// MinUnitsWatcher notifies about MinUnits changes of the services requiring
+// a minimum number of units to be alive. The first event returned by the
+// watcher is the set of service names requiring a minimum number of units.
+// Subsequent events are generated when a service increases MinUnits, or when
+// one or more units belonging to a service are destroyed.
+type MinUnitsWatcher struct {
 	commonWatcher
 	known map[string]int
 	out   chan []string
 }
 
-func newMinimumUnitsWatcher(st *State) *MinimumUnitsWatcher {
-	w := &MinimumUnitsWatcher{
+func newMinUnitsWatcher(st *State) *MinUnitsWatcher {
+	w := &MinUnitsWatcher{
 		commonWatcher: commonWatcher{st: st},
 		known:         make(map[string]int),
 		out:           make(chan []string),
@@ -328,13 +327,13 @@ func newMinimumUnitsWatcher(st *State) *MinimumUnitsWatcher {
 	return w
 }
 
-func (st *State) WatchMinimumUnits() *MinimumUnitsWatcher {
-	return newMinimumUnitsWatcher(st)
+func (st *State) WatchMinUnits() *MinUnitsWatcher {
+	return newMinUnitsWatcher(st)
 }
 
-func (w *MinimumUnitsWatcher) initial() (serviceNames []string, err error) {
-	doc := &minimumUnitsDoc{}
-	iter := w.st.minimumUnits.Find(nil).Iter()
+func (w *MinUnitsWatcher) initial() (serviceNames []string, err error) {
+	doc := &minUnitsDoc{}
+	iter := w.st.minUnits.Find(nil).Iter()
 	for iter.Next(doc) {
 		w.known[doc.ServiceName] = doc.Revno
 		serviceNames = append(serviceNames, doc.ServiceName)
@@ -345,11 +344,11 @@ func (w *MinimumUnitsWatcher) initial() (serviceNames []string, err error) {
 	return serviceNames, nil
 }
 
-func (w *MinimumUnitsWatcher) merge(
+func (w *MinUnitsWatcher) merge(
 	serviceNames []string, change watcher.Change) ([]string, error) {
-	doc := minimumUnitsDoc{}
+	doc := minUnitsDoc{}
 	serviceName := change.Id.(string)
-	if err := w.st.minimumUnits.FindId(serviceName).One(&doc); err == mgo.ErrNotFound {
+	if err := w.st.minUnits.FindId(serviceName).One(&doc); err == mgo.ErrNotFound {
 		delete(w.known, serviceName)
 		return serviceNames, nil
 	} else if err != nil {
@@ -363,10 +362,10 @@ func (w *MinimumUnitsWatcher) merge(
 	return serviceNames, nil
 }
 
-func (w *MinimumUnitsWatcher) loop() (err error) {
+func (w *MinUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.minimumUnits.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.minimumUnits.Name, ch)
+	w.st.watcher.WatchCollection(w.st.minUnits.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.minUnits.Name, ch)
 	serviceNames, err := w.initial()
 	if err != nil {
 		return err
@@ -394,7 +393,7 @@ func (w *MinimumUnitsWatcher) loop() (err error) {
 	return nil
 }
 
-func (w *MinimumUnitsWatcher) Changes() <-chan []string {
+func (w *MinUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
