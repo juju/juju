@@ -60,17 +60,6 @@ type MachinesSetStatus struct {
 	Machines []MachineSetStatus
 }
 
-// Generic result type for many APIs that start a watcher
-type WatchResult struct {
-	WatchId string
-	Error   *Error
-}
-
-// For APIs that request multiple Watchers be started
-type WatchResults struct {
-	Results []WatchResult
-}
-
 // EntityWatchResult holds an EntityWatcher id and an error (if any).
 type EntityWatchResult struct {
 	EntityWatcherId string

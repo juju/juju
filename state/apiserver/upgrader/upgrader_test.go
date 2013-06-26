@@ -38,20 +38,20 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) TestWatchNothing(c *C) {
+func (s *upgraderSuite) TestWatchAPIVersionNothing(c *C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.Watch(params.Agents{})
+	results, err := s.upgrader.WatchAPIVersion(params.Agents{})
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 0)
 }
 
-func (s *upgraderSuite) TestWatch(c *C) {
+func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	args := params.Agents{
 		Tags: []string{s.rawMachine.Tag()},
 	}
-	results, err := s.upgrader.Watch(args)
+	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
 	// Not Implemented Yet
-	//c.Check(results.Results[0].UpgraderWatchId, Not(Equals), "")
+	//c.Check(results.Results[0].EntityWatchId, Not(Equals), "")
 }

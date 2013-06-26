@@ -22,7 +22,7 @@ func NewUpgraderAPI(st *state.State) (*UpgraderAPI, error) {
 // to upgrade to
 func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchResults, error) {
 	result := params.EntityWatchResults{
-		Results: make([]params.EntityWatchResults, len(args.Tags)),
+		Results: make([]params.EntityWatchResult, len(args.Tags)),
 	}
 	return result, nil
 }
