@@ -74,10 +74,6 @@ func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
 		uniter.NewUniter(st, unit.Name(), dataDir),
 		NewUpgrader(st, unit, dataDir),
 	}
-	if unit.IsPrincipal() {
-		tasks = append(tasks,
-			newDeployer(st, unit.WatchSubordinateUnits(), dataDir))
-	}
 	return runTasks(a.tomb.Dying(), tasks...)
 }
 

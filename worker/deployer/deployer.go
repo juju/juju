@@ -17,11 +17,11 @@ import (
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	tomb     tomb.Tomb
-	st       *state.State
-	ctx      Context
-	tag      string
-	deployed set.Strings
+	tomb      tomb.Tomb
+	st        *state.State
+	ctx       Context
+	machineId string
+	deployed  set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -44,23 +44,28 @@ type Context interface {
 }
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents via
-// ctx, according to membership and lifecycle changes notified by w.
-func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
+// ctx, taking a machine id to operate on.
+func NewDeployer(st *state.State, ctx Context, machineId string) (*Deployer, error) {
+	machine, err := st.Machine(machineId)
+	if err != nil {
+		return nil, err
+	}
+	machineUnitsWatcher := machine.WatchUnits()
 	d := &Deployer{
-		st:  st,
-		ctx: ctx,
-		tag: w.Tag(),
+		st:        st,
+		ctx:       ctx,
+		machineId: machineId,
 	}
 	go func() {
 		defer d.tomb.Done()
-		defer watcher.Stop(w, &d.tomb)
-		d.tomb.Kill(d.loop(w))
+		defer watcher.Stop(machineUnitsWatcher, &d.tomb)
+		d.tomb.Kill(d.loop(machineUnitsWatcher))
 	}()
-	return d
+	return d, nil
 }
 
 func (d *Deployer) String() string {
-	return "deployer for " + d.tag
+	return "deployer for " + d.machineId
 }
 
 func (d *Deployer) Kill() {
@@ -90,8 +95,11 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		if deployerTag, ok := unit.DeployerTag(); ok {
-			responsible = deployerTag == d.tag
+		if machineId, err := unit.AssignedMachineId(); err != nil {
+			log.Warningf("worker/deployer: ignoring unit %q (not assigned)", unitName)
+			responsible = false
+		} else {
+			responsible = machineId == d.machineId
 		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
@@ -168,7 +176,7 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	return unit.Remove()
 }
 
-func (d *Deployer) loop(w *state.UnitsWatcher) error {
+func (d *Deployer) loop(w *state.MachineUnitsWatcher) error {
 	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
 		return err
