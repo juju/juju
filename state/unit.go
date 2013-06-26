@@ -231,7 +231,7 @@ func (u *Unit) Destroy() (err error) {
 		case errAlreadyDying:
 			return nil
 		case nil:
-			ops = append(ops, minimumUnitsIncreaseOp(unit.st, unit.ServiceName()))
+			ops = append(ops, minUnitsIncreaseOp(unit.st, unit.ServiceName()))
 			if err := unit.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
