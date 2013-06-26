@@ -64,7 +64,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	a.runner.StartWorker("toplevel", func() (worker.Worker, error) {
-		// TODO(rog) use method expression when we can use go1.1 features.
+		// TODO(rog) go1.1: use method expression
 		return a.Workers()
 	})
 	err := agentDone(a.runner.Wait())

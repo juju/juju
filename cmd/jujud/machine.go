@@ -78,15 +78,35 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
-	if a.MachineId == "0" {
+
+	// ensureStateWorker ensures that there is a worker that
+	// connects to the state that runs within itself all the workers
+	// that need a state connection Unless we're bootstrapping, we
+	// need to connect to the API server to find out if we need to
+	// call this, so we make the APIWorker call it when necessary if
+	// the machine requires it.  Note that startStateWorker can be
+	// called many times - StartWorker does nothing if there is
+	// already a worker started with the given name.
+	ensureStateWorker := func() {
 		a.runner.StartWorker("state", func() (worker.Worker, error) {
-			// TODO(rog) use method expression when we can use go1.1 features.
+			// TODO(rog) go1.1: use method expression
 			return a.StateWorker()
 		})
 	}
+	if a.MachineId == "0" {
+		// If we're bootstrapping, we don't have an API
+		// server to connect to, so start the state worker regardless.
+
+		// TODO(rog) When we have HA, we only want to do this
+		// when we really are bootstrapping - once other
+		// instances of the API server have been started, we
+		// should follow the normal course of things and ignore
+		// the fact that this was once the bootstrap machine.
+		ensureStateWorker()
+	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		// TODO(rog) use method expression when we can use go1.1 features.
-		return a.APIWorker()
+		// TODO(rog) go1.1: use method expression
+		return a.APIWorker(ensureStateWorker)
 	})
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
@@ -103,7 +123,11 @@ var stateJobs = map[params.MachineJob]bool{
 	params.JobManageState:   true,
 }
 
-func (a *MachineAgent) APIWorker() (worker.Worker, error) {
+// APIWorker returns a Worker that connects to the API and starts any
+// workers that need an API connection.
+//
+// If a state worker is necessary, APIWorker calls startStateWorker.
+func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
@@ -114,17 +138,12 @@ func (a *MachineAgent) APIWorker() (worker.Worker, error) {
 		needsStateWorker = needsStateWorker || stateJobs[job]
 	}
 	if needsStateWorker {
-		// Start any workers that require a state connection.
-		// Note the idempotency of StartWorker.
-		a.runner.StartWorker("state", func() (worker.Worker, error) {
-			// TODO(rog) use method expression when we can use go1.1 features.
-			return a.StateWorker()
-		})
+		ensureStateWorker()
 	}
 	runner := worker.NewRunner(allFatal, moreImportant)
 	// No agents currently connect to the API, so just
 	// return the runner running nothing.
-	return newCloseWorker(runner, st), nil
+	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
 // StateJobs returns a worker running all the workers that require
@@ -139,6 +158,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// rather than taking everything down indiscriminately.
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		// TODO(rog) use id instead of *Machine (or introduce Clone method)
 		return NewUpgrader(st, m, a.Conf.DataDir), nil
 	})
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
