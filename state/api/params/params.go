@@ -71,6 +71,21 @@ type MachinesWatchResults struct {
 	Results []EntityWatchResult
 }
 
+// Agents holds a list of Tags for Unit- and Machine-Agents.
+type Agents struct {
+	Tags []string
+}
+
+// UpgraderWatchResult tracks an identifier for following a watcher, or an error
+type UpgraderWatchResult struct {
+	UpgraderWatchId string
+	Error           *Error
+}
+
+type UpgraderWatchResults struct {
+	Results []UpgraderWatchResult
+}
+
 // AddRelation holds the parameters for making the AddRelation call.
 // The endpoints specified are unordered.
 type AddRelation struct {

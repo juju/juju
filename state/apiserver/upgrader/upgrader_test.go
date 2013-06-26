@@ -5,32 +5,24 @@ package upgrader_test
 
 import (
 	. "launchpad.net/gocheck"
-	//"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/upgrader"
-	//"launchpad.net/juju-core/state/api/params"
-	//"launchpad.net/juju-core/state/apiserver"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	"launchpad.net/juju-core/state/apiserver/upgrader"
 )
 
 type upgraderSuite struct {
 	jujutesting.JujuConnSuite
 
-	stateAPI *api.State
-
 	// These are raw State objects. Use them for setup and assertions, but
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
-	upgrader   *upgrader.Upgrader
+	upgrader   *upgrader.UpgraderAPI
 	resources  apitesting.FakeResourceRegistry
 }
 
 var _ = Suite(&upgraderSuite{})
-
-// Dial options with no timeouts and no retries
-var fastDialOpts = api.DialOpts{}
 
 func (s *upgraderSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -42,19 +34,24 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
-	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
-
-	// Create the upgrader facade.
-	//s.upgrader, err = s.stateAPI.Upgrader()
-	//c.Assert(err, IsNil)
-	//c.Assert(s.upgrader, NotNil)
+	s.upgrader, err = upgrader.NewUpgraderAPI(s.State)
+	c.Assert(err, IsNil)
 }
 
-func (s *upgraderSuite) TearDownTest(c *C) {
-	if s.stateAPI != nil {
-		err := s.stateAPI.Close()
-		c.Assert(err, IsNil)
+func (s *upgraderSuite) TestWatchNothing(c *C) {
+	// Not an error to watch nothing
+	results, err := s.upgrader.Watch(params.Agents{})
+	c.Assert(err, IsNil)
+	c.Check(results.Results, HasLen, 0)
+}
+
+func (s *upgraderSuite) TestWatch(c *C) {
+	args := params.Agents{
+		Tags: []string{s.rawMachine.Tag()},
 	}
-	s.JujuConnSuite.TearDownTest(c)
+	results, err := s.upgrader.Watch(args)
+	c.Assert(err, IsNil)
+	c.Check(results.Results, HasLen, 1)
+	// Not Implemented Yet
+	//c.Check(results.Results[0].UpgraderWatchId, Not(Equals), "")
 }

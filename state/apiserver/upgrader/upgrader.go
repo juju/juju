@@ -3,16 +3,24 @@
 
 package upgrader
 
-//import (
-//    "launchpad.net/juju-core/state/apiserver/common"
-//    "launchpad.net/juju-core/state/api/params"
-//    )
+import (
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
+)
 
-// Upgrader provides access to the Upgrader API facade.
-type Upgrader struct {
+// UpgraderAPI provides access to the Upgrader API facade.
+type UpgraderAPI struct {
+	st *state.State
 }
 
-// New creates a new client-side Upgrader facade.
-func New() *Upgrader {
-	return &Upgrader{}
+// New creates a new client-side UpgraderAPI facade.
+func NewUpgraderAPI(st *state.State) (*UpgraderAPI, error) {
+	return &UpgraderAPI{st: st}, nil
+}
+
+func (u *UpgraderAPI) Watch(args params.Agents) (params.UpgraderWatchResults, error) {
+	result := params.UpgraderWatchResults{
+		Results: make([]params.UpgraderWatchResult, len(args.Tags)),
+	}
+	return result, nil
 }

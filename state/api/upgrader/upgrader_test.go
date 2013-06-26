@@ -6,8 +6,8 @@ package upgrader_test
 import (
 	. "launchpad.net/gocheck"
 	//"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/upgrader"
@@ -27,12 +27,12 @@ type upgraderSuite struct {
 	server   *apiserver.Server
 	stateAPI *api.State
 
-        // These are raw State objects. Use them for setup and assertions, but
-        // should never be touched by the API calls themselves
+	// These are raw State objects. Use them for setup and assertions, but
+	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
-        rawCharm *state.Charm
-        rawService *state.Service
-        rawUnit *state.Unit
+	rawCharm   *state.Charm
+	rawService *state.Service
+	rawUnit    *state.Unit
 
 	upgrader *upgrader.Upgrader
 }
@@ -52,13 +52,13 @@ func charmURL(revision int) *charm.URL {
 
 // Grab a charm, create the service, add a unit for that service
 func (s *upgraderSuite) createUnit(c *C) {
-        var err error
-        s.rawCharm, err = s.State.Charm(charmURL(0))
-        c.Assert(err, IsNil)
-        s.rawService, err = s.State.AddService("service-name", s.rawCharm)
-        c.Assert(err, IsNil)
-        s.rawUnit, err = s.rawService.AddUnit()
-        c.Assert(err, IsNil)
+	var err error
+	s.rawCharm, err = s.State.Charm(charmURL(0))
+	c.Assert(err, IsNil)
+	s.rawService, err = s.State.AddService("service-name", s.rawCharm)
+	c.Assert(err, IsNil)
+	s.rawUnit, err = s.rawService.AddUnit()
+	c.Assert(err, IsNil)
 }
 
 func (s *upgraderSuite) SetUpTest(c *C) {
@@ -69,9 +69,9 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	err = s.rawMachine.SetPassword(defaultPassword(s.rawMachine))
-        c.Assert(err, IsNil)
+	c.Assert(err, IsNil)
 
-        s.createUnit(c)
+	s.createUnit(c)
 
 	// Start the testing API server.
 	s.server, err = apiserver.NewServer(
