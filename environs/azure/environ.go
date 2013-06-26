@@ -34,19 +34,36 @@ type azureEnviron struct {
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig
 
+	// storage is this environ's own private storage.
 	storage environs.Storage
+
+	// publicStorage is the public storage that this environ uses.
+	publicStorage environs.StorageReader
 }
 
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
 
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
-	env := azureEnviron{}
+	env := azureEnviron{name: cfg.Name()}
 	err := env.SetConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	env.storage = &azureStorage{}
+
+	// Set up storage.
+	env.storage = &azureStorage{storageContext: &environStorageContext{environ: &env}}
+
+	// Set up public storage.
+	publicContext := publicEnvironStorageContext{environ: &env}
+	if publicContext.getContainer() == "" {
+		// No public storage configured.  Use EmptyStorage.
+		env.publicStorage = environs.EmptyStorage
+	} else {
+		// Set up real public storage.
+		env.publicStorage = &azureStorage{storageContext: &publicContext}
+	}
+
 	return &env, nil
 }
 
@@ -188,11 +205,7 @@ func (env *azureEnviron) Storage() environs.Storage {
 
 // PublicStorage is specified in the Environ interface.
 func (env *azureEnviron) PublicStorage() environs.StorageReader {
-	context := &publicEnvironStorageContext{environ: env}
-	if context.getContainer() != "" {
-		return &azureStorage{context}
-	}
-	return environs.EmptyStorage
+	return env.getSnapshot().publicStorage
 }
 
 // Destroy is specified in the Environ interface.
@@ -279,10 +292,10 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
 func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
-	snap := env.getSnapshot()
+	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.StorageAccountName(),
-		Key:     snap.ecfg.StorageAccountKey(),
+		Account: ecfg.StorageAccountName(),
+		Key:     ecfg.StorageAccountKey(),
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -291,9 +304,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 // getPublicStorageContext obtains a context object for interfacing with
 // Azure's storage API (public storage).
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
-	snap := env.getSnapshot()
+	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.PublicStorageAccountName(),
+		Account: ecfg.PublicStorageAccountName(),
 		Key:     "", // Empty string means anonymous access.
 	}
 	// There is currently no way for this to fail.

@@ -24,12 +24,9 @@ func makeEnviron(c *C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
+	env, err := NewEnviron(cfg)
 	c.Assert(err, IsNil)
-	return &azureEnviron{
-		name: "env",
-		ecfg: ecfg,
-	}
+	return env
 }
 
 func (EnvironSuite) TestGetSnapshot(c *C) {
@@ -125,11 +122,14 @@ func (EnvironSuite) TestPublicStorage(c *C) {
 }
 
 func (EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
-	env := makeEnviron(c)
-	env.ecfg.attrs["public-storage-container-name"] = ""
-	env.ecfg.attrs["public-storage-account-name"] = ""
-	storage := env.PublicStorage()
-	c.Check(storage, Equals, environs.EmptyStorage)
+	attrs := makeAzureConfigMap(c)
+	attrs["public-storage-container-name"] = ""
+	attrs["public-storage-account-name"] = ""
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, IsNil)
+	c.Check(env.PublicStorage(), Equals, environs.EmptyStorage)
 }
 
 func (EnvironSuite) TestGetStorageContext(c *C) {
