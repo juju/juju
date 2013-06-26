@@ -34,7 +34,7 @@ type MachineGetter interface {
 	Machine(id string) (*state.Machine, error)
 }
 
-func newProvisionerTask(
+func NewProvisionerTask(
 	machineId string,
 	machineGetter MachineGetter,
 	watcher Watcher,
