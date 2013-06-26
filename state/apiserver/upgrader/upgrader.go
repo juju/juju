@@ -18,9 +18,11 @@ func NewUpgraderAPI(st *state.State) (*UpgraderAPI, error) {
 	return &UpgraderAPI{st: st}, nil
 }
 
-func (u *UpgraderAPI) Watch(args params.Agents) (params.UpgraderWatchResults, error) {
-	result := params.UpgraderWatchResults{
-		Results: make([]params.UpgraderWatchResult, len(args.Tags)),
+// Start a watcher to track if there is a new version of the API that we want
+// to upgrade to
+func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchResults, error) {
+	result := params.EntityWatchResults{
+		Results: make([]params.EntityWatchResults, len(args.Tags)),
 	}
 	return result, nil
 }
