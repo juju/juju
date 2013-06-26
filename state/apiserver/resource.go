@@ -25,34 +25,23 @@ type srvResource struct {
 	id       string
 }
 
-// Stop stops the given resource. It causes any outstanding
-// Next calls to return a CodeStopped error.
-// Any subsequent Next calls will return a CodeNotFound
-// error because the resource will no longer exist.
-func (r *srvResource) Stop() error {
-	err := r.resource.Stop()
-	r.rs.mu.Lock()
-	defer r.rs.mu.Unlock()
-	delete(r.rs.rs, r.id)
-	return err
-}
-
 func newResources() *resources {
 	return &resources{
 		rs: make(map[string]*srvResource),
 	}
 }
 
-// get returns the srvResource registered with the given
-// id, or nil if there is no such resource.
-func (rs *resources) get(id string) *srvResource {
+// Get implements common.ResourceRegistry.Get.
+func (rs *resources) Get(id string) common.Resource {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
-	return rs.rs[id]
+	if r := rs.rs[id]; r != nil {
+		return r.resource
+	}
+	return nil
 }
 
-// Register records the given watcher and returns
-// its id.
+// Register implements common.ResourceRegistry.Register.
 func (rs *resources) Register(r common.Resource) string {
 	rs.mu.Lock()
 	defer rs.mu.Unlock()
@@ -64,6 +53,25 @@ func (rs *resources) Register(r common.Resource) string {
 	}
 	rs.rs[sr.id] = sr
 	return sr.id
+}
+
+// Stop implements common.ResourceRegistry.Stop.
+func (rs *resources) Stop(id string) error {
+	// We don't hold the mutex while calling Stop, because
+	// that might take a while and we don't want to
+	// stop all other resource manipulation while we do so.
+	// If resources.Stop is called concurrently, we'll get
+	// two concurrent calls to Stop, but that should fit
+	// well with the way we invariably implement Stop.
+	r := rs.Get(id)
+	if r == nil {
+		return nil
+	}
+	err := r.Stop()
+	rs.mu.Lock()
+	defer rs.mu.Unlock()
+	delete(rs.rs, id)
+	return err
 }
 
 func (rs *resources) stopAll() {
