@@ -18,6 +18,10 @@ import (
 
 func TestPackage(t *testing.T) { TestingT(t) }
 
+func bufferBytes(stream io.Writer) []byte {
+	return stream.(*bytes.Buffer).Bytes()
+}
+
 func bufferString(w io.Writer) string {
 	return w.(*bytes.Buffer).String()
 }
@@ -99,6 +103,7 @@ func (c *Context) ClosePort(protocol string, port int) error {
 
 func (c *Context) ConfigSettings() (charm.Settings, error) {
 	return charm.Settings{
+		"empty":               nil,
 		"monsters":            false,
 		"spline-reticulation": 45.0,
 		"title":               "My Title",

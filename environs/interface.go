@@ -100,6 +100,10 @@ type Storage interface {
 // an operation succeeds, even if that success is not
 // consistent with a previous operation.
 //
+// Even though Juju takes care not to share an Environ between concurrent
+// workers, it does allow concurrent method calls into the provider
+// implementation.  The typical provider implementation needs locking to
+// avoid undefined behaviour when the configuration changes.
 type Environ interface {
 	// Name returns the Environ's name.
 	Name() string
@@ -123,7 +127,8 @@ type Environ interface {
 	// Config returns the current configuration of this Environ.
 	Config() *config.Config
 
-	// SetConfig updates the Environs configuration.
+	// SetConfig updates the Environ's configuration.
+	//
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
 	SetConfig(cfg *config.Config) error
