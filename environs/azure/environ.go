@@ -118,12 +118,17 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 
 // Storage is specified in the Environ interface.
 func (env *azureEnviron) Storage() environs.Storage {
-	panic("unimplemented")
+	context := &environStorageContext{environ: env}
+	return &azureStorage{context}
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *azureEnviron) PublicStorage() environs.StorageReader {
-	panic("unimplemented")
+	context := &publicEnvironStorageContext{environ: env}
+	if context.getContainer() != "" {
+		return &azureStorage{context}
+	}
+	return environs.EmptyStorage
 }
 
 // Destroy is specified in the Environ interface.
@@ -214,6 +219,18 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 	context := gwacl.StorageContext{
 		Account: snap.ecfg.StorageAccountName(),
 		Key:     snap.ecfg.StorageAccountKey(),
+	}
+	// There is currently no way for this to fail.
+	return &context, nil
+}
+
+// getPublicStorageContext obtains a context object for interfacing with
+// Azure's storage API (public storage).
+func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
+	snap := env.getSnapshot()
+	context := gwacl.StorageContext{
+		Account: snap.ecfg.PublicStorageAccountName(),
+		Key:     "", // Empty string means anonymous access.
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
