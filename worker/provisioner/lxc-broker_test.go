@@ -4,6 +4,8 @@
 package provisioner_test
 
 import (
+	"io/ioutil"
+	"os"
 	"path/filepath"
 
 	. "launchpad.net/gocheck"
@@ -11,6 +13,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
+	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -138,6 +142,7 @@ func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
 type lxcProvisionerSuite struct {
 	CommonProvisionerSuite
 	lxcSuite
+	machineId string
 }
 
 var _ = Suite(&lxcProvisionerSuite{})
@@ -155,6 +160,18 @@ func (s *lxcProvisionerSuite) TearDownSuite(c *C) {
 func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
+	// Write the tools file.
+	toolsDir := agent.SharedToolsDir(s.DataDir(), version.Current)
+	c.Assert(os.MkdirAll(toolsDir, 0755), IsNil)
+	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
+	err := ioutil.WriteFile(urlPath, []byte("http://example.com/tools"), 0644)
+	c.Assert(err, IsNil)
+
+	// The lxc provisioner actually needs the machine it is being created on
+	// to be in state, in order to get the watcher.
+	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	s.machineId = m.Id()
 }
 
 func (s *lxcProvisionerSuite) TearDownTest(c *C) {
@@ -162,11 +179,23 @@ func (s *lxcProvisionerSuite) TearDownTest(c *C) {
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *lxcProvisionerSuite) newLxcProvisioner(machineId string) *provisioner.Provisioner {
-	return provisioner.NewProvisioner(provisioner.LXC, s.State, machineId, s.DataDir())
+func (s *lxcProvisionerSuite) newLxcProvisioner() *provisioner.Provisioner {
+	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, s.DataDir())
 }
 
 func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *C) {
-	p := s.newLxcProvisioner("0")
+	p := s.newLxcProvisioner()
 	c.Assert(p.Stop(), IsNil)
+}
+
+func (s *lxcProvisionerSuite) TestSimple(c *C) {
+	p := s.newLxcProvisioner()
+	defer stop(c, p)
+
+	// Check that an instance is provisioned when the machine is created...
+	_, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	// the PA should not attempt to create it
+	s.checkNoOperations(c)
 }
