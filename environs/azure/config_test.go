@@ -42,6 +42,8 @@ func makeAzureConfigMap(c *C) map[string]interface{} {
 		"storage-account-name":           "account-name",
 		"storage-account-key":            "account-key",
 		"storage-container-name":         "container-name",
+		"public-storage-account-name":    "public-account-name",
+		"public-storage-container-name":  "public-container-name",
 	}
 	return makeConfigMap(azureConfig)
 }
@@ -123,6 +125,8 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	storageAccountName := "account-name"
 	storageAccountKey := "account-key"
 	storageContainerName := "container-name"
+	publicStorageAccountName := "public-account-name"
+	publicStorageContainerName := "public-container-name"
 	azureConfig := map[string]interface{}{
 		"management-subscription-id":     managementSubscriptionId,
 		"management-certificate":         certificate,
@@ -130,6 +134,8 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 		"storage-account-name":           storageAccountName,
 		"storage-account-key":            storageAccountKey,
 		"storage-container-name":         storageContainerName,
+		"public-storage-account-name":    publicStorageAccountName,
+		"public-storage-container-name":  publicStorageContainerName,
 	}
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
@@ -144,6 +150,8 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.StorageAccountName(), Equals, storageAccountName)
 	c.Check(azConfig.StorageAccountKey(), Equals, storageAccountKey)
 	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)
+	c.Check(azConfig.PublicStorageAccountName(), Equals, publicStorageAccountName)
+	c.Check(azConfig.PublicStorageContainerName(), Equals, publicStorageContainerName)
 }
 
 func (ConfigSuite) TestValidateReadsCertFile(c *C) {
@@ -170,6 +178,26 @@ func (ConfigSuite) TestChecksExistingCertFile(c *C) {
 	c.Assert(err, IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
+}
+
+func (ConfigSuite) TestChecksPublicStorageAccountNameCannotBeDefinedAlone(c *C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["public-storage-container-name"] = ""
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, nil)
+	c.Check(err, ErrorMatches, ".*both or none of them.*")
+}
+
+func (ConfigSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["public-storage-account-name"] = ""
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, nil)
+	c.Check(err, ErrorMatches, ".*both or none of them.*")
 }
 
 func (ConfigSuite) TestBoilerplateConfigReturnsAzureConfig(c *C) {
