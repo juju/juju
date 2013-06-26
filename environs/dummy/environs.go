@@ -731,7 +731,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) er
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
@@ -777,7 +777,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("Ports with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
