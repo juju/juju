@@ -185,6 +185,7 @@ func (r *srvRoot) Pinger(id string) (srvPinger, error) {
 
 type srvPinger struct{}
 
+// Ping is a no-op used by client heartbeat monitor.
 func (r srvPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
