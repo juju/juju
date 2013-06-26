@@ -130,6 +130,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.name = cfg.Name()
 	return e, nil
 }
 
@@ -623,7 +624,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	var authModeCfg AuthMode
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
-	e.name = ecfg.Name()
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 
