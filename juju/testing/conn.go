@@ -152,6 +152,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	_, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
+	apiInfo.Tag = "user-admin"
 	apiInfo.Password = "dummy-secret"
 	return apiInfo
 }

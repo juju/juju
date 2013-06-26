@@ -38,7 +38,7 @@ type serviceDoc struct {
 	UnitCount     int
 	RelationCount int
 	Exposed       bool
-	MinimumUnits  int
+	MinUnits      int
 	TxnRevno      int64 `bson:"txn-revno"`
 }
 
@@ -113,7 +113,6 @@ func (s *Service) Destroy() (err error) {
 		case errAlreadyDying:
 			return nil
 		case nil:
-			ops = append(ops, minimumUnitsRemoveOp(s.st, s.doc.Name))
 			if err := svc.st.runTransaction(ops); err != txn.ErrAborted {
 				return err
 			}
@@ -146,7 +145,7 @@ func (s *Service) destroyOps() ([]txn.Op, error) {
 		// asserts on relationcount and on each known relation, below.
 		return nil, errRefresh
 	}
-	var ops []txn.Op
+	ops := []txn.Op{minUnitsRemoveOp(s.st, s.doc.Name)}
 	removeCount := 0
 	for _, rel := range rels {
 		relOps, isRemove, err := rel.destroyOps(s.doc.Name)

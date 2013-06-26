@@ -147,11 +147,11 @@ func init() {
 	logSize = logSizeTests
 }
 
-// MinimumUnitsRevno returns the Revno of the minimumUnits document
+// MinUnitsRevno returns the Revno of the minUnits document
 // associated with the given service name.
-func MinimumUnitsRevno(st *State, serviceName string) (int, error) {
-	var doc minimumUnitsDoc
-	if err := st.minimumUnits.FindId(serviceName).One(&doc); err != nil {
+func MinUnitsRevno(st *State, serviceName string) (int, error) {
+	var doc minUnitsDoc
+	if err := st.minUnits.FindId(serviceName).One(&doc); err != nil {
 		return 0, err
 	}
 	return doc.Revno, nil

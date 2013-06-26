@@ -64,7 +64,7 @@ func newTempCertFile(data []byte) (certFile *tempCertFile, err error) {
 	// to the temporary directory (perhaps a group member sneaking in
 	// just before we close access to the directory) won't be able to
 	// guess its name and inject their own file.
-	certFile.filename = fmt.Sprint("x509-%d.cert", rand.Int31())
+	certFile.filename = fmt.Sprintf("x509-%d.cert", rand.Int31())
 
 	// To guarantee that nobody else will be able to access the file, even
 	// by predicting or guessing its name, we create the file in its own
