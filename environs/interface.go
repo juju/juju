@@ -128,10 +128,11 @@ type Environ interface {
 	// Calls to SetConfig do not affect the configuration of
 	// values previously obtained from Storage and PublicStorage.
 	//
-	// Juju takes care not to share an Environ between concurrent workers,
-	// but the provider implementation itself may contain concurrent code,
-	// or call SetConfig at any time.  The implementation may need some
-	// locking to avoid undefined behaviour.
+	// Even though Juju takes care not to share an Environ between
+	// concurrent workers, it does allow concurrent method calls into the
+	// provider implementation.  The typical provider implementation needs
+	// locking to avoid undefined behaviour when the configuration
+	// changes.
 	SetConfig(cfg *config.Config) error
 
 	// StartInstance asks for a new instance to be created, associated
