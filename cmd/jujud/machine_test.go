@@ -375,6 +375,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 }
 
 func (s *MachineSuite) TestChangePasswordChanging(c *C) {
+	c.Skip("state password changing is on hold for the moment")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	newAgent := func() runner {
 		return s.newAgent(c, m)
