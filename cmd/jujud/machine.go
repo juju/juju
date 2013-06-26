@@ -84,7 +84,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// that need a state connection Unless we're bootstrapping, we
 	// need to connect to the API server to find out if we need to
 	// call this, so we make the APIWorker call it when necessary if
-	// the machine requires it.  Note that startStateWorker can be
+	// the machine requires it.  Note that ensureStateWorker can be
 	// called many times - StartWorker does nothing if there is
 	// already a worker started with the given name.
 	ensureStateWorker := func() {
@@ -126,7 +126,7 @@ var stateJobs = map[params.MachineJob]bool{
 // APIWorker returns a Worker that connects to the API and starts any
 // workers that need an API connection.
 //
-// If a state worker is necessary, APIWorker calls startStateWorker.
+// If a state worker is necessary, APIWorker calls ensureStateWorker.
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
