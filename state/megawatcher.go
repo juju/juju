@@ -41,9 +41,9 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 		// Second the instance metadata.
-		machineMetadata, err := getMachineHardwareCharacteristics(st, m.Id)
+		instanceData, err := getInstanceData(st, m.Id)
 		if err == nil {
-			info.InstanceId = string(machineMetadata.InstanceId)
+			info.InstanceId = string(instanceData.InstanceId)
 		} else if !errors.IsNotFoundError(err) {
 			return err
 		}
@@ -70,9 +70,9 @@ func (m *backingMachine) mongoId() interface{} {
 	return m.Id
 }
 
-type backingMachineMetadata machineMetadata
+type backingInstanceData instanceData
 
-func (md *backingMachineMetadata) updated(st *State, store *multiwatcher.Store, id interface{}) error {
+func (md *backingInstanceData) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	mId := (&params.MachineInfo{Id: id.(string)}).EntityId()
 	newInfo := *store.Get(mId).(*params.MachineInfo)
 	newInfo.InstanceId = string(md.InstanceId)
@@ -80,14 +80,13 @@ func (md *backingMachineMetadata) updated(st *State, store *multiwatcher.Store, 
 	return nil
 }
 
-func (md *backingMachineMetadata) removed(st *State, store *multiwatcher.Store, id interface{}) error {
-	// If the metadata is removed, the machine will follow not long after,
-	// so do nothing.
+func (md *backingInstanceData) removed(st *State, store *multiwatcher.Store, id interface{}) error {
+	// If the instanceData is removed, the machine will follow not long after, so do nothing.
 	return nil
 }
 
-func (md *backingMachineMetadata) mongoId() interface{} {
-	panic("cannot find mongo id from metadata document")
+func (md *backingInstanceData) mongoId() interface{} {
+	panic("cannot find mongo id from instance data document")
 }
 
 type backingUnit unitDoc
@@ -420,7 +419,7 @@ type backingEntityDoc interface {
 
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
-	_ backingEntityDoc = (*backingMachineMetadata)(nil)
+	_ backingEntityDoc = (*backingInstanceData)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingService)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
@@ -468,8 +467,8 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		Collection:    st.annotations,
 		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
 	}, {
-		Collection:    st.machineMetadata,
-		infoSliceType: reflect.TypeOf([]backingMachineMetadata(nil)),
+		Collection:    st.instanceData,
+		infoSliceType: reflect.TypeOf([]backingInstanceData(nil)),
 		subsidiary:    true,
 	}, {
 		Collection:    st.statuses,

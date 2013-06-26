@@ -146,8 +146,26 @@ but new reference counts should not be thoughtlessly added to entity
 documents, and opportunities to separate them from existing docs should
 be considered seriously.
 
+global keys
+-----------
 
-[TODO: write about globalKey and what it's good for... constraints, settings,
-statuses, etc; occasionaly profitable use of fast prefix lookup on indexed
-fields.]
+Entities may exist in a relationship with another entity. The _id of the
+subordinate entity is set so that the parent entity can be retrieved.
+However, a subordinate entity may be associated with more than one type of
+parent entity. For example, a machine has a status. A service also has a status.
+To allow reuse of the same statusDoc with different parent entities, the concept
+of globalKey is used. A globalKey is the id of the parent entity with a prefix
+unique to that entity. Machine uses "m#", service uses "s#", relation uses "r#",
+while unit uses "#u". Given a subordinate entity, the _id can be examined to
+determine the type of parent entity and its id, allowing the parent entity to be
+retrieved. The globalKey can also sensibly be used in transaction asserts, as well
+as efficient indexing operations where the id prefix is used.
 
+The global key for a particular entity is found by calling the entity's globalKey()
+method.
+
+It is not always necessary to use a globalKey to join subordinate entities to the
+parent. If a subordinate is only ever used in a relationship with a single parent
+entity type, then the parent id can be used directly. For example, a machine has
+associated instanceData. The instanceData only ever belongs to a machine, so there's
+no need for the disambiguation afforded by using a global key.

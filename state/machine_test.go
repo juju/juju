@@ -355,10 +355,8 @@ func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *C) {
 	arch := "amd64"
 	mem := uint64(4096)
 	expected := &instance.HardwareCharacteristics{
-		InstanceId: "umbrella/0",
-		Nonce:      "fake_nonce",
-		Arch:       &arch,
-		Mem:        &mem,
+		Arch: &arch,
+		Mem:  &mem,
 	}
 	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", expected)
 	c.Assert(err, IsNil)
@@ -394,6 +392,10 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 	id, ok := m.InstanceId()
 	c.Assert(ok, Equals, true)
 	c.Assert(string(id), Equals, "umbrella/0")
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
+	// Clear the deprecated machineDoc InstanceId attribute and ensure that CheckProvisioned()
+	// still works as expected with the new data model.
+	state.SetMachineInstanceId(s.machine, "")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
 
 	// Try it twice, it should fail.

@@ -62,9 +62,9 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
-	metadata      *machineMetadata
-	// Deprecated. InstanceId, Nonce now live on machineMetadata.
+	// Deprecated. InstanceId, Nonce now live on instanceData.
 	// These attributes are retained so that data from existing machines can be read.
+	// SCHEMACHANGE
 	// TODO(wallyworld): remove these attributes when schema upgrades are possible.
 	InstanceId instance.Id
 	Nonce      string
@@ -108,8 +108,8 @@ func (m *Machine) globalKey() string {
 	return machineGlobalKey(m.doc.Id)
 }
 
-// machineMetadata holds attributes relevant to a provisioned machine.
-type machineMetadata struct {
+// instanceData holds attributes relevant to a provisioned machine.
+type instanceData struct {
 	Id         string      `bson:"_id"`
 	InstanceId instance.Id `bson:"instanceid"`
 	Nonce      string      `bson:"nonce"`
@@ -123,32 +123,27 @@ type machineMetadata struct {
 // TODO(wallyworld): move this method to a service.
 func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
 	hc := &instance.HardwareCharacteristics{}
-	if m.doc.metadata == nil {
-		md, err := getMachineHardwareCharacteristics(m.st, m.Id())
-		if err != nil {
-			return nil, err
-		}
-		m.doc.metadata = &md
+	instData, err := getInstanceData(m.st, m.Id())
+	if err != nil {
+		return nil, err
 	}
-	hc.InstanceId = m.doc.metadata.InstanceId
-	hc.Nonce = m.doc.metadata.Nonce
-	hc.Arch = m.doc.metadata.Arch
-	hc.Mem = m.doc.metadata.Mem
-	hc.CpuCores = m.doc.metadata.CpuCores
-	hc.CpuPower = m.doc.metadata.CpuPower
+	hc.Arch = instData.Arch
+	hc.Mem = instData.Mem
+	hc.CpuCores = instData.CpuCores
+	hc.CpuPower = instData.CpuPower
 	return hc, nil
 }
 
-func getMachineHardwareCharacteristics(st *State, id string) (machineMetadata, error) {
-	var md machineMetadata
-	err := st.machineMetadata.FindId(id).One(&md)
+func getInstanceData(st *State, id string) (instanceData, error) {
+	var instData instanceData
+	err := st.instanceData.FindId(id).One(&instData)
 	if err == mgo.ErrNotFound {
-		return machineMetadata{}, errors.NotFoundf("metadata for machine %v", id)
+		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
 	}
 	if err != nil {
-		return machineMetadata{}, fmt.Errorf("cannot get metadata for machine %v: %v", id, err)
+		return instanceData{}, fmt.Errorf("cannot get instance data for machine %v: %v", id, err)
 	}
-	return md, nil
+	return instData, nil
 }
 
 const machineTagPrefix = "machine-"
@@ -432,7 +427,7 @@ func (m *Machine) Remove() (err error) {
 			Remove: true,
 		},
 		{
-			C:      m.st.machineMetadata.Name,
+			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Remove: true,
 		},
@@ -502,16 +497,17 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 // InstanceId returns the provider specific instance id for this machine
 // and whether it has been set.
 func (m *Machine) InstanceId() (instance.Id, bool) {
+	// SCHEMACHANGE
 	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
 	// (we first check for InstanceId stored on the machineDoc)
 	if m.doc.InstanceId != "" {
 		return m.doc.InstanceId, true
 	}
-	hc, err := m.HardwareCharacteristics()
+	instData, err := getInstanceData(m.st, m.Id())
 	if err != nil {
 		return "", false
 	}
-	return hc.InstanceId, hc.InstanceId != ""
+	return instData.InstanceId, instData.InstanceId != ""
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -547,7 +543,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	if characteristics == nil {
 		characteristics = &instance.HardwareCharacteristics{}
 	}
-	hc := &machineMetadata{
+	hc := &instanceData{
 		Id:         m.doc.Id,
 		InstanceId: id,
 		Nonce:      nonce,
@@ -562,7 +558,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			Id:     m.doc.Id,
 			Assert: isAliveDoc,
 		}, {
-			C:      m.st.machineMetadata.Name,
+			C:      m.st.instanceData.Name,
 			Id:     hc.Id,
 			Assert: txn.DocMissing,
 			Insert: hc,
@@ -570,7 +566,12 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	}
 
 	if err = m.st.runTransaction(ops); err == nil {
-		m.doc.metadata = hc
+		// SCHEMACHANGE
+		// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
+		// (InstanceId and Nonce are stored on the instanceData document but we duplicate the values on
+		// the deprecated attributes also.
+		m.doc.InstanceId = id
+		m.doc.Nonce = nonce
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
@@ -585,16 +586,17 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 // CheckProvisioned returns true if the machine was provisioned with
 // the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
+	// SCHEMACHANGE
 	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
 	// (we first check for InstanceId and Nonce stored on the machineDoc)
 	if m.doc.InstanceId != "" {
 		return m.doc.Nonce == nonce
 	}
-	hc, err := m.HardwareCharacteristics()
+	instData, err := getInstanceData(m.st, m.Id())
 	if err != nil {
 		return false
 	}
-	return hc.InstanceId != "" && hc.Nonce == nonce
+	return instData.InstanceId != "" && instData.Nonce == nonce
 }
 
 // String returns a unique description of this machine.
@@ -620,7 +622,7 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 			Assert: isAliveDoc,
 		},
 		{
-			C:      m.st.machineMetadata.Name,
+			C:      m.st.instanceData.Name,
 			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
 		},

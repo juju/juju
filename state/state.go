@@ -100,7 +100,7 @@ type State struct {
 	environments     *mgo.Collection
 	charms           *mgo.Collection
 	machines         *mgo.Collection
-	machineMetadata  *mgo.Collection
+	instanceData     *mgo.Collection
 	containerRefs    *mgo.Collection
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
@@ -249,7 +249,7 @@ type containerRefParams struct {
 	containerId string
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, metadata *machineMetadata, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
@@ -301,7 +301,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *machineMetadata, cons
 	}
 	if metadata != nil {
 		ops = append(ops, txn.Op{
-			C:      st.machineMetadata.Name,
+			C:      st.instanceData.Name,
 			Id:     mdoc.Id,
 			Assert: txn.DocMissing,
 			Insert: *metadata,
@@ -324,10 +324,10 @@ type AddMachineParams struct {
 
 // makeInstanceMetadata returns metadata for a provisioned machine so long as the params InstanceId
 // has a value, else nil is returned.
-func makeInstanceMetadata(params *AddMachineParams) *machineMetadata {
-	var md *machineMetadata
+func makeInstanceMetadata(params *AddMachineParams) *instanceData {
+	var md *instanceData
 	if params.instanceId != "" {
-		md = &machineMetadata{
+		md = &instanceData{
 			InstanceId: params.instanceId,
 			Nonce:      params.nonce,
 		}

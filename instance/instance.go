@@ -55,10 +55,8 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	InstanceId Id
-	Nonce      string
-	Arch       *string
-	Mem        *uint64
-	CpuCores   *uint64
-	CpuPower   *uint64
+	Arch     *string
+	Mem      *uint64
+	CpuCores *uint64
+	CpuPower *uint64
 }
