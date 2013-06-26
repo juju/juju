@@ -357,7 +357,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 
-	instId0, ok := m0.InstanceId()
+	instId0, ok, err := m0.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, true)
 
 	// Check that the API connection is working.
@@ -399,7 +400,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
-	instId1, ok := m1.InstanceId()
+	instId1, ok, err := m1.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, true)
 	uw := newUnitToolWaiter(unit)
 	defer uw.Stop()
@@ -617,7 +619,8 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
-		instId, ok := m.InstanceId()
+		instId, ok, err := m.InstanceId()
+		c.Assert(err, IsNil)
 		if !ok {
 			continue
 		}
@@ -656,7 +659,8 @@ func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
 		var ok bool
-		gotId, ok = m.InstanceId()
+		gotId, ok, err = m.InstanceId()
+		c.Assert(err, IsNil)
 		if !ok {
 			if inst == nil {
 				return

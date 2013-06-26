@@ -104,13 +104,15 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	// wait for instance id
 	w := machine.Watch()
 	for _ = range w.Changes() {
-		if instid, ok := machine.InstanceId(); ok {
+		if instid, ok, err := machine.InstanceId(); ok {
 			w.Stop()
 			inst, err := c.Environ.Instances([]instance.Id{instid})
 			if err != nil {
 				return "", err
 			}
 			return inst[0].WaitDNSName()
+		} else if err != nil {
+			return "", err
 		}
 		// BUG(dfc) this does not refresh the machine, so
 		// this loop will loop forever if it gets to this point.

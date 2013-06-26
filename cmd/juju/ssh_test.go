@@ -138,7 +138,8 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	// fudge unit.SetPublicAddress
-	id, ok := m.InstanceId()
+	id, ok, err := m.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, true)
 	insts, err := s.Conn.Environ.Instances([]instance.Id{id})
 	c.Assert(err, IsNil)

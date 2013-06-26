@@ -269,7 +269,10 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		instanceId, ok := m.InstanceId()
+		instanceId, ok, err := m.InstanceId()
+		if err != nil {
+			return err
+		}
 		if !ok {
 			return errors.NotFoundf("instance id for %v", m)
 		}
@@ -440,7 +443,10 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instanceId, ok := m.InstanceId()
+	instanceId, ok, err := m.InstanceId()
+	if err != nil {
+		return err
+	}
 	if !ok {
 		return errors.NotFoundf("instance id for %v", m)
 	}

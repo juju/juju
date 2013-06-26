@@ -496,18 +496,21 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 
 // InstanceId returns the provider specific instance id for this machine
 // and whether it has been set.
-func (m *Machine) InstanceId() (instance.Id, bool) {
+func (m *Machine) InstanceId() (instance.Id, bool, error) {
 	// SCHEMACHANGE
 	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
 	// (we first check for InstanceId stored on the machineDoc)
 	if m.doc.InstanceId != "" {
-		return m.doc.InstanceId, true
+		return m.doc.InstanceId, true, nil
 	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if err != nil {
-		return "", false
+	if err != nil && errors.IsNotFoundError(err) {
+		return "", false, nil
 	}
-	return instData.InstanceId, instData.InstanceId != ""
+	if err != nil {
+		return "", false, err
+	}
+	return instData.InstanceId, instData.InstanceId != "", nil
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -637,8 +640,10 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		if m.doc.Life != Alive {
 			return errNotAlive
 		}
-		if _, ok := m.InstanceId(); ok {
+		if _, ok, err := m.InstanceId(); ok {
 			return fmt.Errorf("machine is already provisioned")
+		} else if err != nil {
+			return err
 		}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err

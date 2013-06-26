@@ -147,12 +147,10 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 				hc, err := m.HardwareCharacteristics()
 				c.Assert(err, IsNil)
 				c.Assert(*hc, DeepEquals, instance.HardwareCharacteristics{
-					InstanceId: inst.Id(),
-					Nonce:      o.MachineNonce,
-					Arch:       cons.Arch,
-					Mem:        cons.Mem,
-					CpuCores:   cons.CpuCores,
-					CpuPower:   cons.CpuPower,
+					Arch:     cons.Arch,
+					Mem:      cons.Mem,
+					CpuCores: cons.CpuCores,
+					CpuPower: cons.CpuPower,
 				})
 				st.Close()
 				return
@@ -266,9 +264,12 @@ func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instanc
 	s.waitHardwareCharacteristics(c, m, func() bool {
 		//		err := m.Refresh()
 		//		c.Assert(err, IsNil)
-		if actual, ok := m.InstanceId(); ok {
+		if actual, ok, err := m.InstanceId(); ok {
 			c.Assert(actual, Equals, expect)
 			return true
+		} else if err != nil {
+			// We don't expect any errors.
+			panic(err)
 		}
 		c.Logf("machine %v is still unprovisioned", m)
 		return false

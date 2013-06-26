@@ -306,7 +306,8 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, _ := machine.InstanceId()
+	iid, _, err := machine.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(iid, Equals, instance.Id("spaceship/0"))
 }
 
@@ -321,13 +322,15 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, ok := machine.InstanceId()
+	iid, ok, err := machine.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, false)
 	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
-	iid, ok := s.machine.InstanceId()
+	iid, ok, err := s.machine.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, false)
 	c.Assert(string(iid), Equals, "")
 }
@@ -343,7 +346,8 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, ok := machine.InstanceId()
+	iid, ok, err := machine.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, false)
 	c.Assert(string(iid), Equals, "")
 }
@@ -389,7 +393,8 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 
 	m, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	id, ok := m.InstanceId()
+	id, ok, err := m.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(ok, Equals, true)
 	c.Assert(string(id), Equals, "umbrella/0")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
@@ -415,23 +420,28 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
 func (s *MachineSuite) TestMachineRefresh(c *C) {
 	m0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	oldId, _ := m0.InstanceId()
+	oldId, _, err := m0.InstanceId()
+	c.Assert(err, IsNil)
 
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	m1Id, _ := m1.InstanceId()
+	m1Id, _, err := m1.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(m1Id, Equals, oldId)
 	err = m0.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, IsNil)
-	newId, _ := m0.InstanceId()
+	newId, _, err := m0.InstanceId()
+	c.Assert(err, IsNil)
 
 	// Straight after provisioning the instance id will be correct without needing a refresh.
-	m1Id, _ = m1.InstanceId()
+	m1Id, _, err = m1.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(m1Id, Equals, newId)
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
 	// The instance id is still correct after a refresh.
-	m1Id, _ = m1.InstanceId()
+	m1Id, _, err = m1.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(m1Id, Equals, newId)
 
 	err = m0.EnsureDead()
