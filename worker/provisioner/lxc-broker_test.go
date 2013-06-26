@@ -134,3 +134,39 @@ func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {
 func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
 	return filepath.Join(s.removedDir, string(inst.Id()))
 }
+
+type lxcProvisionerSuite struct {
+	CommonProvisionerSuite
+	lxcSuite
+}
+
+var _ = Suite(&lxcProvisionerSuite{})
+
+func (s *lxcProvisionerSuite) SetUpSuite(c *C) {
+	s.CommonProvisionerSuite.SetUpSuite(c)
+	s.lxcSuite.SetUpSuite(c)
+}
+
+func (s *lxcProvisionerSuite) TearDownSuite(c *C) {
+	s.lxcSuite.TearDownSuite(c)
+	s.CommonProvisionerSuite.TearDownSuite(c)
+}
+
+func (s *lxcProvisionerSuite) SetUpTest(c *C) {
+	s.CommonProvisionerSuite.SetUpTest(c)
+	s.lxcSuite.SetUpTest(c)
+}
+
+func (s *lxcProvisionerSuite) TearDownTest(c *C) {
+	s.lxcSuite.TearDownTest(c)
+	s.CommonProvisionerSuite.TearDownTest(c)
+}
+
+func (s *lxcProvisionerSuite) newLxcProvisioner(machineId string) *provisioner.Provisioner {
+	return provisioner.NewProvisioner(provisioner.LXC, s.State, machineId, s.DataDir())
+}
+
+func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *C) {
+	p := s.newLxcProvisioner("0")
+	c.Assert(p.Stop(), IsNil)
+}
