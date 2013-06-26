@@ -20,10 +20,9 @@ import (
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
-type lxcBrokerSuite struct {
+type lxcSuite struct {
 	testing.LoggingSuite
 	oldFactory         golxc.ContainerFactory
-	broker             provisioner.Broker
 	containerDir       string
 	removedDir         string
 	lxcDir             string
@@ -32,17 +31,22 @@ type lxcBrokerSuite struct {
 	oldLxcContainerDir string
 }
 
+type lxcBrokerSuite struct {
+	lxcSuite
+	broker provisioner.Broker
+}
+
 var _ = Suite(&lxcBrokerSuite{})
 
-func (s *lxcBrokerSuite) SetUpSuite(c *C) {
+func (s *lxcSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 }
 
-func (s *lxcBrokerSuite) TearDownSuite(c *C) {
+func (s *lxcSuite) TearDownSuite(c *C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *lxcBrokerSuite) SetUpTest(c *C) {
+func (s *lxcSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.containerDir = c.MkDir()
 	s.oldContainerDir = lxc.SetContainerDir(s.containerDir)
@@ -51,19 +55,23 @@ func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.lxcDir = c.MkDir()
 	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
 	s.oldFactory = provisioner.SetLxcFactory(mock.MockFactory())
-	tools := &state.Tools{
-		Binary: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
-	}
-	s.broker = provisioner.NewLxcBroker(testing.EnvironConfig(c), tools)
 }
 
-func (s *lxcBrokerSuite) TearDownTest(c *C) {
+func (s *lxcSuite) TearDownTest(c *C) {
 	lxc.SetContainerDir(s.oldContainerDir)
 	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
 	lxc.SetRemovedContainerDir(s.oldRemovedDir)
 	provisioner.SetLxcFactory(s.oldFactory)
 	s.LoggingSuite.TearDownTest(c)
+}
+
+func (s *lxcBrokerSuite) SetUpTest(c *C) {
+	s.lxcSuite.SetUpTest(c)
+	tools := &state.Tools{
+		Binary: version.MustParseBinary("2.3.4-foo-bar"),
+		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
+	}
+	s.broker = provisioner.NewLxcBroker(testing.EnvironConfig(c), tools)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance {
