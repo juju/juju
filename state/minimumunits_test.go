@@ -108,7 +108,8 @@ func (s *MinimumUnitsSuite) TestSetMinimumUnits(c *C) {
 
 func (s *MinimumUnitsSuite) TestInvalidMinimumUnits(c *C) {
 	err := s.service.SetMinimumUnits(-1)
-	c.Assert(err, ErrorMatches, `.* minimum units must be a positive number`)
+	c.Assert(err, ErrorMatches,
+		`.* cannot set a negative minimum number of units on a service`)
 }
 
 func (s *MinimumUnitsSuite) TestMinimumUnitsInsertRetry(c *C) {
@@ -311,7 +312,7 @@ func (s *MinimumUnitsSuite) TestEnsureMinimumUnits(c *C) {
 			err = allUnits[i].Destroy()
 			c.Assert(err, IsNil)
 		}
-		// Ensure the minimum amount of units is correctly restored.
+		// Ensure the minimum number of units is correctly restored.
 		err = service.EnsureMinimumUnits()
 		c.Assert(err, IsNil)
 		assertAliveUnits(c, service, t.expected)

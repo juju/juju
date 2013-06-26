@@ -16,7 +16,7 @@ import (
 // A document is deleted when either the associated service is destroyed
 // or MinimumUnits is restored to zero. The Revno is increased when either
 // MinimumUnits for a service is increased or a unit is destroyed.
-// TODO(frankban): the MinimumUnitsWatcher reacts to changes sending events,
+// TODO(frankban): the MinimumUnitsWatcher reacts to changes by sending events,
 // each one describing one or more services. A worker reacts to those events
 // ensuring the number of units for the service is never less than the actual
 // alive units: new units are added if required (see EnsureMinimumUnits below).
@@ -28,11 +28,11 @@ type minimumUnitsDoc struct {
 	TxnRevno    int64 `bson:"txn-revno"`
 }
 
-// SetMinimumUnits changes the amount of minimum units required by the service.
+// SetMinimumUnits changes the number of minimum units required by the service.
 func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set minimum units for service %q", s)
 	if minimumUnits < 0 {
-		return errors.New("minimum units must be a positive number")
+		return errors.New("cannot set a negative minimum number of units on a service")
 	}
 	serviceName := s.doc.Name
 	serviceOp := txn.Op{
@@ -45,7 +45,7 @@ func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 	// document generate one failure, but the second attempt should succeed.
 	// If one client tries to update the document, and a racing client removes
 	// it, the former should be able to re-create the document in the second
-	// attempt. If the referred-to service advanced his life cycle to a not
+	// attempt. If the referred-to service advanced its life cycle to a not
 	// alive state, an error is returned after two failing attempts.
 	for i := 0; i < 3; i++ {
 		ops := []txn.Op{serviceOp}
@@ -62,7 +62,7 @@ func (s *Service) SetMinimumUnits(minimumUnits int) (err error) {
 			if minimumUnits == 0 {
 				ops = append(ops, minimumUnitsRemoveOp(s.st, s.doc.Name))
 			} else if minimumUnits > s.doc.MinimumUnits {
-				ops = append(ops, minimumUnitsUpdateOp(s.st, s.doc.Name))
+				ops = append(ops, minimumUnitsUpdateRevnoOp(s.st, s.doc.Name))
 			}
 		}
 		if err := s.st.runTransaction(ops); err == nil {
@@ -90,7 +90,7 @@ func minimumUnitsInsertOp(st *State, serviceName string) txn.Op {
 // minimum units revno for the service in MongoDB, ignoring the case of
 // document not existing. This is included in the operations performed when
 // a unit is destroyed: if the document exists, then we need to update the
-// Revno. If the service does not require a minimum amount of units, then
+// Revno. If the service does not require a minimum number of units, then
 // the operation is a noop.
 func minimumUnitsIncreaseOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
@@ -100,9 +100,9 @@ func minimumUnitsIncreaseOp(st *State, serviceName string) txn.Op {
 	}
 }
 
-// minimumUnitsUpdateOp returns the operation required to increase the
+// minimumUnitsUpdateRevnoOp returns the operation required to increase the
 // minimum units revno for the service in MongoDB. The document must exist.
-func minimumUnitsUpdateOp(st *State, serviceName string) txn.Op {
+func minimumUnitsUpdateRevnoOp(st *State, serviceName string) txn.Op {
 	op := minimumUnitsIncreaseOp(st, serviceName)
 	op.Assert = txn.DocExists
 	return op
