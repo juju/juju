@@ -268,13 +268,14 @@ func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state
 	c.Assert(tools1, DeepEquals, tools)
 
 	conf := &agent.Conf{
-		DataDir:     s.DataDir(),
-		OldPassword: password,
-		StateInfo:   s.StateInfo(c),
-		APIInfo:     s.APIInfo(c),
+		DataDir:   s.DataDir(),
+		StateInfo: s.StateInfo(c),
+		APIInfo:   s.APIInfo(c),
 	}
 	conf.StateInfo.Tag = tag
+	conf.StateInfo.Password = password
 	conf.APIInfo.Tag = tag
+	conf.APIInfo.Password = password
 	err = conf.Write()
 	c.Assert(err, IsNil)
 	return conf, tools
@@ -348,7 +349,7 @@ func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func()
 	info := s.StateInfo(c)
 	info.Tag = ent.Tag()
 	info.Password = "initial"
-	testOpenState(c, info, errors.Unauthorizedf("unauth"))
+	testOpenState(c, info, errors.Unauthorizedf(""))
 
 	// Read the configuration and check that we can connect with it.
 	c.Assert(refreshConfig(conf), IsNil)

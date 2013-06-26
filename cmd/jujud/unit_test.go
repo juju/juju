@@ -165,6 +165,7 @@ func (s *UnitSuite) TestWithDeadUnit(c *C) {
 }
 
 func (s *UnitSuite) TestChangePasswordChanging(c *C) {
+	c.Skip("state password changing is on hold for the moment")
 	unit, _, _ := s.primeAgent(c)
 	newAgent := func() runner {
 		return s.newAgent(c, unit)
