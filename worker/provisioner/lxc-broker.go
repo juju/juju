@@ -42,6 +42,7 @@ func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series st
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
 	}
+	lxcLogger.Infof("started lxc container for machineId: %s, %s", machineId, inst.Id())
 	return inst, nil, nil
 }
 

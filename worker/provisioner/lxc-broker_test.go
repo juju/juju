@@ -4,6 +4,7 @@
 package provisioner_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 
 type lxcSuite struct {
 	testing.LoggingSuite
+	factory            mock.ContainerFactory
 	oldFactory         golxc.ContainerFactory
 	containerDir       string
 	removedDir         string
@@ -33,6 +35,7 @@ type lxcSuite struct {
 	oldContainerDir    string
 	oldRemovedDir      string
 	oldLxcContainerDir string
+	events             chan mock.Event
 }
 
 type lxcBrokerSuite struct {
@@ -58,10 +61,20 @@ func (s *lxcSuite) SetUpTest(c *C) {
 	s.oldRemovedDir = lxc.SetRemovedContainerDir(s.removedDir)
 	s.lxcDir = c.MkDir()
 	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
-	s.oldFactory = provisioner.SetLxcFactory(mock.MockFactory())
+
+	s.factory = mock.MockFactory()
+	s.events = make(chan mock.Event)
+	go func() {
+		for event := range s.events {
+			c.Output(3, fmt.Sprintf("lxc event: <%s, %s>", event.Action, event.InstanceId))
+		}
+	}()
+	s.factory.AddListener(s.events)
+	s.oldFactory = provisioner.SetLxcFactory(s.factory)
 }
 
 func (s *lxcSuite) TearDownTest(c *C) {
+	close(s.events)
 	lxc.SetContainerDir(s.oldContainerDir)
 	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
 	lxc.SetRemovedContainerDir(s.oldRemovedDir)
@@ -188,7 +201,7 @@ func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *C) {
 	c.Assert(p.Stop(), IsNil)
 }
 
-func (s *lxcProvisionerSuite) TestSimple(c *C) {
+func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *C) {
 	p := s.newLxcProvisioner()
 	defer stop(c, p)
 
@@ -198,4 +211,29 @@ func (s *lxcProvisionerSuite) TestSimple(c *C) {
 
 	// the PA should not attempt to create it
 	s.checkNoOperations(c)
+}
+
+func (s *lxcProvisionerSuite) addContainer(c *C) *state.Machine {
+	params := state.AddMachineParams{
+		ParentId:      s.machineId,
+		ContainerType: state.LXC,
+		Series:        config.DefaultSeries,
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, IsNil)
+	return container
+}
+
+func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *C) {
+	p := s.newLxcProvisioner()
+	defer stop(c, p)
+
+	container := s.addContainer(c)
+	instance := s.checkStartInstance(c, container)
+
+	// ...and removed, along with the machine, when the machine is Dead.
+	c.Assert(container.EnsureDead(), IsNil)
+	s.checkStopInstances(c, instance)
+	s.waitRemoved(c, container)
 }
