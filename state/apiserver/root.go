@@ -17,7 +17,6 @@ type clientAPI struct{ *client.API }
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	state     *srvState
 	srv       *Server
 	resources *resources
 
@@ -31,9 +30,6 @@ func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 		entity:    entity,
 	}
 	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
-	r.state = &srvState{
-		root: r,
-	}
 	return r
 }
 
@@ -160,17 +156,15 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	}, nil
 }
 
-// State returns an object that provides API access to top-level state methods.
-func (r *srvRoot) State(id string) (*srvState, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.state, nil
+// Pinger returns object with a single "Ping" method that does nothing.
+func (r *srvRoot) Pinger(id string) (srvPinger, error) {
+	return srvPinger{}, nil
 }
+
+type srvPinger struct{}
+
+// Ping is a no-op used by client heartbeat monitor.
+func (r srvPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
