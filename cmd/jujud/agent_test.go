@@ -5,18 +5,18 @@ package main
 
 import (
 	"bytes"
+	stderrors "errors"
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/machineagent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -29,154 +29,25 @@ type toolSuite struct {
 	coretesting.LoggingSuite
 }
 
-func assertDead(c *C, tasks []*testTask) {
-	for _, t := range tasks {
-		c.Assert(t.Dead(), Equals, true)
-	}
+var errorImportanceTests = []error{
+	nil,
+	stderrors.New("foo"),
+	&UpgradeReadyError{},
+	worker.ErrTerminateAgent,
 }
 
-func (*toolSuite) TestRunTasksAllSuccess(c *C) {
-	tasks := newTestTasks(4)
-	for _, t := range tasks {
-		t.kill <- nil
-	}
-	err := runTasks(make(chan struct{}), taskSlice(tasks)...)
-	c.Assert(err, IsNil)
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestOneTaskError(c *C) {
-	tasks := newTestTasks(4)
-	for i, t := range tasks {
-		if i == 2 {
-			t.kill <- fmt.Errorf("kill")
+func (*toolSuite) TestErrorImportance(c *C) {
+	for i, err0 := range errorImportanceTests {
+		for j, err1 := range errorImportanceTests {
+			c.Assert(moreImportant(err0, err1), Equals, i > j)
 		}
 	}
-	err := runTasks(make(chan struct{}), taskSlice(tasks)...)
-	c.Assert(err, ErrorMatches, "kill")
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestTaskStop(c *C) {
-	tasks := newTestTasks(4)
-	tasks[2].stopErr = fmt.Errorf("stop")
-	stop := make(chan struct{})
-	close(stop)
-	err := runTasks(stop, taskSlice(tasks)...)
-	c.Assert(err, ErrorMatches, "stop")
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestUpgradeGetsPrecedence(c *C) {
-	tasks := newTestTasks(2)
-	tasks[1].stopErr = &UpgradeReadyError{}
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		tasks[0].kill <- fmt.Errorf("stop")
-	}()
-	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[1].stopErr)
-	assertDead(c, tasks)
-}
-
-func (*toolSuite) TestDeadGetsPrecedence(c *C) {
-	tasks := newTestTasks(3)
-	tasks[1].stopErr = &UpgradeReadyError{}
-	tasks[2].stopErr = worker.ErrTerminateAgent
-	go func() {
-		time.Sleep(10 * time.Millisecond)
-		tasks[0].kill <- fmt.Errorf("stop")
-	}()
-	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[2].stopErr)
-	assertDead(c, tasks)
 }
 
 func mkTools(s string) *state.Tools {
 	return &state.Tools{
 		Binary: version.MustParseBinary(s + "-foo-bar"),
 	}
-}
-
-func (*toolSuite) TestUpgradeErrorLog(c *C) {
-	tasks := newTestTasks(7)
-	tasks[0].stopErr = fmt.Errorf("zero")
-	tasks[1].stopErr = fmt.Errorf("one")
-	tasks[2].stopErr = &UpgradeReadyError{NewTools: mkTools("1.1.1")}
-	tasks[3].kill <- fmt.Errorf("three")
-	tasks[4].stopErr = fmt.Errorf("four")
-	tasks[5].stopErr = &UpgradeReadyError{NewTools: mkTools("2.2.2")}
-	tasks[6].stopErr = fmt.Errorf("six")
-
-	expectLog := `
-(.|\n)*task3: three
-.*task0: zero
-.*task1: one
-.*task2: must restart: an agent upgrade is available
-.*task4: four
-.*task5: must restart: an agent upgrade is available
-.*task6: six
-(.|\n)*`[1:]
-
-	err := runTasks(nil, taskSlice(tasks)...)
-	c.Assert(err, Equals, tasks[2].stopErr)
-	c.Assert(c.GetTestLog(), Matches, expectLog)
-}
-
-type testTask struct {
-	name string
-	tomb.Tomb
-	kill    chan error
-	stopErr error
-}
-
-func (t *testTask) Stop() error {
-	t.Kill(nil)
-	return t.Wait()
-}
-
-func (t *testTask) Dead() bool {
-	select {
-	case <-t.Tomb.Dead():
-		return true
-	default:
-	}
-	return false
-}
-
-func (t *testTask) run() {
-	defer t.Done()
-	select {
-	case <-t.Dying():
-		t.Kill(t.stopErr)
-	case err := <-t.kill:
-		t.Kill(err)
-		return
-	}
-}
-
-func (t *testTask) String() string {
-	return t.name
-}
-
-func newTestTasks(n int) []*testTask {
-	tasks := make([]*testTask, n)
-	for i := range tasks {
-		tasks[i] = &testTask{
-			kill: make(chan error, 1),
-			name: fmt.Sprintf("task%d", i),
-		}
-		go tasks[i].run()
-	}
-	return tasks
-}
-
-func taskSlice(tasks []*testTask) []task {
-	r := make([]task, len(tasks))
-	for i, t := range tasks {
-		r[i] = t
-	}
-	return r
 }
 
 type acCreator func() (cmd.Command, *AgentConf)
@@ -230,27 +101,12 @@ func runWithTimeout(r runner) error {
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
 
-// runStop runs an agent, immediately stops it,
-// and returns the resulting error status.
-func runStop(r runner) error {
-	done := make(chan error, 1)
-	go func() {
-		done <- r.Run(nil)
-	}()
-	go func() {
-		done <- r.Stop()
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(5 * time.Second):
-	}
-	return fmt.Errorf("timed out waiting for agent to finish")
-}
-
 type entity interface {
 	state.Tagger
 	SetMongoPassword(string) error
+	SetPassword(string) error
+	PasswordValid(string) bool
+	Refresh() error
 }
 
 // agentSuite is a fixture to be used by agent test suites.
@@ -327,57 +183,67 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
 	return tools
 }
 
-func (s *agentSuite) testAgentPasswordChanging(c *C, ent entity, newAgent func() runner) {
+func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, IsNil)
 
 	// Check that it starts initially and changes the password
-	err = ent.SetMongoPassword("initial")
+	err = ent.SetPassword("initial")
 	c.Assert(err, IsNil)
 
-	setOldPassword := func(password string) {
-		conf.OldPassword = password
-		err = conf.Write()
+	conf.OldPassword = "initial"
+	conf.APIInfo.Password = ""
+	conf.StateInfo.Password = ""
+	err = conf.Write()
+	c.Assert(err, IsNil)
+
+	assertOpen := func(conf *agent.Conf) {
+		st, gotEnt, err := openAPIState(conf, agentCmd)
 		c.Assert(err, IsNil)
+		c.Assert(st, NotNil)
+		st.Close()
+		c.Assert(gotEnt.(*machineagent.Machine).Tag(), Equals, ent.Tag())
 	}
+	assertOpen(conf)
 
-	setOldPassword("initial")
-	err = runStop(newAgent())
+	// Check that the initial password is no longer valid.
+	err = ent.Refresh()
 	c.Assert(err, IsNil)
+	c.Assert(ent.PasswordValid("initial"), Equals, false)
 
-	// Check that we can no longer gain access with the initial password.
-	info := s.StateInfo(c)
-	info.Tag = ent.Tag()
-	info.Password = "initial"
-	testOpenState(c, info, errors.Unauthorizedf(""))
+	// Check that the passwords in the configuration are correct.
+	c.Assert(ent.PasswordValid(conf.APIInfo.Password), Equals, true)
+	c.Assert(conf.StateInfo.Password, Equals, conf.APIInfo.Password)
+	c.Assert(conf.OldPassword, Equals, "initial")
+
+	// Read the configuration and check the same
+	c.Assert(refreshConfig(conf), IsNil)
+	c.Assert(ent.PasswordValid(conf.APIInfo.Password), Equals, true)
+	c.Assert(conf.StateInfo.Password, Equals, conf.APIInfo.Password)
+	c.Assert(conf.OldPassword, Equals, "initial")
 
 	// Read the configuration and check that we can connect with it.
 	c.Assert(refreshConfig(conf), IsNil)
+
+	// Check we can open the API with the new configuration.
+	assertOpen(conf)
+
 	newPassword := conf.StateInfo.Password
-
-	testOpenState(c, conf.StateInfo, nil)
-
-	// Check that it starts again ok
-	err = runStop(newAgent())
-	c.Assert(err, IsNil)
 
 	// Change the password in the configuration and check
 	// that it falls back to using the initial password
 	c.Assert(refreshConfig(conf), IsNil)
-	conf.StateInfo.Password = "spurious"
+	conf.APIInfo.Password = "spurious"
 	conf.OldPassword = newPassword
 	c.Assert(conf.Write(), IsNil)
+	assertOpen(conf)
 
-	err = runStop(newAgent())
-	c.Assert(err, IsNil)
+	// Check that it's changed the password again...
+	c.Assert(conf.APIInfo.Password, Not(Equals), "spurious")
+	c.Assert(conf.APIInfo.Password, Not(Equals), newPassword)
 
-	// Check that it's changed the password again
-	c.Assert(refreshConfig(conf), IsNil)
-	c.Assert(conf.StateInfo.Password, Not(Equals), "spurious")
-	c.Assert(conf.StateInfo.Password, Not(Equals), newPassword)
-
-	info.Password = conf.StateInfo.Password
-	testOpenState(c, info, nil)
+	// ... and that we can still open the state with the new configuration.
+	assertOpen(conf)
 }
 
 func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) {
