@@ -37,11 +37,6 @@ func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext
 	return context.environ.getStorageContext()
 }
 
-func NewStorage(env *azureEnviron) environs.Storage {
-	context := &environStorageContext{environ: env}
-	return &azureStorage{context}
-}
-
 // azureStorage implements Storage.
 var _ environs.Storage = (*azureStorage)(nil)
 
@@ -78,7 +73,11 @@ func (storage *azureStorage) List(prefix string) ([]string, error) {
 
 // URL is specified in the StorageReader interface.
 func (storage *azureStorage) URL(name string) (string, error) {
-	panic("unimplemented")
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return "", err
+	}
+	return context.GetFileURL(storage.getContainer(), name), nil
 }
 
 // Put is specified in the StorageWriter interface.
@@ -98,4 +97,20 @@ func (storage *azureStorage) Remove(name string) error {
 		return err
 	}
 	return context.DeleteBlob(storage.getContainer(), name)
+}
+
+// publicEnvironStorageContext is a storageContext which gets its information
+// from an azureEnviron object to create a public storage.
+type publicEnvironStorageContext struct {
+	environ *azureEnviron
+}
+
+var _ storageContext = (*publicEnvironStorageContext)(nil)
+
+func (context *publicEnvironStorageContext) getContainer() string {
+	return context.environ.getSnapshot().ecfg.PublicStorageContainerName()
+}
+
+func (context *publicEnvironStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
+	return context.environ.getPublicStorageContext()
 }

@@ -66,8 +66,9 @@ type EntityWatchResult struct {
 	Error           *Error
 }
 
-// MachinesWatchResults holds the parameters for making a Machiner.Watch call.
-type MachinesWatchResults struct {
+// EntityWatchResults holds the results for any API call which ends up
+// returning a list of Entity Watchers
+type EntityWatchResults struct {
 	Results []EntityWatchResult
 }
 
@@ -92,6 +93,12 @@ type DestroyRelation struct {
 // Life describes the lifecycle state of an entity ("alive", "dying"
 // or "dead").
 type Life string
+
+const (
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
+)
 
 // MachineLifeResult holds the result of Machiner.Life for a single machine.
 type MachineLifeResult struct {

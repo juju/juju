@@ -34,7 +34,7 @@ func NewServer(s *state.State, addr string, cert, key []byte) (*Server, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("state/api: listening on %q", addr)
+	log.Infof("state/api: listening on %q", lis.Addr())
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {
 		return nil, err
@@ -61,6 +61,16 @@ func (srv *Server) Dead() <-chan struct{} {
 // have completed.
 func (srv *Server) Stop() error {
 	srv.tomb.Kill(nil)
+	return srv.tomb.Wait()
+}
+
+// Kill implements worker.Worker.Kill.
+func (srv *Server) Kill() {
+	srv.tomb.Kill(nil)
+}
+
+// Wait implements worker.Worker.Wait.
+func (srv *Server) Wait() error {
 	return srv.tomb.Wait()
 }
 
