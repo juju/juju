@@ -277,7 +277,7 @@ func (s *StoreSuite) TestLockUpdatesExpires(c *C) {
 	// The above statement was a NOOP and lock2 is still in effect,
 	// so attempting another lock must necessarily fail.
 	lock3, err := s.store.LockUpdates(urls)
-	c.Check(err == store.ErrUpdateConflict, Equals, true)
+	c.Check(err, Equals, store.ErrUpdateConflict)
 	c.Check(lock3, IsNil)
 }
 

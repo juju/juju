@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
 )
@@ -217,6 +218,6 @@ func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name, xName string) {
 	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag, xName)
 	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
 		_, err := ioutil.ReadFile(path)
-		c.Assert(os.IsNotExist(err), Equals, true)
+		c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	}
 }
