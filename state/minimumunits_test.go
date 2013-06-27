@@ -30,7 +30,6 @@ func (s *MinUnitsSuite) assertRevno(c *C, expectedRevno int, expectedErr error) 
 }
 
 func (s *MinUnitsSuite) TestSetMinUnits(c *C) {
-	var err error
 	service := s.service
 	for i, t := range []struct {
 		about   string
@@ -79,12 +78,12 @@ func (s *MinUnitsSuite) TestSetMinUnits(c *C) {
 		c.Logf("test %d. %s", i, t.about)
 		// Set up initial minimum units if required.
 		if t.initial > 0 {
-			err = service.SetMinUnits(t.initial)
+			err := service.SetMinUnits(t.initial)
 			c.Assert(err, IsNil)
 		}
 		// Insert/update minimum units.
 		for _, input := range t.changes {
-			err = service.SetMinUnits(input)
+			err := service.SetMinUnits(input)
 			c.Assert(err, IsNil)
 			c.Assert(service.MinUnits(), Equals, input)
 			c.Assert(service.Refresh(), IsNil)
@@ -93,7 +92,7 @@ func (s *MinUnitsSuite) TestSetMinUnits(c *C) {
 		// Check the document existence and revno.
 		s.assertRevno(c, t.revno, t.err)
 		// Clean up, if required, the minUnits document.
-		err = service.SetMinUnits(0)
+		err := service.SetMinUnits(0)
 		c.Assert(err, IsNil)
 	}
 }

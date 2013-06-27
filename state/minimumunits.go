@@ -52,9 +52,7 @@ func (s *Service) SetMinUnits(minUnits int) (err error) {
 			return nil
 		}
 		ops := setMinUnitsOps(service, minUnits)
-		if err := s.st.runTransaction(ops); err == nil {
-			return nil
-		} else if err != txn.ErrAborted {
+		if err := s.st.runTransaction(ops); err != txn.ErrAborted {
 			return err
 		}
 		if err := service.Refresh(); err != nil {
@@ -87,20 +85,20 @@ func setMinUnitsOps(service *Service, minUnits int) []txn.Op {
 		return append(ops, minUnitsRemoveOp(state, serviceName))
 	}
 	if minUnits > service.doc.MinUnits {
-		op := minUnitsIncreaseOp(state, serviceName)
+		op := minUnitsTriggerOp(state, serviceName)
 		op.Assert = txn.DocExists
 		return append(ops, op)
 	}
 	return ops
 }
 
-// minUnitsIncreaseOp returns the operation required to increase the minimum
+// minUnitsTriggerOp returns the operation required to increase the minimum
 // units revno for the service in MongoDB, ignoring the case of document not
 // existing. This is included in the operations performed when a unit is
 // destroyed: if the document exists, then we need to update the Revno.
 // If the service does not require a minimum number of units, then the
 // operation is a noop.
-func minUnitsIncreaseOp(st *State, serviceName string) txn.Op {
+func minUnitsTriggerOp(st *State, serviceName string) txn.Op {
 	return txn.Op{
 		C:      st.minUnits.Name,
 		Id:     serviceName,
