@@ -262,12 +262,10 @@ func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 // asserts it is as expected.
 func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
 	s.waitHardwareCharacteristics(c, m, func() bool {
-		//		err := m.Refresh()
-		//		c.Assert(err, IsNil)
-		if actual, ok, err := m.InstanceId(); ok {
+		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, Equals, expect)
 			return true
-		} else if err != nil {
+		} else if !state.IsNotProvisionedError(err) {
 			// We don't expect any errors.
 			panic(err)
 		}

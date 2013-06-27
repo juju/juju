@@ -104,14 +104,14 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	// wait for instance id
 	w := machine.Watch()
 	for _ = range w.Changes() {
-		if instid, ok, err := machine.InstanceId(); ok {
+		if instid, err := machine.InstanceId(); err == nil {
 			w.Stop()
 			inst, err := c.Environ.Instances([]instance.Id{instid})
 			if err != nil {
 				return "", err
 			}
 			return inst[0].WaitDNSName()
-		} else if err != nil {
+		} else if !state.IsNotProvisionedError(err) {
 			return "", err
 		}
 		// BUG(dfc) this does not refresh the machine, so

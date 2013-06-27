@@ -53,6 +53,7 @@ func (job MachineJob) String() string {
 // Note the correspondence with MachineInfo in state/api/params.
 type machineDoc struct {
 	Id            string `bson:"_id"`
+	Nonce         string
 	Series        string
 	ContainerType string
 	Principals    []string
@@ -62,12 +63,11 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
-	// Deprecated. InstanceId, Nonce now live on instanceData.
-	// These attributes are retained so that data from existing machines can be read.
+	// Deprecated. InstanceId, now lives on instanceData.
+	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
-	// TODO(wallyworld): remove these attributes when schema upgrades are possible.
+	// TODO(wallyworld): remove this attribute when schema upgrades are possible.
 	InstanceId instance.Id
-	Nonce      string
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -112,7 +112,6 @@ func (m *Machine) globalKey() string {
 type instanceData struct {
 	Id         string      `bson:"_id"`
 	InstanceId instance.Id `bson:"instanceid"`
-	Nonce      string      `bson:"nonce"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
 	CpuCores   *uint64     `bson:"cpucpores,omitempty"`
@@ -496,21 +495,21 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 
 // InstanceId returns the provider specific instance id for this machine
 // and whether it has been set.
-func (m *Machine) InstanceId() (instance.Id, bool, error) {
+func (m *Machine) InstanceId() (instance.Id, error) {
 	// SCHEMACHANGE
 	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
 	// (we first check for InstanceId stored on the machineDoc)
 	if m.doc.InstanceId != "" {
-		return m.doc.InstanceId, true, nil
+		return m.doc.InstanceId, nil
 	}
 	instData, err := getInstanceData(m.st, m.Id())
-	if err != nil && errors.IsNotFoundError(err) {
-		return "", false, nil
+	if (err == nil && instData.InstanceId == "") || (err != nil && errors.IsNotFoundError(err)) {
+		err = &NotProvisionedError{m.Id()}
 	}
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
-	return instData.InstanceId, instData.InstanceId != "", nil
+	return instData.InstanceId, nil
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -543,23 +542,27 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
 	}
+
 	if characteristics == nil {
 		characteristics = &instance.HardwareCharacteristics{}
 	}
 	hc := &instanceData{
 		Id:         m.doc.Id,
 		InstanceId: id,
-		Nonce:      nonce,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
 	}
+	// SCHEMACHANGE
+	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
+	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: isAliveDoc,
+			Assert: append(isAliveDoc, notSetYet...),
+			Update: D{{"$set", D{{"nonce", nonce}}}},
 		}, {
 			C:      m.st.instanceData.Name,
 			Id:     hc.Id,
@@ -569,12 +572,11 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	}
 
 	if err = m.st.runTransaction(ops); err == nil {
+		m.doc.Nonce = nonce
 		// SCHEMACHANGE
 		// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-		// (InstanceId and Nonce are stored on the instanceData document but we duplicate the values on
-		// the deprecated attributes also.
+		// (InstanceId is stored on the instanceData document but we duplicate the value on the machineDoc.
 		m.doc.InstanceId = id
-		m.doc.Nonce = nonce
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
@@ -586,12 +588,29 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
+// NotProvisonedError records an error when a machine is not provisioned.
+type NotProvisionedError struct {
+	machineId string
+}
+
+// IsNotProvisionedError returns true if err is a NotProvisionedError.
+func IsNotProvisionedError(err error) bool {
+	if _, ok := err.(*NotProvisionedError); ok {
+		return true
+	}
+	return false
+}
+
+func (e *NotProvisionedError) Error() string {
+	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
+}
+
 // CheckProvisioned returns true if the machine was provisioned with
 // the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
 	// SCHEMACHANGE
 	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-	// (we first check for InstanceId and Nonce stored on the machineDoc)
+	// (we first check for InstanceId stored on the machineDoc)
 	if m.doc.InstanceId != "" {
 		return m.doc.Nonce == nonce
 	}
@@ -599,7 +618,7 @@ func (m *Machine) CheckProvisioned(nonce string) bool {
 	if err != nil {
 		return false
 	}
-	return instData.InstanceId != "" && instData.Nonce == nonce
+	return instData.InstanceId != "" && m.doc.Nonce == nonce
 }
 
 // String returns a unique description of this machine.
@@ -640,9 +659,9 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		if m.doc.Life != Alive {
 			return errNotAlive
 		}
-		if _, ok, err := m.InstanceId(); ok {
+		if _, err := m.InstanceId(); err == nil {
 			return fmt.Errorf("machine is already provisioned")
-		} else if err != nil {
+		} else if !IsNotProvisionedError(err) {
 			return err
 		}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {

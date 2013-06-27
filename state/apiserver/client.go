@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
@@ -26,8 +27,8 @@ func (c *srvClient) Status() (api.Status, error) {
 		Machines: make(map[string]api.MachineInfo),
 	}
 	for _, m := range ms {
-		instId, _, err := m.InstanceId()
-		if err != nil {
+		instId, err := m.InstanceId()
+		if err != nil && !state.IsNotProvisionedError(err) {
 			return api.Status{}, err
 		}
 		status.Machines[m.Id()] = api.MachineInfo{

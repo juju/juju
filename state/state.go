@@ -329,7 +329,6 @@ func makeInstanceMetadata(params *AddMachineParams) *instanceData {
 	if params.instanceId != "" {
 		md = &instanceData{
 			InstanceId: params.instanceId,
-			Nonce:      params.nonce,
 		}
 	}
 	return md
@@ -358,6 +357,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 			// No parent machine is specified so create one.
 			mdoc := &machineDoc{
 				Series: params.Series,
+				Nonce:  params.nonce,
 				Jobs:   params.Jobs,
 				Clean:  true,
 			}
@@ -379,6 +379,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	mdoc := &machineDoc{
 		Series:        params.Series,
 		ContainerType: string(params.ContainerType),
+		Nonce:         params.nonce,
 		Jobs:          params.Jobs,
 		Clean:         true,
 	}

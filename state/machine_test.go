@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
@@ -306,7 +307,7 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, _, err := machine.InstanceId()
+	iid, err := machine.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(iid, Equals, instance.Id("spaceship/0"))
 }
@@ -322,16 +323,14 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, ok, err := machine.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, false)
+	iid, err := machine.InstanceId()
+	c.Assert(state.IsNotProvisionedError(err), IsTrue)
 	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
-	iid, ok, err := s.machine.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, false)
+	iid, err := s.machine.InstanceId()
+	c.Assert(state.IsNotProvisionedError(err), IsTrue)
 	c.Assert(string(iid), Equals, "")
 }
 
@@ -346,9 +345,8 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, ok, err := machine.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, false)
+	iid, err := machine.InstanceId()
+	c.Assert(state.IsNotProvisionedError(err), IsTrue)
 	c.Assert(string(iid), Equals, "")
 }
 
@@ -393,9 +391,8 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 
 	m, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	id, ok, err := m.InstanceId()
+	id, err := m.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, true)
 	c.Assert(string(id), Equals, "umbrella/0")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
 	// Clear the deprecated machineDoc InstanceId attribute and ensure that CheckProvisioned()
@@ -420,27 +417,27 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
 func (s *MachineSuite) TestMachineRefresh(c *C) {
 	m0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	oldId, _, err := m0.InstanceId()
-	c.Assert(err, IsNil)
+	oldId, err := m0.InstanceId()
+	c.Assert(state.IsNotProvisionedError(err), IsTrue)
 
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	m1Id, _, err := m1.InstanceId()
-	c.Assert(err, IsNil)
+	m1Id, err := m1.InstanceId()
+	c.Assert(state.IsNotProvisionedError(err), IsTrue)
 	c.Assert(m1Id, Equals, oldId)
 	err = m0.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, IsNil)
-	newId, _, err := m0.InstanceId()
+	newId, err := m0.InstanceId()
 	c.Assert(err, IsNil)
 
 	// Straight after provisioning the instance id will be correct without needing a refresh.
-	m1Id, _, err = m1.InstanceId()
+	m1Id, err = m1.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(m1Id, Equals, newId)
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
 	// The instance id is still correct after a refresh.
-	m1Id, _, err = m1.InstanceId()
+	m1Id, err = m1.InstanceId()
 	c.Assert(err, IsNil)
 	c.Assert(m1Id, Equals, newId)
 
@@ -585,12 +582,12 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc := NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
+	// Make one change (to a separate instance), check one event.
 	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	// Provisioning does not emit a machine event.
 	err = machine.SetProvisioned("m-foo", "fake_nonce", nil)
 	c.Assert(err, IsNil)
-	wc.AssertNoChange()
+	wc.AssertOneChange()
 
 	// Make two changes, check one event.
 	err = machine.SetAgentTools(&state.Tools{
