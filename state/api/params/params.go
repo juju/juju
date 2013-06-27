@@ -94,6 +94,12 @@ type DestroyRelation struct {
 // or "dead").
 type Life string
 
+const (
+	Alive Life = "alive"
+	Dying Life = "dying"
+	Dead  Life = "dead"
+)
+
 // MachineLifeResult holds the result of Machiner.Life for a single machine.
 type MachineLifeResult struct {
 	Life  Life

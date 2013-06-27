@@ -157,7 +157,7 @@ func (fw *Firewaller) startMachine(id string) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
-			return fmt.Errorf("worker/firewaller: start watching machine %d faild: %v", id, err)
+			return fmt.Errorf("worker/firewaller: cannot respond to units changes for machine %q: %v", id, err)
 		}
 	}
 	go machined.watchLoop(unitw)

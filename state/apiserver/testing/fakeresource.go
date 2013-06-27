@@ -18,4 +18,13 @@ func (registry FakeResourceRegistry) Register(resource common.Resource) string {
 	return id
 }
 
+func (registry FakeResourceRegistry) Get(id string) common.Resource {
+	panic("unimplemented")
+}
+
+func (registry FakeResourceRegistry) Stop(id string) error {
+	panic("unimplemented")
+}
+
+
 var _ (common.ResourceRegistry) = (*FakeResourceRegistry)(nil)
