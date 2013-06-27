@@ -66,8 +66,9 @@ type EntityWatchResult struct {
 	Error           *Error
 }
 
-// MachinesWatchResults holds the parameters for making a Machiner.Watch call.
-type MachinesWatchResults struct {
+// EntityWatchResults holds the results for any API call which ends up
+// returning a list of Entity Watchers
+type EntityWatchResults struct {
 	Results []EntityWatchResult
 }
 

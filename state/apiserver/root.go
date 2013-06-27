@@ -17,7 +17,6 @@ type clientAPI struct{ *client.API }
 // after it has logged in.
 type srvRoot struct {
 	clientAPI
-	state     *srvState
 	srv       *Server
 	resources *resources
 
@@ -31,9 +30,6 @@ func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 		entity:    entity,
 	}
 	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
-	r.state = &srvState{
-		root: r,
-	}
 	return r
 }
 
@@ -82,28 +78,6 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewAgentAPI(r.srv.state, r)
-}
-
-// User returns an object that provides
-// API access to methods on a state.User.
-func (r *srvRoot) User(name string) (*srvUser, error) {
-	// Any user is allowed to access their own user object.
-	// We check at this level rather than at the operation
-	// level to stop malicious probing for current user names.
-	// When we provide support for user administration,
-	// this will need to be changed to allow access to
-	// the administrator.
-	if r.entity.Tag() != name {
-		return nil, common.ErrPerm
-	}
-	u, err := r.srv.state.User(name)
-	if err != nil {
-		return nil, err
-	}
-	return &srvUser{
-		root: r,
-		u:    u,
-	}, nil
 }
 
 // EntityWatcher returns an object that provides
@@ -182,17 +156,15 @@ func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	}, nil
 }
 
-// State returns an object that provides API access to top-level state methods.
-func (r *srvRoot) State(id string) (*srvState, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.state, nil
+// Pinger returns object with a single "Ping" method that does nothing.
+func (r *srvRoot) Pinger(id string) (srvPinger, error) {
+	return srvPinger{}, nil
 }
+
+type srvPinger struct{}
+
+// Ping is a no-op used by client heartbeat monitor.
+func (r srvPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {

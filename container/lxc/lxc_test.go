@@ -13,7 +13,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/container/lxc/mock"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -28,38 +27,28 @@ func Test(t *stdtesting.T) {
 
 type LxcSuite struct {
 	testing.LoggingSuite
-	containerDir       string
-	removedDir         string
-	lxcDir             string
-	oldContainerDir    string
-	oldRemovedDir      string
-	oldLxcContainerDir string
+	lxc.TestSuite
 }
 
 var _ = Suite(&LxcSuite{})
 
 func (s *LxcSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
+	s.TestSuite.SetUpSuite(c)
 }
 
 func (s *LxcSuite) TearDownSuite(c *C) {
+	s.TestSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *LxcSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.containerDir = c.MkDir()
-	s.oldContainerDir = lxc.SetContainerDir(s.containerDir)
-	s.removedDir = c.MkDir()
-	s.oldRemovedDir = lxc.SetRemovedContainerDir(s.removedDir)
-	s.lxcDir = c.MkDir()
-	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
+	s.TestSuite.SetUpTest(c)
 }
 
 func (s *LxcSuite) TearDownTest(c *C) {
-	lxc.SetContainerDir(s.oldContainerDir)
-	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
-	lxc.SetRemovedContainerDir(s.oldRemovedDir)
+	s.TestSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -81,13 +70,13 @@ func StartContainer(c *C, manager lxc.ContainerManager, machineId string) instan
 }
 
 func (s *LxcSuite) TestStartContainer(c *C) {
-	manager := lxc.NewContainerManager(mock.MockFactory(), "")
+	manager := lxc.NewContainerManager("")
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
 	// Check our container config files.
-	c.Assert(filepath.Join(s.containerDir, name, "lxc.conf"), IsNonEmptyFile)
-	cloudInitFilename := filepath.Join(s.containerDir, name, "cloud-init")
+	c.Assert(filepath.Join(s.ContainerDir, name, "lxc.conf"), IsNonEmptyFile)
+	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	c.Assert(cloudInitFilename, IsNonEmptyFile)
 	data, err := ioutil.ReadFile(cloudInitFilename)
 	c.Assert(err, IsNil)
@@ -105,11 +94,11 @@ func (s *LxcSuite) TestStartContainer(c *C) {
 	c.Assert(scripts[len(scripts)-1], Equals, "start jujud-machine-1-lxc-0")
 
 	// Check the mount point has been created inside the container.
-	c.Assert(filepath.Join(s.lxcDir, name, "rootfs/var/log/juju"), IsDirectory)
+	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), IsDirectory)
 }
 
 func (s *LxcSuite) TestStopContainer(c *C) {
-	manager := lxc.NewContainerManager(mock.MockFactory(), "")
+	manager := lxc.NewContainerManager("")
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	err := manager.StopContainer(instance)
@@ -117,17 +106,17 @@ func (s *LxcSuite) TestStopContainer(c *C) {
 
 	name := string(instance.Id())
 	// Check that the container dir is no longer in the container dir
-	c.Assert(filepath.Join(s.containerDir, name), DoesNotExist)
+	c.Assert(filepath.Join(s.ContainerDir, name), DoesNotExist)
 	// but instead, in the removed container dir
-	c.Assert(filepath.Join(s.removedDir, name), IsDirectory)
+	c.Assert(filepath.Join(s.RemovedDir, name), IsDirectory)
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *C) {
-	manager := lxc.NewContainerManager(mock.MockFactory(), "")
+	manager := lxc.NewContainerManager("")
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
-	targetDir := filepath.Join(s.removedDir, name)
+	targetDir := filepath.Join(s.RemovedDir, name)
 	err := os.MkdirAll(targetDir, 0755)
 	c.Assert(err, IsNil)
 
@@ -135,21 +124,20 @@ func (s *LxcSuite) TestStopContainerNameClash(c *C) {
 	c.Assert(err, IsNil)
 
 	// Check that the container dir is no longer in the container dir
-	c.Assert(filepath.Join(s.containerDir, name), DoesNotExist)
+	c.Assert(filepath.Join(s.ContainerDir, name), DoesNotExist)
 	// but instead, in the removed container dir with a ".1" suffix as there was already a directory there.
-	c.Assert(filepath.Join(s.removedDir, fmt.Sprintf("%s.1", name)), IsDirectory)
+	c.Assert(filepath.Join(s.RemovedDir, fmt.Sprintf("%s.1", name)), IsDirectory)
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *C) {
-	manager := lxc.NewContainerManager(mock.MockFactory(), "eric")
+	manager := lxc.NewContainerManager("eric")
 	instance := StartContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), Equals, "eric-machine-1-lxc-0")
 }
 
 func (s *LxcSuite) TestListContainers(c *C) {
-	factory := mock.MockFactory()
-	foo := lxc.NewContainerManager(factory, "foo")
-	bar := lxc.NewContainerManager(factory, "bar")
+	foo := lxc.NewContainerManager("foo")
+	bar := lxc.NewContainerManager("bar")
 
 	foo1 := StartContainer(c, foo, "1/lxc/0")
 	foo2 := StartContainer(c, foo, "1/lxc/1")

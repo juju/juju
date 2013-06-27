@@ -21,7 +21,6 @@ type ProvisionerTask interface {
 	Stop() error
 	Dying() <-chan struct{}
 	Err() error
-	String() string
 }
 
 type Watcher interface {
@@ -35,7 +34,6 @@ type MachineGetter interface {
 }
 
 func NewProvisionerTask(
-	name string,
 	machineId string,
 	machineGetter MachineGetter,
 	watcher Watcher,
@@ -43,7 +41,6 @@ func NewProvisionerTask(
 	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
-		name:           name,
 		machineId:      machineId,
 		machineGetter:  machineGetter,
 		machineWatcher: watcher,
@@ -59,7 +56,6 @@ func NewProvisionerTask(
 }
 
 type provisionerTask struct {
-	name           string
 	machineId      string
 	machineGetter  MachineGetter
 	machineWatcher Watcher
@@ -94,10 +90,6 @@ func (task *provisionerTask) Dying() <-chan struct{} {
 
 func (task *provisionerTask) Err() error {
 	return task.tomb.Err()
-}
-
-func (task *provisionerTask) String() string {
-	return task.name
 }
 
 func (task *provisionerTask) loop() error {
@@ -141,14 +133,14 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		return err
 	}
 
+	// Stop all machines that are dead
+	stopping := task.instancesForMachines(dead)
+
 	// Find running instances that have no machines associated
-	unknown, err := task.findUnknownInstances()
+	unknown, err := task.findUnknownInstances(stopping)
 	if err != nil {
 		return err
 	}
-
-	// Stop all machines that are dead
-	stopping := task.instancesForMachines(dead)
 
 	// It's important that we stop unknown instances before starting
 	// pending ones, because if we start an instance and then fail to
@@ -238,11 +230,13 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 			logger.Infof("machine %v already started as instance %q", machine, instId)
 		}
 	}
+	logger.Tracef("pending machines: %v", pending)
+	logger.Tracef("dead machines: %v", dead)
 	return
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error) {
+func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) ([]instance.Instance, error) {
 	// Make a copy of the instances we know about.
 	instances := make(map[instance.Id]instance.Instance)
 	for k, v := range task.instances {
@@ -253,6 +247,11 @@ func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error)
 		if instId, ok := m.InstanceId(); ok {
 			delete(instances, instId)
 		}
+	}
+	// Now remove all those instances that we are stopping already, as they
+	// have been removed from the task.machines map.
+	for _, i := range stopping {
+		delete(instances, i.Id())
 	}
 	var unknown []instance.Instance
 	for _, i := range instances {
@@ -336,6 +335,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 		return nil
 	}
 	if err := machine.SetProvisioned(inst.Id(), nonce); err != nil {
+		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
