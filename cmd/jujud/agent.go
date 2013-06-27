@@ -5,16 +5,17 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
-	"launchpad.net/tomb"
-	"sync"
 	"time"
 )
 
@@ -47,58 +48,6 @@ func (c *AgentConf) read(tag string) error {
 	return err
 }
 
-type task interface {
-	Stop() error
-	Wait() error
-	String() string
-}
-
-// runTasks runs all the given tasks until any of them fails with an
-// error.  It then stops all of them and returns that error.  If a value
-// is received on the stop channel, the workers are stopped.
-func runTasks(stop <-chan struct{}, tasks ...task) error {
-	type errInfo struct {
-		index int
-		err   error
-	}
-	logged := make(map[int]bool)
-	done := make(chan errInfo, len(tasks))
-	for i, t := range tasks {
-		i, t := i, t
-		go func() {
-			done <- errInfo{i, t.Wait()}
-		}()
-	}
-	var err error
-waiting:
-	for _ = range tasks {
-		select {
-		case info := <-done:
-			if info.err != nil {
-				log.Errorf("%s: %v", tasks[info.index], info.err)
-				logged[info.index] = true
-				err = info.err
-				break waiting
-			}
-		case <-stop:
-			break waiting
-		}
-	}
-	// Stop all the tasks. We choose the most important error
-	// to return.
-	for i, t := range tasks {
-		err1 := t.Stop()
-		if !logged[i] && err1 != nil {
-			log.Errorf("%s: %v", t, err1)
-			logged[i] = true
-		}
-		if moreImportant(err1, err) {
-			err = err1
-		}
-	}
-	return err
-}
-
 func importance(err error) int {
 	switch {
 	case err == nil:
@@ -126,36 +75,24 @@ func isUpgraded(err error) bool {
 }
 
 type Agent interface {
-	Tomb() *tomb.Tomb
-	RunOnce(st *state.State, entity AgentState) error
 	Entity(st *state.State) (AgentState, error)
+	APIEntity(st *api.State) (AgentAPIState, error)
 	Tag() string
 }
 
-// runLoop repeatedly calls runOnce until it returns worker.ErrTerminateAgent
-// or an upgraded error, or a value is received on stop.
-func runLoop(runOnce func() error, stop <-chan struct{}) error {
-	log.Noticef("agent starting")
-	for {
-		err := runOnce()
-		if err == worker.ErrTerminateAgent {
-			log.Noticef("entity is terminated")
-			return nil
-		}
-		if isFatal(err) {
-			return err
-		}
-		if err == nil {
-			log.Errorf("agent died with no error")
-		} else {
-			log.Errorf("%v", err)
-		}
-		if !isleep(retryDelay, stop) {
-			return nil
-		}
-		log.Noticef("rerunning agent")
-	}
-	panic("unreachable")
+// The AgentState interface is implemented by state types
+// that represent running agents.
+type AgentState interface {
+	// SetAgentTools sets the tools that the agent is currently running.
+	SetAgentTools(tools *state.Tools) error
+	Tag() string
+	SetMongoPassword(password string) error
+	Life() state.Life
+}
+
+type AgentAPIState interface {
+	Life() params.Life
+	SetPassword(password string) error
 }
 
 type fatalError struct {
@@ -186,63 +123,104 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	return true
 }
 
-// RunAgentLoop repeatedly connects to the state server
-// and calls the agent's RunOnce method.
-func RunAgentLoop(c *agent.Conf, a Agent) error {
-	return runLoop(func() error {
-		st, entity, err := openState(c, a)
-		if err != nil {
-			return err
-		}
-		defer st.Close()
-		// TODO(rog) connect to API.
-		return a.RunOnce(st, entity)
-	}, a.Tomb().Dying())
-}
-
-// This mutex ensures that we can have two concurrent workers
-// opening the same state without a problem with the
-// password changing.
-var openStateMutex sync.Mutex
-
-func openState(c *agent.Conf, a Agent) (_ *state.State, _ AgentState, err error) {
-	openStateMutex.Lock()
-	defer openStateMutex.Unlock()
-
-	st, newPassword, err0 := c.OpenState()
-	if err0 != nil {
-		return nil, nil, err0
+func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
+	st, err := c.OpenState()
+	if err != nil {
+		return nil, nil, err
 	}
-	defer func() {
-		if err != nil {
-			st.Close()
-		}
-	}()
 	entity, err := a.Entity(st)
 	if errors.IsNotFoundError(err) || err == nil && entity.Life() == state.Dead {
 		err = worker.ErrTerminateAgent
 	}
 	if err != nil {
+		st.Close()
 		return nil, nil, err
 	}
-	if newPassword != "" {
-		// Ensure we do not lose changes made by another
-		// worker by re-reading the configuration and changing
-		// only the password.
-		c1, err := agent.ReadConf(c.DataDir, c.Tag())
-		if err != nil {
-			return nil, nil, err
-		}
-		c1.StateInfo.Password = newPassword
-		if err := c1.Write(); err != nil {
-			return nil, nil, err
-		}
-		if err := entity.SetMongoPassword(c1.StateInfo.Password); err != nil {
-			return nil, nil, err
-		}
-		c.StateInfo.Password = newPassword
+	return st, entity, nil
+}
+
+func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
+	// We let the API dial fail immediately because the
+	// runner's loop outside the caller of openAPIState will
+	// keep on retrying. If we block for ages here,
+	// then the worker that's calling this cannot 
+	// be interrupted.
+	st, newPassword, err := c.OpenAPI(api.DialOpts{})
+	if err != nil {
+		return nil, nil, err
+	}
+	entity, err := a.APIEntity(st)
+	if api.ErrCode(err) == api.CodeNotFound || err == nil && entity.Life() == params.Dead {
+		err = worker.ErrTerminateAgent
+	}
+	if err != nil {
+		st.Close()
+		return nil, nil, err
+	}
+	if newPassword == "" {
+		return st, entity, nil
+	}
+	// Make a copy of the configuration so that if we fail
+	// to write the configuration file, the configuration will
+	// still be valid.
+	c1 := *c
+	stateInfo := *c.StateInfo
+	c1.StateInfo = &stateInfo
+	apiInfo := *c.APIInfo
+	c1.APIInfo = &apiInfo
+
+	c1.StateInfo.Password = newPassword
+	c1.APIInfo.Password = newPassword
+	if err := c1.Write(); err != nil {
+		return nil, nil, err
+	}
+	*c = c1
+	if err := entity.SetPassword(newPassword); err != nil {
+		return nil, nil, err
 	}
 	return st, entity, nil
+
+}
+
+// agentDone processes the error returned by
+// an exiting agent.
+func agentDone(err error) error {
+	if err == worker.ErrTerminateAgent {
+		err = nil
+	}
+	if ug, ok := err.(*UpgradeReadyError); ok {
+		if err := ug.ChangeAgentTools(); err != nil {
+			// Return and let upstart deal with the restart.
+			return err
+		}
+	}
+	return err
+}
+
+type closeWorker struct {
+	worker worker.Worker
+	closer io.Closer
+}
+
+// newCloseWorker returns a task that wraps the given task,
+// closing the given closer when it finishes.
+func newCloseWorker(worker worker.Worker, closer io.Closer) worker.Worker {
+	return &closeWorker{
+		worker: worker,
+		closer: closer,
+	}
+}
+
+func (c *closeWorker) Kill() {
+	c.worker.Kill()
+}
+
+func (c *closeWorker) Wait() error {
+	err := c.worker.Wait()
+	if err := c.closer.Close(); err != nil {
+		log.Errorf("closeWorker: close error: %v", err)
+	}
+	return err
 }
 
 // newDeployContext gives the tests the opportunity to create a deployer.Context

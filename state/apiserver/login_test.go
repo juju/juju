@@ -5,13 +5,14 @@ package apiserver_test
 
 import (
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
 type loginSuite struct {
-	baseSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = Suite(&loginSuite{})
