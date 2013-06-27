@@ -657,7 +657,6 @@ func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
-		var ok bool
 		gotId, err = m.InstanceId()
 		if err != nil {
 			c.Assert(state.IsNotProvisionedError(err), IsTrue)
