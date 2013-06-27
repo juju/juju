@@ -359,7 +359,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 		// encounter surprising problems.
 		return err
 	}
-	logger.Infof("started machine %s as instance %s", machine, inst.Id())
+	logger.Infof("started machine %s as instance %s with hardware %q", machine, inst.Id(), metadata)
 	return nil
 }
 

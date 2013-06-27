@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -183,12 +184,14 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
 	status.Series = machine.Series()
-	instid, ok, _ := machine.InstanceId()
-	if ok {
+	instid, ok, err := machine.InstanceId()
+	if err != nil {
+		status.InstanceId = "error"
+	} else if ok {
 		status.InstanceId = instid
-		instance, ok := context.instances[instid]
+		inst, ok := context.instances[instid]
 		if ok {
-			status.DNSName, _ = instance.DNSName()
+			status.DNSName, _ = inst.DNSName()
 		} else {
 			// Double plus ungood.  There is an instance id recorded
 			// for this machine in the state, yet the environ cannot
@@ -202,6 +205,14 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		// also makes unprovisioned machines visually distinct
 		// in the output.
 		status.AgentState = ""
+	}
+	hc, err := machine.HardwareCharacteristics()
+	if err != nil {
+		if !errors.IsNotFoundError(err) {
+			status.Hardware = "error"
+		}
+	} else {
+		status.Hardware = hc.String()
 	}
 	status.Containers = make(map[string]machineStatus)
 	return
@@ -363,6 +374,7 @@ type machineStatus struct {
 	Series         string                   `json:"series,omitempty" yaml:"series,omitempty"`
 	Id             string                   `json:"-" yaml:"-"`
 	Containers     map[string]machineStatus `json:"containers,omitempty" yaml:"containers,omitempty"`
+	Hardware       string                   `json:"hardware,omitempty" yaml:"hardware,omitempty"`
 }
 
 // A goyaml bug means we can't declare these types
