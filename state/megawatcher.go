@@ -32,27 +32,28 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
 		// We're adding the entry for the first time,
-		// so fetch the associated machine status and instance metadata.
-		//First the status.
+		// so fetch the associated machine status.
 		sdoc, err := getStatus(st, machineGlobalKey(m.Id))
 		if err != nil {
 			return err
 		}
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
-		// Second the instance metadata.
+	} else {
+		// The entry already exists, so preserve the current status and instance id.
+		oldInfo := oldInfo.(*params.MachineInfo)
+		info.Status = oldInfo.Status
+		info.StatusInfo = oldInfo.StatusInfo
+		info.InstanceId = oldInfo.InstanceId
+	}
+	// If the machine is been provisioned, fetch the instance id if required.
+	if m.Nonce != "" && info.InstanceId == "" {
 		instanceData, err := getInstanceData(st, m.Id)
 		if err == nil {
 			info.InstanceId = string(instanceData.InstanceId)
 		} else if !errors.IsNotFoundError(err) {
 			return err
 		}
-	} else {
-		// The entry already exists, so preserve the current status and instance metadata.
-		oldInfo := oldInfo.(*params.MachineInfo)
-		info.Status = oldInfo.Status
-		info.StatusInfo = oldInfo.StatusInfo
-		info.InstanceId = oldInfo.InstanceId
 	}
 	store.Update(info)
 	return nil
@@ -68,25 +69,6 @@ func (svc *backingMachine) removed(st *State, store *multiwatcher.Store, id inte
 
 func (m *backingMachine) mongoId() interface{} {
 	return m.Id
-}
-
-type backingInstanceData instanceData
-
-func (md *backingInstanceData) updated(st *State, store *multiwatcher.Store, id interface{}) error {
-	mId := (&params.MachineInfo{Id: id.(string)}).EntityId()
-	newInfo := *store.Get(mId).(*params.MachineInfo)
-	newInfo.InstanceId = string(md.InstanceId)
-	store.Update(&newInfo)
-	return nil
-}
-
-func (md *backingInstanceData) removed(st *State, store *multiwatcher.Store, id interface{}) error {
-	// If the instanceData is removed, the machine will follow not long after, so do nothing.
-	return nil
-}
-
-func (md *backingInstanceData) mongoId() interface{} {
-	panic("cannot find mongo id from instance data document")
 }
 
 type backingUnit unitDoc
@@ -419,7 +401,6 @@ type backingEntityDoc interface {
 
 var (
 	_ backingEntityDoc = (*backingMachine)(nil)
-	_ backingEntityDoc = (*backingInstanceData)(nil)
 	_ backingEntityDoc = (*backingUnit)(nil)
 	_ backingEntityDoc = (*backingService)(nil)
 	_ backingEntityDoc = (*backingRelation)(nil)
@@ -466,10 +447,6 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 	}, {
 		Collection:    st.annotations,
 		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
-	}, {
-		Collection:    st.instanceData,
-		infoSliceType: reflect.TypeOf([]backingInstanceData(nil)),
-		subsidiary:    true,
 	}, {
 		Collection:    st.statuses,
 		infoSliceType: reflect.TypeOf([]backingStatus(nil)),

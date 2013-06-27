@@ -414,41 +414,6 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
 	})
 }
 
-func (s *MachineSuite) TestMachineRefresh(c *C) {
-	m0, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	oldId, err := m0.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
-
-	m1, err := s.State.Machine(m0.Id())
-	c.Assert(err, IsNil)
-	m1Id, err := m1.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
-	c.Assert(m1Id, Equals, oldId)
-	err = m0.SetProvisioned("umbrella/0", "fake_nonce", nil)
-	c.Assert(err, IsNil)
-	newId, err := m0.InstanceId()
-	c.Assert(err, IsNil)
-
-	// Straight after provisioning the instance id will be correct without needing a refresh.
-	m1Id, err = m1.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(m1Id, Equals, newId)
-	err = m1.Refresh()
-	c.Assert(err, IsNil)
-	// The instance id is still correct after a refresh.
-	m1Id, err = m1.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(m1Id, Equals, newId)
-
-	err = m0.EnsureDead()
-	c.Assert(err, IsNil)
-	err = m0.Remove()
-	c.Assert(err, IsNil)
-	err = m0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
-}
-
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 	// Refresh should work regardless of liveness status.
 	testWhenDying(c, s.machine, noErr, noErr, func() error {
