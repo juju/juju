@@ -92,11 +92,15 @@ func (d *Deployer) changed(unitName string) error {
 		life = unit.Life()
 		if machineId, err := unit.AssignedMachineId(); state.IsNotAssigned(err) {
 			log.Warningf("worker/deployer: ignoring unit %q (not assigned)", unitName)
+			// Unit is not assigned, so we're not responsible for its deployment.
 			responsible = false
 		} else if err != nil {
 			return err
 		} else {
-			responsible = machineId == d.machineId
+			// We're only responsible for this unit's deployment when we're
+			// running inside the machine agent of the machine this unit
+			// is assigned to.
+			responsible = (machineId == d.machineId)
 		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
