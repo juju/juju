@@ -11,7 +11,6 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/golxc"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
@@ -28,15 +27,8 @@ import (
 
 type lxcSuite struct {
 	testing.LoggingSuite
-	factory            mock.ContainerFactory
-	oldFactory         golxc.ContainerFactory
-	containerDir       string
-	removedDir         string
-	lxcDir             string
-	oldContainerDir    string
-	oldRemovedDir      string
-	oldLxcContainerDir string
-	events             chan mock.Event
+	lxc.TestSuite
+	events chan mock.Event
 }
 
 type lxcBrokerSuite struct {
@@ -48,38 +40,29 @@ var _ = Suite(&lxcBrokerSuite{})
 
 func (s *lxcSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
+	s.TestSuite.SetUpSuite(c)
 }
 
 func (s *lxcSuite) TearDownSuite(c *C) {
+	s.TestSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 func (s *lxcSuite) SetUpTest(c *C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.containerDir = c.MkDir()
-	s.oldContainerDir = lxc.SetContainerDir(s.containerDir)
-	s.removedDir = c.MkDir()
-	s.oldRemovedDir = lxc.SetRemovedContainerDir(s.removedDir)
-	s.lxcDir = c.MkDir()
-	s.oldLxcContainerDir = lxc.SetLxcContainerDir(s.lxcDir)
-
-	s.factory = mock.MockFactory()
+	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
 	go func() {
 		for event := range s.events {
 			c.Output(3, fmt.Sprintf("lxc event: <%s, %s>", event.Action, event.InstanceId))
 		}
 	}()
-	s.factory.AddListener(s.events)
-	s.oldFactory = provisioner.SetLxcFactory(s.factory)
+	s.TestSuite.Factory.AddListener(s.events)
 }
 
 func (s *lxcSuite) TearDownTest(c *C) {
 	close(s.events)
-	lxc.SetContainerDir(s.oldContainerDir)
-	lxc.SetLxcContainerDir(s.oldLxcContainerDir)
-	lxc.SetRemovedContainerDir(s.oldRemovedDir)
-	provisioner.SetLxcFactory(s.oldFactory)
+	s.TestSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -146,11 +129,11 @@ func (s *lxcBrokerSuite) assertInstances(c *C, inst ...instance.Instance) {
 }
 
 func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {
-	return filepath.Join(s.containerDir, string(inst.Id()))
+	return filepath.Join(s.ContainerDir, string(inst.Id()))
 }
 
 func (s *lxcBrokerSuite) lxcRemovedContainerDir(inst instance.Instance) string {
-	return filepath.Join(s.removedDir, string(inst.Id()))
+	return filepath.Join(s.RemovedDir, string(inst.Id()))
 }
 
 type lxcProvisionerSuite struct {
@@ -189,7 +172,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	s.machineId = m.Id()
 
 	s.events = make(chan mock.Event, 25)
-	s.factory.AddListener(s.events)
+	s.Factory.AddListener(s.events)
 }
 
 func (s *lxcProvisionerSuite) expectStarted(c *C, machine *state.Machine) {

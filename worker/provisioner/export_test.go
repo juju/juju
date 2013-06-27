@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"launchpad.net/golxc"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 )
@@ -25,10 +24,4 @@ func (o *configObserver) SetObserver(observer chan<- *config.Config) {
 	o.Lock()
 	o.observer = observer
 	o.Unlock()
-}
-
-// Replace the lxc factory that is used by the lxc broker
-func SetLxcFactory(factory golxc.ContainerFactory) (old golxc.ContainerFactory) {
-	old, lxcFactory = lxcFactory, factory
-	return
 }

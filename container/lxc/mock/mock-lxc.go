@@ -183,6 +183,10 @@ func (mock *mockContainer) SetLogFile(filename string, level golxc.LogLevel) {
 	mock.logLevel = level
 }
 
+func (mock *mockFactory) String() string {
+	return fmt.Sprintf("mock lxc factory")
+}
+
 func (mock *mockFactory) New(name string) golxc.Container {
 	container, ok := mock.instances[name]
 	if ok {
