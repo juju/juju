@@ -435,8 +435,6 @@ type MachineInfo struct {
 	InstanceId string
 	Status     Status
 	StatusInfo string
-	// Not exported - used internally to detect changes.
-	nonce      string
 }
 
 func (i *MachineInfo) EntityId() EntityId {
