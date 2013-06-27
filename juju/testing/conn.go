@@ -222,6 +222,7 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 		c.Logf("cannot reset admin password: %v", err)
 	}
 	c.Assert(s.Conn.Close(), IsNil)
+	c.Assert(s.APIConn.Close(), IsNil)
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil

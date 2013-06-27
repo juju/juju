@@ -275,7 +275,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
-	minUnitsOp := minUnitsIncreaseOp(u.st, u.ServiceName())
+	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
 	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,

@@ -1,11 +1,14 @@
 package machine_test
 
 import (
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -15,7 +18,7 @@ func Test(t *stdtesting.T) {
 type commonSuite struct {
 	testing.JujuConnSuite
 
-	authorizer fakeAuthorizer
+	authorizer apitesting.FakeAuthorizer
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -31,37 +34,12 @@ func (s *commonSuite) SetUpTest(c *C) {
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	// Create a fakeAuthorizer so we can check permissions,
+	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
-	s.authorizer = fakeAuthorizer{
-		tag:          state.MachineTag(s.machine1.Id()),
-		loggedIn:     true,
-		manager:      false,
-		machineAgent: true,
+	s.authorizer = apitesting.FakeAuthorizer{
+		Tag:          state.MachineTag(s.machine1.Id()),
+		LoggedIn:     true,
+		Manager:      false,
+		MachineAgent: true,
 	}
-}
-
-// fakeAuthorizer implements the common.Authorizer interface.
-type fakeAuthorizer struct {
-	tag          string
-	loggedIn     bool
-	manager      bool
-	machineAgent bool
-	client       bool
-}
-
-func (fa fakeAuthorizer) AuthOwner(tag string) bool {
-	return fa.tag == tag
-}
-
-func (fa fakeAuthorizer) AuthEnvironManager() bool {
-	return fa.manager
-}
-
-func (fa fakeAuthorizer) AuthMachineAgent() bool {
-	return fa.machineAgent
-}
-
-func (fa fakeAuthorizer) AuthClient() bool {
-	return fa.client
 }
