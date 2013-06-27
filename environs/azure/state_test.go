@@ -8,10 +8,9 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"net"
 	"sync"
 )
 
@@ -31,11 +30,9 @@ func setDummyStorage(c *C, env *azureEnviron) func() {
 	listenerMu.Lock()
 	defer listenerMu.Unlock()
 
-	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, "test-environ", "127.0.0.1", 0)
+	listener, err := localstorage.Serve("127.0.0.1", c.MkDir())
 	c.Assert(err, IsNil)
-	port := listener.Addr().(*net.TCPAddr).Port
-	env.storage = local.NewStorage("127.0.0.1", port)
+	env.storage = localstorage.Client("127.0.0.1")
 	return func() { listener.Close() }
 }
 

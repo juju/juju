@@ -17,7 +17,7 @@ import (
 
 // PingPeriod defines how often the internal connection health check
 // will run. It's a variable so it can be changed in tests.
-var PingPeriod = 5 * time.Second
+var PingPeriod = 1 * time.Minute
 
 type State struct {
 	client *rpc.Conn
@@ -129,7 +129,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 
 func (s *State) heartbeatMonitor() {
 	ping := func() error {
-		return s.Call("State", "", "Ping", nil, nil)
+		return s.Call("Pinger", "", "Ping", nil, nil)
 	}
 	for {
 		if err := ping(); err != nil {
