@@ -4,23 +4,43 @@
 package provisioner
 
 import (
+	"fmt"
 	"sync"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 )
 
-var logger = loggo.GetLogger("juju.provisioner")
+type ProvisionerType string
+
+var (
+	logger = loggo.GetLogger("juju.provisioner")
+
+	// ENVIRON provisioners create machines from the environment
+	ENVIRON ProvisionerType = "environ"
+	// LXC provisioners create lxc containers on their parent machine
+	LXC ProvisionerType = "lxc"
+)
+
+// While I'm debugging.
+func init() {
+	logger.SetLogLevel(loggo.TRACE)
+}
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
+	pt        ProvisionerType
 	st        *state.State
 	machineId string // Which machine runs the provisioner.
+	dataDir   string
+	machine   *state.Machine
 	environ   environs.Environ
 	tomb      tomb.Tomb
 
@@ -44,10 +64,12 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(st *state.State, machineId string) *Provisioner {
+func NewProvisioner(pt ProvisionerType, st *state.State, machineId, dataDir string) *Provisioner {
 	p := &Provisioner{
+		pt:        pt,
 		st:        st,
 		machineId: machineId,
+		dataDir:   dataDir,
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -75,14 +97,19 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machinesWatcher := p.st.WatchEnvironMachines()
-	environmentBroker := newEnvironBroker(p.environ)
+	instanceBroker, err := p.getBroker()
+	if err != nil {
+		return err
+	}
+	machineWatcher, err := p.getWatcher()
+	if err != nil {
+		return err
+	}
 	environmentProvisioner := NewProvisionerTask(
-		"environ provisioner for machine "+p.machineId,
 		p.machineId,
 		p.st,
-		machinesWatcher,
-		environmentBroker,
+		machineWatcher,
+		instanceBroker,
 		auth)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 
@@ -104,6 +131,56 @@ func (p *Provisioner) loop() error {
 		}
 	}
 	panic("not reached")
+}
+
+func (p *Provisioner) getMachine() (*state.Machine, error) {
+	if p.machine == nil {
+		var err error
+		if p.machine, err = p.st.Machine(p.machineId); err != nil {
+			logger.Errorf("machine %s is not in state", p.machineId)
+			return nil, err
+		}
+	}
+	return p.machine, nil
+}
+
+func (p *Provisioner) getWatcher() (Watcher, error) {
+	switch p.pt {
+	case ENVIRON:
+		return p.st.WatchEnvironMachines(), nil
+	case LXC:
+		machine, err := p.getMachine()
+		if err != nil {
+			return nil, err
+		}
+		return machine.WatchContainers(state.LXC), nil
+	}
+	return nil, fmt.Errorf("unknown provisioner type")
+}
+
+func (p *Provisioner) getBroker() (Broker, error) {
+	switch p.pt {
+	case ENVIRON:
+		return newEnvironBroker(p.environ), nil
+	case LXC:
+		config := p.environ.Config()
+		tools, err := p.getAgentTools()
+		if err != nil {
+			logger.Errorf("cannot get tools from machine for lxc broker")
+			return nil, err
+		}
+		return NewLxcBroker(config, tools), nil
+	}
+	return nil, fmt.Errorf("unknown provisioner type")
+}
+
+func (p *Provisioner) getAgentTools() (*state.Tools, error) {
+	tools, err := agent.ReadTools(p.dataDir, version.Current)
+	if err != nil {
+		logger.Errorf("cannot read agent tools from %q", p.dataDir)
+		return nil, err
+	}
+	return tools, nil
 }
 
 // setConfig updates the environment configuration and notifies
@@ -133,7 +210,7 @@ func (p *Provisioner) Wait() error {
 }
 
 func (p *Provisioner) String() string {
-	return "provisioning worker"
+	return fmt.Sprintf("%s provisioning worker for machine %s", string(p.pt), p.machineId)
 }
 
 // Stop stops the Provisioner and returns any error encountered while

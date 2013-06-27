@@ -44,3 +44,8 @@ func (lxc *lxcInstance) ClosePorts(machineId string, ports []instance.Port) erro
 func (lxc *lxcInstance) Ports(machineId string) ([]instance.Port, error) {
 	return nil, fmt.Errorf("not implemented")
 }
+
+// Add a string representation of the id.
+func (lxc *lxcInstance) String() string {
+	return fmt.Sprintf("lxc:%s", lxc.id)
+}

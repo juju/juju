@@ -28,6 +28,7 @@ var (
 	containerDir        = "/var/lib/juju/containers"
 	removedContainerDir = "/var/lib/juju/removed-containers"
 	lxcContainerDir     = "/var/lib/lxc"
+	lxcObjectFactory    = golxc.Factory()
 )
 
 // ContainerManager is responsible for starting containers, and stopping and
@@ -49,15 +50,14 @@ type ContainerManager interface {
 }
 
 type containerManager struct {
-	lxcObjectFactory golxc.ContainerFactory
-	name             string
+	name string
 }
 
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(factory golxc.ContainerFactory, name string) ContainerManager {
-	return &containerManager{factory, name}
+func NewContainerManager(name string) ContainerManager {
+	return &containerManager{name}
 }
 
 func (manager *containerManager) StartContainer(
@@ -74,7 +74,7 @@ func (manager *containerManager) StartContainer(
 	// Note here that the lxcObjectFacotry only returns a valid container
 	// object, and doesn't actually construct the underlying lxc container on
 	// disk.
-	container := manager.lxcObjectFactory.New(name)
+	container := lxcObjectFactory.New(name)
 
 	// Create the cloud-init.
 	directory := jujuContainerDirectory(name)
@@ -134,7 +134,7 @@ func (manager *containerManager) StartContainer(
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
 	name := string(instance.Id())
-	container := manager.lxcObjectFactory.New(name)
+	container := lxcObjectFactory.New(name)
 	if err := container.Stop(); err != nil {
 		logger.Errorf("failed to stop lxc container: %v", err)
 		return err
@@ -162,7 +162,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 }
 
 func (manager *containerManager) ListContainers() (result []instance.Instance, err error) {
-	containers, err := manager.lxcObjectFactory.List()
+	containers, err := lxcObjectFactory.List()
 	if err != nil {
 		logger.Errorf("failed getting all instances: %v", err)
 		return

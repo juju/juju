@@ -12,12 +12,46 @@ import (
 // This file provides a mock implementation of the golxc interfaces
 // ContainerFactory and Container.
 
-type mockFactory struct {
-	instances map[string]golxc.Container
+type Action int
+
+const (
+	// A container has been started.
+	Started Action = iota
+	// A container has been stopped.
+	Stopped
+)
+
+func (action Action) String() string {
+	switch action {
+	case Started:
+		return "Started"
+	case Stopped:
+		return "Stopped"
+	}
+	return "unknown"
 }
 
-func MockFactory() golxc.ContainerFactory {
-	return &mockFactory{make(map[string]golxc.Container)}
+type Event struct {
+	Action     Action
+	InstanceId string
+}
+
+type ContainerFactory interface {
+	golxc.ContainerFactory
+
+	AddListener(chan<- Event)
+	RemoveListener(chan<- Event)
+}
+
+type mockFactory struct {
+	instances map[string]golxc.Container
+	listeners []chan<- Event
+}
+
+func MockFactory() ContainerFactory {
+	return &mockFactory{
+		instances: make(map[string]golxc.Container),
+	}
 }
 
 type mockContainer struct {
@@ -35,6 +69,9 @@ func (mock *mockContainer) Name() string {
 
 // Create creates a new container based on the given template.
 func (mock *mockContainer) Create(configFile, template string, templateArgs ...string) error {
+	if mock.state != golxc.StateUnknown {
+		return fmt.Errorf("container is already created")
+	}
 	mock.state = golxc.StateStopped
 	mock.factory.instances[mock.name] = mock
 	return nil
@@ -42,13 +79,25 @@ func (mock *mockContainer) Create(configFile, template string, templateArgs ...s
 
 // Start runs the container as a daemon.
 func (mock *mockContainer) Start(configFile, consoleFile string) error {
+	if mock.state == golxc.StateUnknown {
+		return fmt.Errorf("container has not been created")
+	} else if mock.state == golxc.StateRunning {
+		return fmt.Errorf("container is already running")
+	}
 	mock.state = golxc.StateRunning
+	mock.factory.notify(Started, mock.name)
 	return nil
 }
 
 // Stop terminates the running container.
 func (mock *mockContainer) Stop() error {
+	if mock.state == golxc.StateUnknown {
+		return fmt.Errorf("container has not been created")
+	} else if mock.state == golxc.StateStopped {
+		return fmt.Errorf("container is already stopped")
+	}
 	mock.state = golxc.StateStopped
+	mock.factory.notify(Stopped, mock.name)
 	return nil
 }
 
@@ -76,6 +125,11 @@ func (mock *mockContainer) Unfreeze() error {
 
 // Destroy stops and removes the container.
 func (mock *mockContainer) Destroy() error {
+	if mock.state == golxc.StateUnknown {
+		return fmt.Errorf("container has not been created")
+	} else if mock.state == golxc.StateRunning {
+		return fmt.Errorf("container is running")
+	}
 	mock.state = golxc.StateUnknown
 	delete(mock.factory.instances, mock.name)
 	return nil
@@ -129,8 +183,16 @@ func (mock *mockContainer) SetLogFile(filename string, level golxc.LogLevel) {
 	mock.logLevel = level
 }
 
+func (mock *mockFactory) String() string {
+	return fmt.Sprintf("mock lxc factory")
+}
+
 func (mock *mockFactory) New(name string) golxc.Container {
-	container := &mockContainer{
+	container, ok := mock.instances[name]
+	if ok {
+		return container
+	}
+	container = &mockContainer{
 		factory:  mock,
 		name:     name,
 		state:    golxc.StateUnknown,
@@ -144,4 +206,25 @@ func (mock *mockFactory) List() (result []golxc.Container, err error) {
 		result = append(result, container)
 	}
 	return
+}
+
+func (mock *mockFactory) notify(action Action, instanceId string) {
+	event := Event{action, instanceId}
+	for _, c := range mock.listeners {
+		c <- event
+	}
+}
+
+func (mock *mockFactory) AddListener(listener chan<- Event) {
+	mock.listeners = append(mock.listeners, listener)
+}
+
+func (mock *mockFactory) RemoveListener(listener chan<- Event) {
+	pos := 0
+	for i, c := range mock.listeners {
+		if c == listener {
+			pos = i
+		}
+	}
+	mock.listeners = append(mock.listeners[:pos], mock.listeners[pos+1:]...)
 }
