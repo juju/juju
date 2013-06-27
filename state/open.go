@@ -219,6 +219,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
+		minUnits:       db.C("minunits"),
 		settings:       db.C("settings"),
 		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),

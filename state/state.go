@@ -104,6 +104,7 @@ type State struct {
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
 	services         *mgo.Collection
+	minUnits         *mgo.Collection
 	settings         *mgo.Collection
 	settingsrefs     *mgo.Collection
 	constraints      *mgo.Collection
