@@ -28,7 +28,7 @@ func (s *agentSuite) SetUpTest(c *C) {
 
 func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *C) {
 	auth := s.authorizer
-	auth.machineAgent = false
+	auth.MachineAgent = false
 	api, err := machine.NewAgentAPI(s.State, auth)
 	c.Assert(err, NotNil)
 	c.Assert(api, IsNil)

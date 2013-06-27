@@ -156,23 +156,38 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
+	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return NewUpgrader(st, m, a.Conf.DataDir), nil
+		return NewUpgrader(st, m, dataDir), nil
 	})
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st, m.Id()), nil
 	})
+	// At this stage, since we don't embed lxc containers, just start an lxc
+	// provisioner task for non-lxc containers.  Since we have only LXC
+	// containers and normal machines, this effectively means that we only
+	// have an LXC provisioner when we have a normally provisioned machine
+	// (through the environ-provisioner).  With the upcoming advent of KVM
+	// containers, it is likely that we will want an LXC provisioner on a KVM
+	// machine, and once we get nested LXC containers, we can remove this
+	// check.
+	if m.ContainerType() != state.LXC {
+		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
+		runner.StartWorker(workerName, func() (worker.Worker, error) {
+			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
+		})
+	}
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				return newDeployer(st, m.WatchPrincipalUnits(), a.Conf.DataDir), nil
+				return newDeployer(st, m.WatchPrincipalUnits(), dataDir), nil
 			})
 		case state.JobManageEnviron:
-			runner.StartWorker("provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(st, a.MachineId), nil
+			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
+				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir), nil
 			})
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil

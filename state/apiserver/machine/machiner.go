@@ -48,8 +48,8 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 }
 
 // Watch starts an EntityWatcher for each given machine.
-func (m *MachinerAPI) Watch(args params.Machines) (params.MachinesWatchResults, error) {
-	result := params.MachinesWatchResults{
+func (m *MachinerAPI) Watch(args params.Machines) (params.EntityWatchResults, error) {
+	result := params.EntityWatchResults{
 		Results: make([]params.EntityWatchResult, len(args.Ids)),
 	}
 	if len(args.Ids) == 0 {

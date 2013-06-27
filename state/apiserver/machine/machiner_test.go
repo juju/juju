@@ -47,7 +47,7 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.machineAgent = false
+	anAuthorizer.MachineAgent = false
 	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)

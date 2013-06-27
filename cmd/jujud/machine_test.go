@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -26,6 +27,7 @@ import (
 
 type MachineSuite struct {
 	agentSuite
+	lxc.TestSuite
 	oldCacheDir string
 }
 
@@ -33,12 +35,24 @@ var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpSuite(c *C) {
 	s.agentSuite.SetUpSuite(c)
+	s.TestSuite.SetUpSuite(c)
 	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *MachineSuite) TearDownSuite(c *C) {
 	charm.CacheDir = s.oldCacheDir
+	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
+}
+
+func (s *MachineSuite) SetUpTest(c *C) {
+	s.agentSuite.SetUpTest(c)
+	s.TestSuite.SetUpTest(c)
+}
+
+func (s *MachineSuite) TearDownTest(c *C) {
+	s.TestSuite.TearDownTest(c)
+	s.agentSuite.TearDownTest(c)
 }
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
