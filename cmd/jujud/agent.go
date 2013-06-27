@@ -257,7 +257,7 @@ var newDeployContext = func(st *state.State, dataDir string, machineId string) d
 	return deployer.NewSimpleContext(dataDir, st.CACert(), machineId, st)
 }
 
-func newDeployer(st *state.State, machineId string, dataDir string) (*deployer.Deployer, error) {
+func newDeployer(st *state.State, machineId string, dataDir string) *deployer.Deployer {
 	ctx := newDeployContext(st, dataDir, machineId)
 	return deployer.NewDeployer(st, ctx, machineId)
 }

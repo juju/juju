@@ -45,12 +45,7 @@ type Context interface {
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents via
 // ctx, taking a machine id to operate on.
-func NewDeployer(st *state.State, ctx Context, machineId string) (*Deployer, error) {
-	machine, err := st.Machine(machineId)
-	if err != nil {
-		return nil, err
-	}
-	machineUnitsWatcher := machine.WatchUnits()
+func NewDeployer(st *state.State, ctx Context, machineId string) *Deployer {
 	d := &Deployer{
 		st:        st,
 		ctx:       ctx,
@@ -58,10 +53,9 @@ func NewDeployer(st *state.State, ctx Context, machineId string) (*Deployer, err
 	}
 	go func() {
 		defer d.tomb.Done()
-		defer watcher.Stop(machineUnitsWatcher, &d.tomb)
-		d.tomb.Kill(d.loop(machineUnitsWatcher))
+		d.tomb.Kill(d.loop())
 	}()
-	return d, nil
+	return d
 }
 
 func (d *Deployer) String() string {
@@ -95,9 +89,11 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		if machineId, err := unit.AssignedMachineId(); err != nil {
+		if machineId, err := unit.AssignedMachineId(); state.IsNotAssigned(err) {
 			log.Warningf("worker/deployer: ignoring unit %q (not assigned)", unitName)
 			responsible = false
+		} else if err != nil {
+			return err
 		} else {
 			responsible = machineId == d.machineId
 		}
@@ -176,7 +172,14 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	return unit.Remove()
 }
 
-func (d *Deployer) loop(w *state.MachineUnitsWatcher) error {
+func (d *Deployer) loop() error {
+	machine, err := d.st.Machine(d.machineId)
+	if err != nil {
+		return err
+	}
+	machineUnitsWatcher := machine.WatchUnits()
+	defer watcher.Stop(machineUnitsWatcher, &d.tomb)
+
 	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
 		return err
@@ -191,9 +194,9 @@ func (d *Deployer) loop(w *state.MachineUnitsWatcher) error {
 		select {
 		case <-d.tomb.Dying():
 			return tomb.ErrDying
-		case changes, ok := <-w.Changes():
+		case changes, ok := <-machineUnitsWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(w)
+				return watcher.MustErr(machineUnitsWatcher)
 			}
 			for _, unitName := range changes {
 				if err := d.changed(unitName); err != nil {

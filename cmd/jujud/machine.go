@@ -116,11 +116,7 @@ func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
 	for _, j := range m.Jobs() {
 		switch j {
 		case state.JobHostUnits:
-			deployer, err := newDeployer(st, m.Id(), dataDir)
-			if err != nil {
-				return err
-			}
-			tasks = append(tasks, deployer)
+			tasks = append(tasks, newDeployer(st, m.Id(), dataDir))
 		case state.JobManageEnviron:
 			tasks = append(tasks,
 				provisioner.NewProvisioner(st, a.MachineId),
