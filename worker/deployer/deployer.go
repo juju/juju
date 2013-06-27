@@ -6,13 +6,19 @@ package deployer
 import (
 	"fmt"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 )
+
+var logger = loggo.GetLogger("juju.deployer")
+
+func init() {
+	logger.SetLogLevel(loggo.TRACE)
+}
 
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'
@@ -80,7 +86,7 @@ func (d *Deployer) Wait() error {
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
 	// Determine unit life state, and whether we're responsible for it.
-	log.Infof("worker/deployer: checking unit %q", unitName)
+	logger.Infof("checking unit %q", unitName)
 	var life state.Life
 	responsible := false
 	unit, err := d.st.Unit(unitName)
@@ -91,7 +97,7 @@ func (d *Deployer) changed(unitName string) error {
 	} else {
 		life = unit.Life()
 		if machineId, err := unit.AssignedMachineId(); state.IsNotAssigned(err) {
-			log.Warningf("worker/deployer: ignoring unit %q (not assigned)", unitName)
+			logger.Warningf("ignoring unit %q (not assigned)", unitName)
 			// Unit is not assigned, so we're not responsible for its deployment.
 			responsible = false
 		} else if err != nil {
@@ -133,7 +139,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
 	}
-	log.Infof("worker/deployer: deploying unit %q", unit)
+	logger.Infof("deploying unit %q", unit)
 	initialPassword, err := utils.RandomPassword()
 	if err != nil {
 		return err
@@ -157,7 +163,7 @@ func (d *Deployer) recall(unitName string) error {
 	if !d.deployed.Contains(unitName) {
 		panic("must not recall a unit that is not deployed")
 	}
-	log.Infof("worker/deployer: recalling unit %q", unitName)
+	logger.Infof("recalling unit %q", unitName)
 	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}
@@ -173,7 +179,7 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	} else if unit.Life() == state.Alive {
 		panic("must not remove an Alive unit")
 	}
-	log.Infof("worker/deployer: removing unit %q", unit)
+	logger.Infof("removing unit %q", unit)
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}
