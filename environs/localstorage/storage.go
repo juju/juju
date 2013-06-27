@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package local
+package localstorage
 
 import (
 	"fmt"
@@ -19,12 +19,11 @@ type storage struct {
 	baseURL string
 }
 
-var _ environs.Storage = (*storage)(nil)
-
-// newStorage returns a new local storage.
-func newStorage(address string, port int) *storage {
+// Client returns a storage object that will talk to the storage server
+// at the given network address (see Serve)
+func Client(addr string) environs.Storage {
 	return &storage{
-		baseURL: fmt.Sprintf("http://%s:%d", address, port),
+		baseURL: fmt.Sprintf("http://%s/", addr),
 	}
 }
 
@@ -41,7 +40,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, errors.NotFoundf("file %q not found", name)
 	}
 	return resp.Body, nil
@@ -61,7 +60,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	defer resp.Body.Close()
@@ -79,7 +78,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 
 // URL returns an URL that can be used to access the given storage file.
 func (s *storage) URL(name string) (string, error) {
-	return fmt.Sprintf("%s/%s", s.baseURL, name), nil
+	return s.baseURL + name, nil
 }
 
 // Put reads from r and writes to the given storage file.
@@ -120,7 +119,7 @@ func (s *storage) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	return nil
