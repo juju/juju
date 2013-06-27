@@ -8,44 +8,26 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	"strconv"
+	"launchpad.net/juju-core/state/apiserver/testing"
 	"time"
 )
 
 type machinerSuite struct {
 	commonSuite
 
-	resources fakeResourceRegistry
+	resources testing.FakeResourceRegistry
 	machiner  *machine.MachinerAPI
 }
 
 var _ = Suite(&machinerSuite{})
-
-// fakeResourceRegistry implements the common.ResourceRegistry interface.
-type fakeResourceRegistry map[string]common.Resource
-
-func (registry fakeResourceRegistry) Register(resource common.Resource) string {
-	id := strconv.Itoa(len(registry))
-	registry[id] = resource
-	return id
-}
-
-func (registry fakeResourceRegistry) Get(id string) common.Resource {
-	panic("unimplemented")
-}
-
-func (registry fakeResourceRegistry) Stop(id string) error {
-	panic("unimplemented")
-}
 
 func (s *machinerSuite) SetUpTest(c *C) {
 	s.commonSuite.SetUpTest(c)
 
 	// Create the resource registry separately to track invocations to
 	// Register.
-	s.resources = make(fakeResourceRegistry)
+	s.resources = make(testing.FakeResourceRegistry)
 
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPI(
@@ -65,7 +47,7 @@ func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp
 
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	anAuthorizer := s.authorizer
-	anAuthorizer.machineAgent = false
+	anAuthorizer.MachineAgent = false
 	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
 	c.Assert(err, NotNil)
 	c.Assert(aMachiner, IsNil)
