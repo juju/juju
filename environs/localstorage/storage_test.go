@@ -102,6 +102,6 @@ func checkFileHasContents(c *C, storage environs.StorageReader, name string, con
 	data, err = ioutil.ReadAll(resp.Body)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, Equals, 200, Commentf("error response: %s", data))
+	c.Assert(resp.StatusCode, Equals, http.StatusOK, Commentf("error response: %s", data))
 	c.Check(data, DeepEquals, contents)
 }

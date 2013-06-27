@@ -122,7 +122,7 @@ func (s *backendSuite) TestGet(c *C) {
 			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		} else {
-			c.Assert(resp.StatusCode, Equals, 200)
+			c.Assert(resp.StatusCode, Equals, http.StatusOK)
 		}
 		defer resp.Body.Close()
 		var buf bytes.Buffer
@@ -303,7 +303,7 @@ func (s *backendSuite) TestRemove(c *C) {
 			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		}
-		c.Assert(resp.StatusCode, Equals, 200)
+		c.Assert(resp.StatusCode, Equals, http.StatusOK)
 
 		_, err = os.Stat(fp)
 		c.Assert(os.IsNotExist(err), Equals, true)

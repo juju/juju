@@ -40,7 +40,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, errors.NotFoundf("file %q not found", name)
 	}
 	return resp.Body, nil
@@ -60,7 +60,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	defer resp.Body.Close()
@@ -119,7 +119,7 @@ func (s *storage) Remove(name string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	return nil
