@@ -26,5 +26,4 @@ func (registry FakeResourceRegistry) Stop(id string) error {
 	panic("unimplemented")
 }
 
-
 var _ (common.ResourceRegistry) = (*FakeResourceRegistry)(nil)
