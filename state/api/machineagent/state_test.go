@@ -55,7 +55,7 @@ func (s *suite) TestMachine(c *C) {
 	m, err = s.st.MachineAgent().Machine(s.machine.Id())
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, s.machine.Id())
-	c.Assert(m.Life(), Equals, params.Life("alive"))
+	c.Assert(m.Life(), Equals, params.Alive)
 	c.Assert(m.Jobs(), DeepEquals, []params.MachineJob{params.JobHostUnits})
 
 	err = s.machine.EnsureDead()
@@ -72,14 +72,14 @@ func (s *suite) TestMachine(c *C) {
 func (s *suite) TestMachineRefresh(c *C) {
 	m, err := s.st.MachineAgent().Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Life("alive"))
+	c.Assert(m.Life(), Equals, params.Alive)
 
 	err = s.machine.Destroy()
 	c.Assert(err, IsNil)
 
 	err = m.Refresh()
 	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Life("dying"))
+	c.Assert(m.Life(), Equals, params.Dying)
 
 	err = s.machine.EnsureDead()
 	c.Assert(err, IsNil)

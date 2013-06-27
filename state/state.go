@@ -104,6 +104,7 @@ type State struct {
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
 	services         *mgo.Collection
+	minUnits         *mgo.Collection
 	settings         *mgo.Collection
 	settingsrefs     *mgo.Collection
 	constraints      *mgo.Collection
@@ -534,6 +535,7 @@ func (st *State) entity(tag string) (interface{}, error) {
 	prefix, id := tag[0:i], tag[i+1:]
 	switch prefix {
 	case "machine":
+		id = MachineIdFromTag(tag)
 		if !IsMachineId(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
