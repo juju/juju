@@ -126,9 +126,10 @@ func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-// listen starts an HTTP listener to serve the
+// Listen starts an HTTP listener to serve the
 // provider storage.
-func listen(dataPath, environName, ip string, port int) (net.Listener, error) {
+// The listener must be cleaned up after use, by invoking its Close method.
+func Listen(dataPath, environName, ip string, port int) (net.Listener, error) {
 	backend := &storageBackend{
 		environName: environName,
 		path:        filepath.Join(dataPath, environName),

@@ -216,14 +216,16 @@ func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 
 func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	env := makeEnviron(c)
-	setDummyStorage(env)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
 	_, _, err := env.StateInfo()
 	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (EnvironSuite) TestStateInfo(c *C) {
 	env := makeEnviron(c)
-	setDummyStorage(env)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
 	instanceID := "my-instance"
 	err := env.saveState(&bootstrapState{
 		StateInstances: []instance.Id{instance.Id(instanceID)}})

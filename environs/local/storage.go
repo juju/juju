@@ -21,8 +21,8 @@ type storage struct {
 
 var _ environs.Storage = (*storage)(nil)
 
-// newStorage returns a new local storage.
-func newStorage(address string, port int) *storage {
+// NewStorage returns a new local storage.
+func NewStorage(address string, port int) *storage {
 	return &storage{
 		baseURL: fmt.Sprintf("http://%s:%d", address, port),
 	}

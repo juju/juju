@@ -220,10 +220,10 @@ func (state *environState) destroy() {
 	state.bootstrapped = false
 }
 
-// NewState creates the state for a new environment with the
+// newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
-func NewState(name string, ops chan<- Operation, fwmode config.FirewallMode) *environState {
+func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *environState {
 	s := &environState{
 		name:         name,
 		ops:          ops,
@@ -231,8 +231,8 @@ func NewState(name string, ops chan<- Operation, fwmode config.FirewallMode) *en
 		globalPorts:  make(map[instance.Port]bool),
 		firewallMode: fwmode,
 	}
-	s.storage = NewStorage(s, "/"+name+"/private")
-	s.publicStorage = NewStorage(s, "/"+name+"/public")
+	s.storage = newStorage(s, "/"+name+"/private")
+	s.publicStorage = newStorage(s, "/"+name+"/public")
 	s.listen()
 	// TODO(fwereade): get rid of these.
 	envtesting.MustUploadFakeTools(s.publicStorage)
@@ -356,7 +356,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 			}
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old, name))
 		}
-		state = NewState(name, p.ops, ecfg.FirewallMode())
+		state = newState(name, p.ops, ecfg.FirewallMode())
 		p.state[name] = state
 	}
 	env := &environ{

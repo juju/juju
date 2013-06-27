@@ -24,7 +24,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.state.publicStorage
 }
 
-func NewStorage(state *environState, path string) *storage {
+func newStorage(state *environState, path string) *storage {
 	return &storage{
 		state:    state,
 		files:    make(map[string][]byte),
