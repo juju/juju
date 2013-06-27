@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package local
+package localstorage
 
 import (
 	"fmt"
@@ -19,12 +19,11 @@ type storage struct {
 	baseURL string
 }
 
-var _ environs.Storage = (*storage)(nil)
-
-// newStorage returns a new local storage.
-func newStorage(address string, port int) *storage {
+// Client returns a storage object that will talk to the storage server
+// at the given network address (see Serve)
+func Client(addr string) environs.Storage {
 	return &storage{
-		baseURL: fmt.Sprintf("http://%s:%d", address, port),
+		baseURL: fmt.Sprintf("http://%s/", addr),
 	}
 }
 
@@ -79,7 +78,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 
 // URL returns an URL that can be used to access the given storage file.
 func (s *storage) URL(name string) (string, error) {
-	return fmt.Sprintf("%s/%s", s.baseURL, name), nil
+	return s.baseURL + name, nil
 }
 
 // Put reads from r and writes to the given storage file.
