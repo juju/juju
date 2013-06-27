@@ -344,8 +344,7 @@ func (w *MinUnitsWatcher) initial() (serviceNames []string, err error) {
 	return serviceNames, nil
 }
 
-func (w *MinUnitsWatcher) merge(
-	serviceNames []string, change watcher.Change) ([]string, error) {
+func (w *MinUnitsWatcher) merge(serviceNames []string, change watcher.Change) ([]string, error) {
 	doc := minUnitsDoc{}
 	serviceName := change.Id.(string)
 	if err := w.st.minUnits.FindId(serviceName).One(&doc); err == mgo.ErrNotFound {

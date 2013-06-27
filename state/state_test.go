@@ -1629,19 +1629,19 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	c.Assert(err, IsNil)
 	mysql0, err := mysql.AddUnit()
 	c.Assert(err, IsNil)
-	// Check no events.
+	// No events should occur.
 	wc.AssertNoChange()
 
 	// Add minimum units to a service.
 	err = wordpress.SetMinUnits(2)
 	c.Assert(err, IsNil)
-	// Check one event.
+	// No events should occur.
 	wc.AssertOneChange(wordpressName)
 
 	// Decrease minimum units for a service.
 	err = wordpress.SetMinUnits(1)
 	c.Assert(err, IsNil)
-	// Check no events.
+	// Expect no changes.
 	wc.AssertNoChange()
 
 	// Increase minimum units for two services.
@@ -1649,21 +1649,21 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = wordpress.SetMinUnits(3)
 	c.Assert(err, IsNil)
-	// Check one event.
+	// A single change should occur.
 	wc.AssertOneChange(mysql.Name(), wordpressName)
 
 	// Remove minimum units for a service.
 	err = mysql.SetMinUnits(0)
 	c.Assert(err, IsNil)
-	// Check no events.
+	// Expect no changes.
 	wc.AssertNoChange()
 
 	// Destroy a unit of a service with required minimum units.
-	// Also avoid the unit to be removed.
+	// Also avoid the unit removal.
 	preventUnitDestroyRemove(c, wordpress0)
 	err = wordpress0.Destroy()
 	c.Assert(err, IsNil)
-	// Check one event.
+	// A single change should occur.
 	wc.AssertOneChange(wordpressName)
 
 	// Two actions: destroy a unit and increase minimum units for a service.
@@ -1671,25 +1671,26 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = wordpress1.Destroy()
 	c.Assert(err, IsNil)
-	// Check one event, with the service name not repeated.
+	// A single change should occur, and the service name should appear only
+	// one time in the change.
 	wc.AssertOneChange(wordpressName)
 
 	// Destroy a unit of a service not requiring minimum units.
 	err = mysql0.Destroy()
 	c.Assert(err, IsNil)
-	// Check no events.
+	// Expect no changes.
 	wc.AssertNoChange()
 
 	// Destroy a service with required minimum units.
 	err = wordpress.Destroy()
 	c.Assert(err, IsNil)
-	// Check no events.
+	// Expect no changes.
 	wc.AssertNoChange()
 
 	// Destroy a service not requiring minimum units.
 	err = mysql.Destroy()
 	c.Assert(err, IsNil)
-	// Check no events.
+	// Expect no changes.
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
