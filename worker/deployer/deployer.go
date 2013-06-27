@@ -16,10 +16,6 @@ import (
 
 var logger = loggo.GetLogger("juju.deployer")
 
-func init() {
-	logger.SetLogLevel(loggo.TRACE)
-}
-
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
