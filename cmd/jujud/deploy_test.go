@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/worker/deployer"
 	"reflect"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -82,13 +83,14 @@ func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fa
 	}
 	e0 := *expectInfo
 	expectInfo = &e0
+	expectMachineId := strings.Replace(expectInfo.Tag, "machine-", "", -1)
 	orig := newDeployContext
-	newDeployContext = func(st *state.State, dataDir string, deployerTag string) deployer.Context {
+	newDeployContext = func(st *state.State, dataDir string, machineId string) deployer.Context {
 		stateAddrs, err := st.Addresses()
 		c.Check(err, IsNil)
 		c.Check(stateAddrs, DeepEquals, expectInfo.Addrs)
 		c.Check(st.CACert(), DeepEquals, expectInfo.CACert)
-		c.Check(deployerTag, Equals, expectInfo.Tag)
+		c.Check(machineId, Equals, expectMachineId)
 		c.Check(dataDir, Equals, expectDataDir)
 		ctx.st = st
 		close(ctx.inited)
