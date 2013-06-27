@@ -244,10 +244,10 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	for _ = range w.Changes() {
 		err = m1.Refresh()
 		c.Assert(err, IsNil)
-		if _, ok, err := m1.InstanceId(); ok {
+		if _, err := m1.InstanceId(); err == nil {
 			break
-		} else {
-			c.Assert(err, IsNil)
+		} else if !state.IsNotProvisionedError(err) {
+			c.Fail()
 		}
 	}
 	err = units[0].OpenPort("tcp", 999)

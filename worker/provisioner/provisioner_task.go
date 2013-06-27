@@ -199,9 +199,9 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 		}
 		switch machine.Life() {
 		case state.Dying:
-			if _, ok, err := machine.InstanceId(); ok {
+			if _, err := machine.InstanceId(); err == nil {
 				continue
-			} else if err != nil {
+			} else if !state.IsNotProvisionedError(err) {
 				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
 				return nil, nil, err
 			}
@@ -222,8 +222,8 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 			delete(task.machines, machine.Id())
 			continue
 		}
-		if instId, hasInstId, err := machine.InstanceId(); !hasInstId {
-			if err != nil {
+		if instId, err := machine.InstanceId(); err != nil {
+			if !state.IsNotProvisionedError(err) {
 				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
 				continue
 			}
@@ -253,9 +253,9 @@ func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error)
 	}
 
 	for _, m := range task.machines {
-		if instId, ok, err := m.InstanceId(); ok {
+		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
-		} else if err != nil {
+		} else if !state.IsNotProvisionedError(err) {
 			return nil, err
 		}
 	}
@@ -273,8 +273,8 @@ func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error)
 func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []instance.Instance {
 	var instances []instance.Instance
 	for _, machine := range machines {
-		instId, ok, _ := machine.InstanceId()
-		if ok {
+		instId, err := machine.InstanceId()
+		if err == nil {
 			instance, found := task.instances[instId]
 			// If the instance is not found we can't stop it.
 			if found {

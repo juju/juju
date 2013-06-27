@@ -184,10 +184,8 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
 	status.Series = machine.Series()
-	instid, ok, err := machine.InstanceId()
-	if err != nil {
-		status.InstanceId = "error"
-	} else if ok {
+	instid, err := machine.InstanceId()
+	if err == nil {
 		status.InstanceId = instid
 		inst, ok := context.instances[instid]
 		if ok {
@@ -199,7 +197,11 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 			status.InstanceState = "missing"
 		}
 	} else {
-		status.InstanceId = "pending"
+		if state.IsNotProvisionedError(err) {
+			status.InstanceId = "pending"
+		} else {
+			status.InstanceId = "error"
+		}
 		// There's no point in reporting a pending agent state
 		// if the machine hasn't been provisioned.  This
 		// also makes unprovisioned machines visually distinct
