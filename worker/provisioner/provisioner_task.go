@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
@@ -39,16 +38,14 @@ func NewProvisionerTask(
 	machineGetter MachineGetter,
 	watcher Watcher,
 	broker Broker,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
+	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
 		machineId:      machineId,
 		machineGetter:  machineGetter,
 		machineWatcher: watcher,
 		broker:         broker,
-		stateInfo:      stateInfo,
-		apiInfo:        apiInfo,
+		auth:           auth,
 		machines:       make(map[string]*state.Machine),
 	}
 	go func() {
@@ -64,8 +61,7 @@ type provisionerTask struct {
 	machineWatcher Watcher
 	broker         Broker
 	tomb           tomb.Tomb
-	stateInfo      *state.Info
-	apiInfo        *api.Info
+	auth           AuthenticationProvider
 
 	// instance id -> instance
 	instances map[instance.Id]instance.Instance
@@ -137,14 +133,14 @@ func (task *provisionerTask) processMachines(ids []string) error {
 		return err
 	}
 
+	// Stop all machines that are dead
+	stopping := task.instancesForMachines(dead)
+
 	// Find running instances that have no machines associated
-	unknown, err := task.findUnknownInstances()
+	unknown, err := task.findUnknownInstances(stopping)
 	if err != nil {
 		return err
 	}
-
-	// Stop all machines that are dead
-	stopping := task.instancesForMachines(dead)
 
 	// It's important that we stop unknown instances before starting
 	// pending ones, because if we start an instance and then fail to
@@ -234,11 +230,13 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 			logger.Infof("machine %v already started as instance %q", machine, instId)
 		}
 	}
+	logger.Tracef("pending machines: %v", pending)
+	logger.Tracef("dead machines: %v", dead)
 	return
 }
 
 // findUnknownInstances finds instances which are not associated with a machine.
-func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error) {
+func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) ([]instance.Instance, error) {
 	// Make a copy of the instances we know about.
 	instances := make(map[instance.Id]instance.Instance)
 	for k, v := range task.instances {
@@ -249,6 +247,11 @@ func (task *provisionerTask) findUnknownInstances() ([]instance.Instance, error)
 		if instId, ok := m.InstanceId(); ok {
 			delete(instances, instId)
 		}
+	}
+	// Now remove all those instances that we are stopping already, as they
+	// have been removed from the task.machines map.
+	for _, i := range stopping {
+		delete(instances, i.Id())
 	}
 	var unknown []instance.Instance
 	for _, i := range instances {
@@ -300,11 +303,7 @@ func (task *provisionerTask) startMachines(machines []*state.Machine) error {
 }
 
 func (task *provisionerTask) startMachine(machine *state.Machine) error {
-	// TODO(dfc) the state.Info passed to environ.StartInstance remains contentious
-	// however as the PA only knows one state.Info, and that info is used by MAs and
-	// UAs to locate the state for this environment, it is logical to use the same
-	// state.Info as the PA.
-	stateInfo, apiInfo, err := task.setupAuthentication(machine)
+	stateInfo, apiInfo, err := task.auth.SetupAuthentication(machine)
 	if err != nil {
 		logger.Errorf("failed to setup authentication: %v", err)
 		return err
@@ -336,6 +335,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 		return nil
 	}
 	if err := machine.SetProvisioned(inst.Id(), nonce); err != nil {
+		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
 		// but will then be detected by findUnknownInstances and
@@ -352,21 +352,4 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	}
 	logger.Infof("started machine %s as instance %s", machine, inst.Id())
 	return nil
-}
-
-func (task *provisionerTask) setupAuthentication(machine *state.Machine) (*state.Info, *api.Info, error) {
-	password, err := utils.RandomPassword()
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot make password for machine %v: %v", machine, err)
-	}
-	if err := machine.SetMongoPassword(password); err != nil {
-		return nil, nil, fmt.Errorf("cannot set password for machine %v: %v", machine, err)
-	}
-	stateInfo := *task.stateInfo
-	stateInfo.Tag = machine.Tag()
-	stateInfo.Password = password
-	apiInfo := *task.apiInfo
-	apiInfo.Tag = machine.Tag()
-	apiInfo.Password = password
-	return &stateInfo, &apiInfo, nil
 }

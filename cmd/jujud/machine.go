@@ -8,9 +8,11 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/machineagent"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -29,6 +31,7 @@ type MachineAgent struct {
 	tomb      tomb.Tomb
 	Conf      AgentConf
 	MachineId string
+	runner    *worker.Runner
 }
 
 // Info returns usage information for the command.
@@ -49,87 +52,164 @@ func (a *MachineAgent) Init(args []string) error {
 	if !state.IsMachineId(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
-	return a.Conf.checkArgs(args)
+	if err := a.Conf.checkArgs(args); err != nil {
+		return err
+	}
+	a.runner = worker.NewRunner(isFatal, moreImportant)
+	return nil
+}
+
+// Wait waits for the machine agent to finish.
+func (a *MachineAgent) Wait() error {
+	return a.tomb.Wait()
 }
 
 // Stop stops the machine agent.
 func (a *MachineAgent) Stop() error {
-	a.tomb.Kill(nil)
+	a.runner.Kill()
 	return a.tomb.Wait()
 }
 
 // Run runs a machine agent.
 func (a *MachineAgent) Run(_ *cmd.Context) error {
-	if err := a.Conf.read(state.MachineTag(a.MachineId)); err != nil {
+	defer a.tomb.Done()
+	log.Infof("machine agent %v start", a.Tag())
+	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
-	defer a.tomb.Done()
 
-	// We run the API server worker first, because we may
-	// need to connect to it before starting the other workers.
-	apiDone := make(chan error)
-	// Pass a copy of the API configuration to maybeRunAPIServer
-	// so that it can mutate it independently.
-	conf := *a.Conf.Conf
-	go func() {
-		apiDone <- a.maybeRunAPIServer(&conf)
-	}()
-	runLoopDone := make(chan error)
-	go func() {
-		runLoopDone <- RunAgentLoop(a.Conf.Conf, a)
-	}()
-	var err error
-	for apiDone != nil || runLoopDone != nil {
-		var err1 error
-		select {
-		case err1 = <-apiDone:
-			apiDone = nil
-		case err1 = <-runLoopDone:
-			runLoopDone = nil
-		}
-		a.tomb.Kill(err1)
-		if moreImportant(err1, err) {
-			err = err1
-		}
+	// ensureStateWorker ensures that there is a worker that
+	// connects to the state that runs within itself all the workers
+	// that need a state connection Unless we're bootstrapping, we
+	// need to connect to the API server to find out if we need to
+	// call this, so we make the APIWorker call it when necessary if
+	// the machine requires it.  Note that ensureStateWorker can be
+	// called many times - StartWorker does nothing if there is
+	// already a worker started with the given name.
+	ensureStateWorker := func() {
+		a.runner.StartWorker("state", func() (worker.Worker, error) {
+			// TODO(rog) go1.1: use method expression
+			return a.StateWorker()
+		})
 	}
-	if err == worker.ErrTerminateAgent {
-		err = nil
+	if a.MachineId == "0" {
+		// If we're bootstrapping, we don't have an API
+		// server to connect to, so start the state worker regardless.
+
+		// TODO(rog) When we have HA, we only want to do this
+		// when we really are bootstrapping - once other
+		// instances of the API server have been started, we
+		// should follow the normal course of things and ignore
+		// the fact that this was once the bootstrap machine.
+		ensureStateWorker()
 	}
-	if ug, ok := err.(*UpgradeReadyError); ok {
-		if err1 := ug.ChangeAgentTools(); err1 != nil {
-			err = err1
-			// Return and let upstart deal with the restart.
-		}
-	}
+	a.runner.StartWorker("api", func() (worker.Worker, error) {
+		// TODO(rog) go1.1: use method expression
+		return a.APIWorker(ensureStateWorker)
+	})
+	err := agentDone(a.runner.Wait())
+	a.tomb.Kill(err)
 	return err
 }
 
-func (a *MachineAgent) RunOnce(st *state.State, e AgentState) error {
-	m := e.(*state.Machine)
-	log.Infof("jobs for machine agent: %v", m.Jobs())
-	dataDir := a.Conf.DataDir
-	tasks := []task{
-		NewUpgrader(st, m, dataDir),
-		machiner.NewMachiner(st, m.Id()),
+func allFatal(error) bool {
+	return true
+}
+
+var stateJobs = map[params.MachineJob]bool{
+	params.JobHostUnits:     true,
+	params.JobManageEnviron: true,
+	params.JobManageState:   true,
+}
+
+// APIWorker returns a Worker that connects to the API and starts any
+// workers that need an API connection.
+//
+// If a state worker is necessary, APIWorker calls ensureStateWorker.
+func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
+	st, entity, err := openAPIState(a.Conf.Conf, a)
+	if err != nil {
+		return nil, err
 	}
-	for _, j := range m.Jobs() {
-		switch j {
+	m := entity.(*machineagent.Machine)
+	needsStateWorker := false
+	for _, job := range m.Jobs() {
+		needsStateWorker = needsStateWorker || stateJobs[job]
+	}
+	if needsStateWorker {
+		ensureStateWorker()
+	}
+	runner := worker.NewRunner(allFatal, moreImportant)
+	// No agents currently connect to the API, so just
+	// return the runner running nothing.
+	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
+}
+
+// StateJobs returns a worker running all the workers that require
+// a *state.State connection.
+func (a *MachineAgent) StateWorker() (worker.Worker, error) {
+	st, entity, err := openState(a.Conf.Conf, a)
+	if err != nil {
+		return nil, err
+	}
+	m := entity.(*state.Machine)
+	// TODO(rog) use more discriminating test for errors
+	// rather than taking everything down indiscriminately.
+	dataDir := a.Conf.DataDir
+	runner := worker.NewRunner(allFatal, moreImportant)
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		// TODO(rog) use id instead of *Machine (or introduce Clone method)
+		return NewUpgrader(st, m, dataDir), nil
+	})
+	runner.StartWorker("machiner", func() (worker.Worker, error) {
+		return machiner.NewMachiner(st, m.Id()), nil
+	})
+	// At this stage, since we don't embed lxc containers, just start an lxc
+	// provisioner task for non-lxc containers.  Since we have only LXC
+	// containers and normal machines, this effectively means that we only
+	// have an LXC provisioner when we have a normally provisioned machine
+	// (through the environ-provisioner).  With the upcoming advent of KVM
+	// containers, it is likely that we will want an LXC provisioner on a KVM
+	// machine, and once we get nested LXC containers, we can remove this
+	// check.
+	if m.ContainerType() != state.LXC {
+		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
+		runner.StartWorker(workerName, func() (worker.Worker, error) {
+			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
+		})
+	}
+	for _, job := range m.Jobs() {
+		switch job {
 		case state.JobHostUnits:
-			tasks = append(tasks,
-				newDeployer(st, m.WatchPrincipalUnits(), dataDir))
+			runner.StartWorker("deployer", func() (worker.Worker, error) {
+				return newDeployer(st, m.WatchPrincipalUnits(), dataDir), nil
+			})
 		case state.JobManageEnviron:
-			tasks = append(tasks,
-				provisioner.NewProvisioner(st, a.MachineId),
-				firewaller.NewFirewaller(st))
+			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
+				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir), nil
+			})
+			runner.StartWorker("firewaller", func() (worker.Worker, error) {
+				return firewaller.NewFirewaller(st), nil
+			})
 		case state.JobManageState:
-			// Ignore because it's started independently.
-			continue
+			runner.StartWorker("apiserver", func() (worker.Worker, error) {
+				// If the configuration does not have the required information,
+				// it is currently not a recoverable error, so we kill the whole
+				// agent, potentially enabling human intervention to fix
+				// the agent's configuration file. In the future, we may retrieve
+				// the state server certificate and key from the state, and
+				// this should then change.
+				if len(a.Conf.StateServerCert) == 0 || len(a.Conf.StateServerKey) == 0 {
+					return nil, &fatalError{"configuration does not have state server cert/key"}
+				}
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", a.Conf.APIPort), a.Conf.StateServerCert, a.Conf.StateServerKey)
+			})
 		default:
-			log.Warningf("ignoring unknown job %q", j)
+			log.Warningf("ignoring unknown job %q", job)
 		}
 	}
-	return runTasks(a.tomb.Dying(), tasks...)
+	return newCloseWorker(runner, st), nil
 }
 
 func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
@@ -147,61 +227,16 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 	return m, nil
 }
 
+func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
+	m, err := st.MachineAgent().Machine(a.MachineId)
+	if err != nil {
+		return nil, err
+	}
+	// TODO(rog) move the CheckProvisioned test into
+	// this method when it's implemented in the API
+	return m, nil
+}
+
 func (a *MachineAgent) Tag() string {
 	return state.MachineTag(a.MachineId)
-}
-
-func (a *MachineAgent) Tomb() *tomb.Tomb {
-	return &a.tomb
-}
-
-// maybeStartAPIServer starts the API server if necessary.
-func (a *MachineAgent) maybeRunAPIServer(conf *agent.Conf) error {
-	return runLoop(func() error {
-		return a.maybeRunAPIServerOnce(conf)
-	}, a.tomb.Dying())
-}
-
-// maybeRunAPIServerOnce runs the API server until it dies,
-// but only if the machine is required to run the API server.
-func (a *MachineAgent) maybeRunAPIServerOnce(conf *agent.Conf) error {
-	st, entity, err := openState(conf, a)
-	if err != nil {
-		return err
-	}
-	defer st.Close()
-	m := entity.(*state.Machine)
-	runAPI := false
-	for _, job := range m.Jobs() {
-		if job == state.JobManageState {
-			runAPI = true
-			break
-		}
-	}
-	if !runAPI {
-		// If we don't need to run the API, then we just hang
-		// around indefinitely until asked to stop.
-		<-a.tomb.Dying()
-		return nil
-	}
-	// If the configuration does not have the required information,
-	// it is currently not a recoverable error, so we kill the whole
-	// agent, potentially enabling human intervention to fix
-	// the agent's configuration file. In the future, we may retrieve
-	// the state server certificate and key from the state, and
-	// this should then change.
-	if len(conf.StateServerCert) == 0 || len(conf.StateServerKey) == 0 {
-		return &fatalError{"configuration does not have state server cert/key"}
-	}
-	log.Infof("running API server job")
-	srv, err := apiserver.NewServer(st, fmt.Sprintf(":%d", conf.APIPort), conf.StateServerCert, conf.StateServerKey)
-	if err != nil {
-		return err
-	}
-	select {
-	case <-a.tomb.Dying():
-	case <-srv.Dead():
-		log.Noticef("API server has died: %v", srv.Stop())
-	}
-	return srv.Stop()
 }

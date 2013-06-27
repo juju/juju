@@ -201,20 +201,19 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	return cmds, nil
 }
 
-// OpenState tries to open the state using the given Conf.  If it
+// OpenAPI tries to open the state using the given Conf.  If it
 // returns a non-empty newPassword, the password used to connect
 // to the state should be changed accordingly - the caller should write the
 // configuration with StateInfo.Password set to newPassword, then
 // set the entity's password accordingly.
-func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
-	info := *c.StateInfo
-	opts := state.DefaultDialOpts()
+func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
+	info := *c.APIInfo
 	if info.Password != "" {
-		st, err := state.Open(&info, opts)
+		st, err := api.Open(&info, dialOpts)
 		if err == nil {
 			return st, "", nil
 		}
-		if !errors.IsUnauthorizedError(err) {
+		if api.ErrCode(err) != api.CodeUnauthorized {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password
@@ -223,7 +222,7 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		// with the old password.
 	}
 	info.Password = c.OldPassword
-	st, err = state.Open(&info, opts)
+	st, err = api.Open(&info, dialOpts)
 	if err != nil {
 		return nil, "", err
 	}
@@ -235,4 +234,22 @@ func (c *Conf) OpenState() (st *state.State, newPassword string, err error) {
 		return nil, "", err
 	}
 	return st, password, nil
+}
+
+// OpenState tries to open the state using the given Conf.
+func (c *Conf) OpenState() (*state.State, error) {
+	info := *c.StateInfo
+	if info.Password != "" {
+		st, err := state.Open(&info, state.DefaultDialOpts())
+		if err == nil {
+			return st, nil
+		}
+		// TODO(rog) remove this fallback behaviour when
+		// all initial connections are via the API.
+		if !errors.IsUnauthorizedError(err) {
+			return nil, err
+		}
+	}
+	info.Password = c.OldPassword
+	return state.Open(&info, state.DefaultDialOpts())
 }

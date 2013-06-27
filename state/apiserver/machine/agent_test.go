@@ -41,7 +41,6 @@ func (s *agentSuite) TestGetMachines(c *C) {
 	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1", "0", "42"},
 	})
-	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{{
 			Life: "dying",

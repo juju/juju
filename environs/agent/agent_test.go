@@ -17,7 +17,9 @@ import (
 	stdtesting "testing"
 )
 
-type suite struct{}
+type suite struct {
+	coretesting.LoggingSuite
+}
 
 func Test(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -333,12 +335,9 @@ func (s *openSuite) TestOpenStateNormal(c *C) {
 		StateInfo: s.StateInfo(c),
 	}
 	conf.OldPassword = "irrelevant"
-
-	st, newPassword, err := conf.OpenState()
+	st, err := conf.OpenState()
 	c.Assert(err, IsNil)
-	defer st.Close()
-	c.Assert(newPassword, Equals, "")
-	c.Assert(st, NotNil)
+	st.Close()
 }
 
 func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
@@ -348,15 +347,10 @@ func (s *openSuite) TestOpenStateFallbackPassword(c *C) {
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = "not the right password"
 
-	st, newPassword, err := conf.OpenState()
+	st, err := conf.OpenState()
 	c.Assert(err, IsNil)
-	defer st.Close()
-	c.Assert(newPassword, Matches, ".+")
 	c.Assert(st, NotNil)
-	p, err := utils.RandomPassword()
-	c.Assert(err, IsNil)
-	c.Assert(newPassword, HasLen, len(p))
-	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
+	st.Close()
 }
 
 func (s *openSuite) TestOpenStateNoPassword(c *C) {
@@ -366,7 +360,33 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = ""
 
-	st, newPassword, err := conf.OpenState()
+	st, err := conf.OpenState()
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	st.Close()
+}
+
+func (s *openSuite) TestOpenAPINormal(c *C) {
+	conf := agent.Conf{
+		APIInfo: s.APIInfo(c),
+	}
+	conf.OldPassword = "irrelevant"
+
+	st, newPassword, err := conf.OpenAPI(api.DialOpts{})
+	c.Assert(err, IsNil)
+	defer st.Close()
+	c.Assert(newPassword, Equals, "")
+	c.Assert(st, NotNil)
+}
+
+func (s *openSuite) TestOpenAPIFallbackPassword(c *C) {
+	conf := agent.Conf{
+		APIInfo: s.APIInfo(c),
+	}
+	conf.OldPassword = conf.APIInfo.Password
+	conf.APIInfo.Password = "not the right password"
+
+	st, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, IsNil)
 	defer st.Close()
 	c.Assert(newPassword, Matches, ".+")
@@ -374,5 +394,23 @@ func (s *openSuite) TestOpenStateNoPassword(c *C) {
 	p, err := utils.RandomPassword()
 	c.Assert(err, IsNil)
 	c.Assert(newPassword, HasLen, len(p))
-	c.Assert(conf.OldPassword, Equals, s.StateInfo(c).Password)
+	c.Assert(conf.OldPassword, Equals, s.APIInfo(c).Password)
+}
+
+func (s *openSuite) TestOpenAPINoPassword(c *C) {
+	conf := agent.Conf{
+		APIInfo: s.APIInfo(c),
+	}
+	conf.OldPassword = conf.APIInfo.Password
+	conf.APIInfo.Password = ""
+
+	st, newPassword, err := conf.OpenAPI(api.DialOpts{})
+	c.Assert(err, IsNil)
+	defer st.Close()
+	c.Assert(newPassword, Matches, ".+")
+	c.Assert(st, NotNil)
+	p, err := utils.RandomPassword()
+	c.Assert(err, IsNil)
+	c.Assert(newPassword, HasLen, len(p))
+	c.Assert(conf.OldPassword, Equals, s.APIInfo(c).Password)
 }
