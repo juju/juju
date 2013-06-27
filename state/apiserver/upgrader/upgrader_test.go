@@ -24,6 +24,7 @@ type upgraderSuite struct {
 	rawMachine *state.Machine
 	upgrader   *upgrader.UpgraderAPI
 	resources  apitesting.FakeResourceRegistry
+	authorizer apitesting.FakeAuthorizer
 }
 
 var _ = Suite(&upgraderSuite{})
@@ -39,7 +40,15 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
-	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources)
+	// The default auth is as the machine agent
+	s.authorizer = apitesting.FakeAuthorizer{
+		Tag:          s.rawMachine.Tag(),
+		LoggedIn:     true,
+		Manager:      false,
+		MachineAgent: true,
+		Client:       false,
+	}
+	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
 	c.Assert(err, IsNil)
 }
 
@@ -82,4 +91,33 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	case <-time.After(50 * time.Millisecond):
 		c.Fatal("timeout waiting for entity watcher")
 	}
+}
+
+func (s *upgraderSuite) TestWatchAPIVersionRefusesNonAgent(c *C) {
+	// We aren't even a machine agent
+	anAuthorizer := s.authorizer
+	anAuthorizer.MachineAgent = false
+	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, NotNil)
+	c.Check(anUpgrader, IsNil)
+	c.Assert(err, ErrorMatches, "permission denied")
+}
+
+func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
+	// We are a machine agent, but not the one we are trying to track
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-12354"
+	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, IsNil)
+	args := params.Agents{
+		Tags: []string{s.rawMachine.Tag()},
+	}
+	results, err := anUpgrader.WatchAPIVersion(args)
+	// It is not an error to make the request, but the specific item is rejected
+	c.Assert(err, IsNil)
+	c.Check(results.Results, HasLen, 1)
+	c.Check(results.Results[0].EntityWatcherId, Equals, "")
+	c.Assert(results.Results[0].Error, NotNil)
+	err = *results.Results[0].Error
+	c.Check(err, ErrorMatches, "permission denied")
 }

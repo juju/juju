@@ -11,13 +11,22 @@ import (
 
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
-	st        *state.State
-	resources common.ResourceRegistry
+	st         *state.State
+	resources  common.ResourceRegistry
+	authorizer common.Authorizer
 }
 
 // New creates a new client-side UpgraderAPI facade.
-func NewUpgraderAPI(st *state.State, resources common.ResourceRegistry) (*UpgraderAPI, error) {
-	return &UpgraderAPI{st: st, resources: resources}, nil
+func NewUpgraderAPI(
+	st *state.State,
+	resources common.ResourceRegistry,
+	authorizer common.Authorizer,
+) (*UpgraderAPI, error) {
+	// TODO: Unit agents are also allowed to use this API
+	if !authorizer.AuthMachineAgent() {
+		return nil, common.ErrPerm
+	}
+	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
 }
 
 const machineTagPrefix = "machine-"
@@ -28,15 +37,17 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchRes
 	result := params.EntityWatchResults{
 		Results: make([]params.EntityWatchResult, len(args.Tags)),
 	}
-	for i, _ := range args.Tags {
+	for i, tag := range args.Tags {
 		var err error
-		//if tag[:len(machineTagPrefix)] == machineTagPrefix {
-		//    agent, err := u.st.Machine(state.MachineIdFromTag(tag))
-		//    // TODO: Auth Check for ownership
-		//}
-		envWatcher := u.st.WatchEnvironConfig()
-		result.Results[i].EntityWatcherId = u.resources.Register(envWatcher)
+		if !u.authorizer.AuthOwner(tag) {
+			err = common.ErrPerm
+		} else {
+			envWatcher := u.st.WatchEnvironConfig()
+			result.Results[i].EntityWatcherId = u.resources.Register(envWatcher)
+		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
+
+// Find the Tools necessary for a given agent
