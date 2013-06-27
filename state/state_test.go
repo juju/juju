@@ -1666,7 +1666,7 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	// Check one event.
 	wc.AssertOneChange(wordpressName)
 
-	// Two events: destroy a unit and increase minimum units for a service.
+	// Two actions: destroy a unit and increase minimum units for a service.
 	err = wordpress.SetMinUnits(5)
 	c.Assert(err, IsNil)
 	err = wordpress1.Destroy()
