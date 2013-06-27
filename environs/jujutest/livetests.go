@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	. "launchpad.net/juju-core/juju/testing/checkers"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -357,9 +358,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	m0, err := conn.State.Machine("0")
 	c.Assert(err, IsNil)
 
-	instId0, ok, err := m0.InstanceId()
+	instId0, err := m0.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, true)
 
 	// Check that the API connection is working.
 	status, err := apiConn.State.Client().Status()
@@ -400,9 +400,8 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
-	instId1, ok, err := m1.InstanceId()
+	instId1, err := m1.InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, true)
 	uw := newUnitToolWaiter(unit)
 	defer uw.Stop()
 	utools := waitAgentTools(c, uw, expectedVersion)
@@ -619,9 +618,9 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 	for a := waitAgent.Start(); a.Next(); {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
-		instId, ok, err := m.InstanceId()
-		c.Assert(err, IsNil)
-		if !ok {
+		instId, err := m.InstanceId()
+		if err != nil {
+			c.Assert(state.IsNotProvisionedError(err), IsTrue)
 			continue
 		}
 		_, err = t.Env.Instances([]instance.Id{instId})
@@ -659,9 +658,9 @@ func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
 		var ok bool
-		gotId, ok, err = m.InstanceId()
-		c.Assert(err, IsNil)
-		if !ok {
+		gotId, err = m.InstanceId()
+		if err != nil {
+			c.Assert(state.IsNotProvisionedError(err), IsTrue)
 			if inst == nil {
 				return
 			}
