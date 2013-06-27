@@ -6,11 +6,15 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
+
+	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/loggo"
 )
+
+var logger = loggo.GetLogger("juju.environs")
 
 // environ holds information about one environment.
 type environ struct {
@@ -145,18 +149,18 @@ func ReadEnvirons(path string) (*Environs, error) {
 func WriteEnvirons(path string, fileContents string) (string, error) {
 	environsFilepath := environsPath(path)
 	environsDir := filepath.Dir(environsFilepath)
-	_, err := os.Lstat(environsDir)
-	if err == nil {
-		if err := os.Chmod(environsDir, 0700); err != nil {
+	var info os.FileInfo
+	var err error
+	if info, err = os.Lstat(environsDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(environsDir, 0700); err != nil {
 			return "", err
 		}
-	} else if os.IsNotExist(err) {
-		if err := os.MkdirAll(environsDir, 0700); err != nil {
-			return "", err
-		}
-	} else {
+	} else if err != nil {
 		return "", err
+	} else if info.Mode().Perm() != 0700 {
+		logger.Warningf("permission of %q is %q", environsDir, info.Mode().Perm())
 	}
+
 	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0600); err != nil {
 		return "", err
 	}

@@ -76,7 +76,7 @@ type MachineConfig struct {
 
 	// MachineContainerType specifies the type of container that the machine
 	// is.  If the machine is not a container, then the type is "".
-	MachineContainerType string
+	MachineContainerType state.ContainerType
 
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -121,7 +121,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	c.AddPackage("git")
 	// Perfectly reasonable to install lxc on environment instances and kvm
 	// containers.
-	if cfg.MachineContainerType != "lxc" {
+	if cfg.MachineContainerType != state.LXC {
 		c.AddPackage("lxc")
 	}
 
@@ -247,10 +247,11 @@ func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
 		APIPort:         cfg.APIPort,
 		MachineNonce:    cfg.MachineNonce,
 	}
+	c.OldPassword = cfg.StateInfo.Password
+
 	c.StateInfo.Addrs = cfg.stateHostAddrs()
 	c.StateInfo.Tag = tag
 	c.StateInfo.Password = ""
-	c.OldPassword = cfg.StateInfo.Password
 
 	c.APIInfo.Addrs = cfg.apiHostAddrs()
 	c.APIInfo.Tag = tag

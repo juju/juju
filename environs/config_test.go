@@ -157,18 +157,51 @@ environments:
 	path := testing.HomePath(".juju", "environments.yaml")
 	c.Assert(path, Equals, outfile)
 
-	info, err := os.Lstat(path)
-	c.Assert(err, IsNil)
-	c.Assert(uint32(info.Mode().Perm()), Equals, uint32(0600))
-	info, err = os.Lstat(filepath.Dir(path))
-	c.Assert(err, IsNil)
-	c.Assert(uint32(info.Mode().Perm()), Equals, uint32(0700))
-
 	es, err := environs.ReadEnvirons("")
 	c.Assert(err, IsNil)
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "only")
+}
+
+func (suite) TestConfigDirPerm(c *C) {
+	defer testing.MakeEmptyFakeHomeWithoutJuju(c).Restore()
+
+	env := `
+environments:
+    only:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+	outfile, err := environs.WriteEnvirons("", env)
+	c.Assert(err, IsNil)
+	path := testing.HomePath(".juju", "environments.yaml")
+	c.Assert(path, Equals, outfile)
+
+	info, err := os.Lstat(filepath.Dir(path))
+	c.Assert(err, IsNil)
+	c.Assert(uint32(info.Mode().Perm()), Equals, uint32(0700))
+}
+
+func (suite) TestConfigFilePerm(c *C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+
+	env := `
+environments:
+    only:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+	outfile, err := environs.WriteEnvirons("", env)
+	c.Assert(err, IsNil)
+	path := testing.HomePath(".juju", "environments.yaml")
+	c.Assert(path, Equals, outfile)
+
+	info, err := os.Lstat(path)
+	c.Assert(err, IsNil)
+	c.Assert(uint32(info.Mode().Perm()), Equals, uint32(0600))
 }
 
 func (suite) TestNamedConfigFile(c *C) {

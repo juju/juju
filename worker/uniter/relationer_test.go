@@ -349,7 +349,7 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 	s.State.StartSync()
 	select {
 	case hi, ok := <-s.hooks:
-		c.Fatalf("got unexpected hook info %#v (%b)", hi, ok)
+		c.Fatalf("got unexpected hook info %#v (%t)", hi, ok)
 	case <-time.After(100 * time.Millisecond):
 	}
 }

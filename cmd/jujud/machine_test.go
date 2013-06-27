@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -26,6 +27,7 @@ import (
 
 type MachineSuite struct {
 	agentSuite
+	lxc.TestSuite
 	oldCacheDir string
 }
 
@@ -33,12 +35,24 @@ var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpSuite(c *C) {
 	s.agentSuite.SetUpSuite(c)
+	s.TestSuite.SetUpSuite(c)
 	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *MachineSuite) TearDownSuite(c *C) {
 	charm.CacheDir = s.oldCacheDir
+	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
+}
+
+func (s *MachineSuite) SetUpTest(c *C) {
+	s.agentSuite.SetUpTest(c)
+	s.TestSuite.SetUpTest(c)
+}
+
+func (s *MachineSuite) TearDownTest(c *C) {
+	s.TestSuite.TearDownTest(c)
+	s.agentSuite.TearDownTest(c)
 }
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
@@ -49,7 +63,7 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
-	err = m.SetPassword("machine-api-password")
+	err = m.SetPassword("machine-password")
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
 	conf.MachineNonce = state.BootstrapNonce
@@ -136,7 +150,6 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 	defer func() {
 		c.Check(a.Stop(), IsNil)
 	}()
-	time.Sleep(1 * time.Second)
 	err := m.Destroy()
 	c.Assert(err, IsNil)
 	select {
@@ -273,14 +286,12 @@ func (s *MachineSuite) TestUpgrade(c *C) {
 	s.testUpgrade(c, a, currentTools)
 }
 
+// addAPIInfo adds information to the agent's configuration
+// for serving the API.
 func addAPIInfo(conf *agent.Conf, m *state.Machine) {
 	port := testing.FindTCPPort()
-	conf.APIInfo = &api.Info{
-		Addrs:    []string{fmt.Sprintf("localhost:%d", port)},
-		CACert:   []byte(testing.CACert),
-		Tag:      m.Tag(),
-		Password: "machine-api-password",
-	}
+	conf.APIInfo.Addrs = []string{fmt.Sprintf("localhost:%d", port)}
+	conf.APIInfo.CACert = []byte(testing.CACert)
 	conf.StateServerCert = []byte(testing.ServerCert)
 	conf.StateServerKey = []byte(testing.ServerKey)
 	conf.APIPort = port
@@ -309,10 +320,18 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	// This just verifies we can log in successfully.
 	m, err := st.Machiner().Machine(stm.Id())
 	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Life("alive"))
+	c.Assert(m.Life(), Equals, params.Alive)
 
 	err = a.Stop()
-	c.Assert(err, IsNil)
+	// When shutting down, the API server can be shut down before
+	// the other workers that connect to it, so they get an error so
+	// they then die, causing Stop to return an error.  It's not
+	// easy to control the actual error that's received in this
+	// circumstance so we just log it rather than asserting that it
+	// is not nil.
+	if err != nil {
+		c.Logf("error shutting down: %v", err)
+	}
 
 	select {
 	case err := <-done:
@@ -374,10 +393,7 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 	panic("not reached")
 }
 
-func (s *MachineSuite) TestChangePasswordChanging(c *C) {
+func (s *MachineSuite) TestOpenAPIState(c *C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	newAgent := func() runner {
-		return s.newAgent(c, m)
-	}
-	s.testAgentPasswordChanging(c, m, newAgent)
+	s.testOpenAPIState(c, m, s.newAgent(c, m))
 }
