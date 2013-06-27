@@ -18,17 +18,17 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
 var _ Broker = (*lxcBroker)(nil)
 
-func NewLxcBroker(factory golxc.ContainerFactory, config *config.Config, tools *state.Tools) Broker {
+var lxcFactory = golxc.Factory()
+
+func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
 	return &lxcBroker{
-		golxc:   factory,
-		manager: lxc.NewContainerManager(factory, "juju"),
+		manager: lxc.NewContainerManager(lxcFactory, "juju"),
 		config:  config,
 		tools:   tools,
 	}
 }
 
 type lxcBroker struct {
-	golxc   golxc.ContainerFactory
 	manager lxc.ContainerManager
 	config  *config.Config
 	tools   *state.Tools
@@ -42,6 +42,7 @@ func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series st
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err
 	}
+	lxcLogger.Infof("started lxc container for machineId: %s, %s", machineId, inst.Id())
 	return inst, nil, nil
 }
 

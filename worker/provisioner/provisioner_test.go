@@ -30,10 +30,14 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type ProvisionerSuite struct {
+type CommonProvisionerSuite struct {
 	testing.JujuConnSuite
 	op  <-chan dummy.Operation
 	cfg *config.Config
+}
+
+type ProvisionerSuite struct {
+	CommonProvisionerSuite
 }
 
 var _ = Suite(&ProvisionerSuite{})
@@ -45,7 +49,7 @@ var veryShortAttempt = utils.AttemptStrategy{
 
 var _ worker.Worker = (*provisioner.Provisioner)(nil)
 
-func (s *ProvisionerSuite) SetUpTest(c *C) {
+func (s *CommonProvisionerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Create the operations channel with more than enough space
 	// for those tests that don't listen on it.
@@ -74,7 +78,7 @@ func breakDummyProvider(c *C, st *state.State, environMethod string) string {
 // invalidateEnvironment alters the environment configuration
 // so the Settings returned from the watcher will not pass
 // validation.
-func (s *ProvisionerSuite) invalidateEnvironment(c *C) error {
+func (s *CommonProvisionerSuite) invalidateEnvironment(c *C) error {
 	admindb := s.Session.DB("admin")
 	err := admindb.Login("admin", testing.AdminSecret)
 	if err != nil {
@@ -86,7 +90,7 @@ func (s *ProvisionerSuite) invalidateEnvironment(c *C) error {
 }
 
 // fixEnvironment undoes the work of invalidateEnvironment.
-func (s *ProvisionerSuite) fixEnvironment() error {
+func (s *CommonProvisionerSuite) fixEnvironment() error {
 	return s.State.SetEnvironConfig(s.cfg)
 }
 
@@ -100,11 +104,11 @@ func stop(c *C, s stopper) {
 	c.Assert(s.Stop(), IsNil)
 }
 
-func (s *ProvisionerSuite) checkStartInstance(c *C, m *state.Machine) instance.Instance {
+func (s *CommonProvisionerSuite) checkStartInstance(c *C, m *state.Machine) instance.Instance {
 	return s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
 }
 
-func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance instance.Instance) {
 	s.State.StartSync()
 	for {
 		select {
@@ -149,7 +153,7 @@ func (s *ProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secr
 }
 
 // checkNoOperations checks that the environ was not operated upon.
-func (s *ProvisionerSuite) checkNoOperations(c *C) {
+func (s *CommonProvisionerSuite) checkNoOperations(c *C) {
 	s.State.StartSync()
 	select {
 	case o := <-s.op:
@@ -160,7 +164,7 @@ func (s *ProvisionerSuite) checkNoOperations(c *C) {
 }
 
 // checkStopInstances checks that an instance has been stopped.
-func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...instance.Instance) {
+func (s *CommonProvisionerSuite) checkStopInstances(c *C, instances ...instance.Instance) {
 	s.State.StartSync()
 	instanceIds := set.NewStrings()
 	for _, instance := range instances {
@@ -187,7 +191,7 @@ func (s *ProvisionerSuite) checkStopInstances(c *C, instances ...instance.Instan
 	}
 }
 
-func (s *ProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool) {
+func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool) {
 	w := m.Watch()
 	defer stop(c, w)
 	timeout := time.After(500 * time.Millisecond)
@@ -208,7 +212,7 @@ func (s *ProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool
 }
 
 // waitRemoved waits for the supplied machine to be removed from state.
-func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
+func (s *CommonProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 	s.waitMachine(c, m, func() bool {
 		err := m.Refresh()
 		if errors.IsNotFoundError(err) {
@@ -222,7 +226,7 @@ func (s *ProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
-func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
+func (s *CommonProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
 	s.waitMachine(c, m, func() bool {
 		err := m.Refresh()
 		c.Assert(err, IsNil)
@@ -236,7 +240,7 @@ func (s *ProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instanc
 }
 
 func (s *ProvisionerSuite) newEnvironProvisioner(machineId string) *provisioner.Provisioner {
-	return provisioner.NewProvisioner(provisioner.ENVIRON, s.State, machineId)
+	return provisioner.NewProvisioner(provisioner.ENVIRON, s.State, machineId, "")
 }
 
 func (s *ProvisionerSuite) TestProvisionerStartStop(c *C) {

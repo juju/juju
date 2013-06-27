@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package client_test
 
 import (
 	"fmt"
@@ -123,7 +123,7 @@ func (s *baseSuite) openAs(c *C, tag string) *api.State {
 	info.Tag = tag
 	info.Password = fmt.Sprintf("%s password", tag)
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	return st

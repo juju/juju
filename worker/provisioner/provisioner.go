@@ -6,13 +6,13 @@ package provisioner
 import (
 	"fmt"
 	"sync"
-	"time"
 
-	"launchpad.net/golxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
@@ -29,11 +29,17 @@ var (
 	LXC ProvisionerType = "lxc"
 )
 
+// While I'm debugging.
+func init() {
+	logger.SetLogLevel(loggo.TRACE)
+}
+
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	pt        ProvisionerType
 	st        *state.State
 	machineId string // Which machine runs the provisioner.
+	dataDir   string
 	machine   *state.Machine
 	environ   environs.Environ
 	tomb      tomb.Tomb
@@ -58,11 +64,12 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(pt ProvisionerType, st *state.State, machineId string) *Provisioner {
+func NewProvisioner(pt ProvisionerType, st *state.State, machineId, dataDir string) *Provisioner {
 	p := &Provisioner{
 		pt:        pt,
 		st:        st,
 		machineId: machineId,
+		dataDir:   dataDir,
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -129,8 +136,6 @@ func (p *Provisioner) loop() error {
 func (p *Provisioner) getMachine() (*state.Machine, error) {
 	if p.machine == nil {
 		var err error
-		// Give the machiner time to have actually started up and signed in to set tools.
-		time.Sleep(1 * time.Second)
 		if p.machine, err = p.st.Machine(p.machineId); err != nil {
 			logger.Errorf("machine %s is not in state", p.machineId)
 			return nil, err
@@ -158,23 +163,24 @@ func (p *Provisioner) getBroker() (Broker, error) {
 	case ENVIRON:
 		return newEnvironBroker(p.environ), nil
 	case LXC:
-		machine, err := p.getMachine()
-		if err != nil {
-			return nil, err
-		}
-		config, err := p.st.EnvironConfig()
-		if err != nil {
-			logger.Errorf("cannot get environ config for lxc broker")
-			return nil, err
-		}
-		tools, err := machine.AgentTools()
+		config := p.environ.Config()
+		tools, err := p.getAgentTools()
 		if err != nil {
 			logger.Errorf("cannot get tools from machine for lxc broker")
 			return nil, err
 		}
-		return NewLxcBroker(golxc.Factory(), config, tools), nil
+		return NewLxcBroker(config, tools), nil
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
+}
+
+func (p *Provisioner) getAgentTools() (*state.Tools, error) {
+	tools, err := agent.ReadTools(p.dataDir, version.Current)
+	if err != nil {
+		logger.Errorf("cannot read agent tools from %q", p.dataDir)
+		return nil, err
+	}
+	return tools, nil
 }
 
 // setConfig updates the environment configuration and notifies
