@@ -605,20 +605,9 @@ func (e *NotProvisionedError) Error() string {
 	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
 }
 
-// CheckProvisioned returns true if the machine was provisioned with
-// the given nonce.
+// CheckProvisioned returns true if the machine was provisioned with the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
-	// SCHEMACHANGE
-	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
-	// (we first check for InstanceId stored on the machineDoc)
-	if m.doc.InstanceId != "" {
-		return m.doc.Nonce == nonce
-	}
-	instData, err := getInstanceData(m.st, m.Id())
-	if err != nil {
-		return false
-	}
-	return instData.InstanceId != "" && m.doc.Nonce == nonce
+	return m.doc.Nonce == nonce
 }
 
 // String returns a unique description of this machine.

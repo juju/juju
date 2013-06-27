@@ -114,9 +114,6 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 		} else if !state.IsNotProvisionedError(err) {
 			return "", err
 		}
-		// BUG(dfc) this does not refresh the machine, so
-		// this loop will loop forever if it gets to this point.
-		// https://bugs.launchpad.net/juju-core/+bug/1130051
 	}
 	// oops, watcher closed before we could get an answer
 	return "", w.Stop()

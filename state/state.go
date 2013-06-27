@@ -323,7 +323,9 @@ type AddMachineParams struct {
 }
 
 // makeInstanceMetadata returns metadata for a provisioned machine so long as the params InstanceId
-// has a value, else nil is returned.
+// has a value, else nil is returned. This method exists to cater for InjectMachine, which is used to
+// record in state an instantiated bootstrap node. When adding a machine to state so that it is
+// provisioned normally, the instance id is not known at this point.
 func makeInstanceMetadata(params *AddMachineParams) *instanceData {
 	var md *instanceData
 	if params.instanceId != "" {

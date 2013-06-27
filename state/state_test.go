@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 	"net/url"
 	"strconv"
 	"strings"
@@ -960,6 +961,19 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	wc.AssertOneChange()
+
+	// Alter the machine: not reported.
+	tools := &state.Tools{
+		Binary: version.Binary{
+			Number: version.MustParse("1.2.3"),
+			Series: "gutsy",
+			Arch:   "ppc",
+		},
+		URL: "http://canonical.com/",
+	}
+	err = machine.SetAgentTools(tools)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
 }
 
 var sortPortsTests = []struct {

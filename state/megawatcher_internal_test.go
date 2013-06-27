@@ -267,13 +267,6 @@ var allWatcherChangedTests = []struct {
 	},
 	// Machine status changes
 	{
-		about: "no machine in state -> do nothing",
-		setUp: func(c *C, st *State) {},
-		change: watcher.Change{
-			C:  "instanceData",
-			Id: "0",
-		},
-	}, {
 		about: "machine is updated if it's in backing and in Store",
 		add: []params.EntityInfo{
 			&params.MachineInfo{
@@ -289,7 +282,7 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
-			C:  "instanceData",
+			C:  "machines",
 			Id: "0",
 		},
 		expectContents: []params.EntityInfo{
@@ -829,15 +822,14 @@ func setServiceConfigAttr(c *C, svc *Service, attr string, val interface{}) {
 
 func (s *storeManagerStateSuite) TestChanged(c *C) {
 	collections := map[string]*mgo.Collection{
-		"machines":     s.State.machines,
-		"instanceData": s.State.instanceData,
-		"units":        s.State.units,
-		"services":     s.State.services,
-		"relations":    s.State.relations,
-		"annotations":  s.State.annotations,
-		"statuses":     s.State.statuses,
-		"constraints":  s.State.constraints,
-		"settings":     s.State.settings,
+		"machines":    s.State.machines,
+		"units":       s.State.units,
+		"services":    s.State.services,
+		"relations":   s.State.relations,
+		"annotations": s.State.annotations,
+		"statuses":    s.State.statuses,
+		"constraints": s.State.constraints,
+		"settings":    s.State.settings,
 	}
 	for i, test := range allWatcherChangedTests {
 		c.Logf("test %d. %s", i, test.about)
