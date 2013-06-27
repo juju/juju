@@ -110,10 +110,13 @@ func ReadConfig(r io.Reader) (*Config, error) {
 		default:
 			return nil, fmt.Errorf("invalid config: option %q has unknown type %q", name, option.Type)
 		}
-		def := option.Default
-		if option.Default, err = option.validate(name, def); err != nil {
-			option.error(&err, name, def)
-			return nil, fmt.Errorf("invalid config default: %v", err)
+		if !(option.Type == "string" && option.Default == "") {
+			// Empty default string is an exceptional case due to compatability reasons.
+			def := option.Default
+			if option.Default, err = option.validate(name, def); err != nil {
+				option.error(&err, name, def)
+				return nil, fmt.Errorf("invalid config default: %v", err)
+			}
 		}
 		config.Options[name] = option
 	}
