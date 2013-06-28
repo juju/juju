@@ -155,12 +155,10 @@ func (ctx *SimpleContext) findCompatibleUpstartJob(unitName string) *upstart.Ser
 	if err != nil {
 		return nil
 	}
-	for unit, job := range unitsAndJobs {
-		if unit == unitName {
-			svc := upstart.NewService(job)
-			svc.InitDir = ctx.initDir
-			return svc
-		}
+	if job, ok := unitsAndJobs[unitName]; ok {
+		svc := upstart.NewService(job)
+		svc.InitDir = ctx.initDir
+		return svc
 	}
 	return nil
 }

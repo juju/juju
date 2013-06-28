@@ -78,8 +78,6 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *C) {
 	// Trying to recall any units will fail.
 	err = manager.RecallUnit("principal/1")
 	c.Assert(err, ErrorMatches, `unit "principal/1" is not deployed`)
-	err = manager.RecallUnit("subordinate/2")
-	c.Assert(err, ErrorMatches, `unit "subordinate/2" is not deployed`)
 
 	// Simulate some previously deployed units with the old
 	// upstart conf filename format (+deployer tags).
