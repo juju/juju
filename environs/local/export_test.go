@@ -10,11 +10,3 @@ func SetDefaultStorageDirs(public, private string) (oldPublic, oldPrivate string
 	oldPrivate, defaultPrivateStorageDir = defaultPrivateStorageDir, private
 	return
 }
-
-func (c *environConfig) PublicStorageDir() string {
-	return c.publicStorageDir()
-}
-
-func (c *environConfig) PrivateStorageDir() string {
-	return c.privateStorageDir()
-}
