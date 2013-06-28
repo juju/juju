@@ -168,6 +168,9 @@ func (v *Value) setRaw(raw string) error {
 
 // SetYAML is required to unmarshall a constraints.Value object
 // to ensure the container attribute is correctly handled when it is empty.
+// Because ContainerType is an alias for string, Go's reflect logic used in the
+// YAML decode determines that *string and *ContainerType are not assignable so
+// the container value of "" in the YAML is ignored.
 func (v *Value) SetYAML(tag string, value interface{}) bool {
 	values := value.(map[interface{}]interface{})
 	for k, val := range values {

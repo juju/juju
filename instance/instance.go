@@ -11,13 +11,24 @@ import (
 type ContainerType string
 
 const (
-	LXC = ContainerType("lxc")
-	KVM = ContainerType("kvm")
+	NONE = ContainerType("none")
+	LXC  = ContainerType("lxc")
+	KVM  = ContainerType("kvm")
 )
 
 // SupportedContainerTypes is used to validate add-machine arguments.
 var SupportedContainerTypes []ContainerType = []ContainerType{
 	LXC,
+}
+
+// ParseSupportedContainerType converts the specified string into a supported
+// ContainerType instance or returns an error if the container type is invalid.
+// For this version of the function, 'none' is a valid value.
+func ParseSupportedContainerTypeOrNone(ctype string) (ContainerType, error) {
+	if ContainerType(ctype) == NONE {
+		return NONE, nil
+	}
+	return ParseSupportedContainerType(ctype)
 }
 
 // ParseSupportedContainerType converts the specified string into a supported

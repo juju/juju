@@ -287,6 +287,11 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, contain
 	sdoc := statusDoc{
 		Status: params.StatusPending,
 	}
+	// Machine constraints do not use a container constraint value.
+	// Both provisioning and deployment constraints use the same constraints.Value struct
+	// so here we clear the container value. Provisioning ignores the container value but
+	// clearing it avoids potential confusion.
+	cons.Container = instance.ContainerType("")
 	ops := []txn.Op{
 		{
 			C:      st.machines.Name,
