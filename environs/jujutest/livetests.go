@@ -482,8 +482,9 @@ func (t *LiveTests) TestCheckEnvironmentOnCommand(c *C) {
 	c.Assert(err, IsNil)
 	defer apiConn.Close()
 
-	_, err = apiConn.State.Client().Status()
+	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
+	defer conn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnCommandNoVerificationFile(c *C) {
@@ -502,8 +503,9 @@ func (t *LiveTests) TestCheckEnvironmentOnCommandNoVerificationFile(c *C) {
 	c.Assert(err, IsNil)
 	defer apiConn.Close()
 
-	_, err = apiConn.State.Client().Status()
+	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
+	defer conn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnCommandBadVerificationFile(c *C) {
@@ -536,9 +538,10 @@ func (t *LiveTests) TestCheckEnvironmentOnCommandBadVerificationFile(c *C) {
 	c.Assert(err, IsNil)
 	defer apiConn.Close()
 
-	// Running Status() command should fail.
-	_, err = apiConn.State.Client().Status()
-	c.Assert(err, IsNil)
+	// Running NewConn() should fail.
+	conn, err := juju.NewConn(t.Env)
+	c.Assert(err, Equals, environs.InvalidEnvironmentError)
+	defer conn.Close()
 }
 
 type tooler interface {
