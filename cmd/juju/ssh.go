@@ -29,7 +29,7 @@ type SSHCommon struct {
 
 const sshDoc = `
 Launch an ssh shell on the machine identified by the <service> parameter.
-<service> can be either a machine id or a service name.  Any extra parameters
+<service> can be either a machine id or a unit name.  Any extra parameters
 are treated as extra parameters for the ssh command.
 `
 

@@ -198,10 +198,10 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 	pdb := session.DB("presence")
 	if info.Tag != "" {
 		if err := db.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, "cannot log in to juju database")
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to juju database as %q", info.Tag))
 		}
 		if err := pdb.Login(info.Tag, info.Password); err != nil {
-			return nil, maybeUnauthorized(err, "cannot log in to presence database")
+			return nil, maybeUnauthorized(err, fmt.Sprintf("cannot log in to presence database as %q", info.Tag))
 		}
 	} else if info.Password != "" {
 		admin := session.DB("admin")
@@ -220,6 +220,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),
+		minUnits:       db.C("minunits"),
 		settings:       db.C("settings"),
 		settingsrefs:   db.C("settingsrefs"),
 		constraints:    db.C("constraints"),

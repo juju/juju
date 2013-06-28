@@ -55,16 +55,6 @@ func (e *UpgradeReadyError) ChangeAgentTools() error {
 	return nil
 }
 
-// The AgentState interface is implemented by state types
-// that represent running agents.
-type AgentState interface {
-	// SetAgentTools sets the tools that the agent is currently running.
-	SetAgentTools(tools *state.Tools) error
-	Tag() string
-	SetMongoPassword(password string) error
-	Life() state.Life
-}
-
 // NewUpgrader returns a new Upgrader watching the given agent.
 func NewUpgrader(st *state.State, agentState AgentState, dataDir string) *Upgrader {
 	u := &Upgrader{
