@@ -23,6 +23,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"strings"
 	"time"
 )
 
@@ -469,6 +470,75 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(string(contents), Equals,
 		"juju-core storage writing verified: ok\n")
+}
+
+func (t *LiveTests) TestCheckEnvironmentOnCommand(c *C) {
+	// When any command is executed that needs a bootstrap environment,
+	// it is checked that we are running against a juju-core environment.
+	t.BootstrapOnce(c)
+
+	c.Logf("opening API connection")
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	c.Assert(err, IsNil)
+	defer apiConn.Close()
+
+	_, err = apiConn.State.Client().Status()
+	c.Assert(err, IsNil)
+}
+
+func (t *LiveTests) TestCheckEnvironmentOnCommandNoVerificationFile(c *C) {
+	// When any command is executed that needs a bootstrap environment,
+	// it is checked that we are running against a juju-core environment.
+	//
+	// Absence of a verification file means it is.
+	t.BootstrapOnce(c)
+	environ := t.Env
+	storage := environ.Storage()
+	err := storage.Remove("bootstrap-verify")
+	c.Assert(err, IsNil)
+
+	c.Logf("opening API connection")
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	c.Assert(err, IsNil)
+	defer apiConn.Close()
+
+	_, err = apiConn.State.Client().Status()
+	c.Assert(err, IsNil)
+}
+
+func (t *LiveTests) TestCheckEnvironmentOnCommandBadVerificationFile(c *C) {
+	// When any command is executed that needs a bootstrap environment,
+	// it is checked that we are running against a juju-core environment.
+	//
+	// If the verification file has unexpected content, it is not
+	// a juju-core environment (likely to a Python juju environment).
+	t.BootstrapOnce(c)
+	environ := t.Env
+	storage := environ.Storage()
+
+	// Replace contents of the bootstrap-verify file with an arbitrary
+	// string: Python juju environments will have soemthing similar.
+	verificationFile, err := storage.Get("bootstrap-verify")
+	c.Assert(err, IsNil)
+	defer verificationFile.Close()
+	// Store old contents to be able to restore it since we BootstrapOnce.
+	//oldContents, err := ioutil.ReadAll(verificationFile)
+	//c.Assert(err, IsNil)
+	// Finally, replace the content with an arbitrary string.
+	verificationContent := "bootstrap storage verification"
+	reader := strings.NewReader(verificationContent)
+	err = storage.Put("bootstrap-verify", reader,
+		int64(len(verificationContent)))
+	c.Assert(err, IsNil)
+
+	c.Logf("opening API connection")
+	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
+	c.Assert(err, IsNil)
+	defer apiConn.Close()
+
+	// Running Status() command should fail.
+	_, err = apiConn.State.Client().Status()
+	c.Assert(err, IsNil)
 }
 
 type tooler interface {
