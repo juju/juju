@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
@@ -472,6 +473,17 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
 		"juju-core storage writing verified: ok\n")
 }
 
+func restoreBootstrapVerificationFile(storage environs.Storage) error {
+	content := "juju-core storage writing verified: ok\n"
+	contentReader := strings.NewReader(content)
+	err := storage.Put("bootstrap-verify", contentReader,
+		int64(len(content)))
+	if err != nil {
+		log.Debugf("Could not restore bootstrap-verify file.")
+	}
+	return err
+}
+
 func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
 	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
@@ -492,6 +504,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
 	environ := t.Env
 	storage := environ.Storage()
 	err := storage.Remove("bootstrap-verify")
+	defer restoreBootstrapVerificationFile(storage)
 	c.Assert(err, IsNil)
 
 	conn, err := juju.NewConn(t.Env)
@@ -515,8 +528,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 	err := storage.Put("bootstrap-verify", reader,
 		int64(len(badVerificationContent)))
 	c.Assert(err, IsNil)
-	// To avoid messing up other tests, we remove the verification file.
-	defer storage.Remove("bootstrap-verify")
+	defer restoreBootstrapVerificationFile(storage)
 
 	// Running NewConn() should fail.
 	_, err = juju.NewConn(t.Env)

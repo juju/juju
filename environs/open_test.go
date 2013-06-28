@@ -93,7 +93,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *checkEnvironmentSuite) TestCheckEnvironmentNotFound(c *C) {
+func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
 	environ, err := environs.NewFromName("test")
