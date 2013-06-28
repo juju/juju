@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"io"
+	"io/ioutil"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"strings"
@@ -17,11 +18,18 @@ var EmptyStorage StorageReader = emptyStorage{}
 
 type emptyStorage struct{}
 
+// File named `verificationFilename` in the storage will contain
+// `verificationContent`.  This is also used to differentiate between
+// Python Juju and juju-core environments, so change the content with
+// care (and update CheckEnvironment below when you do that).
 const verificationFilename string = "bootstrap-verify"
 const verificationContent = "juju-core storage writing verified: ok\n"
 
 var VerifyStorageError error = fmt.Errorf(
 	"provider storage is not writable")
+
+var InvalidEnvironmentError error = fmt.Errorf(
+	"Environment is not a juju-core environment")
 
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 	return nil, errors.NotFoundf("file %q", name)
@@ -46,4 +54,31 @@ func VerifyStorage(storage Storage) error {
 		return VerifyStorageError
 	}
 	return nil
+}
+
+// Checks if an environment has a bootstrap-verify that is written by
+// juju-core commands (as compared to one being written by Python juju).
+//
+// If there is no bootstrap-verify file in the storage, it is still
+// considered to be a Juju-core environment since early versions have
+// not written it out.
+//
+// Returns InvalidEnvironmentError on failure, nil otherwise.
+func CheckEnvironment(storage Storage) error {
+	reader, err := storage.Get(verificationFilename)
+	if errors.IsNotFoundError(err) {
+		// When verification file does not exist, this is a juju-core
+		// environment.
+		return nil
+	} else if err == nil {
+		content, err := ioutil.ReadAll(reader)
+		if err == nil && string(content) == verificationContent {
+			// Content matches what juju-core puts in the
+			// verificationFilename.
+			return nil
+		}
+	} else {
+		fmt.Printf("%v\n", err)
+	}
+	return InvalidEnvironmentError
 }
