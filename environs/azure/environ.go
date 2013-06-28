@@ -142,7 +142,7 @@ func (env *azureEnviron) instances(ids []instance.Id) ([]instance.Instance, erro
 	// Convert gwacl's deployments into instance.Instance objects.
 	instances := make([]instance.Instance, len(deployments))
 	for i, deployment := range deployments {
-		instances[i] = &azureInstance{deployment: deployment}
+		instances[i] = &azureInstance{deployment}
 	}
 
 	// Check if we got a partial result.

@@ -9,7 +9,7 @@ import (
 )
 
 type azureInstance struct {
-	deployment gwacl.Deployment
+	gwacl.Deployment
 }
 
 // azureInstance implements Instance.
@@ -17,12 +17,12 @@ var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
 func (azInstance *azureInstance) Id() instance.Id {
-	return instance.Id(azInstance.deployment.Name)
+	return instance.Id(azInstance.Name)
 }
 
 // DNSName is specified in the Instance interface.
 func (azInstance *azureInstance) DNSName() (string, error) {
-	return azInstance.deployment.GetFQDN()
+	return azInstance.GetFQDN()
 }
 
 // WaitDNSName is specified in the Instance interface.

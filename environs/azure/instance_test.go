@@ -23,19 +23,19 @@ var testDeployment = gwacl.Deployment{
 }
 
 func (StorageSuite) TestId(c *C) {
-	azInstance := azureInstance{deployment: testDeployment}
+	azInstance := azureInstance{testDeployment}
 	c.Check(azInstance.Id(), Equals, instance.Id(deploymentName))
 }
 
 func (StorageSuite) TestDNSName(c *C) {
-	azInstance := azureInstance{deployment: testDeployment}
+	azInstance := azureInstance{testDeployment}
 	dnsName, err := azInstance.DNSName()
 	c.Assert(err, IsNil)
 	c.Check(dnsName, Equals, deploymentFQDN)
 }
 
 func (StorageSuite) TestWaitDNSName(c *C) {
-	azInstance := azureInstance{deployment: testDeployment}
+	azInstance := azureInstance{testDeployment}
 	dnsName, err := azInstance.WaitDNSName()
 	c.Assert(err, IsNil)
 	c.Check(dnsName, Equals, deploymentFQDN)
