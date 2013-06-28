@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -60,4 +61,67 @@ func (OpenSuite) TestNewFromNameGetDefault(c *C) {
 	e, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "erewhemos")
+}
+
+const checkEnv = `
+environments:
+    test2:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+
+type checkEnvironmentSuite struct{}
+
+var _ = Suite(&checkEnvironmentSuite{})
+
+func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test2")
+	c.Assert(err, IsNil)
+	// VerifyStorage is sufficient for our tests and much simpler
+	// than Bootstrap which calls it.
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, IsNil)
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test2")
+	c.Assert(err, IsNil)
+	// VerifyStorage is sufficient for our tests and much simpler
+	// than Bootstrap which calls it.
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	// When the bootstrap-verify file does not exist, it still believes
+	// the environment is a juju-core one because earlier versions
+	// did not create that file.
+	err = storage.Remove("bootstrap-verify")
+	c.Assert(err, IsNil)
+	err = environs.CheckEnvironment(environ)
+	// XXX 2013-06-28 Danilo: if this test runs after GetFails test,
+	// it will fail because storage will already be poisoned!!!
+	c.Assert(err, IsNil)
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test2")
+	c.Assert(err, IsNil)
+	// VerifyStorage is sufficient for our tests and much simpler
+	// than Bootstrap which calls it.
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	// When fetching the verification file from storage fails,
+	// we get an InvalidEnvironmentError.
+	someError := errors.Unauthorizedf("you shall not pass")
+	dummy.Poison(storage, "bootstrap-verify", someError)
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, Equals, environs.InvalidEnvironmentError)
 }
