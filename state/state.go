@@ -291,7 +291,7 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, contain
 	// Both provisioning and deployment constraints use the same constraints.Value struct
 	// so here we clear the container value. Provisioning ignores the container value but
 	// clearing it avoids potential confusion.
-	cons.Container = instance.ContainerType("")
+	cons.Container = nil
 	ops := []txn.Op{
 		{
 			C:      st.machines.Name,
