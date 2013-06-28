@@ -64,7 +64,8 @@ func VerifyStorage(storage Storage) error {
 // not written it out.
 //
 // Returns InvalidEnvironmentError on failure, nil otherwise.
-func CheckEnvironment(storage Storage) error {
+func CheckEnvironment(environ Environ) error {
+	storage := environ.Storage()
 	reader, err := storage.Get(verificationFilename)
 	if errors.IsNotFoundError(err) {
 		// When verification file does not exist, this is a juju-core

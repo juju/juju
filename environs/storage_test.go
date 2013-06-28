@@ -86,8 +86,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
 
 	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
-	storage := environ.Storage()
-	err = environs.CheckEnvironment(storage)
+	err = environs.CheckEnvironment(environ)
 	c.Assert(err, IsNil)
 }
 
@@ -102,7 +101,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
 	// did not create that file.
 	err = storage.Remove("bootstrap-verify")
 	c.Assert(err, IsNil)
-	err = environs.CheckEnvironment(storage)
+	err = environs.CheckEnvironment(environ)
 	c.Assert(err, IsNil)
 }
 
@@ -116,6 +115,6 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *C) {
 	// we get an InvalidEnvironmentError.
 	someError := errors.Unauthorizedf("you shall not pass")
 	dummy.Poison(storage, "bootstrap-verify", someError)
-	err = environs.CheckEnvironment(storage)
+	err = environs.CheckEnvironment(environ)
 	c.Assert(err, Equals, environs.InvalidEnvironmentError)
 }
