@@ -120,6 +120,11 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	return env.instances([]instance.Id{})
 }
 
+// instances is an internal method which returns the instances matching the
+// given instance ids or all the instances if 'ids' is empty.
+// If the some of the intances could not be found, it returns the instance
+// that could be found plus the error environs.ErrPartialInstances in the error
+// return.
 func (env *azureEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	// Acquire management API object.
 	context, err := env.getManagementAPI()

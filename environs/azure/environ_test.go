@@ -106,19 +106,20 @@ var propertiesS1 = gwacl.HostedService{
 	},
 }
 
-func (EnvironSuite) preparePropertiesResponse(c *C) []gwacl.DispatcherResponse {
+func patchWithPropertiesResponse(c *C) *[]*gwacl.X509Request {
 	propertiesS1XML, err := propertiesS1.Serialize()
 	c.Assert(err, IsNil)
-	return []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
+	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
 		[]byte(propertiesS1XML),
 		http.StatusOK,
 		nil,
 	)}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	return requests
 }
 
 func (suite EnvironSuite) TestAllInstances(c *C) {
-	responses := suite.preparePropertiesResponse(c)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+	requests := patchWithPropertiesResponse(c)
 	env := makeEnviron(c)
 	instances, err := env.AllInstances()
 	c.Assert(err, IsNil)
@@ -127,8 +128,7 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 }
 
 func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
-	responses := suite.preparePropertiesResponse(c)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+	requests := patchWithPropertiesResponse(c)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1"})
 	c.Assert(err, IsNil)
@@ -138,8 +138,7 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 }
 
 func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
-	responses := suite.preparePropertiesResponse(c)
-	gwacl.PatchManagementAPIResponses(responses)
+	patchWithPropertiesResponse(c)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{})
 	c.Assert(err, IsNil)
@@ -147,8 +146,7 @@ func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
 }
 
 func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
-	responses := suite.preparePropertiesResponse(c)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+	requests := patchWithPropertiesResponse(c)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
