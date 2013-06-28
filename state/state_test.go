@@ -953,10 +953,10 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
 	c.Assert(err, IsNil)
 	w, err := machine.WatchHardwareCharacteristics()
 	c.Assert(err, IsNil)
-	defer AssertStop(c, w)
+	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Provision a machine: reported.

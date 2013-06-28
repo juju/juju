@@ -325,13 +325,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), Equals, "")
 }
 
@@ -347,7 +347,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), Equals, "")
 }
 
