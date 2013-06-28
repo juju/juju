@@ -472,23 +472,18 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func (t *LiveTests) TestCheckEnvironmentOnCommand(c *C) {
-	// When any command is executed that needs a bootstrap environment,
+func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
+	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
 	t.BootstrapOnce(c)
-
-	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
-	c.Assert(err, IsNil)
-	defer apiConn.Close()
 
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 }
 
-func (t *LiveTests) TestCheckEnvironmentOnCommandNoVerificationFile(c *C) {
-	// When any command is executed that needs a bootstrap environment,
+func (t *LiveTests) TestCheckEnvironmentOnConnextNoVerificationFile(c *C) {
+	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
 	//
 	// Absence of a verification file means it is.
@@ -498,18 +493,13 @@ func (t *LiveTests) TestCheckEnvironmentOnCommandNoVerificationFile(c *C) {
 	err := storage.Remove("bootstrap-verify")
 	c.Assert(err, IsNil)
 
-	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
-	c.Assert(err, IsNil)
-	defer apiConn.Close()
-
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
 	defer conn.Close()
 }
 
-func (t *LiveTests) TestCheckEnvironmentOnCommandBadVerificationFile(c *C) {
-	// When any command is executed that needs a bootstrap environment,
+func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
+	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
 	//
 	// If the verification file has unexpected content, it is not
@@ -518,25 +508,14 @@ func (t *LiveTests) TestCheckEnvironmentOnCommandBadVerificationFile(c *C) {
 	environ := t.Env
 	storage := environ.Storage()
 
-	// Replace contents of the bootstrap-verify file with an arbitrary
-	// string: Python juju environments will have soemthing similar.
-	verificationFile, err := storage.Get("bootstrap-verify")
-	c.Assert(err, IsNil)
-	defer verificationFile.Close()
-	// Store old contents to be able to restore it since we BootstrapOnce.
-	//oldContents, err := ioutil.ReadAll(verificationFile)
-	//c.Assert(err, IsNil)
 	// Finally, replace the content with an arbitrary string.
-	verificationContent := "bootstrap storage verification"
-	reader := strings.NewReader(verificationContent)
-	err = storage.Put("bootstrap-verify", reader,
-		int64(len(verificationContent)))
+	badVerificationContent := "bootstrap storage verification"
+	reader := strings.NewReader(badVerificationContent)
+	err := storage.Put("bootstrap-verify", reader,
+		int64(len(badVerificationContent)))
 	c.Assert(err, IsNil)
-
-	c.Logf("opening API connection")
-	apiConn, err := juju.NewAPIConn(t.Env, api.DefaultDialOpts())
-	c.Assert(err, IsNil)
-	defer apiConn.Close()
+	// To avoid messing up other tests, we remove the verification file.
+	defer storage.Remove("bootstrap-verify")
 
 	// Running NewConn() should fail.
 	conn, err := juju.NewConn(t.Env)
