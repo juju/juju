@@ -16,17 +16,14 @@ bzr-checkout() {
 # hg-checkout $SOURCE_URL $TAG $TARGET_DIR
 hg-checkout() {
 	echo "cloning $1 at revision $2"
-	hg clone -q -r $2 $1 $WORK/src/$3
+	hg archive -q -r $2 $1 $WORK/src/$3
 }
 
 # git-checkout $SOURCE_URL $TARGET_DIR
 git-checkout() {
 	echo "cloning $1"
-	git clone -q $1 $WORK/src/$2
+	git archive -q $1 $WORK/src/$2
 }
-
-
-
 
 test $# -eq 1 ||  usage 
 TAG=$1
