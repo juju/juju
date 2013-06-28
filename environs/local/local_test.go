@@ -7,7 +7,11 @@ import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
+
+	// Imported only to register.
+	_ "launchpad.net/juju-core/environs/local"
 )
 
 func TestLocal(t *stdtesting.T) {

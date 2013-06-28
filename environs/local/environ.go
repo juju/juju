@@ -5,8 +5,6 @@ package local
 
 import (
 	"fmt"
-	"net"
-	"sync"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -20,11 +18,7 @@ import (
 var _ environs.Environ = (*localEnviron)(nil)
 
 type localEnviron struct {
-	localMutex      sync.Mutex
-	config          *environConfig
-	name            string
-	publicListener  net.Listener
-	privateListener net.Listener
+	name string
 }
 
 // Name is specified in the Environ interface.
@@ -53,8 +47,13 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 }
 
 // StartInstance is specified in the Environ interface.
-func (env *localEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, error) {
-	return "", fmt.Errorf("not implemented")
+func (env *localEnviron) StartInstance(
+	machineId, machineNonce, series string,
+	cons constraints.Value,
+	info *state.Info,
+	apiInfo *api.Info,
+) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	return nil, nil, fmt.Errorf("not implemented")
 }
 
 // StopInstances is specified in the Environ interface.
