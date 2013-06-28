@@ -108,11 +108,20 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	// If ids is empty, return a nil response as specified by the
+	// interface.
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	return env.instances(ids)
-
+	instances, err := env.instances(ids)
+	if err != nil {
+		return nil, err
+	}
+	// Check if we got a partial result.
+	if len(ids) != len(instances) {
+		return instances, environs.ErrPartialInstances
+	}
+	return instances, nil
 }
 
 // AllInstances is specified in the Environ interface.
@@ -122,7 +131,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 
 // instances is an internal method which returns the instances matching the
 // given instance ids or all the instances if 'ids' is empty.
-// If the some of the intances could not be found, it returns the instance
+// If some of the instances could not be found, it returns the instances
 // that could be found plus the error environs.ErrPartialInstances in the error
 // return.
 func (env *azureEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
@@ -143,16 +152,14 @@ func (env *azureEnviron) instances(ids []instance.Id) ([]instance.Instance, erro
 
 	// Issue 'ListDeployments' request with gwacl.
 	deployments, err := context.ListDeployments(request)
+	if err != nil {
+		return nil, err
+	}
 
 	// Convert gwacl's deployments into instance.Instance objects.
 	instances := make([]instance.Instance, len(deployments))
 	for i, deployment := range deployments {
 		instances[i] = &azureInstance{deployment}
-	}
-
-	// Check if we got a partial result.
-	if len(ids) != 0 && len(ids) != len(instances) {
-		return instances, environs.ErrPartialInstances
 	}
 
 	return instances, nil

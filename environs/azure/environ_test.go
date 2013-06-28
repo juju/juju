@@ -98,15 +98,9 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-var propertiesS1 = gwacl.HostedService{
-	ServiceName: "S1",
-	Deployments: []gwacl.Deployment{
-		{Name: "deployment-1"},
-		{Name: "deployment-2"},
-	},
-}
-
-func patchWithPropertiesResponse(c *C) *[]*gwacl.X509Request {
+func patchWithPropertiesResponse(c *C, deployments []gwacl.Deployment) *[]*gwacl.X509Request {
+	propertiesS1 := gwacl.HostedService{
+		ServiceName: "S1", Deployments: deployments}
 	propertiesS1XML, err := propertiesS1.Serialize()
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
@@ -119,16 +113,18 @@ func patchWithPropertiesResponse(c *C) *[]*gwacl.X509Request {
 }
 
 func (suite EnvironSuite) TestAllInstances(c *C) {
-	requests := patchWithPropertiesResponse(c)
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	requests := patchWithPropertiesResponse(c, deployments)
 	env := makeEnviron(c)
 	instances, err := env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Check(len(instances), Equals, 2)
+	c.Check(len(instances), Equals, len(deployments))
 	c.Check(len(*requests), Equals, 1)
 }
 
 func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
-	requests := patchWithPropertiesResponse(c)
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	requests := patchWithPropertiesResponse(c, deployments)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1"})
 	c.Assert(err, IsNil)
@@ -138,7 +134,8 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 }
 
 func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
-	patchWithPropertiesResponse(c)
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	patchWithPropertiesResponse(c, deployments)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{})
 	c.Assert(err, IsNil)
@@ -146,7 +143,8 @@ func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
 }
 
 func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
-	requests := patchWithPropertiesResponse(c)
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	requests := patchWithPropertiesResponse(c, deployments)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
 	c.Assert(err, Equals, environs.ErrPartialInstances)

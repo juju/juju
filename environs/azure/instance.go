@@ -27,7 +27,7 @@ func (azInstance *azureInstance) DNSName() (string, error) {
 
 // WaitDNSName is specified in the Instance interface.
 func (azInstance *azureInstance) WaitDNSName() (string, error) {
-	// An Azure deployment gets his DNS name when it's created.
+	// An Azure deployment gets its DNS name when it's created.
 	// WaitDNSName, same as DNSName, just returns the FQDN of the
 	// deployment.
 	return azInstance.DNSName()
