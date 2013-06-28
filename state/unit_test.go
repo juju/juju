@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"strconv"
 	"time"
 )
@@ -37,7 +38,7 @@ func (s *UnitSuite) SetUpTest(c *C) {
 func (s *UnitSuite) TestUnitNotFound(c *C) {
 	_, err := s.State.Unit("subway/0")
 	c.Assert(err, ErrorMatches, `unit "subway/0" not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestService(c *C) {
@@ -210,7 +211,7 @@ func (s *UnitSuite) TestRefresh(c *C) {
 	err = unit1.Remove()
 	c.Assert(err, IsNil)
 	err = unit1.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
@@ -510,7 +511,7 @@ func assertUnitLife(c *C, unit *state.Unit, life state.Life) {
 
 func assertUnitRemoved(c *C, unit *state.Unit) {
 	err := unit.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	err = unit.Destroy()
 	c.Assert(err, IsNil)
 	err = unit.EnsureDead()
@@ -583,7 +584,7 @@ func (s *UnitSuite) TestSetMongoPasswordOnUnitAfterConnectingAsMachineEntity(c *
 	info.Tag = m.Tag()
 	info.Password = "foo1"
 	err = tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	// Connect as the machine entity.
 	info.Tag = m.Tag()
@@ -896,7 +897,7 @@ func (s *UnitSuite) TestRemove(c *C) {
 	err = s.unit.Remove()
 	c.Assert(err, IsNil)
 	err = s.unit.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	units, err := s.service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -947,9 +948,9 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 	err = mysql0ru.LeaveScope()
 	c.Assert(err, IsNil)
 	err = wordpress.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
