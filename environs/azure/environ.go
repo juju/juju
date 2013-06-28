@@ -108,12 +108,49 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	panic("unimplemented")
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	return env.instances(ids)
+
 }
 
 // AllInstances is specified in the Environ interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
-	panic("unimplemented")
+	return env.instances([]instance.Id{})
+}
+
+func (env *azureEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(context)
+
+	// Prepare gwacl request object.
+	container := env.getSnapshot().ecfg.StorageContainerName()
+	deploymentNames := make([]string, len(ids))
+	for i, id := range ids {
+		deploymentNames[i] = string(id)
+	}
+	request := &gwacl.ListDeploymentsRequest{ServiceName: container, DeploymentNames: deploymentNames}
+
+	// Issue 'ListDeployments' request with gwacl.
+	deployments, err := context.ListDeployments(request)
+
+	// Convert gwacl's deployments into instance.Instance objects.
+	instances := make([]instance.Instance, len(deployments))
+	for i, deployment := range deployments {
+		instances[i] = &azureInstance{deployment: deployment}
+	}
+
+	// Check if we got a partial result.
+	if len(ids) != 0 && len(ids) != len(instances) {
+		return instances, environs.ErrPartialInstances
+	}
+
+	return instances, nil
 }
 
 // Storage is specified in the Environ interface.

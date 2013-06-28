@@ -5,9 +5,12 @@ package azure
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
+	"net/http"
 	"sync"
 )
 
@@ -93,6 +96,65 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	}
 	env.releaseManagementAPI(&context)
 	// The real test is that this does not panic.
+}
+
+var propertiesS1 = gwacl.HostedService{
+	ServiceName: "S1",
+	Deployments: []gwacl.Deployment{
+		{Name: "deployment-1"},
+		{Name: "deployment-2"},
+	},
+}
+
+func (EnvironSuite) preparePropertiesResponse(c *C) []gwacl.DispatcherResponse {
+	propertiesS1XML, err := propertiesS1.Serialize()
+	c.Assert(err, IsNil)
+	return []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
+		[]byte(propertiesS1XML),
+		http.StatusOK,
+		nil,
+	)}
+}
+
+func (suite EnvironSuite) TestAllInstances(c *C) {
+	responses := suite.preparePropertiesResponse(c)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances, err := env.AllInstances()
+	c.Assert(err, IsNil)
+	c.Check(len(instances), Equals, 2)
+	c.Check(len(*requests), Equals, 1)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
+	responses := suite.preparePropertiesResponse(c)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{"deployment-1"})
+	c.Assert(err, IsNil)
+	c.Check(len(instances), Equals, 1)
+	c.Check(instances[0].Id(), Equals, instance.Id("deployment-1"))
+	c.Check(len(*requests), Equals, 1)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
+	responses := suite.preparePropertiesResponse(c)
+	gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{})
+	c.Assert(err, IsNil)
+	c.Assert(instances, IsNil)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
+	responses := suite.preparePropertiesResponse(c)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
+	c.Assert(err, Equals, environs.ErrPartialInstances)
+	c.Check(len(instances), Equals, 1)
+	c.Check(instances[0].Id(), Equals, instance.Id("deployment-1"))
+	c.Check(len(*requests), Equals, 1)
 }
 
 func (EnvironSuite) TestStorage(c *C) {
