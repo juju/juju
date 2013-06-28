@@ -5,6 +5,7 @@ package local
 
 import (
 	"fmt"
+	"sync"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"

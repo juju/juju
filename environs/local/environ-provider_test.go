@@ -51,10 +51,15 @@ func minimalConfigValues() map[string]interface{} {
 	}
 }
 
-func (s *providerSuite) TestValidateConfig(c *C) {
+func minimalConfig(c *C) *config.Config {
 	minimal := minimalConfigValues()
 	testConfig, err := config.New(minimal)
 	c.Assert(err, IsNil)
+	return testConfig
+}
+
+func (s *providerSuite) TestValidateConfig(c *C) {
+	testConfig := minimalConfig(c)
 
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, IsNil)

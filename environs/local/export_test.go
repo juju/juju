@@ -3,12 +3,6 @@
 
 package local
 
-import (
-	"net"
-
-	"launchpad.net/juju-core/environs"
-)
-
 var Provider = provider
 
 func SetDefaultStorageDirs(public, private string) (oldPublic, oldPrivate string) {
