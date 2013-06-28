@@ -100,6 +100,8 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	// This code is cargo-culted from the ec2/maas/openstack providers.
 	// It's not clear that the longAttempt loop has any business being

@@ -11,6 +11,9 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
+// TODO: This entire file is duplicated between the EC2, OpenStack, MAAS,
+// and Azure providers (bug 1195721).
+
 const stateFile = "provider-state"
 
 // Persistent environment state.  An environment needs to know what resources
