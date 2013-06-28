@@ -33,7 +33,7 @@ var (
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
-	environ := &localEnviron{}
+	environ := &localEnviron{name: cfg.Name()}
 	err := environ.SetConfig(cfg)
 	if err != nil {
 		logger.Errorf("failure setting config: %v", err)

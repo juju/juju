@@ -4,12 +4,14 @@
 package local
 
 import (
+	"fmt"
 	"net"
 	"sync"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -45,7 +47,7 @@ func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
 func (env *localEnviron) Config() *config.Config {
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
-	return env.config.Clone()
+	return env.config.Config
 }
 
 // SetConfig is specified in the Environ interface.
@@ -59,12 +61,12 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = config
 	env.name = config.Name()
-	// Recreate local storage?
-	publicListener, err := listen("/var/lib/juju/storage/public", "127.0.0.1", 0)
+	// Recreate local storage? localhost needs to change to the ip address
+	publicListener, err := localstorage.Serve("localhost:0", config.publicStorageDir())
 	if err != nil {
 		return err
 	}
-	privateListener, err := listen("/var/lib/juju/storage/private", "127.0.0.1", 0)
+	privateListener, err := localstorage.Serve("localhost:0", config.privateStorageDir())
 	if err != nil {
 		publicListener.Close()
 		return err

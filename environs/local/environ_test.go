@@ -5,13 +5,20 @@ package local_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs/local"
 )
 
-type EnvironSuite struct {
-	MockLxcSuite
+type environSuite struct {
+	providerSuite
 }
 
-var _ = Suite(new(EnvironSuite))
+var _ = Suite(&environSuite{})
 
-func (*EnvironSuite) TestName(c *C) {
+func (*environSuite) TestName(c *C) {
+	testConfig := minimalConfig(c)
+
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, IsNil)
+
+	c.Assert(environ.Name(), Equals, "test")
 }
