@@ -307,6 +307,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	return nil
 }
 
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	st, err := e.loadState()
 	if err != nil {

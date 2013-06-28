@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package maas
+package azure
 
 import (
 	"bytes"
@@ -16,15 +16,15 @@ import (
 
 const stateFile = "provider-state"
 
-// Persistent environment state.  An environment needs to know what instances
-// it manages.
+// Persistent environment state.  An environment needs to know what resources
+// in the Azure cloud it manages.
 type bootstrapState struct {
 	StateInstances []instance.Id `yaml:"state-instances"`
 }
 
 // saveState writes the environment's state to the provider-state file stored
 // in the environment's storage.
-func (env *maasEnviron) saveState(state *bootstrapState) error {
+func (env *azureEnviron) saveState(state *bootstrapState) error {
 	data, err := goyaml.Marshal(state)
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func (env *maasEnviron) saveState(state *bootstrapState) error {
 }
 
 // loadState reads the environment's state from storage.
-func (env *maasEnviron) loadState() (*bootstrapState, error) {
+func (env *azureEnviron) loadState() (*bootstrapState, error) {
 	r, err := env.Storage().Get(stateFile)
 	if err != nil {
 		return nil, err
