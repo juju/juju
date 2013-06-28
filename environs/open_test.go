@@ -108,8 +108,6 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentNotFound(c *C) {
 	err = storage.Remove("bootstrap-verify")
 	c.Assert(err, IsNil)
 	err = environs.CheckEnvironment(environ)
-	// XXX 2013-06-28 Danilo: if this test runs after GetFails test,
-	// it will fail because storage will already be poisoned!!!
 	c.Assert(err, IsNil)
 }
 
