@@ -331,34 +331,34 @@ func (st *State) WatchMinUnits() *MinUnitsWatcher {
 	return newMinUnitsWatcher(st)
 }
 
-func (w *MinUnitsWatcher) initial() (serviceNames []string, err error) {
+func (w *MinUnitsWatcher) initial() (*set.Strings, error) {
+	serviceNames := new(set.Strings)
 	doc := &minUnitsDoc{}
 	iter := w.st.minUnits.Find(nil).Iter()
 	for iter.Next(doc) {
 		w.known[doc.ServiceName] = doc.Revno
-		serviceNames = append(serviceNames, doc.ServiceName)
+		serviceNames.Add(doc.ServiceName)
 	}
-	if iter.Err() != nil {
-		return nil, err
-	}
-	return serviceNames, nil
+	return serviceNames, iter.Err()
 }
 
-func (w *MinUnitsWatcher) merge(serviceNames []string, change watcher.Change) ([]string, error) {
-	doc := minUnitsDoc{}
+func (w *MinUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {
 	serviceName := change.Id.(string)
-	if err := w.st.minUnits.FindId(serviceName).One(&doc); err == mgo.ErrNotFound {
+	if change.Revno == -1 {
 		delete(w.known, serviceName)
-		return serviceNames, nil
-	} else if err != nil {
-		return nil, err
+		serviceNames.Remove(serviceName)
+		return nil
+	}
+	doc := minUnitsDoc{}
+	if err := w.st.minUnits.FindId(serviceName).One(&doc); err != nil {
+		return err
 	}
 	revno, known := w.known[serviceName]
 	w.known[serviceName] = doc.Revno
-	if (!known || doc.Revno > revno) && !hasString(serviceNames, serviceName) {
-		serviceNames = append(serviceNames, serviceName)
+	if !known || doc.Revno > revno {
+		serviceNames.Add(serviceName)
 	}
-	return serviceNames, nil
+	return nil
 }
 
 func (w *MinUnitsWatcher) loop() (err error) {
@@ -377,16 +377,15 @@ func (w *MinUnitsWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case change := <-ch:
-			serviceNames, err = w.merge(serviceNames, change)
-			if err != nil {
+			if err = w.merge(serviceNames, change); err != nil {
 				return err
 			}
-			if len(serviceNames) > 0 {
+			if !serviceNames.IsEmpty() {
 				out = w.out
 			}
-		case out <- serviceNames:
+		case out <- serviceNames.Values():
 			out = nil
-			serviceNames = nil
+			serviceNames = new(set.Strings)
 		}
 	}
 	return nil
