@@ -46,7 +46,7 @@ func (s *ResumerSuite) TestResumerCalls(c *C) {
 
 	// Check that a numner of calls has happened with a time
 	// difference somewhere between the interval and twice the
-	// interval. A more precise time behavior cannot be 
+	// interval. A more precise time behavior cannot be
 	// specified due to the load during the test.
 	c.Assert(len(tr.timestamps) > 0, Equals, true)
 	for i := 1; i < len(tr.timestamps); i++ {
