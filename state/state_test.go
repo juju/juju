@@ -1613,8 +1613,8 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 func (s *StateSuite) TestWatchMinUnits(c *C) {
 	// Check initial event.
 	w := s.State.WatchMinUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Set up services for later use.
@@ -1689,7 +1689,7 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
-	AssertStop(c, w)
+	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
 
