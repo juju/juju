@@ -143,7 +143,7 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
-	// then the worker that's calling this cannot 
+	// then the worker that's calling this cannot
 	// be interrupted.
 	st, newPassword, err := c.OpenAPI(api.DialOpts{})
 	if err != nil {

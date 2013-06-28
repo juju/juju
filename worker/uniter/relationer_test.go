@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/relation"
@@ -106,7 +107,7 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	// Verify PrepareHook created the dir.
 	fi, err := os.Stat(filepath.Join(s.dirPath, strconv.Itoa(s.rel.Id())))
 	c.Assert(err, IsNil)
-	c.Assert(fi.IsDir(), Equals, true)
+	c.Assert(fi, checkers.Satisfies, os.FileInfo.IsDir)
 
 	err = r.CommitHook(hi)
 	c.Assert(err, IsNil)
@@ -408,7 +409,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	c.Assert(err, IsNil)
 	hooks := make(chan hook.Info)
 	r := uniter.NewRelationer(ru, dir, hooks)
-	c.Assert(r.IsImplicit(), Equals, true)
+	c.Assert(r, checkers.Satisfies, (*uniter.Relationer).IsImplicit)
 
 	// Join the relationer; the dir won't be created until necessary
 	err = r.Join()
@@ -438,7 +439,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	err = r.SetDying()
 	c.Assert(err, IsNil)
 	_, err = os.Stat(filepath.Join(relsDir, strconv.Itoa(rel.Id())))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 
 	// Check that it left scope, by leaving scope on the other side and destroying
 	// the relation.
@@ -447,7 +448,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	// Verify that no other hooks were sent at any stage.
 	select {

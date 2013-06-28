@@ -160,8 +160,11 @@ func WriteEnvirons(path string, fileContents string) (string, error) {
 	} else if info.Mode().Perm() != 0700 {
 		logger.Warningf("permission of %q is %q", environsDir, info.Mode().Perm())
 	}
-
 	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0600); err != nil {
+		return "", err
+	}
+	// WriteFile does not change permissions of existing files.
+	if err := os.Chmod(environsFilepath, 0600); err != nil {
 		return "", err
 	}
 	return environsFilepath, nil

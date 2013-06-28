@@ -6,6 +6,7 @@ package azure
 import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing/checkers"
 	"os"
 )
 
@@ -53,7 +54,7 @@ func (CertFileSuite) TestDeleteRemovesFile(c *C) {
 	c.Assert(err, IsNil)
 	certFile.Delete()
 	_, err = os.Open(certFile.Path())
-	c.Check(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
 func (CertFileSuite) TestDeleteIsIdempotent(c *C) {
@@ -62,5 +63,5 @@ func (CertFileSuite) TestDeleteIsIdempotent(c *C) {
 	certFile.Delete()
 	certFile.Delete()
 	_, err = os.Open(certFile.Path())
-	c.Check(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
