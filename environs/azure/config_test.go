@@ -127,6 +127,7 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	storageContainerName := "container-name"
 	publicStorageAccountName := "public-account-name"
 	publicStorageContainerName := "public-container-name"
+	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
 		"management-subscription-id":     managementSubscriptionId,
 		"management-certificate":         certificate,
@@ -136,6 +137,7 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 		"storage-container-name":         storageContainerName,
 		"public-storage-account-name":    publicStorageAccountName,
 		"public-storage-container-name":  publicStorageContainerName,
+		"unknown-future-setting":         unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
@@ -152,6 +154,7 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)
 	c.Check(azConfig.PublicStorageAccountName(), Equals, publicStorageAccountName)
 	c.Check(azConfig.PublicStorageContainerName(), Equals, publicStorageContainerName)
+	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], Equals, unknownFutureSetting)
 }
 
 func (ConfigSuite) TestValidateReadsCertFile(c *C) {
