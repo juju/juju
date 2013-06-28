@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"net/url"
@@ -720,8 +721,8 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
 
 	// All except gone are reported in initial event.
 	w := s.State.WatchServices()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange(alive.Name(), dying.Name())
 
 	// Remove them all; alive/dying changes reported.
@@ -735,8 +736,8 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
 func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
 	// Initial event is empty when no services.
 	w := s.State.WatchServices()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Add a service: reported.
@@ -789,8 +790,8 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 
 	// All except gone machine are reported in initial event.
 	w := s.State.WatchEnvironMachines()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange(alive.Id(), dying.Id(), dead.Id())
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
@@ -808,8 +809,8 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Add a machine: reported.
@@ -841,8 +842,8 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Add a machine: reported.
@@ -891,8 +892,8 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 
 	// Initial event is empty when no containers.
 	w := machine.WatchContainers(state.LXC)
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Add a container of the required type: reported.
@@ -1026,7 +1027,7 @@ type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	w := s.State.WatchEnvironConfig()
-	defer AssertStop(c, w)
+	defer statetesting.AssertStop(c, w)
 
 	// TODO(fwereade) just use an EntityWatcher and NotifyWatcherC to test it.
 	assertNoChange := func() {
@@ -1535,8 +1536,8 @@ func (s *StateSuite) TestCleanup(c *C) {
 func (s *StateSuite) TestWatchCleanups(c *C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
-	defer AssertStop(c, w)
-	wc := NotifyWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
@@ -1574,15 +1575,15 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	wc.AssertOneChange()
 
 	// Stop watcher, check closed.
-	AssertStop(c, w)
+	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
 
 func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
-	defer AssertStop(c, w)
-	wc := NotifyWatcherC{c, s.State, w}
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.
