@@ -1,14 +1,14 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package local_test
+package localstorage_test
 
 import (
 	"bytes"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"net/http"
 )
@@ -20,10 +20,10 @@ var _ = Suite(&storageSuite{})
 // TestPersistence tests the adding, reading, listing and removing
 // of files from the local storage.
 func (s *storageSuite) TestPersistence(c *C) {
-	portNo, listener, _ := nextTestSet(c)
+	listener, _, _ := startServer(c)
 	defer listener.Close()
 
-	storage := local.NewStorage("127.0.0.1", portNo)
+	storage := localstorage.Client(listener.Addr().String())
 	names := []string{
 		"aa",
 		"zzz/aa",
@@ -37,7 +37,7 @@ func (s *storageSuite) TestPersistence(c *C) {
 	checkList(c, storage, "a", []string{"aa"})
 	checkList(c, storage, "zzz/", []string{"zzz/aa", "zzz/bb"})
 
-	storage2 := local.NewStorage("127.0.0.1", portNo)
+	storage2 := localstorage.Client(listener.Addr().String())
 	for _, name := range names {
 		checkFileHasContents(c, storage2, name, []byte(name))
 	}
@@ -102,6 +102,6 @@ func checkFileHasContents(c *C, storage environs.StorageReader, name string, con
 	data, err = ioutil.ReadAll(resp.Body)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, Equals, 200, Commentf("error response: %s", data))
+	c.Assert(resp.StatusCode, Equals, http.StatusOK, Commentf("error response: %s", data))
 	c.Check(data, DeepEquals, contents)
 }

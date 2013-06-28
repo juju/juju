@@ -100,7 +100,6 @@ func (s *ConfigSuite) TestDefaultSettings(c *C) {
 func (s *ConfigSuite) TestFilterSettings(c *C) {
 	settings := s.config.FilterSettings(charm.Settings{
 		"title":              "something valid",
-		"subtitle":           "",
 		"username":           nil,
 		"unknown":            "whatever",
 		"outlook":            "",
@@ -110,7 +109,6 @@ func (s *ConfigSuite) TestFilterSettings(c *C) {
 	})
 	c.Assert(settings, DeepEquals, charm.Settings{
 		"title":    "something valid",
-		"subtitle": nil,
 		"username": nil,
 		"outlook":  nil,
 	})

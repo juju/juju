@@ -8,15 +8,15 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	"launchpad.net/juju-core/state/apiserver/testing"
 	"time"
 )
 
 type machinerSuite struct {
 	commonSuite
 
-	resources testing.FakeResourceRegistry
+	resources *common.Resources
 	machiner  *machine.MachinerAPI
 }
 
@@ -27,7 +27,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 
 	// Create the resource registry separately to track invocations to
 	// Register.
-	s.resources = make(testing.FakeResourceRegistry)
+	s.resources = common.NewResources()
 
 	// Create a machiner API for machine 1.
 	machiner, err := machine.NewMachinerAPI(
@@ -141,7 +141,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 }
 
 func (s *machinerSuite) TestWatch(c *C) {
-	c.Assert(s.resources, HasLen, 0)
+	c.Assert(s.resources.Count(), Equals, 0)
 
 	args := params.Machines{
 		Ids: []string{"1", "0", "42"},
@@ -154,9 +154,9 @@ func (s *machinerSuite) TestWatch(c *C) {
 	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources, HasLen, 1)
-	c.Assert(result.Results[0].EntityWatcherId, Equals, "0")
-	resource := s.resources["0"]
+	c.Assert(s.resources.Count(), Equals, 1)
+	c.Assert(result.Results[0].EntityWatcherId, Equals, "1")
+	resource := s.resources.Get("1")
 	defer func() {
 		err := resource.Stop()
 		c.Assert(err, IsNil)

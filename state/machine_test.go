@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
@@ -163,9 +164,9 @@ func (s *MachineSuite) TestRemove(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
@@ -405,7 +406,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 	err = m0.Remove()
 	c.Assert(err, IsNil)
 	err = m0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {

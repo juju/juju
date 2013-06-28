@@ -183,7 +183,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		switch job {
 		case state.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				return newDeployer(st, m.WatchPrincipalUnits(), dataDir), nil
+				return newDeployer(st, m.Id(), dataDir), nil
 			})
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
