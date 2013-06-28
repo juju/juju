@@ -486,7 +486,8 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
 	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
 	//
-	// Absence of a verification file means it is.
+	// Absence of a verification file means it is a juju-core environment
+	// with an older version, which is fine.
 	t.BootstrapOnce(c)
 	environ := t.Env
 	storage := environ.Storage()

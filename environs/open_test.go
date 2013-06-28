@@ -65,7 +65,7 @@ func (OpenSuite) TestNewFromNameGetDefault(c *C) {
 
 const checkEnv = `
 environments:
-    test2:
+    test:
         type: dummy
         state-server: false
         authorized-keys: i-am-a-key
@@ -75,10 +75,14 @@ type checkEnvironmentSuite struct{}
 
 var _ = Suite(&checkEnvironmentSuite{})
 
+func (s *checkEnvironmentSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
+
 func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test2")
+	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
@@ -89,10 +93,10 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
+func (s *checkEnvironmentSuite) TestCheckEnvironmentNotFound(c *C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test2")
+	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
@@ -112,7 +116,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test2")
+	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
