@@ -30,9 +30,9 @@ func setDummyStorage(c *C, env *azureEnviron) func() {
 	listenerMu.Lock()
 	defer listenerMu.Unlock()
 
-	listener, err := localstorage.Serve("127.0.0.1", c.MkDir())
+	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
 	c.Assert(err, IsNil)
-	env.storage = localstorage.Client("127.0.0.1")
+	env.storage = localstorage.Client(listener.Addr().String())
 	return func() { listener.Close() }
 }
 
