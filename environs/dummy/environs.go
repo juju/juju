@@ -287,17 +287,15 @@ func SetStorageDelay(d time.Duration) {
 	}
 }
 
-var checker = schema.StrictFieldMap(
-	schema.Fields{
-		"state-server": schema.Bool(),
-		"broken":       schema.String(),
-		"secret":       schema.String(),
-	},
-	schema.Defaults{
-		"broken": "",
-		"secret": "pork",
-	},
-)
+var configFields = schema.Fields{
+	"state-server": schema.Bool(),
+	"broken":       schema.String(),
+	"secret":       schema.String(),
+}
+var configDefaults = schema.Defaults{
+	"broken": "",
+	"secret": "pork",
+}
 
 type environConfig struct {
 	*config.Config
@@ -329,13 +327,12 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
-	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
 	// Apply the coerced unknown values back into the config.
-	attrs := v.(map[string]interface{})
-	return cfg.Apply(attrs)
+	return cfg.Apply(validated)
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {

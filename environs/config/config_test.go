@@ -6,6 +6,7 @@ package config_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	stdtesting "testing"
@@ -672,6 +673,53 @@ func (*ConfigSuite) TestValidateChange(c *C) {
 			c.Assert(err, ErrorMatches, test.err)
 		}
 	}
+}
+
+func (*ConfigSuite) TestValidateUnknownAttrs(c *C) {
+	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+		{".ssh/id_rsa.pub", "rsa\n"},
+		{".juju/myenv-cert.pem", caCert},
+		{".juju/myenv-private-key.pem", caKey},
+	}).Restore()
+	cfg, err := config.New(map[string]interface{}{
+		"name":    "myenv",
+		"type":    "other",
+		"known":   "this",
+		"unknown": "that",
+	})
+
+	// No fields: all attrs passed through.
+	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
+	c.Assert(err, IsNil)
+	c.Assert(attrs, DeepEquals, map[string]interface{}{
+		"known":   "this",
+		"unknown": "that",
+	})
+
+	// Valid field: that and other attrs passed through.
+	fields := schema.Fields{"known": schema.String()}
+	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
+	c.Assert(err, IsNil)
+	c.Assert(attrs, DeepEquals, map[string]interface{}{
+		"known":   "this",
+		"unknown": "that",
+	})
+
+	// Default field: inserted.
+	fields["default"] = schema.String()
+	defaults := schema.Defaults{"default": "the other"}
+	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
+	c.Assert(err, IsNil)
+	c.Assert(attrs, DeepEquals, map[string]interface{}{
+		"known":   "this",
+		"unknown": "that",
+		"default": "the other",
+	})
+
+	// Invalid field: failure.
+	fields["known"] = schema.Int()
+	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
+	c.Assert(err, ErrorMatches, `known: expected int, got "this"`)
 }
 
 func newTestConfig(c *C, explicit attrs) *config.Config {

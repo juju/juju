@@ -64,13 +64,6 @@ environments:
     only:
         type: dummy
 `, "only", `.*state-server: expected bool, got nothing`,
-	}, {`
-environments:
-    only:
-        type: dummy
-        state-server: false
-        unknown-value: causes-an-error
-`, "only", `.*unknown-value: expected nothing, got "causes-an-error"`,
 	},
 }
 

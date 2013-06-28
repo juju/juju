@@ -44,6 +44,7 @@ type configTest struct {
 	summary       string
 	config        attrs
 	change        attrs
+	expect        attrs
 	envVars       map[string]string
 	region        string
 	controlBucket string
@@ -162,6 +163,11 @@ func (t configTest) check(c *C) {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
 	}
 	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
+	for name, expect := range t.expect {
+		actual, found := ecfg.UnknownAttrs()[name]
+		c.Check(found, Equals, true)
+		c.Check(actual, Equals, expect)
+	}
 }
 
 func (s *ConfigSuite) SetUpTest(c *C) {
@@ -403,6 +409,20 @@ var configTests = []configTest{
 			"firewall-mode": "global",
 		},
 		firewallMode: config.FwGlobal,
+	}, {
+		config: attrs{
+			"future": "hammerstein",
+		},
+		expect: attrs{
+			"future": "hammerstein",
+		},
+	}, {
+		change: attrs{
+			"future": "hammerstein",
+		},
+		expect: attrs{
+			"future": "hammerstein",
+		},
 	},
 }
 
