@@ -372,11 +372,12 @@ func (w *MinUnitsWatcher) loop() (err error) {
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case change := <-ch:
+		case change, ok := <-ch:
+			if !ok {
+				return watcher.MustErr(w.st.watcher)
+			}
 			if err = w.merge(serviceNames, change); err != nil {
 				return err
 			}
