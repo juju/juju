@@ -68,6 +68,7 @@ func CheckEnvironment(environ Environ) error {
 	storage := environ.Storage()
 	reader, err := storage.Get(verificationFilename)
 	if errors.IsNotFoundError(err) {
+		fmt.Printf("%v\n", err)
 		// When verification file does not exist, this is a juju-core
 		// environment.
 		return nil
