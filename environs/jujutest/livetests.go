@@ -482,7 +482,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
 	defer conn.Close()
 }
 
-func (t *LiveTests) TestCheckEnvironmentOnConnextNoVerificationFile(c *C) {
+func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
 	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
 	//
@@ -518,9 +518,8 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 	defer storage.Remove("bootstrap-verify")
 
 	// Running NewConn() should fail.
-	conn, err := juju.NewConn(t.Env)
+	_, err = juju.NewConn(t.Env)
 	c.Assert(err, Equals, environs.InvalidEnvironmentError)
-	defer conn.Close()
 }
 
 type tooler interface {
