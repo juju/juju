@@ -1,40 +1,42 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package local_test
+package localstorage_test
 
 import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	. "launchpad.net/gocheck"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
+	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/testing"
 )
 
-type backendSuite struct{}
+func TestLocal(t *stdtesting.T) {
+	TestingT(t)
+}
+
+type backendSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = Suite(&backendSuite{})
 
-var testSetMu sync.Mutex
-
-// nextTestSet returns a new port number, listener and data directory.
-func nextTestSet(c *C) (int, net.Listener, string) {
-	testSetMu.Lock()
-	defer testSetMu.Unlock()
-
-	dataDir := c.MkDir()
-	listener, err := local.Listen(dataDir, "127.0.0.1", 0)
+// startServer starts a new local storage server
+// using a temporary directory and returns the listener,
+// a base URL for the server and the directory path.
+func startServer(c *C) (listener net.Listener, url, dataDir string) {
+	dataDir = c.MkDir()
+	listener, err := localstorage.Serve("localhost:0", dataDir)
 	c.Assert(err, IsNil)
-	port := listener.Addr().(*net.TCPAddr).Port
-
-	return port, listener, dataDir
+	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }
 
 type testCase struct {
@@ -109,18 +111,18 @@ var getTests = []testCase{
 
 func (s *backendSuite) TestGet(c *C) {
 	// Test retrieving a file from a storage.
-	portNo, listener, dataDir := nextTestSet(c)
+	listener, url, dataDir := startServer(c)
 	defer listener.Close()
-
 	createTestData(c, dataDir)
 
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
-		resp, err := http.Get(url)
+		resp, err := http.Get(url + tc.name)
 		c.Assert(err, IsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
+		} else {
+			c.Assert(resp.StatusCode, Equals, http.StatusOK)
 		}
 		defer resp.Body.Close()
 		var buf bytes.Buffer
@@ -180,14 +182,13 @@ var listTests = []testCase{
 
 func (s *backendSuite) TestList(c *C) {
 	// Test listing file of a storage.
-	portNo, listener, dataDir := nextTestSet(c)
+	listener, url, dataDir := startServer(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
 
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s*", portNo, tc.name)
-		resp, err := http.Get(url)
+		resp, err := http.Get(url + tc.name + "*")
 		c.Assert(err, IsNil)
 		if tc.status != 0 {
 			c.Assert(resp.StatusCode, Equals, tc.status)
@@ -200,7 +201,8 @@ func (s *backendSuite) TestList(c *C) {
 		names := strings.Split(buf.String(), "\n")
 		c.Assert(names, DeepEquals, tc.found)
 	}
-	for _, tc := range listTests {
+	for i, tc := range listTests {
+		c.Logf("test %d", i)
 		check(tc)
 	}
 }
@@ -227,14 +229,13 @@ var putTests = []testCase{
 
 func (s *backendSuite) TestPut(c *C) {
 	// Test sending a file to the storage.
-	portNo, listener, dataDir := nextTestSet(c)
+	listener, url, dataDir := startServer(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
 
 	check := func(tc testCase) {
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
-		req, err := http.NewRequest("PUT", url, bytes.NewBufferString(tc.content))
+		req, err := http.NewRequest("PUT", url+tc.name, bytes.NewBufferString(tc.content))
 		c.Assert(err, IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
 		resp, err := http.DefaultClient.Do(req)
@@ -281,7 +282,7 @@ var removeTests = []testCase{
 
 func (s *backendSuite) TestRemove(c *C) {
 	// Test removing a file in the storage.
-	portNo, listener, dataDir := nextTestSet(c)
+	listener, url, dataDir := startServer(c)
 	defer listener.Close()
 
 	createTestData(c, dataDir)
@@ -294,8 +295,7 @@ func (s *backendSuite) TestRemove(c *C) {
 		err = ioutil.WriteFile(fp, []byte(tc.content), 0644)
 		c.Assert(err, IsNil)
 
-		url := fmt.Sprintf("http://localhost:%d/%s", portNo, tc.name)
-		req, err := http.NewRequest("DELETE", url, nil)
+		req, err := http.NewRequest("DELETE", url+tc.name, nil)
 		c.Assert(err, IsNil)
 		resp, err := http.DefaultClient.Do(req)
 		c.Assert(err, IsNil)
@@ -303,12 +303,13 @@ func (s *backendSuite) TestRemove(c *C) {
 			c.Assert(resp.StatusCode, Equals, tc.status)
 			return
 		}
-		c.Assert(resp.StatusCode, Equals, 200)
+		c.Assert(resp.StatusCode, Equals, http.StatusOK)
 
 		_, err = os.Stat(fp)
-		c.Assert(err, ErrorMatches, ".*: no such file or directory")
+		c.Assert(os.IsNotExist(err), Equals, true)
 	}
-	for _, tc := range removeTests {
+	for i, tc := range removeTests {
+		c.Logf("test %d", i)
 		check(tc)
 	}
 }
@@ -316,22 +317,21 @@ func (s *backendSuite) TestRemove(c *C) {
 func createTestData(c *C, dataDir string) {
 	writeData := func(dir, name, data string) {
 		fn := filepath.Join(dir, name)
+		c.Logf("writing data to %q", fn)
 		err := ioutil.WriteFile(fn, []byte(data), 0644)
 		c.Assert(err, IsNil)
 	}
 
-	dir := filepath.Join(dataDir)
+	writeData(dataDir, "foo", "this is file 'foo'")
+	writeData(dataDir, "bar", "this is file 'bar'")
+	writeData(dataDir, "baz", "this is file 'baz'")
+	writeData(dataDir, "yadda", "this is file 'yadda'")
 
-	writeData(dir, "foo", "this is file 'foo'")
-	writeData(dir, "bar", "this is file 'bar'")
-	writeData(dir, "baz", "this is file 'baz'")
-	writeData(dir, "yadda", "this is file 'yadda'")
-
-	dir = filepath.Join(dataDir, "inner")
-	err := os.MkdirAll(dir, 0777)
+	innerDir := filepath.Join(dataDir, "inner")
+	err := os.MkdirAll(innerDir, 0777)
 	c.Assert(err, IsNil)
 
-	writeData(dir, "fooin", "this is inner file 'fooin'")
-	writeData(dir, "barin", "this is inner file 'barin'")
-	writeData(dir, "bazin", "this is inner file 'bazin'")
+	writeData(innerDir, "fooin", "this is inner file 'fooin'")
+	writeData(innerDir, "barin", "this is inner file 'barin'")
+	writeData(innerDir, "bazin", "this is inner file 'bazin'")
 }

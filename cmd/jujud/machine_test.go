@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -18,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"path/filepath"
 	"reflect"
@@ -26,6 +28,7 @@ import (
 
 type MachineSuite struct {
 	agentSuite
+	lxc.TestSuite
 	oldCacheDir string
 }
 
@@ -33,12 +36,24 @@ var _ = Suite(&MachineSuite{})
 
 func (s *MachineSuite) SetUpSuite(c *C) {
 	s.agentSuite.SetUpSuite(c)
+	s.TestSuite.SetUpSuite(c)
 	s.oldCacheDir = charm.CacheDir
 }
 
 func (s *MachineSuite) TearDownSuite(c *C) {
 	charm.CacheDir = s.oldCacheDir
+	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
+}
+
+func (s *MachineSuite) SetUpTest(c *C) {
+	s.agentSuite.SetUpTest(c)
+	s.TestSuite.SetUpTest(c)
+}
+
+func (s *MachineSuite) TearDownTest(c *C) {
+	s.TestSuite.TearDownTest(c)
+	s.agentSuite.TearDownTest(c)
 }
 
 // primeAgent adds a new Machine to run the given jobs, and sets up the
@@ -192,14 +207,14 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u1.Name())
 	err = u0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
 	// and removed from state.
 	err = u1.Destroy()
 	c.Assert(err, IsNil)
 	err = u1.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	ctx.waitDeployed(c)
 }
 

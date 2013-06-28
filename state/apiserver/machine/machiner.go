@@ -12,12 +12,12 @@ import (
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	st        *state.State
-	resources common.ResourceRegistry
+	resources *common.Resources
 	auth      common.Authorizer
 }
 
 // NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, resources common.ResourceRegistry, authorizer common.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -48,8 +48,8 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 }
 
 // Watch starts an EntityWatcher for each given machine.
-func (m *MachinerAPI) Watch(args params.Machines) (params.MachinesWatchResults, error) {
-	result := params.MachinesWatchResults{
+func (m *MachinerAPI) Watch(args params.Machines) (params.EntityWatchResults, error) {
+	result := params.EntityWatchResults{
 		Results: make([]params.EntityWatchResult, len(args.Ids)),
 	}
 	if len(args.Ids) == 0 {

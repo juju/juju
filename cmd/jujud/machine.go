@@ -166,7 +166,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return machiner.NewMachiner(st, m.Id()), nil
 	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
-	// provisioner task for non-lxc containers.
+	// provisioner task for non-lxc containers.  Since we have only LXC
+	// containers and normal machines, this effectively means that we only
+	// have an LXC provisioner when we have a normally provisioned machine
+	// (through the environ-provisioner).  With the upcoming advent of KVM
+	// containers, it is likely that we will want an LXC provisioner on a KVM
+	// machine, and once we get nested LXC containers, we can remove this
+	// check.
 	if m.ContainerType() != state.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
@@ -177,7 +183,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		switch job {
 		case state.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				return newDeployer(st, m.WatchPrincipalUnits(), dataDir), nil
+				return newDeployer(st, m.Id(), dataDir), nil
 			})
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {

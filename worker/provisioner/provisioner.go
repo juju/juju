@@ -97,7 +97,7 @@ func (p *Provisioner) loop() error {
 
 	// Start responding to changes in machines, and to any further updates
 	// to the environment config.
-	machineBroker, err := p.getBroker()
+	instanceBroker, err := p.getBroker()
 	if err != nil {
 		return err
 	}
@@ -109,7 +109,7 @@ func (p *Provisioner) loop() error {
 		p.machineId,
 		p.st,
 		machineWatcher,
-		machineBroker,
+		instanceBroker,
 		auth)
 	defer watcher.Stop(environmentProvisioner, &p.tomb)
 

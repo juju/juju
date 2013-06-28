@@ -4,7 +4,6 @@
 package provisioner
 
 import (
-	"launchpad.net/golxc"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/config"
@@ -18,11 +17,9 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
 var _ Broker = (*lxcBroker)(nil)
 
-var lxcFactory = golxc.Factory()
-
 func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
 	return &lxcBroker{
-		manager: lxc.NewContainerManager(lxcFactory, "juju"),
+		manager: lxc.NewContainerManager("juju"),
 		config:  config,
 		tools:   tools,
 	}

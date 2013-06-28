@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -133,7 +132,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
 	if e := syslog.Restart(); e != nil {
-		log.Warningf("installer: cannot restart syslog daemon: %v", e)
+		logger.Warningf("installer: cannot restart syslog daemon: %v", e)
 	}
 	defer removeOnErr(&err, ctx.syslogConfigPath)
 
@@ -166,10 +165,10 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		return err
 	}
 	if e := os.Remove(ctx.syslogConfigPath); e != nil {
-		log.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, e)
+		logger.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, e)
 	}
 	if e := syslog.Restart(); e != nil {
-		log.Warningf("installer: cannot restart syslog daemon: %v", e)
+		logger.Warningf("installer: cannot restart syslog daemon: %v", e)
 	}
 	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
@@ -213,7 +212,7 @@ func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
 func removeOnErr(err *error, path string) {
 	if *err != nil {
 		if e := os.Remove(path); e != nil {
-			log.Warningf("installer: cannot remove %q: %v", path, e)
+			logger.Warningf("installer: cannot remove %q: %v", path, e)
 		}
 	}
 }

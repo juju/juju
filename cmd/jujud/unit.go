@@ -87,11 +87,6 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st, unit.Name(), dataDir), nil
 	})
-	if unit.IsPrincipal() {
-		runner.StartWorker("deployer", func() (worker.Worker, error) {
-			return newDeployer(st, unit.WatchSubordinateUnits(), dataDir), nil
-		})
-	}
 	return newCloseWorker(runner, st), nil
 }
 

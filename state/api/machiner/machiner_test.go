@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	stdtesting "testing"
 )
 
@@ -94,7 +95,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	err = machine.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 0 not found")
