@@ -78,9 +78,8 @@ func (s *BootstrapSuite) TestInitializeEnvironment(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(machines, HasLen, 1)
 
-	instid, ok, err := machines[0].InstanceId()
+	instid, err := machines[0].InstanceId()
 	c.Assert(err, IsNil)
-	c.Assert(ok, Equals, true)
 	c.Assert(instid, Equals, instance.Id("dummy.instance.id"))
 
 	cons, err := st.EnvironConstraints()

@@ -414,6 +414,34 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
 	})
 }
 
+func (s *MachineSuite) TestMachineRefresh(c *C) {
+	m0, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	oldTools, _ := m0.AgentTools()
+	m1, err := s.State.Machine(m0.Id())
+	c.Assert(err, IsNil)
+	err = m0.SetAgentTools(&state.Tools{
+		URL:    "foo",
+		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	})
+	c.Assert(err, IsNil)
+	newTools, _ := m0.AgentTools()
+
+	m1Tools, _ := m1.AgentTools()
+	c.Assert(m1Tools, DeepEquals, oldTools)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	m1Tools, _ = m1.AgentTools()
+	c.Assert(*m1Tools, Equals, *newTools)
+
+	err = m0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = m0.Remove()
+	c.Assert(err, IsNil)
+	err = m0.Refresh()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+}
+
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
 	// Refresh should work regardless of liveness status.
 	testWhenDying(c, s.machine, noErr, noErr, func() error {

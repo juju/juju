@@ -565,7 +565,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			Update: D{{"$set", D{{"nonce", nonce}}}},
 		}, {
 			C:      m.st.instanceData.Name,
-			Id:     hc.Id,
+			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
 			Insert: hc,
 		},
