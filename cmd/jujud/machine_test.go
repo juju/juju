@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"path/filepath"
 	"reflect"
@@ -206,14 +207,14 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u1.Name())
 	err = u0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
 	// and removed from state.
 	err = u1.Destroy()
 	c.Assert(err, IsNil)
 	err = u1.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	ctx.waitDeployed(c)
 }
 

@@ -125,6 +125,8 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	// This code is cargo-culted from the openstack/ec2 providers.
 	// It's a bit unclear what the "longAttempt" loop is actually for
