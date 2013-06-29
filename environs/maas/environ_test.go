@@ -162,6 +162,11 @@ func (suite *EnvironSuite) TestInstancesReturnsNilIfNilParameter(c *C) {
 	c.Check(instances, IsNil)
 }
 
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *C) {
+	_, err := suite.environ.Instances([]instance.Id{"unknown"})
+	c.Check(err, Equals, environs.ErrNoInstances)
+}
+
 func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
