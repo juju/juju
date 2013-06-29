@@ -722,7 +722,7 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
 	// All except gone are reported in initial event.
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange(alive.Name(), dying.Name())
 
 	// Remove them all; alive/dying changes reported.
@@ -737,7 +737,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
 	// Initial event is empty when no services.
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange()
 
 	// Add a service: reported.
@@ -791,7 +791,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// All except gone machine are reported in initial event.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange(alive.Id(), dying.Id(), dead.Id())
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
@@ -810,7 +810,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange()
 
 	// Add a machine: reported.
@@ -843,7 +843,7 @@ func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange()
 
 	// Add a machine: reported.
@@ -893,7 +893,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	// Initial event is empty when no containers.
 	w := machine.WatchContainers(state.LXC)
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange()
 
 	// Add a container of the required type: reported.
@@ -1614,7 +1614,7 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	// Check initial event.
 	w := s.State.WatchMinUnits()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.StringsWatcherC{c, s.State, w, true}
 	wc.AssertOneChange()
 
 	// Set up services for later use.

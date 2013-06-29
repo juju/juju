@@ -68,8 +68,9 @@ func (c NotifyWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*C
-	State   *state.State
-	Watcher StringsWatcher
+	State    *state.State
+	Watcher  StringsWatcher
+	FullSync bool
 }
 
 type StringsWatcher interface {
@@ -87,7 +88,11 @@ func (c StringsWatcherC) AssertNoChange() {
 }
 
 func (c StringsWatcherC) AssertOneChange(expect ...string) {
-	c.State.Sync()
+	if c.FullSync {
+		c.State.Sync()
+	} else {
+		c.State.StartSync()
+	}
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)

@@ -578,7 +578,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w}
+	wc := testing.StringsWatcherC{c, s.State, w, true}
 	wc.AssertOneChange()
 
 	// Change machine, and create a unit independently; no change.
@@ -644,7 +644,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.StringsWatcherC{c, s.State, w}
+	wc = testing.StringsWatcherC{c, s.State, w, true}
 	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Remove the Dead unit; no change.
@@ -667,7 +667,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w}
+	wc := testing.StringsWatcherC{c, s.State, w, true}
 	wc.AssertOneChange()
 
 	// Change machine; no change.
@@ -732,7 +732,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.StringsWatcherC{c, s.State, w}
+	wc = testing.StringsWatcherC{c, s.State, w, true}
 	wc.AssertOneChange("mysql/0", "mysql/1", "logging/0")
 
 	// Remove the Dead unit; no change.
