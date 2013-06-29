@@ -96,7 +96,7 @@ func (c StringsWatcherC) AssertOneChange(expect ...string) {
 		} else {
 			sort.Strings(expect)
 			sort.Strings(actual)
-			c.Assert(expect, DeepEquals, actual)
+			c.Assert(actual, DeepEquals, expect)
 		}
 	case <-time.After(longTime):
 		c.Fatalf("watcher did not send change")
@@ -145,7 +145,7 @@ func (c IntsWatcherC) AssertOneChange(expect ...int) {
 		} else {
 			sort.Ints(expect)
 			sort.Ints(actual)
-			c.Assert(expect, DeepEquals, actual)
+			c.Assert(actual, DeepEquals, expect)
 		}
 	case <-time.After(longTime):
 		c.Fatalf("watcher did not send change")
