@@ -220,6 +220,12 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	if err != nil {
 		return nil, err
 	}
+
+	// If no instances were found, return ErrNoInstances.
+	if len(deployments) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
 	instances := convertToInstances(deployments)
 
 	// Check if we got a partial result.

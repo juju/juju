@@ -140,6 +140,15 @@ func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
 	c.Assert(instances, IsNil)
 }
 
+func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
+	deployments := []gwacl.Deployment{}
+	patchWithPropertiesResponse(c, deployments)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{"deploy-id"})
+	c.Assert(instances, IsNil)
+	c.Assert(err, Equals, environs.ErrNoInstances)
+}
+
 func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
 	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
 	requests := patchWithPropertiesResponse(c, deployments)
