@@ -27,9 +27,6 @@ const verificationContent = "juju-core storage writing verified: ok\n"
 var VerifyStorageError error = fmt.Errorf(
 	"provider storage is not writable")
 
-var InvalidEnvironmentError error = fmt.Errorf(
-	"Environment is not a juju-core environment")
-
 func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 	return nil, errors.NotFoundf("file %q", name)
 }

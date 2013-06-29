@@ -473,15 +473,12 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
 		"juju-core storage writing verified: ok\n")
 }
 
-func restoreBootstrapVerificationFile(storage environs.Storage) error {
+func restoreBootstrapVerificationFile(c *C, storage environs.Storage) {
 	content := "juju-core storage writing verified: ok\n"
 	contentReader := strings.NewReader(content)
 	err := storage.Put("bootstrap-verify", contentReader,
 		int64(len(content)))
-	if err != nil {
-		log.Debugf("Could not restore bootstrap-verify file.")
-	}
-	return err
+	c.Assert(err, IsNil)
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
@@ -491,7 +488,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
 
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
-	defer conn.Close()
+	conn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
@@ -504,12 +501,12 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
 	environ := t.Env
 	storage := environ.Storage()
 	err := storage.Remove("bootstrap-verify")
-	defer restoreBootstrapVerificationFile(storage)
 	c.Assert(err, IsNil)
+	defer restoreBootstrapVerificationFile(c, storage)
 
 	conn, err := juju.NewConn(t.Env)
 	c.Assert(err, IsNil)
-	defer conn.Close()
+	conn.Close()
 }
 
 func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
@@ -525,10 +522,12 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 	// Finally, replace the content with an arbitrary string.
 	badVerificationContent := "bootstrap storage verification"
 	reader := strings.NewReader(badVerificationContent)
-	err := storage.Put("bootstrap-verify", reader,
+	err := storage.Put(
+		"bootstrap-verify",
+		reader,
 		int64(len(badVerificationContent)))
 	c.Assert(err, IsNil)
-	defer restoreBootstrapVerificationFile(storage)
+	defer restoreBootstrapVerificationFile(c, storage)
 
 	// Running NewConn() should fail.
 	_, err = juju.NewConn(t.Env)

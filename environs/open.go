@@ -10,6 +10,9 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
+var InvalidEnvironmentError error = fmt.Errorf(
+	"environment is not a juju-core environment")
+
 // Open creates a new Environ using the environment configuration with the
 // given name. If name is empty, the default environment will be used.
 func (envs *Environs) Open(name string) (Environ, error) {
@@ -59,8 +62,9 @@ func New(config *config.Config) (Environ, error) {
 	return p.Open(config)
 }
 
-// Checks if an environment has a bootstrap-verify that is written by
-// juju-core commands (as compared to one being written by Python juju).
+// CheckEnvironment checks if an environment has a bootstrap-verify
+// that is written by juju-core commands (as compared to one being
+// written by Python juju).
 //
 // If there is no bootstrap-verify file in the storage, it is still
 // considered to be a Juju-core environment since early versions have
@@ -74,13 +78,12 @@ func CheckEnvironment(environ Environ) error {
 		// When verification file does not exist, this is a juju-core
 		// environment.
 		return nil
-	} else if err == nil {
-		content, err := ioutil.ReadAll(reader)
-		if err == nil && string(content) == verificationContent {
-			// Content matches what juju-core puts in the
-			// verificationFilename.
-			return nil
-		}
+	} else if err != nil {
+		return err
+	} else if content, err := ioutil.ReadAll(reader); err != nil {
+		return err
+	} else if string(content) != verificationContent {
+		return InvalidEnvironmentError
 	}
-	return InvalidEnvironmentError
+	return nil
 }

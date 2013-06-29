@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
+	"strings"
 )
 
 type OpenSuite struct{}
@@ -84,6 +85,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
 
 	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
+
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
 	storage := environ.Storage()
@@ -98,10 +100,13 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
 
 	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
+
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
 	storage := environ.Storage()
 	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+
 	// When the bootstrap-verify file does not exist, it still believes
 	// the environment is a juju-core one because earlier versions
 	// did not create that file.
@@ -116,14 +121,36 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *C) {
 
 	environ, err := environs.NewFromName("test")
 	c.Assert(err, IsNil)
+
 	// VerifyStorage is sufficient for our tests and much simpler
 	// than Bootstrap which calls it.
 	storage := environ.Storage()
 	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+
 	// When fetching the verification file from storage fails,
 	// we get an InvalidEnvironmentError.
 	someError := errors.Unauthorizedf("you shall not pass")
 	dummy.Poison(storage, "bootstrap-verify", someError)
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, Equals, someError)
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+
+	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.
+	storage := environ.Storage()
+	content := "bad verification content"
+	reader := strings.NewReader(content)
+	err = storage.Put("bootstrap-verify", reader, int64(len(content)))
+	c.Assert(err, IsNil)
+
+	// When the bootstrap-verify file contains unexpected content,
+	// we get an InvalidEnvironmentError.
 	err = environs.CheckEnvironment(environ)
 	c.Assert(err, Equals, environs.InvalidEnvironmentError)
 }
