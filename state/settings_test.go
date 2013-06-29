@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"time"
 )
 
@@ -79,7 +80,7 @@ func (s *SettingsSuite) TestCannotOverwrite(c *C) {
 func (s *SettingsSuite) TestCannotReadMissing(c *C) {
 	_, err := readSettings(s.state, s.key)
 	c.Assert(err, ErrorMatches, "settings not found")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *SettingsSuite) TestCannotWriteMissing(c *C) {
@@ -92,7 +93,7 @@ func (s *SettingsSuite) TestCannotWriteMissing(c *C) {
 	node.Set("foo", "bar")
 	_, err = node.Write()
 	c.Assert(err, ErrorMatches, "settings not found")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *SettingsSuite) TestUpdateWithWrite(c *C) {

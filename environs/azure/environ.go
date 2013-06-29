@@ -4,30 +4,71 @@
 package azure
 
 import (
+	"fmt"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 	"sync"
+	"time"
 )
+
+var longAttempt = utils.AttemptStrategy{
+	Total: 3 * time.Minute,
+	Delay: 1 * time.Second,
+}
 
 type azureEnviron struct {
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
 	sync.Mutex
 
-	// name is immutable; once initialized, it does not need locking.
+	// name is immutable; it does not need locking.
 	name string
 
 	// ecfg is the environment's Azure-specific configuration.
 	ecfg *azureEnvironConfig
+
+	// storage is this environ's own private storage.
+	storage environs.Storage
+
+	// publicStorage is the public storage that this environ uses.
+	publicStorage environs.StorageReader
 }
 
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
+
+// NewEnviron creates a new azureEnviron.
+func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
+	env := azureEnviron{name: cfg.Name()}
+	err := env.SetConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// Set up storage.
+	env.storage = &azureStorage{
+		storageContext: &environStorageContext{environ: &env},
+	}
+
+	// Set up public storage.
+	publicContext := publicEnvironStorageContext{environ: &env}
+	if publicContext.getContainer() == "" {
+		// No public storage configured.  Use EmptyStorage.
+		env.publicStorage = environs.EmptyStorage
+	} else {
+		// Set up real public storage.
+		env.publicStorage = &azureStorage{storageContext: &publicContext}
+	}
+
+	return &env, nil
+}
 
 // Name is specified in the Environ interface.
 func (env *azureEnviron) Name() string {
@@ -59,8 +100,59 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	panic("unimplemented")
+	// This code is cargo-culted from the ec2/maas/openstack providers.
+	// It's not clear that the longAttempt loop has any business being
+	// here, but it's probably a refactoring that needs to happen outside
+	// of the provider code.
+	st, err := env.loadState()
+	if err != nil {
+		return nil, nil, err
+	}
+	config := env.Config()
+	cert, hasCert := config.CACert()
+	if !hasCert {
+		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
+	}
+	var stateAddrs []string
+	var apiAddrs []string
+	// Wait for the DNS names of any of the instances to become available.
+	log.Debugf("environs/azure: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
+		insts, err := env.Instances(st.StateInstances)
+		if err != nil && err != environs.ErrPartialInstances {
+			log.Debugf("environs/azure: error getting state instance: %v", err.Error())
+			return nil, nil, err
+		}
+		log.Debugf("environs/azure: started processing instances: %#v", insts)
+		for _, inst := range insts {
+			if inst == nil {
+				continue
+			}
+			name, err := inst.DNSName()
+			if err != nil {
+				continue
+			}
+			if name != "" {
+				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+				stateAddrs = append(stateAddrs, name+statePortSuffix)
+				apiAddrs = append(apiAddrs, name+apiPortSuffix)
+			}
+		}
+	}
+	if len(stateAddrs) == 0 {
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+	}
+	return &state.Info{
+			Addrs:  stateAddrs,
+			CACert: cert,
+		}, &api.Info{
+			Addrs:  apiAddrs,
+			CACert: cert,
+		}, nil
 }
 
 // Config is specified in the Environ interface.
@@ -86,11 +178,6 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 		}
 	}
 
-	if env.name == "" {
-		// Initialization is the only time we write to the name.
-		env.name = cfg.Name()
-	}
-
 	env.ecfg = ecfg
 	return nil
 }
@@ -108,7 +195,6 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-
 	// If the list of ids is empty, return nil as specified by the
 	// interface
 	if len(ids) == 0 {
@@ -173,17 +259,12 @@ func convertToInstances(deployments []gwacl.Deployment) []instance.Instance {
 
 // Storage is specified in the Environ interface.
 func (env *azureEnviron) Storage() environs.Storage {
-	context := &environStorageContext{environ: env}
-	return &azureStorage{context}
+	return env.getSnapshot().storage
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *azureEnviron) PublicStorage() environs.StorageReader {
-	context := &publicEnvironStorageContext{environ: env}
-	if context.getContainer() != "" {
-		return &azureStorage{context}
-	}
-	return environs.EmptyStorage
+	return env.getSnapshot().publicStorage
 }
 
 // Destroy is specified in the Environ interface.
@@ -270,10 +351,10 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
 func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
-	snap := env.getSnapshot()
+	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.StorageAccountName(),
-		Key:     snap.ecfg.StorageAccountKey(),
+		Account: ecfg.StorageAccountName(),
+		Key:     ecfg.StorageAccountKey(),
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -282,9 +363,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 // getPublicStorageContext obtains a context object for interfacing with
 // Azure's storage API (public storage).
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
-	snap := env.getSnapshot()
+	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.PublicStorageAccountName(),
+		Account: ecfg.PublicStorageAccountName(),
 		Key:     "", // Empty string means anonymous access.
 	}
 	// There is currently no way for this to fail.

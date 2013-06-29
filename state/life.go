@@ -5,6 +5,7 @@ package state
 
 import (
 	"labix.org/v2/mgo"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // Life represents the lifecycle state of the entities
@@ -18,14 +19,14 @@ const (
 	nLife
 )
 
-var lifeStrings = [nLife]string{
-	Alive: "alive",
-	Dying: "dying",
-	Dead:  "dead",
+var lifeStrings = [nLife]params.Life{
+	Alive: params.Alive,
+	Dying: params.Dying,
+	Dead:  params.Dead,
 }
 
 func (l Life) String() string {
-	return lifeStrings[l]
+	return string(lifeStrings[l])
 }
 
 var isAliveDoc = D{{"life", Alive}}

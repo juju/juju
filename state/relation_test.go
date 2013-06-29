@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type RelationSuite struct {
@@ -124,11 +125,11 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 	}
 	_, err := s.State.EndpointsRelation(subway, mongo)
 	c.Assert(err, ErrorMatches, `relation "subway:db mongo:server" not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	_, err = s.State.Relation(999)
 	c.Assert(err, ErrorMatches, `relation 999 not found`)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *RelationSuite) TestAddRelation(c *C) {
@@ -224,7 +225,7 @@ func (s *RelationSuite) TestDestroyRelation(c *C) {
 	err = rel.Destroy()
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
@@ -237,7 +238,7 @@ func (s *RelationSuite) TestDestroyRelation(c *C) {
 	_, err = s.State.AddRelation(eps...)
 	c.Assert(err, IsNil)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *RelationSuite) TestDestroyPeerRelation(c *C) {
@@ -257,7 +258,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	// Create a new service (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
@@ -265,7 +266,7 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *C) {
 	c.Assert(err, IsNil)
 	assertOneRelation(c, newriak, 1, riakEP)
 	err = rel.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func assertNoRelations(c *C, srv *state.Service) {

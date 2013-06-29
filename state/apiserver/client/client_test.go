@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package client_test
 
 import (
 	"fmt"
@@ -12,8 +12,9 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/state/apiserver/client"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type clientSuite struct {
@@ -318,7 +319,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *C) {
 		)
 		c.Check(err, ErrorMatches, expect)
 		_, err = s.State.Service("service")
-		c.Assert(errors.IsNotFoundError(err), Equals, true)
+		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	}
 }
 
@@ -407,7 +408,7 @@ func (s *clientSuite) TestClientServiceDeployConfigError(c *C) {
 	)
 	c.Assert(err, ErrorMatches, `option "skill-level" expected int, got "fred"`)
 	_, err = s.State.Service("service-name")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *clientSuite) TestClientServiceSetCharm(c *C) {
@@ -487,9 +488,9 @@ func (s *clientSuite) TestClientServiceSetCharmErrors(c *C) {
 
 func makeMockCharmStore() (store *coretesting.MockCharmStore, restore func()) {
 	mockStore := coretesting.NewMockCharmStore()
-	origStore := apiserver.CharmStore
-	apiserver.CharmStore = mockStore
-	return mockStore, func() { apiserver.CharmStore = origStore }
+	origStore := client.CharmStore
+	client.CharmStore = mockStore
+	return mockStore, func() { client.CharmStore = origStore }
 }
 
 func addCharm(c *C, store *coretesting.MockCharmStore, name string) (*charm.URL, charm.Charm) {
