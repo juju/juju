@@ -321,11 +321,13 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 
 	// Change the config a few more times, then reset the events. We sync to
-	// make sure the event has come into the filter before we tell it to discard
-	// all received events.
+	// make sure the events have arrived in the watcher -- and then wait a
+	// little longer, to allow for the coaleascence delay -- before we tell
+	// it to discard all received events.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
 	s.State.Sync()
+	time.Sleep(50 * time.Millisecond)
 	f.DiscardConfigEvent()
 	assertNoChange()
 

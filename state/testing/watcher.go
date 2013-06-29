@@ -31,8 +31,9 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*C
-	State   *state.State
-	Watcher NotifyWatcher
+	State    *state.State
+	Watcher  NotifyWatcher
+	FullSync bool
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
@@ -45,7 +46,11 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	c.State.Sync()
+	if c.FullSync {
+		c.State.Sync()
+	} else {
+		c.State.StartSync()
+	}
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
