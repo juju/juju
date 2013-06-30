@@ -229,7 +229,7 @@ func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func(
 	}
 }
 
-func (s *ProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Machine, check func() bool) {
+func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Machine, check func() bool) {
 	w, err := m.WatchHardwareCharacteristics()
 	c.Assert(err, IsNil)
 	defer stop(c, w)

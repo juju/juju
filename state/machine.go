@@ -607,7 +607,7 @@ func (e *NotProvisionedError) Error() string {
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
-	return m.doc.Nonce == nonce
+	return nonce == m.doc.Nonce && nonce != ""
 }
 
 // String returns a unique description of this machine.

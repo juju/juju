@@ -323,18 +323,18 @@ type AddMachineParams struct {
 	Jobs          []MachineJob
 }
 
-// makeInstanceMetadata returns metadata for a provisioned machine so long as the params InstanceId
+// makeInstanceData returns metadata for a provisioned machine so long as the params InstanceId
 // has a value, else nil is returned. This method exists to cater for InjectMachine, which is used to
 // record in state an instantiated bootstrap node. When adding a machine to state so that it is
 // provisioned normally, the instance id is not known at this point.
-func makeInstanceMetadata(params *AddMachineParams) *instanceData {
-	var md *instanceData
+func makeInstanceData(params *AddMachineParams) *instanceData {
+	var instData *instanceData
 	if params.instanceId != "" {
-		md = &instanceData{
+		instData = &instanceData{
 			InstanceId: params.instanceId,
 		}
 	}
-	return md
+	return instData
 }
 
 // addMachine implements AddMachine and InjectMachine.
@@ -350,7 +350,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		return nil, err
 	}
 	cons = params.Constraints.WithFallbacks(cons)
-	metadata := makeInstanceMetadata(params)
+	instData := makeInstanceData(params)
 	var ops []txn.Op
 	var containerParams = containerRefParams{hostId: params.ParentId, hostOnly: true}
 	// If we are creating a container, first create the host (parent) machine if necessary.
@@ -360,11 +360,10 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 			// No parent machine is specified so create one.
 			mdoc := &machineDoc{
 				Series: params.Series,
-				Nonce:  params.nonce,
 				Jobs:   params.Jobs,
 				Clean:  true,
 			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, metadata, cons, containerRefParams{})
+			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, containerRefParams{})
 			if err != nil {
 				return nil, err
 			}
@@ -382,11 +381,14 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	mdoc := &machineDoc{
 		Series:        params.Series,
 		ContainerType: string(params.ContainerType),
-		Nonce:         params.nonce,
 		Jobs:          params.Jobs,
 		Clean:         true,
 	}
-	mdoc, machineOps, err := st.addMachineOps(mdoc, metadata, cons, containerParams)
+	if mdoc.ContainerType == "" {
+		mdoc.InstanceId = params.instanceId
+		mdoc.Nonce = params.nonce
+	}
+	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
 	if err != nil {
 		return nil, err
 	}
