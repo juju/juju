@@ -14,6 +14,7 @@ import (
 	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 type upgraderSuite struct {
@@ -70,7 +71,7 @@ func (s *upgraderSuite) TestWatchAPIVersionNothing(c *C) {
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	args := params.Agents{
-		Tags: []string{s.rawMachine.Tag()},
+		Agents: []params.Agent{params.Agent{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, IsNil)
@@ -93,7 +94,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	}
 }
 
-func (s *upgraderSuite) TestWatchAPIVersionRefusesNonAgent(c *C) {
+func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = false
@@ -110,7 +111,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, IsNil)
 	args := params.Agents{
-		Tags: []string{s.rawMachine.Tag()},
+		Agents: []params.Agent{params.Agent{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -120,4 +121,84 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	c.Assert(results.Results[0].Error, NotNil)
 	err = *results.Results[0].Error
 	c.Check(err, ErrorMatches, "permission denied")
+}
+
+func (s *upgraderSuite) TestToolsNothing(c *C) {
+	// Not an error to watch nothing
+	results, err := s.upgrader.Tools(params.Agents{})
+	c.Assert(err, IsNil)
+	c.Check(results.Tools, HasLen, 0)
+}
+
+func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-12354"
+	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, IsNil)
+	args := params.Agents{
+		Agents: []params.Agent{params.Agent{Tag: s.rawMachine.Tag()}},
+	}
+	results, err := anUpgrader.Tools(args)
+	// It is not an error to make the request, but the specific item is rejected
+	c.Assert(err, IsNil)
+	c.Check(results.Tools, HasLen, 1)
+	toolResult := results.Tools[0]
+	c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
+	c.Assert(toolResult.Error, NotNil)
+	err = *toolResult.Error
+	c.Check(err, ErrorMatches, "permission denied")
+}
+
+func (s *upgraderSuite) TestToolsForAgentNoArchOrSeries(c *C) {
+	// You must pass the Arch and Series for the Tools request
+	// The various ways you can pass something wrong
+	permutations := []struct {
+		Arch   string
+		Series string
+	}{
+		{"", ""},
+		{"", "value"},
+		{"value", ""},
+	}
+	agents := make([]params.Agent, len(permutations))
+	args := params.Agents{Agents: agents}
+	for i, p := range permutations {
+		agents[i].Tag = s.rawMachine.Tag()
+		agents[i].Arch = p.Arch
+		agents[i].Series = p.Series
+	}
+	results, err := s.upgrader.Tools(args)
+	c.Assert(err, IsNil)
+	c.Check(results.Tools, HasLen, len(permutations))
+	for i, toolResult := range results.Tools {
+		c.Logf("result item %d", i)
+		c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
+		c.Check(toolResult.Error, NotNil)
+		err = *toolResult.Error
+		c.Check(err, ErrorMatches, "invalid request")
+	}
+}
+
+func (s *upgraderSuite) TestToolsForAgent(c *C) {
+	cur := version.Current
+	agent := params.Agent{
+		Tag:    s.rawMachine.Tag(),
+		Arch:   cur.Arch,
+		Series: cur.Series,
+	}
+
+	args := params.Agents{Agents: []params.Agent{agent}}
+	results, err := s.upgrader.Tools(args)
+	c.Assert(err, IsNil)
+	c.Check(results.Tools, HasLen, 1)
+	toolResult := results.Tools[0]
+	c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
+	c.Assert(toolResult.Error, IsNil)
+	c.Check(toolResult.Major, Equals, cur.Major)
+	c.Check(toolResult.Minor, Equals, cur.Minor)
+	c.Check(toolResult.Patch, Equals, cur.Patch)
+	c.Check(toolResult.Build, Equals, cur.Build)
+	c.Check(toolResult.Arch, Equals, cur.Arch)
+	c.Check(toolResult.Series, Equals, cur.Series)
+	c.Check(toolResult.URL, Not(Equals), "")
 }

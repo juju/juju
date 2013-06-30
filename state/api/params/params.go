@@ -72,9 +72,16 @@ type EntityWatchResults struct {
 	Results []EntityWatchResult
 }
 
+// Details about a single agent
+type Agent struct {
+	Tag    string
+	Arch   string
+	Series string
+}
+
 // Agents holds a list of Tags for Unit- and Machine-Agents.
 type Agents struct {
-	Tags []string
+	Agents []Agent
 }
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -229,6 +236,24 @@ type DestroyServiceUnits struct {
 // ServiceDestroy holds the parameters for making the ServiceDestroy call.
 type ServiceDestroy struct {
 	ServiceName string
+}
+
+// This is a flatted state.Tools description
+type AgentToolsResult struct {
+	Tag    string
+	Major  int
+	Minor  int
+	Patch  int
+	Build  int
+	Arch   string
+	Series string
+	URL    string
+	Error  *Error
+}
+
+// AgentToolsResults is a list of tools for various requested agents.
+type AgentToolsResults struct {
+	Tools []AgentToolsResult
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

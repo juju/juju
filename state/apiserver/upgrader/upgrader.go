@@ -4,9 +4,11 @@
 package upgrader
 
 import (
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/version"
 )
 
 // UpgraderAPI provides access to the Upgrader API facade.
@@ -35,11 +37,11 @@ const machineTagPrefix = "machine-"
 // to upgrade to
 func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchResults, error) {
 	result := params.EntityWatchResults{
-		Results: make([]params.EntityWatchResult, len(args.Tags)),
+		Results: make([]params.EntityWatchResult, len(args.Agents)),
 	}
-	for i, tag := range args.Tags {
+	for i, agent := range args.Agents {
 		var err error
-		if !u.authorizer.AuthOwner(tag) {
+		if !u.authorizer.AuthOwner(agent.Tag) {
 			err = common.ErrPerm
 		} else {
 			envWatcher := u.st.WatchEnvironConfig()
@@ -50,4 +52,55 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchRes
 	return result, nil
 }
 
-// Find the Tools necessary for a given agent
+// Find the Tools necessary for the given agents
+func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error) {
+	tools := make([]params.AgentToolsResult, len(args.Agents))
+	result := params.AgentToolsResults{Tools: tools}
+	if len(args.Agents) == 0 {
+		return result, nil
+	}
+	for i, agent := range args.Agents {
+		tools[i].Tag = agent.Tag
+	}
+	// For now, all agents get the same proposed version 
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return result, err
+	}
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		// TODO: What error do we give here?
+		return result, common.ErrBadRequest
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return result, err
+	}
+	for i, agent := range args.Agents {
+		var err error
+		if !u.authorizer.AuthOwner(agent.Tag) {
+			err = common.ErrPerm
+		} else if agent.Arch == "" || agent.Series == "" {
+			err = common.ErrBadRequest
+		} else {
+			requested := version.Binary{
+				Number: agentVersion,
+				Series: agent.Series,
+				Arch:   agent.Arch,
+			}
+			tool, err := environs.FindExactTools(env, requested)
+			if err == nil {
+				// we have found tools for this agent
+				tools[i].Arch = tool.Arch
+				tools[i].Series = tool.Series
+				tools[i].Major = tool.Major
+				tools[i].Minor = tool.Minor
+				tools[i].Patch = tool.Patch
+				tools[i].Build = tool.Build
+				tools[i].URL = tool.URL
+			}
+		}
+		tools[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}

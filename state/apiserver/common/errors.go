@@ -19,6 +19,7 @@ var (
 	ErrUnknownWatcher = stderrors.New("unknown watcher id")
 	ErrUnknownPinger  = stderrors.New("unknown pinger id")
 	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
+	ErrBadRequest     = stderrors.New("invalid request")
 )
 
 var singletonErrorCodes = map[error]string{
