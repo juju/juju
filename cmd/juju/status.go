@@ -203,7 +203,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 			status.InstanceId = "error"
 		}
 		// There's no point in reporting a pending agent state
-		// if the machine hasn't been provisioned.  This
+		// if the machine hasn't been provisioned. This
 		// also makes unprovisioned machines visually distinct
 		// in the output.
 		status.AgentState = ""
