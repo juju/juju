@@ -1610,6 +1610,89 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 	wc.AssertOneChange()
 }
 
+func (s *StateSuite) TestWatchMinUnits(c *C) {
+	// Check initial event.
+	w := s.State.WatchMinUnits()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc.AssertOneChange()
+
+	// Set up services for later use.
+	wordpress, err := s.State.AddService(
+		"wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, IsNil)
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, IsNil)
+	wordpressName := wordpress.Name()
+
+	// Add service units for later use.
+	wordpress0, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	wordpress1, err := wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	mysql0, err := mysql.AddUnit()
+	c.Assert(err, IsNil)
+	// No events should occur.
+	wc.AssertNoChange()
+
+	// Add minimum units to a service; a single change should occur.
+	err = wordpress.SetMinUnits(2)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(wordpressName)
+
+	// Decrease minimum units for a service; expect no changes.
+	err = wordpress.SetMinUnits(1)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+
+	// Increase minimum units for two services; a single change should occur.
+	err = mysql.SetMinUnits(1)
+	c.Assert(err, IsNil)
+	err = wordpress.SetMinUnits(3)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(mysql.Name(), wordpressName)
+
+	// Remove minimum units for a service; expect no changes.
+	err = mysql.SetMinUnits(0)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+
+	// Destroy a unit of a service with required minimum units.
+	// Also avoid the unit removal. A single change should occur.
+	preventUnitDestroyRemove(c, wordpress0)
+	err = wordpress0.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(wordpressName)
+
+	// Two actions: destroy a unit and increase minimum units for a service.
+	// A single change should occur, and the service name should appear only
+	// one time in the change.
+	err = wordpress.SetMinUnits(5)
+	c.Assert(err, IsNil)
+	err = wordpress1.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange(wordpressName)
+
+	// Destroy a unit of a service not requiring minimum units; expect no changes.
+	err = mysql0.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+
+	// Destroy a service with required minimum units; expect no changes.
+	err = wordpress.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+
+	// Destroy a service not requiring minimum units; expect no changes.
+	err = mysql.Destroy()
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+
+	// Stop watcher, check closed.
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
 func (s *StateSuite) TestNestingLevel(c *C) {
 	c.Assert(state.NestingLevel("0"), Equals, 0)
 	c.Assert(state.NestingLevel("0/lxc/1"), Equals, 1)

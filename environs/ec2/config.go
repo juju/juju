@@ -10,23 +10,22 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-var configChecker = schema.StrictFieldMap(
-	schema.Fields{
-		"access-key":           schema.String(),
-		"secret-key":           schema.String(),
-		"region":               schema.String(),
-		"control-bucket":       schema.String(),
-		"public-bucket":        schema.String(),
-		"public-bucket-region": schema.String(),
-	},
-	schema.Defaults{
-		"access-key":           "",
-		"secret-key":           "",
-		"region":               "us-east-1",
-		"public-bucket":        "juju-dist",
-		"public-bucket-region": "us-east-1",
-	},
-)
+var configFields = schema.Fields{
+	"access-key":           schema.String(),
+	"secret-key":           schema.String(),
+	"region":               schema.String(),
+	"control-bucket":       schema.String(),
+	"public-bucket":        schema.String(),
+	"public-bucket-region": schema.String(),
+}
+
+var configDefaults = schema.Defaults{
+	"access-key":           "",
+	"secret-key":           "",
+	"region":               "us-east-1",
+	"public-bucket":        "juju-dist",
+	"public-bucket-region": "us-east-1",
+}
 
 type environConfig struct {
 	*config.Config
@@ -70,11 +69,11 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
-	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
-	ecfg := &environConfig{cfg, v.(map[string]interface{})}
+	ecfg := &environConfig{cfg, validated}
 	if ecfg.accessKey() == "" || ecfg.secretKey() == "" {
 		auth, err := aws.EnvAuth()
 		if err != nil || ecfg.accessKey() != "" || ecfg.secretKey() != "" {
