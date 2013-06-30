@@ -6,11 +6,15 @@ package syslog
 import (
 	"bytes"
 	"fmt"
+	"os"
 	"os/exec"
 )
 
 func Restart() error {
-	return runCommand("restart", "rsyslog")
+	if os.Geteuid() == 0 {
+		return runCommand("restart", "rsyslog")
+	}
+	return fmt.Errorf("must be root")
 }
 
 func runCommand(args ...string) error {
