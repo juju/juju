@@ -125,8 +125,8 @@ func (s *SSHCommonSuite) makeMachines(n int, c *C) []*state.Machine {
 		c.Assert(err, IsNil)
 		// must set an instance id as the ssh command uses that as a signal the machine
 		// has been provisioned
-		inst, _ := testing.StartInstance(c, s.Conn.Environ, m.Id())
-		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce"), IsNil)
+		inst, md := testing.StartInstance(c, s.Conn.Environ, m.Id())
+		c.Assert(m.SetProvisioned(inst.Id(), "fake_nonce", md), IsNil)
 		machines[i] = m
 	}
 	return machines
@@ -138,8 +138,8 @@ func (s *SSHCommonSuite) addUnit(srv *state.Service, m *state.Machine, c *C) {
 	err = u.AssignToMachine(m)
 	c.Assert(err, IsNil)
 	// fudge unit.SetPublicAddress
-	id, ok := m.InstanceId()
-	c.Assert(ok, Equals, true)
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
 	insts, err := s.Conn.Environ.Instances([]instance.Id{id})
 	c.Assert(err, IsNil)
 	addr, err := insts[0].WaitDNSName()

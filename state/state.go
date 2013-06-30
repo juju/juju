@@ -100,6 +100,7 @@ type State struct {
 	environments     *mgo.Collection
 	charms           *mgo.Collection
 	machines         *mgo.Collection
+	instanceData     *mgo.Collection
 	containerRefs    *mgo.Collection
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
@@ -237,6 +238,7 @@ func (st *State) InjectMachine(series string, cons constraints.Value, instanceId
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
+	//TODO(wallyworld) - figure out how to determine the existing machine's characteristics so they can be recorded in state
 	return st.addMachine(&AddMachineParams{Series: series, Constraints: cons, instanceId: instanceId, nonce: BootstrapNonce, Jobs: jobs})
 }
 
@@ -248,7 +250,7 @@ type containerRefParams struct {
 	containerId string
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
@@ -298,6 +300,14 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, contain
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
+	if metadata != nil {
+		ops = append(ops, txn.Op{
+			C:      st.instanceData.Name,
+			Id:     mdoc.Id,
+			Assert: txn.DocMissing,
+			Insert: *metadata,
+		})
+	}
 	ops = append(ops, createContainerRefOp(st, containerParams)...)
 	return mdoc, ops, nil
 }
@@ -313,6 +323,20 @@ type AddMachineParams struct {
 	Jobs          []MachineJob
 }
 
+// makeInstanceData returns metadata for a provisioned machine so long as the params InstanceId
+// has a value, else nil is returned. This method exists to cater for InjectMachine, which is used to
+// record in state an instantiated bootstrap node. When adding a machine to state so that it is
+// provisioned normally, the instance id is not known at this point.
+func makeInstanceData(params *AddMachineParams) *instanceData {
+	var instData *instanceData
+	if params.instanceId != "" {
+		instData = &instanceData{
+			InstanceId: params.instanceId,
+		}
+	}
+	return instData
+}
+
 // addMachine implements AddMachine and InjectMachine.
 func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	msg := "cannot add a new machine"
@@ -326,6 +350,7 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		return nil, err
 	}
 	cons = params.Constraints.WithFallbacks(cons)
+	instData := makeInstanceData(params)
 	var ops []txn.Op
 	var containerParams = containerRefParams{hostId: params.ParentId, hostOnly: true}
 	// If we are creating a container, first create the host (parent) machine if necessary.
@@ -334,13 +359,11 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		if params.ParentId == "" {
 			// No parent machine is specified so create one.
 			mdoc := &machineDoc{
-				Series:     params.Series,
-				InstanceId: params.instanceId,
-				Nonce:      params.nonce,
-				Jobs:       params.Jobs,
-				Clean:      true,
+				Series: params.Series,
+				Jobs:   params.Jobs,
+				Clean:  true,
 			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, cons, containerRefParams{})
+			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, containerRefParams{})
 			if err != nil {
 				return nil, err
 			}
@@ -358,12 +381,14 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 	mdoc := &machineDoc{
 		Series:        params.Series,
 		ContainerType: string(params.ContainerType),
-		InstanceId:    params.instanceId,
-		Nonce:         params.nonce,
 		Jobs:          params.Jobs,
 		Clean:         true,
 	}
-	mdoc, machineOps, err := st.addMachineOps(mdoc, cons, containerParams)
+	if mdoc.ContainerType == "" {
+		mdoc.InstanceId = params.instanceId
+		mdoc.Nonce = params.nonce
+	}
+	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
 	if err != nil {
 		return nil, err
 	}

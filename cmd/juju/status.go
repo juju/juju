@@ -183,8 +183,8 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		status.AgentStateInfo,
 		status.Err = processAgent(machine)
 	status.Series = machine.Series()
-	instid, ok := machine.InstanceId()
-	if ok {
+	instid, err := machine.InstanceId()
+	if err == nil {
 		status.InstanceId = instid
 		instance, ok := context.instances[instid]
 		if ok {

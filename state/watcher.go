@@ -1143,6 +1143,19 @@ func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
 	return newLifecycleWatcher(m.st, m.st.machines, filter)
 }
 
+// WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
+func (m *Machine) WatchHardwareCharacteristics() (*EntityWatcher, error) {
+	var txnRevNo int64
+	if instData, err := getInstanceData(m.st, m.Id()); errors.IsNotFoundError(err) {
+		txnRevNo = -1
+	} else if err == nil {
+		txnRevNo = instData.TxnRevno
+	} else {
+		return nil, err
+	}
+	return newEntityWatcher(m.st, m.st.instanceData.Name, m.doc.Id, txnRevNo), nil
+}
+
 // Watch return a watcher for observing changes to a service.
 func (s *Service) Watch() *EntityWatcher {
 	return newEntityWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)

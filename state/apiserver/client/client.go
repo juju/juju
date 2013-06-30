@@ -61,7 +61,10 @@ func (c *Client) Status() (api.Status, error) {
 		Machines: make(map[string]api.MachineInfo),
 	}
 	for _, m := range ms {
-		instId, _ := m.InstanceId()
+		instId, err := m.InstanceId()
+		if err != nil && !state.IsNotProvisionedError(err) {
+			return api.Status{}, err
+		}
 		status.Machines[m.Id()] = api.MachineInfo{
 			InstanceId: string(instId),
 		}

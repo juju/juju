@@ -813,7 +813,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Principals: []string{u.doc.Name},
 		Clean:      false,
 	}
-	mdoc, ops, err := u.st.addMachineOps(mdoc, cons, containerRefParams{hostOnly: true})
+	mdoc, ops, err := u.st.addMachineOps(mdoc, nil, cons, containerRefParams{hostOnly: true})
 	if err != nil {
 		return err
 	}

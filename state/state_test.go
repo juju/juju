@@ -17,6 +17,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 	"net/url"
 	"strconv"
 	"strings"
@@ -315,8 +316,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
-	instanceId, ok := m.InstanceId()
-	c.Assert(ok, Equals, true)
+	instanceId, err := m.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(instanceId, Equals, instance.Id("i-mindustrious"))
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
@@ -392,7 +393,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce")
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -403,8 +404,8 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
-		instId, ok := m.InstanceId()
-		c.Assert(ok, Equals, true)
+		instId, err := m.InstanceId()
+		c.Assert(err, IsNil)
 		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
@@ -769,7 +770,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// Dying machine...
 	dying, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
+	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	err = dying.Destroy()
 	c.Assert(err, IsNil)
@@ -819,7 +820,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	wc.AssertOneChange("0")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 
@@ -942,6 +943,37 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 
 	// Remove the container: not reported.
 	err = m.Remove()
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	w, err := machine.WatchHardwareCharacteristics()
+	c.Assert(err, IsNil)
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
+
+	// Provision a machine: reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Alter the machine: not reported.
+	tools := &state.Tools{
+		Binary: version.Binary{
+			Number: version.MustParse("1.2.3"),
+			Series: "gutsy",
+			Arch:   "ppc",
+		},
+		URL: "http://canonical.com/",
+	}
+	err = machine.SetAgentTools(tools)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 }
