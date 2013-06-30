@@ -8,6 +8,8 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/tomb"
 )
@@ -18,6 +20,7 @@ type UnitAgent struct {
 	tomb     tomb.Tomb
 	Conf     AgentConf
 	UnitName string
+	runner   *worker.Runner
 }
 
 // Info returns usage information for the command.
@@ -41,54 +44,60 @@ func (a *UnitAgent) Init(args []string) error {
 	if !state.IsUnitName(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
-	return a.Conf.checkArgs(args)
+	if err := a.Conf.checkArgs(args); err != nil {
+		return err
+	}
+	a.runner = worker.NewRunner(isFatal, moreImportant)
+	return nil
 }
 
 // Stop stops the unit agent.
 func (a *UnitAgent) Stop() error {
-	a.tomb.Kill(nil)
+	a.runner.Kill()
 	return a.tomb.Wait()
 }
 
 // Run runs a unit agent.
 func (a *UnitAgent) Run(ctx *cmd.Context) error {
-	if err := a.Conf.read(state.UnitTag(a.UnitName)); err != nil {
+	defer a.tomb.Done()
+	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	defer a.tomb.Done()
-	err := RunAgentLoop(a.Conf.Conf, a)
-	if ug, ok := err.(*UpgradeReadyError); ok {
-		if err1 := ug.ChangeAgentTools(); err1 != nil {
-			err = err1
-			// Return and let upstart deal with the restart.
-		}
-	}
+	a.runner.StartWorker("toplevel", func() (worker.Worker, error) {
+		// TODO(rog) go1.1: use method expression
+		return a.Workers()
+	})
+	err := agentDone(a.runner.Wait())
+	a.tomb.Kill(err)
 	return err
 }
 
-// RunOnce runs a unit agent once.
-func (a *UnitAgent) RunOnce(st *state.State, e AgentState) error {
-	unit := e.(*state.Unit)
+// Workers returns a worker that runs the unit agent workers.
+func (a *UnitAgent) Workers() (worker.Worker, error) {
+	st, entity, err := openState(a.Conf.Conf, a)
+	if err != nil {
+		return nil, err
+	}
+	unit := entity.(*state.Unit)
 	dataDir := a.Conf.DataDir
-	tasks := []task{
-		uniter.NewUniter(st, unit.Name(), dataDir),
-		NewUpgrader(st, unit, dataDir),
-	}
-	if unit.IsPrincipal() {
-		tasks = append(tasks,
-			newDeployer(st, unit.WatchSubordinateUnits(), dataDir))
-	}
-	return runTasks(a.tomb.Dying(), tasks...)
+	runner := worker.NewRunner(allFatal, moreImportant)
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		return NewUpgrader(st, unit, dataDir), nil
+	})
+	runner.StartWorker("uniter", func() (worker.Worker, error) {
+		return uniter.NewUniter(st, unit.Name(), dataDir), nil
+	})
+	return newCloseWorker(runner, st), nil
 }
 
 func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 	return st.Unit(a.UnitName)
 }
 
-func (a *UnitAgent) Tag() string {
-	return state.UnitTag(a.UnitName)
+func (a *UnitAgent) APIEntity(st *api.State) (AgentAPIState, error) {
+	return nil, fmt.Errorf("not implemented yet")
 }
 
-func (a *UnitAgent) Tomb() *tomb.Tomb {
-	return &a.tomb
+func (a *UnitAgent) Tag() string {
+	return state.UnitTag(a.UnitName)
 }

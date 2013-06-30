@@ -130,6 +130,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	if err != nil {
 		return nil, err
 	}
+	e.name = cfg.Name()
 	return e, nil
 }
 
@@ -536,6 +537,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	return nil
 }
 
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	st, err := e.loadState()
 	if err != nil {
@@ -623,7 +626,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	var authModeCfg AuthMode
 	e.ecfgMutex.Lock()
 	defer e.ecfgMutex.Unlock()
-	e.name = ecfg.Name()
 	authModeCfg = AuthMode(ecfg.authMode())
 	e.ecfgUnlocked = ecfg
 

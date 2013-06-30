@@ -13,11 +13,10 @@ func (*fakeAddresser) APIAddresses() ([]string, error) {
 	return []string{"a1:123", "a2:123"}, nil
 }
 
-func NewTestSimpleContext(deployerTag, initDir, dataDir, logDir, syslogConfigDir string) *SimpleContext {
+func NewTestSimpleContext(initDir, dataDir, logDir, syslogConfigDir string) *SimpleContext {
 	return &SimpleContext{
 		addresser:       &fakeAddresser{},
 		caCert:          []byte("test-cert"),
-		deployerTag:     deployerTag,
 		initDir:         initDir,
 		dataDir:         dataDir,
 		logDir:          logDir,

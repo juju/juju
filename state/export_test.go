@@ -153,3 +153,13 @@ func SetMachineInstanceId(m *Machine, instanceId string) {
 func init() {
 	logSize = logSizeTests
 }
+
+// MinUnitsRevno returns the Revno of the minUnits document
+// associated with the given service name.
+func MinUnitsRevno(st *State, serviceName string) (int, error) {
+	var doc minUnitsDoc
+	if err := st.minUnits.FindId(serviceName).One(&doc); err != nil {
+		return 0, err
+	}
+	return doc.Revno, nil
+}

@@ -10,7 +10,8 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	. "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/state/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"sort"
 	"time"
@@ -164,11 +165,11 @@ func (s *MachineSuite) TestRemove(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.HardwareCharacteristics()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 }
@@ -324,13 +325,13 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
 	iid, err := s.machine.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), Equals, "")
 }
 
@@ -346,7 +347,7 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	iid, err := machine.InstanceId()
-	c.Assert(state.IsNotProvisionedError(err), IsTrue)
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), Equals, "")
 }
 
@@ -412,6 +413,34 @@ func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
 	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
 		return s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	})
+}
+
+func (s *MachineSuite) TestMachineRefresh(c *C) {
+	m0, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	oldTools, _ := m0.AgentTools()
+	m1, err := s.State.Machine(m0.Id())
+	c.Assert(err, IsNil)
+	err = m0.SetAgentTools(&state.Tools{
+		URL:    "foo",
+		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	})
+	c.Assert(err, IsNil)
+	newTools, _ := m0.AgentTools()
+
+	m1Tools, _ := m1.AgentTools()
+	c.Assert(m1Tools, DeepEquals, oldTools)
+	err = m1.Refresh()
+	c.Assert(err, IsNil)
+	m1Tools, _ = m1.AgentTools()
+	c.Assert(*m1Tools, Equals, *newTools)
+
+	err = m0.EnsureDead()
+	c.Assert(err, IsNil)
+	err = m0.Remove()
+	c.Assert(err, IsNil)
+	err = m0.Refresh()
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *MachineSuite) TestRefreshWhenNotAlive(c *C) {
@@ -541,10 +570,10 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
 
 func (s *MachineSuite) TestWatchMachine(c *C) {
 	w := s.machine.Watch()
-	defer AssertStop(c, w)
+	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := testing.NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -565,7 +594,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Remove machine, start new watch, check single event.
@@ -574,15 +603,15 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	err = machine.Remove()
 	c.Assert(err, IsNil)
 	w = s.machine.Watch()
-	defer AssertStop(c, w)
-	NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	defer testing.AssertStop(c, w)
+	testing.NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Change machine, and create a unit independently; no change.
@@ -642,13 +671,13 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Remove the Dead unit; no change.
@@ -670,8 +699,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Change machine; no change.
@@ -730,13 +759,13 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange("mysql/0", "mysql/1", "logging/0")
 
 	// Remove the Dead unit; no change.

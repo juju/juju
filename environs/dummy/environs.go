@@ -287,17 +287,15 @@ func SetStorageDelay(d time.Duration) {
 	}
 }
 
-var checker = schema.StrictFieldMap(
-	schema.Fields{
-		"state-server": schema.Bool(),
-		"broken":       schema.String(),
-		"secret":       schema.String(),
-	},
-	schema.Defaults{
-		"broken": "",
-		"secret": "pork",
-	},
-)
+var configFields = schema.Fields{
+	"state-server": schema.Bool(),
+	"broken":       schema.String(),
+	"secret":       schema.String(),
+}
+var configDefaults = schema.Defaults{
+	"broken": "",
+	"secret": "pork",
+}
 
 type environConfig struct {
 	*config.Config
@@ -329,13 +327,12 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
-	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
 	// Apply the coerced unknown values back into the config.
-	attrs := v.(map[string]interface{})
-	return cfg.Apply(attrs)
+	return cfg.Apply(validated)
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -456,6 +453,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if e.ecfg().stateServer() {
+		// TODO(rog) factor out relevant code from cmd/jujud/bootstrap.go
+		// so that we can call it here.
+
 		info := stateInfo()
 		st, err := state.Initialize(info, cfg, state.DefaultDialOpts())
 		if err != nil {
@@ -467,8 +467,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		if err := st.SetAdminMongoPassword(utils.PasswordHash(password)); err != nil {
 			panic(err)
 		}
-		// TODO(rog) use hash of password when the juju API connection
-		// logic is done.
 		_, err = st.AddUser("admin", password)
 		if err != nil {
 			panic(err)
@@ -736,7 +734,7 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) er
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()
@@ -782,7 +780,7 @@ func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err e
 			inst.state.firewallMode)
 	}
 	if inst.machineId != machineId {
-		panic(fmt.Errorf("Ports with mismatched machine id, expected %d got %d", inst.machineId, machineId))
+		panic(fmt.Errorf("Ports with mismatched machine id, expected %q got %q", inst.machineId, machineId))
 	}
 	inst.state.mu.Lock()
 	defer inst.state.mu.Unlock()

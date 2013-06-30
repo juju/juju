@@ -562,10 +562,10 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: append(isAliveDoc, notSetYet...),
-			Update: D{{"$set", D{{"nonce", nonce}}}},
+			Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
 		}, {
 			C:      m.st.instanceData.Name,
-			Id:     hc.Id,
+			Id:     m.doc.Id,
 			Assert: txn.DocMissing,
 			Insert: hc,
 		},
@@ -588,7 +588,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 	return fmt.Errorf("already set")
 }
 
-// NotProvisonedError records an error when a machine is not provisioned.
+// NotProvisionedError records an error when a machine is not provisioned.
 type NotProvisionedError struct {
 	machineId string
 }
@@ -607,7 +607,7 @@ func (e *NotProvisionedError) Error() string {
 
 // CheckProvisioned returns true if the machine was provisioned with the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
-	return m.doc.Nonce == nonce
+	return nonce == m.doc.Nonce && nonce != ""
 }
 
 // String returns a unique description of this machine.
@@ -626,16 +626,12 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set constraints")
+	notSetYet := D{{"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: isAliveDoc,
-		},
-		{
-			C:      m.st.instanceData.Name,
-			Id:     m.doc.Id,
-			Assert: txn.DocMissing,
+			Assert: append(isAliveDoc, notSetYet...),
 		},
 		setConstraintsOp(m.st, m.globalKey(), cons),
 	}

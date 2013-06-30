@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver
+package client
 
 import (
 	"fmt"
@@ -10,16 +10,50 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
-// srvClient serves client-specific API methods.
-type srvClient struct {
-	root *srvRoot
+type API struct {
+	state     *state.State
+	auth      common.Authorizer
+	resources *common.Resources
+	client    *Client
 }
 
-func (c *srvClient) Status() (api.Status, error) {
-	ms, err := c.root.srv.state.AllMachines()
+// Client serves client-specific API methods.
+type Client struct {
+	api *API
+}
+
+// NewAPI creates a new instance of the Client API.
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
+	r := &API{
+		state:     st,
+		auth:      authorizer,
+		resources: resources,
+	}
+	r.client = &Client{
+		api: r,
+	}
+	return r
+}
+
+// Client returns an object that provides access
+// to methods accessible to non-agent clients.
+func (r *API) Client(id string) (*Client, error) {
+	if !r.auth.AuthClient() {
+		return nil, common.ErrPerm
+	}
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return r.client, nil
+}
+
+func (c *Client) Status() (api.Status, error) {
+	ms, err := c.api.state.AllMachines()
 	if err != nil {
 		return api.Status{}, err
 	}
@@ -38,16 +72,16 @@ func (c *srvClient) Status() (api.Status, error) {
 	return status, nil
 }
 
-func (c *srvClient) WatchAll() (params.AllWatcherId, error) {
-	w := c.root.srv.state.Watch()
+func (c *Client) WatchAll() (params.AllWatcherId, error) {
+	w := c.api.state.Watch()
 	return params.AllWatcherId{
-		AllWatcherId: c.root.resources.register(w).id,
+		AllWatcherId: c.api.resources.Register(w),
 	}, nil
 }
 
 // ServiceSet implements the server side of Client.ServerSet.
-func (c *srvClient) ServiceSet(p params.ServiceSet) error {
-	svc, err := c.root.srv.state.Service(p.ServiceName)
+func (c *Client) ServiceSet(p params.ServiceSet) error {
+	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -63,8 +97,8 @@ func (c *srvClient) ServiceSet(p params.ServiceSet) error {
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
-func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
-	svc, err := c.root.srv.state.Service(p.ServiceName)
+func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
+	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -80,13 +114,13 @@ func (c *srvClient) ServiceSetYAML(p params.ServiceSetYAML) error {
 }
 
 // ServiceGet returns the configuration for a service.
-func (c *srvClient) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
-	return statecmd.ServiceGet(c.root.srv.state, args)
+func (c *Client) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
+	return statecmd.ServiceGet(c.api.state, args)
 }
 
 // Resolved implements the server side of Client.Resolved.
-func (c *srvClient) Resolved(p params.Resolved) error {
-	unit, err := c.root.srv.state.Unit(p.UnitName)
+func (c *Client) Resolved(p params.Resolved) error {
+	unit, err := c.api.state.Unit(p.UnitName)
 	if err != nil {
 		return err
 	}
@@ -95,21 +129,21 @@ func (c *srvClient) Resolved(p params.Resolved) error {
 
 // ServiceExpose changes the juju-managed firewall to expose any ports that
 // were also explicitly marked by units as open.
-func (c *srvClient) ServiceExpose(args params.ServiceExpose) error {
-	return statecmd.ServiceExpose(c.root.srv.state, args)
+func (c *Client) ServiceExpose(args params.ServiceExpose) error {
+	return statecmd.ServiceExpose(c.api.state, args)
 }
 
 // ServiceUnexpose changes the juju-managed firewall to unexpose any ports that
 // were also explicitly marked by units as open.
-func (c *srvClient) ServiceUnexpose(args params.ServiceUnexpose) error {
-	return statecmd.ServiceUnexpose(c.root.srv.state, args)
+func (c *Client) ServiceUnexpose(args params.ServiceUnexpose) error {
+	return statecmd.ServiceUnexpose(c.api.state, args)
 }
 
 var CharmStore charm.Repository = charm.Store
 
 // ServiceDeploy fetches the charm from the charm store and deploys it. Local
 // charms are not supported.
-func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
+func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	curl, err := charm.ParseURL(args.CharmUrl)
 	if err != nil {
 		return err
@@ -120,7 +154,7 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	conn, err := juju.NewConnFromState(c.root.srv.state)
+	conn, err := juju.NewConnFromState(c.api.state)
 	if err != nil {
 		return err
 	}
@@ -149,8 +183,8 @@ func (c *srvClient) ServiceDeploy(args params.ServiceDeploy) error {
 }
 
 // ServiceSetCharm sets the charm for a given service.
-func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
-	service, err := c.root.srv.state.Service(args.ServiceName)
+func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
+	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
@@ -164,7 +198,7 @@ func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	conn, err := juju.NewConnFromState(c.root.srv.state)
+	conn, err := juju.NewConnFromState(c.api.state)
 	if err != nil {
 		return err
 	}
@@ -176,8 +210,8 @@ func (c *srvClient) ServiceSetCharm(args params.ServiceSetCharm) error {
 }
 
 // AddServiceUnits adds a given number of units to a service.
-func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
-	units, err := statecmd.AddServiceUnits(c.root.srv.state, args)
+func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
+	units, err := statecmd.AddServiceUnits(c.api.state, args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
 	}
@@ -189,42 +223,42 @@ func (c *srvClient) AddServiceUnits(args params.AddServiceUnits) (params.AddServ
 }
 
 // DestroyServiceUnits removes a given set of service units.
-func (c *srvClient) DestroyServiceUnits(args params.DestroyServiceUnits) error {
-	return statecmd.DestroyServiceUnits(c.root.srv.state, args)
+func (c *Client) DestroyServiceUnits(args params.DestroyServiceUnits) error {
+	return statecmd.DestroyServiceUnits(c.api.state, args)
 }
 
 // ServiceDestroy destroys a given service.
-func (c *srvClient) ServiceDestroy(args params.ServiceDestroy) error {
-	return statecmd.ServiceDestroy(c.root.srv.state, args)
+func (c *Client) ServiceDestroy(args params.ServiceDestroy) error {
+	return statecmd.ServiceDestroy(c.api.state, args)
 }
 
 // GetServiceConstraints returns the constraints for a given service.
-func (c *srvClient) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
-	return statecmd.GetServiceConstraints(c.root.srv.state, args)
+func (c *Client) GetServiceConstraints(args params.GetServiceConstraints) (params.GetServiceConstraintsResults, error) {
+	return statecmd.GetServiceConstraints(c.api.state, args)
 }
 
 // SetServiceConstraints sets the constraints for a given service.
-func (c *srvClient) SetServiceConstraints(args params.SetServiceConstraints) error {
-	return statecmd.SetServiceConstraints(c.root.srv.state, args)
+func (c *Client) SetServiceConstraints(args params.SetServiceConstraints) error {
+	return statecmd.SetServiceConstraints(c.api.state, args)
 }
 
 // AddRelation adds a relation between the specified endpoints and returns the relation info.
-func (c *srvClient) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
-	return statecmd.AddRelation(c.root.srv.state, args)
+func (c *Client) AddRelation(args params.AddRelation) (params.AddRelationResults, error) {
+	return statecmd.AddRelation(c.api.state, args)
 }
 
 // DestroyRelation removes the relation between the specified endpoints.
-func (c *srvClient) DestroyRelation(args params.DestroyRelation) error {
-	return statecmd.DestroyRelation(c.root.srv.state, args)
+func (c *Client) DestroyRelation(args params.DestroyRelation) error {
+	return statecmd.DestroyRelation(c.api.state, args)
 }
 
 // CharmInfo returns information about the requested charm.
-func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
+func (c *Client) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 	curl, err := charm.ParseURL(args.CharmURL)
 	if err != nil {
 		return api.CharmInfo{}, err
 	}
-	charm, err := c.root.srv.state.Charm(curl)
+	charm, err := c.api.state.Charm(curl)
 	if err != nil {
 		return api.CharmInfo{}, err
 	}
@@ -239,8 +273,8 @@ func (c *srvClient) CharmInfo(args params.CharmInfo) (api.CharmInfo, error) {
 
 // EnvironmentInfo returns information about the current environment (default
 // series and type).
-func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
-	conf, err := c.root.srv.state.EnvironConfig()
+func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
+	conf, err := c.api.state.EnvironConfig()
 	if err != nil {
 		return api.EnvironmentInfo{}, err
 	}
@@ -253,8 +287,8 @@ func (c *srvClient) EnvironmentInfo() (api.EnvironmentInfo, error) {
 }
 
 // GetAnnotations returns annotations about a given entity.
-func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	entity, err := c.root.srv.state.Annotator(args.Tag)
+func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
+	entity, err := c.api.state.Annotator(args.Tag)
 	if err != nil {
 		return params.GetAnnotationsResults{}, err
 	}
@@ -266,8 +300,8 @@ func (c *srvClient) GetAnnotations(args params.GetAnnotations) (params.GetAnnota
 }
 
 // SetAnnotations stores annotations about a given entity.
-func (c *srvClient) SetAnnotations(args params.SetAnnotations) error {
-	entity, err := c.root.srv.state.Annotator(args.Tag)
+func (c *Client) SetAnnotations(args params.SetAnnotations) error {
+	entity, err := c.api.state.Annotator(args.Tag)
 	if err != nil {
 		return err
 	}

@@ -152,6 +152,7 @@ func (s *JujuConnSuite) StateInfo(c *C) *state.Info {
 func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	_, apiInfo, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
+	apiInfo.Tag = "user-admin"
 	apiInfo.Password = "dummy-secret"
 	return apiInfo
 }
@@ -221,6 +222,7 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 		c.Logf("cannot reset admin password: %v", err)
 	}
 	c.Assert(s.Conn.Close(), IsNil)
+	c.Assert(s.APIConn.Close(), IsNil)
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil

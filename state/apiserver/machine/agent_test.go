@@ -28,20 +28,11 @@ func (s *agentSuite) SetUpTest(c *C) {
 
 func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *C) {
 	auth := s.authorizer
-	auth.machineAgent = false
+	auth.MachineAgent = false
 	api, err := machine.NewAgentAPI(s.State, auth)
 	c.Assert(err, NotNil)
 	c.Assert(api, IsNil)
 	c.Assert(err, ErrorMatches, "permission denied")
-}
-
-func (s *agentSuite) TestAgentFailsWhenNotLoggedIn(c *C) {
-	auth := s.authorizer
-	auth.loggedIn = false
-	api, err := machine.NewAgentAPI(s.State, auth)
-	c.Assert(err, NotNil)
-	c.Assert(api, IsNil)
-	c.Assert(err, ErrorMatches, "not logged in")
 }
 
 func (s *agentSuite) TestGetMachines(c *C) {
@@ -50,7 +41,6 @@ func (s *agentSuite) TestGetMachines(c *C) {
 	results := s.agent.GetMachines(params.Machines{
 		Ids: []string{"1", "0", "42"},
 	})
-	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{{
 			Life: "dying",
