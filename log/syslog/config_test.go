@@ -41,7 +41,7 @@ func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *C, slConfig *syslog.S
 var expectedAccumulateSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/some-machine-state
+$InputFileStateFile /var/spool/rsyslog/juju-some-machine-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/some-machine.log
@@ -82,7 +82,7 @@ func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *C) {
 var expectedForwardSyslogConf = `
 $ModLoad imfile
 
-$InputFileStateFile /var/spool/rsyslog/some-machine-state
+$InputFileStateFile /var/spool/rsyslog/juju-some-machine-state
 $InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/some-machine.log

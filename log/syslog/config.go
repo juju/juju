@@ -123,7 +123,7 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 	}
 
 	var stateFilePath = func() string {
-		return fmt.Sprintf("/var/spool/rsyslog/%s-state", slConfig.LogFileName)
+		return fmt.Sprintf("/var/spool/rsyslog/juju-%s-state", slConfig.LogFileName)
 	}
 
 	t := template.New("")
