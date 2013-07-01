@@ -8,6 +8,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -237,6 +238,8 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 
 func (s *upgraderSuite) TestSetTools(c *C) {
 	cur := version.Current
+	_, err := s.rawMachine.AgentTools()
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	tools := params.AgentTools{
 		Tag:    s.rawMachine.Tag(),
 		Arch:   cur.Arch,
@@ -253,4 +256,17 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 	c.Assert(results.Results, HasLen, 1)
 	c.Assert(results.Results[0].Tag, Equals, s.rawMachine.Tag())
 	c.Assert(results.Results[0].Error, IsNil)
+        // Check that the new value actually got set, we must Refresh because
+        // it was set on a different Machine object
+	err = s.rawMachine.Refresh()
+	c.Assert(err, IsNil)
+	realTools, err := s.rawMachine.AgentTools()
+	c.Assert(err, IsNil)
+	c.Check(realTools.Arch, Equals, cur.Arch)
+	c.Check(realTools.Series, Equals, cur.Series)
+	c.Check(realTools.Major, Equals, cur.Major)
+	c.Check(realTools.Minor, Equals, cur.Minor)
+	c.Check(realTools.Patch, Equals, cur.Patch)
+	c.Check(realTools.Build, Equals, cur.Build)
+	c.Check(realTools.URL, Equals, "")
 }

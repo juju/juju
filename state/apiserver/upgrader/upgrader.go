@@ -117,6 +117,24 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsR
 		results.Results[i].Tag = tools.Tag
 		if !u.authorizer.AuthOwner(tools.Tag) {
 			err = common.ErrPerm
+		} else {
+			machine, err := u.st.Machine(state.MachineIdFromTag(tools.Tag))
+			if err == nil {
+				stTools := state.Tools{
+					Binary: version.Binary{
+						Number: version.Number{
+							Major: tools.Major,
+							Minor: tools.Minor,
+							Patch: tools.Patch,
+							Build: tools.Build,
+						},
+						Arch:   tools.Arch,
+						Series: tools.Series,
+					},
+					URL: tools.URL,
+				}
+				err = machine.SetAgentTools(&stTools)
+			}
 		}
 		results.Results[i].Error = common.ServerError(err)
 	}
