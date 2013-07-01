@@ -253,8 +253,8 @@ type AgentTools struct {
 
 // This is a flatted state.Tools description
 type AgentToolsResult struct {
-        AgentTools
-	Error  *Error
+	AgentTools
+	Error *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
@@ -264,18 +264,18 @@ type AgentToolsResults struct {
 
 // Set what tools are being run for multiple agents
 type SetAgentTools struct {
-    AgentTools  []AgentTools
+	AgentTools []AgentTools
 }
 
 // The result of setting the tools for one agent
 type SetAgentToolsResult struct {
-    Tag string
-    Error *Error
+	Tag   string
+	Error *Error
 }
 
 // The result of setting the tools for many agents
 type SetAgentToolsResults struct {
-    Results []SetAgentToolsResult
+	Results []SetAgentToolsResult
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.
