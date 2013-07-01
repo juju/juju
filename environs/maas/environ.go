@@ -423,8 +423,8 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 }
 
 // Instances returns the instance.Instance objects corresponding to the given
-// slice of instance.Id.  Similar to what the ec2 provider does,
-// Instances returns nil if the given slice is empty or nil.
+// slice of instance.Id.  The error is ErrNoInstances if no instances
+// were found.
 func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	if len(ids) == 0 {
 		// This would be treated as "return all instances" below, so
