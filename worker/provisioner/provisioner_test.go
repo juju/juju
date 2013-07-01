@@ -360,12 +360,12 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
 	// create a machine to host the container.
 	m, err := s.addMachine()
 	c.Assert(err, IsNil)
-	instance := s.checkStartInstance(c, m)
+	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
 	params := state.AddMachineParams{
 		ParentId:      m.Id(),
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -379,7 +379,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
 	c.Assert(container.EnsureDead(), IsNil)
 	c.Assert(container.Remove(), IsNil)
 	c.Assert(m.EnsureDead(), IsNil)
-	s.checkStopInstances(c, instance)
+	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
 }
 

@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -860,7 +861,7 @@ type addContainer struct {
 func (ac addContainer) step(c *C, ctx *context) {
 	params := &state.AddMachineParams{
 		ParentId:      ac.parentId,
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{ac.job},
 	}

@@ -44,7 +44,7 @@ func (s *MachineSuite) TestParentId(c *C) {
 	c.Assert(ok, Equals, false)
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -69,7 +69,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *C) {
 	// A machine hosting a container must not advance lifecycle.
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}

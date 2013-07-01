@@ -94,8 +94,8 @@ func (m *Machine) Series() string {
 }
 
 // ContainerType returns the type of container hosting this machine.
-func (m *Machine) ContainerType() ContainerType {
-	return ContainerType(m.doc.ContainerType)
+func (m *Machine) ContainerType() instance.ContainerType {
+	return instance.ContainerType(m.doc.ContainerType)
 }
 
 // machineGlobalKey returns the global database key for the identified machine.

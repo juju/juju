@@ -228,7 +228,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *C) {
 func (s *lxcProvisionerSuite) addContainer(c *C) *state.Machine {
 	params := state.AddMachineParams{
 		ParentId:      s.machineId,
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}

@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/tomb"
@@ -1126,7 +1127,7 @@ func (m *Machine) Watch() *EntityWatcher {
 }
 
 // WatchContainers returns a watcher that notifies of changes to the lifecycle of containers on a machine.
-func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
+func (m *Machine) WatchContainers(ctype instance.ContainerType) *LifecycleWatcher {
 	filter := func(key interface{}) bool {
 		// Filter out ids which are not of the specified container type on this machine.
 		id := key.(string)
@@ -1136,7 +1137,7 @@ func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
 		}
 		// Extract the container type from the id.
 		idParts := strings.Split(id, "/")
-		containerType := ContainerType(idParts[len(idParts)-2])
+		containerType := instance.ContainerType(idParts[len(idParts)-2])
 		return ctype == containerType
 	}
 
