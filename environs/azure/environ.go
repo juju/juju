@@ -195,12 +195,72 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	return nil, fmt.Errorf("azureEnviron.Instances unimplemented")
+	// If the list of ids is empty, return nil as specified by the
+	// interface
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(context)
+
+	// Prepare gwacl request object.
+	container := env.getSnapshot().ecfg.StorageContainerName()
+	deploymentNames := make([]string, len(ids))
+	for i, id := range ids {
+		deploymentNames[i] = string(id)
+	}
+	request := &gwacl.ListDeploymentsRequest{ServiceName: container, DeploymentNames: deploymentNames}
+
+	// Issue 'ListDeployments' request with gwacl.
+	deployments, err := context.ListDeployments(request)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no instances were found, return ErrNoInstances.
+	if len(deployments) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
+	instances := convertToInstances(deployments)
+
+	// Check if we got a partial result.
+	if len(ids) != len(instances) {
+		return instances, environs.ErrPartialInstances
+	}
+	return instances, nil
 }
 
 // AllInstances is specified in the Environ interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
-	panic("unimplemented")
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(context)
+
+	container := env.getSnapshot().ecfg.StorageContainerName()
+	request := &gwacl.ListAllDeploymentsRequest{ServiceName: container}
+	deployments, err := context.ListAllDeployments(request)
+	if err != nil {
+		return nil, err
+	}
+	return convertToInstances(deployments), nil
+}
+
+// convertToInstances converts a slice of gwacl.Deployment objects into
+// a slice of instance.Instance objects.
+func convertToInstances(deployments []gwacl.Deployment) []instance.Instance {
+	instances := make([]instance.Instance, len(deployments))
+	for i, deployment := range deployments {
+		instances[i] = &azureInstance{deployment}
+	}
+	return instances
 }
 
 // Storage is specified in the Environ interface.
