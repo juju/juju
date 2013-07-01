@@ -50,6 +50,9 @@ var parseConstraintsTests = []struct {
 		summary: "set container empty",
 		args:    []string{"container="},
 	}, {
+		summary: "set container to none",
+		args:    []string{"container=none"},
+	}, {
 		summary: "set container lxc",
 		args:    []string{"container=lxc"},
 	}, {
