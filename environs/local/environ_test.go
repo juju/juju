@@ -4,21 +4,21 @@
 package local_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/local"
 )
 
 type environSuite struct {
-	providerSuite
+	baseProviderSuite
 }
 
-var _ = Suite(&environSuite{})
+var _ = gc.Suite(&environSuite{})
 
-func (*environSuite) TestName(c *C) {
+func (*environSuite) TestName(c *gc.C) {
 	testConfig := minimalConfig(c)
 
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(environ.Name(), Equals, "test")
+	c.Assert(environ.Name(), gc.Equals, "test")
 }
