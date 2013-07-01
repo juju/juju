@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -92,30 +93,35 @@ var (
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
 		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
 		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
 		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
 		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
 	machine1WithContainers = M{
 		"agent-state": "started",
@@ -142,6 +148,7 @@ var (
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -165,6 +172,8 @@ var statusFormats = []outputFormat{
 	{"json", json.Marshal, json.Unmarshal},
 }
 
+var machineCons = constraints.MustParse("cpu-cores=2 mem=8G")
+
 var statusTests = []testCase{
 	// Status tests
 	test(
@@ -180,7 +189,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
@@ -204,6 +213,7 @@ var statusTests = []testCase{
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
 						"series":      "series",
+						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 					},
 				},
 				"services": M{},
@@ -239,6 +249,27 @@ var statusTests = []testCase{
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
 						"series":        "series",
+						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M",
+					},
+				},
+				"services": M{},
+			},
+		},
+	), test(
+		"instance with different hardware characteristics",
+		addMachine{"0", machineCons, state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		expect{
+			"machine 0 has specific hardware characteristics",
+			M{
+				"machines": M{
+					"0": M{
+						"agent-state": "started",
+						"dns-name":    "dummyenv-0.dns",
+						"instance-id": "dummyenv-0",
+						"series":      "series",
+						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M",
 					},
 				},
 				"services": M{},
@@ -246,7 +277,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"test pending and missing machines",
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		expect{
 			"machine 0 reports pending",
 			M{
@@ -270,6 +301,7 @@ var statusTests = []testCase{
 						"instance-id":    "i-missing",
 						"agent-state":    "pending",
 						"series":         "series",
+						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M",
 					},
 				},
 				"services": M{},
@@ -277,7 +309,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"add two services and expose one, then add 2 more machines and some units",
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"dummy"},
@@ -310,10 +342,10 @@ var statusTests = []testCase{
 			},
 		},
 
-		addMachine{"1", state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
-		addMachine{"2", state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		expect{
@@ -371,15 +403,15 @@ var statusTests = []testCase{
 			},
 		},
 
-		addMachine{"3", state.JobHostUnits},
+		addMachine{machineId: "3", job: state.JobHostUnits},
 		startMachine{"3"},
 		// Simulate some status with info, while the agent is down.
 		setMachineStatus{"3", params.StatusStopped, "Really?"},
-		addMachine{"4", state.JobHostUnits},
+		addMachine{machineId: "4", job: state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.StatusError, "Beware the red toys"},
 		ensureDyingUnit{"dummy-service/0"},
-		addMachine{"5", state.JobHostUnits},
+		addMachine{machineId: "5", job: state.JobHostUnits},
 		ensureDeadMachine{"5"},
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
@@ -394,6 +426,7 @@ var statusTests = []testCase{
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
 						"series":           "series",
+						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M",
 					},
 					"4": M{
 						"dns-name":         "dummyenv-4.dns",
@@ -401,6 +434,7 @@ var statusTests = []testCase{
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
 						"series":           "series",
+						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M",
 					},
 					"5": M{
 						"life":        "dead",
@@ -440,7 +474,7 @@ var statusTests = []testCase{
 		"add a dying service",
 		addCharm{"dummy"},
 		addService{"dummy-service", "dummy"},
-		addMachine{"0", state.JobHostUnits},
+		addMachine{machineId: "0", job: state.JobHostUnits},
 		addUnit{"dummy-service", "0"},
 		ensureDyingService{"dummy-service"},
 		expect{
@@ -472,7 +506,7 @@ var statusTests = []testCase{
 	// Relation tests
 	test(
 		"complex scenario with multiple related services",
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -481,7 +515,7 @@ var statusTests = []testCase{
 
 		addService{"project", "wordpress"},
 		setServiceExposed{"project", true},
-		addMachine{"1", state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"project", "1"},
@@ -489,7 +523,7 @@ var statusTests = []testCase{
 
 		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
-		addMachine{"2", state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -497,14 +531,14 @@ var statusTests = []testCase{
 
 		addService{"varnish", "varnish"},
 		setServiceExposed{"varnish", true},
-		addMachine{"3", state.JobHostUnits},
+		addMachine{machineId: "3", job: state.JobHostUnits},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addUnit{"varnish", "3"},
 
 		addService{"private", "wordpress"},
 		setServiceExposed{"private", true},
-		addMachine{"4", state.JobHostUnits},
+		addMachine{machineId: "4", job: state.JobHostUnits},
 		startAliveMachine{"4"},
 		setMachineStatus{"4", params.StatusStarted, ""},
 		addUnit{"private", "4"},
@@ -582,7 +616,7 @@ var statusTests = []testCase{
 		},
 	), test(
 		"simple peer scenario",
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"riak"},
@@ -590,17 +624,17 @@ var statusTests = []testCase{
 
 		addService{"riak", "riak"},
 		setServiceExposed{"riak", true},
-		addMachine{"1", state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"riak", "1"},
 		setUnitStatus{"riak/0", params.StatusStarted, ""},
-		addMachine{"2", state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"riak", "2"},
 		setUnitStatus{"riak/1", params.StatusStarted, ""},
-		addMachine{"3", state.JobHostUnits},
+		addMachine{machineId: "3", job: state.JobHostUnits},
 		startAliveMachine{"3"},
 		setMachineStatus{"3", params.StatusStarted, ""},
 		addAliveUnit{"riak", "3"},
@@ -645,7 +679,7 @@ var statusTests = []testCase{
 	// Subordinate tests
 	test(
 		"one service with one subordinate service",
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"wordpress"},
@@ -654,7 +688,7 @@ var statusTests = []testCase{
 
 		addService{"wordpress", "wordpress"},
 		setServiceExposed{"wordpress", true},
-		addMachine{"1", state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"wordpress", "1"},
@@ -662,7 +696,7 @@ var statusTests = []testCase{
 
 		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
-		addMachine{"2", state.JobHostUnits},
+		addMachine{machineId: "2", job: state.JobHostUnits},
 		startAliveMachine{"2"},
 		setMachineStatus{"2", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "2"},
@@ -744,14 +778,14 @@ var statusTests = []testCase{
 		},
 	), test(
 		"machines with containers",
-		addMachine{"0", state.JobManageEnviron},
+		addMachine{machineId: "0", job: state.JobManageEnviron},
 		startAliveMachine{"0"},
 		setMachineStatus{"0", params.StatusStarted, ""},
 		addCharm{"mysql"},
 		addService{"mysql", "mysql"},
 		setServiceExposed{"mysql", true},
 
-		addMachine{"1", state.JobHostUnits},
+		addMachine{machineId: "1", job: state.JobHostUnits},
 		startAliveMachine{"1"},
 		setMachineStatus{"1", params.StatusStarted, ""},
 		addAliveUnit{"mysql", "1"},
@@ -802,11 +836,17 @@ var statusTests = []testCase{
 
 type addMachine struct {
 	machineId string
+	cons      constraints.Value
 	job       state.MachineJob
 }
 
 func (am addMachine) step(c *C, ctx *context) {
-	m, err := ctx.st.AddMachine("series", am.job)
+	params := &state.AddMachineParams{
+		Series:      "series",
+		Constraints: am.cons,
+		Jobs:        []state.MachineJob{am.job},
+	}
+	m, err := ctx.st.AddMachineWithConstraints(params)
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, am.machineId)
 }
@@ -836,7 +876,9 @@ type startMachine struct {
 func (sm startMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
-	inst, hc := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	cons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, IsNil)
 }
@@ -848,7 +890,9 @@ type startMissingMachine struct {
 func (sm startMissingMachine) step(c *C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
 	c.Assert(err, IsNil)
-	_, hc := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	cons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	_, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
 	c.Assert(err, IsNil)
 }
@@ -868,7 +912,9 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 	agentAlive, err := m.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(agentAlive, Equals, true)
-	inst, hc := testing.StartInstance(c, ctx.conn.Environ, m.Id())
+	cons, err := m.Constraints()
+	c.Assert(err, IsNil)
+	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
 	c.Assert(err, IsNil)
 	ctx.pingers[m.Id()] = pinger
