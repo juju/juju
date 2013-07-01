@@ -270,7 +270,7 @@ func (v *Value) setMem(str string) error {
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
-		if val, err := strconv.Atoi(str); err != nil || val < 0 {
+		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
 			return nil, fmt.Errorf("must be a non-negative integer")
 		} else {
 			value = uint64(val)

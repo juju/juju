@@ -256,8 +256,8 @@ var constraintsRoundtripTests = []constraints.Value{
 	{Mem: uint64p(0)},
 	{Mem: uint64p(98765)},
 	{
-		Container: ctypep("lxc"),
 		Arch:      strp("i386"),
+		Container: ctypep("lxc"),
 		CpuCores:  uint64p(4096),
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
