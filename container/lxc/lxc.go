@@ -242,7 +242,7 @@ func cloudInitUserData(
 	machineConfig := &cloudinit.MachineConfig{
 		MachineId:            machineId,
 		MachineNonce:         nonce,
-		MachineContainerType: state.LXC,
+		MachineContainerType: instance.LXC,
 		StateInfo:            stateInfo,
 		APIInfo:              apiInfo,
 		DataDir:              "/var/lib/juju",

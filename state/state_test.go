@@ -201,7 +201,7 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
 	params := state.AddMachineParams{
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          oneJob,
 	}
@@ -209,7 +209,7 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(mcons, DeepEquals, emptyCons)
@@ -233,7 +233,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	// Add first container.
 	params := state.AddMachineParams{
 		ParentId:      "1",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -241,7 +241,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(mcons, DeepEquals, emptyCons)
@@ -259,7 +259,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/1")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
 }
@@ -270,7 +270,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 
 	params := state.AddMachineParams{
 		ParentId:      "",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Constraints:   cons,
 		Jobs:          oneJob,
@@ -279,7 +279,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
@@ -291,7 +291,7 @@ func (s *StateSuite) TestAddContainerErrors(c *C) {
 
 	params := state.AddMachineParams{
 		ParentId:      "10",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          oneJob,
 	}
@@ -335,7 +335,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	// Add first container.
 	params := state.AddMachineParams{
 		ParentId:      "0",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -343,7 +343,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(mcons, DeepEquals, emptyCons)
@@ -355,7 +355,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/1")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
 }
@@ -858,7 +858,7 @@ func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 
 	// Add a container: not reported.
 	params.ParentId = machine.Id()
-	params.ContainerType = state.LXC
+	params.ContainerType = instance.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
@@ -892,27 +892,27 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	c.Assert(err, IsNil)
 
 	// Initial event is empty when no containers.
-	w := machine.WatchContainers(state.LXC)
+	w := machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Add a container of the required type: reported.
 	params.ParentId = machine.Id()
-	params.ContainerType = state.LXC
+	params.ContainerType = instance.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertOneChange("0/lxc/0")
 
 	// Add a container of a different type: not reported.
-	params.ContainerType = state.KVM
+	params.ContainerType = instance.KVM
 	m1, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
-	params.ContainerType = state.LXC
+	params.ContainerType = instance.LXC
 	m2, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()

@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
@@ -153,7 +154,7 @@ func (p *Provisioner) getWatcher() (Watcher, error) {
 		if err != nil {
 			return nil, err
 		}
-		return machine.WatchContainers(state.LXC), nil
+		return machine.WatchContainers(instance.LXC), nil
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }
