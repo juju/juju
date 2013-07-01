@@ -8,10 +8,8 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
-
-	// Imported only to register.
-	_ "launchpad.net/juju-core/environs/local"
 )
 
 func TestLocal(t *stdtesting.T) {
@@ -25,6 +23,7 @@ type localSuite struct {
 var _ = Suite(&localSuite{})
 
 func (*localSuite) TestProviderRegistered(c *C) {
-	_, error := environs.Provider("local")
+	provider, error := environs.Provider("local")
 	c.Assert(error, IsNil)
+	c.Assert(provider, DeepEquals, &local.Provider)
 }

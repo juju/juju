@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/loggo"
 )
 
@@ -42,27 +43,8 @@ func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return environ, nil
 }
 
-func ensureDirExists(path string) error {
-	// If the directory doesn't exist, try to make it.
-	logger.Tracef("ensure %q dir exists", path)
-	fileInfo, err := os.Stat(path)
-	if os.IsNotExist(err) {
-		// Try to make the directory.
-		if err = os.MkdirAll(path, 0755); err != nil {
-			return err
-		}
-		return nil
-	} else if err != nil {
-		return err
-	}
-	if fileInfo.IsDir() {
-		return nil
-	}
-	return fmt.Errorf("%q exists but is not a directory", path)
-}
-
 // Validate implements environs.EnvironProvider.Validate.
-func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
+func (provider environProvider) Validate(cfg, old *config.Config) (valid *config.Config, err error) {
 	// Check for valid changes for the base config values.
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
@@ -71,22 +53,44 @@ func (environProvider) Validate(cfg, old *config.Config) (valid *config.Config, 
 	if err != nil {
 		return nil, err
 	}
-	localConfig := &environConfig{cfg, v.(map[string]interface{})}
-	dir := localConfig.publicStorageDir()
-	if dir == "" {
-		dir = fmt.Sprintf(defaultPublicStorageDir, cfg.Name())
-		localConfig.attrs["public-storage"] = dir
+	localConfig := newEnvironConfig(cfg, v.(map[string]interface{}))
+	// Before potentially creating directories, make sure that the
+	// public storage and private storage values have not changed.
+	if old != nil {
+		oldLocalConfig, err := provider.newConfig(old)
+		if err != nil {
+			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
+		}
+		if localConfig.publicStorageDir() != oldLocalConfig.publicStorageDir() {
+			return nil, fmt.Errorf("cannot change shared-storage from %q to %q",
+				oldLocalConfig.publicStorageDir(),
+				localConfig.publicStorageDir())
+		}
+		if localConfig.privateStorageDir() != oldLocalConfig.privateStorageDir() {
+			return nil, fmt.Errorf("cannot change storage from %q to %q",
+				oldLocalConfig.privateStorageDir(),
+				localConfig.privateStorageDir())
+		}
 	}
-	if err := ensureDirExists(dir); err != nil {
+	dir := utils.NormalizePath(localConfig.publicStorageDir())
+	if dir == "." {
+		dir = fmt.Sprintf(defaultPublicStorageDir, localConfig.namespace())
+		localConfig.attrs["shared-storage"] = dir
+	}
+	logger.Tracef("ensure shared-storage dir %s exists", dir)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		logger.Errorf("failed to make directory for shared storage at %s: %v", dir, err)
 		return nil, err
 	}
 
-	dir = localConfig.privateStorageDir()
-	if dir == "" {
-		dir = fmt.Sprintf(defaultPrivateStorageDir, cfg.Name())
-		localConfig.attrs["private-storage"] = dir
+	dir = utils.NormalizePath(localConfig.privateStorageDir())
+	if dir == "." {
+		dir = fmt.Sprintf(defaultPrivateStorageDir, localConfig.namespace())
+		localConfig.attrs["storage"] = dir
 	}
-	if err := ensureDirExists(dir); err != nil {
+	logger.Tracef("ensure storage dir %s exists", dir)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		logger.Errorf("failed to make directory for storage at %s: %v", dir, err)
 		return nil, err
 	}
 
@@ -100,8 +104,14 @@ func (environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/local/
 local:
   type: local
-  # override if your workstation is running a different series to which you are deploying
+  # Override if your workstation is running a different series to which you are deploying.
   # default-series: precise
+  # Override the storage location to store the private files for this environment in the
+  # specified location.  The default location is /var/lib/juju/local/<USER>-<ENV>/private
+  # storage: ~/.juju/local/private
+  # Override the shared-storage location to store the public files for this environment in the
+  # specified location.  The default location is /var/lib/juju/local/<USER>-<ENV>/public
+  # shared-storage: ~/.juju/local/public
 
 `[1:]
 }
@@ -136,5 +146,5 @@ func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
 	if err != nil {
 		return nil, err
 	}
-	return &environConfig{valid, valid.UnknownAttrs()}, nil
+	return newEnvironConfig(valid, valid.UnknownAttrs()), nil
 }
