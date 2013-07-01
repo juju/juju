@@ -284,15 +284,3 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
 }
-
-type BootstrapState struct {
-	StateInstances []instance.Id
-}
-
-func LoadState(e environs.Environ) (*BootstrapState, error) {
-	s, err := e.(*environ).loadState()
-	if err != nil {
-		return nil, err
-	}
-	return &BootstrapState{s.StateInstances}, nil
-}

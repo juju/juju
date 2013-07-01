@@ -107,7 +107,7 @@ func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	// It's not clear that the longAttempt loop has any business being
 	// here, but it's probably a refactoring that needs to happen outside
 	// of the provider code.
-	st, err := env.loadState()
+	st, err := environs.LoadState(env.Storage())
 	if err != nil {
 		return nil, nil, err
 	}

@@ -227,8 +227,9 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	instanceID := "my-instance"
-	err := env.saveState(&bootstrapState{
-		StateInstances: []instance.Id{instance.Id(instanceID)}})
+	err := environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, IsNil)
 
 	_, _, err = env.StateInfo()
