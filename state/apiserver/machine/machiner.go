@@ -9,18 +9,19 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
-// Machiner implements the API used by the machiner worker.
+// MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
-	st   *state.State
-	auth common.Authorizer
+	st        *state.State
+	resources *common.Resources
+	auth      common.Authorizer
 }
 
 // NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, authorizer common.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &MachinerAPI{st, authorizer}, nil
+	return &MachinerAPI{st, resources, authorizer}, nil
 }
 
 // SetStatus sets the status of each given machine.
@@ -47,9 +48,28 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 }
 
 // Watch starts an EntityWatcher for each given machine.
-//func (m *MachinerAPI) Watch(args params.Machines) (params.MachinerWatchResults, error) {
-// TODO (dimitern) implement this once the watchers can handle bulk ops
-//}
+func (m *MachinerAPI) Watch(args params.Machines) (params.EntityWatchResults, error) {
+	result := params.EntityWatchResults{
+		Results: make([]params.EntityWatchResult, len(args.Ids)),
+	}
+	if len(args.Ids) == 0 {
+		return result, nil
+	}
+	for i, id := range args.Ids {
+		machine, err := m.st.Machine(id)
+		if err == nil {
+			// Allow only for the owner agent.
+			if !m.auth.AuthOwner(machine.Tag()) {
+				err = common.ErrPerm
+			} else {
+				watcher := machine.Watch()
+				result.Results[i].EntityWatcherId = m.resources.Register(watcher)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
 
 // Life returns the lifecycle state of each given machine.
 func (m *MachinerAPI) Life(args params.Machines) (params.MachinesLifeResults, error) {

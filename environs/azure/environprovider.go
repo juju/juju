@@ -7,7 +7,11 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/loggo"
 )
+
+// Logger for the Azure provider.
+var logger = loggo.GetLogger("juju.environs.azure")
 
 type azureEnvironProvider struct{}
 
@@ -16,7 +20,8 @@ var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	panic("unimplemented")
+	logger.Debugf("opening environment %q.", cfg.Name())
+	return NewEnviron(cfg)
 }
 
 // PublicAddress is specified in the EnvironProvider interface.

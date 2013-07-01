@@ -5,7 +5,10 @@ package azure
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"sync"
 )
@@ -20,12 +23,9 @@ func makeEnviron(c *C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
+	env, err := NewEnviron(cfg)
 	c.Assert(err, IsNil)
-	return &azureEnviron{
-		name: "env",
-		ecfg: ecfg,
-	}
+	return env
 }
 
 func (EnvironSuite) TestGetSnapshot(c *C) {
@@ -94,6 +94,43 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
+func (EnvironSuite) TestStorage(c *C) {
+	env := makeEnviron(c)
+	baseStorage := env.Storage()
+	storage, ok := baseStorage.(*azureStorage)
+	c.Check(ok, Equals, true)
+	c.Assert(storage, NotNil)
+	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.StorageContainerName())
+	context, err := storage.getStorageContext()
+	c.Assert(err, IsNil)
+	c.Check(context.Account, Equals, env.ecfg.StorageAccountName())
+	c.Check(context.Key, Equals, env.ecfg.StorageAccountKey())
+}
+
+func (EnvironSuite) TestPublicStorage(c *C) {
+	env := makeEnviron(c)
+	baseStorage := env.PublicStorage()
+	storage, ok := baseStorage.(*azureStorage)
+	c.Assert(storage, NotNil)
+	c.Check(ok, Equals, true)
+	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.PublicStorageContainerName())
+	context, err := storage.getStorageContext()
+	c.Assert(err, IsNil)
+	c.Check(context.Account, Equals, env.ecfg.PublicStorageAccountName())
+	c.Check(context.Key, Equals, "")
+}
+
+func (EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["public-storage-container-name"] = ""
+	attrs["public-storage-account-name"] = ""
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, IsNil)
+	c.Check(env.PublicStorage(), Equals, environs.EmptyStorage)
+}
+
 func (EnvironSuite) TestGetStorageContext(c *C) {
 	env := makeEnviron(c)
 	storage, err := env.getStorageContext()
@@ -101,6 +138,15 @@ func (EnvironSuite) TestGetStorageContext(c *C) {
 	c.Assert(storage, NotNil)
 	c.Check(storage.Account, Equals, env.ecfg.StorageAccountName())
 	c.Check(storage.Key, Equals, env.ecfg.StorageAccountKey())
+}
+
+func (EnvironSuite) TestGetPublicStorageContext(c *C) {
+	env := makeEnviron(c)
+	storage, err := env.getPublicStorageContext()
+	c.Assert(err, IsNil)
+	c.Assert(storage, NotNil)
+	c.Check(storage.Account, Equals, env.ecfg.PublicStorageAccountName())
+	c.Check(storage.Key, Equals, "")
 }
 
 func (EnvironSuite) TestSetConfigValidates(c *C) {
@@ -147,19 +193,6 @@ func (EnvironSuite) TestSetConfigLocksEnviron(c *C) {
 	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
 }
 
-func (EnvironSuite) TestSetConfigInitialisesName(c *C) {
-	env := azureEnviron{}
-	attrs := makeAzureConfigMap(c)
-	attrs["name"] = "my-shiny-new-env"
-	cfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
-
-	err = env.SetConfig(cfg)
-	c.Assert(err, IsNil)
-
-	c.Check(env.Name(), Equals, attrs["name"])
-}
-
 func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	// Once the environment's name has been set, it cannot be updated.
 	// Global validation rejects such a change.
@@ -179,4 +212,36 @@ func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 		ErrorMatches,
 		`cannot change name from ".*" to "new-name"`)
 	c.Check(env.Name(), Equals, originalName)
+}
+
+func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	_, _, err := env.StateInfo()
+	c.Check(errors.IsNotFoundError(err), Equals, true)
+}
+
+func (EnvironSuite) TestStateInfo(c *C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	instanceID := "my-instance"
+	err := env.saveState(&bootstrapState{
+		StateInstances: []instance.Id{instance.Id(instanceID)}})
+	c.Assert(err, IsNil)
+
+	_, _, err = env.StateInfo()
+	c.Assert(err, ErrorMatches, "azureEnviron.Instances unimplemented")
+
+	// TODO: Replace with this once Instances is implemented.
+	/*
+		stateInfo, apiInfo, err := env.StateInfo()
+		c.Assert(err, IsNil)
+		config := env.Config()
+		statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+		apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+		c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
+		c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
+	*/
 }

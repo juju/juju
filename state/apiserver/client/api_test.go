@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package client_test
 
 import (
 	"fmt"
@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	stdtesting "testing"
 	"time"
 )
@@ -73,7 +74,7 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 	c.Assert(err, IsNil)
 
 	err = service.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 // apiAuthenticator represents a simple authenticator object with only the
@@ -123,7 +124,7 @@ func (s *baseSuite) openAs(c *C, tag string) *api.State {
 	info.Tag = tag
 	info.Password = fmt.Sprintf("%s password", tag)
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
-	st, err := api.Open(info, fastDialOpts)
+	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	return st
@@ -204,7 +205,7 @@ func (s *baseSuite) setUpScenario(c *C) (entities []string) {
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, "machine-0")
-	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
+	err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	setDefaultPassword(c, m)
 	setDefaultStatus(c, m)
@@ -238,7 +239,7 @@ func (s *baseSuite) setUpScenario(c *C) (entities []string) {
 			err = m.SetConstraints(constraints.MustParse("mem=1G"))
 			c.Assert(err, IsNil)
 		}
-		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce")
+		err = m.SetProvisioned(instance.Id("i-"+m.Tag()), "fake_nonce", nil)
 		c.Assert(err, IsNil)
 		setDefaultPassword(c, m)
 		setDefaultStatus(c, m)

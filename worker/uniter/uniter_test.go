@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
@@ -766,7 +767,7 @@ var upgradeConflictsTests = []uniterTest{
 
 			// ignore should not (only in v1)
 			_, err = os.Stat(filepath.Join(ctx.path, "charm", "ignore"))
-			c.Assert(os.IsNotExist(err), Equals, true)
+			c.Assert(err, checkers.Satisfies, os.IsNotExist)
 
 			// data should contain what was written in the start hook
 			data, err := ioutil.ReadFile(filepath.Join(ctx.path, "charm", "data"))
@@ -1065,7 +1066,7 @@ func (createServiceAndUnit) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 	machine, err := ctx.st.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce")
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	ctx.svc = svc
 	ctx.unit = unit
@@ -1507,7 +1508,7 @@ type relationState struct {
 func (s relationState) step(c *C, ctx *context) {
 	err := ctx.relation.Refresh()
 	if s.removed {
-		c.Assert(errors.IsNotFoundError(err), Equals, true)
+		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 		return
 	}
 	c.Assert(err, IsNil)
@@ -1740,5 +1741,5 @@ var verifyHookSyncLockUnlocked = custom{func(c *C, ctx *context) {
 
 var verifyHookSyncLockLocked = custom{func(c *C, ctx *context) {
 	lock := createHookLock(c, ctx.dataDir)
-	c.Assert(lock.IsLocked(), Equals, true)
+	c.Assert(lock, checkers.Satisfies, (*fslock.Lock).IsLocked)
 }}

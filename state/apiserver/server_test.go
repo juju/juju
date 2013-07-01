@@ -6,17 +6,23 @@ package apiserver_test
 import (
 	"io"
 	. "launchpad.net/gocheck"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
+	stdtesting "testing"
 )
+
+func TestAll(t *stdtesting.T) {
+	coretesting.MgoTestPackage(t)
+}
 
 var fastDialOpts = api.DialOpts{}
 
 type serverSuite struct {
-	baseSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = Suite(&serverSuite{})
@@ -29,7 +35,7 @@ func (s *serverSuite) TestStop(c *C) {
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce")
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)

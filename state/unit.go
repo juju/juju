@@ -275,12 +275,13 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 	// lose much time and (2) by maintaining this restriction, I can reduce
 	// the number of tests that have to change and defer that improvement to
 	// its own CL.
+	minUnitsOp := minUnitsTriggerOp(u.st, u.ServiceName())
 	setDyingOps := []txn.Op{{
 		C:      u.st.units.Name,
 		Id:     u.doc.Name,
 		Assert: isAliveDoc,
 		Update: D{{"$set", D{{"life", Dying}}}},
-	}}
+	}, minUnitsOp}
 	if u.doc.Principal != "" {
 		return setDyingOps, nil
 	} else if len(u.doc.Subordinates) != 0 {
@@ -301,7 +302,7 @@ func (u *Unit) destroyOps() ([]txn.Op, error) {
 		C:      u.st.statuses.Name,
 		Id:     sdocId,
 		Assert: D{{"status", params.StatusPending}},
-	}}
+	}, minUnitsOp}
 	removeAsserts := append(isAliveDoc, unitHasNoSubordinates...)
 	removeOps, err := u.removeOps(removeAsserts)
 	if err == errAlreadyRemoved {
@@ -812,7 +813,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 		Principals: []string{u.doc.Name},
 		Clean:      false,
 	}
-	mdoc, ops, err := u.st.addMachineOps(mdoc, cons, containerRefParams{hostOnly: true})
+	mdoc, ops, err := u.st.addMachineOps(mdoc, nil, cons, containerRefParams{hostOnly: true})
 	if err != nil {
 		return err
 	}

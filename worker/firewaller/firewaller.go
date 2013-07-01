@@ -157,7 +157,7 @@ func (fw *Firewaller) startMachine(id string) error {
 		err = fw.unitsChanged(&unitsChange{machined, change})
 		if err != nil {
 			stop("units watcher", unitw)
-			return fmt.Errorf("worker/firewaller: start watching machine %d faild: %v", id, err)
+			return fmt.Errorf("worker/firewaller: cannot respond to units changes for machine %q: %v", id, err)
 		}
 	}
 	go machined.watchLoop(unitw)
@@ -269,9 +269,9 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		instanceId, ok := m.InstanceId()
-		if !ok {
-			return errors.NotFoundf("instance id for %v", m)
+		instanceId, err := m.InstanceId()
+		if err != nil {
+			return err
 		}
 		instances, err := fw.environ.Instances([]instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
@@ -440,9 +440,9 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instanceId, ok := m.InstanceId()
-	if !ok {
-		return errors.NotFoundf("instance id for %v", m)
+	instanceId, err := m.InstanceId()
+	if err != nil {
+		return err
 	}
 	instances, err := fw.environ.Instances([]instance.Id{instanceId})
 	if err != nil {

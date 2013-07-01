@@ -5,18 +5,20 @@ package apiserver
 
 import (
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
+type clientAPI struct{ *client.API }
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
-	client    *srvClient
-	state     *srvState
+	clientAPI
 	srv       *Server
-	resources *resources
+	resources *common.Resources
 
 	entity state.TaggedAuthenticator
 }
@@ -24,22 +26,17 @@ type srvRoot struct {
 func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
-		resources: newResources(),
+		resources: common.NewResources(),
 		entity:    entity,
 	}
-	r.client = &srvClient{
-		root: r,
-	}
-	r.state = &srvState{
-		root: r,
-	}
+	r.clientAPI.API = client.NewAPI(srv.state, r.resources, r)
 	return r
 }
 
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
-	r.resources.stopAll()
+	r.resources.StopAll()
 }
 
 // requireAgent checks whether the current client is an agent and hence
@@ -62,14 +59,15 @@ func (r *srvRoot) requireClient() error {
 	return nil
 }
 
-// Machiner returns an object that provides access to the Machiner API.
-// The id argument is reserved for future use and must currently
-// be empty.
+// Machiner returns an object that provides access to the Machiner API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty.
 func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 	if id != "" {
+		// Safeguard id for possible future use.
 		return nil, common.ErrBadId
 	}
-	return machine.NewMachinerAPI(r.srv.state, r)
+	return machine.NewMachinerAPI(r.srv.state, r.resources, r)
 }
 
 // MachineAgent returns an object that provides access to the machine
@@ -82,125 +80,91 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	return machine.NewAgentAPI(r.srv.state, r)
 }
 
-// User returns an object that provides
-// API access to methods on a state.User.
-func (r *srvRoot) User(name string) (*srvUser, error) {
-	// Any user is allowed to access their own user object.
-	// We check at this level rather than at the operation
-	// level to stop malicious probing for current user names.
-	// When we provide support for user administration,
-	// this will need to be changed to allow access to
-	// the administrator.
-	if r.entity.Tag() != name {
-		return nil, common.ErrPerm
-	}
-	u, err := r.srv.state.User(name)
-	if err != nil {
-		return nil, err
-	}
-	return &srvUser{
-		root: r,
-		u:    u,
-	}, nil
-}
-
 // EntityWatcher returns an object that provides
 // API access to methods on a state.EntityWatcher.
 // Each client has its own current set of watchers, stored
 // in r.resources.
-func (r *srvRoot) EntityWatcher(id string) (srvEntityWatcher, error) {
+func (r *srvRoot) EntityWatcher(id string) (*srvEntityWatcher, error) {
 	if err := r.requireAgent(); err != nil {
-		return srvEntityWatcher{}, err
+		return nil, err
 	}
-	watcher := r.resources.get(id)
-	if watcher == nil {
-		return srvEntityWatcher{}, common.ErrUnknownWatcher
+	watcher, ok := r.resources.Get(id).(*state.EntityWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
 	}
-	if _, ok := watcher.resource.(*state.EntityWatcher); !ok {
-		return srvEntityWatcher{}, common.ErrUnknownWatcher
-	}
-	return srvEntityWatcher{watcher}, nil
+	return &srvEntityWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
 }
 
 // LifecycleWatcher returns an object that provides
 // API access to methods on a state.LifecycleWatcher.
 // Each client has its own current set of watchers, stored
 // in r.resources.
-func (r *srvRoot) LifecycleWatcher(id string) (srvLifecycleWatcher, error) {
+func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
 	if err := r.requireAgent(); err != nil {
-		return srvLifecycleWatcher{}, err
+		return nil, err
 	}
-	watcher := r.resources.get(id)
-	if watcher == nil {
-		return srvLifecycleWatcher{}, common.ErrUnknownWatcher
+	watcher, ok := r.resources.Get(id).(*state.LifecycleWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
 	}
-	if _, ok := watcher.resource.(*state.LifecycleWatcher); !ok {
-		return srvLifecycleWatcher{}, common.ErrUnknownWatcher
-	}
-	return srvLifecycleWatcher{watcher}, nil
+	return &srvLifecycleWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
 }
 
 // EnvironConfigWatcher returns an object that provides
 // API access to methods on a state.EnvironConfigWatcher.
 // Each client has its own current set of watchers, stored
 // in r.resources.
-func (r *srvRoot) EnvironConfigWatcher(id string) (srvEnvironConfigWatcher, error) {
+func (r *srvRoot) EnvironConfigWatcher(id string) (*srvEnvironConfigWatcher, error) {
 	if err := r.requireAgent(); err != nil {
-		return srvEnvironConfigWatcher{}, err
+		return nil, err
 	}
-	watcher := r.resources.get(id)
-	if watcher == nil {
-		return srvEnvironConfigWatcher{}, common.ErrUnknownWatcher
+	watcher, ok := r.resources.Get(id).(*state.EnvironConfigWatcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
 	}
-	if _, ok := watcher.resource.(*state.EnvironConfigWatcher); !ok {
-		return srvEnvironConfigWatcher{}, common.ErrUnknownWatcher
-	}
-	return srvEnvironConfigWatcher{watcher}, nil
+	return &srvEnvironConfigWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
 }
 
 // AllWatcher returns an object that provides API access to methods on
 // a state/multiwatcher.Watcher, which watches any changes to the
 // state. Each client has its own current set of watchers, stored in
 // r.resources.
-func (r *srvRoot) AllWatcher(id string) (srvClientAllWatcher, error) {
-	if err := r.requireClient(); err != nil {
-		return srvClientAllWatcher{}, err
-	}
-	watcher := r.resources.get(id)
-	if watcher == nil {
-		return srvClientAllWatcher{}, common.ErrUnknownWatcher
-	}
-	if _, ok := watcher.resource.(*multiwatcher.Watcher); !ok {
-		return srvClientAllWatcher{}, common.ErrUnknownWatcher
-	}
-	return srvClientAllWatcher{watcher}, nil
-
-}
-
-// State returns an object that provides API access to top-level state methods.
-func (r *srvRoot) State(id string) (*srvState, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
-	}
-	return r.state, nil
-}
-
-// Client returns an object that provides access
-// to methods accessible to non-agent clients.
-func (r *srvRoot) Client(id string) (*srvClient, error) {
+func (r *srvRoot) AllWatcher(id string) (*srvClientAllWatcher, error) {
 	if err := r.requireClient(); err != nil {
 		return nil, err
 	}
-	if id != "" {
-		// Safeguard id for possible future use.
-		return nil, common.ErrBadId
+	watcher, ok := r.resources.Get(id).(*multiwatcher.Watcher)
+	if !ok {
+		return nil, common.ErrUnknownWatcher
 	}
-	return r.client, nil
+	return &srvClientAllWatcher{
+		watcher:   watcher,
+		id:        id,
+		resources: r.resources,
+	}, nil
 }
+
+// Pinger returns object with a single "Ping" method that does nothing.
+func (r *srvRoot) Pinger(id string) (srvPinger, error) {
+	return srvPinger{}, nil
+}
+
+type srvPinger struct{}
+
+// Ping is a no-op used by client heartbeat monitor.
+func (r srvPinger) Ping() {}
 
 // AuthMachineAgent returns whether the current client is a machine agent.
 func (r *srvRoot) AuthMachineAgent() bool {
@@ -218,4 +182,8 @@ func (r *srvRoot) AuthOwner(tag string) bool {
 // machine with running the ManageEnviron job.
 func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
+}
+
+func (r *srvRoot) AuthClient() bool {
+	return !isAgent(r.entity)
 }

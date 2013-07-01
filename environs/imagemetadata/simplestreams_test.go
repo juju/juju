@@ -333,7 +333,7 @@ func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
 func (s *simplestreamsSuite) TestFetchNoSignedMetadata(c *C) {
 	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, true)
 	c.Assert(err, IsNil)
-	c.Assert(len(im) == 0, Equals, true)
+	c.Assert(im, HasLen, 0)
 }
 
 func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *cloudImageMetadata {

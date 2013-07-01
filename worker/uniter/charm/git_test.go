@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"os"
 	"path/filepath"
@@ -68,7 +69,7 @@ func (s *GitDirSuite) TestCreate(c *C) {
 	c.Assert(exists, Equals, true)
 
 	_, err = charm.ReadCharmURL(repo)
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 
 	err = repo.Init()
 	c.Assert(err, IsNil)
@@ -101,7 +102,7 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *C) {
 	c.Assert(url, DeepEquals, curl)
 	fi, err := os.Stat(filepath.Join(target.Path(), "some-dir"))
 	c.Assert(err, IsNil)
-	c.Assert(fi.IsDir(), Equals, true)
+	c.Assert(fi, checkers.Satisfies, os.FileInfo.IsDir)
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "hello")
@@ -123,9 +124,9 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *C) {
 	err = target.Revert()
 	c.Assert(err, IsNil)
 	_, err = os.Stat(filepath.Join(target.Path(), "some-file"))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	_, err = os.Stat(filepath.Join(target.Path(), "some-dir"))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "initial"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "initial")
@@ -138,9 +139,9 @@ func (s *GitDirSuite) TestClone(c *C) {
 	repo, err := newRepo(c).Clone(c.MkDir())
 	c.Assert(err, IsNil)
 	_, err = os.Stat(filepath.Join(repo.Path(), "some-file"))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	_, err = os.Stat(filepath.Join(repo.Path(), "some-dir"))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	dirty, err := repo.Dirty()
 	c.Assert(err, IsNil)
 	c.Assert(dirty, Equals, true)
