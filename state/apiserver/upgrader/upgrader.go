@@ -31,8 +31,6 @@ func NewUpgraderAPI(
 	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
 }
 
-const machineTagPrefix = "machine-"
-
 // Start a watcher to track if there is a new version of the API that we want
 // to upgrade to
 func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchResults, error) {
@@ -88,6 +86,10 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 				Series: agent.Series,
 				Arch:   agent.Arch,
 			}
+			// Note: (jam) We shouldn't have to search the provider
+			//       for every machine that wants to upgrade. The
+			//       information could just be cached in state, or
+			//       even in the API servers
 			tool, err := environs.FindExactTools(env, requested)
 			if err == nil {
 				// we have found tools for this agent
@@ -103,4 +105,20 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 		tools[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+// Find the Tools necessary for the given agents
+func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsResults, error) {
+	results := params.SetAgentToolsResults{
+		Results: make([]params.SetAgentToolsResult, len(args.AgentTools)),
+	}
+	for i, tools := range args.AgentTools {
+		var err error
+		results.Results[i].Tag = tools.Tag
+		if !u.authorizer.AuthOwner(tools.Tag) {
+			err = common.ErrPerm
+		}
+		results.Results[i].Error = common.ServerError(err)
+	}
+	return results, nil
 }

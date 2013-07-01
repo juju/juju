@@ -238,8 +238,9 @@ type ServiceDestroy struct {
 	ServiceName string
 }
 
-// This is a flatted state.Tools description
-type AgentToolsResult struct {
+// AgentTools describes the tools for a given Agent. This is mostly a flattened
+// state.Tools description, plus an agent Tag field.
+type AgentTools struct {
 	Tag    string
 	Major  int
 	Minor  int
@@ -248,12 +249,33 @@ type AgentToolsResult struct {
 	Arch   string
 	Series string
 	URL    string
+}
+
+// This is a flatted state.Tools description
+type AgentToolsResult struct {
+        AgentTools
 	Error  *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
 type AgentToolsResults struct {
 	Tools []AgentToolsResult
+}
+
+// Set what tools are being run for multiple agents
+type SetAgentTools struct {
+    AgentTools  []AgentTools
+}
+
+// The result of setting the tools for one agent
+type SetAgentToolsResult struct {
+    Tag string
+    Error *Error
+}
+
+// The result of setting the tools for many agents
+type SetAgentToolsResults struct {
+    Results []SetAgentToolsResult
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.
