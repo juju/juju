@@ -5,13 +5,11 @@ package upgrader_test
 
 import (
 	. "launchpad.net/gocheck"
-	//"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/upgrader"
-	//"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
