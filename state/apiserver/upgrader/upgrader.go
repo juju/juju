@@ -118,10 +118,10 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsR
 		if !u.authorizer.AuthOwner(tools.Tag) {
 			err = common.ErrPerm
 		} else {
-                        // TODO: When we get there, we should support setting
-                        //       Unit agent tools as well as Machine tools. We
-                        //       can use something like the "AgentState"
-                        //       interface that cmd/jujud/agent.go had.
+			// TODO: When we get there, we should support setting
+			//       Unit agent tools as well as Machine tools. We
+			//       can use something like the "AgentState"
+			//       interface that cmd/jujud/agent.go had.
 			machine, err := u.st.Machine(state.MachineIdFromTag(tools.Tag))
 			if err == nil {
 				stTools := state.Tools{

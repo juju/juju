@@ -256,8 +256,8 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 	c.Assert(results.Results, HasLen, 1)
 	c.Assert(results.Results[0].Tag, Equals, s.rawMachine.Tag())
 	c.Assert(results.Results[0].Error, IsNil)
-        // Check that the new value actually got set, we must Refresh because
-        // it was set on a different Machine object
+	// Check that the new value actually got set, we must Refresh because
+	// it was set on a different Machine object
 	err = s.rawMachine.Refresh()
 	c.Assert(err, IsNil)
 	realTools, err := s.rawMachine.AgentTools()
