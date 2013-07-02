@@ -250,7 +250,7 @@ type containerRefParams struct {
 	containerId string
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
@@ -328,18 +328,47 @@ type AddMachineParams struct {
 	Jobs          []MachineJob
 }
 
-// makeInstanceData returns metadata for a provisioned machine so long as the params InstanceId
-// has a value, else nil is returned. This method exists to cater for InjectMachine, which is used to
-// record in state an instantiated bootstrap node. When adding a machine to state so that it is
-// provisioned normally, the instance id is not known at this point.
-func makeInstanceData(params *AddMachineParams) *instanceData {
+// addMachineContainerOps returns txn operations and associated Mongo records used to create a new machine,
+// accounting for the fact that a machine may require a container and may require instance data.
+// This method exists to cater for:
+// 1. InjectMachine, which is used to record in state an instantiated bootstrap node. When adding
+// a machine to state so that it is provisioned normally, the instance id is not known at this point.
+// 2. AssignToNewMachine, which is used to create a new machine on which to deploy a unit.
+func (st *State) addMachineContainerOps(params *AddMachineParams, cons constraints.Value) ([]txn.Op, *instanceData, *containerRefParams, error) {
 	var instData *instanceData
 	if params.instanceId != "" {
 		instData = &instanceData{
 			InstanceId: params.instanceId,
 		}
 	}
-	return instData
+	var ops []txn.Op
+	var containerParams = &containerRefParams{hostId: params.ParentId, hostOnly: true}
+	// If we are creating a container, first create the host (parent) machine if necessary.
+	if params.ContainerType != "" {
+		containerParams.hostOnly = false
+		if params.ParentId == "" {
+			// No parent machine is specified so create one.
+			mdoc := &machineDoc{
+				Series: params.Series,
+				Jobs:   params.Jobs,
+				Clean:  true,
+			}
+			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, &containerRefParams{})
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			ops = parentOps
+			containerParams.hostId = mdoc.Id
+			containerParams.newHost = true
+		} else {
+			// If a parent machine is specified, make sure it exists.
+			_, err := st.Machine(containerParams.hostId)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+	return ops, instData, containerParams, nil
 }
 
 // addMachine implements AddMachine and InjectMachine.
@@ -355,33 +384,10 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		return nil, err
 	}
 	cons = params.Constraints.WithFallbacks(cons)
-	instData := makeInstanceData(params)
-	var ops []txn.Op
-	var containerParams = containerRefParams{hostId: params.ParentId, hostOnly: true}
-	// If we are creating a container, first create the host (parent) machine if necessary.
-	if params.ContainerType != "" {
-		containerParams.hostOnly = false
-		if params.ParentId == "" {
-			// No parent machine is specified so create one.
-			mdoc := &machineDoc{
-				Series: params.Series,
-				Jobs:   params.Jobs,
-				Clean:  true,
-			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, containerRefParams{})
-			if err != nil {
-				return nil, err
-			}
-			ops = parentOps
-			containerParams.hostId = mdoc.Id
-			containerParams.newHost = true
-		} else {
-			// If a parent machine is specified, make sure it exists.
-			_, err := st.Machine(containerParams.hostId)
-			if err != nil {
-				return nil, err
-			}
-		}
+
+	ops, instData, containerParams, err := st.addMachineContainerOps(params, cons)
+	if err != nil {
+		return nil, err
 	}
 	mdoc := &machineDoc{
 		Series:        params.Series,

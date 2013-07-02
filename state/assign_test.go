@@ -310,12 +310,7 @@ func (s *AssignSuite) TestAssignMachinePrincipalsChange(c *C) {
 	c.Assert(principals, DeepEquals, []string{"wordpress/0"})
 }
 
-func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
-	unit, err := s.wordpress.AddUnit()
-	c.Assert(err, IsNil)
-
-	err = unit.AssignToNewMachine()
-	c.Assert(err, IsNil)
+func (s *AssignSuite) assertAssignedUnit(c *C, unit *state.Unit) string {
 	// Check the machine on the unit is set.
 	machineId, err := unit.AssignedMachineId()
 	c.Assert(err, IsNil)
@@ -327,6 +322,42 @@ func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
 	c.Assert(machineUnits, HasLen, 1)
 	// Make sure it is the right unit.
 	c.Assert(machineUnits[0].Name(), Equals, unit.Name())
+	return machineId
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachine(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	s.assertAssignedUnit(c, unit)
+}
+
+func (s *AssignSuite) assertAssignUnitToNewMachineContainerConstraint(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = unit.AssignToNewMachine()
+	c.Assert(err, IsNil)
+	machineId := s.assertAssignedUnit(c, unit)
+	c.Assert(state.ParentId(machineId), Not(Equals), "")
+	c.Assert(state.ContainerTypeFromId(machineId), Equals, instance.LXC)
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineContainerConstraint(c *C) {
+	// Set up service constraints.
+	scons := constraints.MustParse("container=lxc")
+	err := s.wordpress.SetConstraints(scons)
+	c.Assert(err, IsNil)
+	s.assertAssignUnitToNewMachineContainerConstraint(c)
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineDefaultContainerConstraint(c *C) {
+	// Set up env constraints.
+	econs := constraints.MustParse("container=lxc")
+	err := s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+	s.assertAssignUnitToNewMachineContainerConstraint(c)
 }
 
 func (s *AssignSuite) TestAssignToNewMachineMakesDirty(c *C) {
@@ -466,7 +497,7 @@ func (s *AssignSuite) TestAssignUnitLocalPolicy(c *C) {
 	}
 }
 
-func (s *AssignSuite) TestAssignUnitNewPolicy(c *C) {
+func (s *AssignSuite) assertAssignUnitNewPolicyNoContainer(c *C) {
 	_, err := s.State.AddMachine("series", state.JobHostUnits) // available machine
 	c.Assert(err, IsNil)
 	unit, err := s.wordpress.AddUnit()
@@ -475,6 +506,51 @@ func (s *AssignSuite) TestAssignUnitNewPolicy(c *C) {
 	err = s.State.AssignUnit(unit, state.AssignNew)
 	c.Assert(err, IsNil)
 	assertMachineCount(c, s.State, 2)
+	id, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(state.ParentId(id), Equals, "")
+}
+
+func (s *AssignSuite) TestAssignUnitNewPolicy(c *C) {
+	s.assertAssignUnitNewPolicyNoContainer(c)
+}
+
+func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraintIgnoresNone(c *C) {
+	scons := constraints.MustParse("container=none")
+	err := s.wordpress.SetConstraints(scons)
+	c.Assert(err, IsNil)
+	s.assertAssignUnitNewPolicyNoContainer(c)
+}
+
+func (s *AssignSuite) assertAssignUnitNewPolicyWithContainerConstraint(c *C) {
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.State.AssignUnit(unit, state.AssignNew)
+	c.Assert(err, IsNil)
+	assertMachineCount(c, s.State, 3)
+	id, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(id, Equals, "1/lxc/0")
+}
+
+func (s *AssignSuite) TestAssignUnitNewPolicyWithContainerConstraint(c *C) {
+	_, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	// Set up service constraints.
+	scons := constraints.MustParse("container=lxc")
+	err = s.wordpress.SetConstraints(scons)
+	c.Assert(err, IsNil)
+	s.assertAssignUnitNewPolicyWithContainerConstraint(c)
+}
+
+func (s *AssignSuite) TestAssignUnitNewPolicyWithDefaultContainerConstraint(c *C) {
+	_, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	// Set up env constraints.
+	econs := constraints.MustParse("container=lxc")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+	s.assertAssignUnitNewPolicyWithContainerConstraint(c)
 }
 
 func (s *AssignSuite) TestAssignUnitWithSubordinate(c *C) {

@@ -1135,9 +1135,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) *LifecycleWatche
 		if ParentId(id) != m.Id() {
 			return false
 		}
-		// Extract the container type from the id.
-		idParts := strings.Split(id, "/")
-		containerType := instance.ContainerType(idParts[len(idParts)-2])
+		containerType := ContainerTypeFromId(id)
 		return ctype == containerType
 	}
 

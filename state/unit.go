@@ -813,16 +813,38 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	} else if err != nil {
 		return err
 	}
-	mdoc := &machineDoc{
-		Series:     u.doc.Series,
-		Jobs:       []MachineJob{JobHostUnits},
-		Principals: []string{u.doc.Name},
-		Clean:      false,
-	}
-	mdoc, ops, err := u.st.addMachineOps(mdoc, nil, cons, containerRefParams{hostOnly: true})
+	// Merge in the environment constraints to pick up any default container deployment policy.
+	envCons, err := u.st.EnvironConstraints()
 	if err != nil {
 		return err
 	}
+	cons = cons.WithFallbacks(envCons)
+	var containerType instance.ContainerType
+	// Configure to create a new container if required.
+	if cons.Container != nil && *cons.Container != "" && *cons.Container != instance.NONE {
+		containerType = *cons.Container
+	}
+	params := &AddMachineParams{
+		Series:        u.doc.Series,
+		ContainerType: containerType,
+		Jobs:          []MachineJob{JobHostUnits},
+	}
+	ops, instData, containerParams, err := u.st.addMachineContainerOps(params, cons)
+	if err != nil {
+		return err
+	}
+	mdoc := &machineDoc{
+		Series:        u.doc.Series,
+		ContainerType: string(containerType),
+		Jobs:          []MachineJob{JobHostUnits},
+		Principals:    []string{u.doc.Name},
+		Clean:         false,
+	}
+	mdoc, machineOps, err := u.st.addMachineOps(mdoc, instData, cons, containerParams)
+	if err != nil {
+		return err
+	}
+	ops = append(ops, machineOps...)
 	isUnassigned := D{{"machineid", ""}}
 	ops = append(ops, txn.Op{
 		C:      u.st.units.Name,
