@@ -9,10 +9,13 @@ import (
 	"io/ioutil"
 
 	"launchpad.net/goyaml"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 )
+
+var logger = loggo.GetLogger("juju.environs")
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
@@ -42,7 +45,7 @@ func Bootstrap(environ Environ, cons constraints.Value) error {
 const stateFile = "provider-state"
 
 type bootstrapState struct {
-	instances []instance.Id `yaml:"state-instances"`
+	StateInstances []instance.Id `yaml:"state-instances"`
 }
 
 // SaveProviderState stores the instances in the state file in the defined
@@ -53,7 +56,8 @@ func SaveProviderState(storage Storage, instances ...instance.Id) error {
 	if err != nil {
 		return err
 	}
-	return storage.Put(stateFile, bytes.NewBuffer(data), int64(len(data)))
+	size := int64(len(data))
+	return storage.Put(stateFile, bytes.NewBuffer(data), size)
 }
 
 // LaveProviderState retrieves the instances from the state file in the
@@ -73,5 +77,5 @@ func LoadProviderState(storage Storage) ([]instance.Id, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", stateFile, err)
 	}
-	return state.instances, nil
+	return state.StateInstances, nil
 }
