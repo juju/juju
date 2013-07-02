@@ -110,7 +110,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = env.saveState(&bootstrapState{StateInstances: []instance.Id{inst.Id()}})
+	err = environs.SaveProviderState(env.Storage(), inst.Id())
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -130,7 +130,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	// It's a bit unclear what the "longAttempt" loop is actually for
 	// but this should probably be refactored outside of the provider
 	// code.
-	st, err := env.loadState()
+	instances, err := environs.LoadProviderState(env.Storage())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -143,9 +143,9 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", instances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := env.Instances(st.StateInstances)
+		insts, err := env.Instances(instances)
 		if err != nil && err != environs.ErrPartialInstances {
 			log.Debugf("environs/maas: error getting state instance: %v", err.Error())
 			return nil, nil, err
@@ -168,7 +168,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 		}
 	}
 	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", instances)
 	}
 	return &state.Info{
 			Addrs:  stateAddrs,
