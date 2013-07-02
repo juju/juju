@@ -257,7 +257,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// up yet, so we retry to verify if that is happening.
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = e.loadState()
+		_, err = environs.LoadProviderState(e.Storage())
 		if err != nil {
 			break
 		}
@@ -290,9 +290,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	err = e.saveState(&bootstrapState{
-		StateInstances: []instance.Id{inst.Id()},
-	})
+	err = environs.SaveProviderState(e.Storage(), inst.Id())
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
 		// more important.
@@ -308,7 +306,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	st, err := e.loadState()
+	instances, err := environs.LoadProviderState(e.Storage())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -321,9 +319,9 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Infof("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Infof("environs/ec2: waiting for DNS name(s) of state server instances %v", instances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := e.Instances(st.StateInstances)
+		insts, err := e.Instances(instances)
 		if err != nil && err != environs.ErrPartialInstances {
 			return nil, nil, err
 		}
@@ -341,7 +339,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		}
 	}
 	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", instances)
 	}
 	return &state.Info{
 			Addrs:  stateAddrs,
