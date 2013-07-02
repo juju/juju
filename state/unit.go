@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
@@ -27,10 +28,15 @@ const (
 	// to machine 0.
 	AssignLocal AssignmentPolicy = "local"
 
-	// AssignUnused indicates that every service unit should be assigned
-	// to a dedicated machine, and that new machines should be launched
-	// if required.
-	AssignUnused AssignmentPolicy = "unused"
+	// AssignClean indicates that every service unit should be assigned
+	// to a machine which never previously has hosted any units, and that
+	// new machines should be launched if required.
+	AssignClean AssignmentPolicy = "clean"
+
+	// AssignCleanEmpty indicates that every service unit should be assigned
+	// to a machine which never previously has hosted any units, and which is not
+	// currently hosting any containers, and that new machines should be launched if required.
+	AssignCleanEmpty AssignmentPolicy = "clean-empty"
 
 	// AssignNew indicates that every service unit should be assigned to a new
 	// dedicated machine.  A new machine will be launched for each new unit.
@@ -850,20 +856,60 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	return fmt.Errorf("unknown error")
 }
 
-var noUnusedMachines = stderrors.New("all eligible machines in use")
+var noCleanMachines = stderrors.New("all eligible machines in use")
 
-// AssignToUnusedMachine assigns u to a machine which is marked as clean. A machine
+// AssignToCleanMachine assigns u to a machine which is marked as clean. A machine
 // is clean if it has never had any principal units assigned to it.
 // If there are no clean machines besides machine 0, an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
-func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
+func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
+	return u.assignToCleanMaybeEmptyMachine(false)
+}
+
+// AssignToCleanEmptyMachine assigns u to a machine which is marked as clean and is also
+// not hosting any containers. A machine is clean if it has never had any principal units
+// assigned to it. If there are no clean machines besides machine 0, an error is returned.
+// This method does not take constraints into consideration when choosing a
+// machine (lp:1161919).
+func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {
+	return u.assignToCleanMaybeEmptyMachine(true)
+}
+
+// assignToCleanMaybeEmptyMachine implements AssignToCleanMachine and AssignToCleanEmptyMachine.
+func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, err error) {
 	// Select all machines that can accept principal units and are clean.
+	var containerRefs []machineContainers
+	// If we need empty machines, first build up a list of machine ids which have containers
+	// so we can exclude those.
+	if requireEmpty {
+		err = u.st.containerRefs.Find(D{
+			{"$and", []D{
+				{{
+					"children",
+					D{{"$not", D{{"$size", 0}}}},
+				}},
+				{{
+					"children",
+					D{{"$exists", true}},
+				}},
+			},
+			}},
+		).Select(bson.M{"_id": 1}).All(&containerRefs)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var machinesWithContainers = make([]string, len(containerRefs))
+	for i, cref := range containerRefs {
+		machinesWithContainers[i] = cref.Id
+	}
 	query := u.st.machines.Find(D{
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", JobHostUnits},
 		{"clean", D{{"$ne", false}}},
+		{"_id", D{{"$nin", machinesWithContainers}}},
 	})
 
 	// TODO use Batch(1). See https://bugs.launchpad.net/mgo/+bug/1053509
@@ -873,6 +919,11 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 	// middle.
 	iter := query.Batch(2).Prefetch(0).Iter()
 	var mdoc machineDoc
+	context := "clean"
+	if requireEmpty {
+		context += ", empty"
+	}
+	context += " machine"
 	for iter.Next(&mdoc) {
 		m := newMachine(u.st, &mdoc)
 		err := u.assignToMachine(m, true)
@@ -880,15 +931,15 @@ func (u *Unit) AssignToUnusedMachine() (m *Machine, err error) {
 			return m, nil
 		}
 		if err != inUseErr && err != machineNotAliveErr {
-			assignContextf(&err, u, "unused machine")
+			assignContextf(&err, u, context)
 			return nil, err
 		}
 	}
 	if err := iter.Err(); err != nil {
-		assignContextf(&err, u, "unused machine")
+		assignContextf(&err, u, context)
 		return nil, err
 	}
-	return nil, noUnusedMachines
+	return nil, noCleanMachines
 }
 
 // UnassignFromMachine removes the assignment between this unit and the
