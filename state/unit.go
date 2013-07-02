@@ -882,16 +882,18 @@ var noCleanMachines = stderrors.New("all eligible machines in use")
 
 // AssignToCleanMachine assigns u to a machine which is marked as clean. A machine
 // is clean if it has never had any principal units assigned to it.
-// If there are no clean machines besides machine 0, an error is returned.
+// If there are no clean machines besides any machine(s) running JobHostEnviron,
+// an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
 func (u *Unit) AssignToCleanMachine() (m *Machine, err error) {
 	return u.assignToCleanMaybeEmptyMachine(false)
 }
 
-// AssignToCleanEmptyMachine assigns u to a machine which is marked as clean and is also
+// AssignToCleanMachine assigns u to a machine which is marked as clean and is also
 // not hosting any containers. A machine is clean if it has never had any principal units
-// assigned to it. If there are no clean machines besides machine 0, an error is returned.
+// assigned to it. If there are no clean machines besides any machine(s) running JobHostEnviron,
+// an error is returned.
 // This method does not take constraints into consideration when choosing a
 // machine (lp:1161919).
 func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {

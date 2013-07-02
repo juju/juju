@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	. "launchpad.net/juju-core/testing/checkers"
 	"sort"
 	"strconv"
 	"time"
@@ -190,9 +191,9 @@ func (s *AssignSuite) TestDeployerTag(c *C) {
 		c.Assert(err, IsNil)
 		name, ok := u.DeployerTag()
 		if d == nil {
-			c.Assert(ok, Equals, false)
+			c.Assert(ok, IsFalse)
 		} else {
-			c.Assert(ok, Equals, true)
+			c.Assert(ok, IsTrue)
 			c.Assert(name, Equals, d.Tag())
 		}
 	}
@@ -370,7 +371,7 @@ func (s *AssignSuite) TestAssignToNewMachineMakesDirty(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	c.Assert(machine.Clean(), Equals, false)
+	c.Assert(machine.Clean(), IsFalse)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *C) {
@@ -600,20 +601,20 @@ func (s *assignCleanSuite) errorMessage(msg string) string {
 func (s *assignCleanSuite) assignUnit(unit *state.Unit) (*state.Machine, error) {
 	if s.policy == state.AssignCleanEmpty {
 		return unit.AssignToCleanEmptyMachine()
-	} else {
-		return unit.AssignToCleanMachine()
 	}
-	panic("unreachable")
+	return unit.AssignToCleanMachine()
 }
 
-func (s *assignCleanSuite) assertMachineEmpty(c *C, machine *state.Machine, empty bool) {
+func (s *assignCleanSuite) assertMachineEmpty(c *C, machine *state.Machine) {
 	containers, err := machine.Containers()
 	c.Assert(err, IsNil)
-	if empty {
-		c.Assert(len(containers), Equals, 0)
-	} else {
-		c.Assert(len(containers), Not(Equals), 0)
-	}
+	c.Assert(len(containers), Equals, 0)
+}
+
+func (s *assignCleanSuite) assertMachineNotEmpty(c *C, machine *state.Machine) {
+	containers, err := machine.Containers()
+	c.Assert(err, IsNil)
+	c.Assert(len(containers), Not(Equals), 0)
 }
 
 // setupMachines creates a combination of machines with which to test.
@@ -645,14 +646,14 @@ func (s *assignCleanSuite) setupMachines(c *C) (hostMachine *state.Machine, cont
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err = s.State.AddMachineWithConstraints(&params)
-	c.Assert(hostMachine.Clean(), Equals, true)
-	s.assertMachineEmpty(c, hostMachine, false)
+	c.Assert(hostMachine.Clean(), IsTrue)
+	s.assertMachineNotEmpty(c, hostMachine)
 
 	// Create a new, clean, empty machine.
 	cleanEmptyMachine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	c.Assert(cleanEmptyMachine.Clean(), Equals, true)
-	s.assertMachineEmpty(c, cleanEmptyMachine, true)
+	c.Assert(cleanEmptyMachine.Clean(), IsTrue)
+	s.assertMachineEmpty(c, cleanEmptyMachine)
 	return hostMachine, container, cleanEmptyMachine
 }
 
@@ -662,7 +663,7 @@ func (s *assignCleanSuite) assertAssignUnit(c *C, expectedMachine *state.Machine
 	reusedMachine, err := s.assignUnit(unit)
 	c.Assert(err, IsNil)
 	c.Assert(reusedMachine.Id(), Equals, expectedMachine.Id())
-	c.Assert(reusedMachine.Clean(), Equals, false)
+	c.Assert(reusedMachine.Clean(), IsFalse)
 }
 
 func (s *assignCleanSuite) TestAssignUnit(c *C) {
@@ -691,10 +692,8 @@ func (s *assignCleanSuite) TestAssignUnitTwiceFails(c *C) {
 	c.Assert(err, IsNil)
 	_, err = s.assignUnit(unit)
 	c.Assert(err, ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine: unit is already assigned to a machine`))
-	err = m.EnsureDead()
-	c.Assert(err, IsNil)
-	err = m.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(m.EnsureDead(), IsNil)
+	c.Assert(m.Remove(), IsNil)
 }
 
 func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
@@ -827,8 +826,8 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *C) {
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
-	c.Assert(hostMachine.Clean(), Equals, true)
-	s.assertMachineEmpty(c, hostMachine, false)
+	c.Assert(hostMachine.Clean(), IsTrue)
+	s.assertMachineNotEmpty(c, hostMachine)
 	if s.policy == state.AssignClean {
 		expectedMachines = append(expectedMachines, hostMachine.Id())
 	}
