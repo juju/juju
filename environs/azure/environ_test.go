@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
@@ -300,29 +301,26 @@ func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
-// TestStateInfo is disabled for now, jtv is working on another branch right
-// now which will re-enable it.
-func (EnvironSuite) DisabledTestStateInfo(c *C) {
+func (EnvironSuite) TestStateInfo(c *C) {
+	instanceID := "my-instance"
+	patchWithPropertiesResponse(c, []gwacl.Deployment{{
+		Name: instanceID,
+		URL:  fmt.Sprintf("http://%s/", instanceID),
+	}})
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
-	instanceID := "my-instance"
 	err := environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, IsNil)
 
-	_, _, err = env.StateInfo()
-	c.Assert(err, ErrorMatches, "azureEnviron.Instances unimplemented")
+	stateInfo, apiInfo, err := env.StateInfo()
+	c.Assert(err, IsNil)
 
-	// TODO: Replace with this once Instances is implemented.
-	/*
-		stateInfo, apiInfo, err := env.StateInfo()
-		c.Assert(err, IsNil)
-		config := env.Config()
-		statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-		apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-		c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
-		c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
-	*/
+	config := env.Config()
+	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
+	c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
 }
