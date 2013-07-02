@@ -7,9 +7,10 @@ import (
 	"path/filepath"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/loggo"
 )
 
 type baseProviderSuite struct {
