@@ -195,8 +195,11 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 		}
 		switch machine.Life() {
 		case state.Dying:
-			if _, ok := machine.InstanceId(); ok {
+			if _, err := machine.InstanceId(); err == nil {
 				continue
+			} else if !state.IsNotProvisionedError(err) {
+				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
+				return nil, nil, err
 			}
 			logger.Infof("killing dying, unprovisioned machine %q", machine)
 			if err := machine.EnsureDead(); err != nil {
@@ -215,7 +218,11 @@ func (task *provisionerTask) pendingOrDead(ids []string) (pending, dead []*state
 			delete(task.machines, machine.Id())
 			continue
 		}
-		if instId, hasInstId := machine.InstanceId(); !hasInstId {
+		if instId, err := machine.InstanceId(); err != nil {
+			if !state.IsNotProvisionedError(err) {
+				logger.Errorf("failed to load machine %q instance id: %v", machine, err)
+				continue
+			}
 			status, _, err := machine.Status()
 			if err != nil {
 				logger.Infof("cannot get machine %q status: %v", machine, err)
@@ -244,8 +251,10 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 	}
 
 	for _, m := range task.machines {
-		if instId, ok := m.InstanceId(); ok {
+		if instId, err := m.InstanceId(); err == nil {
 			delete(instances, instId)
+		} else if !state.IsNotProvisionedError(err) {
+			return nil, err
 		}
 	}
 	// Now remove all those instances that we are stopping already, as they
@@ -267,8 +276,8 @@ func (task *provisionerTask) findUnknownInstances(stopping []instance.Instance) 
 func (task *provisionerTask) instancesForMachines(machines []*state.Machine) []instance.Instance {
 	var instances []instance.Instance
 	for _, machine := range machines {
-		instId, ok := machine.InstanceId()
-		if ok {
+		instId, err := machine.InstanceId()
+		if err == nil {
 			instance, found := task.instances[instId]
 			// If the instance is not found we can't stop it.
 			if found {
@@ -321,7 +330,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	// part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
 	nonce := fmt.Sprintf("%s:%s", state.MachineTag(task.machineId), uuid.String())
-	inst, _, err := task.broker.StartInstance(machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
+	inst, metadata, err := task.broker.StartInstance(machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an
@@ -334,7 +343,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 		}
 		return nil
 	}
-	if err := machine.SetProvisioned(inst.Id(), nonce); err != nil {
+	if err := machine.SetProvisioned(inst.Id(), nonce, metadata); err != nil {
 		logger.Errorf("cannot register instance for machine %v: %v", machine, err)
 		// The machine is started, but we can't record the mapping in
 		// state. It'll keep running while we fail out and restart,
@@ -350,6 +359,6 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 		// encounter surprising problems.
 		return err
 	}
-	logger.Infof("started machine %s as instance %s", machine, inst.Id())
+	logger.Infof("started machine %s as instance %s with hardware %q", machine, inst.Id(), metadata)
 	return nil
 }

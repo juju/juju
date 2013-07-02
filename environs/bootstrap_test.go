@@ -135,39 +135,3 @@ func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 	e.cfg = cfg
 	return nil
 }
-
-type bootstrapStorageSuite struct {
-	testing.LoggingSuite
-	listener io.Closer
-	storage  environs.Storage
-}
-
-var _ = gc.Suite(&bootstrapStorageSuite{})
-
-func (s *bootstrapStorageSuite) SetUpTest(c *gc.C) {
-	s.LoggingSuite.SetUpTest(c)
-	loggo.GetLogger("juju.environs").SetLogLevel(loggo.TRACE)
-	s.listener, s.storage, _ = envtesting.CreateLocalTestStorage(c)
-}
-
-func (s *bootstrapStorageSuite) TearDownTest(c *gc.C) {
-	err := s.listener.Close()
-	c.Assert(err, gc.IsNil)
-	s.LoggingSuite.TearDownTest(c)
-}
-
-func (s *bootstrapStorageSuite) TestLoadFile(c *gc.C) {
-	ids, err := environs.LoadProviderState(s.storage)
-	c.Assert(err, gc.ErrorMatches, `file "provider-state" not found$`)
-	c.Assert(ids, gc.HasLen, 0)
-}
-
-func (s *bootstrapStorageSuite) TestSaveFile(c *gc.C) {
-	instances := []instance.Id{"id-987654", "foo-bar", "machine-26-lxc-4"}
-	err := environs.SaveProviderState(s.storage, instances...)
-	c.Assert(err, gc.IsNil)
-
-	ids, err := environs.LoadProviderState(s.storage)
-	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, instances)
-}

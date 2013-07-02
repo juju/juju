@@ -3,6 +3,8 @@
 
 package environs
 
+type BootstrapState bootstrapState
+
 func Providers() map[string]EnvironProvider {
 	return providers
 }

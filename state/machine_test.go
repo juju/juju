@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"sort"
@@ -43,7 +44,7 @@ func (s *MachineSuite) TestParentId(c *C) {
 	c.Assert(ok, Equals, false)
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -68,7 +69,7 @@ func (s *MachineSuite) TestLifeMachineWithContainer(c *C) {
 	// A machine hosting a container must not advance lifecycle.
 	params := state.AddMachineParams{
 		ParentId:      s.machine.Id(),
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -164,6 +165,8 @@ func (s *MachineSuite) TestRemove(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 	err = s.machine.Refresh()
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	_, err = s.machine.HardwareCharacteristics()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	_, err = s.machine.Containers()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
@@ -305,7 +308,8 @@ func (s *MachineSuite) TestMachineInstanceId(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, _ := machine.InstanceId()
+	iid, err := machine.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(iid, Equals, instance.Id("spaceship/0"))
 }
 
@@ -320,14 +324,14 @@ func (s *MachineSuite) TestMachineInstanceIdCorrupt(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, ok := machine.InstanceId()
-	c.Assert(ok, Equals, false)
+	iid, err := machine.InstanceId()
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(iid, Equals, instance.Id(""))
 }
 
 func (s *MachineSuite) TestMachineInstanceIdMissing(c *C) {
-	iid, ok := s.machine.InstanceId()
-	c.Assert(ok, Equals, false)
+	iid, err := s.machine.InstanceId()
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), Equals, "")
 }
 
@@ -342,9 +346,33 @@ func (s *MachineSuite) TestMachineInstanceIdBlank(c *C) {
 
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
-	iid, ok := machine.InstanceId()
-	c.Assert(ok, Equals, false)
+	iid, err := machine.InstanceId()
+	c.Assert(err, checkers.Satisfies, state.IsNotProvisionedError)
 	c.Assert(string(iid), Equals, "")
+}
+
+func (s *MachineSuite) TestMachineSetProvisionedUpdatesCharacteristics(c *C) {
+	// Before provisioning, there is no hardware characteristics.
+	_, err := s.machine.HardwareCharacteristics()
+	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	arch := "amd64"
+	mem := uint64(4096)
+	expected := &instance.HardwareCharacteristics{
+		Arch: &arch,
+		Mem:  &mem,
+	}
+	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", expected)
+	c.Assert(err, IsNil)
+	md, err := s.machine.HardwareCharacteristics()
+	c.Assert(err, IsNil)
+	c.Assert(*md, DeepEquals, *expected)
+
+	// Reload machine and check again.
+	err = s.machine.Refresh()
+	c.Assert(err, IsNil)
+	md, err = s.machine.HardwareCharacteristics()
+	c.Assert(err, IsNil)
+	c.Assert(*md, DeepEquals, *expected)
 }
 
 func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
@@ -352,26 +380,30 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, false)
 
 	// Either one should not be empty.
-	err := s.machine.SetProvisioned("umbrella/0", "")
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
-	err = s.machine.SetProvisioned("", "fake_nonce")
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
-	err = s.machine.SetProvisioned("", "")
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": instance id and nonce cannot be empty`)
+	err := s.machine.SetProvisioned("umbrella/0", "", nil)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
+	err = s.machine.SetProvisioned("", "fake_nonce", nil)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
+	err = s.machine.SetProvisioned("", "", nil)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": instance id and nonce cannot be empty`)
 
-	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce")
+	err = s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 
 	m, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	id, ok := m.InstanceId()
-	c.Assert(ok, Equals, true)
+	id, err := m.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(string(id), Equals, "umbrella/0")
+	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
+	// Clear the deprecated machineDoc InstanceId attribute and ensure that CheckProvisioned()
+	// still works as expected with the new data model.
+	state.SetMachineInstanceId(s.machine, "")
 	c.Assert(s.machine.CheckProvisioned("fake_nonce"), Equals, true)
 
 	// Try it twice, it should fail.
-	err = s.machine.SetProvisioned("doesn't-matter", "phony")
-	c.Assert(err, ErrorMatches, `cannot set instance id of machine "0": already set`)
+	err = s.machine.SetProvisioned("doesn't-matter", "phony", nil)
+	c.Assert(err, ErrorMatches, `cannot set instance data for machine "0": already set`)
 
 	// Check it with invalid nonce.
 	c.Assert(s.machine.CheckProvisioned("not-really"), Equals, false)
@@ -379,27 +411,29 @@ func (s *MachineSuite) TestMachineSetCheckProvisioned(c *C) {
 
 func (s *MachineSuite) TestMachineSetProvisionedWhenNotAlive(c *C) {
 	testWhenDying(c, s.machine, notAliveErr, notAliveErr, func() error {
-		return s.machine.SetProvisioned("umbrella/0", "fake_nonce")
+		return s.machine.SetProvisioned("umbrella/0", "fake_nonce", nil)
 	})
 }
 
 func (s *MachineSuite) TestMachineRefresh(c *C) {
 	m0, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	oldId, _ := m0.InstanceId()
-
+	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	err = m0.SetProvisioned("umbrella/0", "fake_nonce")
+	err = m0.SetAgentTools(&state.Tools{
+		URL:    "foo",
+		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	})
 	c.Assert(err, IsNil)
-	newId, _ := m0.InstanceId()
+	newTools, _ := m0.AgentTools()
 
-	m1Id, _ := m1.InstanceId()
-	c.Assert(m1Id, Equals, oldId)
+	m1Tools, _ := m1.AgentTools()
+	c.Assert(m1Tools, DeepEquals, oldTools)
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
-	m1Id, _ = m1.InstanceId()
-	c.Assert(m1Id, Equals, newId)
+	m1Tools, _ = m1.AgentTools()
+	c.Assert(*m1Tools, Equals, *newTools)
 
 	err = m0.EnsureDead()
 	c.Assert(err, IsNil)
@@ -536,16 +570,16 @@ func (s *MachineSuite) TestMachineDirtyAfterRemovingUnit(c *C) {
 
 func (s *MachineSuite) TestWatchMachine(c *C) {
 	w := s.machine.Watch()
-	defer AssertStop(c, w)
+	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := testing.NotifyWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
 	machine, err := s.State.Machine(s.machine.Id())
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("m-foo", "fake_nonce")
+	err = machine.SetProvisioned("m-foo", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	wc.AssertOneChange()
 
@@ -560,7 +594,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Remove machine, start new watch, check single event.
@@ -569,19 +603,19 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	err = machine.Remove()
 	c.Assert(err, IsNil)
 	w = s.machine.Watch()
-	defer AssertStop(c, w)
-	NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	defer testing.AssertStop(c, w)
+	testing.NotifyWatcherC{c, s.State, w}.AssertOneChange()
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Change machine, and create a unit independently; no change.
-	err := s.machine.SetProvisioned("cheese", "fake_nonce")
+	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
@@ -637,13 +671,13 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange("mysql/0", "mysql/1")
 
 	// Remove the Dead unit; no change.
@@ -665,12 +699,12 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange()
 
 	// Change machine; no change.
-	err := s.machine.SetProvisioned("cheese", "fake_nonce")
+	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 
@@ -725,13 +759,13 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	wc.AssertOneChange("mysql/0")
 
 	// Stop watcher; check Changes chan closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w}
 	wc.AssertOneChange("mysql/0", "mysql/1", "logging/0")
 
 	// Remove the Dead unit; no change.
@@ -810,7 +844,7 @@ func (s *MachineSuite) TestSetConstraints(c *C) {
 	c.Assert(mcons, DeepEquals, cons1)
 
 	// ...until the machine is provisioned, at which point they stick.
-	err = machine.SetProvisioned("i-mstuck", "fake_nonce")
+	err = machine.SetProvisioned("i-mstuck", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	cons2 := constraints.MustParse("mem=2G")
 	err = machine.SetConstraints(cons2)
