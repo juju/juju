@@ -64,7 +64,7 @@ func UseTestMetadata(metadata []jujutest.FileContent) {
 }
 
 var originalShortAttempt = shortAttempt
-var originalLongAttempt = longAttempt
+var originalLongAttempt = environs.LongAttempt
 
 // ShortTimeouts sets the timeouts to a short period as we
 // know that the testing server doesn't get better with time,
@@ -75,10 +75,10 @@ func ShortTimeouts(short bool) {
 			Total: 100 * time.Millisecond,
 			Delay: 10 * time.Millisecond,
 		}
-		longAttempt = shortAttempt
+		environs.LongAttempt = shortAttempt
 	} else {
 		shortAttempt = originalShortAttempt
-		longAttempt = originalLongAttempt
+		environs.LongAttempt = originalLongAttempt
 	}
 }
 

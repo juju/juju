@@ -9,9 +9,11 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/testing"
 )
 
 type StateSuite struct{}
@@ -80,4 +82,66 @@ func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Check(*storedState, DeepEquals, state)
+}
+
+func (suite *StateSuite) TestGetDNSNamesAcceptsNil(c *C) {
+	result := environs.GetDNSNames(nil)
+	c.Check(result, DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestGetDNSNamesReturnsNames(c *C) {
+	instances := []instance.Instance{
+		&dnsNameFakeInstance{name: "foo"},
+		&dnsNameFakeInstance{name: "bar"},
+	}
+
+	c.Check(environs.GetDNSNames(instances), DeepEquals, []string{"foo", "bar"})
+}
+
+func (suite *StateSuite) TestGetDNSNamesIgnoresNils(c *C) {
+	c.Check(environs.GetDNSNames([]instance.Instance{nil, nil}), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithoutNames(c *C) {
+	instances := []instance.Instance{&dnsNameFakeInstance{err: instance.ErrNoDNSName}}
+	c.Check(environs.GetDNSNames(instances), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithBlankNames(c *C) {
+	instances := []instance.Instance{&dnsNameFakeInstance{name: ""}}
+	c.Check(environs.GetDNSNames(instances), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestComposeAddressesAcceptsNil(c *C) {
+	c.Check(environs.ComposeAddresses(nil, 1433), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestComposeAddressesSuffixesAddresses(c *C) {
+	c.Check(
+		environs.ComposeAddresses([]string{"onehost", "otherhost"}, 1957),
+		DeepEquals,
+		[]string{"onehost:1957", "otherhost:1957"})
+}
+
+func (suite *StateSuite) TestGetStateInfo(c *C) {
+	cert := testing.CACert
+	cfg, err := config.New(map[string]interface{}{
+		// Some config items we're going to test for:
+		"ca-cert":    cert,
+		"state-port": 123,
+		"api-port":   456,
+		// And some required but irrelevant items:
+		"name":           "aname",
+		"type":           "dummy",
+		"ca-private-key": testing.CAKey,
+	})
+	c.Assert(err, IsNil)
+	hostnames := []string{"onehost", "otherhost"}
+
+	stateInfo, apiInfo := environs.GetStateInfo(cfg, hostnames)
+
+	c.Check(stateInfo.Addrs, DeepEquals, []string{"onehost:123", "otherhost:123"})
+	c.Check(string(stateInfo.CACert), Equals, cert)
+	c.Check(apiInfo.Addrs, DeepEquals, []string{"onehost:456", "otherhost:456"})
+	c.Check(string(apiInfo.CACert), Equals, cert)
 }

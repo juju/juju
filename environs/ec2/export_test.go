@@ -109,7 +109,7 @@ func UseTestMetadata(content []jujutest.FileContent) {
 }
 
 var originalShortAttempt = shortAttempt
-var originalLongAttempt = longAttempt
+var originalLongAttempt = environs.LongAttempt
 
 // ShortTimeouts sets the timeouts to a short period as we
 // know that the ec2test server doesn't get better with time,
@@ -120,10 +120,10 @@ func ShortTimeouts(short bool) {
 			Total: 0.25e9,
 			Delay: 0.01e9,
 		}
-		longAttempt = shortAttempt
+		environs.LongAttempt = shortAttempt
 	} else {
 		shortAttempt = originalShortAttempt
-		longAttempt = originalLongAttempt
+		environs.LongAttempt = originalLongAttempt
 	}
 }
 
