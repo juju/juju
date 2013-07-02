@@ -110,7 +110,9 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = env.saveState(&bootstrapState{StateInstances: []instance.Id{inst.Id()}})
+	err = environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -132,7 +134,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	// It's a bit unclear what the "longAttempt" loop is actually for
 	// but this should probably be refactored outside of the provider
 	// code.
-	st, err := env.loadState()
+	st, err := environs.LoadState(env.Storage())
 	if err != nil {
 		return nil, nil, err
 	}

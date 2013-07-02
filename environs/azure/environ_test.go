@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
@@ -28,6 +29,17 @@ func makeEnviron(c *C) *azureEnviron {
 	env, err := NewEnviron(cfg)
 	c.Assert(err, IsNil)
 	return env
+}
+
+// setDummyStorage injects the local provider's fake storage implementation
+// into the given environment, so that tests can manipulate storage as if it
+// were real.
+// Returns a cleanup function that must be called when done with the storage.
+func setDummyStorage(c *C, env *azureEnviron) func() {
+	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	c.Assert(err, IsNil)
+	env.storage = localstorage.Client(listener.Addr().String())
+	return func() { listener.Close() }
 }
 
 func (EnvironSuite) TestGetSnapshot(c *C) {
@@ -295,8 +307,9 @@ func (EnvironSuite) DisabledTestStateInfo(c *C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	instanceID := "my-instance"
-	err := env.saveState(&bootstrapState{
-		StateInstances: []instance.Id{instance.Id(instanceID)}})
+	err := environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, IsNil)
 
 	_, _, err = env.StateInfo()

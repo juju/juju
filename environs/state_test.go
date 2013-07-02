@@ -1,53 +1,44 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package azure
+package environs_test
 
 import (
 	"bytes"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"sync"
 )
 
-type StateSuite struct {
-	ProviderSuite
-}
+type StateSuite struct{}
 
 var _ = Suite(&StateSuite{})
 
-var listenerMu sync.Mutex
-
-// setDummyStorage injects the local provider's fake storage implementation
-// into the given environment, so that tests can manipulate storage as if it
-// were real.
+// makeDummyStorage creates a local storage.
 // Returns a cleanup function that must be called when done with the storage.
-func setDummyStorage(c *C, env *azureEnviron) func() {
-	listenerMu.Lock()
-	defer listenerMu.Unlock()
-
+func makeDummyStorage(c *C) (environs.Storage, func()) {
 	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
 	c.Assert(err, IsNil)
-	env.storage = localstorage.Client(listener.Addr().String())
-	return func() { listener.Close() }
+	storage := localstorage.Client(listener.Addr().String())
+	cleanup := func() { listener.Close() }
+	return storage, cleanup
 }
 
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
-	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
+	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := bootstrapState{StateInstances: []instance.Id{"an-instance-id"}}
+	state := environs.BootstrapState{StateInstances: []instance.Id{"an-instance-id"}}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, IsNil)
 
-	err = env.saveState(&state)
+	err = environs.SaveState(storage, &state)
 	c.Assert(err, IsNil)
 
-	loadedState, err := env.storage.Get(stateFile)
+	loadedState, err := storage.Get(environs.StateFile)
 	c.Assert(err, IsNil)
 	content, err := ioutil.ReadAll(loadedState)
 	c.Assert(err, IsNil)
@@ -55,40 +46,37 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 }
 
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *C) {
-	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
+	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := bootstrapState{StateInstances: []instance.Id{"id-goes-here"}}
+	state := environs.BootstrapState{StateInstances: []instance.Id{"id-goes-here"}}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, IsNil)
-	err = env.storage.Put(stateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
+	err = storage.Put(environs.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
 	c.Assert(err, IsNil)
 
-	storedState, err := env.loadState()
+	storedState, err := environs.LoadState(storage)
 	c.Assert(err, IsNil)
 
 	c.Check(*storedState, DeepEquals, state)
 }
 
 func (suite *StateSuite) TestLoadStateReturnsNotFoundErrorForMissingFile(c *C) {
-	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
+	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
 
-	_, err := env.loadState()
+	_, err := environs.LoadState(storage)
 
 	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {
-	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
+	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := bootstrapState{StateInstances: []instance.Id{"un-instant-s'il-vous-plait"}}
+	state := environs.BootstrapState{StateInstances: []instance.Id{"un-instant-s'il-vous-plait"}}
 
-	err := env.saveState(&state)
+	err := environs.SaveState(storage, &state)
 	c.Assert(err, IsNil)
-	storedState, err := env.loadState()
+	storedState, err := environs.LoadState(storage)
 	c.Assert(err, IsNil)
 
 	c.Check(*storedState, DeepEquals, state)

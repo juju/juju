@@ -70,7 +70,7 @@ func (suite *EnvironSuite) makeEnviron() *maasEnviron {
 }
 
 func (suite *EnvironSuite) setupFakeProviderStateFile(c *C) {
-	suite.testMAASObject.TestServer.NewFile("provider-state", []byte("test file content"))
+	suite.testMAASObject.TestServer.NewFile(environs.StateFile, []byte("test file content"))
 }
 
 func (suite *EnvironSuite) setupFakeTools(c *C) {
@@ -374,7 +374,9 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	testInstance := &maasInstance{&node, suite.environ}
-	err := env.saveState(&bootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
+	err := environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
