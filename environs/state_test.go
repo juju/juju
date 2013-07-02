@@ -4,14 +4,13 @@
 package environs_test
 
 import (
-	"bytes"
 	"io/ioutil"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/localstorage"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -32,7 +31,7 @@ func makeDummyStorage(c *gc.C) (environs.Storage, func()) {
 func (suite *StateSuite) TestSaveProviderStateWritesStateFile(c *gc.C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	instId := instance.Id{"an-instance-id"}
+	instId := instance.Id("an-instance-id")
 	state := environs.BootstrapState{StateInstances: []instance.Id{instId}}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, gc.IsNil)
@@ -47,11 +46,11 @@ func (suite *StateSuite) TestSaveProviderStateWritesStateFile(c *gc.C) {
 	c.Check(content, gc.DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) TestLoadStateReturnsNotFoundErrorForMissingFile(c *gc.C) {
+func (suite *StateSuite) TestLoadProviderStateReturnsNotFoundErrorForMissingFile(c *gc.C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
 
-	_, err := environs.LoadState(storage)
+	_, err := environs.LoadProviderState(storage)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
@@ -63,7 +62,7 @@ func (suite *StateSuite) TestLoadStateIntegratesWithSaveProviderState(c *gc.C) {
 	err := environs.SaveProviderState(storage, instances...)
 	c.Assert(err, gc.IsNil)
 
-	storedState, err := environs.LoadState(storage)
+	storedState, err := environs.LoadProviderState(storage)
 	c.Assert(err, gc.IsNil)
 	c.Check(storedState, gc.DeepEquals, instances)
 }

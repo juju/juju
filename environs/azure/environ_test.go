@@ -307,9 +307,7 @@ func (EnvironSuite) DisabledTestStateInfo(c *C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	instanceID := "my-instance"
-	err := environs.SaveState(
-		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+	err := environs.SaveProviderState(env.Storage(), instance.Id(instanceID))
 	c.Assert(err, IsNil)
 
 	_, _, err = env.StateInfo()

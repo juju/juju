@@ -16,7 +16,7 @@ import (
 // StateFile is the name of the file where the provider's state is stored.
 const StateFile = "provider-state"
 
-// BootstrapState is the state information that is stored in StateFile.
+// bootstrapState is the state information that is stored in StateFile.
 //
 // Individual providers may define their own state structures instead of
 // this one, and use their own code for loading and saving those, but this is
@@ -48,7 +48,7 @@ func LoadProviderState(storage StorageReader) ([]instance.Id, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error reading %q: %v", StateFile, err)
 	}
-	var state BootstrapState
+	var state bootstrapState
 	err = goyaml.Unmarshal(data, &state)
 	if err != nil {
 		return nil, fmt.Errorf("error unmarshalling %q: %v", StateFile, err)

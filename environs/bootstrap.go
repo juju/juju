@@ -4,18 +4,10 @@
 package environs
 
 import (
-	"bytes"
 	"fmt"
-	"io/ioutil"
-
-	"launchpad.net/goyaml"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
 )
-
-var logger = loggo.GetLogger("juju.environs")
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped

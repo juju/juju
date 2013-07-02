@@ -5,16 +5,12 @@ package environs_test
 
 import (
 	"fmt"
-	"io"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
