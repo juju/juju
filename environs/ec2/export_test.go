@@ -16,10 +16,6 @@ import (
 	"net/http"
 )
 
-type BootstrapState struct {
-	StateInstances []instance.Id
-}
-
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }
