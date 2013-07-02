@@ -5,10 +5,14 @@ package environs_test
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+	"io"
+
+	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -23,58 +27,58 @@ type bootstrapSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&bootstrapSuite{})
+var _ = gc.Suite(&bootstrapSuite{})
 
-func (s *bootstrapSuite) SetUpTest(c *C) {
+func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.home = testing.MakeFakeHomeNoEnvironments(c, "foo")
 }
 
-func (s *bootstrapSuite) TearDownTest(c *C) {
+func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 }
 
-func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *C) {
+func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined)
 	fixEnv := func(key string, value interface{}) {
 		cfg, err := env.Config().Apply(map[string]interface{}{
 			key: value,
 		})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		env.cfg = cfg
 	}
 
 	err := environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment configuration has no admin-secret")
+	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment configuration has no ca-cert")
+	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", testing.CACert)
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, ErrorMatches, "environment configuration has no ca-private-key")
+	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", testing.CAKey)
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *C) {
+func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	err := environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
-	c.Assert(env.constraints, DeepEquals, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.constraints, gc.DeepEquals, constraints.Value{})
 }
 
-func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *C) {
+func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := environs.Bootstrap(env, cons)
-	c.Assert(err, IsNil)
-	c.Assert(env.bootstrapCount, Equals, 1)
-	c.Assert(env.constraints, DeepEquals, cons)
+	c.Assert(err, gc.IsNil)
+	c.Assert(env.bootstrapCount, gc.Equals, 1)
+	c.Assert(env.constraints, gc.DeepEquals, cons)
 }
 
 type bootstrapEnviron struct {
@@ -128,4 +132,26 @@ func (e *bootstrapEnviron) Config() *config.Config {
 func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 	e.cfg = cfg
 	return nil
+}
+
+type bootstrapStorageSuite struct {
+	listener io.Closer
+	storage  environs.Storage
+}
+
+var _ = gc.Suite(&bootstrapStorageSuite{})
+
+func (s *bootstrapStorageSuite) SetUpTest(c *gc.C) {
+	s.listener, s.storage, _ = envtesting.CreateLocalTestStorage(c)
+}
+
+func (s *bootstrapStorageSuite) TearDownTest(c *gc.C) {
+	err := s.listener.Close()
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *bootstrapStorageSuite) TestLoadFile(c *gc.C) {
+	ids, err := environs.LoadProviderState(s.storage)
+	c.Assert(err, gc.ErrorMatches, `file "provider-state" not found$`)
+	c.Assert(ids, gc.HasLen, 0)
 }
