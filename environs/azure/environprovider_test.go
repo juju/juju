@@ -32,15 +32,19 @@ func (EnvironProviderSuite) TestOpen(c *C) {
 
 // create a temporary file with a valid WALinux config built using the given parameters.
 // The file will be cleaned up at the end of the test calling this method.
-func writeWALASharedConfig(c *C, deploymentId string, deploymentName string) string {
+func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, internalAddress string) string {
 	configTemplateXML := `
 	<SharedConfig version="1.0.0.0" goalStateIncarnation="1">
 	  <Deployment name="%s" guid="{495985a8-8e5a-49aa-826f-d1f7f51045b6}" incarnation="0">
 	    <Service name="%s" guid="{00000000-0000-0000-0000-000000000000}" />
 	    <ServiceInstance name="%s" guid="{9806cac7-e566-42b8-9ecb-de8da8f69893}" />
 	  </Deployment>
-	</SharedConfig>`
-	config := fmt.Sprintf(configTemplateXML, deploymentId, deploymentName, deploymentId)
+	  <Instances>
+            <Instance id="gwaclroleldc1o5p" address="%s">
+            </Instance>
+          </Instances>
+        </SharedConfig>`
+	config := fmt.Sprintf(configTemplateXML, deploymentId, deploymentName, deploymentId, internalAddress)
 	file, err := ioutil.TempFile(c.MkDir(), "")
 	c.Assert(err, IsNil)
 	filename := file.Name()
@@ -52,7 +56,8 @@ func writeWALASharedConfig(c *C, deploymentId string, deploymentName string) str
 func (EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	deploymentName := "gwaclmachineex95rsek"
-	filename := writeWALASharedConfig(c, deploymentId, deploymentName)
+	internalAddress := "10.76.200.59"
+	filename := writeWALASharedConfig(c, deploymentId, deploymentName, internalAddress)
 	oldConfigPath := _WALAConfigPath
 	_WALAConfigPath = filename
 	defer func() { _WALAConfigPath = oldConfigPath }()
@@ -61,13 +66,14 @@ func (EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(config.Deployment.Name, Equals, deploymentId)
 	c.Check(config.Deployment.Service.Name, Equals, deploymentName)
+	c.Check(config.Instances[0].Address, Equals, internalAddress)
 }
 
 func (EnvironProviderSuite) TestConfigGetDeploymentName(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	config := WALASharedConfig{Deployment: WALADeployment{Name: deploymentId, Service: WALADeploymentService{Name: "name"}}}
 
-	c.Check(config.getDeploymentHostname(), Equals, deploymentId+".cloudapp.net")
+	c.Check(config.getDeploymentFQDN(), Equals, deploymentId+".cloudapp.net")
 }
 
 func (EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
@@ -77,9 +83,16 @@ func (EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
 	c.Check(config.getDeploymentName(), Equals, deploymentName)
 }
 
-func (EnvironProviderSuite) TestPublicAddressAndPrivateAddress(c *C) {
+func (EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
+	internalAddress := "10.76.200.59"
+	config := WALASharedConfig{Instances: []WALAInstance{WALAInstance{Address: internalAddress}}}
+
+	c.Check(config.getInternalIP(), Equals, internalAddress)
+}
+
+func (EnvironProviderSuite) TestPublicAddress(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
-	filename := writeWALASharedConfig(c, deploymentId, "name")
+	filename := writeWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
 	oldConfigPath := _WALAConfigPath
 	_WALAConfigPath = filename
 	defer func() { _WALAConfigPath = oldConfigPath }()
@@ -89,14 +102,24 @@ func (EnvironProviderSuite) TestPublicAddressAndPrivateAddress(c *C) {
 	pubAddress, err := prov.PublicAddress()
 	c.Assert(err, IsNil)
 	c.Check(pubAddress, Equals, expectedAddress)
+}
+
+func (EnvironProviderSuite) TestPrivateAddress(c *C) {
+	internalAddress := "10.76.200.59"
+	filename := writeWALASharedConfig(c, "deploy-id", "name", internalAddress)
+	oldConfigPath := _WALAConfigPath
+	_WALAConfigPath = filename
+	defer func() { _WALAConfigPath = oldConfigPath }()
+
+	prov := azureEnvironProvider{}
 	privAddress, err := prov.PrivateAddress()
 	c.Assert(err, IsNil)
-	c.Check(privAddress, Equals, expectedAddress)
+	c.Check(privAddress, Equals, internalAddress)
 }
 
 func (EnvironProviderSuite) TestInstanceId(c *C) {
 	deploymentName := "deploymentname"
-	filename := writeWALASharedConfig(c, "deploy-id", deploymentName)
+	filename := writeWALASharedConfig(c, "deploy-id", deploymentName, "10.76.200.59")
 	oldConfigPath := _WALAConfigPath
 	_WALAConfigPath = filename
 	defer func() { _WALAConfigPath = oldConfigPath }()

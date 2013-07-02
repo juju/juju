@@ -36,12 +36,17 @@ func (prov azureEnvironProvider) PublicAddress() (string, error) {
 		logger.Errorf("error parsing Windows Azure Linux Agent config file (%q): %v", _WALAConfigPath, err)
 		return "", err
 	}
-	return config.getDeploymentHostname(), nil
+	return config.getDeploymentFQDN(), nil
 }
 
 // PrivateAddress is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) PrivateAddress() (string, error) {
-	return prov.PublicAddress()
+	config, err := parseWALAConfig()
+	if err != nil {
+		logger.Errorf("error parsing Windows Azure Linux Agent config file (%q): %v", _WALAConfigPath, err)
+		return "", err
+	}
+	return config.getInternalIP(), nil
 }
 
 // InstanceId is specified in the EnvironProvider interface.
@@ -64,12 +69,18 @@ func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
 //    <Service name="gwaclmachineex95rsek" guid="{00000000-0000-0000-0000-000000000000}" />
 //    <ServiceInstance name="b6de4c4c7d4a49c39270e0c57481fd9b.0" guid="{9806cac7-e566-42b8-9ecb-de8da8f69893}" />
 //  [...]
+//  <Instances>
+//    <Instance id="gwaclroleldc1o5p" address="10.76.200.59">
+//      [...]
+//    </Instance>
+//  </Instances>
 //  </Deployment>
 // </SharedConfig>
 
 type WALASharedConfig struct {
-	XMLName    xml.Name       `xml:SharedConfig`
+	XMLName    xml.Name       `xml:"SharedConfig"`
 	Deployment WALADeployment `xml:"Deployment"`
+	Instances  []WALAInstance `xml:"Instances>Instance"`
 }
 
 // getDeploymentName returns the deployment name referenced by the
@@ -80,20 +91,30 @@ func (config *WALASharedConfig) getDeploymentName() string {
 	return config.Deployment.Service.Name
 }
 
-// getDeploymentHostname returns the hostname of this deployment.
+// getDeploymentFQDN returns the FQDN of this deployment.
 // The hostname is taken from the 'name' attribute of the 'Deployment' element
 // and the domain name is Azure's domain name: 'cloudapp.net'.
-func (config *WALASharedConfig) getDeploymentHostname() string {
+func (config *WALASharedConfig) getDeploymentFQDN() string {
 	return fmt.Sprintf("%s.cloudapp.net", config.Deployment.Name)
+}
+
+// getInternalIP returns the internal IP for this deployment.
+// The internalIP is the internal IP of the only instance is this deployment.
+func (config *WALASharedConfig) getInternalIP() string {
+	return config.Instances[0].Address
 }
 
 type WALADeployment struct {
 	Name    string                `xml:"name,attr"`
-	Service WALADeploymentService `xml:Service`
+	Service WALADeploymentService `xml:"Service"`
 }
 
 type WALADeploymentService struct {
 	Name string `xml:"name,attr"`
+}
+
+type WALAInstance struct {
+	Address string `xml:"address,attr"`
 }
 
 // Path to the WALA configuration file.
