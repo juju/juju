@@ -225,4 +225,5 @@ func (env *localEnviron) setupLocalMongoService() error {
 		logger.Errorf("could not install mongo service: %v", err)
 		return err
 	}
+	return nil
 }
