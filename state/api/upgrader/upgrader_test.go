@@ -99,11 +99,11 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 func (s *upgraderSuite) TearDownTest(c *C) {
 	if s.stateAPI != nil {
 		err := s.stateAPI.Close()
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 	}
 	if s.server != nil {
 		err := s.server.Stop()
-		c.Assert(err, IsNil)
+		c.Check(err, IsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
@@ -113,7 +113,4 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 func (s *upgraderSuite) TestNew(c *C) {
 	upgrader := upgrader.New(s.stateAPI)
 	c.Assert(upgrader, NotNil)
-}
-
-func (s *upgraderSuite) TestVerifiesAuth(c *C) {
 }

@@ -80,6 +80,9 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	c.Check(results.Results[0].EntityWatcherId, Not(Equals), "")
 	resource, ok := s.resources[results.Results[0].EntityWatcherId]
 	c.Check(ok, checkers.IsTrue)
+	// TODO: When this becomes a true EntityWatcher, use
+	//       state/testing/watcher.go to properly test how this watcher is
+	//       working
 	defer func() {
 		err := resource.Stop()
 		c.Assert(err, IsNil)
@@ -150,43 +153,20 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	c.Check(err, ErrorMatches, "permission denied")
 }
 
-func (s *upgraderSuite) TestToolsForAgentNoArchOrSeries(c *C) {
-	// You must pass the Arch and Series for the Tools request
-	// The various ways you can pass something wrong
-	permutations := []struct {
-		Arch   string
-		Series string
-	}{
-		{"", ""},
-		{"", "value"},
-		{"value", ""},
-	}
-	agents := make([]params.Agent, len(permutations))
-	args := params.Agents{Agents: agents}
-	for i, p := range permutations {
-		agents[i].Tag = s.rawMachine.Tag()
-		agents[i].Arch = p.Arch
-		agents[i].Series = p.Series
-	}
-	results, err := s.upgrader.Tools(args)
-	c.Assert(err, IsNil)
-	c.Check(results.Tools, HasLen, len(permutations))
-	for i, toolResult := range results.Tools {
-		c.Logf("result item %d", i)
-		c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
-		c.Check(toolResult.Error, NotNil)
-		err = *toolResult.Error
-		c.Check(err, ErrorMatches, "invalid request")
-	}
-}
-
 func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	cur := version.Current
 	agent := params.Agent{
-		Tag:    s.rawMachine.Tag(),
-		Arch:   cur.Arch,
-		Series: cur.Series,
+		Tag: s.rawMachine.Tag(),
 	}
+
+	// The machine must have its existing tools set before we query for the
+	// next tools. This is so that we can grab Arch and Series without
+	// having to pass it in again
+	err := s.rawMachine.SetAgentTools(&state.Tools{
+		URL:    "",
+		Binary: version.Current,
+	})
+	c.Assert(err, IsNil)
 
 	args := params.Agents{Agents: []params.Agent{agent}}
 	results, err := s.upgrader.Tools(args)

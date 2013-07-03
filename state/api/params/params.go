@@ -74,9 +74,7 @@ type EntityWatchResults struct {
 
 // Details about a single agent
 type Agent struct {
-	Tag    string
-	Arch   string
-	Series string
+	Tag string
 }
 
 // Agents holds a list of Tags for Unit- and Machine-Agents.
@@ -251,7 +249,7 @@ type AgentTools struct {
 	URL    string
 }
 
-// This is a flatted state.Tools description
+// AgentToolsResult holds the tools and possibly error for a given Agent request
 type AgentToolsResult struct {
 	AgentTools
 	Error *Error

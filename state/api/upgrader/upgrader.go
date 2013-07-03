@@ -3,9 +3,9 @@
 
 package upgrader
 
-import "launchpad.net/juju-core/state/api/common"
-
-//import "launchpad.net/juju-core/state/api/params"
+import (
+	"launchpad.net/juju-core/state/api/common"
+)
 
 // Upgrader provides access to the Upgrader API facade.
 type Upgrader struct {

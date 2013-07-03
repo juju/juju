@@ -18,7 +18,7 @@ type UpgraderAPI struct {
 	authorizer common.Authorizer
 }
 
-// New creates a new client-side UpgraderAPI facade.
+// NewUpgraderAPI creates a new client-side UpgraderAPI facade.
 func NewUpgraderAPI(
 	st *state.State,
 	resources common.ResourceRegistry,
@@ -50,6 +50,46 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchRes
 	return result, nil
 }
 
+var nilTools params.AgentTools
+
+func (u *UpgraderAPI) oneAgentTools(agent params.Agent, agentVersion version.Number, env environs.Environ) (params.AgentTools, error) {
+	if !u.authorizer.AuthOwner(agent.Tag) {
+		return nilTools, common.ErrPerm
+	}
+	machine, err := u.st.Machine(state.MachineIdFromTag(agent.Tag))
+	if err != nil {
+		return nilTools, err
+	}
+	// TODO: Support Unit as well as Machine
+	existingTools, err := machine.AgentTools()
+	if err != nil {
+		return nilTools, err
+	}
+	requested := version.Binary{
+		Number: agentVersion,
+		Series: existingTools.Series,
+		Arch:   existingTools.Arch,
+	}
+	// Note: (jam) We shouldn't have to search the provider
+	//       for every machine that wants to upgrade. The
+	//       information could just be cached in state, or
+	//       even in the API servers
+	tools, err := environs.FindExactTools(env, requested)
+	if err != nil {
+		return nilTools, err
+	}
+	return params.AgentTools{
+		Tag:    agent.Tag,
+		Arch:   tools.Arch,
+		Series: tools.Series,
+		URL:    tools.URL,
+		Major:  tools.Major,
+		Minor:  tools.Minor,
+		Patch:  tools.Patch,
+		Build:  tools.Build,
+	}, nil
+}
+
 // Find the Tools necessary for the given agents
 func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error) {
 	tools := make([]params.AgentToolsResult, len(args.Agents))
@@ -75,39 +115,16 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 		return result, err
 	}
 	for i, agent := range args.Agents {
-		var err error
-		if !u.authorizer.AuthOwner(agent.Tag) {
-			err = common.ErrPerm
-		} else if agent.Arch == "" || agent.Series == "" {
-			err = common.ErrBadRequest
-		} else {
-			requested := version.Binary{
-				Number: agentVersion,
-				Series: agent.Series,
-				Arch:   agent.Arch,
-			}
-			// Note: (jam) We shouldn't have to search the provider
-			//       for every machine that wants to upgrade. The
-			//       information could just be cached in state, or
-			//       even in the API servers
-			tool, err := environs.FindExactTools(env, requested)
-			if err == nil {
-				// we have found tools for this agent
-				tools[i].Arch = tool.Arch
-				tools[i].Series = tool.Series
-				tools[i].Major = tool.Major
-				tools[i].Minor = tool.Minor
-				tools[i].Patch = tool.Patch
-				tools[i].Build = tool.Build
-				tools[i].URL = tool.URL
-			}
+		agentTools, err := u.oneAgentTools(agent, agentVersion, env)
+		if err == nil {
+			tools[i].AgentTools = agentTools
 		}
 		tools[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-// Find the Tools necessary for the given agents
+// SetTools updates the recorded tools version for the agents.
 func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsResults, error) {
 	results := params.SetAgentToolsResults{
 		Results: make([]params.SetAgentToolsResult, len(args.AgentTools)),
