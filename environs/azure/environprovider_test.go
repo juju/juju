@@ -104,6 +104,25 @@ func (EnvironProviderSuite) TestPublicAddress(c *C) {
 	c.Check(pubAddress, Equals, expectedAddress)
 }
 
+// azureEnvironProvider.PrivateAddress() currently returns the public address
+// of the instance.  We need to figure out how to do instance-to-instance
+// communication using the private IPs before we can use the Azure private
+// address.
+func (EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
+	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
+	filename := writeWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
+	oldConfigPath := _WALAConfigPath
+	_WALAConfigPath = filename
+	defer func() { _WALAConfigPath = oldConfigPath }()
+
+	expectedAddress := deploymentId + ".cloudapp.net"
+	prov := azureEnvironProvider{}
+	pubAddress, err := prov.PrivateAddress()
+	c.Assert(err, IsNil)
+	c.Check(pubAddress, Equals, expectedAddress)
+}
+
+/*
 func (EnvironProviderSuite) TestPrivateAddress(c *C) {
 	internalAddress := "10.76.200.59"
 	filename := writeWALASharedConfig(c, "deploy-id", "name", internalAddress)
@@ -116,6 +135,7 @@ func (EnvironProviderSuite) TestPrivateAddress(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(privAddress, Equals, internalAddress)
 }
+*/
 
 func (EnvironProviderSuite) TestInstanceId(c *C) {
 	deploymentName := "deploymentname"
