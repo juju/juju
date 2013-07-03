@@ -5,6 +5,7 @@ package environs_test
 
 import (
 	"errors"
+	"time"
 
 	. "launchpad.net/gocheck"
 
