@@ -106,7 +106,7 @@ as follows:
 
   * single-document watchers: dead simple, they notify of every
     change to a given doc. SettingsWatcher bucks the convention of
-    EntityWatcher in that it reads whole *Settings~s to send down the
+    NotifyWatcher in that it reads whole *Settings~s to send down the
     channel rather than just sending notifications (we probably
     shouldn't do that, but I don't think there's time to fix it right
     now).

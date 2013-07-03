@@ -129,7 +129,7 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-type EntityWatcher struct {
+type NotifyWatcher struct {
 	commonWatcher
 	st    *State
 	etype string
@@ -137,8 +137,8 @@ type EntityWatcher struct {
 	out   chan struct{}
 }
 
-func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
-	w := &EntityWatcher{
+func newNotifyWatcher(st *State, etype, id string) *NotifyWatcher {
+	w := &NotifyWatcher{
 		st:    st,
 		etype: etype,
 		eid:   id,
@@ -153,15 +153,15 @@ func newEntityWatcher(st *State, etype, id string) *EntityWatcher {
 	return w
 }
 
-func (w *EntityWatcher) loop() error {
-	var id params.EntityWatcherId
+func (w *NotifyWatcher) loop() error {
+	var id params.NotifyWatcherId
 	if err := w.st.Call(w.etype, w.eid, "Watch", nil, &id); err != nil {
 		return err
 	}
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
-		return w.st.Call("EntityWatcher", id.EntityWatcherId, request, nil, result)
+		return w.st.Call("NotifyWatcher", id.NotifyWatcherId, request, nil, result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -189,7 +189,7 @@ func (w *EntityWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *EntityWatcher) Changes() <-chan struct{} {
+func (w *NotifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 

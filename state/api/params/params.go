@@ -60,16 +60,16 @@ type MachinesSetStatus struct {
 	Machines []MachineSetStatus
 }
 
-// EntityWatchResult holds an EntityWatcher id and an error (if any).
-type EntityWatchResult struct {
-	EntityWatcherId string
+// NotifyWatchResult holds an NotifyWatcher id and an error (if any).
+type NotifyWatchResult struct {
+	NotifyWatcherId string
 	Error           *Error
 }
 
-// EntityWatchResults holds the results for any API call which ends up
-// returning a list of Entity Watchers
-type EntityWatchResults struct {
-	Results []EntityWatchResult
+// NotifyWatchResults holds the results for any API call which ends up
+// returning a list of NotifyWatchers
+type NotifyWatchResults struct {
+	Results []NotifyWatchResult
 }
 
 // Agent identifies a single agent
@@ -294,9 +294,9 @@ type Creds struct {
 	Password string
 }
 
-// EntityWatcherId holds the id of an EntityWatcher.
-type EntityWatcherId struct {
-	EntityWatcherId string
+// NotifyWatcherId holds the id of an NotifyWatcher.
+type NotifyWatcherId struct {
+	NotifyWatcherId string
 }
 
 // LifecycleWatchResults holds the results of API calls

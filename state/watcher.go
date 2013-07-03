@@ -21,6 +21,14 @@ import (
 
 var watchLogger = loggo.GetLogger("juju.state.watch")
 
+// NotifyWatcher generates signals when something changes, but it does not
+// return any content for those changes
+type NotifyWatcher interface {
+	Stop() error
+	Err() error
+	Changes() <-chan struct{}
+}
+
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -964,29 +972,29 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	return nil
 }
 
-// EntityWatcher observes changes to a state entity.
-type EntityWatcher struct {
+// entityWatcher generates an event when a document in the db changes
+type entityWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
-func (m *Machine) WatchHardwareCharacteristics() *EntityWatcher {
+func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
 	return newEntityWatcher(m.st, m.st.instanceData, m.doc.Id)
 }
 
-// Watch return a watcher for observing changes to a machine.
-func (m *Machine) Watch() *EntityWatcher {
+// Watch returns a watcher for observing changes to a machine.
+func (m *Machine) Watch() NotifyWatcher {
 	return newEntityWatcher(m.st, m.st.machines, m.doc.Id)
 }
 
-// Watch return a watcher for observing changes to a service.
-func (s *Service) Watch() *EntityWatcher {
+// Watch returns a watcher for observing changes to a service.
+func (s *Service) Watch() NotifyWatcher {
 	return newEntityWatcher(s.st, s.st.services, s.doc.Name)
 }
 
-// Watch return a watcher for observing changes to a unit.
-func (u *Unit) Watch() *EntityWatcher {
+// Watch returns a watcher for observing changes to a unit.
+func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
 }
 
@@ -996,7 +1004,7 @@ func (u *Unit) Watch() *EntityWatcher {
 // valid only while the unit's charm URL is not changed.
 // TODO(fwereade): this could be much smarter; if it were, uniter.Filter
 // could be somewhat simpler.
-func (u *Unit) WatchConfigSettings() (*EntityWatcher, error) {
+func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
@@ -1004,8 +1012,8 @@ func (u *Unit) WatchConfigSettings() (*EntityWatcher, error) {
 	return newEntityWatcher(u.st, u.st.settings, settingsKey), nil
 }
 
-func newEntityWatcher(st *State, coll *mgo.Collection, key string) *EntityWatcher {
-	w := &EntityWatcher{
+func newEntityWatcher(st *State, coll *mgo.Collection, key string) NotifyWatcher {
+	w := &entityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
@@ -1017,12 +1025,12 @@ func newEntityWatcher(st *State, coll *mgo.Collection, key string) *EntityWatche
 	return w
 }
 
-// Changes returns the event channel for the EntityWatcher.
-func (w *EntityWatcher) Changes() <-chan struct{} {
+// Changes returns the event channel for the entityWatcher.
+func (w *entityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *EntityWatcher) loop(coll *mgo.Collection, key string) (err error) {
+func (w *entityWatcher) loop(coll *mgo.Collection, key string) (err error) {
 	doc := &struct {
 		TxnRevno int64 `bson:"txn-revno"`
 	}{}
