@@ -5,9 +5,10 @@ package environs
 
 import (
 	"fmt"
+	"time"
+
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
-	"time"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
