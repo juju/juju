@@ -35,7 +35,7 @@ type CommonProvisionerSuite struct {
 	testing.JujuConnSuite
 	op  <-chan dummy.Operation
 	cfg *config.Config
-	//	// defaultConstraints are used when adding a machine and then later in test assertions.
+	//  // defaultConstraints are used when adding a machine and then later in test assertions.
 	defaultConstraints constraints.Value
 }
 
@@ -230,8 +230,7 @@ func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func(
 }
 
 func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Machine, check func() bool) {
-	w, err := m.WatchHardwareCharacteristics()
-	c.Assert(err, IsNil)
+	w := m.WatchHardwareCharacteristics()
 	defer stop(c, w)
 	timeout := time.After(500 * time.Millisecond)
 	resync := time.After(0)

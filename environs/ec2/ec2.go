@@ -28,19 +28,10 @@ import (
 	"time"
 )
 
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
+// Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-var longAttempt = utils.AttemptStrategy{
-	Total: 3 * time.Minute,
-	Delay: 1 * time.Second,
 }
 
 func init() {
@@ -111,13 +102,7 @@ func (inst *ec2Instance) DNSName() (string, error) {
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {
-	for a := longAttempt.Start(); a.Next(); {
-		name, err := inst.DNSName()
-		if err == nil || err != instance.ErrNoDNSName {
-			return name, err
-		}
-	}
-	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
+	return environs.WaitDNSName(inst)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -307,51 +292,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	return nil
 }
 
-// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
-// Azure providers (bug 1195721).
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	st, err := environs.LoadState(e.Storage())
-	if err != nil {
-		return nil, nil, err
-	}
-	config := e.Config()
-	cert, hasCert := config.CACert()
-	if !hasCert {
-		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
-	}
-	var stateAddrs []string
-	var apiAddrs []string
-	// Wait for the DNS names of any of the instances
-	// to become available.
-	log.Infof("environs/ec2: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := e.Instances(st.StateInstances)
-		if err != nil && err != environs.ErrPartialInstances {
-			return nil, nil, err
-		}
-		for _, inst := range insts {
-			if inst == nil {
-				continue
-			}
-			name := inst.(*ec2Instance).Instance.DNSName
-			if name != "" {
-				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-				stateAddrs = append(stateAddrs, name+statePortSuffix)
-				apiAddrs = append(apiAddrs, name+apiPortSuffix)
-			}
-		}
-	}
-	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
-	}
-	return &state.Info{
-			Addrs:  stateAddrs,
-			CACert: cert,
-		}, &api.Info{
-			Addrs:  apiAddrs,
-			CACert: cert,
-		}, nil
+	return environs.StateInfo(e)
 }
 
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
