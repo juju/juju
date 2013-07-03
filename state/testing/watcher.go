@@ -68,8 +68,31 @@ func (c NotifyWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*C
-	State   *state.State
-	Watcher StringsWatcher
+	State    *state.State
+	Watcher  StringsWatcher
+	FullSync bool
+}
+
+// NewStringsWatcherC returns a StringsWatcherC that checks for aggressive
+// event coalescence.
+func NewStringsWatcherC(c *C, st *state.State, w StringsWatcher) StringsWatcherC {
+	return StringsWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+// NewLaxStringsWatcherC returns a StringsWatcherC that runs a full watcher
+// sync before reading from the watcher's Changes channel, and hence cannot
+// verify real-world coalescence behaviour.
+func NewLaxStringsWatcherC(c *C, st *state.State, w StringsWatcher) StringsWatcherC {
+	return StringsWatcherC{
+		C:        c,
+		State:    st,
+		Watcher:  w,
+		FullSync: true,
+	}
 }
 
 type StringsWatcher interface {
@@ -87,7 +110,11 @@ func (c StringsWatcherC) AssertNoChange() {
 }
 
 func (c StringsWatcherC) AssertOneChange(expect ...string) {
-	c.State.Sync()
+	if c.FullSync {
+		c.State.Sync()
+	} else {
+		c.State.StartSync()
+	}
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
@@ -96,7 +123,7 @@ func (c StringsWatcherC) AssertOneChange(expect ...string) {
 		} else {
 			sort.Strings(expect)
 			sort.Strings(actual)
-			c.Assert(expect, DeepEquals, actual)
+			c.Assert(actual, DeepEquals, expect)
 		}
 	case <-time.After(longTime):
 		c.Fatalf("watcher did not send change")
@@ -145,7 +172,7 @@ func (c IntsWatcherC) AssertOneChange(expect ...int) {
 		} else {
 			sort.Ints(expect)
 			sort.Ints(actual)
-			c.Assert(expect, DeepEquals, actual)
+			c.Assert(actual, DeepEquals, expect)
 		}
 	case <-time.After(longTime):
 		c.Fatalf("watcher did not send change")
