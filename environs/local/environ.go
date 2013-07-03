@@ -23,6 +23,8 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+var lxcBridgeName = "lxcbr0"
+
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
@@ -69,6 +71,11 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 
 	// Work out the ip address of the lxc bridge, and use that for the mongo config.
+	bridgeAddress, err := env.findBridgeAddress()
+	if err != nil {
+		return err
+	}
+	logger.Debugf("found %q as address for %q", bridgeAddress, lxcBridgeName)
 
 	// Create a fake machine 0 in state to represent the machine, need an instance id.
 	// "localhost" makes sense for that.
@@ -225,4 +232,20 @@ func (env *localEnviron) setupLocalMongoService() error {
 		logger.Errorf("could not install mongo service: %v", err)
 		return err
 	}
+	return nil
+}
+
+func (env *localEnviron) findBridgeAddress() (string, error) {
+
+	bridge, err := net.InterfaceByName(lxcBridgeName)
+	if err != nil {
+		logger.Errorf("cannot find network interface %q: %v", lxcBridgeName, err)
+		return "", err
+	}
+	addrs, err := bridge.Addrs()
+	if err != nil {
+		logger.Errorf("cannot get addresses for network interface %q: %v", lxcBridgeName, err)
+		return "", err
+	}
+	return utils.GetIPv4Address(addrs)
 }
