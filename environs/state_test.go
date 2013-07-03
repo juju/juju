@@ -4,65 +4,144 @@
 package environs_test
 
 import (
+	"bytes"
 	"io/ioutil"
-
-	gc "launchpad.net/gocheck"
+	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-
 	"launchpad.net/juju-core/environs"
-	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/testing"
 )
 
 type StateSuite struct{}
 
-var _ = gc.Suite(&StateSuite{})
+var _ = Suite(&StateSuite{})
 
 // makeDummyStorage creates a local storage.
 // Returns a cleanup function that must be called when done with the storage.
-func makeDummyStorage(c *gc.C) (environs.Storage, func()) {
-	listener, storage, _ := envtesting.CreateLocalTestStorage(c)
+func makeDummyStorage(c *C) (environs.Storage, func()) {
+	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	c.Assert(err, IsNil)
+	storage := localstorage.Client(listener.Addr().String())
 	cleanup := func() { listener.Close() }
 	return storage, cleanup
 }
 
-func (suite *StateSuite) TestSaveProviderStateWritesStateFile(c *gc.C) {
+func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	instId := instance.Id("an-instance-id")
-	state := environs.BootstrapState{StateInstances: []instance.Id{instId}}
+	state := environs.BootstrapState{StateInstances: []instance.Id{"an-instance-id"}}
 	marshaledState, err := goyaml.Marshal(state)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, IsNil)
 
-	err = environs.SaveProviderState(storage, instId)
-	c.Assert(err, gc.IsNil)
+	err = environs.SaveState(storage, &state)
+	c.Assert(err, IsNil)
 
 	loadedState, err := storage.Get(environs.StateFile)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, IsNil)
 	content, err := ioutil.ReadAll(loadedState)
-	c.Assert(err, gc.IsNil)
-	c.Check(content, gc.DeepEquals, marshaledState)
+	c.Assert(err, IsNil)
+	c.Check(content, DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) TestLoadProviderStateReturnsNotFoundErrorForMissingFile(c *gc.C) {
+func (suite *StateSuite) TestLoadStateReadsStateFile(c *C) {
+	storage, cleanup := makeDummyStorage(c)
+	defer cleanup()
+	state := environs.BootstrapState{StateInstances: []instance.Id{"id-goes-here"}}
+	content, err := goyaml.Marshal(state)
+	c.Assert(err, IsNil)
+	err = storage.Put(environs.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
+	c.Assert(err, IsNil)
+
+	storedState, err := environs.LoadState(storage)
+	c.Assert(err, IsNil)
+
+	c.Check(*storedState, DeepEquals, state)
+}
+
+func (suite *StateSuite) TestLoadStateReturnsNotFoundErrorForMissingFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
 
-	_, err := environs.LoadProviderState(storage)
-	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+	_, err := environs.LoadState(storage)
+
+	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
-func (suite *StateSuite) TestLoadStateIntegratesWithSaveProviderState(c *gc.C) {
+func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
+	state := environs.BootstrapState{StateInstances: []instance.Id{"un-instant-s'il-vous-plait"}}
 
-	instances := []instance.Id{"un-instant-s'il-vous-plait", "id-987654", "machine-26-lxc-4"}
-	err := environs.SaveProviderState(storage, instances...)
-	c.Assert(err, gc.IsNil)
+	err := environs.SaveState(storage, &state)
+	c.Assert(err, IsNil)
+	storedState, err := environs.LoadState(storage)
+	c.Assert(err, IsNil)
 
-	storedState, err := environs.LoadProviderState(storage)
-	c.Assert(err, gc.IsNil)
-	c.Check(storedState, gc.DeepEquals, instances)
+	c.Check(*storedState, DeepEquals, state)
+}
+
+func (suite *StateSuite) TestGetDNSNamesAcceptsNil(c *C) {
+	result := environs.GetDNSNames(nil)
+	c.Check(result, DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestGetDNSNamesReturnsNames(c *C) {
+	instances := []instance.Instance{
+		&dnsNameFakeInstance{name: "foo"},
+		&dnsNameFakeInstance{name: "bar"},
+	}
+
+	c.Check(environs.GetDNSNames(instances), DeepEquals, []string{"foo", "bar"})
+}
+
+func (suite *StateSuite) TestGetDNSNamesIgnoresNils(c *C) {
+	c.Check(environs.GetDNSNames([]instance.Instance{nil, nil}), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithoutNames(c *C) {
+	instances := []instance.Instance{&dnsNameFakeInstance{err: instance.ErrNoDNSName}}
+	c.Check(environs.GetDNSNames(instances), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestGetDNSNamesIgnoresInstancesWithBlankNames(c *C) {
+	instances := []instance.Instance{&dnsNameFakeInstance{name: ""}}
+	c.Check(environs.GetDNSNames(instances), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestComposeAddressesAcceptsNil(c *C) {
+	c.Check(environs.ComposeAddresses(nil, 1433), DeepEquals, []string{})
+}
+
+func (suite *StateSuite) TestComposeAddressesSuffixesAddresses(c *C) {
+	c.Check(
+		environs.ComposeAddresses([]string{"onehost", "otherhost"}, 1957),
+		DeepEquals,
+		[]string{"onehost:1957", "otherhost:1957"})
+}
+
+func (suite *StateSuite) TestGetStateInfo(c *C) {
+	cert := testing.CACert
+	cfg, err := config.New(map[string]interface{}{
+		// Some config items we're going to test for:
+		"ca-cert":    cert,
+		"state-port": 123,
+		"api-port":   456,
+		// And some required but irrelevant items:
+		"name":           "aname",
+		"type":           "dummy",
+		"ca-private-key": testing.CAKey,
+	})
+	c.Assert(err, IsNil)
+	hostnames := []string{"onehost", "otherhost"}
+
+	stateInfo, apiInfo := environs.GetStateInfo(cfg, hostnames)
+
+	c.Check(stateInfo.Addrs, DeepEquals, []string{"onehost:123", "otherhost:123"})
+	c.Check(string(stateInfo.CACert), Equals, cert)
+	c.Check(apiInfo.Addrs, DeepEquals, []string{"onehost:456", "otherhost:456"})
+	c.Check(string(apiInfo.CACert), Equals, cert)
 }
