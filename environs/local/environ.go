@@ -64,40 +64,14 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
-	// TODO(thumper): break out into functions later.
-	journalDir := filepath.Join(env.config.mongoDir(), "journal")
-	if err := os.MkdirAll(journalDir, 0755); err != nil {
-		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
+	if err := env.setupLocalMongoService(); err != nil {
 		return err
 	}
 
-	cert, key, err := env.config.GenerateStateServerCertAndKey()
-	if err != nil {
-		logger.Errorf("failed to generate server cert: %v", err)
-		return err
-	}
-	if err := ioutil.WriteFile(
-		env.config.configFile("server.pem"),
-		append(cert, key...),
-		0600); err != nil {
-		logger.Errorf("failed to write server.pem: %v", err)
-		return err
-	}
+	// Work out the ip address of the lxc bridge, and use that for the mongo config.
 
-	// TODO(thumper): work out how to get the user to sudo bits...
-	mongo := upstart.MongoUpstartService(
-		env.mongoServiceName(),
-		env.config.rootDir(),
-		env.config.mongoDir(),
-		env.config.StatePort())
-	logger.Infof("installing service %s", env.mongoServiceName())
-	if err := mongo.Install(); err != nil {
-		logger.Errorf("could not install mongo service: %v", err)
-		return err
-	}
-
-	// Start the mongo service.
-	// TODO(thumper): make the mongo service start automagically
+	// Create a fake machine 0 in state to represent the machine, need an instance id.
+	// "localhost" makes sense for that.
 
 	return nil
 }
@@ -216,4 +190,39 @@ func (env *localEnviron) Ports() ([]instance.Port, error) {
 // Provider is specified in the Environ interface.
 func (env *localEnviron) Provider() environs.EnvironProvider {
 	return &provider
+}
+
+func (env *localEnviron) setupLocalMongoService() error {
+	journalDir := filepath.Join(env.config.mongoDir(), "journal")
+	logger.Debugf("create mongo journal dir: %v", journalDir)
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
+		return err
+	}
+
+	logger.Debugf("generate server cert")
+	cert, key, err := env.config.GenerateStateServerCertAndKey()
+	if err != nil {
+		logger.Errorf("failed to generate server cert: %v", err)
+		return err
+	}
+	if err := ioutil.WriteFile(
+		env.config.configFile("server.pem"),
+		append(cert, key...),
+		0600); err != nil {
+		logger.Errorf("failed to write server.pem: %v", err)
+		return err
+	}
+
+	// TODO(thumper): work out how to get the user to sudo bits...
+	mongo := upstart.MongoUpstartService(
+		env.mongoServiceName(),
+		env.config.rootDir(),
+		env.config.mongoDir(),
+		env.config.StatePort())
+	logger.Infof("installing service %s", env.mongoServiceName())
+	if err := mongo.Install(); err != nil {
+		logger.Errorf("could not install mongo service: %v", err)
+		return err
+	}
 }
