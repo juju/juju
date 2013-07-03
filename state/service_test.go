@@ -1221,7 +1221,7 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 	// All except gone unit are reported in initial event.
 	w := s.mysql.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w, false}
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange(alive.Name(), dying.Name(), dead.Name())
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
@@ -1240,7 +1240,7 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
 	// Empty initial event when no units.
 	w := s.mysql.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w, false}
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Create one unit, check one change.
@@ -1362,7 +1362,7 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NotifyWatcherC{c, s.State, w, false}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -1388,7 +1388,7 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	c.Assert(err, IsNil)
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NotifyWatcherC{c, s.State, w, false}.AssertOneChange()
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *ServiceSuite) TestAnnotatorForService(c *C) {

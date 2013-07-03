@@ -175,20 +175,19 @@ func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	s.Factory.AddListener(s.events)
 }
 
-func (s *lxcProvisionerSuite) expectStarted(c *C, machine *state.Machine) {
+func (s *lxcProvisionerSuite) expectStarted(c *C, machine *state.Machine) string {
 	event := <-s.events
 	c.Assert(event.Action, Equals, mock.Started)
 	err := machine.Refresh()
 	c.Assert(err, IsNil)
 	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
+	return event.InstanceId
 }
 
-func (s *lxcProvisionerSuite) expectStopped(c *C, machine *state.Machine) {
+func (s *lxcProvisionerSuite) expectStopped(c *C, instId string) {
 	event := <-s.events
 	c.Assert(event.Action, Equals, mock.Stopped)
-	inst, ok := machine.InstanceId()
-	c.Assert(ok, IsTrue)
-	c.Assert(string(inst), Equals, event.InstanceId)
+	c.Assert(event.InstanceId, Equals, instId)
 }
 
 func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
@@ -229,7 +228,7 @@ func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *C) {
 func (s *lxcProvisionerSuite) addContainer(c *C) *state.Machine {
 	params := state.AddMachineParams{
 		ParentId:      s.machineId,
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -244,10 +243,10 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *C) {
 
 	container := s.addContainer(c)
 
-	s.expectStarted(c, container)
+	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(container.EnsureDead(), IsNil)
-	s.expectStopped(c, container)
+	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
 }

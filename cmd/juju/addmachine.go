@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -22,7 +23,7 @@ type AddMachineCommand struct {
 	// If specified, these constraints are merged with those already in the environment.
 	Constraints   constraints.Value
 	MachineId     string
-	ContainerType state.ContainerType
+	ContainerType instance.ContainerType
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
@@ -41,6 +42,9 @@ func (c *AddMachineCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *AddMachineCommand) Init(args []string) error {
+	if c.Constraints.Container != nil {
+		return fmt.Errorf("container constraint %q not allowed when adding a machine", *c.Constraints.Container)
+	}
 	containerSpec, err := cmd.ZeroOrOneArgs(args)
 	if err != nil {
 		return err
@@ -53,13 +57,9 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if sep < 0 {
 		return fmt.Errorf("malformed container argument %q", containerSpec)
 	}
-	c.MachineId, c.ContainerType = containerSpec[:sep], state.ContainerType(containerSpec[sep+1:])
-	for _, supportedType := range state.SupportedContainerTypes {
-		if c.ContainerType == supportedType {
-			return nil
-		}
-	}
-	return fmt.Errorf("invalid container type %q", c.ContainerType)
+	c.MachineId = containerSpec[:sep]
+	c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[sep+1:])
+	return err
 }
 
 func (c *AddMachineCommand) Run(_ *cmd.Context) error {

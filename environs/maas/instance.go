@@ -5,6 +5,7 @@ package maas
 
 import (
 	"launchpad.net/gomaasapi"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 )
@@ -34,6 +35,7 @@ func (mi *maasInstance) refreshInstance() error {
 }
 
 func (mi *maasInstance) DNSName() (string, error) {
+	// A MAAS instance has its DNS name immediately.
 	hostname, err := (*mi.maasObject).GetField("hostname")
 	if err != nil {
 		return "", err
@@ -42,9 +44,7 @@ func (mi *maasInstance) DNSName() (string, error) {
 }
 
 func (mi *maasInstance) WaitDNSName() (string, error) {
-	// A MAAS nodes gets his DNS name when it's created.  WaitDNSName,
-	// (same as DNSName) just returns the hostname of the node.
-	return mi.DNSName()
+	return environs.WaitDNSName(mi)
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

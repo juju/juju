@@ -39,7 +39,7 @@ func (s *FilterSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce")
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 }
 
@@ -322,12 +322,14 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 
 	// Change the config a few more times, then reset the events. We sync to
 	// make sure the events have arrived in the watcher -- and then wait a
-	// little longer, to allow for the coaleascence delay -- before we tell
-	// it to discard all received events.
+	// little longer, to allow for the delay while the events are coalesced
+	// -- before we tell it to discard all received events. This would be
+	// much better tested by controlling a mocked-out watcher directly, but
+	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
 	s.State.Sync()
-	time.Sleep(50 * time.Millisecond)
+	time.Sleep(250 * time.Millisecond)
 	f.DiscardConfigEvent()
 	assertNoChange()
 
