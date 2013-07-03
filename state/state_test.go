@@ -951,12 +951,11 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	w, err := machine.WatchHardwareCharacteristics()
-	c.Assert(err, IsNil)
+	w := machine.WatchHardwareCharacteristics()
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Provision a machine: reported.
@@ -1569,7 +1568,7 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
@@ -1615,7 +1614,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.

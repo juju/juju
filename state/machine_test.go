@@ -573,7 +573,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -604,7 +604,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	c.Assert(err, IsNil)
 	w = s.machine.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {

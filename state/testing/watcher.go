@@ -31,8 +31,31 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*C
-	State   *state.State
-	Watcher NotifyWatcher
+	State    *state.State
+	Watcher  NotifyWatcher
+	FullSync bool
+}
+
+// NewNotifyWatcherC returns a NotifyWatcherC that checks for aggressive
+// event coalescence.
+func NewNotifyWatcherC(c *C, st *state.State, w NotifyWatcher) NotifyWatcherC {
+	return NotifyWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+// NewLaxNotifyWatcherC returns a NotifyWatcherC that runs a full watcher
+// sync before reading from the watcher's Changes channel, and hence cannot
+// verify real-world coalescence behaviour.
+func NewLaxNotifyWatcherC(c *C, st *state.State, w NotifyWatcher) NotifyWatcherC {
+	return NotifyWatcherC{
+		C:        c,
+		State:    st,
+		Watcher:  w,
+		FullSync: true,
+	}
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
@@ -45,7 +68,11 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	c.State.Sync()
+	if c.FullSync {
+		c.State.Sync()
+	} else {
+		c.State.StartSync()
+	}
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)

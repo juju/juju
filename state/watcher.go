@@ -1084,31 +1084,23 @@ type EntityWatcher struct {
 }
 
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
-func (m *Machine) WatchHardwareCharacteristics() (*EntityWatcher, error) {
-	var txnRevNo int64
-	if instData, err := getInstanceData(m.st, m.Id()); errors.IsNotFoundError(err) {
-		txnRevNo = -1
-	} else if err == nil {
-		txnRevNo = instData.TxnRevno
-	} else {
-		return nil, err
-	}
-	return newEntityWatcher(m.st, m.st.instanceData.Name, m.doc.Id, txnRevNo), nil
+func (m *Machine) WatchHardwareCharacteristics() *EntityWatcher {
+	return newEntityWatcher(m.st, m.st.instanceData, m.doc.Id)
 }
 
 // Watch return a watcher for observing changes to a machine.
 func (m *Machine) Watch() *EntityWatcher {
-	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
+	return newEntityWatcher(m.st, m.st.machines, m.doc.Id)
 }
 
 // Watch return a watcher for observing changes to a service.
 func (s *Service) Watch() *EntityWatcher {
-	return newEntityWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)
+	return newEntityWatcher(s.st, s.st.services, s.doc.Name)
 }
 
 // Watch return a watcher for observing changes to a unit.
 func (u *Unit) Watch() *EntityWatcher {
-	return newEntityWatcher(u.st, u.st.units.Name, u.doc.Name, u.doc.TxnRevno)
+	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -1122,14 +1114,10 @@ func (u *Unit) WatchConfigSettings() (*EntityWatcher, error) {
 		return nil, fmt.Errorf("unit charm not set")
 	}
 	settingsKey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
-	_, txnRevno, err := readSettingsDoc(u.st, settingsKey)
-	if err != nil {
-		return nil, err
-	}
-	return newEntityWatcher(u.st, u.st.settings.Name, settingsKey, txnRevno), nil
+	return newEntityWatcher(u.st, u.st.settings, settingsKey), nil
 }
 
-func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *EntityWatcher {
+func newEntityWatcher(st *State, coll *mgo.Collection, key string) *EntityWatcher {
 	w := &EntityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
@@ -1137,10 +1125,7 @@ func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *Ent
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		ch := make(chan watcher.Change)
-		w.st.watcher.Watch(coll, key, revno, ch)
-		defer w.st.watcher.Unwatch(coll, key, ch)
-		w.tomb.Kill(w.loop(ch))
+		w.tomb.Kill(w.loop(coll, key))
 	}()
 	return w
 }
@@ -1150,15 +1135,30 @@ func (w *EntityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
+func (w *EntityWatcher) loop(coll *mgo.Collection, key string) (err error) {
+	doc := &struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}{}
+	fields := D{{"txn-revno", 1}}
+	if err := coll.FindId(key).Select(fields).One(doc); err == mgo.ErrNotFound {
+		doc.TxnRevno = -1
+	} else if err != nil {
+		return err
+	}
+	in := make(chan watcher.Change)
+	w.st.watcher.Watch(coll.Name, key, doc.TxnRevno, in)
+	defer w.st.watcher.Unwatch(coll.Name, key, in)
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-ch:
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case ch := <-in:
+			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
 			out = w.out
 		case out <- struct{}{}:
 			out = nil

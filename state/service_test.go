@@ -1362,7 +1362,7 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -1383,12 +1383,12 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
-	// Remove machine, start new watch, check single event.
+	// Remove service, start new watch, check single event.
 	err = service.Destroy()
 	c.Assert(err, IsNil)
 	w = s.mysql.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *ServiceSuite) TestAnnotatorForService(c *C) {
