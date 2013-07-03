@@ -163,7 +163,7 @@ func (s *machinerSuite) TestWatch(c *C) {
 	}()
 
 	// Check that the watcher returns an initial event
-	channel := resource.(*state.NotifyWatcher).Changes()
+	channel := resource.(state.NotifyWatcher).Changes()
 	// Should use helpers from state/watcher_test.go when generalised
 	select {
 	case _, ok := <-channel:
