@@ -1124,8 +1124,8 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	return nil
 }
 
-// EntityWatcher generates an event when a document in the db changes
-type EntityWatcher struct {
+// entityWatcher generates an event when a document in the db changes
+type entityWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
@@ -1195,7 +1195,7 @@ func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 }
 
 func newEntityWatcher(st *State, coll string, key interface{}, revno int64) NotifyWatcher {
-	w := &EntityWatcher{
+	w := &entityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
@@ -1210,12 +1210,12 @@ func newEntityWatcher(st *State, coll string, key interface{}, revno int64) Noti
 	return w
 }
 
-// Changes returns the event channel for the EntityWatcher.
-func (w *EntityWatcher) Changes() <-chan struct{} {
+// Changes returns the event channel for the entityWatcher.
+func (w *entityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
+func (w *entityWatcher) loop(ch <-chan watcher.Change) (err error) {
 	out := w.out
 	for {
 		select {
