@@ -70,7 +70,7 @@ func (suite *EnvironSuite) makeEnviron() *maasEnviron {
 }
 
 func (suite *EnvironSuite) setupFakeProviderStateFile(c *C) {
-	suite.testMAASObject.TestServer.NewFile("provider-state", []byte("test file content"))
+	suite.testMAASObject.TestServer.NewFile(environs.StateFile, []byte("test file content"))
 }
 
 func (suite *EnvironSuite) setupFakeTools(c *C) {
@@ -142,24 +142,27 @@ func (suite *EnvironSuite) TestInstancesReturnsInstances(c *C) {
 	c.Check(string(instances[0].Id()), Equals, resourceURI)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsNilIfEmptyParameter(c *C) {
-	// Instances returns nil if the given parameter is empty.
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *C) {
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
 	instances, err := suite.environ.Instances([]instance.Id{})
 
-	c.Check(err, IsNil)
+	c.Check(err, Equals, environs.ErrNoInstances)
 	c.Check(instances, IsNil)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsNilIfNilParameter(c *C) {
-	// Instances returns nil if the given parameter is nil.
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *C) {
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
 	instances, err := suite.environ.Instances(nil)
 
-	c.Check(err, IsNil)
+	c.Check(err, Equals, environs.ErrNoInstances)
 	c.Check(instances, IsNil)
+}
+
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *C) {
+	_, err := suite.environ.Instances([]instance.Id{"unknown"})
+	c.Check(err, Equals, environs.ErrNoInstances)
 }
 
 func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *C) {
@@ -371,7 +374,7 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	testInstance := &maasInstance{&node, suite.environ}
-	err := env.saveState(&bootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
+	err := environs.SaveProviderState(env.Storage(), testInstance.Id())
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

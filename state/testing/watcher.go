@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package state_test
+package testing
 
 import (
 	. "launchpad.net/gocheck"
@@ -31,23 +31,23 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*C
-	state   *state.State
-	watcher NotifyWatcher
+	State   *state.State
+	Watcher NotifyWatcher
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
-	c.state.StartSync()
+	c.State.StartSync()
 	select {
-	case _, ok := <-c.watcher.Changes():
+	case _, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
 	case <-time.After(shortTime):
 	}
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	c.state.Sync()
+	c.State.Sync()
 	select {
-	case _, ok := <-c.watcher.Changes():
+	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
 	case <-time.After(longTime):
 		c.Fatalf("watcher did not send change")
@@ -57,7 +57,7 @@ func (c NotifyWatcherC) AssertOneChange() {
 
 func (c NotifyWatcherC) AssertClosed() {
 	select {
-	case _, ok := <-c.watcher.Changes():
+	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, false)
 	default:
 		c.Fatalf("watcher not closed")
@@ -68,8 +68,8 @@ func (c NotifyWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*C
-	state   *state.State
-	watcher StringsWatcher
+	State   *state.State
+	Watcher StringsWatcher
 }
 
 type StringsWatcher interface {
@@ -78,18 +78,18 @@ type StringsWatcher interface {
 }
 
 func (c StringsWatcherC) AssertNoChange() {
-	c.state.StartSync()
+	c.State.StartSync()
 	select {
-	case actual, ok := <-c.watcher.Changes():
+	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
 	case <-time.After(shortTime):
 	}
 }
 
 func (c StringsWatcherC) AssertOneChange(expect ...string) {
-	c.state.Sync()
+	c.State.Sync()
 	select {
-	case actual, ok := <-c.watcher.Changes():
+	case actual, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
 		if len(expect) == 0 {
 			c.Assert(actual, HasLen, 0)
@@ -106,7 +106,7 @@ func (c StringsWatcherC) AssertOneChange(expect ...string) {
 
 func (c StringsWatcherC) AssertClosed() {
 	select {
-	case _, ok := <-c.watcher.Changes():
+	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, false)
 	default:
 		c.Fatalf("watcher not closed")
@@ -117,8 +117,8 @@ func (c StringsWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []int.
 type IntsWatcherC struct {
 	*C
-	state   *state.State
-	watcher IntsWatcher
+	State   *state.State
+	Watcher IntsWatcher
 }
 
 type IntsWatcher interface {
@@ -127,18 +127,18 @@ type IntsWatcher interface {
 }
 
 func (c IntsWatcherC) AssertNoChange() {
-	c.state.StartSync()
+	c.State.StartSync()
 	select {
-	case actual, ok := <-c.watcher.Changes():
-		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
+	case actual, ok := <-c.Watcher.Changes():
+		c.Fatalf("Watcher sent unexpected change: (%v, %v)", actual, ok)
 	case <-time.After(shortTime):
 	}
 }
 
 func (c IntsWatcherC) AssertOneChange(expect ...int) {
-	c.state.Sync()
+	c.State.Sync()
 	select {
-	case actual, ok := <-c.watcher.Changes():
+	case actual, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
 		if len(expect) == 0 {
 			c.Assert(actual, HasLen, 0)
@@ -155,7 +155,7 @@ func (c IntsWatcherC) AssertOneChange(expect ...int) {
 
 func (c IntsWatcherC) AssertClosed() {
 	select {
-	case _, ok := <-c.watcher.Changes():
+	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, false)
 	default:
 		c.Fatalf("watcher not closed")

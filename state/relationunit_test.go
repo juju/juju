@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"sort"
 	"time"
@@ -343,7 +344,7 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
 
 	// Test empty initial event.
 	w0 := pr.ru0.WatchScope()
-	defer AssertStop(c, w0)
+	defer testing.AssertStop(c, w0)
 	s.assertScopeChange(c, w0, nil, nil)
 	s.assertNoScopeChange(c, w0)
 
@@ -367,13 +368,13 @@ func (s *RelationUnitSuite) TestPeerWatchScope(c *C) {
 	s.assertNoScopeChange(c, w0)
 
 	// Stop watching; ru2 enters.
-	AssertStop(c, w0)
+	testing.AssertStop(c, w0)
 	err = pr.ru2.EnterScope(nil)
 	c.Assert(err, IsNil)
 
 	// Start watch again, check initial event.
 	w0 = pr.ru0.WatchScope()
-	defer AssertStop(c, w0)
+	defer testing.AssertStop(c, w0)
 	s.assertScopeChange(c, w0, []string{"riak/1", "riak/2"}, nil)
 	s.assertNoScopeChange(c, w0)
 
@@ -395,7 +396,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	// Test empty initial events for all RUs.
 	ws := prr.watches()
 	for _, w := range ws {
-		defer AssertStop(c, w)
+		defer testing.AssertStop(c, w)
 	}
 	for _, w := range ws {
 		s.assertScopeChange(c, w, nil, nil)
@@ -426,7 +427,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 
 	// Stop watches; remaining RUs enter.
 	for _, w := range ws {
-		AssertStop(c, w)
+		testing.AssertStop(c, w)
 	}
 	err = prr.pru1.EnterScope(nil)
 	c.Assert(err, IsNil)
@@ -436,7 +437,7 @@ func (s *RelationUnitSuite) TestProReqWatchScope(c *C) {
 	// Start new watches, check initial events.
 	ws = prr.watches()
 	for _, w := range ws {
-		defer AssertStop(c, w)
+		defer testing.AssertStop(c, w)
 	}
 	for _, w := range pws() {
 		s.assertScopeChange(c, w, []string{"wordpress/0", "wordpress/1"}, nil)
@@ -469,7 +470,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	// Test empty initial events for all RUs.
 	ws := prr.watches()
 	for _, w := range ws {
-		defer AssertStop(c, w)
+		defer testing.AssertStop(c, w)
 	}
 	for _, w := range ws {
 		s.assertScopeChange(c, w, nil, nil)
@@ -490,7 +491,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 
 	// Stop watches; remaining RUs enter scope.
 	for _, w := range ws {
-		AssertStop(c, w)
+		testing.AssertStop(c, w)
 	}
 	err = prr.pru1.EnterScope(nil)
 	c.Assert(err, IsNil)
@@ -500,7 +501,7 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *C) {
 	// Start new watches, check initial events.
 	ws = prr.watches()
 	for _, w := range ws {
-		defer AssertStop(c, w)
+		defer testing.AssertStop(c, w)
 	}
 	s.assertScopeChange(c, ws[0], []string{"logging/0"}, nil)
 	s.assertScopeChange(c, ws[1], []string{"logging/1"}, nil)

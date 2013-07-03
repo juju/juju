@@ -240,14 +240,14 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	bootstrapState, err := ec2.LoadState(t.env)
+	instances, err := environs.LoadProviderState(t.env.Storage())
 	c.Assert(err, IsNil)
-	c.Assert(bootstrapState.StateInstances, HasLen, 1)
+	c.Assert(instances, HasLen, 1)
 
-	insts, err := t.env.Instances(bootstrapState.StateInstances)
+	insts, err := t.env.Instances(instances)
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, bootstrapState.StateInstances[0])
+	c.Check(insts[0].Id(), Equals, instances[0])
 
 	info, apiInfo, err := t.env.StateInfo()
 	c.Assert(err, IsNil)
@@ -299,7 +299,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	err = t.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
-	_, err = ec2.LoadState(t.env)
+	_, err = environs.LoadProviderState(t.env.Storage())
 	c.Assert(err, NotNil)
 }
 

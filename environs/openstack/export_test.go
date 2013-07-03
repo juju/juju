@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
@@ -283,16 +282,4 @@ func GetSwiftURL(e environs.Environ) (string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
-}
-
-type BootstrapState struct {
-	StateInstances []instance.Id
-}
-
-func LoadState(e environs.Environ) (*BootstrapState, error) {
-	s, err := e.(*environ).loadState()
-	if err != nil {
-		return nil, err
-	}
-	return &BootstrapState{s.StateInstances}, nil
 }

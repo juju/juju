@@ -12,15 +12,13 @@ import (
 	"strings"
 )
 
-var maasConfigChecker = schema.StrictFieldMap(
-	schema.Fields{
-		"maas-server": schema.String(),
-		// maas-oauth is a colon-separated triplet of:
-		// consumer-key:resource-token:resource-secret
-		"maas-oauth": schema.String(),
-	},
-	schema.Defaults{},
-)
+var configFields = schema.Fields{
+	"maas-server": schema.String(),
+	// maas-oauth is a colon-separated triplet of:
+	// consumer-key:resource-token:resource-secret
+	"maas-oauth": schema.String(),
+}
+var configDefaults = schema.Defaults{}
 
 type maasEnvironConfig struct {
 	*config.Config
@@ -55,13 +53,13 @@ func (prov maasEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.Co
 		return nil, err
 	}
 
-	v, err := maasConfigChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
 	envCfg := new(maasEnvironConfig)
 	envCfg.Config = cfg
-	envCfg.attrs = v.(map[string]interface{})
+	envCfg.attrs = validated
 	server := envCfg.MAASServer()
 	serverURL, err := url.Parse(server)
 	if err != nil || serverURL.Scheme == "" || serverURL.Host == "" {

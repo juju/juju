@@ -16,18 +16,6 @@ import (
 	"net/http"
 )
 
-type BootstrapState struct {
-	StateInstances []instance.Id
-}
-
-func LoadState(e environs.Environ) (*BootstrapState, error) {
-	s, err := e.(*environ).loadState()
-	if err != nil {
-		return nil, err
-	}
-	return &BootstrapState{s.StateInstances}, nil
-}
-
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }

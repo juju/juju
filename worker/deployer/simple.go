@@ -23,26 +23,23 @@ import (
 // jobs on the local system.
 type SimpleContext struct {
 
-	// Addresser is used to get the current state server addresses at the time
+	// addresser is used to get the current state server addresses at the time
 	// the given unit is deployed.
 	addresser Addresser
 
-	// CACert holds the CA certificate that will be used
+	// caCert holds the CA certificate that will be used
 	// to validate the state server's certificate, in PEM format.
 	caCert []byte
 
-	// DeployerTag identifies the agent on whose behalf this context is running.
-	deployerTag string
-
-	// InitDir specifies the directory used by upstart on the local system.
+	// initDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
 	initDir string
 
-	// DataDir specifies the directory used by juju to store its state. It
+	// dataDir specifies the directory used by juju to store its state. It
 	// is typically set to "/var/lib/juju".
 	dataDir string
 
-	// LogDir specifies the directory to which installed units will write
+	// logDir specifies the directory to which installed units will write
 	// their log files. It is typically set to "/var/log/juju".
 	logDir string
 
@@ -62,18 +59,16 @@ var _ Context = (*SimpleContext)(nil)
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
 // are installed are relative to dataDir; if dataDir is empty, it will be
 // set to "/var/lib/juju".
-func NewSimpleContext(dataDir string, CACert []byte, deployerTag string,
-	addresser Addresser) *SimpleContext {
+func NewSimpleContext(dataDir string, caCert []byte, addresser Addresser) *SimpleContext {
 	if dataDir == "" {
 		dataDir = "/var/lib/juju"
 	}
 	return &SimpleContext{
-		addresser:   addresser,
-		caCert:      CACert,
-		deployerTag: deployerTag,
-		initDir:     "/etc/init",
-		dataDir:     dataDir,
-		logDir:      "/var/log/juju",
+		addresser: addresser,
+		caCert:    caCert,
+		initDir:   "/etc/init",
+		dataDir:   dataDir,
+		logDir:    "/var/log/juju",
 	}
 }
 
@@ -131,8 +126,8 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		return err
 	}
 	ctx.syslogConfigPath = syslogConfigRenderer.ConfigFilePath()
-	if e := syslog.Restart(); e != nil {
-		logger.Warningf("installer: cannot restart syslog daemon: %v", e)
+	if err := syslog.Restart(); err != nil {
+		logger.Warningf("installer: cannot restart syslog daemon: %v", err)
 	}
 	defer removeOnErr(&err, ctx.syslogConfigPath)
 
@@ -151,9 +146,26 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	return uconf.Install()
 }
 
+// findCompatibleUpstartJobs tries to find an upstart job matching the
+// given unit name in one of these formats:
+//   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
+//   jujud-<unit-tag>.conf (default)
+func (ctx *SimpleContext) findCompatibleUpstartJob(unitName string) *upstart.Service {
+	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
+	if err != nil {
+		return nil
+	}
+	if job, ok := unitsAndJobs[unitName]; ok {
+		svc := upstart.NewService(job)
+		svc.InitDir = ctx.initDir
+		return svc
+	}
+	return nil
+}
+
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
-	svc := ctx.upstartService(unitName)
-	if !svc.Installed() {
+	svc := ctx.findCompatibleUpstartJob(unitName)
+	if svc == nil || !svc.Installed() {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
 	if err := svc.Remove(); err != nil {
@@ -164,46 +176,56 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
-	if e := os.Remove(ctx.syslogConfigPath); e != nil {
-		logger.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, e)
+	if err := os.Remove(ctx.syslogConfigPath); err != nil && !os.IsNotExist(err) {
+		logger.Warningf("installer: cannot remove %q: %v", ctx.syslogConfigPath, err)
 	}
-	if e := syslog.Restart(); e != nil {
-		logger.Warningf("installer: cannot restart syslog daemon: %v", e)
-	}
+	// Defer this so a failure here does not impede the cleanup (as in tests).
+	defer func() {
+		if err := syslog.Restart(); err != nil {
+			logger.Warningf("installer: cannot restart syslog daemon: %v", err)
+		}
+	}()
 	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
 }
 
-var deployedRe = regexp.MustCompile("^jujud-([a-z0-9-]+):unit-([a-z0-9-]+)-([0-9]+)\\.conf$")
+var deployedRe = regexp.MustCompile("^(jujud-.*unit-([a-z0-9-]+)-([0-9]+))\\.conf$")
 
-func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
+func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) {
 	fis, err := ioutil.ReadDir(ctx.initDir)
 	if err != nil {
 		return nil, err
 	}
-	var installed []string
+	installed := make(map[string]string)
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
-			if groups[1] != ctx.deployerTag {
-				continue
-			}
 			unitName := groups[2] + "/" + groups[3]
 			if !state.IsUnitName(unitName) {
 				continue
 			}
-			installed = append(installed, unitName)
+			installed[unitName] = groups[1]
 		}
 	}
 	return installed, nil
 }
 
+func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
+	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
+	if err != nil {
+		return nil, err
+	}
+	var installed []string
+	for unitName := range unitsAndJobs {
+		installed = append(installed, unitName)
+	}
+	return installed, nil
+}
+
 // upstartService returns an upstart.Service corresponding to the specified
-// unit. Its name is badged according to the deployer name for the
-// context, so as to distinguish its own jobs from those installed by other
-// means.
+// unit.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
 	tag := state.UnitTag(unitName)
-	svcName := "jujud-" + ctx.deployerTag + ":" + tag
+	svcName := "jujud-" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir
 	return svc
@@ -211,8 +233,8 @@ func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
 
 func removeOnErr(err *error, path string) {
 	if *err != nil {
-		if e := os.Remove(path); e != nil {
-			logger.Warningf("installer: cannot remove %q: %v", path, e)
+		if err := os.Remove(path); err != nil {
+			logger.Warningf("installer: cannot remove %q: %v", path, err)
 		}
 	}
 }

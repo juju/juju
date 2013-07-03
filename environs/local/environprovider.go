@@ -7,11 +7,12 @@ import (
 	"fmt"
 	"os"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.environs.local")
@@ -104,8 +105,6 @@ func (environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/local/
 local:
   type: local
-  # Override if your workstation is running a different series to which you are deploying.
-  # default-series: precise
   # Override the storage location to store the private files for this environment in the
   # specified location.  The default location is /var/lib/juju/local/<USER>-<ENV>/private
   # storage: ~/.juju/local/private

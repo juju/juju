@@ -110,7 +110,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = env.saveState(&bootstrapState{StateInstances: []instance.Id{inst.Id()}})
+	err = environs.SaveProviderState(env.Storage(), inst.Id())
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -125,12 +125,14 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	// This code is cargo-culted from the openstack/ec2 providers.
 	// It's a bit unclear what the "longAttempt" loop is actually for
 	// but this should probably be refactored outside of the provider
 	// code.
-	st, err := env.loadState()
+	instances, err := environs.LoadProviderState(env.Storage())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -143,9 +145,9 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 	var apiAddrs []string
 	// Wait for the DNS names of any of the instances
 	// to become available.
-	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
+	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", instances)
 	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := env.Instances(st.StateInstances)
+		insts, err := env.Instances(instances)
 		if err != nil && err != environs.ErrPartialInstances {
 			log.Debugf("environs/maas: error getting state instance: %v", err.Error())
 			return nil, nil, err
@@ -168,7 +170,7 @@ func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
 		}
 	}
 	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
+		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", instances)
 	}
 	return &state.Info{
 			Addrs:  stateAddrs,
@@ -392,21 +394,9 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 	return err
 }
 
-// Instances returns the instance.Instance objects corresponding to the given
-// slice of instance.Id.  Similar to what the ec2 provider does,
-// Instances returns nil if the given slice is empty or nil.
-func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	return environ.instances(ids)
-}
-
-// instances is an internal method which returns the instances matching the
-// given instance ids or all the instances if 'ids' is empty.
-// If the some of the intances could not be found, it returns the instance
-// that could be found plus the error environs.ErrPartialInstances in the error
-// return.
+// instances calls the MAAS API to list nodes.  The "ids" slice is a filter for
+// specific instance IDs.  Due to how this works in the HTTP API, an empty
+// "ids" matches all instances (not none as you might expect).
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
@@ -429,7 +419,28 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 			environ:    environ,
 		}
 	}
-	if len(ids) != 0 && len(ids) != len(instances) {
+	return instances, nil
+}
+
+// Instances returns the instance.Instance objects corresponding to the given
+// slice of instance.Id.  The error is ErrNoInstances if no instances
+// were found.
+func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	if len(ids) == 0 {
+		// This would be treated as "return all instances" below, so
+		// treat it as a special case.
+		// The interface requires us to return this particular error
+		// if no instances were found.
+		return nil, environs.ErrNoInstances
+	}
+	instances, err := environ.instances(ids)
+	if err != nil {
+		return nil, err
+	}
+	if len(instances) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	if len(ids) != len(instances) {
 		return instances, environs.ErrPartialInstances
 	}
 	return instances, nil

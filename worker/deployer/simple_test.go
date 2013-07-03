@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 
 	. "launchpad.net/gocheck"
@@ -35,7 +36,7 @@ func (s *SimpleContextSuite) TearDownTest(c *C) {
 }
 
 func (s *SimpleContextSuite) TestDeployRecall(c *C) {
-	mgr0 := s.getContext(c, "test-entity-0")
+	mgr0 := s.getContext(c)
 	units, err := mgr0.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
@@ -47,7 +48,7 @@ func (s *SimpleContextSuite) TestDeployRecall(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(units, DeepEquals, []string{"foo/123"})
 	s.assertUpstartCount(c, 1)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
+	s.checkUnitInstalled(c, "foo/123", "some-password")
 
 	err = mgr0.RecallUnit("foo/123")
 	c.Assert(err, IsNil)
@@ -55,28 +56,74 @@ func (s *SimpleContextSuite) TestDeployRecall(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
 	s.assertUpstartCount(c, 0)
-	s.checkUnitRemoved(c, "foo/123", "test-entity-0")
+	s.checkUnitRemoved(c, "foo/123")
 }
 
-func (s *SimpleContextSuite) TestIndependentManagers(c *C) {
-	mgr0 := s.getContext(c, "test-entity-0")
-	err := mgr0.DeployUnit("foo/123", "some-password")
-	c.Assert(err, IsNil)
+func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *C) {
+	// After r1347 deployer tag is no longer part of the upstart conf filenames,
+	// now only the units' tags are used. This change is with the assumption only
+	// one deployer will be running on a machine (in the machine agent as a task,
+	// unlike before where there was one in the unit agent as well).
+	// This test ensures units deployed previously (or their upstart confs more
+	// specifically) can be detected and recalled by the deployer.
 
-	mgr1 := s.getContext(c, "test-entity-1")
-	units, err := mgr1.DeployedUnits()
+	manager := s.getContext(c)
+
+	// No deployed units at first.
+	units, err := manager.DeployedUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 0)
+	s.assertUpstartCount(c, 0)
 
-	err = mgr1.RecallUnit("foo/123")
-	c.Assert(err, ErrorMatches, `unit "foo/123" is not deployed`)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
+	// Trying to recall any units will fail.
+	err = manager.RecallUnit("principal/1")
+	c.Assert(err, ErrorMatches, `unit "principal/1" is not deployed`)
 
-	units, err = mgr0.DeployedUnits()
-	c.Assert(err, IsNil)
-	c.Assert(units, DeepEquals, []string{"foo/123"})
+	// Simulate some previously deployed units with the old
+	// upstart conf filename format (+deployer tags).
+	s.injectUnit(c, "jujud-machine-0:unit-mysql-0.conf", "unit-mysql-0")
 	s.assertUpstartCount(c, 1)
-	s.checkUnitInstalled(c, "foo/123", "test-entity-0", "some-password")
+	s.injectUnit(c, "jujud-unit-wordpress-0:unit-nrpe-0.conf", "unit-nrpe-0")
+	s.assertUpstartCount(c, 2)
+
+	// Make sure we can discover them.
+	units, err = manager.DeployedUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 2)
+	sort.Strings(units)
+	c.Assert(units, DeepEquals, []string{"mysql/0", "nrpe/0"})
+
+	// Deploy some units.
+	err = manager.DeployUnit("principal/1", "some-password")
+	c.Assert(err, IsNil)
+	s.checkUnitInstalled(c, "principal/1", "some-password")
+	s.assertUpstartCount(c, 3)
+	err = manager.DeployUnit("subordinate/2", "fake-password")
+	c.Assert(err, IsNil)
+	s.checkUnitInstalled(c, "subordinate/2", "fake-password")
+	s.assertUpstartCount(c, 4)
+
+	// Verify the newly deployed units are also discoverable.
+	units, err = manager.DeployedUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 4)
+	sort.Strings(units)
+	c.Assert(units, DeepEquals, []string{"mysql/0", "nrpe/0", "principal/1", "subordinate/2"})
+
+	// Recall all of them - should work ok.
+	unitCount := 4
+	for _, unitName := range units {
+		err = manager.RecallUnit(unitName)
+		c.Assert(err, IsNil)
+		unitCount--
+		s.checkUnitRemoved(c, unitName)
+		s.assertUpstartCount(c, unitCount)
+	}
+
+	// Verify they're no longer discoverable.
+	units, err = manager.DeployedUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 0)
 }
 
 type SimpleToolsFixture struct {
@@ -130,12 +177,12 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *C, count int) {
 	c.Assert(fis, HasLen, count)
 }
 
-func (fix *SimpleToolsFixture) getContext(c *C, deployerName string) *deployer.SimpleContext {
-	return deployer.NewTestSimpleContext(deployerName, fix.initDir, fix.dataDir, fix.logDir, fix.syslogConfigDir)
+func (fix *SimpleToolsFixture) getContext(c *C) *deployer.SimpleContext {
+	return deployer.NewTestSimpleContext(fix.initDir, fix.dataDir, fix.logDir, fix.syslogConfigDir)
 }
 
-func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, toolsDir, syslogConfPath string) {
-	confName := fmt.Sprintf("jujud-%s:%s.conf", xName, tag)
+func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
+	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
 	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = agent.ToolsDir(fix.dataDir, tag)
@@ -146,19 +193,21 @@ func (fix *SimpleToolsFixture) paths(tag, xName string) (confPath, agentDir, too
 var expectedSyslogConf = `
 $ModLoad imfile
 
+$InputFileStateFile /var/spool/rsyslog/juju-%s-state
+$InputFilePersistStateInterval 50
 $InputFilePollInterval 5
-$InputFileName /var/log/juju/unit-foo-123.log
-$InputFileTag juju-unit-foo-123:
-$InputFileStateFile unit-foo-123
+$InputFileName /var/log/juju/%s.log
+$InputFileTag juju-%s:
+$InputFileStateFile %s
 $InputRunFileMonitor
 
 :syslogtag, startswith, "juju-" @s1:514
 & ~
 `
 
-func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password string) {
+func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, password string) {
 	tag := state.UnitTag(name)
-	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag, xName)
+	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, IsNil)
 	uconf := string(uconfData)
@@ -209,15 +258,31 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, xName, password st
 
 	syslogConfData, err := ioutil.ReadFile(syslogConfPath)
 	c.Assert(err, IsNil)
-	c.Assert(string(syslogConfData), Equals, expectedSyslogConf)
+	parts := strings.SplitN(name, "/", 2)
+	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
+	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag, unitTag)
+	c.Assert(string(syslogConfData), Equals, expectedSyslogConfReplaced)
 
 }
 
-func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name, xName string) {
+func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name string) {
 	tag := state.UnitTag(name)
-	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag, xName)
+	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag)
 	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
 		_, err := ioutil.ReadFile(path)
-		c.Assert(err, checkers.Satisfies, os.IsNotExist)
+		if err == nil {
+			c.Log("Warning: %q not removed as expected", path)
+		} else {
+			c.Assert(err, checkers.Satisfies, os.IsNotExist)
+		}
 	}
+}
+
+func (fix *SimpleToolsFixture) injectUnit(c *C, upstartConf, unitTag string) {
+	confPath := filepath.Join(fix.initDir, upstartConf)
+	err := ioutil.WriteFile(confPath, []byte("#!/bin/bash\necho $0"), 0644)
+	c.Assert(err, IsNil)
+	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
+	err = os.MkdirAll(toolsDir, 0755)
+	c.Assert(err, IsNil)
 }

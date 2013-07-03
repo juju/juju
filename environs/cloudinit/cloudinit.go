@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -76,7 +77,7 @@ type MachineConfig struct {
 
 	// MachineContainerType specifies the type of container that the machine
 	// is.  If the machine is not a container, then the type is "".
-	MachineContainerType state.ContainerType
+	MachineContainerType instance.ContainerType
 
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -121,7 +122,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	c.AddPackage("git")
 	// Perfectly reasonable to install lxc on environment instances and kvm
 	// containers.
-	if cfg.MachineContainerType != state.LXC {
+	if cfg.MachineContainerType != instance.LXC {
 		c.AddPackage("lxc")
 	}
 

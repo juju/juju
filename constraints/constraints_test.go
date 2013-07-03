@@ -8,6 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"testing"
 )
 
@@ -42,6 +43,30 @@ var parseConstraintsTests = []struct {
 		summary: "unknown constraint",
 		args:    []string{"cheese=edam"},
 		err:     `unknown constraint "cheese"`,
+	},
+
+	// "container" in detail.
+	{
+		summary: "set container empty",
+		args:    []string{"container="},
+	}, {
+		summary: "set container to none",
+		args:    []string{"container=none"},
+	}, {
+		summary: "set container lxc",
+		args:    []string{"container=lxc"},
+	}, {
+		summary: "set nonsense container",
+		args:    []string{"container=foo"},
+		err:     `bad "container" constraint: invalid container type "foo"`,
+	}, {
+		summary: "double set container together",
+		args:    []string{"container=lxc container=lxc"},
+		err:     `bad "container" constraint: already set`,
+	}, {
+		summary: "double set container separately",
+		args:    []string{"container=lxc", "container="},
+		err:     `bad "container" constraint: already set`,
 	},
 
 	// "arch" in detail.
@@ -182,10 +207,10 @@ var parseConstraintsTests = []struct {
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001  "},
+		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
+		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
 	},
 }
 
@@ -213,10 +238,17 @@ func strp(s string) *string {
 	return &s
 }
 
+func ctypep(ctype string) *instance.ContainerType {
+	res := instance.ContainerType(ctype)
+	return &res
+}
+
 var constraintsRoundtripTests = []constraints.Value{
 	{},
 	{Arch: strp("")},
 	{Arch: strp("amd64")},
+	{Container: ctypep("")},
+	{Container: ctypep("lxc")},
 	{CpuCores: uint64p(0)},
 	{CpuCores: uint64p(128)},
 	{CpuPower: uint64p(0)},
@@ -224,10 +256,11 @@ var constraintsRoundtripTests = []constraints.Value{
 	{Mem: uint64p(0)},
 	{Mem: uint64p(98765)},
 	{
-		Arch:     strp("i386"),
-		CpuCores: uint64p(4096),
-		CpuPower: uint64p(9001),
-		Mem:      uint64p(18000000000),
+		Arch:      strp("i386"),
+		Container: ctypep("lxc"),
+		CpuCores:  uint64p(4096),
+		CpuPower:  uint64p(9001),
+		Mem:       uint64p(18000000000),
 	},
 }
 
@@ -284,6 +317,14 @@ var withFallbacksTests = []struct {
 }{
 	{
 		desc: "empty all round",
+	}, {
+		desc:    "container with empty fallback",
+		initial: "container=lxc",
+		final:   "container=lxc",
+	}, {
+		desc:      "container from fallback",
+		fallbacks: "container=lxc",
+		final:     "container=lxc",
 	}, {
 		desc:    "arch with empty fallback",
 		initial: "arch=amd64",

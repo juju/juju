@@ -5,6 +5,7 @@ package local_test
 
 import (
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs/local"
 )
 

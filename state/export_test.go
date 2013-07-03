@@ -10,6 +10,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"net/url"
 	"path/filepath"
@@ -141,6 +142,12 @@ func addCharm(c *C, st *State, series string, ch charm.Charm) *Charm {
 
 func MachineIdLessThan(id1, id2 string) bool {
 	return machineIdLessThan(id1, id2)
+}
+
+// SCHEMACHANGE
+// This method is used to reset a deprecated machine attriute.
+func SetMachineInstanceId(m *Machine, instanceId string) {
+	m.doc.InstanceId = instance.Id(instanceId)
 }
 
 func init() {

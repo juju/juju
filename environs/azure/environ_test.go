@@ -5,9 +5,14 @@ package azure
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
+	"net/http"
 	"sync"
 )
 
@@ -21,12 +26,20 @@ func makeEnviron(c *C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
-	ecfg, err := azureEnvironProvider{}.newConfig(cfg)
+	env, err := NewEnviron(cfg)
 	c.Assert(err, IsNil)
-	return &azureEnviron{
-		name: "env",
-		ecfg: ecfg,
-	}
+	return env
+}
+
+// setDummyStorage injects the local provider's fake storage implementation
+// into the given environment, so that tests can manipulate storage as if it
+// were real.
+// Returns a cleanup function that must be called when done with the storage.
+func setDummyStorage(c *C, env *azureEnviron) func() {
+	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	c.Assert(err, IsNil)
+	env.storage = localstorage.Client(listener.Addr().String())
+	return func() { listener.Close() }
 }
 
 func (EnvironSuite) TestGetSnapshot(c *C) {
@@ -95,6 +108,70 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
+func patchWithPropertiesResponse(c *C, deployments []gwacl.Deployment) *[]*gwacl.X509Request {
+	propertiesS1 := gwacl.HostedService{
+		ServiceName: "S1", Deployments: deployments}
+	propertiesS1XML, err := propertiesS1.Serialize()
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
+		[]byte(propertiesS1XML),
+		http.StatusOK,
+		nil,
+	)}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	return requests
+}
+
+func (suite EnvironSuite) TestAllInstances(c *C) {
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	requests := patchWithPropertiesResponse(c, deployments)
+	env := makeEnviron(c)
+	instances, err := env.AllInstances()
+	c.Assert(err, IsNil)
+	c.Check(len(instances), Equals, len(deployments))
+	c.Check(len(*requests), Equals, 1)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	requests := patchWithPropertiesResponse(c, deployments)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{"deployment-1"})
+	c.Assert(err, IsNil)
+	c.Check(len(instances), Equals, 1)
+	c.Check(instances[0].Id(), Equals, instance.Id("deployment-1"))
+	c.Check(len(*requests), Equals, 1)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsNilIfEmptySliceProvided(c *C) {
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	patchWithPropertiesResponse(c, deployments)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{})
+	c.Assert(err, IsNil)
+	c.Assert(instances, IsNil)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
+	deployments := []gwacl.Deployment{}
+	patchWithPropertiesResponse(c, deployments)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{"deploy-id"})
+	c.Assert(instances, IsNil)
+	c.Assert(err, Equals, environs.ErrNoInstances)
+}
+
+func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
+	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
+	requests := patchWithPropertiesResponse(c, deployments)
+	env := makeEnviron(c)
+	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
+	c.Assert(err, Equals, environs.ErrPartialInstances)
+	c.Check(len(instances), Equals, 1)
+	c.Check(instances[0].Id(), Equals, instance.Id("deployment-1"))
+	c.Check(len(*requests), Equals, 1)
+}
+
 func (EnvironSuite) TestStorage(c *C) {
 	env := makeEnviron(c)
 	baseStorage := env.Storage()
@@ -122,11 +199,14 @@ func (EnvironSuite) TestPublicStorage(c *C) {
 }
 
 func (EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
-	env := makeEnviron(c)
-	env.ecfg.attrs["public-storage-container-name"] = ""
-	env.ecfg.attrs["public-storage-account-name"] = ""
-	storage := env.PublicStorage()
-	c.Check(storage, Equals, environs.EmptyStorage)
+	attrs := makeAzureConfigMap(c)
+	attrs["public-storage-container-name"] = ""
+	attrs["public-storage-account-name"] = ""
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	env, err := NewEnviron(cfg)
+	c.Assert(err, IsNil)
+	c.Check(env.PublicStorage(), Equals, environs.EmptyStorage)
 }
 
 func (EnvironSuite) TestGetStorageContext(c *C) {
@@ -210,4 +290,37 @@ func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 		ErrorMatches,
 		`cannot change name from ".*" to "new-name"`)
 	c.Check(env.Name(), Equals, originalName)
+}
+
+func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	_, _, err := env.StateInfo()
+	c.Check(errors.IsNotFoundError(err), Equals, true)
+}
+
+// TestStateInfo is disabled for now, jtv is working on another branch right
+// now which will re-enable it.
+func (EnvironSuite) DisabledTestStateInfo(c *C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	instanceID := "my-instance"
+	err := environs.SaveProviderState(env.Storage(), instance.Id(instanceID))
+	c.Assert(err, IsNil)
+
+	_, _, err = env.StateInfo()
+	c.Assert(err, ErrorMatches, "azureEnviron.Instances unimplemented")
+
+	// TODO: Replace with this once Instances is implemented.
+	/*
+		stateInfo, apiInfo, err := env.StateInfo()
+		c.Assert(err, IsNil)
+		config := env.Config()
+		statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
+		apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+		c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
+		c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
+	*/
 }

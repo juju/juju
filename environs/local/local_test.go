@@ -7,6 +7,7 @@ import (
 	stdtesting "testing"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"

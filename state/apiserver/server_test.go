@@ -35,7 +35,7 @@ func (s *serverSuite) TestStop(c *C) {
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce")
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
