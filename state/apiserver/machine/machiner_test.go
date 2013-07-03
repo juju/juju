@@ -155,7 +155,7 @@ func (s *machinerSuite) TestWatch(c *C) {
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), Equals, 1)
-	c.Assert(result.Results[0].EntityWatcherId, Equals, "1")
+	c.Assert(result.Results[0].NotifyWatcherId, Equals, "1")
 	resource := s.resources.Get("1")
 	defer func() {
 		err := resource.Stop()
@@ -163,7 +163,7 @@ func (s *machinerSuite) TestWatch(c *C) {
 	}()
 
 	// Check that the watcher returns an initial event
-	channel := resource.(*state.EntityWatcher).Changes()
+	channel := resource.(state.NotifyWatcher).Changes()
 	// Should use helpers from state/watcher_test.go when generalised
 	select {
 	case _, ok := <-channel:

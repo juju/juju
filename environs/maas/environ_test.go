@@ -374,7 +374,9 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	testInstance := &maasInstance{&node, suite.environ}
-	err := environs.SaveProviderState(env.Storage(), testInstance.Id())
+	err := environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

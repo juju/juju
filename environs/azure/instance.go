@@ -5,6 +5,7 @@ package azure
 
 import (
 	"launchpad.net/gwacl"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -22,15 +23,13 @@ func (azInstance *azureInstance) Id() instance.Id {
 
 // DNSName is specified in the Instance interface.
 func (azInstance *azureInstance) DNSName() (string, error) {
+	// An Azure deployment gets its DNS name immediately when it's created.
 	return azInstance.GetFQDN()
 }
 
 // WaitDNSName is specified in the Instance interface.
 func (azInstance *azureInstance) WaitDNSName() (string, error) {
-	// An Azure deployment gets its DNS name when it's created.
-	// WaitDNSName, same as DNSName, just returns the FQDN of the
-	// deployment.
-	return azInstance.DNSName()
+	return environs.WaitDNSName(azInstance)
 }
 
 // OpenPorts is specified in the Instance interface.

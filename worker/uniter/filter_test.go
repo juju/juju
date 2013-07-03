@@ -321,11 +321,15 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 	assertChange()
 
 	// Change the config a few more times, then reset the events. We sync to
-	// make sure the event has come into the filter before we tell it to discard
-	// all received events.
+	// make sure the events have arrived in the watcher -- and then wait a
+	// little longer, to allow for the delay while the events are coalesced
+	// -- before we tell it to discard all received events. This would be
+	// much better tested by controlling a mocked-out watcher directly, but
+	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
 	s.State.Sync()
+	time.Sleep(250 * time.Millisecond)
 	f.DiscardConfigEvent()
 	assertNoChange()
 
@@ -424,10 +428,12 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	c.Assert(err, IsNil)
 	assertChange([]int{0, 2})
 
-	// Remove a relation completely; check event.
+	// Remove a relation completely; check no event, because the relation
+	// could not have been removed if the unit was in scope, and therefore
+	// the uniter never needs to hear about it.
 	err = rel1.Destroy()
 	c.Assert(err, IsNil)
-	assertChange([]int{1})
+	assertNoChange()
 
 	// Start a new filter, check initial event.
 	f, err = newFilter(s.State, s.unit.Name())
