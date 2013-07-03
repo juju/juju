@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type CmdSuite struct {
@@ -70,7 +71,7 @@ func testInit(c *C, com cmd.Command, args []string, errPat string) {
 // Conn field in the value.
 func assertConnName(c *C, com cmd.Command, name string) {
 	v := reflect.ValueOf(com).Elem().FieldByName("EnvName")
-	c.Assert(v.IsValid(), Equals, true)
+	c.Assert(v, checkers.Satisfies, reflect.Value.IsValid)
 	c.Assert(v.Interface(), Equals, name)
 }
 

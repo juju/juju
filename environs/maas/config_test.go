@@ -49,13 +49,16 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 func (ConfigSuite) TestParsesMAASSettings(c *C) {
 	server := "http://maas.example.com/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
+	future := "futurama"
 	ecfg, err := newConfig(map[string]interface{}{
 		"maas-server": server,
 		"maas-oauth":  oauth,
+		"future-key":  future,
 	})
 	c.Assert(err, IsNil)
 	c.Check(ecfg.MAASServer(), Equals, server)
 	c.Check(ecfg.MAASOAuth(), DeepEquals, oauth)
+	c.Check(ecfg.UnknownAttrs()["future-key"], DeepEquals, future)
 }
 
 func (ConfigSuite) TestChecksWellFormedMaasServer(c *C) {

@@ -17,7 +17,7 @@ import (
 type API struct {
 	state     *state.State
 	auth      common.Authorizer
-	resources common.ResourceRegistry
+	resources *common.Resources
 	client    *Client
 }
 
@@ -27,7 +27,7 @@ type Client struct {
 }
 
 // NewAPI creates a new instance of the Client API.
-func NewAPI(st *state.State, resources common.ResourceRegistry, authorizer common.Authorizer) *API {
+func NewAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) *API {
 	r := &API{
 		state:     st,
 		auth:      authorizer,
@@ -61,7 +61,10 @@ func (c *Client) Status() (api.Status, error) {
 		Machines: make(map[string]api.MachineInfo),
 	}
 	for _, m := range ms {
-		instId, _ := m.InstanceId()
+		instId, err := m.InstanceId()
+		if err != nil && !state.IsNotProvisionedError(err) {
+			return api.Status{}, err
+		}
 		status.Machines[m.Id()] = api.MachineInfo{
 			InstanceId: string(instId),
 		}

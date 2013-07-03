@@ -6,23 +6,25 @@ package deployer
 import (
 	"fmt"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 )
+
+var logger = loggo.GetLogger("juju.deployer")
 
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	tomb     tomb.Tomb
-	st       *state.State
-	ctx      Context
-	tag      string
-	deployed set.Strings
+	tomb      tomb.Tomb
+	st        *state.State
+	ctx       Context
+	machineId string
+	deployed  set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -45,23 +47,22 @@ type Context interface {
 }
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents via
-// ctx, according to membership and lifecycle changes notified by w.
-func NewDeployer(st *state.State, ctx Context, w *state.UnitsWatcher) *Deployer {
+// ctx, taking a machine id to operate on.
+func NewDeployer(st *state.State, ctx Context, machineId string) *Deployer {
 	d := &Deployer{
-		st:  st,
-		ctx: ctx,
-		tag: w.Tag(),
+		st:        st,
+		ctx:       ctx,
+		machineId: machineId,
 	}
 	go func() {
 		defer d.tomb.Done()
-		defer watcher.Stop(w, &d.tomb)
-		d.tomb.Kill(d.loop(w))
+		d.tomb.Kill(d.loop())
 	}()
 	return d
 }
 
 func (d *Deployer) String() string {
-	return "deployer for " + d.tag
+	return "deployer for " + d.machineId
 }
 
 func (d *Deployer) Kill() {
@@ -81,7 +82,7 @@ func (d *Deployer) Wait() error {
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
 	// Determine unit life state, and whether we're responsible for it.
-	log.Infof("worker/deployer: checking unit %q", unitName)
+	logger.Infof("checking unit %q", unitName)
 	var life state.Life
 	responsible := false
 	unit, err := d.st.Unit(unitName)
@@ -91,8 +92,17 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		if deployerTag, ok := unit.DeployerTag(); ok {
-			responsible = deployerTag == d.tag
+		if machineId, err := unit.AssignedMachineId(); state.IsNotAssigned(err) {
+			logger.Warningf("ignoring unit %q (not assigned)", unitName)
+			// Unit is not assigned, so we're not responsible for its deployment.
+			responsible = false
+		} else if err != nil {
+			return err
+		} else {
+			// We're only responsible for this unit's deployment when we're
+			// running inside the machine agent of the machine this unit
+			// is assigned to.
+			responsible = (machineId == d.machineId)
 		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
@@ -125,7 +135,7 @@ func (d *Deployer) deploy(unit *state.Unit) error {
 	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
 	}
-	log.Infof("worker/deployer: deploying unit %q", unit)
+	logger.Infof("deploying unit %q", unit)
 	initialPassword, err := utils.RandomPassword()
 	if err != nil {
 		return err
@@ -149,7 +159,7 @@ func (d *Deployer) recall(unitName string) error {
 	if !d.deployed.Contains(unitName) {
 		panic("must not recall a unit that is not deployed")
 	}
-	log.Infof("worker/deployer: recalling unit %q", unitName)
+	logger.Infof("recalling unit %q", unitName)
 	if err := d.ctx.RecallUnit(unitName); err != nil {
 		return err
 	}
@@ -165,14 +175,21 @@ func (d *Deployer) remove(unit *state.Unit) error {
 	} else if unit.Life() == state.Alive {
 		panic("must not remove an Alive unit")
 	}
-	log.Infof("worker/deployer: removing unit %q", unit)
+	logger.Infof("removing unit %q", unit)
 	if err := unit.EnsureDead(); err != nil {
 		return err
 	}
 	return unit.Remove()
 }
 
-func (d *Deployer) loop(w *state.UnitsWatcher) error {
+func (d *Deployer) loop() error {
+	machine, err := d.st.Machine(d.machineId)
+	if err != nil {
+		return err
+	}
+	machineUnitsWatcher := machine.WatchUnits()
+	defer watcher.Stop(machineUnitsWatcher, &d.tomb)
+
 	deployed, err := d.ctx.DeployedUnits()
 	if err != nil {
 		return err
@@ -187,9 +204,9 @@ func (d *Deployer) loop(w *state.UnitsWatcher) error {
 		select {
 		case <-d.tomb.Dying():
 			return tomb.ErrDying
-		case changes, ok := <-w.Changes():
+		case changes, ok := <-machineUnitsWatcher.Changes():
 			if !ok {
-				return watcher.MustErr(w)
+				return watcher.MustErr(machineUnitsWatcher)
 			}
 			for _, unitName := range changes {
 				if err := d.changed(unitName); err != nil {

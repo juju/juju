@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -107,7 +108,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 	info.Tag = m.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
-	c.Assert(errors.IsUnauthorizedError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)
 
 	// Check that we can log in with the correct password
 	info.Password = "foo"

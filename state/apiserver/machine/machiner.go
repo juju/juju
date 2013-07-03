@@ -12,12 +12,12 @@ import (
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	st        *state.State
-	resources common.ResourceRegistry
+	resources *common.Resources
 	auth      common.Authorizer
 }
 
 // NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, resources common.ResourceRegistry, authorizer common.Authorizer) (*MachinerAPI, error) {
+func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPI, error) {
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}

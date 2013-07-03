@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"os"
@@ -473,7 +474,7 @@ func (s *DeployLocalSuite) TestDeploySettingsError(c *C) {
 	})
 	c.Assert(err, ErrorMatches, `option "skill-level" expected int, got 99.01`)
 	_, err = s.State.Service("bob")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *DeployLocalSuite) TestDeployConstraints(c *C) {

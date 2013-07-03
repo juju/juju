@@ -5,6 +5,7 @@ package utils_test
 
 import (
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -19,7 +20,7 @@ func (uuidSuite) TestUUID(c *C) {
 	uuidRaw := uuid.Raw()
 	uuidStr := uuid.String()
 	c.Assert(uuidRaw, HasLen, 16)
-	c.Assert(utils.IsValidUUIDString(uuidStr), Equals, true)
+	c.Assert(uuidStr, checkers.Satisfies, utils.IsValidUUIDString)
 	uuid[0] = 0x00
 	uuidCopy[0] = 0xFF
 	c.Assert(uuid, Not(DeepEquals), uuidCopy)

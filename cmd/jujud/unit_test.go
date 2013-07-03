@@ -7,7 +7,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
@@ -85,10 +84,8 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 }
 
 func (s *UnitSuite) TestRunStop(c *C) {
-	unit, conf, _ := s.primeAgent(c)
+	unit, _, _ := s.primeAgent(c)
 	a := s.newAgent(c, unit)
-	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
-	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
 	timeout := time.After(5 * time.Second)
@@ -118,28 +115,6 @@ waitStarted:
 			}
 		}
 	}
-
-	// Check no subordinates have been deployed.
-	ctx.waitDeployed(c)
-
-	// Add a relation with a subordinate service and wait for the subordinate
-	// to be deployed...
-	_, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
-	c.Assert(err, IsNil)
-	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
-	ctx.waitDeployed(c, "logging/0")
-
-	// ...then kill the subordinate and wait for it to be recalled and removed.
-	logging0, err := s.State.Unit("logging/0")
-	c.Assert(err, IsNil)
-	err = logging0.EnsureDead()
-	c.Assert(err, IsNil)
-	ctx.waitDeployed(c)
-	err = logging0.Refresh()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {

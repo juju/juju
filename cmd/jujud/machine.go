@@ -8,6 +8,7 @@ import (
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -173,7 +174,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	if m.ContainerType() != state.LXC {
+	if m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
 			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
@@ -183,7 +184,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		switch job {
 		case state.JobHostUnits:
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				return newDeployer(st, m.WatchPrincipalUnits(), dataDir), nil
+				return newDeployer(st, m.Id(), dataDir), nil
 			})
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {

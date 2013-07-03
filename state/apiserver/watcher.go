@@ -13,7 +13,7 @@ import (
 type srvClientAllWatcher struct {
 	watcher   *multiwatcher.Watcher
 	id        string
-	resources common.ResourceRegistry
+	resources *common.Resources
 }
 
 func (aw *srvClientAllWatcher) Next() (params.AllWatcherNextResults, error) {
@@ -30,7 +30,7 @@ func (w *srvClientAllWatcher) Stop() error {
 type srvEntityWatcher struct {
 	watcher   *state.EntityWatcher
 	id        string
-	resources common.ResourceRegistry
+	resources *common.Resources
 }
 
 // Next returns when a change has occurred to the
@@ -57,7 +57,7 @@ func (w *srvEntityWatcher) Stop() error {
 type srvLifecycleWatcher struct {
 	watcher   *state.LifecycleWatcher
 	id        string
-	resources common.ResourceRegistry
+	resources *common.Resources
 }
 
 // Next returns when a change has occured to the lifecycle of an
@@ -86,7 +86,7 @@ func (w *srvLifecycleWatcher) Stop() error {
 type srvEnvironConfigWatcher struct {
 	watcher   *state.EnvironConfigWatcher
 	id        string
-	resources common.ResourceRegistry
+	resources *common.Resources
 }
 
 // Next returns when a change has occured to the environment

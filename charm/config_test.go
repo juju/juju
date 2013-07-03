@@ -26,6 +26,9 @@ options:
     default: My Title
     description: A descriptive title used for the service.
     type: string
+  subtitle:
+    default: ""
+    description: An optional subtitle used for the service.
   outlook:
     description: No default outlook.
     # type defaults to string in python
@@ -51,6 +54,11 @@ func (s *ConfigSuite) TestReadSample(c *C) {
 		"title": {
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
+			Type:        "string",
+		},
+		"subtitle": {
+			Default:     "",
+			Description: "An optional subtitle used for the service.",
 			Type:        "string",
 		},
 		"username": {
@@ -80,6 +88,7 @@ func (s *ConfigSuite) TestReadSample(c *C) {
 func (s *ConfigSuite) TestDefaultSettings(c *C) {
 	c.Assert(s.config.DefaultSettings(), DeepEquals, charm.Settings{
 		"title":              "My Title",
+		"subtitle":           "",
 		"username":           "admin001",
 		"outlook":            nil,
 		"skill-level":        nil,
@@ -376,6 +385,7 @@ func (s *ConfigSuite) TestDefaultType(c *C) {
 
 	assertDefault("boolean", "true", true)
 	assertDefault("string", "golden grahams", "golden grahams")
+	assertDefault("string", `""`, "")
 	assertDefault("float", "2.2e11", 2.2e11)
 	assertDefault("int", "99", int64(99))
 

@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/upstart"
 	"os"
 	"path/filepath"
@@ -111,7 +112,7 @@ func (s *UpstartSuite) TestRemoveStopped(c *C) {
 	s.StoppedStatus(c)
 	c.Assert(s.service.Remove(), IsNil)
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestRemoveRunning(c *C) {
@@ -123,7 +124,7 @@ func (s *UpstartSuite) TestRemoveRunning(c *C) {
 	s.MakeTool(c, "stop", "exit 0")
 	c.Assert(s.service.Remove(), IsNil)
 	_, err = os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *C) {
@@ -233,5 +234,5 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *C) {
 	conf := s.dummyConf(c)
 	err = conf.Install()
 	c.Assert(err, IsNil)
-	c.Assert(conf.Running(), Equals, true)
+	c.Assert(&conf.Service, checkers.Satisfies, (*upstart.Service).Running)
 }

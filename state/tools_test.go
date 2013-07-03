@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -38,7 +39,7 @@ func testAgentTools(c *C, obj tooler, agent string) {
 	// object starts with zero'd tools.
 	t, err := obj.AgentTools()
 	c.Assert(t, IsNil)
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	err = obj.SetAgentTools(&state.Tools{})
 	c.Assert(err, ErrorMatches, fmt.Sprintf("cannot set agent tools for %s: empty series or arch", agent))

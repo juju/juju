@@ -486,7 +486,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// up yet, so we retry to verify if that is happening.
 	var err error
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = e.loadState()
+		_, err = environs.LoadState(e.Storage())
 		if err != nil {
 			break
 		}
@@ -519,7 +519,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	err = e.saveState(&bootstrapState{
+	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
 		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
@@ -537,8 +537,10 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	return nil
 }
 
+// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
+// Azure providers (bug 1195721).
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	st, err := e.loadState()
+	st, err := environs.LoadState(e.Storage())
 	if err != nil {
 		return nil, nil, err
 	}

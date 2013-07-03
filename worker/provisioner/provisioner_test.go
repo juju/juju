@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
@@ -34,6 +35,8 @@ type CommonProvisionerSuite struct {
 	testing.JujuConnSuite
 	op  <-chan dummy.Operation
 	cfg *config.Config
+	//	// defaultConstraints are used when adding a machine and then later in test assertions.
+	defaultConstraints constraints.Value
 }
 
 type ProvisionerSuite struct {
@@ -48,6 +51,11 @@ var veryShortAttempt = utils.AttemptStrategy{
 }
 
 var _ worker.Worker = (*provisioner.Provisioner)(nil)
+
+func (s *CommonProvisionerSuite) SetUpSuite(c *C) {
+	s.JujuConnSuite.SetUpSuite(c)
+	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1")
+}
 
 func (s *CommonProvisionerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -105,25 +113,25 @@ func stop(c *C, s stopper) {
 }
 
 func (s *CommonProvisionerSuite) checkStartInstance(c *C, m *state.Machine) instance.Instance {
-	return s.checkStartInstanceCustom(c, m, "pork", constraints.Value{})
+	return s.checkStartInstanceCustom(c, m, "pork", s.defaultConstraints)
 }
 
-func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (instance instance.Instance) {
+func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine, secret string, cons constraints.Value) (inst instance.Instance) {
 	s.State.StartSync()
 	for {
 		select {
 		case o := <-s.op:
 			switch o := o.(type) {
 			case dummy.OpStartInstance:
-				instance = o.Instance
-				s.waitInstanceId(c, m, instance.Id())
+				inst = o.Instance
+				s.waitInstanceId(c, m, inst.Id())
 
 				// Check the instance was started with the expected params.
 				c.Assert(o.MachineId, Equals, m.Id())
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, HasLen, 2)
 				c.Assert(nonceParts[0], Equals, state.MachineTag("0"))
-				c.Assert(utils.IsValidUUIDString(nonceParts[1]), Equals, true)
+				c.Assert(nonceParts[1], checkers.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
 
@@ -139,6 +147,16 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine
 				st, err := state.Open(o.Info, state.DefaultDialOpts())
 				c.Assert(err, IsNil)
 
+				// All provisioned machines in this test suite have their hardware characteristics
+				// attributes set to the same values as the constraints due to the dummy environment being used.
+				hc, err := m.HardwareCharacteristics()
+				c.Assert(err, IsNil)
+				c.Assert(*hc, DeepEquals, instance.HardwareCharacteristics{
+					Arch:     cons.Arch,
+					Mem:      cons.Mem,
+					CpuCores: cons.CpuCores,
+					CpuPower: cons.CpuPower,
+				})
 				st.Close()
 				return
 			default:
@@ -211,6 +229,27 @@ func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func(
 	}
 }
 
+func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Machine, check func() bool) {
+	w, err := m.WatchHardwareCharacteristics()
+	c.Assert(err, IsNil)
+	defer stop(c, w)
+	timeout := time.After(500 * time.Millisecond)
+	resync := time.After(0)
+	for {
+		select {
+		case <-w.Changes():
+			if check() {
+				return
+			}
+		case <-resync:
+			resync = time.After(50 * time.Millisecond)
+			s.State.StartSync()
+		case <-timeout:
+			c.Fatalf("hardware characteristics for machine %v wait timed out", m)
+		}
+	}
+}
+
 // waitRemoved waits for the supplied machine to be removed from state.
 func (s *CommonProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 	s.waitMachine(c, m, func() bool {
@@ -227,12 +266,13 @@ func (s *CommonProvisionerSuite) waitRemoved(c *C, m *state.Machine) {
 // waitInstanceId waits until the supplied machine has an instance id, then
 // asserts it is as expected.
 func (s *CommonProvisionerSuite) waitInstanceId(c *C, m *state.Machine, expect instance.Id) {
-	s.waitMachine(c, m, func() bool {
-		err := m.Refresh()
-		c.Assert(err, IsNil)
-		if actual, ok := m.InstanceId(); ok {
+	s.waitHardwareCharacteristics(c, m, func() bool {
+		if actual, err := m.InstanceId(); err == nil {
 			c.Assert(actual, Equals, expect)
 			return true
+		} else if !state.IsNotProvisionedError(err) {
+			// We don't expect any errors.
+			panic(err)
 		}
 		c.Logf("machine %v is still unprovisioned", m)
 		return false
@@ -248,12 +288,21 @@ func (s *ProvisionerSuite) TestProvisionerStartStop(c *C) {
 	c.Assert(p.Stop(), IsNil)
 }
 
+func (s *ProvisionerSuite) addMachine() (*state.Machine, error) {
+	params := state.AddMachineParams{
+		Series:      config.DefaultSeries,
+		Jobs:        []state.MachineJob{state.JobHostUnits},
+		Constraints: s.defaultConstraints,
+	}
+	return s.State.AddMachineWithConstraints(&params)
+}
+
 func (s *ProvisionerSuite) TestSimple(c *C) {
 	p := s.newEnvironProvisioner("0")
 	defer stop(c, p)
 
 	// Check that an instance is provisioned when the machine is created...
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
 	instance := s.checkStartInstance(c, m)
 
@@ -265,9 +314,9 @@ func (s *ProvisionerSuite) TestSimple(c *C) {
 
 func (s *ProvisionerSuite) TestConstraints(c *C) {
 	// Create a machine with non-standard constraints.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
-	cons := constraints.MustParse("mem=4G arch=amd64")
+	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2")
 	err = m.SetConstraints(cons)
 	c.Assert(err, IsNil)
 
@@ -283,7 +332,7 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created...
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
 	s.checkNoOperations(c)
 
@@ -309,14 +358,14 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
 	defer stop(c, p)
 
 	// create a machine to host the container.
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
-	instance := s.checkStartInstance(c, m)
+	inst := s.checkStartInstance(c, m)
 
 	// make a container on the machine we just created
 	params := state.AddMachineParams{
 		ParentId:      m.Id(),
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        config.DefaultSeries,
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -330,7 +379,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurForContainers(c *C) {
 	c.Assert(container.EnsureDead(), IsNil)
 	c.Assert(container.Remove(), IsNil)
 	c.Assert(m.EnsureDead(), IsNil)
-	s.checkStopInstances(c, instance)
+	s.checkStopInstances(c, inst)
 	s.waitRemoved(c, m)
 }
 
@@ -342,7 +391,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotOccurWithAnInvalidEnvironment(
 	defer stop(c, p)
 
 	// try to create a machine
-	_, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	_, err = s.addMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -357,7 +406,7 @@ func (s *ProvisionerSuite) TestProvisioningOccursWithFixedEnvironment(c *C) {
 	defer stop(c, p)
 
 	// try to create a machine
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should not create it
@@ -374,7 +423,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	defer stop(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
 
 	s.checkStartInstance(c, m)
@@ -383,7 +432,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesOccurAfterInvalidEnvironmentPubli
 	c.Assert(err, IsNil)
 
 	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err = s.addMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -395,7 +444,7 @@ func (s *ProvisionerSuite) TestProvisioningDoesNotProvisionTheSameMachineAfterRe
 	defer stop(c, p)
 
 	// create a machine
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
 	s.checkStartInstance(c, m)
 
@@ -419,12 +468,12 @@ func (s *ProvisionerSuite) TestProvisioningStopsInstances(c *C) {
 	defer stop(c, p)
 
 	// create a machine
-	m0, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m0, err := s.addMachine()
 	c.Assert(err, IsNil)
 	i0 := s.checkStartInstance(c, m0)
 
 	// create a second machine
-	m1, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m1, err := s.addMachine()
 	c.Assert(err, IsNil)
 	i1 := s.checkStartInstance(c, m1)
 	stop(c, p)
@@ -448,7 +497,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *C) {
 	defer stop(c, p)
 
 	// provision a machine
-	m0, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m0, err := s.addMachine()
 	c.Assert(err, IsNil)
 	s.checkStartInstance(c, m0)
 
@@ -458,7 +507,7 @@ func (s *ProvisionerSuite) TestDyingMachines(c *C) {
 	c.Assert(err, IsNil)
 
 	// add a new, dying, unprovisioned machine
-	m1, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m1, err := s.addMachine()
 	c.Assert(err, IsNil)
 	err = m1.Destroy()
 	c.Assert(err, IsNil)
@@ -480,7 +529,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	defer stop(c, p)
 
 	// place a new machine into the state
-	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err := s.addMachine()
 	c.Assert(err, IsNil)
 	s.checkStartInstance(c, m)
 
@@ -489,7 +538,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	s.State.StartSync()
 
 	// create a second machine
-	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err = s.addMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the old environment
@@ -520,9 +569,9 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	}
 
 	// create a third machine
-	m, err = s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
+	m, err = s.addMachine()
 	c.Assert(err, IsNil)
 
 	// the PA should create it using the new environment
-	s.checkStartInstanceCustom(c, m, "beef", constraints.Value{})
+	s.checkStartInstanceCustom(c, m, "beef", s.defaultConstraints)
 }

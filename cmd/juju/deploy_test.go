@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type DeploySuite struct {
@@ -134,7 +135,7 @@ func (s *DeploySuite) TestConfigError(c *C) {
 	err := runDeploy(c, "local:dummy", "other-service", "--config", path)
 	c.Assert(err, ErrorMatches, `no settings found for "other-service"`)
 	_, err = s.State.Service("other-service")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *DeploySuite) TestConstraints(c *C) {

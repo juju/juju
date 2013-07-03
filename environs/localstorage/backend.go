@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package local
+package localstorage
 
 import (
 	"fmt"
@@ -20,8 +20,7 @@ import (
 // code may be useful in storage-free environs. Here it requires
 // additional authentication work before it's viable.
 type storageBackend struct {
-	environName string
-	path        string
+	dir string
 }
 
 // ServeHTTP handles the HTTP requests to the container.
@@ -44,7 +43,7 @@ func (s *storageBackend) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 // handleGet returns a storage file to the client.
 func (s *storageBackend) handleGet(w http.ResponseWriter, req *http.Request) {
-	data, err := ioutil.ReadFile(filepath.Join(s.path, req.URL.Path))
+	data, err := ioutil.ReadFile(filepath.Join(s.dir, req.URL.Path))
 	if err != nil {
 		http.Error(w, fmt.Sprintf("404 %v", err), http.StatusNotFound)
 		return
@@ -55,9 +54,9 @@ func (s *storageBackend) handleGet(w http.ResponseWriter, req *http.Request) {
 
 // handleList returns the file names in the storage to the client.
 func (s *storageBackend) handleList(w http.ResponseWriter, req *http.Request) {
-	fp := filepath.Join(s.path, req.URL.Path)
+	fp := filepath.Join(s.dir, req.URL.Path)
 	dir, prefix := filepath.Split(fp)
-	names, err := readDirs(dir, prefix[:len(prefix)-1], len(s.path)+1)
+	names, err := readDirs(dir, prefix[:len(prefix)-1], len(s.dir)+1)
 	if err != nil {
 		http.Error(w, fmt.Sprintf("404 %v", err), http.StatusNotFound)
 		return
@@ -96,7 +95,7 @@ func readDirs(dir, prefix string, start int) ([]string, error) {
 
 // handlePut stores data from the client in the storage.
 func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
-	fp := filepath.Join(s.path, req.URL.Path)
+	fp := filepath.Join(s.dir, req.URL.Path)
 	dir, _ := filepath.Split(fp)
 	err := os.MkdirAll(dir, 0777)
 	if err != nil {
@@ -118,7 +117,7 @@ func (s *storageBackend) handlePut(w http.ResponseWriter, req *http.Request) {
 
 // handleDelete removes a file from the storage.
 func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) {
-	fp := filepath.Join(s.path, req.URL.Path)
+	fp := filepath.Join(s.dir, req.URL.Path)
 	if err := os.Remove(fp); err != nil && !os.IsNotExist(err) {
 		http.Error(w, fmt.Sprintf("500 %v", err), http.StatusInternalServerError)
 		return
@@ -126,24 +125,26 @@ func (s *storageBackend) handleDelete(w http.ResponseWriter, req *http.Request) 
 	w.WriteHeader(http.StatusOK)
 }
 
-// listen starts an HTTP listener to serve the
-// provider storage.
-func listen(dataPath, environName, ip string, port int) (net.Listener, error) {
+// Serve runs a storage server on the given network address, storing
+// data under the given directory.  It returns the network listener.
+// This can then be attached to with Client.
+func Serve(addr, dir string) (net.Listener, error) {
 	backend := &storageBackend{
-		environName: environName,
-		path:        filepath.Join(dataPath, environName),
+		dir: dir,
 	}
-	if err := os.MkdirAll(backend.path, 0777); err != nil {
-		return nil, err
+	info, err := os.Stat(dir)
+	if err != nil {
+		return nil, fmt.Errorf("cannot stat directory: %v", err)
 	}
-	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", ip, port))
+	if !info.IsDir() {
+		return nil, fmt.Errorf("%q is not a directory", dir)
+	}
+	listener, err := net.Listen("tcp", addr)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start listener: %v", err)
 	}
 	mux := http.NewServeMux()
 	mux.Handle("/", backend)
-
 	go http.Serve(listener, mux)
-
 	return listener, nil
 }

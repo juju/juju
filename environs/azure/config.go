@@ -10,27 +10,25 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-var azureConfigChecker = schema.StrictFieldMap(
-	schema.Fields{
-		"management-subscription-id":     schema.String(),
-		"management-certificate-path":    schema.String(),
-		"management-certificate":         schema.String(),
-		"management-hosted-service-name": schema.String(),
-		"storage-account-name":           schema.String(),
-		"storage-account-key":            schema.String(),
-		"storage-container-name":         schema.String(),
-		"public-storage-account-name":    schema.String(),
-		"public-storage-container-name":  schema.String(),
-	},
-	schema.Defaults{
-		"management-hosted-service-name": "",
-		"management-certificate":         "",
-		"management-certificate-path":    "",
-		"storage-container-name":         "",
-		"public-storage-account-name":    "",
-		"public-storage-container-name":  "",
-	},
-)
+var configFields = schema.Fields{
+	"management-subscription-id":     schema.String(),
+	"management-certificate-path":    schema.String(),
+	"management-certificate":         schema.String(),
+	"management-hosted-service-name": schema.String(),
+	"storage-account-name":           schema.String(),
+	"storage-account-key":            schema.String(),
+	"storage-container-name":         schema.String(),
+	"public-storage-account-name":    schema.String(),
+	"public-storage-container-name":  schema.String(),
+}
+var configDefaults = schema.Defaults{
+	"management-hosted-service-name": "",
+	"management-certificate":         "",
+	"management-certificate-path":    "",
+	"storage-container-name":         "",
+	"public-storage-account-name":    "",
+	"public-storage-container-name":  "",
+}
 
 type azureEnvironConfig struct {
 	*config.Config
@@ -89,13 +87,13 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 		return nil, err
 	}
 
-	v, err := azureConfigChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
 	envCfg := new(azureEnvironConfig)
 	envCfg.Config = cfg
-	envCfg.attrs = v.(map[string]interface{})
+	envCfg.attrs = validated
 
 	cert := envCfg.ManagementCertificate()
 	if cert == "" {

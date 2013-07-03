@@ -11,6 +11,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"net/rpc"
 	"os"
@@ -89,7 +90,7 @@ func (s *ServerSuite) TearDownTest(c *C) {
 	s.server.Close()
 	c.Assert(<-s.err, IsNil)
 	_, err := os.Open(s.sockPath)
-	c.Assert(os.IsNotExist(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	s.LoggingSuite.TearDownTest(c)
 }
 

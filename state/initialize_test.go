@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type InitializeSuite struct {
@@ -46,11 +47,11 @@ func (s *InitializeSuite) TearDownTest(c *C) {
 
 func (s *InitializeSuite) TestInitialize(c *C) {
 	_, err := s.State.EnvironConfig()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.Annotator("environment-foo")
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	_, err = s.State.EnvironConstraints()
-	c.Assert(errors.IsNotFoundError(err), Equals, true)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	cfg := testing.EnvironConfig(c)
 	initial := cfg.AllAttrs()
