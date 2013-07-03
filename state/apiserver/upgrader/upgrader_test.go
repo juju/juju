@@ -79,6 +79,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	c.Check(results.Results[0].EntityWatcherId, Not(Equals), "")
 	resource := s.resources.Get(results.Results[0].EntityWatcherId)
 	c.Check(resource, NotNil)
+
 	// TODO: When this becomes a true EntityWatcher, use
 	//       state/testing/watcher.go to properly test how this watcher is
 	//       working

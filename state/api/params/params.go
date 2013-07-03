@@ -72,7 +72,7 @@ type EntityWatchResults struct {
 	Results []EntityWatchResult
 }
 
-// Details about a single agent
+// Agent identifies a single agent
 type Agent struct {
 	Tag string
 }
