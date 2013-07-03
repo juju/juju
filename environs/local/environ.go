@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -46,6 +47,10 @@ func (env *localEnviron) Name() string {
 	return env.name
 }
 
+func (env *localEnviron) mongoServiceName() string {
+	return "juju-db-" + env.config.namespace()
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", env.name)
@@ -58,11 +63,21 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 
 	// TODO(thumper): work out how to get the user to sudo bits...
+	mongo := upstart.MongoUpstartService(
+		env.mongoServiceName(),
+		env.config.rootDir(),
+		env.config.mongoDir(),
+		env.config.StatePort())
+	logger.Infof("installing service %s", env.mongoServiceName())
+	if err := mongo.Install(); err != nil {
+		logger.Errorf("could not install mongo service: %v", err)
+		return err
+	}
 
 	// Start the mongo service.
 	// TODO(thumper): make the mongo service start automagically
 
-	return fmt.Errorf("not implemented")
+	return nil
 }
 
 // StateInfo is specified in the Environ interface.
@@ -140,17 +155,25 @@ func (env *localEnviron) AllInstances() ([]instance.Instance, error) {
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() environs.Storage {
-	panic("unimplemented")
+	return localstorage.Client(env.privateListener.Addr().String())
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *localEnviron) PublicStorage() environs.StorageReader {
-	panic("unimplemented")
+	return localstorage.Client(env.publicListener.Addr().String())
 }
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
-	return fmt.Errorf("not implemented")
+
+	logger.Infof("removing service %s", env.mongoServiceName())
+	mongo := upstart.NewService(env.mongoServiceName())
+	if err := mongo.Remove(); err != nil {
+		logger.Errorf("could not remove mongo service: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.
