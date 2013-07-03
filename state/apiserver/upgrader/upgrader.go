@@ -100,7 +100,7 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 	for i, agent := range args.Agents {
 		tools[i].Tag = agent.Tag
 	}
-	// For now, all agents get the same proposed version 
+	// For now, all agents get the same proposed version
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return result, err
