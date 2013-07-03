@@ -428,10 +428,12 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 	c.Assert(err, IsNil)
 	assertChange([]int{0, 2})
 
-	// Remove a relation completely; check event.
+	// Remove a relation completely; check no event, because the relation
+	// could not have been removed if the unit was in scope, and therefore
+	// the uniter never needs to hear about it.
 	err = rel1.Destroy()
 	c.Assert(err, IsNil)
-	assertChange([]int{1})
+	assertNoChange()
 
 	// Start a new filter, check initial event.
 	f, err = newFilter(s.State, s.unit.Name())

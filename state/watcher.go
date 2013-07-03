@@ -76,15 +76,6 @@ func hasString(changes []string, name string) bool {
 	return false
 }
 
-func hasInt(changes []int, id int) bool {
-	for _, v := range changes {
-		if v == id {
-			return true
-		}
-	}
-	return false
-}
-
 // LifecycleWatcher notifies about lifecycle changes for a set of entities of
 // the same kind. The first event emitted will contain the ids of all non-Dead
 // entities; subsequent events are emitted whenever one or more entities are
@@ -118,6 +109,19 @@ func (s *Service) WatchUnits() *LifecycleWatcher {
 		return strings.HasPrefix(id.(string), prefix)
 	}
 	return newLifecycleWatcher(s.st, s.st.units, members, filter)
+}
+
+// WatchRelations returns a LifecycleWatcher that notifies of changes to the
+// lifecycles of relations involving s.
+func (s *Service) WatchRelations() *LifecycleWatcher {
+	members := D{{"endpoints.servicename", s.doc.Name}}
+	prefix := s.doc.Name + ":"
+	infix := " " + prefix
+	filter := func(key interface{}) bool {
+		k := key.(string)
+		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+	}
+	return newLifecycleWatcher(s.st, s.st.relations, members, filter)
 }
 
 // WatchEnvironMachines returns a LifecycleWatcher that notifies of changes to
@@ -357,123 +361,6 @@ func (w *MinUnitsWatcher) loop() (err error) {
 
 func (w *MinUnitsWatcher) Changes() <-chan []string {
 	return w.out
-}
-
-// ServiceRelationsWatcher notifies about the lifecycle changes of the
-// relations the service is in. The first event returned by the watcher is
-// the set of ids of all relations that the service is part of, irrespective
-// of their life state. Subsequent events return batches of newly added
-// relations and relations which have changed their lifecycle. After a
-// relation is reported to be Dead, no further event will include it.
-type ServiceRelationsWatcher struct {
-	commonWatcher
-	service *Service
-	out     chan []int
-	known   map[string]relationDoc
-}
-
-// WatchRelations returns a new ServiceRelationsWatcher for s.
-func (s *Service) WatchRelations() *ServiceRelationsWatcher {
-	return newServiceRelationsWatcher(s)
-}
-
-func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
-	w := &ServiceRelationsWatcher{
-		commonWatcher: commonWatcher{st: s.st},
-		out:           make(chan []int),
-		known:         make(map[string]relationDoc),
-		service:       &Service{st: s.st, doc: s.doc}, // Copy so it may be freely refreshed
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-func (w *ServiceRelationsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-// Changes returns the event channel for w.
-func (w *ServiceRelationsWatcher) Changes() <-chan []int {
-	return w.out
-}
-
-func (w *ServiceRelationsWatcher) initial() (new []int, err error) {
-	doc := relationDoc{}
-	iter := w.st.relations.Find(D{{"endpoints.servicename", w.service.doc.Name}}).Select(append(D{{"id", 1}}, lifeFields...)).Iter()
-	for iter.Next(&doc) {
-		w.known[doc.Key] = doc
-		new = append(new, doc.Id)
-	}
-	if iter.Err() != nil {
-		return nil, err
-	}
-	return new, nil
-}
-
-func (w *ServiceRelationsWatcher) merge(pending []int, key string) (new []int, err error) {
-	doc := relationDoc{}
-	err = w.st.relations.FindId(key).One(&doc)
-	if err != nil && err != mgo.ErrNotFound {
-		return nil, err
-	}
-	old, known := w.known[key]
-	if err == mgo.ErrNotFound {
-		if known && old.Life != Dead && !hasInt(pending, old.Id) {
-			delete(w.known, key)
-			return append(pending, old.Id), nil
-		}
-		return pending, nil
-	}
-	w.known[key] = doc
-	if !known {
-		return append(pending, doc.Id), nil
-	}
-	if old.Life == doc.Life || hasInt(pending, old.Id) {
-		return pending, nil
-	}
-	return append(pending, doc.Id), nil
-}
-
-func (w *ServiceRelationsWatcher) loop() (err error) {
-	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.relations.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.relations.Name, ch)
-	changes, err := w.initial()
-	if err != nil {
-		return err
-	}
-	prefix1 := w.service.doc.Name + ":"
-	prefix2 := " " + w.service.doc.Name + ":"
-	out := w.out
-	for {
-		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case c := <-ch:
-			key := c.Id.(string)
-			if !strings.HasPrefix(key, prefix1) && !strings.Contains(key, prefix2) {
-				continue
-			}
-			changes, err = w.merge(changes, key)
-			if err != nil {
-				return err
-			}
-			if len(changes) > 0 {
-				out = w.out
-			}
-		case out <- changes:
-			out = nil
-			changes = nil
-		}
-	}
-	return nil
 }
 
 // RelationScopeWatcher observes changes to the set of units
