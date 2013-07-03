@@ -4,14 +4,18 @@
 package upgrader_test
 
 import (
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
+	"launchpad.net/juju-core/version"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -42,7 +46,6 @@ func defaultPassword(stm *state.Machine) string {
 
 // Dial options with no timeouts and no retries
 var fastDialOpts = api.DialOpts{}
-
 
 func (s *upgraderSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -96,4 +99,23 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 func (s *upgraderSuite) TestNew(c *C) {
 	upgrader := upgrader.New(s.stateAPI)
 	c.Assert(upgrader, NotNil)
+}
+
+func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
+	cur := version.Current
+	err := s.upgrader.SetTools(params.AgentTools{
+		Tag:    "42",
+		Arch:   cur.Arch,
+		Series: cur.Series,
+		Major:  cur.Major,
+		Minor:  cur.Minor,
+		Patch:  cur.Patch,
+		Build:  cur.Build,
+	})
+	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+}
+
+func (s *upgraderSuite) TestSetTools(c *C) {
+
 }
