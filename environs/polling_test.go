@@ -28,8 +28,8 @@ func (s *pollingSuite) SetUpSuite(c *C) {
 	// uninterrupted and a concurrent goroutine that it was waiting for
 	// might never actually get to do its work.
 	environs.LongAttempt = utils.AttemptStrategy{
-		Total: 10*time.Millisecond,
-		Delay: 1*time.Millisecond,
+		Total: 10 * time.Millisecond,
+		Delay: 1 * time.Millisecond,
 	}
 }
 
