@@ -463,7 +463,7 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("i-malive", "fake_nonce")
+	err = machine.SetProvisioned("i-malive", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)

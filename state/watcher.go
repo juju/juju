@@ -12,6 +12,7 @@ import (
 	"labix.org/v2/mgo"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/loggo"
@@ -132,7 +133,7 @@ func (st *State) WatchEnvironMachines() *LifecycleWatcher {
 
 // WatchContainers returns a LifecycleWatcher that notifies of changes to the
 // lifecycles of containers on a machine.
-func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
+func (m *Machine) WatchContainers(ctype instance.ContainerType) *LifecycleWatcher {
 	members := D{{"parent", m.doc.Id}}
 	match := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, numberSnippet)
 	child := regexp.MustCompile(match)
@@ -1079,6 +1080,19 @@ func (w *settingsWatcher) loop(key string) (err error) {
 type EntityWatcher struct {
 	commonWatcher
 	out chan struct{}
+}
+
+// WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
+func (m *Machine) WatchHardwareCharacteristics() (*EntityWatcher, error) {
+	var txnRevNo int64
+	if instData, err := getInstanceData(m.st, m.Id()); errors.IsNotFoundError(err) {
+		txnRevNo = -1
+	} else if err == nil {
+		txnRevNo = instData.TxnRevno
+	} else {
+		return nil, err
+	}
+	return newEntityWatcher(m.st, m.st.instanceData.Name, m.doc.Id, txnRevNo), nil
 }
 
 // Watch return a watcher for observing changes to a machine.

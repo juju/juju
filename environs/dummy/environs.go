@@ -564,26 +564,31 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		machineId: machineId,
 		series:    series,
 	}
-	// We will just assume the instance hardware characteristics exactly matches
-	// the supplied constraints (if specified).
-	hc := &instance.HardwareCharacteristics{
-		Arch:     cons.Arch,
-		Mem:      cons.Mem,
-		CpuCores: cons.CpuCores,
-		CpuPower: cons.CpuPower,
-	}
-	// Fill in some expected instance hardware characteristics if constraints not specified.
-	if hc.Arch == nil {
-		arch := "amd64"
-		hc.Arch = &arch
-	}
-	if hc.Mem == nil {
-		mem := uint64(1024)
-		hc.Mem = &mem
-	}
-	if hc.CpuCores == nil {
-		cores := uint64(1)
-		hc.CpuCores = &cores
+	var hc *instance.HardwareCharacteristics
+	// To match current system capability, only provide hardware characteristics for
+	// environ machines, not containers.
+	if state.ParentId(machineId) == "" {
+		// We will just assume the instance hardware characteristics exactly matches
+		// the supplied constraints (if specified).
+		hc = &instance.HardwareCharacteristics{
+			Arch:     cons.Arch,
+			Mem:      cons.Mem,
+			CpuCores: cons.CpuCores,
+			CpuPower: cons.CpuPower,
+		}
+		// Fill in some expected instance hardware characteristics if constraints not specified.
+		if hc.Arch == nil {
+			arch := "amd64"
+			hc.Arch = &arch
+		}
+		if hc.Mem == nil {
+			mem := uint64(1024)
+			hc.Mem = &mem
+		}
+		if hc.CpuCores == nil {
+			cores := uint64(1)
+			hc.CpuCores = &cores
+		}
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -718,7 +723,7 @@ func (inst *dummyInstance) DNSName() (string, error) {
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return inst.DNSName()
+	return environs.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

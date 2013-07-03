@@ -17,6 +17,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 	"net/url"
 	"strconv"
 	"strings"
@@ -200,7 +201,7 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 
 	params := state.AddMachineParams{
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          oneJob,
 	}
@@ -208,7 +209,7 @@ func (s *StateSuite) TestAddContainerToNewMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(mcons, DeepEquals, emptyCons)
@@ -232,7 +233,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	// Add first container.
 	params := state.AddMachineParams{
 		ParentId:      "1",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -240,7 +241,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(mcons, DeepEquals, emptyCons)
@@ -258,7 +259,7 @@ func (s *StateSuite) TestAddContainerToExistingMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "1/lxc/1")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	s.assertMachineContainers(c, m1, []string{"1/lxc/0", "1/lxc/1"})
 }
@@ -269,7 +270,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 
 	params := state.AddMachineParams{
 		ParentId:      "",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Constraints:   cons,
 		Jobs:          oneJob,
@@ -278,7 +279,7 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
@@ -290,7 +291,7 @@ func (s *StateSuite) TestAddContainerErrors(c *C) {
 
 	params := state.AddMachineParams{
 		ParentId:      "10",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          oneJob,
 	}
@@ -315,8 +316,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
-	instanceId, ok := m.InstanceId()
-	c.Assert(ok, Equals, true)
+	instanceId, err := m.InstanceId()
+	c.Assert(err, IsNil)
 	c.Assert(instanceId, Equals, instance.Id("i-mindustrious"))
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
@@ -334,7 +335,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	// Add first container.
 	params := state.AddMachineParams{
 		ParentId:      "0",
-		ContainerType: state.LXC,
+		ContainerType: instance.LXC,
 		Series:        "series",
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
@@ -342,7 +343,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/0")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(mcons, DeepEquals, emptyCons)
@@ -354,7 +355,7 @@ func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(m.Id(), Equals, "0/lxc/1")
 	c.Assert(m.Series(), Equals, "series")
-	c.Assert(m.ContainerType(), Equals, state.LXC)
+	c.Assert(m.ContainerType(), Equals, instance.LXC)
 	c.Assert(m.Jobs(), DeepEquals, oneJob)
 	s.assertMachineContainers(c, m0, []string{"0/lxc/0", "0/lxc/1"})
 }
@@ -392,7 +393,7 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	for i := 0; i < numInserts; i++ {
 		m, err := s.State.AddMachine("series", state.JobHostUnits)
 		c.Assert(err, IsNil)
-		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce")
+		err = m.SetProvisioned(instance.Id(fmt.Sprintf("foo-%d", i)), "fake_nonce", nil)
 		c.Assert(err, IsNil)
 		err = m.SetAgentTools(newTools("7.8.9-foo-bar", "http://arble.tgz"))
 		c.Assert(err, IsNil)
@@ -403,8 +404,8 @@ func (s *StateSuite) TestAllMachines(c *C) {
 	ms, _ := s.State.AllMachines()
 	for i, m := range ms {
 		c.Assert(m.Id(), Equals, strconv.Itoa(i))
-		instId, ok := m.InstanceId()
-		c.Assert(ok, Equals, true)
+		instId, err := m.InstanceId()
+		c.Assert(err, IsNil)
 		c.Assert(string(instId), Equals, fmt.Sprintf("foo-%d", i))
 		tools, err := m.AgentTools()
 		c.Check(err, IsNil)
@@ -769,7 +770,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// Dying machine...
 	dying, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
+	err = dying.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	err = dying.Destroy()
 	c.Assert(err, IsNil)
@@ -819,7 +820,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	wc.AssertOneChange("0")
 
 	// Change the machine: not reported.
-	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce")
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 
@@ -857,7 +858,7 @@ func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 
 	// Add a container: not reported.
 	params.ParentId = machine.Id()
-	params.ContainerType = state.LXC
+	params.ContainerType = instance.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
@@ -891,27 +892,27 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	c.Assert(err, IsNil)
 
 	// Initial event is empty when no containers.
-	w := machine.WatchContainers(state.LXC)
+	w := machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange()
 
 	// Add a container of the required type: reported.
 	params.ParentId = machine.Id()
-	params.ContainerType = state.LXC
+	params.ContainerType = instance.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertOneChange("0/lxc/0")
 
 	// Add a container of a different type: not reported.
-	params.ContainerType = state.KVM
+	params.ContainerType = instance.KVM
 	m1, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
-	params.ContainerType = state.LXC
+	params.ContainerType = instance.LXC
 	m2, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
@@ -942,6 +943,37 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 
 	// Remove the container: not reported.
 	err = m.Remove()
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+}
+
+func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
+	// Add a machine: reported.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	w, err := machine.WatchHardwareCharacteristics()
+	c.Assert(err, IsNil)
+	defer statetesting.AssertStop(c, w)
+
+	// Initial event.
+	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc.AssertOneChange()
+
+	// Provision a machine: reported.
+	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Alter the machine: not reported.
+	tools := &state.Tools{
+		Binary: version.Binary{
+			Number: version.MustParse("1.2.3"),
+			Series: "gutsy",
+			Arch:   "ppc",
+		},
+		URL: "http://canonical.com/",
+	}
+	err = machine.SetAgentTools(tools)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 }

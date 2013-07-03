@@ -4,40 +4,45 @@
 package azure
 
 import (
+	"launchpad.net/gwacl"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
 
-type azureInstance struct{}
+type azureInstance struct {
+	gwacl.Deployment
+}
 
 // azureInstance implements Instance.
 var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
-func (instance *azureInstance) Id() instance.Id {
-	panic("unimplemented")
+func (azInstance *azureInstance) Id() instance.Id {
+	return instance.Id(azInstance.Name)
 }
 
 // DNSName is specified in the Instance interface.
-func (instance *azureInstance) DNSName() (string, error) {
-	panic("unimplemented")
+func (azInstance *azureInstance) DNSName() (string, error) {
+	// An Azure deployment gets its DNS name immediately when it's created.
+	return azInstance.GetFQDN()
 }
 
 // WaitDNSName is specified in the Instance interface.
-func (instance *azureInstance) WaitDNSName() (string, error) {
-	panic("unimplemented")
+func (azInstance *azureInstance) WaitDNSName() (string, error) {
+	return environs.WaitDNSName(azInstance)
 }
 
 // OpenPorts is specified in the Instance interface.
-func (instance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // ClosePorts is specified in the Instance interface.
-func (instance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (azInstance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // Ports is specified in the Instance interface.
-func (instance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
+func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
 	panic("unimplemented")
 }

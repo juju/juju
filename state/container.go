@@ -8,18 +8,6 @@ import (
 	"strings"
 )
 
-type ContainerType string
-
-const (
-	LXC = ContainerType("lxc")
-	KVM = ContainerType("kvm")
-)
-
-// SupportedContainerTypes is used to validate add-machine arguments.
-var SupportedContainerTypes []ContainerType = []ContainerType{
-	LXC,
-}
-
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.
 // All machines have an associated container ref doc, regardless of whether they host any containers.
 type machineContainers struct {
