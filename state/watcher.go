@@ -15,13 +15,12 @@ import (
 	"strings"
 )
 
-
 // A NotifyWatcher generates signals when something changes, but it does not
 // return any content of those changes
 type NotifyWatcher interface {
-    Stop() error
-    Err()  error
-    Changes() <-chan struct{}
+	Stop() error
+	Err() error
+	Changes() <-chan struct{}
 }
 
 // commonWatcher is part of all client watchers.
