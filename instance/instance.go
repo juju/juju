@@ -37,6 +37,8 @@ type Instance interface {
 
 	// WaitDNSName returns the DNS name for the instance,
 	// waiting until it is allocated if necessary.
+	// TODO: We may not need this in the interface any more.  All
+	// implementations now delegate to environs.WaitDNSName.
 	WaitDNSName() (string, error)
 
 	// OpenPorts opens the given ports on the instance, which

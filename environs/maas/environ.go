@@ -110,7 +110,9 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = environs.SaveProviderState(env.Storage(), inst.Id())
+	err = environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -125,60 +127,8 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
-// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
-// Azure providers (bug 1195721).
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	// This code is cargo-culted from the openstack/ec2 providers.
-	// It's a bit unclear what the "longAttempt" loop is actually for
-	// but this should probably be refactored outside of the provider
-	// code.
-	instances, err := environs.LoadProviderState(env.Storage())
-	if err != nil {
-		return nil, nil, err
-	}
-	config := env.Config()
-	cert, hasCert := config.CACert()
-	if !hasCert {
-		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
-	}
-	var stateAddrs []string
-	var apiAddrs []string
-	// Wait for the DNS names of any of the instances
-	// to become available.
-	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", instances)
-	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := env.Instances(instances)
-		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("environs/maas: error getting state instance: %v", err.Error())
-			return nil, nil, err
-		}
-		log.Debugf("environs/maas: started processing instances: %#v", insts)
-		for _, inst := range insts {
-			if inst == nil {
-				continue
-			}
-			name, err := inst.DNSName()
-			if err != nil {
-				continue
-			}
-			if name != "" {
-				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-				stateAddrs = append(stateAddrs, name+statePortSuffix)
-				apiAddrs = append(apiAddrs, name+apiPortSuffix)
-			}
-		}
-	}
-	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", instances)
-	}
-	return &state.Info{
-			Addrs:  stateAddrs,
-			CACert: cert,
-		}, &api.Info{
-			Addrs:  apiAddrs,
-			CACert: cert,
-		}, nil
+	return environs.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a

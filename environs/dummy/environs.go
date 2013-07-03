@@ -723,7 +723,7 @@ func (inst *dummyInstance) DNSName() (string, error) {
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return inst.DNSName()
+	return environs.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

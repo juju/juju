@@ -27,16 +27,16 @@ func (w *srvClientAllWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-type srvEntityWatcher struct {
-	watcher   *state.EntityWatcher
+type srvNotifyWatcher struct {
+	watcher   state.NotifyWatcher
 	id        string
 	resources *common.Resources
 }
 
 // Next returns when a change has occurred to the
 // entity being watched since the most recent call to Next
-// or the Watch call that created the EntityWatcher.
-func (w *srvEntityWatcher) Next() error {
+// or the Watch call that created the NotifyWatcher.
+func (w *srvNotifyWatcher) Next() error {
 	if _, ok := <-w.watcher.Changes(); ok {
 		return nil
 	}
@@ -48,7 +48,7 @@ func (w *srvEntityWatcher) Next() error {
 }
 
 // Stop stops the watcher.
-func (w *srvEntityWatcher) Stop() error {
+func (w *srvNotifyWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 

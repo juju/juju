@@ -4,12 +4,14 @@
 package environs_test
 
 import (
+	"os"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
-	"path/filepath"
 )
 
 type suite struct{}
@@ -153,6 +155,33 @@ environments:
 	e, err := es.Open("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "only")
+}
+
+func (suite) TestConfigPerm(c *C) {
+	defer testing.MakeSampleHome(c).Restore()
+
+	path := testing.HomePath(".juju")
+	info, err := os.Lstat(path)
+	c.Assert(err, IsNil)
+	oldPerm := info.Mode().Perm()
+	env := `
+environments:
+    only:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+	outfile, err := environs.WriteEnvirons("", env)
+	c.Assert(err, IsNil)
+
+	info, err = os.Lstat(outfile)
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode().Perm(), Equals, os.FileMode(0600))
+
+	info, err = os.Lstat(filepath.Dir(outfile))
+	c.Assert(err, IsNil)
+	c.Assert(info.Mode().Perm(), Equals, oldPerm)
+
 }
 
 func (suite) TestNamedConfigFile(c *C) {
