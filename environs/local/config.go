@@ -64,3 +64,7 @@ func (c *environConfig) storageDir() string {
 func (c *environConfig) mongoDir() string {
 	return filepath.Join(c.rootDir(), "db")
 }
+
+func (c *environConfig) configFile(filename string) string {
+	return filepath.Join(c.rootDir(), filename)
+}

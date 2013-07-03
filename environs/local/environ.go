@@ -5,8 +5,10 @@ package local
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -59,6 +61,26 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
 	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+		return err
+	}
+
+	// TODO(thumper): break out into functions later.
+	journalDir := filepath.Join(env.config.mongoDir(), "journal")
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
+		return err
+	}
+
+	cert, key, err := env.config.GenerateStateServerCertAndKey()
+	if err != nil {
+		logger.Errorf("failed to generate server cert: %v", err)
+		return err
+	}
+	if err := ioutil.WriteFile(
+		env.config.configFile("server.pem"),
+		append(cert, key...),
+		0600); err != nil {
+		logger.Errorf("failed to write server.pem: %v", err)
 		return err
 	}
 
