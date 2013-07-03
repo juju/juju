@@ -15,7 +15,18 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 )
+
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
+var shortAttempt = utils.AttemptStrategy{
+	Total: 1 * time.Second,
+	Delay: 50 * time.Millisecond,
+}
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -35,6 +46,20 @@ func (env *localEnviron) Name() string {
 
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
+	logger.Infof("bootstrapping environment %q", env.name)
+
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+		return err
+	}
+
+	// TODO(thumper): work out how to get the user to sudo bits...
+
+	// Start the mongo service.
+	// TODO(thumper): make the mongo service start automagically
+
 	return fmt.Errorf("not implemented")
 }
 
