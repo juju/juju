@@ -39,7 +39,7 @@ func (s *FilterSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("i-exist", "fake_nonce")
+	err = machine.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 }
 

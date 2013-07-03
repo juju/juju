@@ -28,7 +28,7 @@ fi
 
 SERIES=$(sed -n 's/^Version: \([0-9]\+\).\([0-9]\+\).\([0-9]\+\)-[0-9]\+~\([0-9]\+\)~\([a-Z]\+\).*/\5/p' ${WORK}/juju/control)
 case "${SERIES}" in 
-	"precise" | "quantal" | "raring" )
+	"precise" | "quantal" | "raring" | "saucy" )
 		;;
 	*)
 		echo "invalid series"

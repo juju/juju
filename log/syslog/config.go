@@ -17,6 +17,8 @@ import (
 const stateServerRsyslogTemplate = `
 $ModLoad imfile
 
+$InputFileStateFile {{statefilePath}}
+$InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{logfilePath}}
 $InputFileTag local-juju-{{logfileName}}:
@@ -41,6 +43,8 @@ $template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
 const nodeRsyslogTemplate = `
 $ModLoad imfile
 
+$InputFileStateFile {{statefilePath}}
+$InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName {{logfilePath}}
 $InputFileTag juju-{{logfileName}}:
@@ -118,10 +122,15 @@ func (slConfig *SyslogConfig) Render() ([]byte, error) {
 		return fmt.Sprintf("/var/log/juju/%s.log", slConfig.LogFileName)
 	}
 
+	var stateFilePath = func() string {
+		return fmt.Sprintf("/var/spool/rsyslog/juju-%s-state", slConfig.LogFileName)
+	}
+
 	t := template.New("")
 	t.Funcs(template.FuncMap{"logfileName": logFileName})
 	t.Funcs(template.FuncMap{"bootstrapIP": bootstrapIP})
 	t.Funcs(template.FuncMap{"logfilePath": logFilePath})
+	t.Funcs(template.FuncMap{"statefilePath": stateFilePath})
 
 	// Process the rsyslog config template and echo to the conf file.
 	p, err := t.Parse(slConfig.configTemplate)
