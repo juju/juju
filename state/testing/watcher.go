@@ -73,6 +73,28 @@ type StringsWatcherC struct {
 	FullSync bool
 }
 
+// NewStringsWatcherC returns a StringsWatcherC that checks for aggressive
+// event coalescence.
+func NewStringsWatcherC(c *C, st *state.State, w StringsWatcher) StringsWatcherC {
+	return StringsWatcherC{
+		C:       c,
+		State:   st,
+		Watcher: w,
+	}
+}
+
+// NewLaxStringsWatcherC returns a StringsWatcherC that runs a full watcher
+// sync before reading from the watcher's Changes channel, and hence cannot
+// verify real-world coalescence behaviour.
+func NewLaxStringsWatcherC(c *C, st *state.State, w StringsWatcher) StringsWatcherC {
+	return StringsWatcherC{
+		C:        c,
+		State:    st,
+		Watcher:  w,
+		FullSync: true,
+	}
+}
+
 type StringsWatcher interface {
 	Stop() error
 	Changes() <-chan []string

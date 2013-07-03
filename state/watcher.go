@@ -53,16 +53,15 @@ func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{
 	}
 	handle(one)
 	timeout := time.After(10 * time.Millisecond)
-	for {
+	for done := false; !done; {
 		select {
 		case <-stop:
 			return nil, false
 		case another := <-more:
 			handle(another)
-			continue
 		case <-timeout:
+			done = true
 		}
-		break
 	}
 	watchLogger.Tracef("read %d events for %d documents", count, len(result))
 	return result, true
@@ -201,7 +200,9 @@ func (w *LifecycleWatcher) merge(ids *set.Strings, updates map[string]bool) erro
 	}
 
 	// Collect life states from ids thought to exist. Any that don't actually
-	// exist are ignored (we'll get an event for their removal soon enough).
+	// exist are ignored (we'll hear about them in the next set of updates --
+	// all that's actually happened in that situation is that the watcher
+	// events have lagged a little behind reality).
 	iter := w.coll.Find(D{{"_id", D{{"$in", changed}}}}).Select(lifeFields).Iter()
 	var doc lifeDoc
 	for iter.Next(&doc) {
