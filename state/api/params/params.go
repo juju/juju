@@ -60,16 +60,16 @@ type MachinesSetStatus struct {
 	Machines []MachineSetStatus
 }
 
-// EntityWatchResult holds an EntityWatcher id and an error (if any).
-type EntityWatchResult struct {
-	EntityWatcherId string
+// NotifyWatchResult holds an NotifyWatcher id and an error (if any).
+type NotifyWatchResult struct {
+	NotifyWatcherId string
 	Error           *Error
 }
 
-// EntityWatchResults holds the results for any API call which ends up
+// NotifyWatchResults holds the results for any API call which ends up
 // returning a list of Entity Watchers
-type EntityWatchResults struct {
-	Results []EntityWatchResult
+type NotifyWatchResults struct {
+	Results []NotifyWatchResult
 }
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -244,9 +244,9 @@ type Creds struct {
 	Password string
 }
 
-// EntityWatcherId holds the id of an EntityWatcher.
-type EntityWatcherId struct {
-	EntityWatcherId string
+// NotifyWatcherId holds the id of an NotifyWatcher.
+type NotifyWatcherId struct {
+	NotifyWatcherId string
 }
 
 // LifecycleWatchResults holds the results of API calls

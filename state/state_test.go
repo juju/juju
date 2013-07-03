@@ -1061,7 +1061,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	w := s.State.WatchEnvironConfig()
 	defer statetesting.AssertStop(c, w)
 
-	// TODO(fwereade) just use an EntityWatcher and NotifyWatcherC to test it.
+	// TODO(fwereade) just use an NotifyWatcher and NotifyWatcherC to test it.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {

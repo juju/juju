@@ -80,19 +80,19 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	return machine.NewAgentAPI(r.srv.state, r)
 }
 
-// EntityWatcher returns an object that provides
-// API access to methods on a state.EntityWatcher.
+// NotifyWatcher returns an object that provides
+// API access to methods on a state.NotifyWatcher.
 // Each client has its own current set of watchers, stored
 // in r.resources.
-func (r *srvRoot) EntityWatcher(id string) (*srvEntityWatcher, error) {
+func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.EntityWatcher)
+	watcher, ok := r.resources.Get(id).(*state.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvEntityWatcher{
+	return &srvNotifyWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,
