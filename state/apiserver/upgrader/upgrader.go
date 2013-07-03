@@ -4,12 +4,16 @@
 package upgrader
 
 import (
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.apiserver.upgrader")
 
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
@@ -98,7 +102,7 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 		return result, nil
 	}
 	for i, agent := range args.Agents {
-		tools[i].Tag = agent.Tag
+		tools[i].AgentTools.Tag = agent.Tag
 	}
 	// For now, all agents get the same proposed version 
 	cfg, err := u.st.EnvironConfig()
@@ -117,6 +121,7 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 	for i, agent := range args.Agents {
 		agentTools, err := u.oneAgentTools(agent, agentVersion, env)
 		if err == nil {
+			logger.Debugf("Returning AgentTools: %#v", agentTools)
 			tools[i].AgentTools = agentTools
 		}
 		tools[i].Error = common.ServerError(err)

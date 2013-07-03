@@ -27,10 +27,42 @@ func (u *Upgrader) SetTools(tools params.AgentTools) error {
 	}
 	err := u.caller.Call("Upgrader", "", "SetTools", args, &results)
 	if err != nil {
+		// TODO: Not directly tested
 		return err
 	}
 	if len(results.Results) != 1 {
 		return fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
+	result := results.Results[0]
+	if result.Tag != tools.Tag {
+		// TODO: Error case
+	}
+	if err := result.Error; err != nil {
+		return err
+	}
 	return nil
+}
+
+func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
+	var results params.AgentToolsResults
+	args := params.Agents{
+		Agents: []params.Agent{params.Agent{Tag: agentTag}},
+	}
+	err := u.caller.Call("Upgrader", "", "Tools", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, err
+	}
+	if len(results.Tools) != 1 {
+		// TODO: Not directly tested
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Tools))
+	}
+	tools := results.Tools[0]
+	if err := tools.Error; err != nil {
+		return nil, err
+	}
+	if tools.AgentTools.Tag != agentTag {
+		// TODO: Error case
+	}
+	return &tools.AgentTools, nil
 }

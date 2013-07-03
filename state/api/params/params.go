@@ -251,8 +251,8 @@ type AgentTools struct {
 
 // AgentToolsResult holds the tools and possibly error for a given Agent request
 type AgentToolsResult struct {
-	AgentTools
-	Error *Error
+	AgentTools AgentTools
+	Error      *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
