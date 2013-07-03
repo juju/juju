@@ -67,7 +67,7 @@ type NotifyWatchResult struct {
 }
 
 // NotifyWatchResults holds the results for any API call which ends up
-// returning a list of Entity Watchers
+// returning a list of NotifyWatchers
 type NotifyWatchResults struct {
 	Results []NotifyWatchResult
 }
