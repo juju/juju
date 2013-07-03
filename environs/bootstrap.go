@@ -46,7 +46,7 @@ func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error 
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = LoadProviderState(env.Storage())
+		_, err = LoadState(env.Storage())
 		if err != nil {
 			break
 		}

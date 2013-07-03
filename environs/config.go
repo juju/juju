@@ -6,11 +6,15 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
+
+	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/loggo"
 )
+
+var logger = loggo.GetLogger("juju.environs")
 
 // environ holds information about one environment.
 type environ struct {
@@ -144,10 +148,23 @@ func ReadEnvirons(path string) (*Environs, error) {
 // WriteEnvirons creates a new juju environments.yaml file with the specified contents.
 func WriteEnvirons(path string, fileContents string) (string, error) {
 	environsFilepath := environsPath(path)
-	if err := os.MkdirAll(filepath.Dir(environsFilepath), 0755); err != nil {
+	environsDir := filepath.Dir(environsFilepath)
+	var info os.FileInfo
+	var err error
+	if info, err = os.Lstat(environsDir); os.IsNotExist(err) {
+		if err = os.MkdirAll(environsDir, 0700); err != nil {
+			return "", err
+		}
+	} else if err != nil {
+		return "", err
+	} else if info.Mode().Perm() != 0700 {
+		logger.Warningf("permission of %q is %q", environsDir, info.Mode().Perm())
+	}
+	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0600); err != nil {
 		return "", err
 	}
-	if err := ioutil.WriteFile(environsFilepath, []byte(fileContents), 0666); err != nil {
+	// WriteFile does not change permissions of existing files.
+	if err := os.Chmod(environsFilepath, 0600); err != nil {
 		return "", err
 	}
 	return environsFilepath, nil

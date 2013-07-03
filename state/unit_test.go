@@ -109,7 +109,7 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
@@ -956,7 +956,7 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w}
+	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Add a couple of subordinates, check change.
@@ -1005,7 +1005,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.StringsWatcherC{c, s.State, w}
+	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
@@ -1020,7 +1020,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := testing.NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -1048,7 +1048,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	c.Assert(err, IsNil)
 	w = s.unit.Watch()
 	defer testing.AssertStop(c, w)
-	testing.NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {
