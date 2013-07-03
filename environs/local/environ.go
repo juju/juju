@@ -6,7 +6,9 @@ package local
 import (
 	"fmt"
 	"net"
+	"os"
 	"sync"
+	"time"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -75,6 +77,14 @@ func (env *localEnviron) Config() *config.Config {
 	return env.config.Config
 }
 
+func createLocalStorageListener(dir string) (net.Listener, error) {
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		logger.Errorf("failed to make directory for storage at %s: %v", dir, err)
+		return nil, err
+	}
+	return localstorage.Serve("localhost:0", dir)
+}
+
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	config, err := provider.newConfig(cfg)
@@ -86,12 +96,14 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = config
 	env.name = config.Name()
-	// Recreate local storage? localhost needs to change to the ip address
-	publicListener, err := localstorage.Serve("localhost:0", config.publicStorageDir())
+	// Well... this works fine as long as the config has set from the clients
+	// local machine.
+	publicListener, err := createLocalStorageListener(config.sharedStorageDir())
 	if err != nil {
 		return err
 	}
-	privateListener, err := localstorage.Serve("localhost:0", config.privateStorageDir())
+
+	privateListener, err := createLocalStorageListener(config.storageDir())
 	if err != nil {
 		publicListener.Close()
 		return err

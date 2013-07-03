@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"launchpad.net/loggo"
 
@@ -69,7 +70,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {
-		dir = filepath.Joint(defaultRootDir, localConfig.namespace())
+		dir = filepath.Join(defaultRootDir, localConfig.namespace())
 		localConfig.attrs["root-dir"] = dir
 	}
 	logger.Tracef("ensure root dir %s exists", dir)

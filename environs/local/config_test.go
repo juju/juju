@@ -4,7 +4,6 @@
 package local_test
 
 import (
-	"fmt"
 	"os"
 	"path/filepath"
 
@@ -60,21 +59,15 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 
-	publicDir := fmt.Sprintf(s.public, "tester-test")
-	c.Assert(publicDir, jc.IsDirectory)
-	c.Assert(unknownAttrs["shared-storage"], gc.Equals, publicDir)
-
-	privateDir := fmt.Sprintf(s.private, "tester-test")
-	c.Assert(privateDir, jc.IsDirectory)
-	c.Assert(unknownAttrs["storage"], gc.Equals, privateDir)
+	root := filepath.Join(s.root, "tester-test")
+	c.Assert(root, jc.IsDirectory)
+	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
 }
 
 func (s *configSuite) TestValidateConfigWithStorage(c *gc.C) {
 	values := minimalConfigValues()
-	public := filepath.Join(c.MkDir(), "public", "storage")
-	private := filepath.Join(c.MkDir(), "private", "storage")
-	values["shared-storage"] = public
-	values["storage"] = private
+	root := c.MkDir()
+	values["root-dir"] = root
 	testConfig, err := config.New(values)
 	c.Assert(err, gc.IsNil)
 
@@ -82,8 +75,6 @@ func (s *configSuite) TestValidateConfigWithStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
 
-	c.Assert(public, jc.IsDirectory)
-	c.Assert(unknownAttrs["shared-storage"], gc.Equals, public)
-	c.Assert(private, jc.IsDirectory)
-	c.Assert(unknownAttrs["storage"], gc.Equals, private)
+	c.Assert(root, jc.IsDirectory)
+	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
 }
