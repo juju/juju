@@ -15,6 +15,15 @@ import (
 	"strings"
 )
 
+
+// A NotifyWatcher generates signals when something changes, but it does not
+// return any content of those changes
+type NotifyWatcher interface {
+    Stop() error
+    Err()  error
+    Changes() <-chan struct{}
+}
+
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
 	st   *State
@@ -1115,16 +1124,15 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	return nil
 }
 
-// NotifyWatcher generates an event when a document in the db changes
-// This may be a state entity, but might be simpler documents as well.
-type NotifyWatcher struct {
+// EntityWatcher generates an event when a document in the db changes
+type EntityWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
 // Watch return a watcher for observing changes to a machine.
-func (m *Machine) Watch() *NotifyWatcher {
-	return newNotifyWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
+func (m *Machine) Watch() NotifyWatcher {
+	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
 }
 
 // WatchContainers returns a watcher that notifies of changes to the lifecycle of containers on a machine.
@@ -1146,7 +1154,7 @@ func (m *Machine) WatchContainers(ctype instance.ContainerType) *LifecycleWatche
 }
 
 // WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
-func (m *Machine) WatchHardwareCharacteristics() (*NotifyWatcher, error) {
+func (m *Machine) WatchHardwareCharacteristics() (NotifyWatcher, error) {
 	var txnRevNo int64
 	if instData, err := getInstanceData(m.st, m.Id()); errors.IsNotFoundError(err) {
 		txnRevNo = -1
@@ -1155,17 +1163,17 @@ func (m *Machine) WatchHardwareCharacteristics() (*NotifyWatcher, error) {
 	} else {
 		return nil, err
 	}
-	return newNotifyWatcher(m.st, m.st.instanceData.Name, m.doc.Id, txnRevNo), nil
+	return newEntityWatcher(m.st, m.st.instanceData.Name, m.doc.Id, txnRevNo), nil
 }
 
 // Watch return a watcher for observing changes to a service.
-func (s *Service) Watch() *NotifyWatcher {
-	return newNotifyWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)
+func (s *Service) Watch() NotifyWatcher {
+	return newEntityWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)
 }
 
 // Watch return a watcher for observing changes to a unit.
-func (u *Unit) Watch() *NotifyWatcher {
-	return newNotifyWatcher(u.st, u.st.units.Name, u.doc.Name, u.doc.TxnRevno)
+func (u *Unit) Watch() NotifyWatcher {
+	return newEntityWatcher(u.st, u.st.units.Name, u.doc.Name, u.doc.TxnRevno)
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -1174,7 +1182,7 @@ func (u *Unit) Watch() *NotifyWatcher {
 // valid only while the unit's charm URL is not changed.
 // TODO(fwereade): this could be much smarter; if it were, uniter.Filter
 // could be somewhat simpler.
-func (u *Unit) WatchConfigSettings() (*NotifyWatcher, error) {
+func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
@@ -1183,11 +1191,11 @@ func (u *Unit) WatchConfigSettings() (*NotifyWatcher, error) {
 	if err != nil {
 		return nil, err
 	}
-	return newNotifyWatcher(u.st, u.st.settings.Name, settingsKey, txnRevno), nil
+	return newEntityWatcher(u.st, u.st.settings.Name, settingsKey, txnRevno), nil
 }
 
-func newNotifyWatcher(st *State, coll string, key interface{}, revno int64) *NotifyWatcher {
-	w := &NotifyWatcher{
+func newEntityWatcher(st *State, coll string, key interface{}, revno int64) NotifyWatcher {
+	w := &EntityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
@@ -1202,12 +1210,12 @@ func newNotifyWatcher(st *State, coll string, key interface{}, revno int64) *Not
 	return w
 }
 
-// Changes returns the event channel for the NotifyWatcher.
-func (w *NotifyWatcher) Changes() <-chan struct{} {
+// Changes returns the event channel for the EntityWatcher.
+func (w *EntityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *NotifyWatcher) loop(ch <-chan watcher.Change) (err error) {
+func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
 	out := w.out
 	for {
 		select {

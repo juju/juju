@@ -28,7 +28,7 @@ func (w *srvClientAllWatcher) Stop() error {
 }
 
 type srvNotifyWatcher struct {
-	watcher   *state.NotifyWatcher
+	watcher   state.NotifyWatcher
 	id        string
 	resources *common.Resources
 }

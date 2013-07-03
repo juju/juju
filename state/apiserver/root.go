@@ -88,7 +88,7 @@ func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.NotifyWatcher)
+	watcher, ok := r.resources.Get(id).(state.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
