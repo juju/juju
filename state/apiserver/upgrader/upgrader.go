@@ -14,14 +14,14 @@ import (
 // UpgraderAPI provides access to the Upgrader API facade.
 type UpgraderAPI struct {
 	st         *state.State
-	resources  common.ResourceRegistry
+	resources  *common.Resources
 	authorizer common.Authorizer
 }
 
 // NewUpgraderAPI creates a new client-side UpgraderAPI facade.
 func NewUpgraderAPI(
 	st *state.State,
-	resources common.ResourceRegistry,
+	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UpgraderAPI, error) {
 	// TODO: Unit agents are also allowed to use this API

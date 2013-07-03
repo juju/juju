@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -25,7 +26,7 @@ type upgraderSuite struct {
 	// should never be touched by the API calls themselves
 	rawMachine *state.Machine
 	upgrader   *upgrader.UpgraderAPI
-	resources  apitesting.FakeResourceRegistry
+	resources  *common.Resources
 	authorizer apitesting.FakeAuthorizer
 }
 
@@ -33,7 +34,7 @@ var _ = Suite(&upgraderSuite{})
 
 func (s *upgraderSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
-	s.resources = make(apitesting.FakeResourceRegistry)
+	s.resources = common.NewResources()
 
 	// Create a machine to work with
 	var err error
@@ -56,9 +57,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 
 func (s *upgraderSuite) TearDownTest(c *C) {
 	if s.resources != nil {
-		for _, resource := range s.resources {
-			resource.Stop()
-		}
+                s.resources.StopAll()
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
@@ -78,8 +77,8 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
 	c.Check(results.Results[0].EntityWatcherId, Not(Equals), "")
-	resource, ok := s.resources[results.Results[0].EntityWatcherId]
-	c.Check(ok, checkers.IsTrue)
+	resource := s.resources.Get(results.Results[0].EntityWatcherId)
+	c.Check(resource, NotNil)
 	// TODO: When this becomes a true EntityWatcher, use
 	//       state/testing/watcher.go to properly test how this watcher is
 	//       working
