@@ -22,7 +22,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -481,24 +480,8 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 func (e *environ) Bootstrap(cons constraints.Value) error {
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	var err error
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = environs.LoadProviderState(e.Storage())
-		if err != nil {
-			break
-		}
-	}
-	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if !coreerrors.IsNotFoundError(err) {
-		return fmt.Errorf("cannot query old bootstrap state: %v", err)
-	}
-	err = environs.VerifyStorage(e.Storage())
-	if err != nil {
+
+	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
 		return err
 	}
 

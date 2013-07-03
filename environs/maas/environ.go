@@ -28,6 +28,16 @@ const (
 	apiVersion = "1.0"
 )
 
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
+var shortAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
 var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
@@ -100,10 +110,9 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
-	// TODO(fwereade): this should check for an existing environment before
-	// starting a new one -- even given raciness, it's better than nothing.
-	if err := environs.VerifyStorage(env.Storage()); err != nil {
-		return fmt.Errorf("provider storage is not writeable")
+
+	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+		return err
 	}
 
 	inst, err := env.startBootstrapNode(cons)

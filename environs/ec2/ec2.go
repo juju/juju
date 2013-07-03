@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -255,25 +254,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
-	var err error
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = environs.LoadProviderState(e.Storage())
-		if err != nil {
-			break
-		}
-	}
-	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if !errors.IsNotFoundError(err) {
-		return fmt.Errorf("cannot query old bootstrap state: %v", err)
-	}
-
-	err = environs.VerifyStorage(e.Storage())
-	if err != nil {
+	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
 		return err
 	}
-
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
