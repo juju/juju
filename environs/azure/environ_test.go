@@ -303,6 +303,7 @@ func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 
 func (EnvironSuite) TestStateInfo(c *C) {
 	instanceID := "my-instance"
+	// In the Azure provider, DNS name and instance ID are the same thing.
 	patchWithPropertiesResponse(c, []gwacl.Deployment{{
 		Name: instanceID,
 		URL:  fmt.Sprintf("http://%s/", instanceID),
