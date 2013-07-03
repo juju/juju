@@ -12,8 +12,8 @@ import (
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/common"
+	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -57,7 +57,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 
 func (s *upgraderSuite) TearDownTest(c *C) {
 	if s.resources != nil {
-                s.resources.StopAll()
+		s.resources.StopAll()
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
