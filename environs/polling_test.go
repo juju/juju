@@ -21,9 +21,15 @@ var _ = Suite(&pollingSuite{})
 
 func (s *pollingSuite) SetUpSuite(c *C) {
 	s.originalLongAttempt = environs.LongAttempt
+	// The implementation of AttemptStrategy does not yield at all for a
+	// delay that's already expired.  So while this setting must be short
+	// to avoid blocking tests, it must also allow enough time to convince
+	// AttemptStrategy to sleep.  Otherwise a polling loop would just run
+	// uninterrupted and a concurrent goroutine that it was waiting for
+	// might never actually get to do its work.
 	environs.LongAttempt = utils.AttemptStrategy{
-		Total: 10,
-		Delay: 1,
+		Total: 10*time.Millisecond,
+		Delay: 1*time.Millisecond,
 	}
 }
 
