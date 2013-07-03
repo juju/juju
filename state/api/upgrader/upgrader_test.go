@@ -5,7 +5,6 @@ package upgrader_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -44,20 +43,6 @@ func defaultPassword(stm *state.Machine) string {
 // Dial options with no timeouts and no retries
 var fastDialOpts = api.DialOpts{}
 
-func charmURL(revision int) *charm.URL {
-	return charm.MustParseURL("cs:series/wordpress").WithRevision(revision)
-}
-
-// Grab a charm, create the service, add a unit for that service
-func (s *upgraderSuite) createUnit(c *C) {
-	var err error
-	s.rawCharm, err = s.State.Charm(charmURL(0))
-	c.Assert(err, IsNil)
-	s.rawService, err = s.State.AddService("service-name", s.rawCharm)
-	c.Assert(err, IsNil)
-	s.rawUnit, err = s.rawService.AddUnit()
-	c.Assert(err, IsNil)
-}
 
 func (s *upgraderSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -68,8 +53,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	err = s.rawMachine.SetPassword(defaultPassword(s.rawMachine))
 	c.Assert(err, IsNil)
-
-	s.createUnit(c)
 
 	// Start the testing API server.
 	s.server, err = apiserver.NewServer(
