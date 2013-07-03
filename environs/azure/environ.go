@@ -198,7 +198,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	// If the list of ids is empty, return nil as specified by the
 	// interface
 	if len(ids) == 0 {
-		return nil, nil
+		return nil, environs.ErrNoInstances
 	}
 	// Acquire management API object.
 	context, err := env.getManagementAPI()
