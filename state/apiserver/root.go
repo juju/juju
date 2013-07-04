@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -78,6 +79,16 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewAgentAPI(r.srv.state, r)
+}
+
+// Upgrader returns an object that provides access to the Upgrader API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
 }
 
 // NotifyWatcher returns an object that provides
