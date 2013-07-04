@@ -60,6 +60,11 @@ func (env *localEnviron) mongoServiceName() string {
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", env.name)
 
+	// TODO(thumper): check that we are running as root
+
+	// TODO(thumper): make sure any cert files are owned by the owner of the folder they are in.
+	// $(JUJU_HOME)/local-cert.pem and $(JUJU_HOME)/local-private-key.pem
+
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 
 	// If the state file exists, it might actually have just been
@@ -104,8 +109,9 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 	defer stateConnection.Close()
 
-	// Create a fake machine 0 in state to represent the machine, need an instance id.
-	// "localhost" makes sense for that.
+	// TODO(thumper): upload tools into the storage
+
+	// TODO(thumper): start the machine agent for machine-0
 
 	return nil
 }
@@ -206,6 +212,8 @@ func (env *localEnviron) PublicStorage() environs.StorageReader {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
+
+	// TODO(thumper): make sure running as root
 
 	logger.Infof("removing service %s", env.mongoServiceName())
 	mongo := upstart.NewService(env.mongoServiceName())
