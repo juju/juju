@@ -998,9 +998,9 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
 }
 
-// Watch return a NotifyWatcher waiting for the Environ Config to change. This
-// differs from WatchEnvironConfig in that the watcher is a NotifyWatcher that
-// does not give content during Changes()
+// WatchForEnvironConfigChanges return a NotifyWatcher waiting for the Environ
+// Config to change. This differs from WatchEnvironConfig in that the watcher
+// is a NotifyWatcher that does not give content during Changes()
 func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
 	return newEntityWatcher(st, st.settings, environGlobalKey)
 }
