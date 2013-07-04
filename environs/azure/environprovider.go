@@ -137,7 +137,7 @@ func parseWALAConfig() (*WALASharedConfig, error) {
 		return nil, err
 	}
 	config := &WALASharedConfig{}
-	err = xml.Unmarshal([]byte(data), config)
+	err = xml.Unmarshal(data, config)
 	if err != nil {
 		return nil, err
 	}
