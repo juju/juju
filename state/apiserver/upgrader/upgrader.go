@@ -42,7 +42,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.NotifyWatchRes
 		if !u.authorizer.AuthOwner(agent.Tag) {
 			err = common.ErrPerm
 		} else {
-			envWatcher := u.st.WatchEnvironConfig()
+			envWatcher := u.st.WatchForEnvironConfigChanges()
 			result.Results[i].NotifyWatcherId = u.resources.Register(envWatcher)
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -98,7 +98,7 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 		return result, nil
 	}
 	for i, agent := range args.Agents {
-		tools[i].Tag = agent.Tag
+		tools[i].AgentTools.Tag = agent.Tag
 	}
 	// For now, all agents get the same proposed version
 	cfg, err := u.st.EnvironConfig()

@@ -4,14 +4,20 @@
 package upgrader_test
 
 import (
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
-	stdtesting "testing"
+	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/version"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -36,13 +42,6 @@ type upgraderSuite struct {
 
 var _ = Suite(&upgraderSuite{})
 
-func defaultPassword(stm *state.Machine) string {
-	return stm.Tag() + " password"
-}
-
-// Dial options with no timeouts and no retries
-var fastDialOpts = api.DialOpts{}
-
 func (s *upgraderSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 
@@ -50,7 +49,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	var err error
 	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = s.rawMachine.SetPassword(defaultPassword(s.rawMachine))
+	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
 	// Start the testing API server.
@@ -63,13 +62,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	// Login as the machine agent of the created machine.
-	_, info, err := s.APIConn.Environ.StateInfo()
-	c.Assert(err, IsNil)
-	info.Tag = s.rawMachine.Tag()
-	info.Password = defaultPassword(s.rawMachine)
-	c.Logf("opening state; entity %q, password %q", info.Tag, info.Password)
-	s.stateAPI, err = api.Open(info, fastDialOpts)
-	c.Assert(err, IsNil)
+	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
 	c.Assert(s.stateAPI, NotNil)
 
 	// Create the upgrader facade.
@@ -95,4 +88,71 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 func (s *upgraderSuite) TestNew(c *C) {
 	upgrader := upgrader.New(s.stateAPI)
 	c.Assert(upgrader, NotNil)
+}
+
+func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
+	cur := version.Current
+	err := s.upgrader.SetTools(params.AgentTools{
+		Tag:    "42",
+		Arch:   cur.Arch,
+		Series: cur.Series,
+		Major:  cur.Major,
+		Minor:  cur.Minor,
+		Patch:  cur.Patch,
+		Build:  cur.Build,
+	})
+	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+}
+
+func (s *upgraderSuite) TestSetTools(c *C) {
+	cur := version.Current
+	tools, err := s.rawMachine.AgentTools()
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(tools, IsNil)
+	err = s.upgrader.SetTools(params.AgentTools{
+		Tag:    s.rawMachine.Tag(),
+		Arch:   cur.Arch,
+		Series: cur.Series,
+		URL:    "",
+		Major:  cur.Major,
+		Minor:  cur.Minor,
+		Patch:  cur.Patch,
+		Build:  cur.Build,
+	})
+	c.Assert(err, IsNil)
+	s.rawMachine.Refresh()
+	tools, err = s.rawMachine.AgentTools()
+	c.Assert(err, IsNil)
+	c.Assert(tools, NotNil)
+	c.Check(tools.Binary, Equals, cur)
+}
+
+func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
+	tools, err := s.upgrader.Tools("42")
+	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+	c.Assert(tools, IsNil)
+}
+
+func (s *upgraderSuite) TestTools(c *C) {
+	cur := version.Current
+	curTools := &state.Tools{Binary: cur, URL: ""}
+	if curTools.Minor > 0 {
+		curTools.Minor -= 1
+	}
+	s.rawMachine.SetAgentTools(curTools)
+	// Upgrader.Tools returns the *desired* set of tools, not the currently
+	// running set. We want to upgraded to cur.Version
+	tools, err := s.upgrader.Tools(s.rawMachine.Tag())
+	c.Assert(err, IsNil)
+	c.Assert(tools, NotNil)
+	c.Check(tools.Tag, Equals, s.rawMachine.Tag())
+	c.Check(tools.Major, Equals, cur.Major)
+	c.Check(tools.Minor, Equals, cur.Minor)
+	c.Check(tools.Patch, Equals, cur.Patch)
+	c.Check(tools.Build, Equals, cur.Build)
+	c.Check(tools.Arch, Equals, cur.Arch)
+	c.Check(tools.Series, Equals, cur.Series)
+	c.Check(tools.URL, Not(Equals), "")
 }

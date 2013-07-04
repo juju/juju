@@ -599,9 +599,7 @@ func setAgentVersion(st *state.State, vers version.Number) error {
 	if err != nil {
 		return err
 	}
-	attrs := cfg.AllAttrs()
-	attrs["agent-version"] = vers.String()
-	cfg, err = config.New(attrs)
+	cfg, err = cfg.Apply(map[string]interface{}{"agent-version": vers.String()})
 	if err != nil {
 		panic(fmt.Errorf("config refused agent-version: %v", err))
 	}
