@@ -47,7 +47,7 @@ func (s *machinerSuite) TearDownTest(c *C) {
 func (s *machinerSuite) TestMachineAndMachineId(c *C) {
 	machine, err := s.st.Machiner().Machine("42")
 	c.Assert(err, ErrorMatches, "machine 42 not found")
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 	c.Assert(machine, IsNil)
 
 	machine, err = s.st.Machiner().Machine("0")
@@ -99,7 +99,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 
 	err = machine.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 0 not found")
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 }
 
 func (s *machinerSuite) TestRefresh(c *C) {
