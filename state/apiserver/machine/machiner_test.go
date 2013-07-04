@@ -6,7 +6,6 @@ package machine_test
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
@@ -41,7 +40,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 
 func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp string) {
 	c.Assert(err, NotNil)
-	c.Assert(api.ErrCode(err), Equals, code)
+	c.Assert(params.ErrCode(err), Equals, code)
 	c.Assert(err, ErrorMatches, messageRegexp)
 }
 
@@ -70,8 +69,8 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Errors[2], params.CodeNotFound, "machine 42 not found")
 
 	// Verify machine 0 - no change.
 	status, info, err := s.machine0.Status()
@@ -100,8 +99,8 @@ func (s *machinerSuite) TestLife(c *C) {
 	c.Assert(result.Machines, HasLen, 3)
 	c.Assert(result.Machines[0].Error, IsNil)
 	c.Assert(string(result.Machines[0].Life), Equals, "dead")
-	s.assertError(c, result.Machines[1].Error, api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Machines[2].Error, api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Machines[1].Error, params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Machines[2].Error, params.CodeNotFound, "machine 42 not found")
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {
@@ -115,8 +114,8 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Errors[2], params.CodeNotFound, "machine 42 not found")
 
 	err = s.machine0.Refresh()
 	c.Assert(err, IsNil)
@@ -150,8 +149,8 @@ func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result.Results, HasLen, 3)
 	c.Assert(result.Results[0].Error, IsNil)
-	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Results[2].Error, params.CodeNotFound, "machine 42 not found")
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), Equals, 1)
