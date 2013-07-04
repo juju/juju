@@ -998,6 +998,13 @@ func (u *Unit) Watch() NotifyWatcher {
 	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
 }
 
+// Watch return a NotifyWatcher waiting for the Environ Config to change. This
+// differs from WatchEnvironConfig in that the watcher is a NotifyWatcher that
+// does not give content during Changes()
+func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
+	return newEntityWatcher(st, st.settings, environGlobalKey)
+}
+
 // WatchConfigSettings returns a watcher for observing changes to the
 // unit's service configuration settings. The unit must have a charm URL
 // set before this method is called, and the returned watcher will be

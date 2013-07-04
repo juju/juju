@@ -42,7 +42,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.NotifyWatchRes
 		if !u.authorizer.AuthOwner(agent.Tag) {
 			err = common.ErrPerm
 		} else {
-			envWatcher := u.st.WatchEnvironConfig()
+			envWatcher := u.st.WatchForEnvironConfigChanges()
 			result.Results[i].NotifyWatcherId = u.resources.Register(envWatcher)
 		}
 		result.Results[i].Error = common.ServerError(err)
