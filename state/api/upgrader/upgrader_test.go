@@ -156,3 +156,25 @@ func (s *upgraderSuite) TestTools(c *C) {
 	c.Check(tools.Series, Equals, cur.Series)
 	c.Check(tools.URL, Not(Equals), "")
 }
+
+// setAgentVersion sets the current agent version in the state's
+// environment configuration.
+func setAgentVersion(st *state.State, vers version.Number) error {
+	cfg, err := st.EnvironConfig()
+	if err != nil {
+		return err
+	}
+	attrs := cfg.AllAttrs()
+	attrs["agent-version"] = vers.String()
+	cfg, err = config.New(attrs)
+	if err != nil {
+		panic(fmt.Errorf("config refused agent-version: %v", err))
+	}
+	return st.SetEnvironConfig(cfg)
+}
+
+func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
+	results, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
+	c.Assert(err, IsNil)
+	c.Check(results.Tools, HasLen, 0)
+}

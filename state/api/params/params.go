@@ -72,6 +72,14 @@ type NotifyWatchResults struct {
 	Results []NotifyWatchResult
 }
 
+// A NotifyWatcher will send events when something changes.
+// It does not send content for those changes.
+type NotifyWatcher interface {
+	Changes() <-chan struct{}
+	Stop() error
+	Err() error
+}
+
 // Agent identifies a single agent
 type Agent struct {
 	Tag string

@@ -6,6 +6,7 @@ package upgrader
 import (
 	"fmt"
 
+	//"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -69,4 +70,8 @@ func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
 			tools.AgentTools.Tag, agentTag)
 	}
 	return &tools.AgentTools, nil
+}
+
+func (u *Upgrader) WatchAPIVersion(agentTag string) (api.NotifyWatcher, error) {
+	return nil, nil
 }

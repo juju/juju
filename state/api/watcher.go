@@ -82,7 +82,7 @@ func (w *commonWatcher) commonLoop() {
 		defer w.wg.Done()
 		<-w.tomb.Dying()
 		if err := w.call("Stop", nil); err != nil {
-			log.Errorf("state/api: error trying to stop watcher: %v", err)
+			log.Errorf("state/api: error trying to stop watcher %p: %v", w, err)
 		}
 	}()
 	w.wg.Add(1)
@@ -129,20 +129,44 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-type NotifyWatcher struct {
-	commonWatcher
-	st    *State
-	etype string
-	eid   string
-	out   chan struct{}
+func newEntityWatcher(st *State, etype, id string) NotifyWatcher {
+	var watcherId params.NotifyWatcherId
+	w := &notifyWatcher{
+		caller:          st,
+		notifyWatcherId: "",
+		out:             make(chan struct{}),
+	}
+	if err := st.Call(etype, id, "Watch", nil, &watcherId); err != nil {
+		w.tomb.Kill(err)
+	}
+	w.notifyWatcherId = watcherId.NotifyWatcherId
+	go func() {
+		defer w.tomb.Done()
+		defer close(w.out)
+		defer w.wg.Wait() // Wait for watcher to be stopped.
+		w.tomb.Kill(w.loop())
+	}()
+	return w
 }
 
-func newNotifyWatcher(st *State, etype, id string) *NotifyWatcher {
-	w := &NotifyWatcher{
-		st:    st,
-		etype: etype,
-		eid:   id,
-		out:   make(chan struct{}),
+type Caller interface {
+	Call(objType, id, request string, params, response interface{}) error
+}
+
+type notifyWatcher struct {
+	commonWatcher
+	caller          Caller
+	notifyWatcherId string
+	out             chan struct{}
+}
+
+// If an API call returns a NotifyWatchResult, you can use this to turn it into
+// a local Watcher.
+func NewNotifyWatcher(caller Caller, result params.NotifyWatchResult) NotifyWatcher {
+	w := &notifyWatcher{
+		caller:          caller,
+		notifyWatcherId: result.NotifyWatcherId,
+		out:             make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -153,22 +177,17 @@ func newNotifyWatcher(st *State, etype, id string) *NotifyWatcher {
 	return w
 }
 
-func (w *NotifyWatcher) loop() error {
-	var id params.NotifyWatcherId
-	if err := w.st.Call(w.etype, w.eid, "Watch", nil, &id); err != nil {
-		return err
-	}
+func (w *notifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
-		return w.st.Call("NotifyWatcher", id.NotifyWatcherId, request, nil, result)
+		return w.caller.Call("NotifyWatcher", w.notifyWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// Watch calls Next internally at the server-side, so we expect
-	// changes right away.
-	out := w.out
+	// We don't set out to w.out here, as we expect w.in to return immediately
+	var out chan struct{}
 	for {
 		select {
 		case _, ok := <-w.in:
@@ -189,7 +208,7 @@ func (w *NotifyWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *NotifyWatcher) Changes() <-chan struct{} {
+func (w *notifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
