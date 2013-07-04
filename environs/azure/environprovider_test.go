@@ -30,8 +30,9 @@ func (EnvironProviderSuite) TestOpen(c *C) {
 	c.Check(env.Name(), Equals, attrs["name"])
 }
 
-// create a temporary file with a valid WALinux config built using the given parameters.
-// The file will be cleaned up at the end of the test calling this method.
+// writeWALASharedConfig creates a temporary file with a valid WALinux config 
+// built using the given parameters. The file will be cleaned up at the end
+// of the test calling this method.
 func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, internalAddress string) string {
 	configTemplateXML := `
 	<SharedConfig version="1.0.0.0" goalStateIncarnation="1">
@@ -66,7 +67,7 @@ func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddres
 		internalAddress)
 	oldConfigPath := _WALAConfigPath
 	_WALAConfigPath = filename
-	// return cleanup method to restore the original value of
+	// Return cleanup method to restore the original value of
 	// '_WALAConfigPath'.
 	return func() {
 		_WALAConfigPath = oldConfigPath

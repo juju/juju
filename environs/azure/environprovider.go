@@ -4,7 +4,6 @@
 package azure
 
 import (
-	"bufio"
 	"encoding/xml"
 	"fmt"
 	"io/ioutil"
@@ -12,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/loggo"
-	"os"
 )
 
 // Logger for the Azure provider.
@@ -66,9 +64,12 @@ func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
 	return instance.Id(config.getDeploymentName()), nil
 }
 
-// Structures used to parse the XML Windows Azure Linux Agent (WALA)
-// configuration file.
+// The XML Windows Azure Linux Agent (WALA) is the agent which runs on all
+// the Linux Azure VMs.  The hostname of the VM is the service name and the
+// juju instanceId is (by design), the deployment's name.
 //
+// See https://github.com/windows-azure/walinuxagent for more details.
+// 
 // Here is an example content of such a config file:
 // <?xml version="1.0" encoding="utf-8"?>
 // <SharedConfig version="1.0.0.0" goalStateIncarnation="1">
@@ -83,6 +84,9 @@ func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
 //  </Instances>
 //  </Deployment>
 // </SharedConfig>
+
+// Structures used to parse the XML Windows Azure Linux Agent (WALA)
+// configuration file.
 
 type WALASharedConfig struct {
 	XMLName    xml.Name       `xml:"SharedConfig"`
@@ -106,7 +110,7 @@ func (config *WALASharedConfig) getDeploymentFQDN() string {
 }
 
 // getInternalIP returns the internal IP for this deployment.
-// The internalIP is the internal IP of the only instance is this deployment.
+// The internalIP is the internal IP of the only instance in this deployment.
 func (config *WALASharedConfig) getInternalIP() string {
 	return config.Instances[0].Address
 }
@@ -128,12 +132,7 @@ type WALAInstance struct {
 var _WALAConfigPath = "/var/lib/waagent/SharedConfig.xml"
 
 func parseWALAConfig() (*WALASharedConfig, error) {
-	fin, err := os.Open(_WALAConfigPath)
-	if err != nil {
-		return nil, err
-	}
-	reader := bufio.NewReader(fin)
-	data, err := ioutil.ReadAll(reader)
+	data, err := ioutil.ReadFile(_WALAConfigPath)
 	if err != nil {
 		return nil, err
 	}
