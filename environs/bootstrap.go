@@ -46,8 +46,7 @@ func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error 
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
 	for a := shortAttempt.Start(); a.Next(); {
-		_, err = LoadState(env.Storage())
-		if err != nil {
+		if _, err = LoadState(env.Storage()); err != nil {
 			break
 		}
 	}
@@ -58,9 +57,5 @@ func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error 
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	err = VerifyStorage(env.Storage())
-	if err != nil {
-		return err
-	}
-	return nil
+	return VerifyStorage(env.Storage())
 }
