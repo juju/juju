@@ -4,8 +4,6 @@
 package upgrader_test
 
 import (
-	"time"
-
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -15,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
+	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -80,22 +79,10 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
 	c.Check(resource, NotNil)
 
-	// TODO: When this becomes a true NotifyWatcher, use
-	//       state/testing/watcher.go to properly test how this watcher is
-	//       working
-	defer func() {
-		err := resource.Stop()
-		c.Assert(err, IsNil)
-	}()
-	// Check that the watcher returns an initial event
-	channel := resource.(*state.EnvironConfigWatcher).Changes()
-	// Should use helpers from state/watcher_test.go when generalised
-	select {
-	case _, ok := <-channel:
-		c.Assert(ok, Equals, true)
-	case <-time.After(50 * time.Millisecond):
-		c.Fatal("timeout waiting for entity watcher")
-	}
+	w := resource.(state.NotifyWatcher)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
 }
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
@@ -147,7 +134,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(results.Tools, HasLen, 1)
 	toolResult := results.Tools[0]
-	c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
+	c.Check(toolResult.AgentTools.Tag, Equals, s.rawMachine.Tag())
 	c.Assert(toolResult.Error, NotNil)
 	err = *toolResult.Error
 	c.Check(err, ErrorMatches, "permission denied")
@@ -172,16 +159,16 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, IsNil)
 	c.Check(results.Tools, HasLen, 1)
-	toolResult := results.Tools[0]
-	c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
-	c.Assert(toolResult.Error, IsNil)
-	c.Check(toolResult.Major, Equals, cur.Major)
-	c.Check(toolResult.Minor, Equals, cur.Minor)
-	c.Check(toolResult.Patch, Equals, cur.Patch)
-	c.Check(toolResult.Build, Equals, cur.Build)
-	c.Check(toolResult.Arch, Equals, cur.Arch)
-	c.Check(toolResult.Series, Equals, cur.Series)
-	c.Check(toolResult.URL, Not(Equals), "")
+	agentTools := results.Tools[0].AgentTools
+	c.Assert(results.Tools[0].Error, IsNil)
+	c.Check(agentTools.Tag, Equals, s.rawMachine.Tag())
+	c.Check(agentTools.Major, Equals, cur.Major)
+	c.Check(agentTools.Minor, Equals, cur.Minor)
+	c.Check(agentTools.Patch, Equals, cur.Patch)
+	c.Check(agentTools.Build, Equals, cur.Build)
+	c.Check(agentTools.Arch, Equals, cur.Arch)
+	c.Check(agentTools.Series, Equals, cur.Series)
+	c.Check(agentTools.URL, Not(Equals), "")
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *C) {
