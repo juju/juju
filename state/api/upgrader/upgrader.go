@@ -36,8 +36,8 @@ func (u *Upgrader) SetTools(tools params.AgentTools) error {
 	result := results.Results[0]
 	if result.Tag != tools.Tag {
 		// TODO: Not directly tested
-                return fmt.Errorf("server returned tag that did not match: got %q expected %q",
-                    result.Tag, tools.Tag)
+		return fmt.Errorf("server returned tag that did not match: got %q expected %q",
+			result.Tag, tools.Tag)
 	}
 	if err := result.Error; err != nil {
 		return err
@@ -65,8 +65,8 @@ func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
 	}
 	if tools.AgentTools.Tag != agentTag {
 		// TODO: Not directly tested
-                return fmt.Errorf("server returned tag that did not match: got %q expected %q",
-                    result.Tag, tools.Tag)
+		return fmt.Errorf("server returned tag that did not match: got %q expected %q",
+			result.Tag, tools.Tag)
 	}
 	return &tools.AgentTools, nil
 }
