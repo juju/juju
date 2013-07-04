@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api_test
+package watcher_test
 
 import (
 	stdtesting "testing"
@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/apiserver"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -82,8 +83,8 @@ func (s *watcherSuite) TestWatchMachine(c *C) {
 	c.Assert(results.Results, HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, IsNil)
-	// api.NotifyWatcher conforms to the state.NotifyWatcher interface
-	w := api.NewNotifyWatcher(s.stateAPI, result)
+	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
+	w := watcher.NewNotifyWatcher(s.stateAPI, result)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()

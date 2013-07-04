@@ -6,9 +6,9 @@ package upgrader
 import (
 	"fmt"
 
-	//"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 )
 
 // Upgrader provides access to the Upgrader API facade.
@@ -72,6 +72,7 @@ func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
 	return &tools.AgentTools, nil
 }
 
-func (u *Upgrader) WatchAPIVersion(agentTag string) (api.NotifyWatcher, error) {
+func (u *Upgrader) WatchAPIVersion(agentTag string) (params.NotifyWatcher, error) {
+	_ = watcher.NewNotifyWatcher
 	return nil, nil
 }

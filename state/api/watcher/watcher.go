@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package watcher
 
 import (
 	"launchpad.net/juju-core/environs/config"
@@ -11,25 +11,10 @@ import (
 	"sync"
 )
 
-// AllWatcher holds information allowing us to get Deltas describing changes
-// to the entire environment.
-type AllWatcher struct {
-	client *Client
-	id     *string
-}
-
-func newAllWatcher(client *Client, id *string) *AllWatcher {
-	return &AllWatcher{client, id}
-}
-
-func (watcher *AllWatcher) Next() ([]params.Delta, error) {
-	info := new(params.AllWatcherNextResults)
-	err := watcher.client.st.Call("AllWatcher", *watcher.id, "Next", nil, info)
-	return info.Deltas, err
-}
-
-func (watcher *AllWatcher) Stop() error {
-	return watcher.client.st.Call("AllWatcher", *watcher.id, "Stop", nil, nil)
+// Caller is an interface that just implements Call
+// Most notably, Caller is implemented by *api.State
+type Caller interface {
+	Call(objType, id, request string, params, response interface{}) error
 }
 
 // commonWatcher implements common watcher logic in one place to
@@ -95,7 +80,7 @@ func (w *commonWatcher) commonLoop() {
 			result := w.newResult()
 			err := w.call("Next", &result)
 			if err != nil {
-				if code := ErrCode(err); code == CodeStopped || code == CodeNotFound {
+				if code := params.ErrCode(err); code == params.CodeStopped || code == params.CodeNotFound {
 					if w.tomb.Err() != tomb.ErrStillAlive {
 						// The watcher has been stopped at the client end, so we're
 						// expecting one of the above two kinds of error.
@@ -129,14 +114,14 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func newEntityWatcher(st *State, etype, id string) NotifyWatcher {
+func newEntityWatcher(caller Caller, etype, id string) params.NotifyWatcher {
 	var watcherId params.NotifyWatcherId
 	w := &notifyWatcher{
-		caller:          st,
+		caller:          caller,
 		notifyWatcherId: "",
 		out:             make(chan struct{}),
 	}
-	if err := st.Call(etype, id, "Watch", nil, &watcherId); err != nil {
+	if err := caller.Call(etype, id, "Watch", nil, &watcherId); err != nil {
 		w.tomb.Kill(err)
 	}
 	w.notifyWatcherId = watcherId.NotifyWatcherId
@@ -149,10 +134,6 @@ func newEntityWatcher(st *State, etype, id string) NotifyWatcher {
 	return w
 }
 
-type Caller interface {
-	Call(objType, id, request string, params, response interface{}) error
-}
-
 type notifyWatcher struct {
 	commonWatcher
 	caller          Caller
@@ -162,7 +143,7 @@ type notifyWatcher struct {
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller Caller, result params.NotifyWatchResult) NotifyWatcher {
+func NewNotifyWatcher(caller Caller, result params.NotifyWatchResult) params.NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -214,14 +195,14 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 
 type LifecycleWatcher struct {
 	commonWatcher
-	st        *State
+	caller    Caller
 	watchCall string
 	out       chan []string
 }
 
-func newLifecycleWatcher(st *State, watchCall string) *LifecycleWatcher {
+func newLifecycleWatcher(caller Caller, watchCall string) *LifecycleWatcher {
 	w := &LifecycleWatcher{
-		st:        st,
+		caller:    caller,
 		watchCall: watchCall,
 		out:       make(chan []string),
 	}
@@ -235,13 +216,13 @@ func newLifecycleWatcher(st *State, watchCall string) *LifecycleWatcher {
 
 func (w *LifecycleWatcher) loop() error {
 	var result params.LifecycleWatchResults
-	if err := w.st.Call("State", "", w.watchCall, nil, &result); err != nil {
+	if err := w.caller.Call("State", "", w.watchCall, nil, &result); err != nil {
 		return err
 	}
 	changes := result.Ids
 	w.newResult = func() interface{} { return new(params.LifecycleWatchResults) }
 	w.call = func(request string, newResult interface{}) error {
-		return w.st.Call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
+		return w.caller.Call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -276,14 +257,14 @@ func (w *LifecycleWatcher) Changes() <-chan []string {
 
 type EnvironConfigWatcher struct {
 	commonWatcher
-	st  *State
-	out chan *config.Config
+	caller Caller
+	out    chan *config.Config
 }
 
-func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
+func newEnvironConfigWatcher(caller Caller) *EnvironConfigWatcher {
 	w := &EnvironConfigWatcher{
-		st:  st,
-		out: make(chan *config.Config),
+		caller: caller,
+		out:    make(chan *config.Config),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -295,7 +276,7 @@ func newEnvironConfigWatcher(st *State) *EnvironConfigWatcher {
 
 func (w *EnvironConfigWatcher) loop() error {
 	var result params.EnvironConfigWatchResults
-	if err := w.st.Call("State", "", "WatchEnvironConfig", nil, &result); err != nil {
+	if err := w.caller.Call("State", "", "WatchEnvironConfig", nil, &result); err != nil {
 		return err
 	}
 
@@ -307,7 +288,7 @@ func (w *EnvironConfigWatcher) loop() error {
 		return new(params.EnvironConfigWatchResults)
 	}
 	w.call = func(request string, newResult interface{}) error {
-		return w.st.Call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
+		return w.caller.Call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()

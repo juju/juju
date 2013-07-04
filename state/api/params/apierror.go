@@ -1,12 +1,14 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package api
+package params
 
-import "launchpad.net/juju-core/rpc"
+import (
+	"fmt"
 
-// Error is the type of error returned by any call
-// to the state API.
+	"launchpad.net/juju-core/rpc"
+)
+
 type Error struct {
 	Message string
 	Code    string
@@ -21,6 +23,12 @@ func (e *Error) ErrorCode() string {
 }
 
 var _ rpc.ErrorCoder = (*Error)(nil)
+
+// GoString implements fmt.GoStringer.  It means that a *Error shows its
+// contents correctly when printed with %#v.
+func (e Error) GoString() string {
+	return fmt.Sprintf("&params.Error{%q, %q}", e.Code, e.Message)
+}
 
 // The Code constants hold error codes for some kinds of error.
 const (
@@ -47,7 +55,7 @@ func ErrCode(err error) string {
 
 // clientError maps errors returned from an RPC call into local errors with
 // appropriate values.
-func clientError(err error) error {
+func ClientError(err error) error {
 	rerr, ok := err.(*rpc.RequestError)
 	if !ok {
 		return err

@@ -102,7 +102,7 @@ func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
 		Build:  cur.Build,
 	})
 	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 }
 
 func (s *upgraderSuite) TestSetTools(c *C) {
@@ -131,7 +131,7 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
 	tools, err := s.upgrader.Tools("42")
 	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(tools, IsNil)
 }
 
@@ -155,26 +155,4 @@ func (s *upgraderSuite) TestTools(c *C) {
 	c.Check(tools.Arch, Equals, cur.Arch)
 	c.Check(tools.Series, Equals, cur.Series)
 	c.Check(tools.URL, Not(Equals), "")
-}
-
-// setAgentVersion sets the current agent version in the state's
-// environment configuration.
-func setAgentVersion(st *state.State, vers version.Number) error {
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	attrs := cfg.AllAttrs()
-	attrs["agent-version"] = vers.String()
-	cfg, err = config.New(attrs)
-	if err != nil {
-		panic(fmt.Errorf("config refused agent-version: %v", err))
-	}
-	return st.SetEnvironConfig(cfg)
-}
-
-func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
-	results, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
-	c.Assert(err, IsNil)
-	c.Check(results.Tools, HasLen, 0)
 }
