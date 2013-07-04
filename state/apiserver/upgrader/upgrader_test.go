@@ -147,7 +147,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(results.Tools, HasLen, 1)
 	toolResult := results.Tools[0]
-	c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
+	c.Check(toolResult.AgentTools.Tag, Equals, s.rawMachine.Tag())
 	c.Assert(toolResult.Error, NotNil)
 	err = *toolResult.Error
 	c.Check(err, ErrorMatches, "permission denied")
@@ -172,16 +172,16 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, IsNil)
 	c.Check(results.Tools, HasLen, 1)
-	toolResult := results.Tools[0]
-	c.Check(toolResult.Tag, Equals, s.rawMachine.Tag())
-	c.Assert(toolResult.Error, IsNil)
-	c.Check(toolResult.Major, Equals, cur.Major)
-	c.Check(toolResult.Minor, Equals, cur.Minor)
-	c.Check(toolResult.Patch, Equals, cur.Patch)
-	c.Check(toolResult.Build, Equals, cur.Build)
-	c.Check(toolResult.Arch, Equals, cur.Arch)
-	c.Check(toolResult.Series, Equals, cur.Series)
-	c.Check(toolResult.URL, Not(Equals), "")
+	agentTools := results.Tools[0].AgentTools
+	c.Assert(results.Tools[0].Error, IsNil)
+	c.Check(agentTools.Tag, Equals, s.rawMachine.Tag())
+	c.Check(agentTools.Major, Equals, cur.Major)
+	c.Check(agentTools.Minor, Equals, cur.Minor)
+	c.Check(agentTools.Patch, Equals, cur.Patch)
+	c.Check(agentTools.Build, Equals, cur.Build)
+	c.Check(agentTools.Arch, Equals, cur.Arch)
+	c.Check(agentTools.Series, Equals, cur.Series)
+	c.Check(agentTools.URL, Not(Equals), "")
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *C) {
