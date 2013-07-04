@@ -53,14 +53,33 @@ func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, int
 	return filename
 }
 
+// overrideWALASharedConfig:
+// - creates a temporary file with a valid WALinux config built using the
+// given parameters.  The file will be cleaned up at the end of the test
+// calling this method.
+// - monkey patches the value of '_WALAConfigPath' (the path to the WALA
+// configuration file) so that it contains the path to the temporary file. 
+// overrideWALASharedConfig returns a cleanup method that the caller *must*
+// call in order to restore the original value of '_WALAConfigPath'
+func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddress string) func() {
+	filename := writeWALASharedConfig(c, deploymentId, deploymentName,
+		internalAddress)
+	oldConfigPath := _WALAConfigPath
+	_WALAConfigPath = filename
+	// return cleanup method to restore the original value of
+	// '_WALAConfigPath'.
+	return func() {
+		_WALAConfigPath = oldConfigPath
+	}
+}
+
 func (EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	deploymentName := "gwaclmachineex95rsek"
 	internalAddress := "10.76.200.59"
-	filename := writeWALASharedConfig(c, deploymentId, deploymentName, internalAddress)
-	oldConfigPath := _WALAConfigPath
-	_WALAConfigPath = filename
-	defer func() { _WALAConfigPath = oldConfigPath }()
+
+	cleanup := overrideWALASharedConfig(c, deploymentId, deploymentName, internalAddress)
+	defer cleanup()
 
 	config, err := parseWALAConfig()
 	c.Assert(err, IsNil)
@@ -92,10 +111,8 @@ func (EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
 
 func (EnvironProviderSuite) TestPublicAddress(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
-	filename := writeWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
-	oldConfigPath := _WALAConfigPath
-	_WALAConfigPath = filename
-	defer func() { _WALAConfigPath = oldConfigPath }()
+	cleanup := overrideWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
+	defer cleanup()
 
 	expectedAddress := deploymentId + ".cloudapp.net"
 	prov := azureEnvironProvider{}
@@ -110,10 +127,8 @@ func (EnvironProviderSuite) TestPublicAddress(c *C) {
 // address.
 func (EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
-	filename := writeWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
-	oldConfigPath := _WALAConfigPath
-	_WALAConfigPath = filename
-	defer func() { _WALAConfigPath = oldConfigPath }()
+	cleanup := overrideWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
+	defer cleanup()
 
 	expectedAddress := deploymentId + ".cloudapp.net"
 	prov := azureEnvironProvider{}
@@ -125,10 +140,8 @@ func (EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
 /*
 func (EnvironProviderSuite) TestPrivateAddress(c *C) {
 	internalAddress := "10.76.200.59"
-	filename := writeWALASharedConfig(c, "deploy-id", "name", internalAddress)
-	oldConfigPath := _WALAConfigPath
-	_WALAConfigPath = filename
-	defer func() { _WALAConfigPath = oldConfigPath }()
+	cleanup := overrideWALASharedConfig(c, "deploy-id", "name", internalAddress)
+	defer cleanup()
 
 	prov := azureEnvironProvider{}
 	privAddress, err := prov.PrivateAddress()
@@ -139,10 +152,8 @@ func (EnvironProviderSuite) TestPrivateAddress(c *C) {
 
 func (EnvironProviderSuite) TestInstanceId(c *C) {
 	deploymentName := "deploymentname"
-	filename := writeWALASharedConfig(c, "deploy-id", deploymentName, "10.76.200.59")
-	oldConfigPath := _WALAConfigPath
-	_WALAConfigPath = filename
-	defer func() { _WALAConfigPath = oldConfigPath }()
+	cleanup := overrideWALASharedConfig(c, "deploy-id", deploymentName, "10.76.200.59")
+	defer cleanup()
 
 	prov := azureEnvironProvider{}
 	instanceId, err := prov.InstanceId()
