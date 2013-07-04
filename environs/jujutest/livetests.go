@@ -483,6 +483,9 @@ func restoreBootstrapVerificationFile(c *C, storage environs.Storage) {
 func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
 	// When new connection is established to a bootstraped environment,
 	// it is checked that we are running against a juju-core environment.
+	if !t.CanOpenState {
+		c.Skip("CanOpenState is false; cannot open state connection")
+	}
 	t.BootstrapOnce(c)
 
 	conn, err := juju.NewConn(t.Env)
@@ -496,6 +499,9 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
 	//
 	// Absence of a verification file means it is a juju-core environment
 	// with an older version, which is fine.
+	if !t.CanOpenState {
+		c.Skip("CanOpenState is false; cannot open state connection")
+	}
 	t.BootstrapOnce(c)
 	environ := t.Env
 	storage := environ.Storage()
@@ -514,6 +520,9 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 	//
 	// If the verification file has unexpected content, it is not
 	// a juju-core environment (likely to a Python juju environment).
+	if !t.CanOpenState {
+		c.Skip("CanOpenState is false; cannot open state connection")
+	}
 	t.BootstrapOnce(c)
 	environ := t.Env
 	storage := environ.Storage()
