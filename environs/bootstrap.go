@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 )
 
