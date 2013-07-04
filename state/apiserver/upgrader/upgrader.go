@@ -33,9 +33,9 @@ func NewUpgraderAPI(
 
 // Start a watcher to track if there is a new version of the API that we want
 // to upgrade to
-func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchResults, error) {
-	result := params.EntityWatchResults{
-		Results: make([]params.EntityWatchResult, len(args.Agents)),
+func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Agents)),
 	}
 	for i, agent := range args.Agents {
 		var err error
@@ -43,7 +43,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.EntityWatchRes
 			err = common.ErrPerm
 		} else {
 			envWatcher := u.st.WatchEnvironConfig()
-			result.Results[i].EntityWatcherId = u.resources.Register(envWatcher)
+			result.Results[i].NotifyWatcherId = u.resources.Register(envWatcher)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -100,7 +100,7 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 	for i, agent := range args.Agents {
 		tools[i].AgentTools.Tag = agent.Tag
 	}
-	// For now, all agents get the same proposed version 
+	// For now, all agents get the same proposed version
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return result, err

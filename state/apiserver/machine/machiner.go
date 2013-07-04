@@ -47,10 +47,10 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 	return result, nil
 }
 
-// Watch starts an EntityWatcher for each given machine.
-func (m *MachinerAPI) Watch(args params.Machines) (params.EntityWatchResults, error) {
-	result := params.EntityWatchResults{
-		Results: make([]params.EntityWatchResult, len(args.Ids)),
+// Watch starts an NotifyWatcher for each given machine.
+func (m *MachinerAPI) Watch(args params.Machines) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Ids)),
 	}
 	if len(args.Ids) == 0 {
 		return result, nil
@@ -63,7 +63,7 @@ func (m *MachinerAPI) Watch(args params.Machines) (params.EntityWatchResults, er
 				err = common.ErrPerm
 			} else {
 				watcher := machine.Watch()
-				result.Results[i].EntityWatcherId = m.resources.Register(watcher)
+				result.Results[i].NotifyWatcherId = m.resources.Register(watcher)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

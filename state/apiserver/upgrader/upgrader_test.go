@@ -76,11 +76,11 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
-	c.Check(results.Results[0].EntityWatcherId, Not(Equals), "")
-	resource := s.resources.Get(results.Results[0].EntityWatcherId)
+	c.Check(results.Results[0].NotifyWatcherId, Not(Equals), "")
+	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
 	c.Check(resource, NotNil)
 
-	// TODO: When this becomes a true EntityWatcher, use
+	// TODO: When this becomes a true NotifyWatcher, use
 	//       state/testing/watcher.go to properly test how this watcher is
 	//       working
 	defer func() {
@@ -121,7 +121,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
-	c.Check(results.Results[0].EntityWatcherId, Equals, "")
+	c.Check(results.Results[0].NotifyWatcherId, Equals, "")
 	c.Assert(results.Results[0].Error, NotNil)
 	err = *results.Results[0].Error
 	c.Check(err, ErrorMatches, "permission denied")

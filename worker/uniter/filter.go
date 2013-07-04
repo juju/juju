@@ -254,7 +254,7 @@ func (f *filter) loop(unitName string) (err error) {
 	defer watcher.Stop(servicew, &f.tomb)
 	// configw and relationsw can get restarted, so we need to use
 	// their eventual values in the defer calls.
-	var configw *state.EntityWatcher
+	var configw state.NotifyWatcher
 	var configChanges <-chan struct{}
 	if curl, ok := f.unit.CharmURL(); ok {
 		configw, err = f.unit.WatchConfigSettings()
@@ -307,10 +307,21 @@ func (f *filter) loop(unitName string) (err error) {
 			log.Debugf("worker/uniter/filter: preparing new config event")
 			f.outConfig = f.outConfigOn
 			discardConfig = f.discardConfig
-		case ids, ok := <-relationsw.Changes():
+		case keys, ok := <-relationsw.Changes():
 			log.Debugf("worker/uniter/filter: got relations change")
 			if !ok {
 				return watcher.MustErr(relationsw)
+			}
+			var ids []int
+			for _, key := range keys {
+				if rel, err := f.st.KeyRelation(key); errors.IsNotFoundError(err) {
+					// If it's actually gone, this unit cannot have entered
+					// scope, and therefore never needs to know about it.
+				} else if err != nil {
+					return err
+				} else {
+					ids = append(ids, rel.Id())
+				}
 			}
 			f.relationsChanged(ids)
 
