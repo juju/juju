@@ -7,8 +7,12 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -60,6 +64,84 @@ func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error 
 
 	err = VerifyStorage(env.Storage())
 	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func BootstrapMongoUsers(st *state.State, cfg *config.Config, passwordHash string) error {
+	logger.Debugf("add admin user")
+	// Set up initial authentication.
+	u, err := st.AddUser("admin", "")
+	if err != nil {
+		return err
+	}
+
+	// Note that at bootstrap time, the password is set to
+	// the hash of its actual value. The first time a client
+	// connects to mongo, it changes the mongo password
+	// to the original password.
+	logger.Debugf("set password hash for admin user")
+	if err := u.SetPasswordHash(passwordHash); err != nil {
+		return err
+	}
+	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
+		return err
+	}
+	return nil
+
+}
+
+func ConfigureBootstrapMachine(
+	st *state.State,
+	cfg *config.Config,
+	cons constraints.Value,
+	datadir string,
+	jobs []state.MachineJob,
+) error {
+	logger.Debugf("setting environment constraints")
+	if err := st.SetEnvironConstraints(cons); err != nil {
+		return err
+	}
+
+	logger.Debugf("configure bootstrap machine")
+	provider, err := Provider(cfg.Type())
+	if err != nil {
+		return err
+	}
+	instanceId, err := provider.InstanceId()
+	if err != nil {
+		return err
+	}
+
+	logger.Debugf("create bootstrap machine in state")
+	m, err := st.InjectMachine(version.Current.Series, cons, instanceId, jobs...)
+	if err != nil {
+		return err
+	}
+	// Read the machine agent's password and change it to
+	// a new password (other agents will change their password
+	// via the API connection).
+	logger.Debugf("create new random password for machine %v", m.Id())
+	mconf, err := agent.ReadConf(datadir, m.Tag())
+	if err != nil {
+		return err
+	}
+	newPassword, err := utils.RandomPassword()
+	if err != nil {
+		return err
+	}
+	mconf.StateInfo.Password = newPassword
+	mconf.APIInfo.Password = newPassword
+	mconf.OldPassword = ""
+
+	if err := mconf.Write(); err != nil {
+		return err
+	}
+	if err := m.SetMongoPassword(newPassword); err != nil {
+		return err
+	}
+	if err := m.SetPassword(newPassword); err != nil {
 		return err
 	}
 	return nil

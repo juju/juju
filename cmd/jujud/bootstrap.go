@@ -11,11 +11,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
 )
 
 type BootstrapCommand struct {
@@ -65,41 +62,10 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
-	if err := st.SetEnvironConstraints(c.Constraints); err != nil {
-		return err
-	}
-	if err := c.configureBootstrapMachine(st, cfg); err != nil {
+	if err := environs.BootstrapMongoUsers(st, cfg, c.Conf.OldPassword); err != nil {
 		return err
 	}
 
-	// Set up initial authentication.
-	u, err := st.AddUser("admin", "")
-	if err != nil {
-		return err
-	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-	if err := u.SetPasswordHash(c.Conf.OldPassword); err != nil {
-		return err
-	}
-	if err := st.SetAdminMongoPassword(c.Conf.OldPassword); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (c *BootstrapCommand) configureBootstrapMachine(st *state.State, cfg *config.Config) error {
-	provider, err := environs.Provider(cfg.Type())
-	if err != nil {
-		return err
-	}
-	instanceId, err := provider.InstanceId()
-	if err != nil {
-		return err
-	}
 	// TODO(fwereade): we need to be able to customize machine jobs,
 	// not just hardcode these values; in particular, JobHostUnits
 	// on a machine, like this one, that is running JobManageEnviron
@@ -116,35 +82,8 @@ func (c *BootstrapCommand) configureBootstrapMachine(st *state.State, cfg *confi
 	jobs := []state.MachineJob{
 		state.JobManageEnviron, state.JobManageState, state.JobHostUnits,
 	}
-	m, err := st.InjectMachine(version.Current.Series, c.Constraints, instanceId, jobs...)
-	if err != nil {
-		return err
-	}
-	// Read the machine agent's password and change it to
-	// a new password (other agents will change their password
-	// via the API connection).
-	mconf, err := agent.ReadConf(c.Conf.DataDir, m.Tag())
-	if err != nil {
-		return err
-	}
-	newPassword, err := utils.RandomPassword()
-	if err != nil {
-		return err
-	}
-	mconf.StateInfo.Password = newPassword
-	mconf.APIInfo.Password = newPassword
-	mconf.OldPassword = ""
 
-	if err := mconf.Write(); err != nil {
-		return err
-	}
-	if err := m.SetMongoPassword(newPassword); err != nil {
-		return err
-	}
-	if err := m.SetPassword(newPassword); err != nil {
-		return err
-	}
-	return nil
+	return environs.ConfigureBootstrapMachine(st, cfg, c.Constraints, c.Conf.DataDir, jobs)
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

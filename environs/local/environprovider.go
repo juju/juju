@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.local")
@@ -33,10 +34,18 @@ var (
 )
 
 // Open implements environs.EnvironProvider.Open.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error) {
 	logger.Infof("opening environment %q", cfg.Name())
+	if _, ok := cfg.AgentVersion(); !ok {
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"agent-version": version.CurrentNumber().String(),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	environ := &localEnviron{name: cfg.Name()}
-	err := environ.SetConfig(cfg)
+	err = environ.SetConfig(cfg)
 	if err != nil {
 		logger.Errorf("failure setting config: %v", err)
 		return nil, err
@@ -74,6 +83,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 		localConfig.attrs["root-dir"] = dir
 	}
 	logger.Tracef("ensure root dir %s exists", dir)
+	// TODO(thumper): we so don't want to do this here, but should make the dirs in bootstrap.
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		logger.Errorf("failed to make directory for shared storage at %s: %v", dir, err)
 		return nil, err
@@ -118,7 +128,9 @@ func (environProvider) PrivateAddress() (string, error) {
 
 // InstanceId implements environs.EnvironProvider.InstanceId.
 func (environProvider) InstanceId() (instance.Id, error) {
-	return "", fmt.Errorf("not implemented")
+	// This hack only works until we get containers started.
+	return instance.Id("localhost"), nil
+	// return "", fmt.Errorf("not implemented")
 }
 
 func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
