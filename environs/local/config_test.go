@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
-	// jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type configSuite struct {
