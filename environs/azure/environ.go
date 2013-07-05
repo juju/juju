@@ -148,25 +148,24 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	defer env.releaseManagementAPI(context)
 
 	// Prepare gwacl request object.
-	container := env.getSnapshot().ecfg.StorageContainerName()
-	deploymentNames := make([]string, len(ids))
+	serviceNames := make([]string, len(ids))
 	for i, id := range ids {
-		deploymentNames[i] = string(id)
+		serviceNames[i] = string(id)
 	}
-	request := &gwacl.ListDeploymentsRequest{ServiceName: container, DeploymentNames: deploymentNames}
+	request := &gwacl.ListSpecificHostedServicesRequest{ServiceNames: serviceNames}
 
-	// Issue 'ListDeployments' request with gwacl.
-	deployments, err := context.ListDeployments(request)
+	// Issue 'ListSpecificHostedServices' request with gwacl.
+	services, err := context.ListSpecificHostedServices(request)
 	if err != nil {
 		return nil, err
 	}
 
 	// If no instances were found, return ErrNoInstances.
-	if len(deployments) == 0 {
+	if len(services) == 0 {
 		return nil, environs.ErrNoInstances
 	}
 
-	instances := convertToInstances(deployments)
+	instances := convertToInstances(services)
 
 	// Check if we got a partial result.
 	if len(ids) != len(instances) {
@@ -184,21 +183,19 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 	defer env.releaseManagementAPI(context)
 
-	container := env.getSnapshot().ecfg.StorageContainerName()
-	request := &gwacl.ListAllDeploymentsRequest{ServiceName: container}
-	deployments, err := context.ListAllDeployments(request)
+	hostedServices, err := context.ListHostedServices()
 	if err != nil {
 		return nil, err
 	}
-	return convertToInstances(deployments), nil
+	return convertToInstances(hostedServices), nil
 }
 
-// convertToInstances converts a slice of gwacl.Deployment objects into
-// a slice of instance.Instance objects.
-func convertToInstances(deployments []gwacl.Deployment) []instance.Instance {
-	instances := make([]instance.Instance, len(deployments))
-	for i, deployment := range deployments {
-		instances[i] = &azureInstance{deployment}
+// convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
+// into a slice of instance.Instance objects.
+func convertToInstances(services []gwacl.HostedServiceDescriptor) []instance.Instance {
+	instances := make([]instance.Instance, len(services))
+	for i, service := range services {
+		instances[i] = &azureInstance{service}
 	}
 	return instances
 }
