@@ -4,12 +4,16 @@
 package config_test
 
 import (
+	stdtesting "testing"
+	"time"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	stdtesting "testing"
 )
 
 func Test(t *stdtesting.T) {
@@ -730,6 +734,60 @@ func newTestConfig(c *C, explicit attrs) *config.Config {
 	result, err := config.New(final)
 	c.Assert(err, IsNil)
 	return result
+}
+
+func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *C) {
+	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
+	// a fake home.
+	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+		{".ssh/id_rsa.pub", "rsa\n"},
+	}).Restore()
+
+	for _, test := range []struct {
+		configValues map[string]interface{}
+		errMatch     string
+	}{{
+		configValues: map[string]interface{}{
+			"name": "test-no-certs",
+			"type": "dummy",
+		},
+		errMatch: "environment configuration has no ca-cert",
+	}, {
+		configValues: map[string]interface{}{
+			"name":    "test-no-certs",
+			"type":    "dummy",
+			"ca-cert": testing.CACert,
+		},
+		errMatch: "environment configuration has no ca-private-key",
+	}, {
+		configValues: map[string]interface{}{
+			"name":           "test-no-certs",
+			"type":           "dummy",
+			"ca-cert":        testing.CACert,
+			"ca-private-key": testing.CAKey,
+		},
+	}} {
+		cfg, err := config.New(test.configValues)
+		c.Assert(err, IsNil)
+		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey()
+		if test.errMatch == "" {
+			c.Assert(err, IsNil)
+
+			_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
+			c.Check(err, IsNil)
+
+			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now())
+			c.Assert(err, IsNil)
+			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now().AddDate(9, 0, 0))
+			c.Assert(err, IsNil)
+			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now().AddDate(10, 0, 1))
+			c.Assert(err, NotNil)
+		} else {
+			c.Assert(err, ErrorMatches, test.errMatch)
+			c.Assert(certPEM, IsNil)
+			c.Assert(keyPEM, IsNil)
+		}
+	}
 }
 
 var caCert = `
