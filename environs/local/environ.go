@@ -57,10 +57,15 @@ func (env *localEnviron) Config() *config.Config {
 }
 
 func createLocalStorageListener(dir string) (net.Listener, error) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		logger.Errorf("failed to make directory for storage at %s: %v", dir, err)
+	info, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("storage directory %q does not exist, bootstrap first", dir)
+	} else if err != nil {
 		return nil, err
+	} else if !info.Mode().IsDir() {
+		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
 	}
+	// TODO(thumper): this needs fixing when we have actual machines.
 	return localstorage.Serve("localhost:0", dir)
 }
 
