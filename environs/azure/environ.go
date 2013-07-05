@@ -135,6 +135,8 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	// The instance list is built using the list of all the relevant
+	// Azure Services (instance==service).
 	// If the list of ids is empty, return nil as specified by the
 	// interface
 	if len(ids) == 0 {
@@ -176,6 +178,8 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 
 // AllInstances is specified in the Environ interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
+	// The instance list is built using the list of all the Azure
+	// Services (instance==service).
 	// Acquire management API object.
 	context, err := env.getManagementAPI()
 	if err != nil {

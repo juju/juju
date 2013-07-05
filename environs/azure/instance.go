@@ -11,6 +11,7 @@ import (
 )
 
 type azureInstance struct {
+	// An instance contains an Azure Service (instance==service).
 	gwacl.HostedServiceDescriptor
 }
 
@@ -30,6 +31,9 @@ func (azInstance *azureInstance) DNSName() (string, error) {
 	label, err := azInstance.GetLabel()
 	if err != nil {
 		return "", err
+	}
+	if label == "" {
+		return "", instance.ErrNoDNSName
 	}
 	return fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME), nil
 }
