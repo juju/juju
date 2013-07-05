@@ -80,9 +80,20 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	c.Check(resource, NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// The initial change is consumed in the WatchAPIVersion call
+	wc.AssertNoChange()
+	// Setting the AgentVersion without changing it doesn't trigger an update
+	ver := version.Current.Number
+	err = statetesting.SetAgentVersion(s.State, ver)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+	ver.Minor += 1
+	err = statetesting.SetAgentVersion(s.State, ver)
+	c.Assert(err, IsNil)
 	wc.AssertOneChange()
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {

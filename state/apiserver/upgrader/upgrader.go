@@ -43,6 +43,9 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.NotifyWatchRes
 			err = common.ErrPerm
 		} else {
 			envWatcher := u.st.WatchForEnvironConfigChanges()
+			// Consume the initial event, API clients can assume
+			// there should be an initial event
+			_ = <-envWatcher.Changes()
 			result.Results[i].NotifyWatcherId = u.resources.Register(envWatcher)
 		}
 		result.Results[i].Error = common.ServerError(err)
