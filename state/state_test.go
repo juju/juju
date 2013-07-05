@@ -1093,23 +1093,9 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
 }
 
-// setAgentVersion sets the current agent version in the state's
-// environment configuration.
-func setAgentVersion(st *state.State, vers version.Number) error {
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	cfg, err = cfg.Apply(map[string]interface{}{"agent-version": vers.String()})
-	if err != nil {
-		panic(fmt.Errorf("config refused agent-version: %v", err))
-	}
-	return st.SetEnvironConfig(cfg)
-}
-
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *C) {
 	cur := version.Current.Number
-	err := setAgentVersion(s.State, cur)
+	err := statetesting.SetAgentVersion(s.State, cur)
 	c.Assert(err, IsNil)
 	w := s.State.WatchForEnvironConfigChanges()
 	defer statetesting.AssertStop(c, w)
@@ -1121,17 +1107,17 @@ func (s *StateSuite) TestWatchForEnvironConfigChanges(c *C) {
 	// Multiple changes will only result in a single change notification
 	newVersion := cur
 	newVersion.Minor += 1
-	err = setAgentVersion(s.State, newVersion)
+	err = statetesting.SetAgentVersion(s.State, newVersion)
 	c.Assert(err, IsNil)
 
 	newerVersion := newVersion
 	newerVersion.Minor += 1
-	err = setAgentVersion(s.State, newerVersion)
+	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, IsNil)
 	wc.AssertOneChange()
 
 	// Setting it to the same value does not trigger a change notification
-	err = setAgentVersion(s.State, newerVersion)
+	err = statetesting.SetAgentVersion(s.State, newerVersion)
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 }

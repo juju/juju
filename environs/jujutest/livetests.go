@@ -24,6 +24,7 @@ import (
 	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	statetesting "launchpad.net/juju-core/state/testing"
 	"time"
 )
 
@@ -581,7 +582,7 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 
 	// Check that the put version really is the version we expect.
 	c.Assert(upgradeTools.Binary, Equals, newVersion)
-	err = setAgentVersion(conn.State, newVersion.Number)
+	err = statetesting.SetAgentVersion(conn.State, newVersion.Number)
 	c.Assert(err, IsNil)
 
 	for i, w := range waiters {
@@ -590,20 +591,6 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 		waitAgentTools(c, w, newVersion)
 		c.Logf("upgrade %d successful", i)
 	}
-}
-
-// setAgentVersion sets the current agent version in the state's
-// environment configuration.
-func setAgentVersion(st *state.State, vers version.Number) error {
-	cfg, err := st.EnvironConfig()
-	if err != nil {
-		return err
-	}
-	cfg, err = cfg.Apply(map[string]interface{}{"agent-version": vers.String()})
-	if err != nil {
-		panic(fmt.Errorf("config refused agent-version: %v", err))
-	}
-	return st.SetEnvironConfig(cfg)
 }
 
 var waitAgent = utils.AttemptStrategy{
