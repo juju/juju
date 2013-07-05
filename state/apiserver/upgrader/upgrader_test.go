@@ -4,8 +4,6 @@
 package upgrader_test
 
 import (
-	"time"
-
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -15,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
+	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -80,22 +79,10 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
 	c.Check(resource, NotNil)
 
-	// TODO: When this becomes a true NotifyWatcher, use
-	//       state/testing/watcher.go to properly test how this watcher is
-	//       working
-	defer func() {
-		err := resource.Stop()
-		c.Assert(err, IsNil)
-	}()
-	// Check that the watcher returns an initial event
-	channel := resource.(*state.EnvironConfigWatcher).Changes()
-	// Should use helpers from state/watcher_test.go when generalised
-	select {
-	case _, ok := <-channel:
-		c.Assert(ok, Equals, true)
-	case <-time.After(50 * time.Millisecond):
-		c.Fatal("timeout waiting for entity watcher")
-	}
+	w := resource.(state.NotifyWatcher)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertOneChange()
 }
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
