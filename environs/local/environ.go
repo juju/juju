@@ -125,12 +125,12 @@ func (env *localEnviron) AllInstances() ([]instance.Instance, error) {
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() environs.Storage {
-	panic("unimplemented")
+	return localstorage.Client(env.privateListener.Addr().String())
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *localEnviron) PublicStorage() environs.StorageReader {
-	panic("unimplemented")
+	return localstorage.Client(env.publicListener.Addr().String())
 }
 
 // Destroy is specified in the Environ interface.
