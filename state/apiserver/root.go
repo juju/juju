@@ -4,6 +4,8 @@
 package apiserver
 
 import (
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -11,6 +13,8 @@ import (
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
+
+var logger = loggo.GetLogger("juju.state.apiserver")
 
 type clientAPI struct{ *client.API }
 
@@ -103,6 +107,7 @@ func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
+	logger.Debugf("Grabbing NotifyWatcher for resource %q", id)
 	return &srvNotifyWatcher{
 		watcher:   watcher,
 		id:        id,

@@ -69,7 +69,7 @@ func (w *commonWatcher) commonLoop() {
 		// the watcher will die with all resources cleaned up.
 		defer w.wg.Done()
 		<-w.tomb.Dying()
-		//logger.Debugf("Calling Stop for %p", w)
+		logger.Debugf("Calling Stop for %p", w)
 		if err := w.call("Stop", nil); err != nil {
 			log.Errorf("state/api: error trying to stop watcher %p: %v", w, err)
 		}
@@ -82,9 +82,9 @@ func (w *commonWatcher) commonLoop() {
 		defer w.wg.Done()
 		for {
 			result := w.newResult()
-			//logger.Debugf("Calling Next for %p", w)
+			logger.Debugf("Calling Next for %p", w)
 			err := w.call("Next", &result)
-			//logger.Debugf("Next returned for %p, result: %v err %v", w, result, err)
+			logger.Debugf("Next returned for %p, result: %v err %v", w, result, err)
 			if err != nil {
 				logger.Debugf("Got error calling Next(): %v", err)
 				if code := params.ErrCode(err); code == params.CodeStopped || code == params.CodeNotFound {
