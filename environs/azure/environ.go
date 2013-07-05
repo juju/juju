@@ -4,15 +4,29 @@
 package azure
 
 import (
+	"fmt"
+	"net/http"
+	"sync"
+
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"sync"
 )
+
+// In our initial implementation, each instance gets its own Azure
+// hosted service.  Once we have a DNS name, we write it into the
+// Label field on the hosted service as a shortcut.  This will have
+// to change once we suppport multiple instances per hosted service.
+// (instance==service).
+// This label is a placeholder to say "still waiting for DNS."
+const noDNSLabel = "(Waiting for DNS name)"
 
 type azureEnviron struct {
 	// Except where indicated otherwise, all fields in this object should
@@ -120,6 +134,133 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfg = ecfg
 	return nil
+}
+
+// attemptCreateService tries to create a new hosted service on Azure, with a
+// name it chooses, but recognizes that the name may not be available.  If
+// the name is not available, it does not treat that as an error but just
+// returns nil.
+func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
+	// Initially, this is the only location where Azure supports Linux.
+	const location = "East US"
+
+	name := gwacl.MakeRandomHostedServiceName("juju")
+	req := gwacl.NewCreateHostedServiceWithLocation(name, noDNSLabel, location)
+	err := azure.AddHostedService(req)
+	azErr, isAzureError := err.(*gwacl.AzureError)
+	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
+		// Conflict.  As far as we can see, this only happens if the
+		// name was already in use.  It's still dangerous to assume
+		// that we know it can't be anything else, but there's nothing
+		// else in the error that we can use for closer identifcation.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// newHostedService creates a hosted service.  It will make up a unique name.
+func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
+	var err error
+	var svc *gwacl.CreateHostedService
+	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
+		svc, err = attemptCreateService(azure)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not create hosted service: %v", err)
+	}
+	if svc == nil {
+		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
+	}
+	return svc, nil
+}
+
+func extractDeploymentHostname(url string) (string, error) {
+	// TODO: Implement!
+	return "", nil
+}
+
+func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName string) error {
+	deployment, err := azure.GetDeployment(&gwacl.GetDeploymentRequest{
+		ServiceName:    serviceName,
+		DeploymentName: deploymentName,
+	})
+	if err != nil {
+		return fmt.Errorf("could not read newly created deployment: %v", err)
+	}
+	hostname, err := extractDeploymentHostname(deployment.URL)
+	if err != nil {
+		return err
+	}
+
+	update := gwacl.NewUpdateHostedService(hostname, "Juju instance", nil)
+	return azure.UpdateHostedService(serviceName, update)
+}
+
+// internalStartInstance does the provider-specific work of starting an
+// instance.  The code in StartInstance is actually largely agnostic across
+// the EC2/OpenStack/MAAS/Azure providers.
+func (env *azureEnviron) internalStartInstance(machineID string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+	// Declaring "err" in the function signature so that we can "defer"
+	// any cleanup that needs to run during error returns.
+
+	series := possibleTools.Series()
+	if len(series) != 1 {
+		return nil, fmt.Errorf("expected single series, got %v", series)
+	}
+
+	err = environs.FinishMachineConfig(mcfg, env.Config(), cons)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Compose userdata.
+
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	createdService, err := newHostedService(azure.ManagementAPI)
+	if err != nil {
+		return nil, err
+	}
+
+	// If we fail after this point, clean up the hosted service.
+	defer func() {
+		if err != nil {
+			azure.DeleteHostedService(createdService.ServiceName)
+		}
+	}()
+
+	// TODO: Create VM Deployment.
+	var deployment *gwacl.Deployment
+
+	var inst instance.Instance
+	// TODO: Make sure ssh port is open.
+
+	// From here on, remember to shut down the instance before returning
+	// any error.
+	defer func() {
+		if err != nil && inst != nil {
+			err2 := env.StopInstances([]instance.Instance{inst})
+			if err2 != nil {
+				// Failure upon failure.  Log it, but return
+				// the original error.
+				log.Errorf("error releasing failed instance: %v", err)
+			}
+		}
+	}()
+
+	err = setServiceDNSName(azure.ManagementAPI, createdService.ServiceName, deployment.Name)
+	if err != nil {
+		return nil, fmt.Errorf("could not set instance DNS name as service label: %v", err)
+	}
+
+	return inst, nil
 }
 
 // StartInstance is specified in the Environ interface.
