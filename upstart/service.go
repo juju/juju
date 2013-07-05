@@ -42,16 +42,16 @@ func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
 // based on the tag and machineId passed in.
-func MachineAgentUpstartService(toolsDir, dataDir, tag, machineId, logConfig string) *Conf {
-	svc := NewService("jujud-" + tag)
-	logPath := fmt.Sprintf("/var/log/juju/%s.log", tag)
+func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId, logConfig string) *Conf {
+	svc := NewService(name)
+	logFile := filepath.Join(logDir, tag+".log")
 	cmd := fmt.Sprintf(
 		"%s/jujud machine"+
 			" --log-file %s"+
 			" --data-dir '%s'"+
 			" --machine-id %s %s",
 		toolsDir,
-		logPath,
+		logFile,
 		dataDir,
 		machineId,
 		logConfig,
@@ -63,6 +63,6 @@ func MachineAgentUpstartService(toolsDir, dataDir, tag, machineId, logConfig str
 			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
 		},
 		Cmd: cmd,
-		Out: logPath,
+		Out: logFile,
 	}
 }

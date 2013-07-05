@@ -274,7 +274,8 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	conf := upstart.MachineAgentUpstartService(toolsDir, cfg.DataDir, tag, machineId, logConfig)
+	name := "jujud-" + tag
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
