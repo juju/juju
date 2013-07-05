@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -13,12 +14,10 @@ import (
 
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
-		"shared-storage": schema.String(),
-		"storage":        schema.String(),
+		"root-dir": schema.String(),
 	},
 	schema.Defaults{
-		"shared-storage": "",
-		"storage":        "",
+		"root-dir": "",
 	},
 )
 
@@ -30,6 +29,12 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
+	if user == "root" {
+		sudo_user := os.Getenv("SUDO_USER")
+		if sudo_user != "" {
+			user = sudo_user
+		}
+	}
 	return &environConfig{
 		Config: config,
 		user:   user,
@@ -44,10 +49,22 @@ func (c *environConfig) namespace() string {
 	return fmt.Sprintf("%s-%s", c.user, c.Name())
 }
 
-func (c *environConfig) publicStorageDir() string {
-	return c.attrs["shared-storage"].(string)
+func (c *environConfig) rootDir() string {
+	return c.attrs["root-dir"].(string)
 }
 
-func (c *environConfig) privateStorageDir() string {
-	return c.attrs["storage"].(string)
+func (c *environConfig) sharedStorageDir() string {
+	return filepath.Join(c.rootDir(), "shared-storage")
+}
+
+func (c *environConfig) storageDir() string {
+	return filepath.Join(c.rootDir(), "storage")
+}
+
+func (c *environConfig) mongoDir() string {
+	return filepath.Join(c.rootDir(), "db")
+}
+
+func (c *environConfig) configFile(filename string) string {
+	return filepath.Join(c.rootDir(), filename)
 }

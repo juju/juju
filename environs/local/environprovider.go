@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"launchpad.net/loggo"
 
@@ -28,8 +29,7 @@ func init() {
 }
 
 var (
-	defaultPublicStorageDir  = "/var/lib/juju/local/%s/public"
-	defaultPrivateStorageDir = "/var/lib/juju/local/%s/private"
+	defaultRootDir = "/var/lib/juju/"
 )
 
 // Open implements environs.EnvironProvider.Open.
@@ -56,42 +56,26 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	localConfig := newEnvironConfig(cfg, v.(map[string]interface{}))
 	// Before potentially creating directories, make sure that the
-	// public storage and private storage values have not changed.
+	// root directory has not changed.
 	if old != nil {
 		oldLocalConfig, err := provider.newConfig(old)
 		if err != nil {
 			return nil, fmt.Errorf("old config is not a valid local config: %v", old)
 		}
-		if localConfig.publicStorageDir() != oldLocalConfig.publicStorageDir() {
-			return nil, fmt.Errorf("cannot change shared-storage from %q to %q",
-				oldLocalConfig.publicStorageDir(),
-				localConfig.publicStorageDir())
-		}
-		if localConfig.privateStorageDir() != oldLocalConfig.privateStorageDir() {
-			return nil, fmt.Errorf("cannot change storage from %q to %q",
-				oldLocalConfig.privateStorageDir(),
-				localConfig.privateStorageDir())
+		if localConfig.rootDir() != oldLocalConfig.rootDir() {
+			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
+				oldLocalConfig.rootDir(),
+				localConfig.rootDir())
 		}
 	}
-	dir := utils.NormalizePath(localConfig.publicStorageDir())
+	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {
-		dir = fmt.Sprintf(defaultPublicStorageDir, localConfig.namespace())
-		localConfig.attrs["shared-storage"] = dir
+		dir = filepath.Join(defaultRootDir, localConfig.namespace())
+		localConfig.attrs["root-dir"] = dir
 	}
-	logger.Tracef("ensure shared-storage dir %s exists", dir)
+	logger.Tracef("ensure root dir %s exists", dir)
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		logger.Errorf("failed to make directory for shared storage at %s: %v", dir, err)
-		return nil, err
-	}
-
-	dir = utils.NormalizePath(localConfig.privateStorageDir())
-	if dir == "." {
-		dir = fmt.Sprintf(defaultPrivateStorageDir, localConfig.namespace())
-		localConfig.attrs["storage"] = dir
-	}
-	logger.Tracef("ensure storage dir %s exists", dir)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		logger.Errorf("failed to make directory for storage at %s: %v", dir, err)
 		return nil, err
 	}
 
@@ -105,12 +89,9 @@ func (environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/local/
 local:
   type: local
-  # Override the storage location to store the private files for this environment in the
-  # specified location.  The default location is /var/lib/juju/local/<USER>-<ENV>/private
-  # storage: ~/.juju/local/private
-  # Override the shared-storage location to store the public files for this environment in the
-  # specified location.  The default location is /var/lib/juju/local/<USER>-<ENV>/public
-  # shared-storage: ~/.juju/local/public
+  # Override the directory that is used for the storage files and mongo database.
+  # The default location is /var/lib/juju/<USER>-<ENV>
+  # root-dir: ~/.juju/local
 
 `[1:]
 }
