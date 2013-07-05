@@ -73,6 +73,24 @@ func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
 }
 
 func (u *Upgrader) WatchAPIVersion(agentTag string) (params.NotifyWatcher, error) {
-	_ = watcher.NewNotifyWatcher
-	return nil, nil
+	var results params.NotifyWatchResults
+	args := params.Agents{
+		Agents: []params.Agent{params.Agent{Tag: agentTag}},
+	}
+	err := u.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		//  TODO: Not directly tested
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.caller, result)
+	return w, nil
 }

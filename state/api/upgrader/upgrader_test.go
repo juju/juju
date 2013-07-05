@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/apiserver"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -155,4 +156,14 @@ func (s *upgraderSuite) TestTools(c *C) {
 	c.Check(tools.Arch, Equals, cur.Arch)
 	c.Check(tools.Series, Equals, cur.Series)
 	c.Check(tools.URL, Not(Equals), "")
+}
+
+func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
+	w, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
+	c.Assert(err, IsNil)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initial event
+	wc.AssertOneChange()
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
