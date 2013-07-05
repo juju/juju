@@ -40,11 +40,11 @@ var shortAttempt = utils.AttemptStrategy{
 var _ environs.Environ = (*localEnviron)(nil)
 
 type localEnviron struct {
-	localMutex      sync.Mutex
-	config          *environConfig
-	name            string
-	publicListener  net.Listener
-	privateListener net.Listener
+	localMutex            sync.Mutex
+	config                *environConfig
+	name                  string
+	sharedStorageListener net.Listener
+	storageListener       net.Listener
 }
 
 // Name is specified in the Environ interface.
@@ -151,18 +151,24 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.name = config.Name()
 	// Well... this works fine as long as the config has set from the clients
 	// local machine.
-	publicListener, err := createLocalStorageListener(config.sharedStorageDir())
+	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
 	if err != nil {
 		return err
 	}
 
-	privateListener, err := createLocalStorageListener(config.storageDir())
+	storageListener, err := createLocalStorageListener(config.storageDir())
 	if err != nil {
-		publicListener.Close()
+		sharedStorageListener.Close()
 		return err
 	}
-	env.publicListener = publicListener
-	env.privateListener = privateListener
+	if env.sharedStorageListener != nil {
+		env.sharedStorageListener.Close()
+	}
+	if env.storageListener != nil {
+		env.storageListener.Close()
+	}
+	env.sharedStorageListener = sharedStorageListener
+	env.storageListener = storageListener
 	return nil
 }
 
