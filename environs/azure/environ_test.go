@@ -14,7 +14,9 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
+	. "launchpad.net/juju-core/testing/checkers"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -123,13 +125,21 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 	return requests
 }
 
-func (suite EnvironSuite) TestAllInstances(c *C) {
-	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
+func (suite EnvironSuite) TestGetInstanceNamePrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
+	c.Check(strings.Contains(env.getInstanceNamePrefix(), env.Name()), IsTrue)
+}
+
+func (suite EnvironSuite) TestAllInstances(c *C) {
+	env := makeEnviron(c)
+	prefix := env.getInstanceNamePrefix()
+	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
+	requests := patchWithServiceListResponse(c, services)
 	instances, err := env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Check(len(instances), Equals, len(services))
+	c.Check(len(instances), Equals, 2)
+	c.Check(instances[0].Id(), Equals, instance.Id(prefix+"deployment-1"))
+	c.Check(instances[1].Id(), Equals, instance.Id(prefix+"deployment-2"))
 	c.Check(len(*requests), Equals, 1)
 }
 

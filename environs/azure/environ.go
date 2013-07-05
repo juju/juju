@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"fmt"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -187,11 +188,18 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 	defer env.releaseManagementAPI(context)
 
-	hostedServices, err := context.ListHostedServices()
+	request := &gwacl.ListSpecificHostedServicesRequest{ServiceNamePrefix: env.getInstanceNamePrefix()}
+	services, err := context.ListSpecificHostedServices(request)
 	if err != nil {
 		return nil, err
 	}
-	return convertToInstances(hostedServices), nil
+	return convertToInstances(services), nil
+}
+
+// getInstanceNamePrefix returns the prefix used when generating instance
+// names.
+func (env *azureEnviron) getInstanceNamePrefix() string {
+	return fmt.Sprintf("juju-%s", env.Name())
 }
 
 // convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
