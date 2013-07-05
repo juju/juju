@@ -5,6 +5,7 @@ package local_test
 
 import (
 	"os"
+	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
@@ -24,7 +25,6 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
 	s.oldUser = os.Getenv("USER")
 	err := os.Setenv("USER", "tester")
-	c.Assert(err, gc.IsNil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -54,8 +54,12 @@ func minimalConfig(c *gc.C) *config.Config {
 func (s *configSuite) TestValidateConfig(c *gc.C) {
 	testConfig := minimalConfig(c)
 
-	_, err := local.Provider.Validate(testConfig, nil)
+	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
+
+	expectedRootDir := filepath.Join(s.root, "tester-test")
+	unknownAttrs := valid.UnknownAttrs()
+	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
 
 func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
@@ -72,6 +76,23 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 }
 
 func (s *configSuite) TestNamespace(c *gc.C) {
+	testConfig := minimalConfig(c)
+	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
+}
+
+func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
+	err := os.Setenv("USER", "root")
+	c.Assert(err, gc.IsNil)
+	testConfig := minimalConfig(c)
+	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "root-test")
+}
+
+func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
+	err := os.Setenv("USER", "root")
+	c.Assert(err, gc.IsNil)
+	err = os.Setenv("SUDO_USER", "tester")
+	c.Assert(err, gc.IsNil)
+	defer os.Setenv("SUDO_USER", "")
 	testConfig := minimalConfig(c)
 	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
 }
