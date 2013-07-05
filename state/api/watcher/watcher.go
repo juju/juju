@@ -5,16 +5,11 @@ package watcher
 
 import (
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
 	"sync"
 )
-
-// Caller is an interface that just implements Call
-// Most notably, Caller is implemented by *api.State
-type Caller interface {
-	Call(objType, id, request string, params, response interface{}) error
-}
 
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;
@@ -113,7 +108,7 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func newEntityWatcher(caller Caller, etype, id string) params.NotifyWatcher {
+func newEntityWatcher(caller common.Caller, etype, id string) params.NotifyWatcher {
 	var watcherId params.NotifyWatcherId
 	w := &notifyWatcher{
 		caller:          caller,
@@ -135,14 +130,14 @@ func newEntityWatcher(caller Caller, etype, id string) params.NotifyWatcher {
 
 type notifyWatcher struct {
 	commonWatcher
-	caller          Caller
+	caller          common.Caller
 	notifyWatcherId string
 	out             chan struct{}
 }
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller Caller, result params.NotifyWatchResult) params.NotifyWatcher {
+func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) params.NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -195,12 +190,12 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 
 type LifecycleWatcher struct {
 	commonWatcher
-	caller    Caller
+	caller    common.Caller
 	watchCall string
 	out       chan []string
 }
 
-func newLifecycleWatcher(caller Caller, watchCall string) *LifecycleWatcher {
+func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatcher {
 	w := &LifecycleWatcher{
 		caller:    caller,
 		watchCall: watchCall,
