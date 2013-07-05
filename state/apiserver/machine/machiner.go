@@ -63,6 +63,8 @@ func (m *MachinerAPI) Watch(args params.Machines) (params.NotifyWatchResults, er
 				err = common.ErrPerm
 			} else {
 				watcher := machine.Watch()
+				// Consume the initial event
+				_ = <-watcher.Changes()
 				result.Results[i].NotifyWatcherId = m.resources.Register(watcher)
 			}
 		}

@@ -5,6 +5,7 @@ package watcher_test
 
 import (
 	stdtesting "testing"
+	"time"
 
 	. "launchpad.net/gocheck"
 
@@ -22,6 +23,8 @@ import (
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
+
+const shortTime = 50 * time.Millisecond
 
 type watcherSuite struct {
 	testing.JujuConnSuite
@@ -73,6 +76,29 @@ func (s *watcherSuite) TearDownTest(c *C) {
 		c.Check(err, IsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *watcherSuite) TestWatchMachineNextNoInitialEvent(c *C) {
+	// Watch should consume the initial event, we will regenerate it
+	// locally since we know it will happen
+	var results params.NotifyWatchResults
+	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
+	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
+	c.Assert(err, IsNil)
+	c.Assert(results.Results, HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, IsNil)
+	// We expect the Call() to "Next" to block, so run it in a goroutine.
+	done := make(chan error)
+	go func() {
+		ignored := struct{}{}
+		done <- s.stateAPI.Call("NotifyWatcher", result.NotifyWatcherId, "Next", nil, &ignored)
+	}()
+	select {
+	case err := <-done:
+		c.Errorf("Call(Next) did not block immediately after Watch(): err %v", err)
+	case <-time.After(shortTime * 10):
+	}
 }
 
 func (s *watcherSuite) TestWatchMachine(c *C) {

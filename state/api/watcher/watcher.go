@@ -166,8 +166,9 @@ func (w *notifyWatcher) loop() error {
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// We don't set out to w.out here, as we expect w.in to return immediately
-	var out chan struct{}
+	// Watch and friends should consume their initial change, and we
+	// recreate it here.
+	out := w.out
 	for {
 		select {
 		case _, ok := <-w.in:
