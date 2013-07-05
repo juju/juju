@@ -75,8 +75,6 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = config
 	env.name = config.Name()
-	// Well... this works fine as long as the config has set from the clients
-	// local machine.
 	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
 	if err != nil {
 		return err
