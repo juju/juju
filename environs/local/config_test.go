@@ -5,13 +5,12 @@ package local_test
 
 import (
 	"os"
-	"path/filepath"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
+	// jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type configSuite struct {
@@ -55,16 +54,11 @@ func minimalConfig(c *gc.C) *config.Config {
 func (s *configSuite) TestValidateConfig(c *gc.C) {
 	testConfig := minimalConfig(c)
 
-	valid, err := local.Provider.Validate(testConfig, nil)
+	_, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
-	unknownAttrs := valid.UnknownAttrs()
-
-	root := filepath.Join(s.root, "tester-test")
-	c.Assert(root, jc.IsDirectory)
-	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
 }
 
-func (s *configSuite) TestValidateConfigWithStorage(c *gc.C) {
+func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 	values := minimalConfigValues()
 	root := c.MkDir()
 	values["root-dir"] = root
@@ -74,7 +68,10 @@ func (s *configSuite) TestValidateConfigWithStorage(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
-
-	c.Assert(root, jc.IsDirectory)
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
+}
+
+func (s *configSuite) TestNamespace(c *gc.C) {
+	testConfig := minimalConfig(c)
+	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
 }

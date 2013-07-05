@@ -5,12 +5,9 @@ package local
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -19,8 +16,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/upstart"
-	"launchpad.net/juju-core/utils"
 )
 
 // localEnviron implements Environ.
