@@ -4,7 +4,6 @@
 package watcher
 
 import (
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -252,75 +251,5 @@ func (w *LifecycleWatcher) loop() error {
 // Changes returns a channel that receives a list of ids of watched
 // entites whose lifecycle has changed.
 func (w *LifecycleWatcher) Changes() <-chan []string {
-	return w.out
-}
-
-type EnvironConfigWatcher struct {
-	commonWatcher
-	caller Caller
-	out    chan *config.Config
-}
-
-func newEnvironConfigWatcher(caller Caller) *EnvironConfigWatcher {
-	w := &EnvironConfigWatcher{
-		caller: caller,
-		out:    make(chan *config.Config),
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-func (w *EnvironConfigWatcher) loop() error {
-	var result params.EnvironConfigWatchResults
-	if err := w.caller.Call("State", "", "WatchEnvironConfig", nil, &result); err != nil {
-		return err
-	}
-
-	envConfig, err := config.New(result.Config)
-	if err != nil {
-		return err
-	}
-	w.newResult = func() interface{} {
-		return new(params.EnvironConfigWatchResults)
-	}
-	w.call = func(request string, newResult interface{}) error {
-		return w.caller.Call("EnvironConfigWatcher", result.EnvironConfigWatcherId, request, nil, newResult)
-	}
-	w.commonWatcher.init()
-	go w.commonLoop()
-
-	// Watch calls Next internally at the server-side, so we expect
-	// changes right away.
-	out := w.out
-	for {
-		select {
-		case data, ok := <-w.in:
-			if !ok {
-				// The tomb is already killed with the correct error
-				// at this point, so just return.
-				return nil
-			}
-			envConfig, err = config.New(data.(*params.EnvironConfigWatchResults).Config)
-			if err != nil {
-				// This should never happen, if we're talking to a compatible API server.
-				log.Errorf("state/api: error reading environ config from watcher: %v", err)
-				return err
-			}
-			out = w.out
-		case out <- envConfig:
-			// Wait until we have new changes to send.
-			out = nil
-		}
-	}
-	panic("unreachable")
-}
-
-// Changes returns a channel that receives the new environment
-// configuration when it has changed.
-func (w *EnvironConfigWatcher) Changes() <-chan *config.Config {
 	return w.out
 }

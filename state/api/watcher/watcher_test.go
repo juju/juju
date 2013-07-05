@@ -85,7 +85,8 @@ func (s *watcherSuite) TestWatchMachine(c *C) {
 	c.Assert(result.Error, IsNil)
 	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
-	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
