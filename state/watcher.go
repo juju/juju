@@ -1048,8 +1048,14 @@ func (w *entityWatcher) loop(coll *mgo.Collection, key string) (err error) {
 		return err
 	}
 	in := make(chan watcher.Change)
+	watchLogger.Debugf("Asking to watch %v %v %v",
+		coll.Name, key, doc.TxnRevno)
 	w.st.watcher.Watch(coll.Name, key, doc.TxnRevno, in)
-	defer w.st.watcher.Unwatch(coll.Name, key, in)
+	defer func() {
+		watchLogger.Debugf("Asking to stop watching %v %v",
+			coll.Name, key)
+		w.st.watcher.Unwatch(coll.Name, key, in)
+	}()
 	out := w.out
 	for {
 		select {
