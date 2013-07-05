@@ -26,6 +26,7 @@ import (
 // to change once we suppport multiple instances per hosted service.
 // (instance==service).
 // This label is a placeholder to say "still waiting for DNS."
+// TODO: Update Instance.DNSName() to recognize this as "no DNS yet."  Can't use empty string.
 const noDNSLabel = "(Waiting for DNS name)"
 
 type azureEnviron struct {
