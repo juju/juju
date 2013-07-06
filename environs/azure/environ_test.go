@@ -125,14 +125,14 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 	return requests
 }
 
-func (suite EnvironSuite) TestGetInstanceNamePrefixContainsEnvName(c *C) {
+func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getInstanceNamePrefix(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
 }
 
 func (suite EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
-	prefix := env.getInstanceNamePrefix()
+	prefix := env.getEnvPrefix()
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
 	requests := patchWithServiceListResponse(c, services)
 	instances, err := env.AllInstances()

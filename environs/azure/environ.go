@@ -188,17 +188,17 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 	defer env.releaseManagementAPI(context)
 
-	request := &gwacl.ListSpecificHostedServicesRequest{ServiceNamePrefix: env.getInstanceNamePrefix()}
-	services, err := context.ListSpecificHostedServices(request)
+	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
+	services, err := context.ListPrefixedHostedServices(request)
 	if err != nil {
 		return nil, err
 	}
 	return convertToInstances(services), nil
 }
 
-// getInstanceNamePrefix returns the prefix used when generating instance
-// names.
-func (env *azureEnviron) getInstanceNamePrefix() string {
+// getEnvPrefix returns the prefix used to name the objects specific to this
+// environment.
+func (env *azureEnviron) getEnvPrefix() string {
 	return fmt.Sprintf("juju-%s", env.Name())
 }
 
