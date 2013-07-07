@@ -24,7 +24,7 @@ func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 	c.Assert(environ, gc.IsNil)
 }
 
-func (s *environSuite) TestName(c *gc.C) {
+func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	c.Logf("root: %s", s.root)
 	c.Assert(s.root, jc.IsDirectory)
 
@@ -34,6 +34,7 @@ func (s *environSuite) TestName(c *gc.C) {
 
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
-
 	c.Assert(environ.Name(), gc.Equals, "test")
+	c.Assert(environ.Storage(), gc.NotNil)
+	c.Assert(environ.SharedStorate(), gc.NotNil)
 }
