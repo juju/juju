@@ -29,8 +29,7 @@ func (s *environSuite) TestName(c *gc.C) {
 	c.Assert(s.root, jc.IsDirectory)
 
 	testConfig := minimalConfig(c)
-	err := local.CreateDirs(testConfig)
-
+	err := local.CreateDirs(c, testConfig)
 	c.Assert(err, gc.IsNil)
 
 	environ, err := local.Provider.Open(testConfig)

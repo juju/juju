@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strconv"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
@@ -23,22 +24,26 @@ var configChecker = schema.StrictFieldMap(
 
 type environConfig struct {
 	*config.Config
-	user  string
-	attrs map[string]interface{}
+	user          string
+	attrs         map[string]interface{}
+	runningAsRoot bool
 }
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
+	root := false
 	if user == "root" {
+		root = true
 		sudo_user := os.Getenv("SUDO_USER")
 		if sudo_user != "" {
 			user = sudo_user
 		}
 	}
 	return &environConfig{
-		Config: config,
-		user:   user,
-		attrs:  attrs,
+		Config:        config,
+		user:          user,
+		attrs:         attrs,
+		runningAsRoot: root,
 	}
 }
 
@@ -78,6 +83,34 @@ func (c *environConfig) createDirs() error {
 		logger.Tracef("creating directory %s", dirname)
 		if err := os.MkdirAll(dirname, 0755); err != nil {
 			return err
+		}
+	}
+	if c.runningAsRoot {
+		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
+		// change ownership of the directories.
+		uidStr := os.Getenv("SUDO_UID")
+		gidStr := os.Getenv("SUDO_GID")
+		if uidStr != "" && gidStr != "" {
+			uid, err := strconv.Atoi(uidStr)
+			if err != nil {
+				logger.Errorf("Expected %q for SUDO_UID to be an int: %v", uidStr, err)
+				return err
+			}
+			gid, err := strconv.Atoi(gidStr)
+			if err != nil {
+				logger.Errorf("Expected %q for SUDO_GID to be an int: %v", gidStr, err)
+				return err
+			}
+
+			filepath.Walk(c.rootDir(),
+				func(path string, info os.FileInfo, err error) error {
+					if info.IsDir() && err == nil {
+						if err := os.Chown(path, uid, gid); err != nil {
+							return err
+						}
+					}
+					return nil
+				})
 		}
 	}
 	return nil

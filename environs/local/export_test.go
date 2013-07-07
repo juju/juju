@@ -3,6 +3,8 @@
 package local
 
 import (
+	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs/config"
 )
 
@@ -23,7 +25,20 @@ func ConfigNamespace(cfg *config.Config) string {
 }
 
 // CreateDirs calls createDirs on the localEnviron.
-func CreateDirs(cfg *config.Config) error {
-	localConfig, _ := provider.newConfig(cfg)
+func CreateDirs(c *gc.C, cfg *config.Config) error {
+	localConfig, err := provider.newConfig(cfg)
+	c.Assert(err, gc.IsNil)
 	return localConfig.createDirs()
+}
+
+// CheckDirs returns the list of directories to check for permissions in the test.
+func CheckDirs(c *gc.C, cfg *config.Config) []string {
+	localConfig, err := provider.newConfig(cfg)
+	c.Assert(err, gc.IsNil)
+	return []string{
+		localConfig.rootDir(),
+		localConfig.sharedStorageDir(),
+		localConfig.storageDir(),
+		localConfig.mongoDir(),
+	}
 }
