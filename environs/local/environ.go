@@ -5,12 +5,9 @@ package local
 
 import (
 	"fmt"
-	"io/ioutil"
 	"net"
 	"os"
-	"path/filepath"
 	"sync"
-	"time"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -19,8 +16,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/upstart"
-	"launchpad.net/juju-core/utils"
 )
 
 // A request may fail to due "eventual consistency" semantics, which
@@ -89,10 +84,15 @@ func (env *localEnviron) Config() *config.Config {
 }
 
 func createLocalStorageListener(dir string) (net.Listener, error) {
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		logger.Errorf("failed to make directory for storage at %s: %v", dir, err)
+	info, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("storage directory %q does not exist, bootstrap first", dir)
+	} else if err != nil {
 		return nil, err
+	} else if !info.Mode().IsDir() {
+		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
 	}
+	// TODO(thumper): this needs fixing when we have actual machines.
 	return localstorage.Serve("localhost:0", dir)
 }
 
@@ -107,8 +107,6 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = config
 	env.name = config.Name()
-	// Well... this works fine as long as the config has set from the clients
-	// local machine.
 	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
 	if err != nil {
 		return err
@@ -157,12 +155,12 @@ func (env *localEnviron) AllInstances() ([]instance.Instance, error) {
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() environs.Storage {
-	return localstorage.Client(env.privateListener.Addr().String())
+	return localstorage.Client(env.storageListener.Addr().String())
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *localEnviron) PublicStorage() environs.StorageReader {
-	return localstorage.Client(env.publicListener.Addr().String())
+	return localstorage.Client(env.sharedStorageListener.Addr().String())
 }
 
 // Destroy is specified in the Environ interface.
