@@ -17,7 +17,8 @@ type notifyWorker struct {
 	// Internal structure
 	tomb tomb.Tomb
 	// handler is what will handle when events are triggered
-	handler WatchHandler
+	handler       WatchHandler
+	closedHandler func(watcher.Errer) error
 }
 
 // NotifyWorker encapsulates the state logic for a worker which is based on a
@@ -50,7 +51,8 @@ type WatchHandler interface {
 
 func NewNotifyWorker(handler WatchHandler) NotifyWorker {
 	nw := &notifyWorker{
-		handler: handler,
+		handler:       handler,
+		closedHandler: watcher.MustErr,
 	}
 	go func() {
 		defer nw.tomb.Done()
@@ -107,7 +109,13 @@ func (nw *notifyWorker) loop() error {
 		select {
 		case <-nw.tomb.Dying():
 			return tomb.ErrDying
-		case <-w.Changes():
+		case _, ok := <-w.Changes():
+			if !ok {
+				// This defaults to watcher.MustErr, but that
+				// panic()s, so we let the test suite override
+				// it.
+				return nw.closedHandler(w)
+			}
 			if err := nw.handler.Handle(); err != nil {
 				return err
 			}

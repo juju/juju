@@ -9,8 +9,10 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
@@ -34,7 +36,7 @@ func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 		handled:     make(chan struct{}),
 		description: "test action handler",
 		watcher: &TestWatcher{
-			out: make(chan struct{}),
+			changes: make(chan struct{}),
 		},
 	}
 	s.worker = worker.NewNotifyWorker(s.actor)
@@ -114,23 +116,27 @@ func (s *notifyWorkerSuite) stopWorker(c *gc.C) {
 
 type TestWatcher struct {
 	mu        sync.Mutex
-	out       chan struct{}
+	changes   chan struct{}
 	action    chan struct{}
 	stopped   bool
 	stopError error
 }
 
 func (tw *TestWatcher) Changes() <-chan struct{} {
-	return tw.out
+	return tw.changes
 }
 
 func (tw *TestWatcher) Err() error {
-	return nil
+	return tw.stopError
 }
 
 func (tw *TestWatcher) Stop() error {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
+	if tw.changes != nil {
+		close(tw.changes)
+		tw.changes = nil
+	}
 	tw.stopped = true
 	return tw.stopError
 }
@@ -143,9 +149,9 @@ func (tw *TestWatcher) SetStopError(err error) {
 
 func (tw *TestWatcher) TriggerChange(c *gc.C) {
 	select {
-	case tw.out <- struct{}{}:
+	case tw.changes <- struct{}{}:
 	case <-time.After(longWait):
-		c.Errorf("Timed out triggering change after %.3fs", longWait.Seconds())
+		c.Errorf("Timed changes triggering change after %.3fs", longWait.Seconds())
 	}
 }
 
@@ -248,7 +254,7 @@ func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 		handled:    make(chan struct{}),
 		setupError: fmt.Errorf("my special error"),
 		watcher: &TestWatcher{
-			out: make(chan struct{}),
+			changes: make(chan struct{}),
 		},
 	}
 	w := worker.NewNotifyWorker(actor)
@@ -285,7 +291,7 @@ func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 		handled:      make(chan struct{}),
 		handlerError: fmt.Errorf("my handling error"),
 		watcher: &TestWatcher{
-			out: make(chan struct{}),
+			changes: make(chan struct{}),
 		},
 	}
 	w := worker.NewNotifyWorker(actor)
@@ -295,4 +301,83 @@ func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "my handling error")
 	actor.CheckActions(c, "setup", "handler", "teardown")
 	c.Check(actor.watcher.stopped, jc.IsTrue)
+}
+
+func (s *notifyWorkerSuite) TestNoticesStoppedWatcher(c *gc.C) {
+	// The default closedHandler doesn't panic if you have a genuine error
+	// (because it assumes you want to propagate a real error and then
+	// restart
+	s.actor.watcher.SetStopError(fmt.Errorf("Stopped Watcher"))
+	s.actor.watcher.Stop()
+	err := WaitShort(c, s.worker)
+	c.Check(err, gc.ErrorMatches, "Stopped Watcher")
+	s.actor.CheckActions(c, "setup", "teardown")
+	// Worker is stopped, don't fail TearDownTest
+	s.worker = nil
+}
+
+func noopHandler(watcher.Errer) error {
+	return nil
+}
+
+type CannedErrer struct {
+	err error
+}
+
+func (c CannedErrer) Err() error {
+	return c.err
+}
+
+type closerHandler interface {
+	SetClosedHandler(func(watcher.Errer) error) func(watcher.Errer) error
+}
+
+func (s *notifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
+	h, ok := s.worker.(closerHandler)
+	c.Assert(ok, jc.IsTrue)
+	old := h.SetClosedHandler(noopHandler)
+	noErr := CannedErrer{nil}
+	stillAlive := CannedErrer{tomb.ErrStillAlive}
+	customErr := CannedErrer{fmt.Errorf("my special error")}
+
+	// The default handler should be watcher.MustErr which panics if the
+	// Errer doesn't actually have an error
+	c.Assert(func() { old(noErr) }, gc.PanicMatches, "watcher was stopped cleanly")
+	c.Assert(func() { old(stillAlive) }, gc.PanicMatches, "watcher is still running")
+	c.Assert(old(customErr), gc.Equals, customErr.Err())
+}
+
+func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
+	foundErr := fmt.Errorf("did not get an error")
+	triggeredHandler := func(errer watcher.Errer) error {
+		foundErr = errer.Err()
+		return foundErr
+	}
+	s.worker.(closerHandler).SetClosedHandler(triggeredHandler)
+	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
+	s.actor.watcher.Stop()
+	err := WaitShort(c, s.worker)
+	c.Check(foundErr, gc.Equals, tomb.ErrStillAlive)
+	// ErrStillAlive is trapped by the Stop logic and gets turned into a
+	// 'nil' when stopping. However TestDefaultClosedHandler can assert
+	// that it would have triggered a panic.
+	c.Check(err, gc.IsNil)
+	s.actor.CheckActions(c, "setup", "teardown")
+	// Worker is stopped, don't fail TearDownTest
+	s.worker = nil
+}
+
+func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
+	foundErr := fmt.Errorf("did not get an error")
+	triggeredHandler := func(errer watcher.Errer) error {
+		foundErr = errer.Err()
+		return foundErr
+	}
+	s.worker.(closerHandler).SetClosedHandler(triggeredHandler)
+	s.actor.watcher.Stop()
+	err := WaitShort(c, s.worker)
+	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)
+	c.Check(foundErr, gc.IsNil)
+	c.Check(err, gc.IsNil)
+	s.actor.CheckActions(c, "setup", "teardown")
 }
