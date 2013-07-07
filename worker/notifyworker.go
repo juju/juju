@@ -4,6 +4,8 @@
 package worker
 
 import (
+	"fmt"
+
 	"launchpad.net/tomb"
 
 	// TODO: Use api/params.NotifyWatcher to avoid redeclaring it here
@@ -11,22 +13,16 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
-// notifyWorker encapsulates the state logic for a worker which is based on a
-// NotifyWatcher. We do a bit of setup, and then spin waiting for the watcher
-// to trigger or for us to be killed, and then teardown cleanly.
 type notifyWorker struct {
 	// Internal structure
 	tomb tomb.Tomb
-	// The watcher the worker is waiting for
-	watcher state.NotifyWatcher
-	// While loop is starting, setup() will be called
-	setup func() error
-	// When we get a notification, we will call handler
-	handler func() error
-	// If we are stopping, call teardown to cleanup
-	teardown func()
+	// handler is what will handle when events are triggered
+	handler WatchHandler
 }
 
+// NotifyWorker encapsulates the state logic for a worker which is based on a
+// NotifyWatcher. We do a bit of setup, and then spin waiting for the watcher
+// to trigger or for us to be killed, and then teardown cleanly.
 type NotifyWorker interface {
 	Wait() error
 	Kill()
@@ -34,16 +30,26 @@ type NotifyWorker interface {
 	Stop() error
 }
 
-func NewNotifyWorker(w state.NotifyWatcher, setup, handler func() error, teardown func()) NotifyWorker {
+// WatchHandler implements the business logic that is triggered as part of
+// watching
+type WatchHandler interface {
+	// Start the handler, this should create the watcher we will be waiting
+	// on for more events. SetUp can return a Watcher even if there is an
+	// error, and NotifyWorker will make sure to stop the Watcher.
+	SetUp() (state.NotifyWatcher, error)
+	// Cleanup any resources that are left around
+	TearDown()
+	// The Watcher has indicated there are changes, do whatever work is
+	// necessary to process it
+	Handle() error
+}
+
+func NewNotifyWorker(handler WatchHandler) NotifyWorker {
 	nw := &notifyWorker{
-		watcher:  w,
-		setup:    setup,
-		handler:  handler,
-		teardown: teardown,
+		handler: handler,
 	}
 	go func() {
 		defer nw.tomb.Done()
-		defer watcher.Stop(nw.watcher, &nw.tomb)
 		nw.tomb.Kill(nw.loop())
 	}()
 	return nw
@@ -66,18 +72,28 @@ func (nw *notifyWorker) Wait() error {
 }
 
 func (nw *notifyWorker) loop() error {
-	if err := nw.setup(); err != nil {
-		nw.teardown()
+	// Replace calls to TearDown with a defer nw.handler.TearDown()
+	var w state.NotifyWatcher
+	var err error
+	defer nw.handler.TearDown()
+	if w, err = nw.handler.SetUp(); err != nil {
+		if w != nil {
+			// We don't bother to propogate an error, because we
+			// already have an error
+			w.Stop()
+		}
 		return err
 	}
+	if w == nil {
+		return fmt.Errorf("SetUp returned a nil Watcher")
+	}
+	defer watcher.Stop(w, &nw.tomb)
 	for {
 		select {
 		case <-nw.tomb.Dying():
-			nw.teardown()
 			return tomb.ErrDying
-		case <-nw.watcher.Changes():
-			if err := nw.handler(); err != nil {
-				nw.teardown()
+		case <-w.Changes():
+			if err := nw.handler.Handle(); err != nil {
 				return err
 			}
 		}
