@@ -54,8 +54,13 @@ func (env *localEnviron) mongoServiceName() string {
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", env.name)
-
-	// TODO(thumper): check that we are running as root
+	if !env.runningAsRoot {
+		return fmt.Errorf("bootstrapping a local environment must be done as root")
+	}
+	if err := env.config.createDirs(); err != nil {
+		logger.Errorf("failed to create necessary directories: %v", err)
+		return err
+	}
 
 	// TODO(thumper): make sure any cert files are owned by the owner of the folder they are in.
 	// $(JUJU_HOME)/local-cert.pem and $(JUJU_HOME)/local-private-key.pem
@@ -214,6 +219,9 @@ func (env *localEnviron) PublicStorage() environs.StorageReader {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
+	if !env.runningAsRoot {
+		return fmt.Errorf("destroying a local environment must be done as root")
+	}
 
 	// TODO(thumper): make sure running as root
 
