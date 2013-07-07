@@ -5,7 +5,6 @@ package local
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 
 	"launchpad.net/loggo"
@@ -81,12 +80,6 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if dir == "." {
 		dir = filepath.Join(defaultRootDir, localConfig.namespace())
 		localConfig.attrs["root-dir"] = dir
-	}
-	logger.Tracef("ensure root dir %s exists", dir)
-	// TODO(thumper): we so don't want to do this here, but should make the dirs in bootstrap.
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		logger.Errorf("failed to make directory for shared storage at %s: %v", dir, err)
-		return nil, err
 	}
 
 	// Apply the coerced unknown values back into the config.

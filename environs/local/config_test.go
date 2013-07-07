@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type configSuite struct {
@@ -25,7 +24,6 @@ func (s *configSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
 	s.oldUser = os.Getenv("USER")
 	err := os.Setenv("USER", "tester")
-	c.Assert(err, gc.IsNil)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -57,14 +55,13 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
-	unknownAttrs := valid.UnknownAttrs()
 
-	root := filepath.Join(s.root, "tester-test")
-	c.Assert(root, jc.IsDirectory)
-	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
+	expectedRootDir := filepath.Join(s.root, "tester-test")
+	unknownAttrs := valid.UnknownAttrs()
+	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
 
-func (s *configSuite) TestValidateConfigWithStorage(c *gc.C) {
+func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 	values := minimalConfigValues()
 	root := c.MkDir()
 	values["root-dir"] = root
@@ -74,7 +71,27 @@ func (s *configSuite) TestValidateConfigWithStorage(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 	unknownAttrs := valid.UnknownAttrs()
-
-	c.Assert(root, jc.IsDirectory)
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
+}
+
+func (s *configSuite) TestNamespace(c *gc.C) {
+	testConfig := minimalConfig(c)
+	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
+}
+
+func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
+	err := os.Setenv("USER", "root")
+	c.Assert(err, gc.IsNil)
+	testConfig := minimalConfig(c)
+	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "root-test")
+}
+
+func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
+	err := os.Setenv("USER", "root")
+	c.Assert(err, gc.IsNil)
+	err = os.Setenv("SUDO_USER", "tester")
+	c.Assert(err, gc.IsNil)
+	defer os.Setenv("SUDO_USER", "")
+	testConfig := minimalConfig(c)
+	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
 }

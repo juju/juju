@@ -68,3 +68,17 @@ func (c *environConfig) mongoDir() string {
 func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
+
+func (c *environConfig) createDirs() error {
+	for _, dirname := range []string{
+		c.sharedStorageDir(),
+		c.storageDir(),
+		c.mongoDir(),
+	} {
+		logger.Tracef("creating directory %s", dirname)
+		if err := os.MkdirAll(dirname, 0755); err != nil {
+			return err
+		}
+	}
+	return nil
+}
