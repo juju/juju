@@ -387,7 +387,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
-	stateData, err := openstack.LoadState(s.env)
+	stateData, err := environs.LoadState(s.env.Storage())
 	c.Assert(err, IsNil)
 	c.Assert(stateData.StateInstances, HasLen, 1)
 
@@ -419,7 +419,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	err = s.env.Destroy(append(insts, inst1))
 	c.Assert(err, IsNil)
 
-	_, err = openstack.LoadState(s.env)
+	_, err = environs.LoadState(s.env.Storage())
 	c.Assert(err, NotNil)
 }
 

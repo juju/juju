@@ -4,3 +4,9 @@
 package local
 
 var Provider = provider
+
+func SetDefaultStorageDirs(public, private string) (oldPublic, oldPrivate string) {
+	oldPublic, defaultPublicStorageDir = defaultPublicStorageDir, public
+	oldPrivate, defaultPrivateStorageDir = defaultPrivateStorageDir, private
+	return
+}

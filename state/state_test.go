@@ -723,7 +723,7 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
 	// All except gone are reported in initial event.
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange(alive.Name(), dying.Name())
 
 	// Remove them all; alive/dying changes reported.
@@ -738,7 +738,7 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
 	// Initial event is empty when no services.
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Add a service: reported.
@@ -792,7 +792,7 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	// All except gone machine are reported in initial event.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange(alive.Id(), dying.Id(), dead.Id())
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
@@ -811,7 +811,7 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Add a machine: reported.
@@ -844,7 +844,7 @@ func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Add a machine: reported.
@@ -894,7 +894,7 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	// Initial event is empty when no containers.
 	w := machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Add a container of the required type: reported.
@@ -951,12 +951,11 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	w, err := machine.WatchHardwareCharacteristics()
-	c.Assert(err, IsNil)
+	w := machine.WatchHardwareCharacteristics()
 	defer statetesting.AssertStop(c, w)
 
 	// Initial event.
-	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Provision a machine: reported.
@@ -1061,7 +1060,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	w := s.State.WatchEnvironConfig()
 	defer statetesting.AssertStop(c, w)
 
-	// TODO(fwereade) just use an EntityWatcher and NotifyWatcherC to test it.
+	// TODO(fwereade) just use a NotifyWatcher and NotifyWatcherC to test it.
 	assertNoChange := func() {
 		s.State.StartSync()
 		select {
@@ -1092,6 +1091,35 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	assertChange(nil)
 	assertChange(attrs{"default-series": "another-series"})
 	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
+}
+
+func (s *StateSuite) TestWatchForEnvironConfigChanges(c *C) {
+	cur := version.Current.Number
+	err := statetesting.SetAgentVersion(s.State, cur)
+	c.Assert(err, IsNil)
+	w := s.State.WatchForEnvironConfigChanges()
+	defer statetesting.AssertStop(c, w)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initially we get one change notification
+	wc.AssertOneChange()
+
+	// Multiple changes will only result in a single change notification
+	newVersion := cur
+	newVersion.Minor += 1
+	err = statetesting.SetAgentVersion(s.State, newVersion)
+	c.Assert(err, IsNil)
+
+	newerVersion := newVersion
+	newerVersion.Minor += 1
+	err = statetesting.SetAgentVersion(s.State, newerVersion)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Setting it to the same value does not trigger a change notification
+	err = statetesting.SetAgentVersion(s.State, newerVersion)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *C) {
@@ -1569,7 +1597,7 @@ func (s *StateSuite) TestWatchCleanups(c *C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
@@ -1615,7 +1643,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NotifyWatcherC{c, s.State, w}
+	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.
@@ -1646,7 +1674,7 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	// Check initial event.
 	w := s.State.WatchMinUnits()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.StringsWatcherC{c, s.State, w}
+	wc := statetesting.NewLaxStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Set up services for later use.

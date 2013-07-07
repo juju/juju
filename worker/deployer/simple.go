@@ -215,7 +215,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 		return nil, err
 	}
 	var installed []string
-	for unitName, _ := range unitsAndJobs {
+	for unitName := range unitsAndJobs {
 		installed = append(installed, unitName)
 	}
 	return installed, nil

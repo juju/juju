@@ -193,6 +193,8 @@ func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, 
 var expectedSyslogConf = `
 $ModLoad imfile
 
+$InputFileStateFile /var/spool/rsyslog/juju-%s-state
+$InputFilePersistStateInterval 50
 $InputFilePollInterval 5
 $InputFileName /var/log/juju/%s.log
 $InputFileTag juju-%s:
@@ -258,7 +260,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, password string) {
 	c.Assert(err, IsNil)
 	parts := strings.SplitN(name, "/", 2)
 	unitTag := fmt.Sprintf("unit-%s-%s", parts[0], parts[1])
-	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag)
+	expectedSyslogConfReplaced := fmt.Sprintf(expectedSyslogConf, unitTag, unitTag, unitTag, unitTag)
 	c.Assert(string(syslogConfData), Equals, expectedSyslogConfReplaced)
 
 }

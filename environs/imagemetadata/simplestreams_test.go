@@ -472,6 +472,9 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 		Stream: "daily",
 	}
 	ids, err := imageConstraint.Ids()
+	if err != nil && err.Error() == `invalid series "lucid"` {
+		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
+	}
 	c.Assert(err, IsNil)
 	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
 }

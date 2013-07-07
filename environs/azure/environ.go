@@ -4,24 +4,15 @@
 package azure
 
 import (
-	"fmt"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/utils"
 	"sync"
-	"time"
 )
-
-var longAttempt = utils.AttemptStrategy{
-	Total: 3 * time.Minute,
-	Delay: 1 * time.Second,
-}
 
 type azureEnviron struct {
 	// Except where indicated otherwise, all fields in this object should
@@ -100,59 +91,8 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
-// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
-// Azure providers (bug 1195721).
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	// This code is cargo-culted from the ec2/maas/openstack providers.
-	// It's not clear that the longAttempt loop has any business being
-	// here, but it's probably a refactoring that needs to happen outside
-	// of the provider code.
-	st, err := env.loadState()
-	if err != nil {
-		return nil, nil, err
-	}
-	config := env.Config()
-	cert, hasCert := config.CACert()
-	if !hasCert {
-		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
-	}
-	var stateAddrs []string
-	var apiAddrs []string
-	// Wait for the DNS names of any of the instances to become available.
-	log.Debugf("environs/azure: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := env.Instances(st.StateInstances)
-		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("environs/azure: error getting state instance: %v", err.Error())
-			return nil, nil, err
-		}
-		log.Debugf("environs/azure: started processing instances: %#v", insts)
-		for _, inst := range insts {
-			if inst == nil {
-				continue
-			}
-			name, err := inst.DNSName()
-			if err != nil {
-				continue
-			}
-			if name != "" {
-				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-				stateAddrs = append(stateAddrs, name+statePortSuffix)
-				apiAddrs = append(apiAddrs, name+apiPortSuffix)
-			}
-		}
-	}
-	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
-	}
-	return &state.Info{
-			Addrs:  stateAddrs,
-			CACert: cert,
-		}, &api.Info{
-			Addrs:  apiAddrs,
-			CACert: cert,
-		}, nil
+	return environs.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
@@ -195,12 +135,72 @@ func (env *azureEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	return nil, fmt.Errorf("azureEnviron.Instances unimplemented")
+	// If the list of ids is empty, return nil as specified by the
+	// interface
+	if len(ids) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(context)
+
+	// Prepare gwacl request object.
+	container := env.getSnapshot().ecfg.StorageContainerName()
+	deploymentNames := make([]string, len(ids))
+	for i, id := range ids {
+		deploymentNames[i] = string(id)
+	}
+	request := &gwacl.ListDeploymentsRequest{ServiceName: container, DeploymentNames: deploymentNames}
+
+	// Issue 'ListDeployments' request with gwacl.
+	deployments, err := context.ListDeployments(request)
+	if err != nil {
+		return nil, err
+	}
+
+	// If no instances were found, return ErrNoInstances.
+	if len(deployments) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+
+	instances := convertToInstances(deployments)
+
+	// Check if we got a partial result.
+	if len(ids) != len(instances) {
+		return instances, environs.ErrPartialInstances
+	}
+	return instances, nil
 }
 
 // AllInstances is specified in the Environ interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
-	panic("unimplemented")
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(context)
+
+	container := env.getSnapshot().ecfg.StorageContainerName()
+	request := &gwacl.ListAllDeploymentsRequest{ServiceName: container}
+	deployments, err := context.ListAllDeployments(request)
+	if err != nil {
+		return nil, err
+	}
+	return convertToInstances(deployments), nil
+}
+
+// convertToInstances converts a slice of gwacl.Deployment objects into
+// a slice of instance.Instance objects.
+func convertToInstances(deployments []gwacl.Deployment) []instance.Instance {
+	instances := make([]instance.Instance, len(deployments))
+	for i, deployment := range deployments {
+		instances[i] = &azureInstance{deployment}
+	}
+	return instances
 }
 
 // Storage is specified in the Environ interface.

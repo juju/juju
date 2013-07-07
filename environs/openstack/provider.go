@@ -22,7 +22,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
-	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -41,19 +40,10 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 
 var providerInstance environProvider
 
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
+// Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 10 * time.Second, // it seems Nova needs more time than EC2
 	Delay: 200 * time.Millisecond,
-}
-
-var longAttempt = utils.AttemptStrategy{
-	Total: 3 * time.Minute,
-	Delay: 1 * time.Second,
 }
 
 func init() {
@@ -355,13 +345,7 @@ func (inst *openstackInstance) DNSName() (string, error) {
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
-	for a := longAttempt.Start(); a.Next(); {
-		addr, err := inst.DNSName()
-		if err == nil || err != instance.ErrNoDNSName {
-			return addr, err
-		}
-	}
-	return "", fmt.Errorf("timed out trying to get DNS address for %v", inst.Id())
+	return environs.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
@@ -481,24 +465,8 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 func (e *environ) Bootstrap(cons constraints.Value) error {
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	var err error
-	for a := shortAttempt.Start(); a.Next(); {
-		_, err = e.loadState()
-		if err != nil {
-			break
-		}
-	}
-	if err == nil {
-		return fmt.Errorf("environment is already bootstrapped")
-	}
-	if !coreerrors.IsNotFoundError(err) {
-		return fmt.Errorf("cannot query old bootstrap state: %v", err)
-	}
-	err = environs.VerifyStorage(e.Storage())
-	if err != nil {
+
+	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
 		return err
 	}
 
@@ -519,7 +487,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	err = e.saveState(&bootstrapState{
+	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
 		StateInstances: []instance.Id{inst.Id()},
 	})
 	if err != nil {
@@ -537,56 +505,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	return nil
 }
 
-// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
-// Azure providers (bug 1195721).
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	st, err := e.loadState()
-	if err != nil {
-		return nil, nil, err
-	}
-	config := e.Config()
-	cert, hasCert := config.CACert()
-	if !hasCert {
-		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
-	}
-	var stateAddrs []string
-	var apiAddrs []string
-	// Wait for the DNS names of any of the instances
-	// to become available.
-	log.Infof("environs/openstack: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := e.Instances(st.StateInstances)
-		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("error getting state instance: %v", err.Error())
-			return nil, nil, err
-		}
-		log.Debugf("started processing instances: %#v", insts)
-		for _, inst := range insts {
-			if inst == nil {
-				continue
-			}
-			name, err := inst.(*openstackInstance).DNSName()
-			if err != nil {
-				continue
-			}
-			if name != "" {
-				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-				stateAddrs = append(stateAddrs, name+statePortSuffix)
-				apiAddrs = append(apiAddrs, name+apiPortSuffix)
-			}
-		}
-	}
-	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
-	}
-	return &state.Info{
-			Addrs:  stateAddrs,
-			CACert: cert,
-		}, &api.Info{
-			Addrs:  apiAddrs,
-			CACert: cert,
-		}, nil
+	return environs.StateInfo(e)
 }
 
 func (e *environ) Config() *config.Config {
@@ -776,7 +696,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
-	for a := longAttempt.Start(); a.Next(); {
+	for a := environs.LongAttempt.Start(); a.Next(); {
 		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil

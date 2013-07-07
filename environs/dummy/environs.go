@@ -433,7 +433,12 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if _, ok := e.Config().CACert(); !ok {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if err := environs.VerifyStorage(e.Storage()); err != nil {
+
+	var shortAttempt = utils.AttemptStrategy{
+		Total: 200 * time.Millisecond,
+		Delay: 10 * time.Millisecond,
+	}
+	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
 		return err
 	}
 
@@ -723,7 +728,7 @@ func (inst *dummyInstance) DNSName() (string, error) {
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return inst.DNSName()
+	return environs.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

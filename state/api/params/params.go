@@ -60,16 +60,26 @@ type MachinesSetStatus struct {
 	Machines []MachineSetStatus
 }
 
-// EntityWatchResult holds an EntityWatcher id and an error (if any).
-type EntityWatchResult struct {
-	EntityWatcherId string
+// NotifyWatchResult holds an NotifyWatcher id and an error (if any).
+type NotifyWatchResult struct {
+	NotifyWatcherId string
 	Error           *Error
 }
 
-// EntityWatchResults holds the results for any API call which ends up
-// returning a list of Entity Watchers
-type EntityWatchResults struct {
-	Results []EntityWatchResult
+// NotifyWatchResults holds the results for any API call which ends up
+// returning a list of NotifyWatchers
+type NotifyWatchResults struct {
+	Results []NotifyWatchResult
+}
+
+// Agent identifies a single agent
+type Agent struct {
+	Tag string
+}
+
+// Agents holds a list of Tags for Unit- and Machine-Agents.
+type Agents struct {
+	Agents []Agent
 }
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -226,6 +236,46 @@ type ServiceDestroy struct {
 	ServiceName string
 }
 
+// AgentTools describes the tools for a given Agent. This is mostly a flattened
+// state.Tools description, plus an agent Tag field.
+type AgentTools struct {
+	Tag    string
+	Major  int
+	Minor  int
+	Patch  int
+	Build  int
+	Arch   string
+	Series string
+	URL    string
+}
+
+// AgentToolsResult holds the tools and possibly error for a given Agent request
+type AgentToolsResult struct {
+	AgentTools AgentTools
+	Error      *Error
+}
+
+// AgentToolsResults is a list of tools for various requested agents.
+type AgentToolsResults struct {
+	Tools []AgentToolsResult
+}
+
+// Set what tools are being run for multiple agents
+type SetAgentTools struct {
+	AgentTools []AgentTools
+}
+
+// The result of setting the tools for one agent
+type SetAgentToolsResult struct {
+	Tag   string
+	Error *Error
+}
+
+// The result of setting the tools for many agents
+type SetAgentToolsResults struct {
+	Results []SetAgentToolsResult
+}
+
 // PasswordChanges holds the parameters for making a SetPasswords call.
 type PasswordChanges struct {
 	Changes []PasswordChange
@@ -244,9 +294,9 @@ type Creds struct {
 	Password string
 }
 
-// EntityWatcherId holds the id of an EntityWatcher.
-type EntityWatcherId struct {
-	EntityWatcherId string
+// NotifyWatcherId holds the id of an NotifyWatcher.
+type NotifyWatcherId struct {
+	NotifyWatcherId string
 }
 
 // LifecycleWatchResults holds the results of API calls
