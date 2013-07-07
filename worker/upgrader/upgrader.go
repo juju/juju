@@ -5,63 +5,61 @@ package upgrader
 
 import (
 	"fmt"
-	"time"
 
 	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 
-	//"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/common"
-	//"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/upgrader"
+	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker"
 )
 
 var logger = loggo.GetLogger("juju.upgrader")
 
-type upgrader struct {
-	tomb        tomb.Tomb
-	stateCaller common.Caller
+type upgradeHandler struct {
+	apiState    *api.State
+	apiUpgrader *upgrader.Upgrader
 	agentTag    string
 }
 
-func NewUpgrader(caller common.Caller, agentTag string) *upgrader {
-	u := &upgrader{
-		stateCaller: caller,
-		agentTag:    agentTag,
-	}
-	go func() {
-		defer u.tomb.Done()
-		u.tomb.Kill(u.loop())
-	}()
-	return u
+func NewUpgrader(st *api.State, agentTag string) worker.NotifyWorker {
+	return worker.NewNotifyWorker(&upgradeHandler{
+		apiState: st,
+		agentTag: agentTag,
+	})
 }
 
-func (u *upgrader) String() string {
+func (u *upgradeHandler) String() string {
 	return fmt.Sprintf("upgrader for %q", u.agentTag)
 }
 
-// Kill the loop with no-error
-func (u *upgrader) Kill() {
-	u.tomb.Kill(nil)
-}
-
-// Kill and Wait for this to exit
-func (u *upgrader) Stop() error {
-	u.tomb.Kill(nil)
-	return u.tomb.Wait()
-}
-
-// Wait for the looping to finish
-func (u *upgrader) Wait() error {
-	return u.tomb.Wait()
-}
-
-func (u *upgrader) loop() error {
-	for {
-		select {
-		case <-u.tomb.Dying():
-			return tomb.ErrDying
-		case <-time.After(1 * time.Millisecond):
-		}
+func (u *upgradeHandler) SetUp() (state.NotifyWatcher, error) {
+	// First thing we do is alert the API of our current tools
+	u.apiUpgrader = u.apiState.Upgrader()
+	cur := version.Current
+	err := u.apiUpgrader.SetTools(params.AgentTools{
+		Tag:    u.agentTag,
+		Major:  cur.Major,
+		Minor:  cur.Minor,
+		Patch:  cur.Patch,
+		Build:  cur.Build,
+		Arch:   cur.Arch,
+		Series: cur.Series,
+		URL:    "",
+	})
+	if err != nil {
+		return nil, err
 	}
-	panic("unreachable")
+	return u.apiUpgrader.WatchAPIVersion(u.agentTag)
+}
+
+func (u *upgradeHandler) TearDown() {
+	u.apiUpgrader = nil
+	u.apiState = nil
+}
+
+func (u *upgradeHandler) Handle() error {
+	return nil
 }

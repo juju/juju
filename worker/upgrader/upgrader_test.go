@@ -6,21 +6,18 @@ package upgrader_test
 import (
 	"fmt"
 	stdtesting "testing"
-	"time"
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state/api/common"
-	//"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/upgrader"
 )
-
-var shortWait = 5 * time.Millisecond
-var longWait = 500 * time.Millisecond
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -29,13 +26,25 @@ func TestPackage(t *stdtesting.T) {
 type UpgraderSuite struct {
 	jujutesting.JujuConnSuite
 	//SimpleToolsFixture
+
+	rawMachine *state.Machine
+	apiState   *api.State
 }
 
 var _ = gc.Suite(&UpgraderSuite{})
 
 func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
+
+	// Create a machine to work with
+	var err error
+	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	err = s.rawMachine.SetPassword("test-password")
+	c.Assert(err, gc.IsNil)
+
 	//s.SimpleToolsFixture.SetUp(c, s.DataDir())
+	s.apiState = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
 }
 
 func (s *UpgraderSuite) TearDownTest(c *gc.C) {
@@ -43,89 +52,22 @@ func (s *UpgraderSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-type MockCaller struct {
+func (s *UpgraderSuite) TestString(c *gc.C) {
+	upg := upgrader.NewUpgrader(s.APIState, "machine-tag")
+	c.Assert(fmt.Sprint(upg), gc.Equals, `upgrader for "machine-tag"`)
+	c.Assert(upg.Stop(), gc.ErrorMatches, "permission denied")
 }
 
-func (mc *MockCaller) Call(objType, id, request string, params, response interface{}) error {
-	return nil
-}
-
-var _ common.Caller = (*MockCaller)(nil)
-
-type Stopper interface {
-	// most Worker objects implement Stopper, though it isn't officially
-	// required
-	Stop() error
-}
-
-// Tests of the Upgrader code that can use a MockCaller
-type UpgraderNoStateSuite struct {
-	caller   common.Caller
-	upgrader worker.Worker
-}
-
-var _ = gc.Suite(&UpgraderNoStateSuite{})
-
-func (s *UpgraderNoStateSuite) SetUpTest(c *gc.C) {
-	s.caller = &MockCaller{}
-	s.upgrader = upgrader.NewUpgrader(s.caller, "machine-tag")
-}
-
-func (s *UpgraderNoStateSuite) TearDownTest(c *gc.C) {
-	stopper, ok := s.upgrader.(Stopper)
-	c.Assert(ok, jc.IsTrue)
-	err := stopper.Stop()
+func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
+	_, err := s.rawMachine.AgentTools()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	upg := upgrader.NewUpgrader(s.apiState, s.rawMachine.Tag())
+	c.Assert(upg.Stop(), gc.IsNil)
+	s.rawMachine.Refresh()
+	ver, err := s.rawMachine.AgentTools()
 	c.Assert(err, gc.IsNil)
+	c.Assert(ver.Binary, gc.Equals, version.Current)
 }
 
-func (s *UpgraderNoStateSuite) TestString(c *gc.C) {
-	c.Assert(fmt.Sprint(s.upgrader), gc.Equals, `upgrader for "machine-tag"`)
-}
-
-func WaitShort(c *gc.C, w worker.Worker) error {
-	done := make(chan error)
-	go func() {
-		done <- w.Wait()
-	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(shortWait):
-		c.Errorf("Wait() failed to return after %.3fs", shortWait.Seconds())
-	}
-	return nil
-}
-
-func (s *UpgraderNoStateSuite) TestKill(c *gc.C) {
-	s.upgrader.Kill()
-	err := WaitShort(c, s.upgrader)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *UpgraderNoStateSuite) TestStop(c *gc.C) {
-	upg := s.upgrader.(Stopper)
-	err := upg.Stop()
-	c.Assert(err, gc.IsNil)
-	// After stop, Wait should return right away
-	err = WaitShort(c, s.upgrader)
-	c.Assert(err, gc.IsNil)
-}
-
-func (s *UpgraderNoStateSuite) TestWait(c *gc.C) {
-	done := make(chan error)
-	go func() {
-		done <- s.upgrader.Wait()
-	}()
-	select {
-	case err := <-done:
-		c.Errorf("Wait() didn't wait until we stopped it. err: %v", err)
-	case <-time.After(shortWait):
-	}
-	s.upgrader.Kill()
-	select {
-	case err := <-done:
-		c.Assert(err, gc.IsNil)
-	case <-time.After(longWait):
-		c.Errorf("Wait() failed to return after we stopped.")
-	}
-}
+//func (s *UpgraderSuite) TestWatchingAPIVersion(c *gc.C) {
+//}

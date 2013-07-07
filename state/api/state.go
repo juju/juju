@@ -39,6 +39,6 @@ func (st *State) MachineAgent() *machineagent.State {
 }
 
 // Upgrader returns access to the Upgrader API
-func (st *State) Upgrader() (*upgrader.Upgrader, error) {
-	return upgrader.New(st), nil
+func (st *State) Upgrader() *upgrader.Upgrader {
+	return upgrader.New(st)
 }
