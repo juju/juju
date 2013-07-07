@@ -31,9 +31,8 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
-	root := false
-	if user == "root" {
-		root = true
+	root := os.Getuid() == 0
+	if root {
 		sudo_user := os.Getenv("SUDO_USER")
 		if sudo_user != "" {
 			user = sudo_user

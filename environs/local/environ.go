@@ -51,7 +51,13 @@ func (env *localEnviron) mongoServiceName() string {
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", env.name)
-
+	if !env.runningAsRoot {
+		return fmt.Errorf("bootstrapping a local environment must be done as root")
+	}
+	if err := env.config.createDirs(); err != nil {
+		logger.Errorf("failed to create necessary directories: %v", err)
+		return err
+	}
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
@@ -165,6 +171,9 @@ func (env *localEnviron) PublicStorage() environs.StorageReader {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
+	if !env.runningAsRoot {
+		return fmt.Errorf("destroying a local environment must be done as root")
+	}
 
 	logger.Infof("removing service %s", env.mongoServiceName())
 	mongo := upstart.NewService(env.mongoServiceName())
