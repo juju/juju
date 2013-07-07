@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/local"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -15,8 +16,22 @@ type environSuite struct {
 
 var _ = gc.Suite(&environSuite{})
 
-func (*environSuite) TestName(c *gc.C) {
+func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 	testConfig := minimalConfig(c)
+
+	environ, err := local.Provider.Open(testConfig)
+	c.Assert(err, gc.ErrorMatches, "storage directory .* does not exist, bootstrap first")
+	c.Assert(environ, gc.IsNil)
+}
+
+func (s *environSuite) TestName(c *gc.C) {
+	c.Logf("root: %s", s.root)
+	c.Assert(s.root, jc.IsDirectory)
+
+	testConfig := minimalConfig(c)
+	err := local.CreateDirs(testConfig)
+
+	c.Assert(err, gc.IsNil)
 
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
