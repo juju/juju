@@ -30,8 +30,9 @@ var _ = gc.Suite(&notifyWorkerSuite{})
 func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.actor = &ActionsHandler{
-		actions: nil,
-		handled: make(chan struct{}),
+		actions:     nil,
+		handled:     make(chan struct{}),
+		description: "test action handler",
 		watcher: &TestWatcher{
 			out: make(chan struct{}),
 		},
@@ -52,6 +53,7 @@ type ActionsHandler struct {
 	setupError   error
 	handlerError error
 	watcher      *TestWatcher
+	description  string
 }
 
 func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
@@ -78,6 +80,10 @@ func (a *ActionsHandler) Handle() error {
 		a.handled <- struct{}{}
 	}
 	return a.handlerError
+}
+
+func (a *ActionsHandler) String() string {
+	return a.description
 }
 
 func (a *ActionsHandler) CheckActions(c *gc.C, actions ...string) {
@@ -197,6 +203,16 @@ func (s *notifyWorkerSuite) TestWait(c *gc.C) {
 	case <-time.After(longWait):
 		c.Errorf("Wait() failed to return after we stopped.")
 	}
+}
+
+func (s *notifyWorkerSuite) TestStringForwardsHandlerString(c *gc.C) {
+	c.Check(s.worker.String(), gc.Equals, "test action handler")
+}
+
+func (s *notifyWorkerSuite) TestStringAvoidsNullDereference(c *gc.C) {
+	nw := worker.NewNotifyWorker(nil)
+	c.Check(nw.String(), gc.Equals, "<unknown NotifyWorker>")
+	c.Check(nw.Stop(), gc.ErrorMatches, "NotifyWorker requires a non-nil WatchHandler")
 }
 
 func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {

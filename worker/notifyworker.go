@@ -28,6 +28,8 @@ type NotifyWorker interface {
 	Kill()
 	// This is just Kill + Wait
 	Stop() error
+	// A nice handle for this worker, based on its underlying Handler
+	String() string
 }
 
 // WatchHandler implements the business logic that is triggered as part of
@@ -42,6 +44,8 @@ type WatchHandler interface {
 	// The Watcher has indicated there are changes, do whatever work is
 	// necessary to process it
 	Handle() error
+	// Report a nice string identifying this worker
+	String() string
 }
 
 func NewNotifyWorker(handler WatchHandler) NotifyWorker {
@@ -71,10 +75,21 @@ func (nw *notifyWorker) Wait() error {
 	return nw.tomb.Wait()
 }
 
+// Return a nice description of this worker
+func (nw *notifyWorker) String() string {
+	if nw.handler != nil {
+		return nw.handler.String()
+	}
+	return "<unknown NotifyWorker>"
+}
+
 func (nw *notifyWorker) loop() error {
 	// Replace calls to TearDown with a defer nw.handler.TearDown()
 	var w state.NotifyWatcher
 	var err error
+	if nw.handler == nil {
+		return fmt.Errorf("NotifyWorker requires a non-nil WatchHandler")
+	}
 	defer nw.handler.TearDown()
 	if w, err = nw.handler.SetUp(); err != nil {
 		if w != nil {
