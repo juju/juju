@@ -36,5 +36,5 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Name(), gc.Equals, "test")
 	c.Assert(environ.Storage(), gc.NotNil)
-	c.Assert(environ.SharedStorate(), gc.NotNil)
+	c.Assert(environ.PublicStorage(), gc.NotNil)
 }
