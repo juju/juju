@@ -5,6 +5,7 @@ package local
 
 import (
 	"fmt"
+	"sync"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -18,7 +19,9 @@ import (
 var _ environs.Environ = (*localEnviron)(nil)
 
 type localEnviron struct {
-	name string
+	localMutex sync.Mutex
+	config     *environConfig
+	name       string
 }
 
 // Name is specified in the Environ interface.
@@ -38,12 +41,22 @@ func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
 
 // Config is specified in the Environ interface.
 func (env *localEnviron) Config() *config.Config {
-	panic("unimplemented")
+	env.localMutex.Lock()
+	defer env.localMutex.Unlock()
+	return env.config.Config
 }
 
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
-	return fmt.Errorf("not implemented")
+	config, err := provider.newConfig(cfg)
+	if err != nil {
+		logger.Errorf("failed to create new environ config: %v", err)
+		return err
+	}
+	env.localMutex.Lock()
+	defer env.localMutex.Unlock()
+	env.config = config
+	return nil
 }
 
 // StartInstance is specified in the Environ interface.

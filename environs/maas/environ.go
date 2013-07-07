@@ -28,6 +28,16 @@ const (
 	apiVersion = "1.0"
 )
 
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
+var shortAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
 var longAttempt = utils.AttemptStrategy{
 	Total: 3 * time.Minute,
 	Delay: 1 * time.Second,
@@ -100,17 +110,18 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 
 // Bootstrap is specified in the Environ interface.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
-	// TODO(fwereade): this should check for an existing environment before
-	// starting a new one -- even given raciness, it's better than nothing.
-	if err := environs.VerifyStorage(env.Storage()); err != nil {
-		return fmt.Errorf("provider storage is not writeable")
+
+	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+		return err
 	}
 
 	inst, err := env.startBootstrapNode(cons)
 	if err != nil {
 		return err
 	}
-	err = env.saveState(&bootstrapState{StateInstances: []instance.Id{inst.Id()}})
+	err = environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		if err := env.releaseInstance(inst); err != nil {
 			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
@@ -125,60 +136,8 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 }
 
 // StateInfo is specified in the Environ interface.
-// TODO: This function is duplicated between the EC2, OpenStack, MAAS, and
-// Azure providers (bug 1195721).
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	// This code is cargo-culted from the openstack/ec2 providers.
-	// It's a bit unclear what the "longAttempt" loop is actually for
-	// but this should probably be refactored outside of the provider
-	// code.
-	st, err := env.loadState()
-	if err != nil {
-		return nil, nil, err
-	}
-	config := env.Config()
-	cert, hasCert := config.CACert()
-	if !hasCert {
-		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
-	}
-	var stateAddrs []string
-	var apiAddrs []string
-	// Wait for the DNS names of any of the instances
-	// to become available.
-	log.Debugf("environs/maas: waiting for DNS name(s) of state server instances %v", st.StateInstances)
-	for a := longAttempt.Start(); len(stateAddrs) == 0 && a.Next(); {
-		insts, err := env.Instances(st.StateInstances)
-		if err != nil && err != environs.ErrPartialInstances {
-			log.Debugf("environs/maas: error getting state instance: %v", err.Error())
-			return nil, nil, err
-		}
-		log.Debugf("environs/maas: started processing instances: %#v", insts)
-		for _, inst := range insts {
-			if inst == nil {
-				continue
-			}
-			name, err := inst.DNSName()
-			if err != nil {
-				continue
-			}
-			if name != "" {
-				statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-				apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-				stateAddrs = append(stateAddrs, name+statePortSuffix)
-				apiAddrs = append(apiAddrs, name+apiPortSuffix)
-			}
-		}
-	}
-	if len(stateAddrs) == 0 {
-		return nil, nil, fmt.Errorf("timed out waiting for mgo address from %v", st.StateInstances)
-	}
-	return &state.Info{
-			Addrs:  stateAddrs,
-			CACert: cert,
-		}, &api.Info{
-			Addrs:  apiAddrs,
-			CACert: cert,
-		}, nil
+	return environs.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
@@ -394,21 +353,9 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 	return err
 }
 
-// Instances returns the instance.Instance objects corresponding to the given
-// slice of instance.Id.  Similar to what the ec2 provider does,
-// Instances returns nil if the given slice is empty or nil.
-func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	if len(ids) == 0 {
-		return nil, nil
-	}
-	return environ.instances(ids)
-}
-
-// instances is an internal method which returns the instances matching the
-// given instance ids or all the instances if 'ids' is empty.
-// If the some of the intances could not be found, it returns the instance
-// that could be found plus the error environs.ErrPartialInstances in the error
-// return.
+// instances calls the MAAS API to list nodes.  The "ids" slice is a filter for
+// specific instance IDs.  Due to how this works in the HTTP API, an empty
+// "ids" matches all instances (not none as you might expect).
 func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, error) {
 	nodeListing := environ.getMAASClient().GetSubObject("nodes")
 	filter := getSystemIdValues(ids)
@@ -431,7 +378,28 @@ func (environ *maasEnviron) instances(ids []instance.Id) ([]instance.Instance, e
 			environ:    environ,
 		}
 	}
-	if len(ids) != 0 && len(ids) != len(instances) {
+	return instances, nil
+}
+
+// Instances returns the instance.Instance objects corresponding to the given
+// slice of instance.Id.  The error is ErrNoInstances if no instances
+// were found.
+func (environ *maasEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	if len(ids) == 0 {
+		// This would be treated as "return all instances" below, so
+		// treat it as a special case.
+		// The interface requires us to return this particular error
+		// if no instances were found.
+		return nil, environs.ErrNoInstances
+	}
+	instances, err := environ.instances(ids)
+	if err != nil {
+		return nil, err
+	}
+	if len(instances) == 0 {
+		return nil, environs.ErrNoInstances
+	}
+	if len(ids) != len(instances) {
 		return instances, environs.ErrPartialInstances
 	}
 	return instances, nil
