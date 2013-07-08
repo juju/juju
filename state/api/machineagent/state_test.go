@@ -49,7 +49,7 @@ func (s *suite) TearDownTest(c *C) {
 func (s *suite) TestMachine(c *C) {
 	m, err := s.st.MachineAgent().Machine("42")
 	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(m, IsNil)
 
 	m, err = s.st.MachineAgent().Machine(s.machine.Id())
@@ -65,7 +65,7 @@ func (s *suite) TestMachine(c *C) {
 
 	m, err = s.st.MachineAgent().Machine(s.machine.Id())
 	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 	c.Assert(m, IsNil)
 }
 
@@ -88,7 +88,7 @@ func (s *suite) TestMachineRefresh(c *C) {
 
 	err = m.Refresh()
 	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 }
 
 func (s *suite) TestMachineSetPassword(c *C) {

@@ -150,7 +150,7 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 		return nil, nil, err
 	}
 	entity, err := a.APIEntity(st)
-	if api.ErrCode(err) == api.CodeNotFound || err == nil && entity.Life() == params.Dead {
+	if params.ErrCode(err) == params.CodeNotFound || err == nil && entity.Life() == params.Dead {
 		err = worker.ErrTerminateAgent
 	}
 	if err != nil {
