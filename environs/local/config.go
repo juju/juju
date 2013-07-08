@@ -73,6 +73,31 @@ func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
 
+// getSudoCallerIds returns the user id and group id of the SUDO caller
+// if the values have been set.  If the values haven't been set, then
+// zero is returned.  Errors are returned if the environment variable
+// has been set to a non-integer.
+func getSudoCallerIds() (uid, gid int, err error) {
+	// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
+	// change ownership of the directories.
+	uidStr := os.Getenv("SUDO_UID")
+	gidStr := os.Getenv("SUDO_GID")
+	if uidStr != "" && gidStr != "" {
+		uid, err = strconv.Atoi(uidStr)
+		if err != nil {
+			logger.Errorf("expected %q for SUDO_UID to be an int: %v", uidStr, err)
+			return
+		}
+		gid, err = strconv.Atoi(gidStr)
+		if err != nil {
+			logger.Errorf("expected %q for SUDO_GID to be an int: %v", gidStr, err)
+			uid = 0 // clear out any value we may have
+			return
+		}
+	}
+	return
+}
+
 func (c *environConfig) createDirs() error {
 	for _, dirname := range []string{
 		c.sharedStorageDir(),
@@ -87,20 +112,11 @@ func (c *environConfig) createDirs() error {
 	if c.runningAsRoot {
 		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
 		// change ownership of the directories.
-		uidStr := os.Getenv("SUDO_UID")
-		gidStr := os.Getenv("SUDO_GID")
-		if uidStr != "" && gidStr != "" {
-			uid, err := strconv.Atoi(uidStr)
-			if err != nil {
-				logger.Errorf("Expected %q for SUDO_UID to be an int: %v", uidStr, err)
-				return err
-			}
-			gid, err := strconv.Atoi(gidStr)
-			if err != nil {
-				logger.Errorf("Expected %q for SUDO_GID to be an int: %v", gidStr, err)
-				return err
-			}
-
+		uid, gid, err := getSudoCallerIds()
+		if err != nil {
+			return err
+		}
+		if uid != 0 || gid != 0 {
 			filepath.Walk(c.rootDir(),
 				func(path string, info os.FileInfo, err error) error {
 					if info.IsDir() && err == nil {

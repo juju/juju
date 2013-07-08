@@ -42,3 +42,7 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 		localConfig.mongoDir(),
 	}
 }
+
+func GetSudoCallerIds() (uid, gid int, err error) {
+	return getSudoCallerIds()
+}

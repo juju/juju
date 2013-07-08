@@ -5,9 +5,12 @@ package local
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"sync"
+	"time"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -17,6 +20,8 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 )
 
 var lxcBridgeName = "lxcbr0"
@@ -51,10 +56,32 @@ func (env *localEnviron) mongoServiceName() string {
 	return "juju-db-" + env.config.namespace()
 }
 
+// ensureCertOwner checks to make sure that the cert files created
+// by the bootstrap command are owned by the user and not root.
+func (env *localEnviron) ensureCertOwner() error {
+	files := []string{
+		config.JujuHomePath(env.name + "-cert.pem"),
+		config.JujuHomePath(env.name + "-private-key.pem"),
+	}
+
+	uid, gid, err := getSudoCallerIds()
+	if err != nil {
+		return err
+	}
+	if uid != 0 || gid != 0 {
+		for _, filename := range files {
+			if err := os.Chown(filename, uid, gid); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", env.name)
-	if !env.runningAsRoot {
+	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
 	if err := env.config.createDirs(); err != nil {
@@ -62,9 +89,10 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
-	// TODO(thumper): make sure any cert files are owned by the owner of the folder they are in.
-	// $(JUJU_HOME)/local-cert.pem and $(JUJU_HOME)/local-private-key.pem
-
+	if err := env.ensureCertOwner(); err != nil {
+		logger.Errorf("failed to reassign ownership of the certs to the user: %v", err)
+		return err
+	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 
 	// If the state file exists, it might actually have just been
@@ -219,7 +247,7 @@ func (env *localEnviron) PublicStorage() environs.StorageReader {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
-	if !env.runningAsRoot {
+	if !env.config.runningAsRoot {
 		return fmt.Errorf("destroying a local environment must be done as root")
 	}
 
@@ -283,7 +311,6 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 		return nil, nil, err
 	}
 
-	// TODO(thumper): work out how to get the user to sudo bits...
 	mongo := upstart.MongoUpstartService(
 		env.mongoServiceName(),
 		env.config.rootDir(),
@@ -298,7 +325,6 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 }
 
 func (env *localEnviron) findBridgeAddress() (string, error) {
-
 	bridge, err := net.InterfaceByName(lxcBridgeName)
 	if err != nil {
 		logger.Errorf("cannot find network interface %q: %v", lxcBridgeName, err)
@@ -339,14 +365,14 @@ func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
 }
 
 func (env *localEnviron) initialStateConfiguration(addr string, cons constraints.Value) (*state.State, error) {
-	// We don't check the existance of the CACert here as if it wasn't set, we wouldn't get this far.
+	// We don't check the existance of the CACert here as if it wasn't set, we
+	// wouldn't get this far.
 	cfg := env.config.Config
 	caCert, _ := cfg.CACert()
 	addr = fmt.Sprintf("%s:%d", addr, cfg.StatePort())
 	info := &state.Info{
 		Addrs:  []string{addr},
 		CACert: caCert,
-		// Password: passwordHash,
 	}
 	timeout := state.DialOpts{10 * time.Second}
 	bootstrap, err := environs.BootstrapConfig(cfg)
