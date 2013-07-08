@@ -120,3 +120,81 @@ func minUnitsRemoveOp(st *State, serviceName string) txn.Op {
 func (s *Service) MinUnits() int {
 	return s.doc.MinUnits
 }
+
+// EnsureMinUnits adds new units if the service's MinUnits value is greater
+// than the number of alive units.
+func (s *Service) EnsureMinUnits() (err error) {
+	defer utils.ErrorContextf(&err,
+		"cannot ensure minimum units for service %q", s)
+loop:
+	for {
+		// Ensure the service is alive.
+		if s.doc.Life != Alive {
+			return errors.New("service is no longer alive")
+		}
+		// Exit without errors if the MinUnits for the service is not set.
+		if s.doc.MinUnits == 0 {
+			return nil
+		}
+		// Retrieve the number of alive units for the service.
+		aliveUnits, err := aliveUnitsCount(s)
+		if err != nil {
+			return err
+		}
+		// Calculate the number of required units to be added.
+		missing := s.doc.MinUnits - aliveUnits
+		if missing <= 0 {
+			return nil
+		}
+		// Add missing units.
+		for i := 0; i < missing; i++ {
+			if err := s.Refresh(); err != nil {
+				return err
+			}
+			name, ops, err := ensureMinUnitsOps(s)
+			if err != nil {
+				return err
+			}
+			if err := s.st.runTransaction(ops); err == txn.ErrAborted {
+				continue loop
+			} else if err != nil {
+				return err
+			}
+			unit, err := s.Unit(name)
+			if err != nil {
+				return err
+			}
+			if err := s.st.AssignUnit(unit, AssignNew); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	return nil
+}
+
+// aliveUnitsCount returns the number a alive units for the service.
+func aliveUnitsCount(service *Service) (int, error) {
+	query := D{{"service", service.doc.Name}, {"life", Alive}}
+	aliveUnits, err := service.st.units.Find(query).Count()
+	if err != nil {
+		return 0, errors.New("cannot get alive units count")
+	}
+	return aliveUnits, nil
+}
+
+// ensureMinUnitsOps returns the operations required to add a unit for the
+// service in MongoDB. The operation is aborted if the service document changes
+// when running the transaction.
+func ensureMinUnitsOps(service *Service) (string, []txn.Op, error) {
+	name, ops, err := service.addUnitOps("")
+	if err != nil {
+		return "", nil, err
+	}
+	ops = append(ops, txn.Op{
+		C:      service.st.services.Name,
+		Id:     service.doc.Name,
+		Assert: D{{"txn-revno", service.doc.TxnRevno}},
+	})
+	return name, ops, nil
+}

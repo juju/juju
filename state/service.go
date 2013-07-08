@@ -39,6 +39,7 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	MinUnits      int
+	TxnRevno      int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
