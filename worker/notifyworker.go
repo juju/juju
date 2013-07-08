@@ -6,8 +6,7 @@ package worker
 import (
 	"launchpad.net/tomb"
 
-	// TODO: Use api/params.NotifyWatcher to avoid redeclaring it here
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 )
 
@@ -25,7 +24,7 @@ type notifyWorker struct {
 	closedHandler func(watcher.Errer) error
 }
 
-// NotifyWorker encapsulates the state logic for a worker which is based on a
+// NotifyWorker encapsulates the logic for a worker which is based on a
 // NotifyWatcher. We do a bit of setup, and then spin waiting for the watcher
 // to trigger or for us to be killed, and then teardown cleanly.
 type NotifyWorker interface {
@@ -48,7 +47,7 @@ type WatchHandler interface {
 	// SetUp starts the handler, this should create the watcher we will be
 	// waiting on for more events. SetUp can return a Watcher even if there
 	// is an error, and NotifyWorker will make sure to stop the Watcher.
-	SetUp() (state.NotifyWatcher, error)
+	SetUp() (params.NotifyWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
@@ -107,7 +106,7 @@ func handlerTearDown(handler WatchHandler, t *tomb.Tomb) {
 }
 
 func (nw *notifyWorker) loop() error {
-	var w state.NotifyWatcher
+	var w params.NotifyWatcher
 	var err error
 	defer handlerTearDown(nw.handler, &nw.tomb)
 	if w, err = nw.handler.SetUp(); err != nil {

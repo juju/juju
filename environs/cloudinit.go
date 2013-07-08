@@ -5,9 +5,7 @@ package environs
 
 import (
 	"fmt"
-	"time"
 
-	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -64,11 +62,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	}
 
 	// These really are directly relevant to running a state server.
-	caKey, hasCAKey := cfg.CAPrivateKey()
-	if !hasCAKey {
-		return fmt.Errorf("environment configuration has no ca-private-key")
-	}
-	cert, key, err := cert.NewServer(cfg.Name(), caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
+	cert, key, err := cfg.GenerateStateServerCertAndKey()
 	if err != nil {
 		return fmt.Errorf("cannot generate state server certificate: %v", err)
 	}

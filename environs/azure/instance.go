@@ -4,13 +4,15 @@
 package azure
 
 import (
+	"fmt"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
 
 type azureInstance struct {
-	gwacl.Deployment
+	// An instance contains an Azure Service (instance==service).
+	gwacl.HostedServiceDescriptor
 }
 
 // azureInstance implements Instance.
@@ -18,13 +20,22 @@ var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
 func (azInstance *azureInstance) Id() instance.Id {
-	return instance.Id(azInstance.Name)
+	return instance.Id(azInstance.ServiceName)
 }
+
+var AZURE_DOMAIN_NAME = "cloudapp.net"
 
 // DNSName is specified in the Instance interface.
 func (azInstance *azureInstance) DNSName() (string, error) {
-	// An Azure deployment gets its DNS name immediately when it's created.
-	return azInstance.GetFQDN()
+	// The hostname is stored in the hosted service's label.
+	label, err := azInstance.GetLabel()
+	if err != nil {
+		return "", err
+	}
+	if label == "" {
+		return "", instance.ErrNoDNSName
+	}
+	return fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME), nil
 }
 
 // WaitDNSName is specified in the Instance interface.

@@ -45,7 +45,7 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *C) {
 	for i := 0; i < c.N; i++ {
 		unit, err := svc.AddUnit()
 		c.Assert(err, IsNil)
-		err = s.State.AssignUnit(unit, state.AssignUnused)
+		err = s.State.AssignUnit(unit, state.AssignClean)
 		c.Assert(err, IsNil)
 	}
 }

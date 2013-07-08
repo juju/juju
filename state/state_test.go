@@ -1770,3 +1770,9 @@ func (s *StateSuite) TestParentId(c *C) {
 	c.Assert(state.ParentId("0/lxc/1"), Equals, "0")
 	c.Assert(state.ParentId("0/lxc/1/kvm/0"), Equals, "0/lxc/1")
 }
+
+func (s *StateSuite) TestContainerTypeFromId(c *C) {
+	c.Assert(state.ContainerTypeFromId("0"), Equals, instance.ContainerType(""))
+	c.Assert(state.ContainerTypeFromId("0/lxc/1"), Equals, instance.LXC)
+	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), Equals, instance.KVM)
+}
