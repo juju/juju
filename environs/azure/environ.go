@@ -22,6 +22,11 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
+// In our initial implementation, each instance gets its own hosted service and
+// deployment in Azure.  The deployment always gets this name
+// (instance==service).
+const DeploymentName = "default"
+
 type azureEnviron struct {
 	// Except where indicated otherwise, all fields in this object should
 	// only be accessed using a lock or a snapshot.
@@ -246,23 +251,32 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 	}
 	defer env.releaseManagementAPI(azure)
 
-	createdService, err := newHostedService(azure.ManagementAPI)
+	service, err := newHostedService(azure.ManagementAPI)
 	if err != nil {
 		return nil, err
 	}
+	serviceName := service.ServiceName
 
 	// If we fail after this point, clean up the hosted service.
 	defer func() {
 		if err != nil {
-			azure.DeleteHostedService(createdService.ServiceName)
+			azure.DeleteHostedService(serviceName)
 		}
 	}()
 
-	// TODO: Create VM Deployment.
-	var deployment *gwacl.Deployment
+	// The virtual network to which the deployment will belong.  We'll
+	// want to build this out later to support private communication
+	// between instances.
+	virtualNetworkName := ""
 
+	// TODO: Create or find role.
+	var roles []gwacl.Role
+	deployment := gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, "Production", serviceName, roles, virtualNetworkName)
+	err = azure.AddDeployment(deployment, serviceName)
+
+	// TODO: Create inst.
 	var inst instance.Instance
-	// TODO: Make sure ssh port is open.
+	// TODO: Make sure at least the ssh port is open.
 
 	// From here on, remember to shut down the instance before returning
 	// any error.
@@ -277,7 +291,7 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 		}
 	}()
 
-	err = setServiceDNSName(azure.ManagementAPI, createdService.ServiceName, deployment.Name)
+	err = setServiceDNSName(azure.ManagementAPI, serviceName, deployment.Name)
 	if err != nil {
 		return nil, fmt.Errorf("could not set instance DNS name as service label: %v", err)
 	}
