@@ -444,8 +444,8 @@ func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
 	// Check nonsensical policy
-	fail := func() { s.State.AssignUnit(unit, state.AssignmentPolicy("random")) }
-	c.Assert(fail, PanicMatches, `unknown unit assignment policy: "random"`)
+	err = s.State.AssignUnit(unit, state.AssignmentPolicy("random"))
+	c.Assert(err, ErrorMatches, `.*unknown unit assignment policy: "random"`)
 	_, err = unit.AssignedMachineId()
 	c.Assert(err, NotNil)
 	assertMachineCount(c, s.State, 0)
