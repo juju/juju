@@ -110,7 +110,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	c.Check(results.Results, HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, Equals, "")
 	c.Assert(results.Results[0].Error, NotNil)
-	err = *results.Results[0].Error
+	err = results.Results[0].Error
 	c.Check(err, ErrorMatches, "permission denied")
 }
 
@@ -136,7 +136,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	toolResult := results.Tools[0]
 	c.Check(toolResult.AgentTools.Tag, Equals, s.rawMachine.Tag())
 	c.Assert(toolResult.Error, NotNil)
-	err = *toolResult.Error
+	err = toolResult.Error
 	c.Check(err, ErrorMatches, "permission denied")
 }
 
@@ -199,7 +199,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 	c.Assert(results.Results, HasLen, 1)
 	c.Assert(results.Results[0].Tag, Equals, s.rawMachine.Tag())
 	c.Assert(results.Results[0].Error, NotNil)
-	err = *results.Results[0].Error
+	err = results.Results[0].Error
 	c.Assert(err, ErrorMatches, "permission denied")
 }
 
