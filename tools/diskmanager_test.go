@@ -19,7 +19,7 @@ import (
 
 var _ = gc.Suite(&DiskManagerSuite{})
 
-var _ ToolsManager = (*DiskManager)(nil)
+var _ tools.ToolsManager = (*tools.DiskManager)(nil)
 
 type DiskManagerSuite struct {
 	coretesting.LoggingSuite
