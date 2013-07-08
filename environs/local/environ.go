@@ -182,6 +182,13 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 		return err
 	}
 
+	// Remove the rootdir.
+	logger.Infof("removing state dir %s", env.config.rootDir())
+	if err := os.RemoveAll(env.config.rootDir()); err != nil {
+		logger.Errorf("could not remove local state dir: %v", err)
+		return err
+	}
+
 	return nil
 }
 
