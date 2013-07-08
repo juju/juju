@@ -329,25 +329,19 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
 }
 
-func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
-	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
-	}
-	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
-	c.Assert(err, IsNil)
-
-	service, err := newHostedService(azure)
-	c.Assert(err, IsNil)
-
-	c.Assert(*requests, HasLen, 1)
+// parseCreateServiceRequest reconstructs the original CreateHostedService
+// request object passed to gwacl's AddHostedService method, based on the
+// X509Request which the method issues.
+func parseCreateServiceRequest(c *C, request *gwacl.X509Request) *gwacl.CreateHostedService {
 	body := gwacl.CreateHostedService{}
-	err = xml.Unmarshal((*requests)[0].Payload, &body)
+	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, IsNil)
-	c.Check(body.ServiceName, Equals, service.ServiceName)
+	return &body
 }
 
-func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
+// makeServiceNameAlreadyTakenError simulates the AzureError you get when
+// trying to create a hosted service with a name that's already taken.
+func makeServiceNameAlreadyTakenError(c *C) []byte {
 	// At the time of writing, this is the exact kind of error that Azure
 	// returns in this situation.
 	errorBody, err := xml.Marshal(gwacl.AzureError{
@@ -357,6 +351,27 @@ func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 		Message:    "The specified DNS name is already taken.",
 	})
 	c.Assert(err, IsNil)
+	return errorBody
+}
+
+func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	service, err := attemptCreateService(azure)
+	c.Assert(err, IsNil)
+
+	c.Assert(*requests, HasLen, 1)
+	body := parseCreateServiceRequest(c, (*requests)[0])
+	c.Check(body.ServiceName, Equals, service.ServiceName)
+}
+
+func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
+	errorBody := makeServiceNameAlreadyTakenError(c)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
@@ -377,7 +392,7 @@ func (EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C)
 		error:      fmt.Errorf("broken HTTP request"),
 		HTTPStatus: http.StatusConflict,
 		Code:       "ServiceNameTaken",
-		Message:    "De aangevraagde naam is al bezet.",
+		Message:    "De aangevraagde naam is al in gebruik.",
 	})
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{
@@ -400,7 +415,7 @@ func (EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure)
+	_, err = attemptCreateService(azure)
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
@@ -415,15 +430,71 @@ func (EnvironSuite) TestExtractDeploymentHostnameExtractsHost(c *C) {
 }
 
 func (EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
-	c.Fail() // TEST THIS
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	service, err := newHostedService(azure)
+	c.Assert(err, IsNil)
+
+	c.Assert(*requests, HasLen, 1)
+	body := parseCreateServiceRequest(c, (*requests)[0])
+	c.Check(body.ServiceName, Equals, service.ServiceName)
 }
 
 func (EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
-	c.Fail() // TEST THIS
+	errorBody := makeServiceNameAlreadyTakenError(c)
+	// In this scenario, the first two names that we try are already
+	// taken.  The third one is unique though, so we succeed.
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	service, err := newHostedService(azure)
+	c.Check(err, IsNil)
+
+	c.Assert(*requests, HasLen, 3)
+	// How many names have been attempted, and how often?
+	// There is a minute chance that this tries the same name twice, and
+	// then this test will fail.  If that happens, try seeding the
+	// randomizer with some fixed seed that doens't produce the problem.
+	attemptedNames := make(map[string]int)
+	for _, request := range *requests {
+		name := parseCreateServiceRequest(c, request).ServiceName
+		attemptedNames[name] += 1
+	}
+	// The three attempts we just made all had different service names.
+	c.Check(attemptedNames, HasLen, 3)
+
+	// Once newHostedService succeeds, we get a hosted service with the
+	// last requested name.
+	c.Check(
+		service.ServiceName,
+		Equals,
+		parseCreateServiceRequest(c, (*requests)[2]).ServiceName)
 }
 
 func (EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
-	c.Fail() // TEST THIS
+	errorBody := makeServiceNameAlreadyTakenError(c)
+	responses := []gwacl.DispatcherResponse{}
+	for counter := 0; counter < 100; counter++ {
+		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil))
+	}
+	gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	_, err = newHostedService(azure)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
 
 func (EnvironSuite) TestExtractDeploymentHostnamePropagatesError(c *C) {
