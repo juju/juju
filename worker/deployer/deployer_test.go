@@ -11,7 +11,7 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/juju/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
@@ -23,7 +23,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type DeployerSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 	SimpleToolsFixture
 }
 
