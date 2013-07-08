@@ -349,10 +349,10 @@ func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 
 func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error: fmt.Errorf("Name already in use"),
+		error:      fmt.Errorf("Name already in use"),
 		HTTPStatus: http.StatusConflict,
-		Code: "Conflict",
-		Message: "Name already in use",
+		Code:       "Conflict",
+		Message:    "Name already in use",
 	})
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{
@@ -390,15 +390,15 @@ func (EnvironSuite) TestExtractDeploymentHostnameExtractsHost(c *C) {
 }
 
 func (EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
-c.Fail() // TEST THIS
+	c.Fail() // TEST THIS
 }
 
 func (EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
-c.Fail() // TEST THIS
+	c.Fail() // TEST THIS
 }
 
 func (EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
-c.Fail() // TEST THIS
+	c.Fail() // TEST THIS
 }
 
 func (EnvironSuite) TestExtractDeploymentHostnamePropagatesError(c *C) {
@@ -412,7 +412,7 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	instanceHostname := "foobar.cloudapp.net"
 	deploymentBody, err := xml.Marshal(gwacl.Deployment{
 		Name: deploymentName,
-		URL: fmt.Sprintf("http://%s", instanceHostname),
+		URL:  fmt.Sprintf("http://%s", instanceHostname),
 	})
 	c.Assert(err, IsNil)
 	// setServiceDNSName reads the Deployment to obtain the instance URL,
@@ -439,7 +439,7 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	updateServiceBody := &gwacl.UpdateHostedService{}
 	err = xml.Unmarshal(updateServiceReq.Payload, updateServiceBody)
 	c.Assert(err, IsNil)
-newLabel, err := base64.StdEncoding.DecodeString(updateServiceBody.Label)
+	newLabel, err := base64.StdEncoding.DecodeString(updateServiceBody.Label)
 	c.Check(string(newLabel), Equals, instanceHostname)
 }
 
