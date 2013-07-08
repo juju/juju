@@ -1137,7 +1137,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}
-	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	return fmt.Errorf("unknown unit assignment policy: %q", policy)
 }
 
 // StartSync forces watchers to resynchronize their state with the
