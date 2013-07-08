@@ -190,16 +190,12 @@ loop:
 // aliveUnitsCount returns the number a alive units for the service.
 func aliveUnitsCount(service *Service) (int, error) {
 	query := D{{"service", service.doc.Name}, {"life", Alive}}
-	aliveUnits, err := service.st.units.Find(query).Count()
-	if err != nil {
-		return 0, errors.New("cannot get alive units count")
-	}
-	return aliveUnits, nil
+	return service.st.units.Find(query).Count()
 }
 
 // ensureMinUnitsOps returns the operations required to add a unit for the
-// service in MongoDB. The operation is aborted if the service document changes
-// when running the transaction.
+// service in MongoDB and the name for the new unit. The resulting transaction
+// will be aborted if the service document changes when running the operations.
 func ensureMinUnitsOps(service *Service) (string, []txn.Op, error) {
 	name, ops, err := service.addUnitOps("")
 	if err != nil {
