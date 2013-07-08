@@ -24,7 +24,15 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// lxcBridgeName is the name of the network interface that the local provider
+// uses to determine the ip address to use for machine-0 such that the
+// containers being created are able to communicate with it simply.
 var lxcBridgeName = "lxcbr0"
+
+// upstartScriptLocation is parameterised purely for testing purposes as we
+// don't really want to be installing and starting scripts as root for
+// testing.
+var upstartScriptLocation = "/etc/init"
 
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  A request may also fail due to a slow
@@ -253,6 +261,7 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 
 	logger.Infof("removing service %s", env.mongoServiceName())
 	mongo := upstart.NewService(env.mongoServiceName())
+	mongo.InitDir = upstartScriptLocation
 	if err := mongo.Remove(); err != nil {
 		logger.Errorf("could not remove mongo service: %v", err)
 		return err
@@ -316,7 +325,8 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 		env.config.rootDir(),
 		env.config.mongoDir(),
 		env.config.StatePort())
-	logger.Infof("installing service %s", env.mongoServiceName())
+	mongo.InitDir = upstartScriptLocation
+	logger.Infof("installing service %s to %s", env.mongoServiceName(), mongo.InitDir)
 	if err := mongo.Install(); err != nil {
 		logger.Errorf("could not install mongo service: %v", err)
 		return nil, nil, err
@@ -387,7 +397,7 @@ func (env *localEnviron) initialStateConfiguration(addr string, cons constraints
 	logger.Debugf("state initialized")
 
 	passwordHash := utils.PasswordHash(cfg.AdminSecret())
-	if err := environs.BootstrapMongoUsers(st, cfg, passwordHash); err != nil {
+	if err := environs.BootstrapUsers(st, cfg, passwordHash); err != nil {
 		st.Close()
 		return nil, err
 	}
