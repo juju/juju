@@ -348,11 +348,36 @@ func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 }
 
 func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
+	// At the time of writing, this is the exact kind of error that Azure
+	// returns in this situation.
 	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("Name already in use"),
+		error:      fmt.Errorf("POST request failed"),
 		HTTPStatus: http.StatusConflict,
-		Code:       "Conflict",
-		Message:    "Name already in use",
+		Code:       "ConflictError",
+		Message:    "The specified DNS name is already taken.",
+	})
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+	}
+	gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	service, err := attemptCreateService(azure)
+	c.Check(err, IsNil)
+	c.Check(service, IsNil)
+}
+
+func (EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C) {
+	// Even if Azure or gwacl makes slight changes to the error they
+	// return (e.g. to translate output), attemptCreateService can still
+	// recognize the error that means "this service name is not unique."
+	errorBody, err := xml.Marshal(gwacl.AzureError{
+		error:      fmt.Errorf("broken HTTP request"),
+		HTTPStatus: http.StatusConflict,
+		Code:       "ServiceNameTaken",
+		Message:    "De aangevraagde naam is al bezet.",
 	})
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{
