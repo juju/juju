@@ -6,6 +6,7 @@ package azure
 import (
 	"fmt"
 	"net/http"
+	"net/url"
 	"sync"
 
 	"launchpad.net/gwacl"
@@ -178,9 +179,15 @@ func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, e
 	return svc, nil
 }
 
-func extractDeploymentHostname(url string) (string, error) {
-	// TODO: Implement!
-	return "", nil
+// extractDeploymentHostname extracts an instance's DNS name from its URL.
+func extractDeploymentHostname(instanceURL string) (string, error) {
+	parsedURL, err := url.Parse(instanceURL)
+	if err != nil {
+		return "", err
+	}
+	// net.url.URL.Host actually includes a port spec if the URL has one,
+	// but luckily a port wouldn't make sense on these URLs.
+	return parsedURL.Host, nil
 }
 
 func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName string) error {
@@ -193,7 +200,7 @@ func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName s
 	}
 	hostname, err := extractDeploymentHostname(deployment.URL)
 	if err != nil {
-		return err
+		return fmt.Errorf("could not parse instance URL %q: %v", deployment.URL, err)
 	}
 
 	update := gwacl.NewUpdateHostedService(hostname, "Juju instance", nil)

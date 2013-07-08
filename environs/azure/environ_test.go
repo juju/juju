@@ -4,7 +4,12 @@
 package azure
 
 import (
+	"encoding/base64"
+	"encoding/xml"
 	"fmt"
+	"net/http"
+	"sync"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
@@ -13,8 +18,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	"net/http"
-	"sync"
 )
 
 type EnvironSuite struct {
@@ -324,4 +327,55 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
 	c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
 	c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
+}
+
+func (EnvironSuite) TestExtractDeploymentHostnameExtractsHost(c *C) {
+	// Example taken from Azure documentation:
+	// http://msdn.microsoft.com/en-us/library/windowsazure/ee460804.aspx
+	instanceURL := "http://MyService.cloudapp.net"
+	hostname, err := extractDeploymentHostname(instanceURL)
+	c.Assert(err, IsNil)
+	c.Check(hostname, Equals, "MyService.cloudapp.net")
+}
+
+func (EnvironSuite) TestExtractDeploymentHostnamePropagatesError(c *C) {
+	_, err := extractDeploymentHostname(":x:THIS BREAKS:x:")
+	c.Check(err, NotNil)
+}
+
+func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) {
+	serviceName := "fub"
+	deploymentName := "default"
+	instanceHostname := "foobar.cloudapp.net"
+	deploymentBody, err := xml.Marshal(gwacl.Deployment{
+		Name: deploymentName,
+		URL: fmt.Sprintf("http://%s", instanceHostname),
+	})
+	c.Assert(err, IsNil)
+	// setServiceDNSName reads the Deployment to obtain the instance URL,
+	// then updates the Hosted Service by setting its label to the DNS
+	// name of the instance.
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(deploymentBody, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+	err = setServiceDNSName(azure, serviceName, deploymentName)
+	c.Assert(err, IsNil)
+
+	c.Assert(len(*requests), Equals, 2)
+	getDeploymentReq := (*requests)[0]
+	updateServiceReq := (*requests)[1]
+
+	c.Check(getDeploymentReq.URL, Equals, fmt.Sprintf(
+		"https://management.core.windows.net/%s/services/hostedservices/%s/deployments/%s",
+		"subscription", serviceName, deploymentName))
+	updateServiceBody := &gwacl.UpdateHostedService{}
+	err = xml.Unmarshal(updateServiceReq.Payload, updateServiceBody)
+	c.Assert(err, IsNil)
+newLabel, err := base64.StdEncoding.DecodeString(updateServiceBody.Label)
+	c.Check(string(newLabel), Equals, instanceHostname)
 }
