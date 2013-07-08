@@ -94,7 +94,6 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
-	c.Errorf("Just failing it all")
 }
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {

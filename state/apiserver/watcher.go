@@ -37,9 +37,7 @@ type srvNotifyWatcher struct {
 // entity being watched since the most recent call to Next
 // or the Watch call that created the NotifyWatcher.
 func (w *srvNotifyWatcher) Next() error {
-	logger.Debugf("srvNotifyWatcher.Next() for resource %q", w.id)
 	if _, ok := <-w.watcher.Changes(); ok {
-		logger.Debugf("srvNotifyWatcher found Change for resource %q", w.id)
 		return nil
 	}
 	err := w.watcher.Err()
@@ -51,7 +49,6 @@ func (w *srvNotifyWatcher) Next() error {
 
 // Stop stops the watcher.
 func (w *srvNotifyWatcher) Stop() error {
-	logger.Debugf("srvNotifyWatcher Stopping resource %q", w.id)
 	return w.resources.Stop(w.id)
 }
 
