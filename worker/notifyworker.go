@@ -11,11 +11,15 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
+// notifyWorker is the internal implementation of the NotifyWorker interface
 type notifyWorker struct {
+
 	// Internal structure
 	tomb tomb.Tomb
+
 	// handler is what will handle when events are triggered
 	handler WatchHandler
+
 	// closedHandler is set to watcher.MustErr, but that panic()s, so we
 	// let the test suite override it.
 	closedHandler func(watcher.Errer) error
@@ -41,19 +45,21 @@ type NotifyWorker interface {
 // watching a NotifyWatcher.
 type WatchHandler interface {
 
-	// Start the handler, this should create the watcher we will be waiting
-	// on for more events. SetUp can return a Watcher even if there is an
-	// error, and NotifyWorker will make sure to stop the Watcher.
+	// SetUp starts the handler, this should create the watcher we will be
+	// waiting on for more events. SetUp can return a Watcher even if there
+	// is an error, and NotifyWorker will make sure to stop the Watcher.
 	SetUp() (state.NotifyWatcher, error)
 
-	// Cleanup any resources that are left around
+	// TearDown should cleanup any resources that are left around
 	TearDown() error
 
-	// The Watcher has indicated there are changes, do whatever work is
-	// necessary to process it
+	// Handle is called when the Watcher has indicated there are changes,
+	// do whatever work is necessary to process it
 	Handle() error
 
-	// Report a nice string identifying this worker
+	// String is used when reporting. It is required because NotifyWatcher
+	// is wrapping the WatchHandler, but the WatchHandler is the
+	// interesting (identifying) logic.
 	String() string
 }
 

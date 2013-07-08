@@ -18,20 +18,29 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-var shortWait = 5 * time.Millisecond
+// shortWait is a reasonable amount of time to block waiting for something that
+// shouldn't actually happen. (as in, the test suite will *actually* wait this
+// long before continuing)
+var shortWait = 50 * time.Millisecond
+
+// longWait is used when something should have already happened, or happens
+// quickly, but we want to make sure we just haven't missed it. As in, the test
+// suite should proceed without sleeping at all, but just in case. It is long
+// so that we don't have spurious failures without actually slowing down the
+// test suite
 var longWait = 500 * time.Millisecond
 
 type notifyWorkerSuite struct {
 	coretesting.LoggingSuite
 	worker worker.NotifyWorker
-	actor  *ActionsHandler
+	actor  *actionsHandler
 }
 
 var _ = gc.Suite(&notifyWorkerSuite{})
 
 func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.actor = &ActionsHandler{
+	s.actor = &actionsHandler{
 		actions:     nil,
 		handled:     make(chan struct{}, 1),
 		description: "test action handler",
@@ -47,7 +56,7 @@ func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-type ActionsHandler struct {
+type actionsHandler struct {
 	actions []string
 	mu      sync.Mutex
 	// Signal handled when we get a handle() call
@@ -59,7 +68,7 @@ type ActionsHandler struct {
 	description   string
 }
 
-func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
+func (a *actionsHandler) SetUp() (state.NotifyWatcher, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "setup")
@@ -69,7 +78,7 @@ func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
 	return a.watcher, a.setupError
 }
 
-func (a *ActionsHandler) TearDown() error {
+func (a *actionsHandler) TearDown() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "teardown")
@@ -79,7 +88,7 @@ func (a *ActionsHandler) TearDown() error {
 	return a.teardownError
 }
 
-func (a *ActionsHandler) Handle() error {
+func (a *actionsHandler) Handle() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "handler")
@@ -92,11 +101,11 @@ func (a *ActionsHandler) Handle() error {
 	return a.handlerError
 }
 
-func (a *ActionsHandler) String() string {
+func (a *actionsHandler) String() string {
 	return a.description
 }
 
-func (a *ActionsHandler) CheckActions(c *gc.C, actions ...string) {
+func (a *actionsHandler) CheckActions(c *gc.C, actions ...string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	c.Check(a.actions, gc.DeepEquals, actions)
@@ -154,7 +163,7 @@ func (tw *TestWatcher) TriggerChange(c *gc.C) {
 	select {
 	case tw.changes <- struct{}{}:
 	case <-time.After(longWait):
-		c.Errorf("Timed changes triggering change after %s", longWait)
+		c.Errorf("Timeout changes triggering change after %s", longWait)
 	}
 }
 
@@ -247,7 +256,7 @@ func (s *notifyWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	// Stop the worker and SetUp again, this time with an error
 	s.stopWorker(c)
-	actor := &ActionsHandler{
+	actor := &actionsHandler{
 		actions:    nil,
 		handled:    make(chan struct{}, 1),
 		setupError: fmt.Errorf("my special error"),
@@ -280,7 +289,7 @@ func (s *notifyWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
 
 func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	s.stopWorker(c)
-	actor := &ActionsHandler{
+	actor := &actionsHandler{
 		actions:      nil,
 		handled:      make(chan struct{}, 1),
 		handlerError: fmt.Errorf("my handling error"),
