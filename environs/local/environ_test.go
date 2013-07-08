@@ -43,6 +43,7 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests
+	rootCheckFunc func() bool
 }
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
@@ -50,12 +51,15 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
+	// Add in an admin secret
+	s.Tests.TestConfig.Config["admin-secret"] = "sekrit"
+	s.rootCheckFunc = local.SetRootCheckFunction(func() bool { return true })
 	s.Tests.SetUpTest(c)
 }
 
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
-	// TODO(thumper): add the TearDownTest for s.Tests when destroy is implemented
-	// s.Tests.TearDownTest(c)
+	s.Tests.TearDownTest(c)
+	local.SetRootCheckFunction(s.rootCheckFunc)
 	s.baseProviderSuite.TearDownTest(c)
 }
 
@@ -65,9 +69,9 @@ var _ = gc.Suite(&localJujuTestSuite{
 	},
 })
 
-func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
-	c.Skip("Bootstrap not implemented yet.")
-}
+//func (s *localJujuTestSuite) TestBootstrap(c *gc.C) {
+//	c.Skip("Bootstrap not implemented yet.")/
+//}
 
 func (s *localJujuTestSuite) TestStartStop(c *gc.C) {
 	c.Skip("StartInstance not implemented yet.")

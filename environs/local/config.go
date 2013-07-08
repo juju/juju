@@ -13,6 +13,10 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
+var rootCheckFunction = func() bool {
+	return os.Getuid() == 0
+}
+
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"root-dir": schema.String(),
@@ -31,7 +35,7 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
-	root := os.Getuid() == 0
+	root := rootCheckFunction()
 	if root {
 		sudo_user := os.Getenv("SUDO_USER")
 		if sudo_user != "" {
