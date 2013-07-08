@@ -36,14 +36,19 @@ func makeAddresses(values ...string) (result []net.Addr) {
 
 func (*networkSuite) TestGetIPv4Address(c *gc.C) {
 	for _, test := range []struct {
-		addresses []net.Addr
-		expected  string
-		fail      bool
+		addresses   []net.Addr
+		expected    string
+		errorString string
 	}{{
 		addresses: makeAddresses(
 			"complete",
 			"nonsense"),
-		fail: true,
+		errorString: "invalid CIDR address: complete",
+	}, {
+		addresses: makeAddresses(
+			"fe80::90cf:9dff:fe6e:ece/64",
+		),
+		errorString: "no addresses match",
 	}, {
 		addresses: makeAddresses(
 			"fe80::90cf:9dff:fe6e:ece/64",
@@ -58,12 +63,12 @@ func (*networkSuite) TestGetIPv4Address(c *gc.C) {
 		expected: "10.0.3.1",
 	}} {
 		ip, err := utils.GetIPv4Address(test.addresses)
-		if test.fail {
-			c.Assert(err, gc.ErrorMatches, `no addresses match`)
-			c.Assert(ip, gc.Equals, "")
-		} else {
+		if test.errorString == "" {
 			c.Assert(err, gc.IsNil)
 			c.Assert(ip, gc.Equals, test.expected)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.errorString)
+			c.Assert(ip, gc.Equals, "")
 		}
 	}
 }
