@@ -11,15 +11,17 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// DiskManager keeps track of a collections of Juju agent tools in a directory
+// structure on disk.
 type DiskManager struct {
 	dataDir string
 }
 
+// NewDiskManager returns a DiskManager handling a given directory.
+// *DiskManager conforms to the ToolsManager interface
 func NewDiskManager(dataDir string) *DiskManager {
 	return &DiskManager{dataDir: dataDir}
 }
-
-var _ ToolsManager = (*DiskManager)(nil)
 
 // For now, everything is just proxied from environs/agent. But really tool
 // handling should be independent of anything in environs.
