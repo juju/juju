@@ -5,11 +5,12 @@ package machine_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	"time"
+	statetesting "launchpad.net/juju-core/state/testing"
 )
 
 type machinerSuite struct {
@@ -156,19 +157,10 @@ func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(s.resources.Count(), Equals, 1)
 	c.Assert(result.Results[0].NotifyWatcherId, Equals, "1")
 	resource := s.resources.Get("1")
-	defer func() {
-		err := resource.Stop()
-		c.Assert(err, IsNil)
-	}()
+	defer statetesting.AssertStop(c, resource)
 
-	// Check that the watcher returns an initial event
-	channel := resource.(state.NotifyWatcher).Changes()
-	// Should use helpers from state/watcher_test.go when generalised
-	select {
-	case _, ok := <-channel:
-		c.Assert(ok, Equals, true)
-		// The value is just an empty struct currently
-	case <-time.After(50 * time.Millisecond):
-		c.Fatal("timeout waiting for entity watcher")
-	}
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }
