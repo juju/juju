@@ -17,9 +17,9 @@ type notifyWorker struct {
 	// Internal structure
 	tomb tomb.Tomb
 	// handler is what will handle when events are triggered
-	handler       WatchHandler
-        // closedHandler is set to watcher.MustErr, but that panic()s, so we
-        // let the test suite override it.
+	handler WatchHandler
+	// closedHandler is set to watcher.MustErr, but that panic()s, so we
+	// let the test suite override it.
 	closedHandler func(watcher.Errer) error
 }
 
