@@ -246,7 +246,7 @@ func (s *MinUnitsSuite) TestMinUnitsNotSetDestroyEntities(c *C) {
 func assertAllUnits(c *C, service *state.Service, expected int) {
 	units, err := service.AllUnits()
 	c.Assert(err, IsNil)
-	c.Assert(len(units), Equals, expected)
+	c.Assert(units, HasLen, expected)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnits(c *C) {
