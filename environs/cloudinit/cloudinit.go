@@ -6,7 +6,10 @@ package cloudinit
 import (
 	"encoding/base64"
 	"fmt"
+	"path/filepath"
+
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
@@ -17,7 +20,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
-	"path"
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -225,7 +227,7 @@ func addFile(c *cloudinit.Config, filename, data string, mode uint) {
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
-	return path.Join(cfg.DataDir, name)
+	return filepath.Join(cfg.DataDir, name)
 }
 
 func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
@@ -285,7 +287,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 }
 
 func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
-	dbDir := path.Join(cfg.DataDir, "db")
+	dbDir := filepath.Join(cfg.DataDir, "db")
 	addScripts(c,
 		"mkdir -p "+dbDir+"/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
@@ -307,8 +309,8 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 // to use as a directory for storing the tools executables in
 // by using the last element stripped of its extension.
 func versionDir(toolsURL string) string {
-	name := path.Base(toolsURL)
-	ext := path.Ext(name)
+	name := filepath.Base(toolsURL)
+	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)]
 }
 
