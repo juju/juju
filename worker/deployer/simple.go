@@ -146,7 +146,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	return uconf.Install()
 }
 
-// findUpstartJobs tries to find an upstart job matching the
+// findUpstartJob tries to find an upstart job matching the
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
