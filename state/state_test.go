@@ -1093,6 +1093,35 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
 }
 
+func (s *StateSuite) TestWatchForEnvironConfigChanges(c *C) {
+	cur := version.Current.Number
+	err := statetesting.SetAgentVersion(s.State, cur)
+	c.Assert(err, IsNil)
+	w := s.State.WatchForEnvironConfigChanges()
+	defer statetesting.AssertStop(c, w)
+
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	// Initially we get one change notification
+	wc.AssertOneChange()
+
+	// Multiple changes will only result in a single change notification
+	newVersion := cur
+	newVersion.Minor += 1
+	err = statetesting.SetAgentVersion(s.State, newVersion)
+	c.Assert(err, IsNil)
+
+	newerVersion := newVersion
+	newerVersion.Minor += 1
+	err = statetesting.SetAgentVersion(s.State, newerVersion)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	// Setting it to the same value does not trigger a change notification
+	err = statetesting.SetAgentVersion(s.State, newerVersion)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+}
+
 func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *C) {
 	cfg, err := s.State.EnvironConfig()
 	c.Assert(err, IsNil)
@@ -1740,4 +1769,10 @@ func (s *StateSuite) TestParentId(c *C) {
 	c.Assert(state.ParentId("0"), Equals, "")
 	c.Assert(state.ParentId("0/lxc/1"), Equals, "0")
 	c.Assert(state.ParentId("0/lxc/1/kvm/0"), Equals, "0/lxc/1")
+}
+
+func (s *StateSuite) TestContainerTypeFromId(c *C) {
+	c.Assert(state.ContainerTypeFromId("0"), Equals, instance.ContainerType(""))
+	c.Assert(state.ContainerTypeFromId("0/lxc/1"), Equals, instance.LXC)
+	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), Equals, instance.KVM)
 }

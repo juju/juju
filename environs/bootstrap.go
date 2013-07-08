@@ -5,7 +5,10 @@ package environs
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
@@ -31,4 +34,28 @@ func Bootstrap(environ Environ, cons constraints.Value) error {
 		return fmt.Errorf("environment configuration has no ca-private-key")
 	}
 	return environ.Bootstrap(cons)
+}
+
+// VerifyBootstrapInit does the common initial check inside bootstrap to
+// confirm that the environment isn't already running, and that the storage
+// works.
+func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error {
+	var err error
+
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	for a := shortAttempt.Start(); a.Next(); {
+		if _, err = LoadState(env.Storage()); err != nil {
+			break
+		}
+	}
+	if err == nil {
+		return fmt.Errorf("environment is already bootstrapped")
+	}
+	if !errors.IsNotFoundError(err) {
+		return fmt.Errorf("cannot query old bootstrap state: %v", err)
+	}
+
+	return VerifyStorage(env.Storage())
 }
