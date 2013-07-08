@@ -92,7 +92,7 @@ func (environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/local/
 local:
   type: local
-  # Override the directory that is used for the storage files and mongo database.
+  # Override the directory that is used for the storage files and database.
   # The default location is /var/lib/juju/<USER>-<ENV>
   # root-dir: ~/.juju/local
 
