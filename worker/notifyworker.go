@@ -47,7 +47,7 @@ type WatchHandler interface {
 	SetUp() (state.NotifyWatcher, error)
 
 	// Cleanup any resources that are left around
-	TearDown()
+	TearDown() error
 
 	// The Watcher has indicated there are changes, do whatever work is
 	// necessary to process it
@@ -93,10 +93,17 @@ func (nw *notifyWorker) String() string {
 	return nw.handler.String()
 }
 
+// TearDown the handler, but ensure any error is propagated
+func handlerTearDown(handler WatchHandler, t *tomb.Tomb) {
+	if err := handler.TearDown(); err != nil {
+		t.Kill(err)
+	}
+}
+
 func (nw *notifyWorker) loop() error {
 	var w state.NotifyWatcher
 	var err error
-	defer nw.handler.TearDown()
+	defer handlerTearDown(nw.handler, &nw.tomb)
 	if w, err = nw.handler.SetUp(); err != nil {
 		if w != nil {
 			// We don't bother to propogate an error, because we

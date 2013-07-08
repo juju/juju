@@ -51,11 +51,12 @@ type ActionsHandler struct {
 	actions []string
 	mu      sync.Mutex
 	// Signal handled when we get a handle() call
-	handled      chan struct{}
-	setupError   error
-	handlerError error
-	watcher      *TestWatcher
-	description  string
+	handled       chan struct{}
+	setupError    error
+	teardownError error
+	handlerError  error
+	watcher       *TestWatcher
+	description   string
 }
 
 func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
@@ -68,13 +69,14 @@ func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
 	return a.watcher, a.setupError
 }
 
-func (a *ActionsHandler) TearDown() {
+func (a *ActionsHandler) TearDown() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "teardown")
 	if a.handled != nil {
 		close(a.handled)
 	}
+	return a.teardownError
 }
 
 func (a *ActionsHandler) Handle() error {
@@ -266,6 +268,13 @@ func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
 	c.Assert(s.worker.Wait(), gc.ErrorMatches, "error while stopping watcher")
 	// We've already stopped the worker, don't let teardown notice the
 	// worker is in an error state
+	s.worker = nil
+}
+
+func (s *notifyWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
+	s.actor.teardownError = fmt.Errorf("failed to tear down watcher")
+	s.worker.Kill()
+	c.Assert(s.worker.Wait(), gc.ErrorMatches, "failed to tear down watcher")
 	s.worker = nil
 }
 
