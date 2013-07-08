@@ -145,7 +145,6 @@ func makeProvisionalServiceLabel(serviceName string) string {
 // isProvisionalDeploymentLabel tells you whether the given label is a
 // provisional one.  If not, the provider has set it to the DNS name for the
 // service's deployment.
-// TODO: Update Instance.DNSName() to recognize this as "no DNS yet."
 func isProvisionalServiceLabel(label string) bool {
 	return strings.HasPrefix(label, "-(") && strings.HasSuffix(label, ")-")
 }

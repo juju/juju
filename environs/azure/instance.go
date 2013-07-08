@@ -32,7 +32,7 @@ func (azInstance *azureInstance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if label == "" {
+	if isProvisionalServiceLabel(label) {
 		return "", instance.ErrNoDNSName
 	}
 	return fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME), nil
