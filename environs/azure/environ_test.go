@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"encoding/base64"
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
@@ -13,7 +14,9 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
+	. "launchpad.net/juju-core/testing/checkers"
 	"net/http"
+	"strings"
 	"sync"
 )
 
@@ -109,13 +112,12 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-func patchWithPropertiesResponse(c *C, deployments []gwacl.Deployment) *[]*gwacl.X509Request {
-	propertiesS1 := gwacl.HostedService{
-		ServiceName: "S1", Deployments: deployments}
-	propertiesS1XML, err := propertiesS1.Serialize()
+func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
+	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
+	listXML, err := list.Serialize()
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
-		[]byte(propertiesS1XML),
+		[]byte(listXML),
 		http.StatusOK,
 		nil,
 	)}
@@ -123,19 +125,27 @@ func patchWithPropertiesResponse(c *C, deployments []gwacl.Deployment) *[]*gwacl
 	return requests
 }
 
-func (suite EnvironSuite) TestAllInstances(c *C) {
-	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
-	requests := patchWithPropertiesResponse(c, deployments)
+func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
+	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
+}
+
+func (suite EnvironSuite) TestAllInstances(c *C) {
+	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
+	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
+	requests := patchWithServiceListResponse(c, services)
 	instances, err := env.AllInstances()
 	c.Assert(err, IsNil)
-	c.Check(len(instances), Equals, len(deployments))
+	c.Check(len(instances), Equals, 2)
+	c.Check(instances[0].Id(), Equals, instance.Id(prefix+"deployment-1"))
+	c.Check(instances[1].Id(), Equals, instance.Id(prefix+"deployment-2"))
 	c.Check(len(*requests), Equals, 1)
 }
 
 func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
-	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
-	requests := patchWithPropertiesResponse(c, deployments)
+	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
+	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1"})
 	c.Assert(err, IsNil)
@@ -145,8 +155,8 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 }
 
 func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
-	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
-	patchWithPropertiesResponse(c, deployments)
+	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
+	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{})
 	c.Check(err, Equals, environs.ErrNoInstances)
@@ -154,8 +164,8 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequest
 }
 
 func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
-	deployments := []gwacl.Deployment{}
-	patchWithPropertiesResponse(c, deployments)
+	services := []gwacl.HostedServiceDescriptor{}
+	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deploy-id"})
 	c.Check(err, Equals, environs.ErrNoInstances)
@@ -163,8 +173,8 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c 
 }
 
 func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
-	deployments := []gwacl.Deployment{{Name: "deployment-1"}, {Name: "deployment-2"}}
-	requests := patchWithPropertiesResponse(c, deployments)
+	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
+	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
@@ -303,10 +313,14 @@ func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 
 func (EnvironSuite) TestStateInfo(c *C) {
 	instanceID := "my-instance"
-	// In the Azure provider, DNS name and instance ID are the same thing.
-	patchWithPropertiesResponse(c, []gwacl.Deployment{{
-		Name: instanceID,
-		URL:  fmt.Sprintf("http://%s/", instanceID),
+	label := "my-label"
+	// In the Azure provider, the hostname of the instance is the
+	// service's label.
+	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
+	encodedLabel := base64.StdEncoding.EncodeToString([]byte(label))
+	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
+		ServiceName: instanceID,
+		Label:       encodedLabel,
 	}})
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
@@ -322,6 +336,6 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	config := env.Config()
 	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
 	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-	c.Check(stateInfo.Addrs, DeepEquals, []string{instanceID + statePortSuffix})
-	c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
+	c.Check(stateInfo.Addrs, DeepEquals, []string{expectedDNSName + statePortSuffix})
+	c.Check(apiInfo.Addrs, DeepEquals, []string{expectedDNSName + apiPortSuffix})
 }

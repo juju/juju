@@ -70,7 +70,7 @@ func (s *upgraderSuite) TestWatchAPIVersionNothing(c *C) {
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	args := params.Agents{
-		Agents: []params.Agent{params.Agent{Tag: s.rawMachine.Tag()}},
+		Agents: []params.Agent{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, IsNil)
@@ -114,7 +114,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, IsNil)
 	args := params.Agents{
-		Agents: []params.Agent{params.Agent{Tag: s.rawMachine.Tag()}},
+		Agents: []params.Agent{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -139,7 +139,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, IsNil)
 	args := params.Agents{
-		Agents: []params.Agent{params.Agent{Tag: s.rawMachine.Tag()}},
+		Agents: []params.Agent{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
