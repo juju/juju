@@ -4,8 +4,6 @@
 package worker
 
 import (
-	"fmt"
-
 	"launchpad.net/tomb"
 
 	// TODO: Use api/params.NotifyWatcher to avoid redeclaring it here
@@ -13,11 +11,17 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 )
 
+// notifyWorker is the internal implementation of the NotifyWorker interface
 type notifyWorker struct {
+
 	// Internal structure
 	tomb tomb.Tomb
+
 	// handler is what will handle when events are triggered
-	handler       WatchHandler
+	handler WatchHandler
+
+	// closedHandler is set to watcher.MustErr, but that panic()s, so we
+	// let the test suite override it.
 	closedHandler func(watcher.Errer) error
 }
 
@@ -25,30 +29,43 @@ type notifyWorker struct {
 // NotifyWatcher. We do a bit of setup, and then spin waiting for the watcher
 // to trigger or for us to be killed, and then teardown cleanly.
 type NotifyWorker interface {
+	// Wait for the NotifyWorker to finish what it is doing an exit
 	Wait() error
+
+	// Kill the running worker, indicating that it should stop what it is
+	// doing and exit. Killing a running worker should return error = nil
+	// from Wait.
 	Kill()
-	// This is just Kill + Wait
+
+	// Stop will call both Kill and then Wait for the worker to exit. 
 	Stop() error
-	// A nice handle for this worker, based on its underlying Handler
-	String() string
 }
 
 // WatchHandler implements the business logic that is triggered as part of
-// watching
+// watching a NotifyWatcher.
 type WatchHandler interface {
-	// Start the handler, this should create the watcher we will be waiting
-	// on for more events. SetUp can return a Watcher even if there is an
-	// error, and NotifyWorker will make sure to stop the Watcher.
+
+	// SetUp starts the handler, this should create the watcher we will be
+	// waiting on for more events. SetUp can return a Watcher even if there
+	// is an error, and NotifyWorker will make sure to stop the Watcher.
 	SetUp() (state.NotifyWatcher, error)
-	// Cleanup any resources that are left around
-	TearDown()
-	// The Watcher has indicated there are changes, do whatever work is
-	// necessary to process it
+
+	// TearDown should cleanup any resources that are left around
+	TearDown() error
+
+	// Handle is called when the Watcher has indicated there are changes,
+	// do whatever work is necessary to process it
 	Handle() error
-	// Report a nice string identifying this worker
+
+	// String is used when reporting. It is required because NotifyWatcher
+	// is wrapping the WatchHandler, but the WatchHandler is the
+	// interesting (identifying) logic.
 	String() string
 }
 
+// NewNotifyWorker starts a new worker running the business logic from the
+// handler. The worker loop is started in another goroutine as a side effect of
+// calling this.
 func NewNotifyWorker(handler WatchHandler) NotifyWorker {
 	nw := &notifyWorker{
 		handler:       handler,
@@ -66,7 +83,7 @@ func (nw *notifyWorker) Kill() {
 	nw.tomb.Kill(nil)
 }
 
-// Kill and Wait for this to exit
+// Stop kils the worker and waits for it to exit
 func (nw *notifyWorker) Stop() error {
 	nw.tomb.Kill(nil)
 	return nw.tomb.Wait()
@@ -77,22 +94,22 @@ func (nw *notifyWorker) Wait() error {
 	return nw.tomb.Wait()
 }
 
-// Return a nice description of this worker
+// String returns a nice description of this worker, taken from the underlying WatchHandler
 func (nw *notifyWorker) String() string {
-	if nw.handler != nil {
-		return nw.handler.String()
+	return nw.handler.String()
+}
+
+// TearDown the handler, but ensure any error is propagated
+func handlerTearDown(handler WatchHandler, t *tomb.Tomb) {
+	if err := handler.TearDown(); err != nil {
+		t.Kill(err)
 	}
-	return "<unknown NotifyWorker>"
 }
 
 func (nw *notifyWorker) loop() error {
-	// Replace calls to TearDown with a defer nw.handler.TearDown()
 	var w state.NotifyWatcher
 	var err error
-	if nw.handler == nil {
-		return fmt.Errorf("NotifyWorker requires a non-nil WatchHandler")
-	}
-	defer nw.handler.TearDown()
+	defer handlerTearDown(nw.handler, &nw.tomb)
 	if w, err = nw.handler.SetUp(); err != nil {
 		if w != nil {
 			// We don't bother to propogate an error, because we
@@ -101,9 +118,6 @@ func (nw *notifyWorker) loop() error {
 		}
 		return err
 	}
-	if w == nil {
-		return fmt.Errorf("SetUp returned a nil Watcher")
-	}
 	defer watcher.Stop(w, &nw.tomb)
 	for {
 		select {
@@ -111,9 +125,6 @@ func (nw *notifyWorker) loop() error {
 			return tomb.ErrDying
 		case _, ok := <-w.Changes():
 			if !ok {
-				// This defaults to watcher.MustErr, but that
-				// panic()s, so we let the test suite override
-				// it.
 				return nw.closedHandler(w)
 			}
 			if err := nw.handler.Handle(); err != nil {

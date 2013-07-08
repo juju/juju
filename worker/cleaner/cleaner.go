@@ -39,6 +39,7 @@ func (c *Cleaner) Handle() error {
 	return nil
 }
 
-func (c *Cleaner) TearDown() {
+func (c *Cleaner) TearDown() error {
 	// Nothing to cleanup, only state is the watcher
+	return nil
 }

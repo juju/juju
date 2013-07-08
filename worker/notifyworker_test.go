@@ -18,22 +18,31 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
-var shortWait = 5 * time.Millisecond
+// shortWait is a reasonable amount of time to block waiting for something that
+// shouldn't actually happen. (as in, the test suite will *actually* wait this
+// long before continuing)
+var shortWait = 50 * time.Millisecond
+
+// longWait is used when something should have already happened, or happens
+// quickly, but we want to make sure we just haven't missed it. As in, the test
+// suite should proceed without sleeping at all, but just in case. It is long
+// so that we don't have spurious failures without actually slowing down the
+// test suite
 var longWait = 500 * time.Millisecond
 
 type notifyWorkerSuite struct {
 	coretesting.LoggingSuite
 	worker worker.NotifyWorker
-	actor  *ActionsHandler
+	actor  *actionsHandler
 }
 
 var _ = gc.Suite(&notifyWorkerSuite{})
 
 func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.actor = &ActionsHandler{
+	s.actor = &actionsHandler{
 		actions:     nil,
-		handled:     make(chan struct{}),
+		handled:     make(chan struct{}, 1),
 		description: "test action handler",
 		watcher: &TestWatcher{
 			changes: make(chan struct{}),
@@ -47,18 +56,19 @@ func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-type ActionsHandler struct {
+type actionsHandler struct {
 	actions []string
 	mu      sync.Mutex
 	// Signal handled when we get a handle() call
-	handled      chan struct{}
-	setupError   error
-	handlerError error
-	watcher      *TestWatcher
-	description  string
+	handled       chan struct{}
+	setupError    error
+	teardownError error
+	handlerError  error
+	watcher       *TestWatcher
+	description   string
 }
 
-func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
+func (a *actionsHandler) SetUp() (state.NotifyWatcher, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "setup")
@@ -68,27 +78,34 @@ func (a *ActionsHandler) SetUp() (state.NotifyWatcher, error) {
 	return a.watcher, a.setupError
 }
 
-func (a *ActionsHandler) TearDown() {
+func (a *actionsHandler) TearDown() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "teardown")
+	if a.handled != nil {
+		close(a.handled)
+	}
+	return a.teardownError
 }
 
-func (a *ActionsHandler) Handle() error {
+func (a *actionsHandler) Handle() error {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "handler")
 	if a.handled != nil {
+		// Unlock while we are waiting for the send
+		a.mu.Unlock()
 		a.handled <- struct{}{}
+		a.mu.Lock()
 	}
 	return a.handlerError
 }
 
-func (a *ActionsHandler) String() string {
+func (a *actionsHandler) String() string {
 	return a.description
 }
 
-func (a *ActionsHandler) CheckActions(c *gc.C, actions ...string) {
+func (a *actionsHandler) CheckActions(c *gc.C, actions ...string) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	c.Check(a.actions, gc.DeepEquals, actions)
@@ -104,12 +121,8 @@ func (s *notifyWorkerSuite) stopWorker(c *gc.C) {
 	go func() {
 		done <- s.worker.Stop()
 	}()
-	select {
-	case err := <-done:
-		c.Check(err, gc.IsNil)
-	case <-time.After(longWait):
-		c.Errorf("Failed to stop worker after %.3fs", longWait.Seconds())
-	}
+	err := waitForTimeout(c, done, longWait)
+	c.Check(err, gc.IsNil)
 	s.actor = nil
 	s.worker = nil
 }
@@ -133,9 +146,8 @@ func (tw *TestWatcher) Err() error {
 func (tw *TestWatcher) Stop() error {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
-	if tw.changes != nil {
+	if !tw.stopped {
 		close(tw.changes)
-		tw.changes = nil
 	}
 	tw.stopped = true
 	return tw.stopError
@@ -151,8 +163,18 @@ func (tw *TestWatcher) TriggerChange(c *gc.C) {
 	select {
 	case tw.changes <- struct{}{}:
 	case <-time.After(longWait):
-		c.Errorf("Timed changes triggering change after %.3fs", longWait.Seconds())
+		c.Errorf("Timeout changes triggering change after %s", longWait)
 	}
+}
+
+func waitForTimeout(c *gc.C, ch <-chan error, timeout time.Duration) error {
+	select {
+	case err := <-ch:
+		return err
+	case <-time.After(timeout):
+		c.Errorf("failed to receive value after %s", timeout)
+	}
+	return nil
 }
 
 func WaitShort(c *gc.C, w worker.NotifyWorker) error {
@@ -160,13 +182,7 @@ func WaitShort(c *gc.C, w worker.NotifyWorker) error {
 	go func() {
 		done <- w.Wait()
 	}()
-	select {
-	case err := <-done:
-		return err
-	case <-time.After(shortWait):
-		c.Errorf("Wait() failed to return after %.3fs", shortWait.Seconds())
-	}
-	return nil
+	return waitForTimeout(c, done, shortWait)
 }
 
 func WaitForHandled(c *gc.C, handled chan struct{}) {
@@ -174,7 +190,7 @@ func WaitForHandled(c *gc.C, handled chan struct{}) {
 	case <-handled:
 		return
 	case <-time.After(longWait):
-		c.Errorf("handled failed to signal after", longWait.Seconds())
+		c.Errorf("handled failed to signal after %s", longWait)
 	}
 }
 
@@ -197,28 +213,19 @@ func (s *notifyWorkerSuite) TestWait(c *gc.C) {
 	go func() {
 		done <- s.worker.Wait()
 	}()
+	// Wait should not return until we've killed the worker
 	select {
 	case err := <-done:
-		c.Errorf("Wait() didn't wait until we stopped it. err: %v", err)
+		c.Errorf("Wait() didn't wait until we stopped it: %v", err)
 	case <-time.After(shortWait):
 	}
 	s.worker.Kill()
-	select {
-	case err := <-done:
-		c.Assert(err, gc.IsNil)
-	case <-time.After(longWait):
-		c.Errorf("Wait() failed to return after we stopped.")
-	}
+	err := waitForTimeout(c, done, longWait)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *notifyWorkerSuite) TestStringForwardsHandlerString(c *gc.C) {
-	c.Check(s.worker.String(), gc.Equals, "test action handler")
-}
-
-func (s *notifyWorkerSuite) TestStringAvoidsNullDereference(c *gc.C) {
-	nw := worker.NewNotifyWorker(nil)
-	c.Check(nw.String(), gc.Equals, "<unknown NotifyWorker>")
-	c.Check(nw.Stop(), gc.ErrorMatches, "NotifyWorker requires a non-nil WatchHandler")
+	c.Check(fmt.Sprint(s.worker), gc.Equals, "test action handler")
 }
 
 func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
@@ -249,9 +256,9 @@ func (s *notifyWorkerSuite) TestChangesTriggerHandler(c *gc.C) {
 func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	// Stop the worker and SetUp again, this time with an error
 	s.stopWorker(c)
-	actor := &ActionsHandler{
+	actor := &actionsHandler{
 		actions:    nil,
-		handled:    make(chan struct{}),
+		handled:    make(chan struct{}, 1),
 		setupError: fmt.Errorf("my special error"),
 		watcher: &TestWatcher{
 			changes: make(chan struct{}),
@@ -264,17 +271,6 @@ func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	c.Check(actor.watcher.stopped, jc.IsTrue)
 }
 
-func (s *notifyWorkerSuite) TestSetupNilWatcherStopsWithTearDown(c *gc.C) {
-	s.stopWorker(c)
-	actor := &ActionsHandler{
-		watcher: nil,
-	}
-	w := worker.NewNotifyWorker(actor)
-	err := WaitShort(c, w)
-	c.Check(err, gc.ErrorMatches, "SetUp returned a nil Watcher")
-	actor.CheckActions(c, "setup", "teardown")
-}
-
 func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
 	s.actor.watcher.SetStopError(fmt.Errorf("error while stopping watcher"))
 	s.worker.Kill()
@@ -284,11 +280,18 @@ func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
 	s.worker = nil
 }
 
+func (s *notifyWorkerSuite) TestCleanRunNoticesTearDownError(c *gc.C) {
+	s.actor.teardownError = fmt.Errorf("failed to tear down watcher")
+	s.worker.Kill()
+	c.Assert(s.worker.Wait(), gc.ErrorMatches, "failed to tear down watcher")
+	s.worker = nil
+}
+
 func (s *notifyWorkerSuite) TestHandleErrorStopsWorkerAndWatcher(c *gc.C) {
 	s.stopWorker(c)
-	actor := &ActionsHandler{
+	actor := &actionsHandler{
 		actions:      nil,
-		handled:      make(chan struct{}),
+		handled:      make(chan struct{}, 1),
 		handlerError: fmt.Errorf("my handling error"),
 		watcher: &TestWatcher{
 			changes: make(chan struct{}),
