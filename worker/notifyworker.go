@@ -18,6 +18,8 @@ type notifyWorker struct {
 	tomb tomb.Tomb
 	// handler is what will handle when events are triggered
 	handler       WatchHandler
+        // closedHandler is set to watcher.MustErr, but that panic()s, so we
+        // let the test suite override it.
 	closedHandler func(watcher.Errer) error
 }
 
@@ -29,8 +31,6 @@ type NotifyWorker interface {
 	Kill()
 	// This is just Kill + Wait
 	Stop() error
-	// A nice handle for this worker, based on its underlying Handler
-	String() string
 }
 
 // WatchHandler implements the business logic that is triggered as part of
@@ -50,6 +50,9 @@ type WatchHandler interface {
 }
 
 func NewNotifyWorker(handler WatchHandler) NotifyWorker {
+	if handler == nil {
+		panic("NewNotifyWorker does not accept a nil WatchHandler")
+	}
 	nw := &notifyWorker{
 		handler:       handler,
 		closedHandler: watcher.MustErr,
@@ -79,6 +82,9 @@ func (nw *notifyWorker) Wait() error {
 
 // Return a nice description of this worker
 func (nw *notifyWorker) String() string {
+	// The panic() in NewNotifyWorker should prevent nw.handler from ever
+	// being nil, but null-dereference-during String() can be really hard
+	// to debug.
 	if nw.handler != nil {
 		return nw.handler.String()
 	}
@@ -89,9 +95,6 @@ func (nw *notifyWorker) loop() error {
 	// Replace calls to TearDown with a defer nw.handler.TearDown()
 	var w state.NotifyWatcher
 	var err error
-	if nw.handler == nil {
-		return fmt.Errorf("NotifyWorker requires a non-nil WatchHandler")
-	}
 	defer nw.handler.TearDown()
 	if w, err = nw.handler.SetUp(); err != nil {
 		if w != nil {
@@ -111,9 +114,6 @@ func (nw *notifyWorker) loop() error {
 			return tomb.ErrDying
 		case _, ok := <-w.Changes():
 			if !ok {
-				// This defaults to watcher.MustErr, but that
-				// panic()s, so we let the test suite override
-				// it.
 				return nw.closedHandler(w)
 			}
 			if err := nw.handler.Handle(); err != nil {
