@@ -4,16 +4,12 @@
 package watcher
 
 import (
-	"launchpad.net/loggo"
-
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
 	"sync"
 )
-
-var logger = loggo.GetLogger("juju.state.api.watcher")
 
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;
@@ -64,7 +60,6 @@ func (w *commonWatcher) commonLoop() {
 		// the watcher will die with all resources cleaned up.
 		defer w.wg.Done()
 		<-w.tomb.Dying()
-		//logger.Debugf("Calling Stop for %p", w)
 		if err := w.call("Stop", nil); err != nil {
 			log.Errorf("state/api: error trying to stop watcher %v", err)
 		}
@@ -77,11 +72,8 @@ func (w *commonWatcher) commonLoop() {
 		defer w.wg.Done()
 		for {
 			result := w.newResult()
-			//logger.Debugf("Calling Next for %p", w)
 			err := w.call("Next", &result)
-			//logger.Debugf("Next returned for %p, result: %v err %v", w, result, err)
 			if err != nil {
-				logger.Debugf("Got error calling Next(): %v", err)
 				if code := params.ErrCode(err); code == params.CodeStopped || code == params.CodeNotFound {
 					if w.tomb.Err() != tomb.ErrStillAlive {
 						// The watcher has been stopped at the client end, so we're
@@ -156,7 +148,6 @@ func (w *notifyWatcher) loop() error {
 	for {
 		select {
 		case _, ok := <-w.in:
-			logger.Debugf("Got event from Next(%t) for %p", ok, w)
 			if !ok {
 				// The tomb is already killed with the correct
 				// error at this point, so just return.
@@ -166,7 +157,6 @@ func (w *notifyWatcher) loop() error {
 			out = w.out
 		case out <- struct{}{}:
 			// Wait until we have new changes to send.
-			logger.Debugf("Sent event for %p", w)
 			out = nil
 		}
 	}
@@ -176,7 +166,6 @@ func (w *notifyWatcher) loop() error {
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
 func (w *notifyWatcher) Changes() <-chan struct{} {
-	logger.Debugf("Changes requested for %p", w)
 	return w.out
 }
 
