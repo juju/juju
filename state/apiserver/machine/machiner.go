@@ -63,7 +63,10 @@ func (m *MachinerAPI) Watch(args params.Machines) (params.NotifyWatchResults, er
 				err = common.ErrPerm
 			} else {
 				watcher := machine.Watch()
-				// Consume the initial event
+				// Consume the initial event. Technically, API
+				// calls to Watch 'transmit' the initial event
+				// in the Watch response. But NotifyWatchers
+				// have no state to transmit.
 				_ = <-watcher.Changes()
 				result.Results[i].NotifyWatcherId = m.resources.Register(watcher)
 			}

@@ -7,18 +7,13 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
 	"sync"
 )
 
 var logger = loggo.GetLogger("juju.state.api.watcher")
-
-// Caller is an interface that just implements Call
-// Most notably, Caller is implemented by *api.State
-type Caller interface {
-	Call(objType, id, request string, params, response interface{}) error
-}
 
 // commonWatcher implements common watcher logic in one place to
 // reduce code duplication, but it's not in fact a complete watcher;
@@ -71,7 +66,7 @@ func (w *commonWatcher) commonLoop() {
 		<-w.tomb.Dying()
 		logger.Debugf("Calling Stop for %p", w)
 		if err := w.call("Stop", nil); err != nil {
-			log.Errorf("state/api: error trying to stop watcher %p: %v", w, err)
+			log.Errorf("state/api: error trying to stop watcher %v", err)
 		}
 	}()
 	w.wg.Add(1)
@@ -121,36 +116,16 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func newEntityWatcher(caller Caller, etype, id string) params.NotifyWatcher {
-	var watcherId params.NotifyWatcherId
-	w := &notifyWatcher{
-		caller:          caller,
-		notifyWatcherId: "",
-		out:             make(chan struct{}),
-	}
-	if err := caller.Call(etype, id, "Watch", nil, &watcherId); err != nil {
-		w.tomb.Kill(err)
-	}
-	w.notifyWatcherId = watcherId.NotifyWatcherId
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		defer w.wg.Wait() // Wait for watcher to be stopped.
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
 type notifyWatcher struct {
 	commonWatcher
-	caller          Caller
+	caller          common.Caller
 	notifyWatcherId string
 	out             chan struct{}
 }
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller Caller, result params.NotifyWatchResult) params.NotifyWatcher {
+func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) params.NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -174,8 +149,9 @@ func (w *notifyWatcher) loop() error {
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// Watch and friends should consume their initial change, and we
-	// recreate it here.
+	// The initial API call to set up the Watch should consume and
+	// "transmit" the initial event. For NotifyWatchers, there is no actual
+	// state transmitted, so we just set the event.
 	out := w.out
 	for {
 		select {
@@ -206,12 +182,12 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 
 type LifecycleWatcher struct {
 	commonWatcher
-	caller    Caller
+	caller    common.Caller
 	watchCall string
 	out       chan []string
 }
 
-func newLifecycleWatcher(caller Caller, watchCall string) *LifecycleWatcher {
+func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatcher {
 	w := &LifecycleWatcher{
 		caller:    caller,
 		watchCall: watchCall,

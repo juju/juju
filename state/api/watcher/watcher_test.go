@@ -17,14 +17,15 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	//jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-const shortTime = 50 * time.Millisecond
+// shortWait is a reasonable amount of time to be sure a call is in a blocking
+// state (won't return without other prompting)
+const shortWait = 50 * time.Millisecond
 
 type watcherSuite struct {
 	testing.JujuConnSuite
@@ -78,9 +79,10 @@ func (s *watcherSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *watcherSuite) TestWatchMachineNextNoInitialEvent(c *C) {
-	// Watch should consume the initial event, we will regenerate it
-	// locally since we know it will happen
+func (s *watcherSuite) TestWatchInitialEventConsumed(c *C) {
+	// Machiner.Watch should send the initial event as part of the Watch
+	// call (for NotifyWatchers there is no state to be transmitted). So a
+	// call to Next() should not have anything to return.
 	var results params.NotifyWatchResults
 	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
 	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
@@ -88,16 +90,18 @@ func (s *watcherSuite) TestWatchMachineNextNoInitialEvent(c *C) {
 	c.Assert(results.Results, HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, IsNil)
+
 	// We expect the Call() to "Next" to block, so run it in a goroutine.
 	done := make(chan error)
 	go func() {
 		ignored := struct{}{}
 		done <- s.stateAPI.Call("NotifyWatcher", result.NotifyWatcherId, "Next", nil, &ignored)
 	}()
+
 	select {
 	case err := <-done:
 		c.Errorf("Call(Next) did not block immediately after Watch(): err %v", err)
-	case <-time.After(shortTime * 10):
+	case <-time.After(shortWait):
 	}
 }
 
@@ -109,6 +113,7 @@ func (s *watcherSuite) TestWatchMachine(c *C) {
 	c.Assert(results.Results, HasLen, 1)
 	result := results.Results[0]
 	c.Assert(result.Error, IsNil)
+
 	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
 	w := watcher.NewNotifyWatcher(s.stateAPI, result)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
