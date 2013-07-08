@@ -105,7 +105,7 @@ func (EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
 
 func (EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
 	internalAddress := "10.76.200.59"
-	config := WALASharedConfig{Instances: []WALAInstance{WALAInstance{Address: internalAddress}}}
+	config := WALASharedConfig{Instances: []WALAInstance{{Address: internalAddress}}}
 
 	c.Check(config.getInternalIP(), Equals, internalAddress)
 }
