@@ -552,18 +552,18 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	c.Check(string(newLabel), Equals, instanceHostname)
 }
 
-func (EnvironSuite) TestMakeProvisionalDeploymentLabelIsConsistent(c *C) {
-	c.Check(makeProvisionalDeploymentLabel("foo"), Equals, makeProvisionalDeploymentLabel("foo"))
+func (EnvironSuite) TestMakeProvisionalServiceLabelIsConsistent(c *C) {
+	c.Check(makeProvisionalServiceLabel("foo"), Equals, makeProvisionalServiceLabel("foo"))
 }
 
-func (EnvironSuite) TestMakeProvisionalDeploymentLabelIncludesName(c *C) {
-	c.Check(makeProvisionalDeploymentLabel("splyz"), Matches, ".*splyz.*")
+func (EnvironSuite) TestMakeProvisionalServiceLabelIncludesName(c *C) {
+	c.Check(makeProvisionalServiceLabel("splyz"), Matches, ".*splyz.*")
 }
 
-func (EnvironSuite) TestIsProvisionalDeploymentLabelRecognizesProvisionalLabel(c *C) {
-	c.Check(isProvisionalDeploymentLabel(makeProvisionalDeploymentLabel("x")), Equals, true)
+func (EnvironSuite) TestIsProvisionalServiceLabelRecognizesProvisionalLabel(c *C) {
+	c.Check(isProvisionalServiceLabel(makeProvisionalServiceLabel("x")), Equals, true)
 }
 
-func (EnvironSuite) TestIsProvisionalDeploymentLabelRecognizesPermanentLabel(c *C) {
-	c.Check(isProvisionalDeploymentLabel("label"), Equals, false)
+func (EnvironSuite) TestIsProvisionalServiceLabelRecognizesPermanentLabel(c *C) {
+	c.Check(isProvisionalServiceLabel("label"), Equals, false)
 }

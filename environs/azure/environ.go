@@ -130,7 +130,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// makeProvisionalDeploymentLabel generates a label for a new Hosted Service of
+// makeProvisionalServiceLabel generates a label for a new Hosted Service of
 // the given name.  The label can be identified as provisional using
 // isProvisionalDeploymentLabel().  (Empty labels are not allowed).
 // In our initial implementation, each instance gets its own Azure hosted
@@ -138,7 +138,7 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // Label field on the hosted service as a shortcut.
 // This will have to change once we suppport multiple instances per hosted
 // service (instance==service).
-func makeProvisionalDeploymentLabel(serviceName string) string {
+func makeProvisionalServiceLabel(serviceName string) string {
 	return fmt.Sprintf("-(creating: %s)-", serviceName)
 }
 
@@ -146,7 +146,7 @@ func makeProvisionalDeploymentLabel(serviceName string) string {
 // provisional one.  If not, the provider has set it to the DNS name for the
 // service's deployment.
 // TODO: Update Instance.DNSName() to recognize this as "no DNS yet."
-func isProvisionalDeploymentLabel(label string) bool {
+func isProvisionalServiceLabel(label string) bool {
 	return strings.HasPrefix(label, "-(") && strings.HasSuffix(label, ")-")
 }
 
@@ -159,7 +159,7 @@ func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedServic
 	const location = "East US"
 
 	name := gwacl.MakeRandomHostedServiceName("juju")
-	label := makeProvisionalDeploymentLabel(name)
+	label := makeProvisionalServiceLabel(name)
 	req := gwacl.NewCreateHostedServiceWithLocation(name, label, location)
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
