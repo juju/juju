@@ -223,8 +223,6 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 		return fmt.Errorf("destroying a local environment must be done as root")
 	}
 
-	// TODO(thumper): make sure running as root
-
 	logger.Infof("removing service %s", env.mongoServiceName())
 	mongo := upstart.NewService(env.mongoServiceName())
 	if err := mongo.Remove(); err != nil {
