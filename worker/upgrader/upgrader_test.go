@@ -68,6 +68,3 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ver.Binary, gc.Equals, version.Current)
 }
-
-//func (s *UpgraderSuite) TestWatchingAPIVersion(c *gc.C) {
-//}

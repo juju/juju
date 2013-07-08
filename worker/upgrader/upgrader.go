@@ -5,8 +5,11 @@ package upgrader
 
 import (
 	"fmt"
+        "io"
 
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/environs/agent"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -22,12 +25,14 @@ type upgradeHandler struct {
 	apiState    *api.State
 	apiUpgrader *upgrader.Upgrader
 	agentTag    string
+        toolManager agent.ToolManager
 }
 
-func NewUpgrader(st *api.State, agentTag string) worker.NotifyWorker {
+func NewUpgrader(st *api.State, agentTag string, toolManager agent.ToolManager) worker.NotifyWorker {
 	return worker.NewNotifyWorker(&upgradeHandler{
 		apiState: st,
 		agentTag: agentTag,
+                toolManager: toolManager,
 	})
 }
 
