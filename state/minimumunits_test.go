@@ -307,6 +307,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *C) {
 		}
 
 		// Ensure the minimum number of units is correctly restored.
+		c.Assert(service.Refresh(), IsNil)
 		err = service.EnsureMinUnits()
 		c.Assert(err, IsNil)
 		assertAllUnits(c, service, t.expected)
@@ -331,16 +332,15 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *C) {
 	s.addUnits(c, 1)
 	err = s.service.Destroy()
 	c.Assert(err, IsNil)
+	expectedErr := `cannot ensure minimum units for service "dummy-service": service is no longer alive`
 
 	// An error is returned if the service is not alive.
-	c.Assert(s.service.EnsureMinUnits(), ErrorMatches,
-		`cannot ensure minimum units for service "dummy-service": service is no longer alive`)
+	c.Assert(s.service.EnsureMinUnits(), ErrorMatches, expectedErr)
 
 	// An error is returned if the service was removed.
 	err = s.State.Cleanup()
 	c.Assert(err, IsNil)
-	c.Assert(s.service.EnsureMinUnits(), ErrorMatches,
-		`cannot ensure minimum units for service "dummy-service": service is no longer alive`)
+	c.Assert(s.service.EnsureMinUnits(), ErrorMatches, expectedErr)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsUpdateMinUnitsRetry(c *C) {
@@ -371,12 +371,13 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsRetry(c *C) {
 }
 
 func (s *MinUnitsSuite) testEnsureMinUnitsBefore(c *C, f func(), minUnits, expectedUnits int) {
-	err := s.service.SetMinUnits(minUnits)
+	service := s.service
+	err := service.SetMinUnits(minUnits)
 	c.Assert(err, IsNil)
 	defer state.SetBeforeHooks(c, s.State, f).Check()
-	err = s.service.EnsureMinUnits()
+	err = service.EnsureMinUnits()
 	c.Assert(err, IsNil)
-	assertAllUnits(c, s.service, expectedUnits)
+	assertAllUnits(c, service, expectedUnits)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsBefore(c *C) {
@@ -403,7 +404,8 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsAddUnitsBefore(c *C) {
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyServiceBefore(c *C) {
-	err := s.service.SetMinUnits(1)
+	s.addUnits(c, 1)
+	err := s.service.SetMinUnits(42)
 	c.Assert(err, IsNil)
 	defer state.SetBeforeHooks(c, s.State, func() {
 		err := s.service.Destroy()

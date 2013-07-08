@@ -126,45 +126,59 @@ func (s *Service) MinUnits() int {
 func (s *Service) EnsureMinUnits() (err error) {
 	defer utils.ErrorContextf(&err,
 		"cannot ensure minimum units for service %q", s)
+	service := &Service{st: s.st, doc: s.doc}
+	defer func() {
+		if err == nil {
+			s.doc.MinUnits = service.doc.MinUnits
+			s.doc.UnitCount = service.doc.UnitCount
+		}
+	}()
 loop:
 	for {
 		// Ensure the service is alive.
-		if s.doc.Life != Alive {
+		if service.doc.Life != Alive {
 			return errors.New("service is no longer alive")
 		}
 		// Exit without errors if the MinUnits for the service is not set.
-		if s.doc.MinUnits == 0 {
+		if service.doc.MinUnits == 0 {
 			return nil
 		}
 		// Retrieve the number of alive units for the service.
-		aliveUnits, err := aliveUnitsCount(s)
+		aliveUnits, err := aliveUnitsCount(service)
 		if err != nil {
 			return err
 		}
 		// Calculate the number of required units to be added.
-		missing := s.doc.MinUnits - aliveUnits
+		missing := service.doc.MinUnits - aliveUnits
 		if missing <= 0 {
 			return nil
 		}
 		// Add missing units.
 		for i := 0; i < missing; i++ {
-			if err := s.Refresh(); err != nil {
-				return err
-			}
-			name, ops, err := ensureMinUnitsOps(s)
+			name, ops, err := ensureMinUnitsOps(service)
 			if err != nil {
 				return err
 			}
-			if err := s.st.runTransaction(ops); err == txn.ErrAborted {
-				continue loop
-			} else if err != nil {
-				return err
+			err = service.st.runTransaction(ops)
+			// Refresh the service in two cases: either the transaction was
+			// aborted (in which case we also restart the whole loop) or the
+			// transaction run correctly but we still need to add more units.
+			if err == txn.ErrAborted || (err == nil && i != missing-1) {
+				if err := service.Refresh(); err != nil {
+					return err
+				}
+				if err == txn.ErrAborted {
+					continue loop
+				}
 			}
-			unit, err := s.Unit(name)
 			if err != nil {
 				return err
 			}
-			if err := s.st.AssignUnit(unit, AssignNew); err != nil {
+			unit, err := service.Unit(name)
+			if err != nil {
+				return err
+			}
+			if err := service.st.AssignUnit(unit, AssignNew); err != nil {
 				return err
 			}
 		}
