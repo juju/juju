@@ -69,7 +69,7 @@ func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
 // juju instanceId is (by design), the deployment's name.
 //
 // See https://github.com/windows-azure/walinuxagent for more details.
-// 
+//
 // Here is an example content of such a config file:
 // <?xml version="1.0" encoding="utf-8"?>
 // <SharedConfig version="1.0.0.0" goalStateIncarnation="1">
