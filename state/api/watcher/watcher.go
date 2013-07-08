@@ -108,26 +108,6 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-func newEntityWatcher(caller common.Caller, etype, id string) params.NotifyWatcher {
-	var watcherId params.NotifyWatcherId
-	w := &notifyWatcher{
-		caller:          caller,
-		notifyWatcherId: "",
-		out:             make(chan struct{}),
-	}
-	if err := caller.Call(etype, id, "Watch", nil, &watcherId); err != nil {
-		w.tomb.Kill(err)
-	}
-	w.notifyWatcherId = watcherId.NotifyWatcherId
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		defer w.wg.Wait() // Wait for watcher to be stopped.
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
 type notifyWatcher struct {
 	commonWatcher
 	caller          common.Caller
@@ -161,8 +141,9 @@ func (w *notifyWatcher) loop() error {
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// Watch and friends should consume their initial change, and we
-	// recreate it here.
+	// The initial API call to set up the Watch should consume and
+	// "transmit" the initial event. For NotifyWatchers, there is no actual
+	// state transmitted, so we just set the event.
 	out := w.out
 	for {
 		select {

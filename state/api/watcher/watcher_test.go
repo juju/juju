@@ -78,9 +78,10 @@ func (s *watcherSuite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *watcherSuite) TestWatchMachineNextNoInitialEvent(c *C) {
-	// Watch should consume the initial event, we will regenerate it
-	// locally since we know it will happen
+func (s *watcherSuite) TestWatchInitialEventConsumed(c *C) {
+	// Machiner.Watch should send the initial event as part of the Watch
+	// call (for NotifyWatchers there is no state to be transmitted). So a
+	// call to Next() should not have anything to return.
 	var results params.NotifyWatchResults
 	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
 	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
@@ -97,7 +98,7 @@ func (s *watcherSuite) TestWatchMachineNextNoInitialEvent(c *C) {
 	select {
 	case err := <-done:
 		c.Errorf("Call(Next) did not block immediately after Watch(): err %v", err)
-	case <-time.After(shortTime * 10):
+	case <-time.After(shortTime):
 	}
 }
 

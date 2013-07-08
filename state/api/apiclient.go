@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
-	apiparams "launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"time"
 )
@@ -147,9 +147,9 @@ func (s *State) heartbeatMonitor() {
 // TODO (dimitern) Add tests for all client-facing objects to verify
 // we return the correct error when invoking Call("Object",
 // "non-empty-id",...)
-func (s *State) Call(objType, id, request string, params, response interface{}) error {
-	err := s.client.Call(objType, id, request, params, response)
-	return apiparams.ClientError(err)
+func (s *State) Call(objType, id, request string, args, response interface{}) error {
+	err := s.client.Call(objType, id, request, args, response)
+	return params.ClientError(err)
 }
 
 func (s *State) Close() error {
