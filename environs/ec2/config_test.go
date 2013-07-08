@@ -335,6 +335,9 @@ func (s *ConfigSuite) TestConfig(c *C) {
 func (s *ConfigSuite) TestMissingAuth(c *C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	// Since r37 goamz uses these as fallbacks, so unset them too.
+	os.Setenv("EC2_ACCESS_KEY", "")
+	os.Setenv("EC2_SECRET_KEY", "")
 	test := configTests[0]
 	test.err = "environment has no access-key or secret-key"
 	test.check(c)
