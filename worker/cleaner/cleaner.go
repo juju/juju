@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -26,7 +27,7 @@ func (c *Cleaner) String() string {
 	return fmt.Sprintf("cleaner")
 }
 
-func (c *Cleaner) SetUp() (state.NotifyWatcher, error) {
+func (c *Cleaner) SetUp() (params.NotifyWatcher, error) {
 	return c.st.WatchCleanups(), nil
 }
 
