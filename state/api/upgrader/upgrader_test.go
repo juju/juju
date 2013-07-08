@@ -169,10 +169,12 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	ver := version.Current.Number
 	err = statetesting.SetAgentVersion(s.State, ver)
 	c.Assert(err, IsNil)
+	s.SyncAPIServerState()
 	wc.AssertNoChange()
 	ver.Minor += 1
 	err = statetesting.SetAgentVersion(s.State, ver)
 	c.Assert(err, IsNil)
+	s.SyncAPIServerState()
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

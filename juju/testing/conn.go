@@ -50,6 +50,7 @@ type JujuConnSuite struct {
 	RootDir     string // The faked-up root directory.
 	oldHome     string
 	oldJujuHome string
+	environ     environs.Environ
 }
 
 // FakeStateInfo holds information about no state - it will always
@@ -210,6 +211,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
+	s.environ = environ
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {
@@ -259,4 +261,17 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
+}
+
+type ServerSyncable interface {
+	SyncAPIServerState()
+}
+
+func (s *JujuConnSuite) SyncAPIServerState() {
+	if s.environ == nil {
+		return
+	}
+	if syncable, ok := s.environ.(ServerSyncable); ok {
+		syncable.SyncAPIServerState()
+	}
 }
