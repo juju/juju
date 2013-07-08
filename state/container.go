@@ -5,6 +5,7 @@ package state
 
 import (
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/instance"
 	"strings"
 )
 
@@ -18,7 +19,7 @@ type machineContainers struct {
 // createContainerRefOp the txn.Op's that update a parent machine's container references to add
 // a new container with the specified container id. If no container id is specified, an empty
 // machineContainers doc is created.
-func createContainerRefOp(st *State, params containerRefParams) []txn.Op {
+func createContainerRefOp(st *State, params *containerRefParams) []txn.Op {
 	// See if we are creating a parent machine to subsequently host a new container. In this case,
 	// the container ref doc will be created later once the container id is known.
 	if !params.hostOnly && params.containerId == "" {
@@ -84,6 +85,16 @@ func ParentId(machineId string) string {
 		return ""
 	}
 	return strings.Join(idParts[:len(idParts)-2], "/")
+}
+
+// ContainerTypeFromId returns the container type if machineId is a container id, or ""
+// if machineId is not for a container.
+func ContainerTypeFromId(machineId string) instance.ContainerType {
+	idParts := strings.Split(machineId, "/")
+	if len(idParts) < 3 {
+		return instance.ContainerType("")
+	}
+	return instance.ContainerType(idParts[len(idParts)-2])
 }
 
 // NestingLevel returns how many levels of nesting exist for a machine id.
