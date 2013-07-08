@@ -1124,15 +1124,20 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		return u.AssignToMachine(m)
-	case AssignUnused:
-		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+	case AssignClean:
+		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
+			return err
+		}
+		return u.AssignToNewMachine()
+	case AssignCleanEmpty:
+		if _, err = u.AssignToCleanEmptyMachine(); err != noCleanMachines {
 			return err
 		}
 		return u.AssignToNewMachine()
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}
-	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	return fmt.Errorf("unknown unit assignment policy: %q", policy)
 }
 
 // StartSync forces watchers to resynchronize their state with the
