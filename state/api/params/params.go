@@ -12,28 +12,6 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
-// Error holds the error result of a single operation.
-type Error struct {
-	Message string
-	Code    string
-}
-
-// ErrorCode implements rpc.ErrorCoder interface.
-func (e Error) ErrorCode() string {
-	return e.Code
-}
-
-// Error implements the error interface.
-func (e Error) Error() string {
-	return e.Message
-}
-
-// GoString implements fmt.GoStringer.  It means that a *Error shows its
-// contents correctly when printed with %#v.
-func (e Error) GoString() string {
-	return fmt.Sprintf("&params.Error{%q, %q}", e.Code, e.Message)
-}
-
 // ErrorResults holds the results of calling a bulk operation which
 // mutates multiple entites, like Machiner.SetStatus. The order and
 // number of elements matches the entities specified in the request.
@@ -70,6 +48,14 @@ type NotifyWatchResult struct {
 // returning a list of NotifyWatchers
 type NotifyWatchResults struct {
 	Results []NotifyWatchResult
+}
+
+// A NotifyWatcher will send events when something changes.
+// It does not send content for those changes.
+type NotifyWatcher interface {
+	Changes() <-chan struct{}
+	Stop() error
+	Err() error
 }
 
 // Agent identifies a single agent

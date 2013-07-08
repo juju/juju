@@ -2,7 +2,6 @@ package machine_test
 
 import (
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/machine"
 )
@@ -47,12 +46,12 @@ func (s *agentSuite) TestGetMachines(c *C) {
 			Jobs: []params.MachineJob{params.JobHostUnits},
 		}, {
 			Error: &params.Error{
-				Code:    api.CodeUnauthorized,
+				Code:    params.CodeUnauthorized,
 				Message: "permission denied",
 			},
 		}, {
 			Error: &params.Error{
-				Code:    api.CodeUnauthorized,
+				Code:    params.CodeUnauthorized,
 				Message: "permission denied",
 			},
 		}},
@@ -73,7 +72,7 @@ func (s *agentSuite) TestGetNotFoundMachine(c *C) {
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{{
 			Error: &params.Error{
-				Code:    api.CodeNotFound,
+				Code:    params.CodeNotFound,
 				Message: "machine 1 not found",
 			},
 		}},
