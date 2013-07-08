@@ -3,9 +3,11 @@
 
 package machineagent
 
+// TODO(fwereade): there's nothing machine-specific in here...
+
 import (
 	"fmt"
-	"launchpad.net/juju-core/state"
+
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -21,10 +23,10 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-func (st *State) getMachine(id string) (*params.MachineAgentGetMachinesResult, error) {
+func (st *State) getMachine(tag string) (*params.MachineAgentGetMachinesResult, error) {
 	var results params.MachineAgentGetMachinesResults
-	args := params.Machines{
-		Ids: []string{id},
+	args := params.Entities{
+		Entities: []params.Entity{{tag}},
 	}
 	err := st.caller.Call("MachineAgent", "", "GetMachines", args, &results)
 	if err != nil {
@@ -41,28 +43,24 @@ func (st *State) getMachine(id string) (*params.MachineAgentGetMachinesResult, e
 
 type Machine struct {
 	st  *State
-	id  string
+	tag string
 	doc params.MachineAgentGetMachinesResult
 }
 
-func (st *State) Machine(id string) (*Machine, error) {
-	doc, err := st.getMachine(id)
+func (st *State) Machine(tag string) (*Machine, error) {
+	doc, err := st.getMachine(tag)
 	if err != nil {
 		return nil, err
 	}
 	return &Machine{
 		st:  st,
-		id:  id,
+		tag: tag,
 		doc: *doc,
 	}, nil
 }
 
 func (m *Machine) Tag() string {
-	return state.MachineTag(m.id)
-}
-
-func (m *Machine) Id() string {
-	return m.id
+	return m.tag
 }
 
 func (m *Machine) Life() params.Life {
@@ -77,7 +75,7 @@ func (m *Machine) SetPassword(password string) error {
 	var results params.ErrorResults
 	args := params.PasswordChanges{
 		Changes: []params.PasswordChange{{
-			Tag:      m.Tag(),
+			Tag:      m.tag,
 			Password: password,
 		}},
 	}
@@ -88,14 +86,5 @@ func (m *Machine) SetPassword(password string) error {
 	if len(results.Errors) > 0 && results.Errors[0] != nil {
 		return results.Errors[0]
 	}
-	return nil
-}
-
-func (m *Machine) Refresh() error {
-	doc, err := m.st.getMachine(m.id)
-	if err != nil {
-		return err
-	}
-	m.doc = *doc
 	return nil
 }

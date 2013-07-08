@@ -21,10 +21,10 @@ func NewState(caller common.Caller) *State {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (m *State) machineLife(id string) (params.Life, error) {
+func (m *State) machineLife(tag string) (params.Life, error) {
 	var result params.MachinesLifeResults
-	args := params.Machines{
-		Ids: []string{id},
+	args := params.Entities{
+		Entities: []params.Entity{{tag}},
 	}
 	err := m.caller.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
@@ -40,13 +40,13 @@ func (m *State) machineLife(id string) (params.Life, error) {
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
-func (m *State) Machine(id string) (*Machine, error) {
-	life, err := m.machineLife(id)
+func (m *State) Machine(tag string) (*Machine, error) {
+	life, err := m.machineLife(tag)
 	if err != nil {
 		return nil, err
 	}
 	return &Machine{
-		id:     id,
+		tag:    tag,
 		life:   life,
 		mstate: m,
 	}, nil

@@ -37,8 +37,8 @@ func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *C) {
 func (s *agentSuite) TestGetMachines(c *C) {
 	err := s.machine1.Destroy()
 	c.Assert(err, IsNil)
-	results := s.agent.GetMachines(params.Machines{
-		Ids: []string{"1", "0", "42"},
+	results := s.agent.GetMachines(params.Entities{
+		Entities: []params.Entity{{"machine-1"}, {"machine-0"}, {"machine-42"}},
 	})
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{{
@@ -65,8 +65,8 @@ func (s *agentSuite) TestGetNotFoundMachine(c *C) {
 	c.Assert(err, IsNil)
 	err = s.machine1.Remove()
 	c.Assert(err, IsNil)
-	results := s.agent.GetMachines(params.Machines{
-		Ids: []string{"1"},
+	results := s.agent.GetMachines(params.Entities{
+		Entities: []params.Entity{{"machine-1"}},
 	})
 	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
