@@ -4,8 +4,6 @@
 package worker
 
 import (
-	"fmt"
-
 	"launchpad.net/tomb"
 
 	// TODO: Use api/params.NotifyWatcher to avoid redeclaring it here
@@ -27,32 +25,42 @@ type notifyWorker struct {
 // NotifyWatcher. We do a bit of setup, and then spin waiting for the watcher
 // to trigger or for us to be killed, and then teardown cleanly.
 type NotifyWorker interface {
+	// Wait for the NotifyWorker to finish what it is doing an exit
 	Wait() error
+
+	// Kill the running worker, indicating that it should stop what it is
+	// doing and exit. Killing a running worker should return error = nil
+	// from Wait.
 	Kill()
-	// This is just Kill + Wait
+
+	// Stop will call both Kill and then Wait for the worker to exit. 
 	Stop() error
 }
 
 // WatchHandler implements the business logic that is triggered as part of
-// watching
+// watching a NotifyWatcher.
 type WatchHandler interface {
+
 	// Start the handler, this should create the watcher we will be waiting
 	// on for more events. SetUp can return a Watcher even if there is an
 	// error, and NotifyWorker will make sure to stop the Watcher.
 	SetUp() (state.NotifyWatcher, error)
+
 	// Cleanup any resources that are left around
 	TearDown()
+
 	// The Watcher has indicated there are changes, do whatever work is
 	// necessary to process it
 	Handle() error
+
 	// Report a nice string identifying this worker
 	String() string
 }
 
+// NewNotifyWorker starts a new worker running the business logic from the
+// handler. The worker loop is started in another goroutine as a side effect of
+// calling this.
 func NewNotifyWorker(handler WatchHandler) NotifyWorker {
-	if handler == nil {
-		panic("NewNotifyWorker does not accept a nil WatchHandler")
-	}
 	nw := &notifyWorker{
 		handler:       handler,
 		closedHandler: watcher.MustErr,
@@ -69,7 +77,7 @@ func (nw *notifyWorker) Kill() {
 	nw.tomb.Kill(nil)
 }
 
-// Kill and Wait for this to exit
+// Stop kils the worker and waits for it to exit
 func (nw *notifyWorker) Stop() error {
 	nw.tomb.Kill(nil)
 	return nw.tomb.Wait()
@@ -80,19 +88,12 @@ func (nw *notifyWorker) Wait() error {
 	return nw.tomb.Wait()
 }
 
-// Return a nice description of this worker
+// String returns a nice description of this worker, taken from the underlying WatchHandler
 func (nw *notifyWorker) String() string {
-	// The panic() in NewNotifyWorker should prevent nw.handler from ever
-	// being nil, but null-dereference-during String() can be really hard
-	// to debug.
-	if nw.handler != nil {
-		return nw.handler.String()
-	}
-	return "<unknown NotifyWorker>"
+	return nw.handler.String()
 }
 
 func (nw *notifyWorker) loop() error {
-	// Replace calls to TearDown with a defer nw.handler.TearDown()
 	var w state.NotifyWatcher
 	var err error
 	defer nw.handler.TearDown()
@@ -103,9 +104,6 @@ func (nw *notifyWorker) loop() error {
 			w.Stop()
 		}
 		return err
-	}
-	if w == nil {
-		return fmt.Errorf("SetUp returned a nil Watcher")
 	}
 	defer watcher.Stop(w, &nw.tomb)
 	for {

@@ -135,9 +135,8 @@ func (tw *TestWatcher) Err() error {
 func (tw *TestWatcher) Stop() error {
 	tw.mu.Lock()
 	defer tw.mu.Unlock()
-	if tw.changes != nil {
+	if !tw.stopped {
 		close(tw.changes)
-		tw.changes = nil
 	}
 	tw.stopped = true
 	return tw.stopError
@@ -218,14 +217,6 @@ func (s *notifyWorkerSuite) TestStringForwardsHandlerString(c *gc.C) {
 	c.Check(fmt.Sprint(s.worker), gc.Equals, "test action handler")
 }
 
-func (s *notifyWorkerSuite) TestNewNotifyWorkerRefusesNilHandler(c *gc.C) {
-	c.Assert(
-		func() { worker.NewNotifyWorker(nil) },
-		gc.PanicMatches,
-		"NewNotifyWorker does not accept a nil WatchHandler",
-	)
-}
-
 func (s *notifyWorkerSuite) TestCallSetUpAndTearDown(c *gc.C) {
 	// After calling NewNotifyWorker, we should have called setup
 	s.actor.CheckActions(c, "setup")
@@ -267,17 +258,6 @@ func (s *notifyWorkerSuite) TestSetUpFailureStopsWithTearDown(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, "my special error")
 	actor.CheckActions(c, "setup", "teardown")
 	c.Check(actor.watcher.stopped, jc.IsTrue)
-}
-
-func (s *notifyWorkerSuite) TestSetupNilWatcherStopsWithTearDown(c *gc.C) {
-	s.stopWorker(c)
-	actor := &ActionsHandler{
-		watcher: nil,
-	}
-	w := worker.NewNotifyWorker(actor)
-	err := WaitShort(c, w)
-	c.Check(err, gc.ErrorMatches, "SetUp returned a nil Watcher")
-	actor.CheckActions(c, "setup", "teardown")
 }
 
 func (s *notifyWorkerSuite) TestWatcherStopFailurePropagates(c *gc.C) {
