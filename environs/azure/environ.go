@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"strings"
 	"sync"
 
 	"launchpad.net/gwacl"
@@ -20,15 +21,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )
-
-// In our initial implementation, each instance gets its own Azure
-// hosted service.  Once we have a DNS name, we write it into the
-// Label field on the hosted service as a shortcut.  This will have
-// to change once we suppport multiple instances per hosted service.
-// (instance==service).
-// This label is a placeholder to say "still waiting for DNS."
-// TODO: Update Instance.DNSName() to recognize this as "no DNS yet."  Can't use empty string.
-const noDNSLabel = "(Waiting for DNS name)"
 
 type azureEnviron struct {
 	// Except where indicated otherwise, all fields in this object should
@@ -138,6 +130,26 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
+// makeProvisionalDeploymentLabel generates a label for a new Hosted Service of
+// the given name.  The label can be identified as provisional using
+// isProvisionalDeploymentLabel().  (Empty labels are not allowed).
+// In our initial implementation, each instance gets its own Azure hosted
+// service.  Once we have a DNS name for the deployment, we write it into the
+// Label field on the hosted service as a shortcut.
+// This will have to change once we suppport multiple instances per hosted
+// service (instance==service).
+func makeProvisionalDeploymentLabel(serviceName string) string {
+	return fmt.Sprintf("-(creating: %s)-", serviceName)
+}
+
+// isProvisionalDeploymentLabel tells you whether the given label is a
+// provisional one.  If not, the provider has set it to the DNS name for the
+// service's deployment.
+// TODO: Update Instance.DNSName() to recognize this as "no DNS yet."
+func isProvisionalDeploymentLabel(label string) bool {
+	return strings.HasPrefix(label, "-(") && strings.HasSuffix(label, ")-")
+}
+
 // attemptCreateService tries to create a new hosted service on Azure, with a
 // name it chooses, but recognizes that the name may not be available.  If
 // the name is not available, it does not treat that as an error but just
@@ -147,7 +159,8 @@ func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedServic
 	const location = "East US"
 
 	name := gwacl.MakeRandomHostedServiceName("juju")
-	req := gwacl.NewCreateHostedServiceWithLocation(name, noDNSLabel, location)
+	label := makeProvisionalDeploymentLabel(name)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, label, location)
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
 	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
@@ -190,6 +203,8 @@ func extractDeploymentHostname(instanceURL string) (string, error) {
 	return parsedURL.Host, nil
 }
 
+// setServiceDNSName updates the hosted service's label to match the DNS name
+// for the Deployment.
 func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName string) error {
 	deployment, err := azure.GetDeployment(&gwacl.GetDeploymentRequest{
 		ServiceName:    serviceName,

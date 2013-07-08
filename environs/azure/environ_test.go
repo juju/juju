@@ -329,6 +329,57 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	c.Check(apiInfo.Addrs, DeepEquals, []string{instanceID + apiPortSuffix})
 }
 
+func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	service, err := newHostedService(azure)
+	c.Assert(err, IsNil)
+
+	c.Assert(*requests, HasLen, 1)
+	body := gwacl.CreateHostedService{}
+	err = xml.Unmarshal((*requests)[0].Payload, &body)
+	c.Assert(err, IsNil)
+	c.Check(body.ServiceName, Equals, service.ServiceName)
+}
+
+func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
+	errorBody, err := xml.Marshal(gwacl.AzureError{
+		error: fmt.Errorf("Name already in use"),
+		HTTPStatus: http.StatusConflict,
+		Code: "Conflict",
+		Message: "Name already in use",
+	})
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+	}
+	gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	service, err := attemptCreateService(azure)
+	c.Check(err, IsNil)
+	c.Check(service, IsNil)
+}
+
+func (EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
+	}
+	gwacl.PatchManagementAPIResponses(responses)
+	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	c.Assert(err, IsNil)
+
+	_, err = newHostedService(azure)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, ".*Not Found.*")
+}
+
 func (EnvironSuite) TestExtractDeploymentHostnameExtractsHost(c *C) {
 	// Example taken from Azure documentation:
 	// http://msdn.microsoft.com/en-us/library/windowsazure/ee460804.aspx
@@ -336,6 +387,18 @@ func (EnvironSuite) TestExtractDeploymentHostnameExtractsHost(c *C) {
 	hostname, err := extractDeploymentHostname(instanceURL)
 	c.Assert(err, IsNil)
 	c.Check(hostname, Equals, "MyService.cloudapp.net")
+}
+
+func (EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
+c.Fail() // TEST THIS
+}
+
+func (EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
+c.Fail() // TEST THIS
+}
+
+func (EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
+c.Fail() // TEST THIS
 }
 
 func (EnvironSuite) TestExtractDeploymentHostnamePropagatesError(c *C) {
@@ -366,7 +429,7 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	err = setServiceDNSName(azure, serviceName, deploymentName)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(*requests), Equals, 2)
+	c.Assert(*requests, HasLen, 2)
 	getDeploymentReq := (*requests)[0]
 	updateServiceReq := (*requests)[1]
 
@@ -378,4 +441,20 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	c.Assert(err, IsNil)
 newLabel, err := base64.StdEncoding.DecodeString(updateServiceBody.Label)
 	c.Check(string(newLabel), Equals, instanceHostname)
+}
+
+func (EnvironSuite) TestMakeProvisionalDeploymentLabelIsConsistent(c *C) {
+	c.Check(makeProvisionalDeploymentLabel("foo"), Equals, makeProvisionalDeploymentLabel("foo"))
+}
+
+func (EnvironSuite) TestMakeProvisionalDeploymentLabelIncludesName(c *C) {
+	c.Check(makeProvisionalDeploymentLabel("splyz"), Matches, ".*splyz.*")
+}
+
+func (EnvironSuite) TestIsProvisionalDeploymentLabelRecognizesProvisionalLabel(c *C) {
+	c.Check(isProvisionalDeploymentLabel(makeProvisionalDeploymentLabel("x")), Equals, true)
+}
+
+func (EnvironSuite) TestIsProvisionalDeploymentLabelRecognizesPermanentLabel(c *C) {
+	c.Check(isProvisionalDeploymentLabel("label"), Equals, false)
 }
