@@ -62,7 +62,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
-	if err := environs.BootstrapMongoUsers(st, cfg, c.Conf.OldPassword); err != nil {
+	if err := environs.BootstrapUsers(st, cfg, c.Conf.OldPassword); err != nil {
 		return err
 	}
 
