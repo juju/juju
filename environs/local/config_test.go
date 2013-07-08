@@ -6,6 +6,7 @@ package local_test
 import (
 	"os"
 	"path/filepath"
+	"runtime"
 	"syscall"
 
 	gc "launchpad.net/gocheck"
@@ -146,6 +147,10 @@ var _ = gc.Suite(&configRootSuite{})
 
 func (s *configRootSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
+	// Skip if not linux
+	if runtime.GOOS != "linux" {
+		c.Skip("not running linux")
+	}
 	// Skip if not running as root.
 	if os.Getuid() != 0 {
 		c.Skip("not running as root")
@@ -182,7 +187,7 @@ func (s *configRootSuite) TestCreateDirsAsUser(c *gc.C) {
 	testConfig := minimalConfig(c)
 	err := local.CreateDirs(c, testConfig)
 	c.Assert(err, gc.IsNil)
-	// Check that the dirs are owned by root.
+	// Check that the dirs are owned by the UID/GID set above..
 	for _, dir := range local.CheckDirs(c, testConfig) {
 		info, err := os.Stat(dir)
 		c.Assert(err, gc.IsNil)
