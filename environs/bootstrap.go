@@ -64,8 +64,10 @@ func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error 
 	return VerifyStorage(env.Storage())
 }
 
-func BootstrapMongoUsers(st *state.State, cfg *config.Config, passwordHash string) error {
-	logger.Debugf("add admin user")
+// BootstrapUsers creates the initial admin user for the database, and sets
+// the initial password.
+func BootstrapUsers(st *state.State, cfg *config.Config, passwordHash string) error {
+	logger.Debugf("adding admin user")
 	// Set up initial authentication.
 	u, err := st.AddUser("admin", "")
 	if err != nil {
@@ -76,7 +78,7 @@ func BootstrapMongoUsers(st *state.State, cfg *config.Config, passwordHash strin
 	// the hash of its actual value. The first time a client
 	// connects to mongo, it changes the mongo password
 	// to the original password.
-	logger.Debugf("set password hash for admin user")
+	logger.Debugf("setting password hash for admin user")
 	if err := u.SetPasswordHash(passwordHash); err != nil {
 		return err
 	}
@@ -87,6 +89,9 @@ func BootstrapMongoUsers(st *state.State, cfg *config.Config, passwordHash strin
 
 }
 
+// ConfigureBootstrapMachine adds the initial machine into state.  As a part
+// of this process the environmental constraints are saved as constraints used
+// when bootstrapping are considered constraints for the entire environment.
 func ConfigureBootstrapMachine(
 	st *state.State,
 	cfg *config.Config,
