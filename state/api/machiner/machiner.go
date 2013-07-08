@@ -5,6 +5,7 @@ package machiner
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -22,7 +23,7 @@ func NewState(caller common.Caller) *State {
 
 // machineLife requests the lifecycle of the given machine from the server.
 func (m *State) machineLife(tag string) (params.Life, error) {
-	var result params.MachinesLifeResults
+	var result params.LifeResults
 	args := params.Entities{
 		Entities: []params.Entity{{tag}},
 	}
@@ -30,13 +31,13 @@ func (m *State) machineLife(tag string) (params.Life, error) {
 	if err != nil {
 		return "", err
 	}
-	if len(result.Machines) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Machines))
+	if len(result.Results) != 1 {
+		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
 	}
-	if err := result.Machines[0].Error; err != nil {
+	if err := result.Results[0].Error; err != nil {
 		return "", err
 	}
-	return result.Machines[0].Life, nil
+	return result.Results[0].Life, nil
 }
 
 // Machine provides access to methods of a state.Machine through the facade.

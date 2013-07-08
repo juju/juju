@@ -97,11 +97,11 @@ func (s *machinerSuite) TestLife(c *C) {
 	}
 	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Machines, HasLen, 3)
-	c.Assert(result.Machines[0].Error, IsNil)
-	c.Assert(string(result.Machines[0].Life), Equals, "dead")
-	s.assertError(c, result.Machines[1].Error, params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Machines[2].Error, params.CodeUnauthorized, "permission denied")
+	c.Assert(result.Results, HasLen, 3)
+	c.Assert(result.Results[0].Error, IsNil)
+	c.Assert(string(result.Results[0].Life), Equals, "dead")
+	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Results[2].Error, params.CodeUnauthorized, "permission denied")
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {

@@ -79,9 +79,9 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 }
 
 // Life returns the lifecycle state of each given machine.
-func (m *MachinerAPI) Life(args params.Entities) (params.MachinesLifeResults, error) {
-	result := params.MachinesLifeResults{
-		Machines: make([]params.MachineLifeResult, len(args.Entities)),
+func (m *MachinerAPI) Life(args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
 		return result, nil
@@ -92,10 +92,10 @@ func (m *MachinerAPI) Life(args params.Entities) (params.MachinesLifeResults, er
 			var machine *state.Machine
 			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
 			if err == nil {
-				result.Machines[i].Life = params.Life(machine.Life().String())
+				result.Results[i].Life = params.Life(machine.Life().String())
 			}
 		}
-		result.Machines[i].Error = common.ServerError(err)
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
