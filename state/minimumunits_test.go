@@ -30,9 +30,8 @@ func (s *MinUnitsSuite) assertRevno(c *C, expectedRevno int, expectedErr error) 
 }
 
 func (s *MinUnitsSuite) addUnits(c *C, count int) {
-	service := s.service
 	for i := 0; i < count; i++ {
-		_, err := service.AddUnit()
+		_, err := s.service.AddUnit()
 		c.Assert(err, IsNil)
 	}
 }
