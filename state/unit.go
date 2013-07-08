@@ -813,12 +813,6 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	} else if err != nil {
 		return err
 	}
-	// Merge in the environment constraints to pick up any default container deployment policy.
-	envCons, err := u.st.EnvironConstraints()
-	if err != nil {
-		return err
-	}
-	cons = cons.WithFallbacks(envCons)
 	var containerType instance.ContainerType
 	// Configure to create a new container if required.
 	if cons.Container != nil && *cons.Container != "" && *cons.Container != instance.NONE {
