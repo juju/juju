@@ -263,7 +263,10 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 	// If we fail after this point, clean up the hosted service.
 	defer func() {
 		if err != nil {
-			azure.DeleteHostedService(serviceName)
+			azure.DestroyHostedService(
+				&gwacl.DestroyHostedServiceRequest{
+					ServiceName: serviceName,
+				})
 		}
 	}()
 
