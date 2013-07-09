@@ -397,15 +397,14 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	// - one GET request to fetch the infos about the service;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
+	c.Check((*requests)[0].Method, Equals, "GET")
 	c.Check((*requests)[1].Method, Equals, "DELETE")
+	c.Check((*requests)[2].Method, Equals, "GET")
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
 // makeAzureStorage creates a test azureStorage object that will talk to a
 // fake http server set up to always return the given http.Response object.
-// makeAzureStorage returns an azureStorage object and a TestTransport object.
-// The TestTransport object can be used to check that the expected query has
-// been issued to the test server.
 func makeAzureStorageMocking(transport http.RoundTripper, container string, account string) azureStorage {
 	client := &http.Client{Transport: transport}
 	storageContext := gwacl.NewTestStorageContext(client)
@@ -416,24 +415,24 @@ func makeAzureStorageMocking(transport http.RoundTripper, container string, acco
 }
 
 var blobListWith2BlobsResponse = `
-        <?xml version="1.0" encoding="utf-8"?>
-        <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-          <Prefix>prefix</Prefix>
-          <Marker>marker</Marker>
-          <MaxResults>maxresults</MaxResults>
-          <Delimiter>delimiter</Delimiter>
-          <Blobs>
-            <Blob>
-              <Name>blob-1</Name>
-              <Url>blob-url1</Url>
-            </Blob>
-            <Blob>
-              <Name>blob-2</Name>
-              <Url>blob-url2</Url>
-           </Blob>
-          </Blobs>
-          <NextMarker />
-        </EnumerationResults>`
+<?xml version="1.0" encoding="utf-8"?>
+<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+  <Prefix>prefix</Prefix>
+  <Marker>marker</Marker>
+  <MaxResults>maxresults</MaxResults>
+  <Delimiter>delimiter</Delimiter>
+  <Blobs>
+    <Blob>
+      <Name>blob-1</Name>
+      <Url>blob-url1</Url>
+    </Blob>
+    <Blob>
+      <Name>blob-2</Name>
+      <Url>blob-url2</Url>
+   </Blob>
+  </Blobs>
+  <NextMarker />
+</EnumerationResults>`
 
 func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
@@ -458,15 +457,15 @@ func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 }
 
 var emptyListResponse = `
-        <?xml version="1.0" encoding="utf-8"?>
-        <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-          <Prefix>prefix</Prefix>
-          <Marker>marker</Marker>
-          <MaxResults>maxresults</MaxResults>
-          <Delimiter>delimiter</Delimiter>
-          <Blobs></Blobs>
-          <NextMarker />
-        </EnumerationResults>`
+<?xml version="1.0" encoding="utf-8"?>
+<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+  <Prefix>prefix</Prefix>
+  <Marker>marker</Marker>
+  <MaxResults>maxresults</MaxResults>
+  <Delimiter>delimiter</Delimiter>
+  <Blobs></Blobs>
+  <NextMarker />
+</EnumerationResults>`
 
 func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	env := makeEnviron(c)
@@ -495,6 +494,9 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	// Then two requests per destroyed machine (one to fetch the
 	// service's information, on to delete it).
 	c.Check((*requests), HasLen, 1+len(services)*2)
+	c.Check((*requests)[0].Method, Equals, "GET")
+	c.Check((*requests)[1].Method, Equals, "GET")
 	c.Check((*requests)[2].Method, Equals, "DELETE")
+	c.Check((*requests)[3].Method, Equals, "GET")
 	c.Check((*requests)[4].Method, Equals, "DELETE")
 }
