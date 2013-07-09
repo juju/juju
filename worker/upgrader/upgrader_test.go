@@ -68,3 +68,15 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ver.Binary, gc.Equals, version.Current)
 }
+
+
+type UpgradeHandlerSuite struct {
+	jujutesting.JujuConnSuite
+	//SimpleToolsFixture
+
+	rawMachine *state.Machine
+	apiState   *api.State
+}
+
+func (s *UpgraderSuite) TestUpgraderDoesNothingIfAgentVersionMatches(c *gc.C) {
+}
