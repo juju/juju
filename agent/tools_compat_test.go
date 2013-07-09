@@ -17,6 +17,9 @@ type ToolsCompatSuite struct {
 	coretesting.LoggingSuite
 }
 
+// Just ensure you can simply cast the two types to each other
+// When Tim's patch lands to use agent.Tools everywhere, we can get rid of
+// these tests
 func (s *ToolsCompatSuite) TestToolsMatchStateTools(c *gc.C) {
 	testtools := agent.Tools{}
 	statetools := state.Tools(testtools)
