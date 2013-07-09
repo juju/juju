@@ -52,9 +52,9 @@ func (s *suite) TestMachine(c *C) {
 	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(m, IsNil)
 
-	m, err = s.st.MachineAgent().Machine(s.machine.Id())
+	m, err = s.st.MachineAgent().Machine(s.machine.Tag())
 	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, s.machine.Id())
+	c.Assert(m.Tag(), Equals, s.machine.Tag())
 	c.Assert(m.Life(), Equals, params.Alive)
 	c.Assert(m.Jobs(), DeepEquals, []params.MachineJob{params.JobHostUnits})
 
@@ -63,36 +63,14 @@ func (s *suite) TestMachine(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 
-	m, err = s.st.MachineAgent().Machine(s.machine.Id())
+	m, err = s.st.MachineAgent().Machine(s.machine.Tag())
 	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 	c.Assert(m, IsNil)
 }
 
-func (s *suite) TestMachineRefresh(c *C) {
-	m, err := s.st.MachineAgent().Machine(s.machine.Id())
-	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Alive)
-
-	err = s.machine.Destroy()
-	c.Assert(err, IsNil)
-
-	err = m.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Dying)
-
-	err = s.machine.EnsureDead()
-	c.Assert(err, IsNil)
-	err = s.machine.Remove()
-	c.Assert(err, IsNil)
-
-	err = m.Refresh()
-	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
-	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
-}
-
 func (s *suite) TestMachineSetPassword(c *C) {
-	m, err := s.st.MachineAgent().Machine(s.machine.Id())
+	m, err := s.st.MachineAgent().Machine(s.machine.Tag())
 	c.Assert(err, IsNil)
 
 	err = m.SetPassword("foo")

@@ -163,18 +163,20 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	c.Assert(err, IsNil)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	// Initial event
+	s.SyncAPIServerState()
 	wc.AssertOneChange()
 	// Setting the AgentVersion without actually changing it doesn't
 	// trigger an update
 	ver := version.Current.Number
 	err = statetesting.SetAgentVersion(s.State, ver)
 	c.Assert(err, IsNil)
+	s.SyncAPIServerState()
 	wc.AssertNoChange()
 	ver.Minor += 1
 	err = statetesting.SetAgentVersion(s.State, ver)
 	c.Assert(err, IsNil)
+	s.SyncAPIServerState()
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
-	c.Errorf("just failing for the sake of it")
 }

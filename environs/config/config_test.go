@@ -4,16 +4,21 @@
 package config_test
 
 import (
-	. "launchpad.net/gocheck"
+	stdtesting "testing"
+	"time"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	stdtesting "testing"
 )
 
 func Test(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type ConfigSuite struct {
@@ -21,7 +26,7 @@ type ConfigSuite struct {
 	home string
 }
 
-var _ = Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 type attrs map[string]interface{}
 
@@ -347,7 +352,7 @@ type testFile struct {
 	name, data string
 }
 
-func (*ConfigSuite) TestConfig(c *C) {
+func (*ConfigSuite) TestConfig(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/id_dsa.pub", "dsa"},
 		{".ssh/id_rsa.pub", "rsa\n"},
@@ -390,7 +395,7 @@ var noCertFilesTests = []configTest{
 	},
 }
 
-func (*ConfigSuite) TestConfigNoCertFiles(c *C) {
+func (*ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
 	h := testing.MakeEmptyFakeHome(c)
 	defer h.Restore()
 	for i, test := range noCertFilesTests {
@@ -447,7 +452,7 @@ var emptyCertFilesTests = []configTest{
 	},
 }
 
-func (*ConfigSuite) TestConfigEmptyCertFiles(c *C) {
+func (*ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 	files := []testing.TestFile{
 		{".juju/my-name-cert.pem", ""},
 		{".juju/my-name-private-key.pem", ""},
@@ -461,105 +466,105 @@ func (*ConfigSuite) TestConfigEmptyCertFiles(c *C) {
 	}
 }
 
-func (test configTest) check(c *C, home *testing.FakeHome) {
+func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	cfg, err := config.New(test.attrs)
 	if test.err != "" {
-		c.Check(cfg, IsNil)
-		c.Assert(err, ErrorMatches, test.err)
+		c.Check(cfg, gc.IsNil)
+		c.Assert(err, gc.ErrorMatches, test.err)
 		return
 	}
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	typ, _ := test.attrs["type"].(string)
 	name, _ := test.attrs["name"].(string)
-	c.Assert(cfg.Type(), Equals, typ)
-	c.Assert(cfg.Name(), Equals, name)
+	c.Assert(cfg.Type(), gc.Equals, typ)
+	c.Assert(cfg.Name(), gc.Equals, name)
 	agentVersion, ok := cfg.AgentVersion()
 	if s := test.attrs["agent-version"]; s != nil {
-		c.Assert(ok, Equals, true)
-		c.Assert(agentVersion, Equals, version.MustParse(s.(string)))
+		c.Assert(ok, jc.IsTrue)
+		c.Assert(agentVersion, gc.Equals, version.MustParse(s.(string)))
 	} else {
-		c.Assert(ok, Equals, false)
-		c.Assert(agentVersion, Equals, version.Zero)
+		c.Assert(ok, jc.IsFalse)
+		c.Assert(agentVersion, gc.Equals, version.Zero)
 	}
 
 	if statePort, _ := test.attrs["state-port"].(int); statePort != 0 {
-		c.Assert(cfg.StatePort(), Equals, statePort)
+		c.Assert(cfg.StatePort(), gc.Equals, statePort)
 	}
 	if apiPort, _ := test.attrs["api-port"].(int); apiPort != 0 {
-		c.Assert(cfg.APIPort(), Equals, apiPort)
+		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
 	}
 
 	dev, _ := test.attrs["development"].(bool)
-	c.Assert(cfg.Development(), Equals, dev)
+	c.Assert(cfg.Development(), gc.Equals, dev)
 
 	if series, _ := test.attrs["default-series"].(string); series != "" {
-		c.Assert(cfg.DefaultSeries(), Equals, series)
+		c.Assert(cfg.DefaultSeries(), gc.Equals, series)
 	} else {
-		c.Assert(cfg.DefaultSeries(), Equals, config.DefaultSeries)
+		c.Assert(cfg.DefaultSeries(), gc.Equals, config.DefaultSeries)
 	}
 
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
-		c.Assert(cfg.FirewallMode(), Equals, config.FirewallMode(m))
+		c.Assert(cfg.FirewallMode(), gc.Equals, config.FirewallMode(m))
 	}
 
 	if secret, _ := test.attrs["admin-secret"].(string); secret != "" {
-		c.Assert(cfg.AdminSecret(), Equals, secret)
+		c.Assert(cfg.AdminSecret(), gc.Equals, secret)
 	}
 
 	if path, _ := test.attrs["authorized-keys-path"].(string); path != "" {
-		c.Assert(cfg.AuthorizedKeys(), Equals, home.FileContents(c, path))
-		c.Assert(cfg.AllAttrs()["authorized-keys-path"], Equals, nil)
+		c.Assert(cfg.AuthorizedKeys(), gc.Equals, home.FileContents(c, path))
+		c.Assert(cfg.AllAttrs()["authorized-keys-path"], gc.IsNil)
 	} else if keys, _ := test.attrs["authorized-keys"].(string); keys != "" {
-		c.Assert(cfg.AuthorizedKeys(), Equals, keys)
+		c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
 	} else {
 		// Content of all the files that are read by default.
 		want := "dsa\nrsa\nidentity\n"
-		c.Assert(cfg.AuthorizedKeys(), Equals, want)
+		c.Assert(cfg.AuthorizedKeys(), gc.Equals, want)
 	}
 
 	cert, certPresent := cfg.CACert()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
-		c.Assert(certPresent, Equals, true)
-		c.Assert(string(cert), Equals, home.FileContents(c, path))
+		c.Assert(certPresent, jc.IsTrue)
+		c.Assert(string(cert), gc.Equals, home.FileContents(c, path))
 	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
-		c.Assert(certPresent, Equals, true)
-		c.Assert(string(cert), Equals, v)
+		c.Assert(certPresent, jc.IsTrue)
+		c.Assert(string(cert), gc.Equals, v)
 	} else if ok {
-		c.Check(cert, HasLen, 0)
-		c.Assert(certPresent, Equals, false)
+		c.Check(cert, gc.HasLen, 0)
+		c.Assert(certPresent, jc.IsFalse)
 	} else if home.FileExists(".juju/my-name-cert.pem") {
-		c.Assert(certPresent, Equals, true)
-		c.Assert(string(cert), Equals, home.FileContents(c, "my-name-cert.pem"))
+		c.Assert(certPresent, jc.IsTrue)
+		c.Assert(string(cert), gc.Equals, home.FileContents(c, "my-name-cert.pem"))
 	} else {
-		c.Check(cert, HasLen, 0)
-		c.Assert(certPresent, Equals, false)
+		c.Check(cert, gc.HasLen, 0)
+		c.Assert(certPresent, jc.IsFalse)
 	}
 
 	key, keyPresent := cfg.CAPrivateKey()
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
-		c.Assert(keyPresent, Equals, true)
-		c.Assert(string(key), Equals, home.FileContents(c, path))
+		c.Assert(keyPresent, jc.IsTrue)
+		c.Assert(string(key), gc.Equals, home.FileContents(c, path))
 	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
-		c.Assert(keyPresent, Equals, true)
-		c.Assert(string(key), Equals, v)
+		c.Assert(keyPresent, jc.IsTrue)
+		c.Assert(string(key), gc.Equals, v)
 	} else if ok {
-		c.Check(key, HasLen, 0)
-		c.Assert(keyPresent, Equals, false)
+		c.Check(key, gc.HasLen, 0)
+		c.Assert(keyPresent, jc.IsFalse)
 	} else if home.FileExists(".juju/my-name-private-key.pem") {
-		c.Assert(keyPresent, Equals, true)
-		c.Assert(string(key), Equals, home.FileContents(c, "my-name-private-key.pem"))
+		c.Assert(keyPresent, jc.IsTrue)
+		c.Assert(string(key), gc.Equals, home.FileContents(c, "my-name-private-key.pem"))
 	} else {
-		c.Check(key, HasLen, 0)
-		c.Assert(keyPresent, Equals, false)
+		c.Check(key, gc.HasLen, 0)
+		c.Assert(keyPresent, jc.IsFalse)
 	}
 
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
-		c.Assert(cfg.SSLHostnameVerification(), Equals, v)
+		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
 }
 
-func (*ConfigSuite) TestConfigAttrs(c *C) {
+func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 	attrs := map[string]interface{}{
 		"type":                      "my-type",
 		"name":                      "my-name",
@@ -572,15 +577,15 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 		"ssl-hostname-verification": true,
 	}
 	cfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// These attributes are added if not set.
 	attrs["development"] = false
 	attrs["default-series"] = config.DefaultSeries
 	// Default firewall mode is instance
 	attrs["firewall-mode"] = string(config.FwInstance)
-	c.Assert(cfg.AllAttrs(), DeepEquals, attrs)
-	c.Assert(cfg.UnknownAttrs(), DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
+	c.Assert(cfg.AllAttrs(), gc.DeepEquals, attrs)
+	c.Assert(cfg.UnknownAttrs(), gc.DeepEquals, map[string]interface{}{"unknown": "my-unknown"})
 
 	newcfg, err := cfg.Apply(map[string]interface{}{
 		"name":        "new-name",
@@ -589,7 +594,7 @@ func (*ConfigSuite) TestConfigAttrs(c *C) {
 
 	attrs["name"] = "new-name"
 	attrs["new-unknown"] = "my-new-unknown"
-	c.Assert(newcfg.AllAttrs(), DeepEquals, attrs)
+	c.Assert(newcfg.AllAttrs(), gc.DeepEquals, attrs)
 }
 
 type validationTest struct {
@@ -655,7 +660,7 @@ var validationTests = []validationTest{{
 	err:   `cannot change api-port from 17070 to 42`,
 }}
 
-func (*ConfigSuite) TestValidateChange(c *C) {
+func (*ConfigSuite) TestValidateChange(c *gc.C) {
 	files := []testing.TestFile{
 		{".ssh/identity.pub", "identity"},
 	}
@@ -668,14 +673,14 @@ func (*ConfigSuite) TestValidateChange(c *C) {
 		oldConfig := newTestConfig(c, test.old)
 		err := config.Validate(newConfig, oldConfig)
 		if test.err == "" {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		} else {
-			c.Assert(err, ErrorMatches, test.err)
+			c.Assert(err, gc.ErrorMatches, test.err)
 		}
 	}
 }
 
-func (*ConfigSuite) TestValidateUnknownAttrs(c *C) {
+func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
@@ -690,8 +695,8 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *C) {
 
 	// No fields: all attrs passed through.
 	attrs, err := cfg.ValidateUnknownAttrs(nil, nil)
-	c.Assert(err, IsNil)
-	c.Assert(attrs, DeepEquals, map[string]interface{}{
+	c.Assert(err, gc.IsNil)
+	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
 		"known":   "this",
 		"unknown": "that",
 	})
@@ -699,8 +704,8 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *C) {
 	// Valid field: that and other attrs passed through.
 	fields := schema.Fields{"known": schema.String()}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, nil)
-	c.Assert(err, IsNil)
-	c.Assert(attrs, DeepEquals, map[string]interface{}{
+	c.Assert(err, gc.IsNil)
+	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
 		"known":   "this",
 		"unknown": "that",
 	})
@@ -709,8 +714,8 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *C) {
 	fields["default"] = schema.String()
 	defaults := schema.Defaults{"default": "the other"}
 	attrs, err = cfg.ValidateUnknownAttrs(fields, defaults)
-	c.Assert(err, IsNil)
-	c.Assert(attrs, DeepEquals, map[string]interface{}{
+	c.Assert(err, gc.IsNil)
+	c.Assert(attrs, gc.DeepEquals, map[string]interface{}{
 		"known":   "this",
 		"unknown": "that",
 		"default": "the other",
@@ -719,17 +724,71 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *C) {
 	// Invalid field: failure.
 	fields["known"] = schema.Int()
 	_, err = cfg.ValidateUnknownAttrs(fields, defaults)
-	c.Assert(err, ErrorMatches, `known: expected int, got "this"`)
+	c.Assert(err, gc.ErrorMatches, `known: expected int, got "this"`)
 }
 
-func newTestConfig(c *C, explicit attrs) *config.Config {
+func newTestConfig(c *gc.C, explicit attrs) *config.Config {
 	final := attrs{"type": "my-type", "name": "my-name"}
 	for key, value := range explicit {
 		final[key] = value
 	}
 	result, err := config.New(final)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return result
+}
+
+func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
+	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
+	// a fake home.
+	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+		{".ssh/id_rsa.pub", "rsa\n"},
+	}).Restore()
+
+	for _, test := range []struct {
+		configValues map[string]interface{}
+		errMatch     string
+	}{{
+		configValues: map[string]interface{}{
+			"name": "test-no-certs",
+			"type": "dummy",
+		},
+		errMatch: "environment configuration has no ca-cert",
+	}, {
+		configValues: map[string]interface{}{
+			"name":    "test-no-certs",
+			"type":    "dummy",
+			"ca-cert": testing.CACert,
+		},
+		errMatch: "environment configuration has no ca-private-key",
+	}, {
+		configValues: map[string]interface{}{
+			"name":           "test-no-certs",
+			"type":           "dummy",
+			"ca-cert":        testing.CACert,
+			"ca-private-key": testing.CAKey,
+		},
+	}} {
+		cfg, err := config.New(test.configValues)
+		c.Assert(err, gc.IsNil)
+		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey()
+		if test.errMatch == "" {
+			c.Assert(err, gc.IsNil)
+
+			_, _, err = cert.ParseCertAndKey(certPEM, keyPEM)
+			c.Check(err, gc.IsNil)
+
+			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now())
+			c.Assert(err, gc.IsNil)
+			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now().AddDate(9, 0, 0))
+			c.Assert(err, gc.IsNil)
+			err = cert.Verify(certPEM, []byte(testing.CACert), time.Now().AddDate(10, 0, 1))
+			c.Assert(err, gc.NotNil)
+		} else {
+			c.Assert(err, gc.ErrorMatches, test.errMatch)
+			c.Assert(certPEM, gc.IsNil)
+			c.Assert(keyPEM, gc.IsNil)
+		}
+	}
 }
 
 var caCert = `

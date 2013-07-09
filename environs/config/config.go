@@ -6,12 +6,16 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/schema"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/loggo"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.config")
@@ -427,4 +431,18 @@ func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.De
 		}
 	}
 	return result, nil
+}
+
+// GenerateStateServerCertAndKey makes sure that the config has a CACert and
+// CAPrivateKey, generates and retruns new certificate and key.
+func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
+	caCert, hasCACert := cfg.CACert()
+	if !hasCACert {
+		return nil, nil, fmt.Errorf("environment configuration has no ca-cert")
+	}
+	caKey, hasCAKey := cfg.CAPrivateKey()
+	if !hasCAKey {
+		return nil, nil, fmt.Errorf("environment configuration has no ca-private-key")
+	}
+	return cert.NewServer(cfg.Name(), caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
 }

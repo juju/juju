@@ -1048,31 +1048,21 @@ func (w *entityWatcher) loop(coll *mgo.Collection, key string) (err error) {
 		return err
 	}
 	in := make(chan watcher.Change)
-	watchLogger.Debugf("Asking to watch %v %v %v",
-		coll.Name, key, doc.TxnRevno)
 	w.st.watcher.Watch(coll.Name, key, doc.TxnRevno, in)
-	defer func() {
-		watchLogger.Debugf("Asking to stop watching %v %v",
-			coll.Name, key)
-		w.st.watcher.Unwatch(coll.Name, key, in)
-	}()
+	defer w.st.watcher.Unwatch(coll.Name, key, in)
 	out := w.out
 	for {
 		select {
 		case <-w.tomb.Dying():
-			watchLogger.Debugf("EntityWatcher resource watcher dying %q", key)
 			return tomb.ErrDying
 		case <-w.st.watcher.Dead():
-			watchLogger.Debugf("EntityWatcher resource watcher dead %q", key)
 			return watcher.MustErr(w.st.watcher)
 		case ch := <-in:
-			watchLogger.Debugf("EntityWatcher resource watcher triggered %q", key)
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
 			out = w.out
 		case out <- struct{}{}:
-			watchLogger.Debugf("EntityWatcher sent event for key %q", key)
 			out = nil
 		}
 	}
