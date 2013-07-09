@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"strings"
 )
 
@@ -148,7 +149,7 @@ func (s *permSuite) TestOperationPerm(c *C) {
 				c.Check(err, IsNil)
 			} else {
 				c.Check(err, ErrorMatches, "permission denied")
-				c.Check(api.ErrCode(err), Equals, api.CodeUnauthorized)
+				c.Check(params.ErrCode(err), Equals, params.CodeUnauthorized)
 			}
 			reset()
 			st.Close()
@@ -170,7 +171,7 @@ func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
 
 func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
-	if api.ErrCode(err) == api.CodeNotFound {
+	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
 	return func() {}, err
@@ -178,7 +179,7 @@ func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) 
 
 func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
-	if api.ErrCode(err) == api.CodeNotFound {
+	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
 	return func() {}, err
@@ -255,7 +256,7 @@ func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
 	// that the user is not authorized.  In that case we want to exit now,
 	// letting the error percolate out so the caller knows that the
 	// permission error was correctly generated.
-	if err != nil && api.ErrCode(err) == api.CodeUnauthorized {
+	if err != nil && params.ErrCode(err) == params.CodeUnauthorized {
 		return func() {}, err
 	}
 	// Otherwise, the user was authorized, but we expect an error anyway
@@ -298,7 +299,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 
 func opClientServiceSetCharm(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
-	if api.ErrCode(err) == api.CodeNotFound {
+	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
 	return func() {}, err
@@ -306,7 +307,7 @@ func opClientServiceSetCharm(c *C, st *api.State, mst *state.State) (func(), err
 
 func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddServiceUnits("nosuch", 1)
-	if api.ErrCode(err) == api.CodeNotFound {
+	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
 	return func() {}, err
@@ -322,7 +323,7 @@ func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(),
 
 func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDestroy("non-existent")
-	if api.ErrCode(err) == api.CodeNotFound {
+	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}
 	return func() {}, err

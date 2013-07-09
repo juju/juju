@@ -7,6 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -26,12 +27,12 @@ var badLoginTests = []struct {
 	tag:      "user-admin",
 	password: "wrong password",
 	err:      "invalid entity name or password",
-	code:     api.CodeUnauthorized,
+	code:     params.CodeUnauthorized,
 }, {
 	tag:      "user-foo",
 	password: "password",
 	err:      "invalid entity name or password",
-	code:     api.CodeUnauthorized,
+	code:     params.CodeUnauthorized,
 }, {
 	tag:      "bar",
 	password: "password",
@@ -78,7 +79,7 @@ func (s *loginSuite) TestBadLogin(c *C) {
 
 			err = st.Login(t.tag, t.password)
 			c.Assert(err, ErrorMatches, t.err)
-			c.Assert(api.ErrCode(err), Equals, t.code)
+			c.Assert(params.ErrCode(err), Equals, t.code)
 
 			_, err = st.Machiner().Machine("0")
 			c.Assert(err, ErrorMatches, `unknown object type "Machiner"`)
