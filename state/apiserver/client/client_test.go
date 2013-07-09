@@ -135,9 +135,12 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *C) {
 	conf, _ := s.State.EnvironConfig()
 	info, err := s.APIState.Client().EnvironmentInfo()
 	c.Assert(err, IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
 	c.Assert(info.Name, Equals, conf.Name())
+	c.Assert(info.UUID, Equals, env.UUID())
 }
 
 var clientAnnotationsTests = []struct {
