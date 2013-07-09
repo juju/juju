@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"time"
@@ -26,44 +25,6 @@ type FilterSuite struct {
 }
 
 var _ = Suite(&FilterSuite{})
-
-type NotifyAsserter struct {
-	C       *C
-	Chan    <-chan struct{}
-	Precond func()
-}
-
-func (a *NotifyAsserter) AssertReceive() {
-	if a.Precond != nil {
-		a.Precond()
-	}
-	select {
-	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsTrue)
-	case <-time.After(coretesting.LongWait):
-		a.C.Fatalf("timed out waiting for channel message")
-	}
-}
-
-func (a *NotifyAsserter) AssertClosed() {
-	if a.Precond != nil {
-		a.Precond()
-	}
-	select {
-	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsFalse)
-	case <-time.After(coretesting.LongWait):
-		a.C.Fatalf("timed out waiting for channel to close")
-	}
-}
-
-func (a *NotifyAsserter) AssertNoReceive() {
-	select {
-	case <-a.Chan:
-		a.C.Fatalf("unexpected receive")
-	case <-time.After(coretesting.ShortWait):
-	}
-}
 
 func (s *FilterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -87,7 +48,7 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
-	asserter := NotifyAsserter{
+	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.State.StartSync() },
 		C:       c,
 		Chan:    f.UnitDying(),
@@ -130,7 +91,7 @@ func (s *FilterSuite) TestUnitRemoval(c *C) {
 
 // Ensure we get a signal on f.Dead()
 func (s *FilterSuite) assertAgentTerminates(c *C, f *filter) {
-	asserter := NotifyAsserter{
+	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.State.StartSync() },
 		C:       c,
 		Chan:    f.Dead(),
@@ -143,12 +104,12 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
-	s.State.StartSync()
-	select {
-	case <-time.After(coretesting.ShortWait):
-	case <-f.UnitDying():
-		c.Fatalf("unexpected receive")
+	dyingAsserter := coretesting.NotifyAsserterC{
+		C:       c,
+		Precond: func() { s.State.StartSync() },
+		Chan:    f.UnitDying(),
 	}
+	dyingAsserter.AssertNoReceive()
 
 	err = s.unit.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
@@ -173,43 +134,49 @@ loop:
 	// Can't set s.wordpress to Dead while it still has units.
 }
 
+func curryResolvedMode(in <-chan state.ResolvedMode) <-chan interface{} {
+	out := make(chan interface{})
+	go func() {
+		for {
+			val, ok := <-in
+			if !ok {
+				close(out)
+				return
+			} else {
+				out <- val
+			}
+		}
+	}()
+	return out
+}
+
 func (s *FilterSuite) TestResolvedEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
 
-	// No initial event; not worth mentioning ResolvedNone.
-	assertNoChange := func() {
-		s.State.StartSync()
-		select {
-		case rm := <-f.ResolvedEvents():
-			c.Fatalf("unexpected %#v", rm)
-		case <-time.After(coretesting.ShortWait):
-		}
+	resolvedAsserter := coretesting.ContentAsserterC{
+		C:       c,
+		Precond: func() { s.State.StartSync() },
+		Chan:    curryResolvedMode(f.ResolvedEvents()),
 	}
-	assertNoChange()
+	resolvedAsserter.AssertNoReceive()
 
 	// Request an event; no interesting event is available.
 	f.WantResolvedEvent()
-	assertNoChange()
+	resolvedAsserter.AssertNoReceive()
 
 	// Change the unit in an irrelevant way; no events.
 	err = s.unit.SetStatus(params.StatusError, "blarg")
 	c.Assert(err, IsNil)
-	assertNoChange()
+	resolvedAsserter.AssertNoReceive()
 
 	// Change the unit's resolved to an interesting value; new event received.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
 	assertChange := func(expect state.ResolvedMode) {
-		s.State.Sync()
-		select {
-		case rm := <-f.ResolvedEvents():
-			c.Assert(rm, Equals, expect)
-		case <-time.After(coretesting.LongWait):
-			c.Fatalf("timed out")
-		}
-		assertNoChange()
+		rm := resolvedAsserter.AssertOneReceive().(state.ResolvedMode)
+		c.Assert(rm, Equals, expect)
 	}
 	assertChange(state.ResolvedRetryHooks)
 
@@ -220,11 +187,11 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	// Clear the resolved status *via the filter*; check not resent...
 	err = f.ClearResolved()
 	c.Assert(err, IsNil)
-	assertNoChange()
+	resolvedAsserter.AssertNoReceive()
 
 	// ...even when requested.
 	f.WantResolvedEvent()
-	assertNoChange()
+	resolvedAsserter.AssertNoReceive()
 
 	// Induce several events; only latest state is reported.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
