@@ -479,8 +479,10 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	env.storage = &azStorage
 	// Simulate 2 nodes corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
-	service1, service1Desc := makeService(prefix + "service1")
-	service2, service2Desc := makeService(prefix + "service2")
+	service1Name := prefix + "service1"
+	service2Name := prefix + "service2"
+	service1, service1Desc := makeService(service1Name)
+	service2, service2Desc := makeService(service2Name)
 	services := []*gwacl.HostedService{service1, service2}
 	// The call to AllInstances() will return only one service (service1).
 	listInstancesResponses := buildServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
@@ -499,7 +501,11 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check((*requests), HasLen, 1+len(services)*2)
 	c.Check((*requests)[0].Method, Equals, "GET")
 	c.Check((*requests)[1].Method, Equals, "GET")
+	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
 	c.Check((*requests)[2].Method, Equals, "DELETE")
+	c.Check(strings.Contains((*requests)[2].URL, service1Name), IsTrue)
 	c.Check((*requests)[3].Method, Equals, "GET")
+	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
 	c.Check((*requests)[4].Method, Equals, "DELETE")
+	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
 }
