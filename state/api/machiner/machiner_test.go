@@ -45,18 +45,18 @@ func (s *machinerSuite) TearDownTest(c *C) {
 }
 
 func (s *machinerSuite) TestMachineAndMachineId(c *C) {
-	machine, err := s.st.Machiner().Machine("42")
-	c.Assert(err, ErrorMatches, "machine 42 not found")
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	machine, err := s.st.Machiner().Machine("machine-42")
+	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(machine, IsNil)
 
-	machine, err = s.st.Machiner().Machine("0")
+	machine, err = s.st.Machiner().Machine("machine-0")
 	c.Assert(err, IsNil)
-	c.Assert(machine.Id(), Equals, "0")
+	c.Assert(machine.Tag(), Equals, "machine-0")
 }
 
 func (s *machinerSuite) TestSetStatus(c *C) {
-	machine, err := s.st.Machiner().Machine("0")
+	machine, err := s.st.Machiner().Machine("machine-0")
 	c.Assert(err, IsNil)
 
 	status, info, err := s.machine.Status()
@@ -76,7 +76,7 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine.Life(), Equals, state.Alive)
 
-	machine, err := s.st.Machiner().Machine("0")
+	machine, err := s.st.Machiner().Machine("machine-0")
 	c.Assert(err, IsNil)
 
 	err = machine.EnsureDead()
@@ -99,11 +99,11 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 
 	err = machine.EnsureDead()
 	c.Assert(err, ErrorMatches, "machine 0 not found")
-	c.Assert(api.ErrCode(err), Equals, api.CodeNotFound)
+	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 }
 
 func (s *machinerSuite) TestRefresh(c *C) {
-	machine, err := s.st.Machiner().Machine("0")
+	machine, err := s.st.Machiner().Machine("machine-0")
 	c.Assert(err, IsNil)
 	c.Assert(machine.Life(), Equals, params.Alive)
 

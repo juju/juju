@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"strings"
 	"sync"
@@ -114,7 +115,7 @@ func (*EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
+func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
 	c.Assert(err, IsNil)
@@ -123,8 +124,12 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 		http.StatusOK,
 		nil,
 	)}
-	requests := gwacl.PatchManagementAPIResponses(responses)
-	return requests
+	return responses
+}
+
+func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
+	responses := buildAzureServiceListResponse(c, services)
+	return gwacl.PatchManagementAPIResponses(responses)
 }
 
 func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
@@ -566,4 +571,169 @@ func (*EnvironSuite) TestIsProvisionalServiceLabelRecognizesProvisionalLabel(c *
 
 func (*EnvironSuite) TestIsProvisionalServiceLabelRecognizesPermanentLabel(c *C) {
 	c.Check(isProvisionalServiceLabel("label"), Equals, false)
+}
+
+// buildDestroyAzureServiceResponses returns a slice containing the responses that a fake Azure server
+// can use to simulate the deletion of the given list of services.
+func buildDestroyAzureServiceResponses(c *C, services []*gwacl.HostedService) []gwacl.DispatcherResponse {
+	responses := []gwacl.DispatcherResponse{}
+	for _, service := range services {
+		// When destroying a hosted service, gwacl first issues a Get request
+		// to fetch the properties of the services.  Then it destroys all the
+		// deployments found in this service (none in this case, we make sure
+		// the service does not contain deployments to keep the testing simple)
+		// And it finally deletes the service itself.
+		if len(service.Deployments) != 0 {
+			panic("buildDestroyAzureServiceResponses does not support services with deployments!")
+		}
+		serviceXML, err := service.Serialize()
+		c.Assert(err, IsNil)
+		serviceGetResponse := gwacl.NewDispatcherResponse(
+			[]byte(serviceXML),
+			http.StatusOK,
+			nil,
+		)
+		responses = append(responses, serviceGetResponse)
+		serviceDeleteResponse := gwacl.NewDispatcherResponse(
+			nil,
+			http.StatusOK,
+			nil,
+		)
+		responses = append(responses, serviceDeleteResponse)
+	}
+	return responses
+}
+
+func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
+	service1 := &gwacl.HostedService{ServiceName: name}
+	service1Desc := &gwacl.HostedServiceDescriptor{ServiceName: name}
+	return service1, service1Desc
+}
+
+func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
+	service1Name := "service1"
+	service1, service1Desc := makeAzureService(service1Name)
+	service2Name := "service2"
+	service2, service2Desc := makeAzureService(service2Name)
+	services := []*gwacl.HostedService{service1, service2}
+	responses := buildDestroyAzureServiceResponses(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
+
+	// It takes 2 API calls to delete each service:
+	// - one GET request to fetch the properties about the service;
+	// - one DELETE request to delete the service.
+	c.Check(len(*requests), Equals, len(services)*2)
+	c.Check((*requests)[0].Method, Equals, "GET")
+	c.Check((*requests)[1].Method, Equals, "DELETE")
+	c.Check((*requests)[2].Method, Equals, "GET")
+	c.Check((*requests)[3].Method, Equals, "DELETE")
+}
+
+// makeAzureStorageMocking creates a test azureStorage object that will talk to a
+// fake http server set up to always return the given http.Response object.
+func makeAzureStorageMocking(transport http.RoundTripper, container string, account string) azureStorage {
+	client := &http.Client{Transport: transport}
+	storageContext := gwacl.NewTestStorageContext(client)
+	storageContext.Account = account
+	context := &testStorageContext{container: container, storageContext: storageContext}
+	azStorage := azureStorage{context}
+	return azStorage
+}
+
+var blobListWith2BlobsResponse = `
+  <?xml version="1.0" encoding="utf-8"?>
+  <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+    <Prefix>prefix</Prefix>
+    <Marker>marker</Marker>
+    <MaxResults>maxresults</MaxResults>
+    <Delimiter>delimiter</Delimiter>
+    <Blobs>
+      <Blob>
+        <Name>blob-1</Name>
+        <Url>blob-url1</Url>
+      </Blob>
+      <Blob>
+        <Name>blob-2</Name>
+        <Url>blob-url2</Url>
+     </Blob>
+    </Blobs>
+    <NextMarker />
+  </EnumerationResults>`
+
+func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
+	env := makeEnviron(c)
+	container := "container"
+	transport := &gwacl.MockingTransport{}
+	transport.AddExchange(&http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(strings.NewReader(blobListWith2BlobsResponse))}, nil)
+	transport.AddExchange(&http.Response{StatusCode: http.StatusAccepted, Body: nil}, nil)
+	transport.AddExchange(&http.Response{StatusCode: http.StatusAccepted, Body: nil}, nil)
+	azStorage := makeAzureStorageMocking(transport, container, "account")
+	env.storage = &azStorage
+	services := []gwacl.HostedServiceDescriptor{}
+	patchWithServiceListResponse(c, services)
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
+
+	err := env.Destroy(instances)
+
+	c.Check(err, IsNil)
+	c.Check(transport.Exchanges[1].Request.Method, Equals, "DELETE")
+	c.Check(strings.HasSuffix(transport.Exchanges[1].Request.URL.String(), "blob-1"), IsTrue)
+	c.Check(transport.Exchanges[2].Request.Method, Equals, "DELETE")
+	c.Check(strings.HasSuffix(transport.Exchanges[2].Request.URL.String(), "blob-2"), IsTrue)
+}
+
+var emptyListResponse = `
+  <?xml version="1.0" encoding="utf-8"?>
+  <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+    <Prefix>prefix</Prefix>
+    <Marker>marker</Marker>
+    <MaxResults>maxresults</MaxResults>
+    <Delimiter>delimiter</Delimiter>
+    <Blobs></Blobs>
+    <NextMarker />
+  </EnumerationResults>`
+
+func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
+	env := makeEnviron(c)
+	// Setup an empty storage.
+	container := "container"
+	response := makeResponse(emptyListResponse, http.StatusOK)
+	azStorage, _ := makeAzureStorage(response, container, "account")
+	env.storage = &azStorage
+	// Simulate 2 nodes corresponding to two Azure services.
+	prefix := env.getEnvPrefix()
+	service1Name := prefix + "service1"
+	service2Name := prefix + "service2"
+	service1, service1Desc := makeAzureService(service1Name)
+	service2, service2Desc := makeAzureService(service2Name)
+	services := []*gwacl.HostedService{service1, service2}
+	// The call to AllInstances() will return only one service (service1).
+	listInstancesResponses := buildAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
+	destroyResponses := buildDestroyAzureServiceResponses(c, services)
+	responses := append(listInstancesResponses, destroyResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	// Call Destroy with service1 and service2.
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+	err := env.Destroy(instances)
+	c.Check(err, IsNil)
+
+	// One request to get the list of all the environment's instances.
+	// Then two requests per destroyed machine (one to fetch the
+	// service's information, one to delete it).
+	c.Check((*requests), HasLen, 1+len(services)*2)
+	c.Check((*requests)[0].Method, Equals, "GET")
+	c.Check((*requests)[1].Method, Equals, "GET")
+	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
+	c.Check((*requests)[2].Method, Equals, "DELETE")
+	c.Check(strings.Contains((*requests)[2].URL, service1Name), IsTrue)
+	c.Check((*requests)[3].Method, Equals, "GET")
+	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
+	c.Check((*requests)[4].Method, Equals, "DELETE")
+	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
 }

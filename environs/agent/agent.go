@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 	"os"
 	"path"
@@ -213,7 +214,7 @@ func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 		if err == nil {
 			return st, "", nil
 		}
-		if api.ErrCode(err) != api.CodeUnauthorized {
+		if params.ErrCode(err) != params.CodeUnauthorized {
 			return nil, "", err
 		}
 		// Access isn't authorized even though we have a password

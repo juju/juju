@@ -80,32 +80,3 @@ func (w *srvLifecycleWatcher) Next() (params.LifecycleWatchResults, error) {
 func (w *srvLifecycleWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
-
-// srvEnvironConfigWatcher notifies about changes to the environment
-// configuration. See state.EnvironConfigWatcher.
-type srvEnvironConfigWatcher struct {
-	watcher   *state.EnvironConfigWatcher
-	id        string
-	resources *common.Resources
-}
-
-// Next returns when a change has occured to the environment
-// configuration since the most recent call to Next or the Watch call
-// that created the srvEnvironConfigWatcher.
-func (w *srvEnvironConfigWatcher) Next() (params.EnvironConfigWatchResults, error) {
-	if changes, ok := <-w.watcher.Changes(); ok {
-		return params.EnvironConfigWatchResults{
-			Config: changes.AllAttrs(),
-		}, nil
-	}
-	err := w.watcher.Err()
-	if err == nil {
-		err = common.ErrStoppedWatcher
-	}
-	return params.EnvironConfigWatchResults{}, err
-}
-
-// Stop stops the watcher.
-func (w *srvEnvironConfigWatcher) Stop() error {
-	return w.resources.Stop(w.id)
-}

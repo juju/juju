@@ -6,13 +6,9 @@ package testing
 import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
 	"sort"
 	"time"
-)
-
-var (
-	longTime  = 500 * time.Millisecond
-	shortTime = 50 * time.Millisecond
 )
 
 type Stopper interface {
@@ -63,7 +59,7 @@ func (c NotifyWatcherC) AssertNoChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
-	case <-time.After(shortTime):
+	case <-time.After(testing.ShortWait):
 	}
 }
 
@@ -76,7 +72,7 @@ func (c NotifyWatcherC) AssertOneChange() {
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
-	case <-time.After(longTime):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
@@ -132,7 +128,7 @@ func (c StringsWatcherC) AssertNoChange() {
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
-	case <-time.After(shortTime):
+	case <-time.After(testing.ShortWait):
 	}
 }
 
@@ -152,7 +148,7 @@ func (c StringsWatcherC) AssertOneChange(expect ...string) {
 			sort.Strings(actual)
 			c.Assert(actual, DeepEquals, expect)
 		}
-	case <-time.After(longTime):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
 	c.AssertNoChange()
