@@ -512,6 +512,7 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 func (*EnvironSuite) TestExtractDeploymentDNSPropagatesError(c *C) {
 	_, err := extractDeploymentDNS(":x:THIS BREAKS:x:")
 	c.Check(err, NotNil)
+	c.Check(err, ErrorMatches, "parse error in instance URL: .*")
 }
 
 func (*EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) {

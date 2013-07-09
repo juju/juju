@@ -203,7 +203,7 @@ func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, e
 func extractDeploymentDNS(instanceURL string) (string, error) {
 	parsedURL, err := url.Parse(instanceURL)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("parse error in instance URL: %v", err)
 	}
 	// net.url.URL.Host actually includes a port spec if the URL has one,
 	// but luckily a port wouldn't make sense on these URLs.
