@@ -13,6 +13,18 @@ type Entities struct {
 	Entities []Entity
 }
 
+// LifeResult holds the life status of a single entity, or an error
+// indicating why it is not available.
+type LifeResult struct {
+	Life  Life
+	Error *Error
+}
+
+// LifeResults holds the life or error status of multiple entities.
+type LifeResults struct {
+	Results []LifeResult
+}
+
 // MachineSetStatus holds a machine tag, status and extra info.
 type MachineSetStatus struct {
 	Tag    string
@@ -23,17 +35,6 @@ type MachineSetStatus struct {
 // MachinesSetStatus holds the parameters for making a Machiner.SetStatus call.
 type MachinesSetStatus struct {
 	Machines []MachineSetStatus
-}
-
-// MachineLifeResult holds the result of Machiner.Life for a single machine.
-type MachineLifeResult struct {
-	Life  Life
-	Error *Error
-}
-
-// MachinesLifeResults holds the results of a Machiner.Life call.
-type MachinesLifeResults struct {
-	Machines []MachineLifeResult
 }
 
 // MachineAgentGetMachinesResults holds the results of a
