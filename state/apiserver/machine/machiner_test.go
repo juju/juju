@@ -62,16 +62,16 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 
 	args := params.MachinesSetStatus{
 		Machines: []params.MachineSetStatus{
-			{Id: "1", Status: params.StatusError, Info: "not really"},
-			{Id: "0", Status: params.StatusStopped, Info: "foobar"},
-			{Id: "42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
+			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
 	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], params.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Errors[2], params.CodeUnauthorized, "permission denied")
 
 	// Verify machine 0 - no change.
 	status, info, err := s.machine0.Status()
@@ -92,31 +92,35 @@ func (s *machinerSuite) TestLife(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
 
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Machines, HasLen, 3)
 	c.Assert(result.Machines[0].Error, IsNil)
 	c.Assert(string(result.Machines[0].Life), Equals, "dead")
 	s.assertError(c, result.Machines[1].Error, params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Machines[2].Error, params.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Machines[2].Error, params.CodeUnauthorized, "permission denied")
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine0.Life(), Equals, state.Alive)
 	c.Assert(s.machine1.Life(), Equals, state.Alive)
 
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
 	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], params.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Errors[2], params.CodeUnauthorized, "permission denied")
 
 	err = s.machine0.Refresh()
 	c.Assert(err, IsNil)
@@ -126,8 +130,8 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
 
 	// Try it again on a Dead machine; should work.
-	args = params.Machines{
-		Ids: []string{"1"},
+	args = params.Entities{
+		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
 	result, err = s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
@@ -143,15 +147,17 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(s.resources.Count(), Equals, 0)
 
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.Watch(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Results, HasLen, 3)
 	c.Assert(result.Results[0].Error, IsNil)
 	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Results[2].Error, params.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Results[2].Error, params.CodeUnauthorized, "permission denied")
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), Equals, 1)

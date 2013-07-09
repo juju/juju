@@ -33,27 +33,27 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 	}, nil
 }
 
-func (api *AgentAPI) GetMachines(args params.Machines) params.MachineAgentGetMachinesResults {
+func (api *AgentAPI) GetMachines(args params.Entities) params.MachineAgentGetMachinesResults {
 	results := params.MachineAgentGetMachinesResults{
-		Machines: make([]params.MachineAgentGetMachinesResult, len(args.Ids)),
+		Machines: make([]params.MachineAgentGetMachinesResult, len(args.Entities)),
 	}
-	for i, id := range args.Ids {
-		result, err := api.getMachine(id)
+	for i, entity := range args.Entities {
+		result, err := api.getMachine(entity.Tag)
 		result.Error = common.ServerError(err)
 		results.Machines[i] = result
 	}
 	return results
 }
 
-func (api *AgentAPI) getMachine(id string) (result params.MachineAgentGetMachinesResult, err error) {
+func (api *AgentAPI) getMachine(tag string) (result params.MachineAgentGetMachinesResult, err error) {
 	// Allow only for the owner agent.
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.
-	if !api.auth.AuthOwner(state.MachineTag(id)) {
+	if !api.auth.AuthOwner(tag) {
 		err = common.ErrPerm
 		return
 	}
-	machine, err := api.st.Machine(id)
+	machine, err := api.st.Machine(state.MachineIdFromTag(tag))
 	if err != nil {
 		return
 	}
