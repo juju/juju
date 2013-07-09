@@ -1093,12 +1093,14 @@ func (waitAddresses) step(c *C, ctx *context) {
 			if err != nil {
 				c.Fatalf("unit refresh failed: %v", err)
 			}
+			// GZ 2013-07-10: Hardcoded values from dummy environ
+			//                special cased here, questionable.
 			private, _ := ctx.unit.PrivateAddress()
-			if private != "private.dummy.address.testing.invalid" {
+			if private != "private.dummy.address.example.com" {
 				continue
 			}
 			public, _ := ctx.unit.PublicAddress()
-			if public != "public.dummy.address.testing.invalid" {
+			if public != "public.dummy.address.example.com" {
 				continue
 			}
 			return
