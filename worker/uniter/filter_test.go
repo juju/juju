@@ -90,13 +90,17 @@ func (s *FilterSuite) TestUnitRemoval(c *C) {
 }
 
 // Ensure we get a signal on f.Dead()
-func (s *FilterSuite) assertAgentTerminates(c *C, f *filter) {
+func (s *FilterSuite) assertFilterDies(c *C, f *filter) {
 	asserter := coretesting.NotifyAsserterC{
 		Precond: func() { s.State.StartSync() },
 		C:       c,
 		Chan:    f.Dead(),
 	}
 	asserter.AssertClosed()
+}
+
+func (s *FilterSuite) assertAgentTerminates(c *C, f *filter) {
+	s.assertFilterDies(c, f)
 	c.Assert(f.Wait(), Equals, worker.ErrTerminateAgent)
 }
 
@@ -354,14 +358,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *C) {
 		select {
 		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
-		case <-time.After(50 * time.Millisecond):
-		}
-	}
-	assertDead := func(f *filter) {
-		select {
-		case <-f.Dead():
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("filter did not die")
+		case <-time.After(coretesting.LongWait):
 		}
 	}
 
@@ -369,7 +366,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *C) {
 	err = f.SetCharm(charm.MustParseURL("cs:missing/one-1"))
 	c.Assert(err, Equals, tomb.ErrDying)
 	assertNoChange()
-	assertDead(f)
+	s.assertFilterDies(c, f)
 
 	// Filter died after the error, so restart it.
 	f, err = newFilter(s.State, s.unit.Name())
@@ -380,7 +377,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *C) {
 	err = f.SetCharm(nil)
 	c.Assert(err, Equals, tomb.ErrDying)
 	assertNoChange()
-	assertDead(f)
+	s.assertFilterDies(c, f)
 }
 
 func (s *FilterSuite) TestRelationsEvents(c *C) {
@@ -393,7 +390,7 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 		select {
 		case ids := <-f.RelationsEvents():
 			c.Fatalf("unexpected relations event %#v", ids)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 		}
 	}
 	assertNoChange()
@@ -406,7 +403,7 @@ func (s *FilterSuite) TestRelationsEvents(c *C) {
 		select {
 		case got := <-f.RelationsEvents():
 			c.Assert(got, DeepEquals, expect)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
 		assertNoChange()

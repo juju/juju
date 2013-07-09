@@ -65,7 +65,6 @@ func (a *NotifyAsserterC) AssertNoReceive() {
 	}
 }
 
-
 // ContentAsserterC is like NotifyAsserterC in that it checks the behavior of a
 // channel. The difference is that we expect actual content on the channel, so
 // callers need to put that into and out of an 'interface{}'
