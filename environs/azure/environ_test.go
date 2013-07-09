@@ -345,6 +345,8 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	c.Check(apiInfo.Addrs, DeepEquals, []string{expectedDNSName + apiPortSuffix})
 }
 
+// buildDestroyServiceResponses returns a slice containing the responses that a fake Azure server
+// can use to simulate the deletion of the given list of services.
 func buildDestroyServiceResponses(c *C, services []*gwacl.HostedService) []gwacl.DispatcherResponse {
 	responses := []gwacl.DispatcherResponse{}
 	for _, service := range services {
@@ -365,14 +367,13 @@ func buildDestroyServiceResponses(c *C, services []*gwacl.HostedService) []gwacl
 		)
 		responses = append(responses, serviceGetResponse)
 		serviceDeleteResponse := gwacl.NewDispatcherResponse(
-			[]byte(""),
+			nil,
 			http.StatusOK,
 			nil,
 		)
 		responses = append(responses, serviceDeleteResponse)
 	}
 	return responses
-	//	return requests
 }
 
 func makeService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
@@ -391,10 +392,12 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+
 	err := env.StopInstances(instances)
 	c.Check(err, IsNil)
+
 	// It takes 2 API calls to delete each service:
-	// - one GET request to fetch the infos about the service;
+	// - one GET request to fetch the properties about the service;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
 	c.Check((*requests)[0].Method, Equals, "GET")
@@ -403,7 +406,7 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
-// makeAzureStorage creates a test azureStorage object that will talk to a
+// makeAzureStorageMocking creates a test azureStorage object that will talk to a
 // fake http server set up to always return the given http.Response object.
 func makeAzureStorageMocking(transport http.RoundTripper, container string, account string) azureStorage {
 	client := &http.Client{Transport: transport}
@@ -415,24 +418,24 @@ func makeAzureStorageMocking(transport http.RoundTripper, container string, acco
 }
 
 var blobListWith2BlobsResponse = `
-<?xml version="1.0" encoding="utf-8"?>
-<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-  <Prefix>prefix</Prefix>
-  <Marker>marker</Marker>
-  <MaxResults>maxresults</MaxResults>
-  <Delimiter>delimiter</Delimiter>
-  <Blobs>
-    <Blob>
-      <Name>blob-1</Name>
-      <Url>blob-url1</Url>
-    </Blob>
-    <Blob>
-      <Name>blob-2</Name>
-      <Url>blob-url2</Url>
-   </Blob>
-  </Blobs>
-  <NextMarker />
-</EnumerationResults>`
+  <?xml version="1.0" encoding="utf-8"?>
+  <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+    <Prefix>prefix</Prefix>
+    <Marker>marker</Marker>
+    <MaxResults>maxresults</MaxResults>
+    <Delimiter>delimiter</Delimiter>
+    <Blobs>
+      <Blob>
+        <Name>blob-1</Name>
+        <Url>blob-url1</Url>
+      </Blob>
+      <Blob>
+        <Name>blob-2</Name>
+        <Url>blob-url2</Url>
+     </Blob>
+    </Blobs>
+    <NextMarker />
+  </EnumerationResults>`
 
 func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
@@ -457,15 +460,15 @@ func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 }
 
 var emptyListResponse = `
-<?xml version="1.0" encoding="utf-8"?>
-<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-  <Prefix>prefix</Prefix>
-  <Marker>marker</Marker>
-  <MaxResults>maxresults</MaxResults>
-  <Delimiter>delimiter</Delimiter>
-  <Blobs></Blobs>
-  <NextMarker />
-</EnumerationResults>`
+  <?xml version="1.0" encoding="utf-8"?>
+  <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+    <Prefix>prefix</Prefix>
+    <Marker>marker</Marker>
+    <MaxResults>maxresults</MaxResults>
+    <Delimiter>delimiter</Delimiter>
+    <Blobs></Blobs>
+    <NextMarker />
+  </EnumerationResults>`
 
 func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	env := makeEnviron(c)

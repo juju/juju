@@ -5,6 +5,8 @@ package azure
 
 import (
 	"fmt"
+	"sync"
+
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -12,7 +14,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"sync"
 )
 
 type azureEnviron struct {
@@ -141,8 +142,8 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
-	// Shutdown all the instances; If there are errors, return only the
-	// first one (but try to shutdown all instances regardless).
+	// Shut down all the instances; if there are errors, return only the
+	// first one (but try to shut down all instances regardless).
 	var firstErr error
 	for _, instance := range instances {
 		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
@@ -158,11 +159,6 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	// The instance list is built using the list of all the relevant
 	// Azure Services (instance==service).
-	// If the list of ids is empty, return nil as specified by the
-	// interface
-	if len(ids) == 0 {
-		return nil, environs.ErrNoInstances
-	}
 	// Acquire management API object.
 	context, err := env.getManagementAPI()
 	if err != nil {
@@ -244,7 +240,7 @@ func (env *azureEnviron) PublicStorage() environs.StorageReader {
 
 // Destroy is specified in the Environ interface.
 func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
-	logger.Debugf("environs/azure: destroying environment %q", env.name)
+	logger.Debugf("destroying environment %q", env.name)
 
 	// Delete storage.
 	st := env.Storage().(*azureStorage)
@@ -277,12 +273,7 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 			found[id] = true
 		}
 	}
-	err = env.StopInstances(insts)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return env.StopInstances(insts)
 }
 
 // OpenPorts is specified in the Environ interface.
