@@ -53,9 +53,9 @@ func (w *srvNotifyWatcher) Stop() error {
 }
 
 // srvLifecycleWatcher notifies about lifecycle changes for all
-// entities of a given kind. See state.LifecycleWatcher.
+// entities of a given kind. See state.lifecycleWatcher.
 type srvLifecycleWatcher struct {
-	watcher   *state.LifecycleWatcher
+	watcher   state.StringsWatcher
 	id        string
 	resources *common.Resources
 }
