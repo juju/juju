@@ -5,15 +5,32 @@ package azure
 
 import (
 	"fmt"
+	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+)
+
+const (
+	// In our initial implementation, each instance gets its own hosted
+	// service and deployment in Azure.  The deployment always gets this
+	// name (instance==service).
+	DeploymentName = "default"
+
+	// Initially, this is the only location where Azure supports Linux.
+	// TODO: This is to become a configuration item.
+	serviceLocation = "East US"
 )
 
 type azureEnviron struct {
@@ -122,6 +139,170 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfg = ecfg
 	return nil
+}
+
+// makeProvisionalServiceLabel generates a label for a new Hosted Service of
+// the given name.  The label can be identified as provisional using
+// isProvisionalDeploymentLabel().  (Empty labels are not allowed).
+// In our initial implementation, each instance gets its own Azure hosted
+// service.  Once we have a DNS name for the deployment, we write it into the
+// Label field on the hosted service as a shortcut.
+// This will have to change once we suppport multiple instances per hosted
+// service (instance==service).
+func makeProvisionalServiceLabel(serviceName string) string {
+	return fmt.Sprintf("-(creating: %s)-", serviceName)
+}
+
+// isProvisionalDeploymentLabel tells you whether the given label is a
+// provisional one.  If not, the provider has set it to the DNS name for the
+// service's deployment.
+func isProvisionalServiceLabel(label string) bool {
+	return strings.HasPrefix(label, "-(") && strings.HasSuffix(label, ")-")
+}
+
+// attemptCreateService tries to create a new hosted service on Azure, with a
+// name it chooses, but recognizes that the name may not be available.  If
+// the name is not available, it does not treat that as an error but just
+// returns nil.
+func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
+	name := gwacl.MakeRandomHostedServiceName("juju")
+	label := makeProvisionalServiceLabel(name)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, label, serviceLocation)
+	err := azure.AddHostedService(req)
+	azErr, isAzureError := err.(*gwacl.AzureError)
+	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
+		// Conflict.  As far as we can see, this only happens if the
+		// name was already in use.  It's still dangerous to assume
+		// that we know it can't be anything else, but there's nothing
+		// else in the error that we can use for closer identifcation.
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	return req, nil
+}
+
+// newHostedService creates a hosted service.  It will make up a unique name.
+func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
+	var err error
+	var svc *gwacl.CreateHostedService
+	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
+		svc, err = attemptCreateService(azure)
+	}
+	if err != nil {
+		return nil, fmt.Errorf("could not create hosted service: %v", err)
+	}
+	if svc == nil {
+		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
+	}
+	return svc, nil
+}
+
+// extractDeploymentDNS extracts an instance's DNS name from its URL.
+func extractDeploymentDNS(instanceURL string) (string, error) {
+	parsedURL, err := url.Parse(instanceURL)
+	if err != nil {
+		return "", fmt.Errorf("parse error in instance URL: %v", err)
+	}
+	// net.url.URL.Host actually includes a port spec if the URL has one,
+	// but luckily a port wouldn't make sense on these URLs.
+	return parsedURL.Host, nil
+}
+
+// setServiceDNSName updates the hosted service's label to match the DNS name
+// for the Deployment.
+func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName string) error {
+	deployment, err := azure.GetDeployment(&gwacl.GetDeploymentRequest{
+		ServiceName:    serviceName,
+		DeploymentName: deploymentName,
+	})
+	if err != nil {
+		return fmt.Errorf("could not read newly created deployment: %v", err)
+	}
+	host, err := extractDeploymentDNS(deployment.URL)
+	if err != nil {
+		return fmt.Errorf("could not parse instance URL %q: %v", deployment.URL, err)
+	}
+
+	update := gwacl.NewUpdateHostedService(host, "Juju instance", nil)
+	return azure.UpdateHostedService(serviceName, update)
+}
+
+// internalStartInstance does the provider-specific work of starting an
+// instance.  The code in StartInstance is actually largely agnostic across
+// the EC2/OpenStack/MAAS/Azure providers.
+func (env *azureEnviron) internalStartInstance(machineID string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+	// Declaring "err" in the function signature so that we can "defer"
+	// any cleanup that needs to run during error returns.
+
+	series := possibleTools.Series()
+	if len(series) != 1 {
+		return nil, fmt.Errorf("expected single series, got %v", series)
+	}
+
+	err = environs.FinishMachineConfig(mcfg, env.Config(), cons)
+	if err != nil {
+		return nil, err
+	}
+
+	// TODO: Compose userdata.
+
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	service, err := newHostedService(azure.ManagementAPI)
+	if err != nil {
+		return nil, err
+	}
+	serviceName := service.ServiceName
+
+	// If we fail after this point, clean up the hosted service.
+	defer func() {
+		if err != nil {
+			azure.DestroyHostedService(
+				&gwacl.DestroyHostedServiceRequest{
+					ServiceName: serviceName,
+				})
+		}
+	}()
+
+	// The virtual network to which the deployment will belong.  We'll
+	// want to build this out later to support private communication
+	// between instances.
+	virtualNetworkName := ""
+
+	// TODO: Create or find role.
+	var roles []gwacl.Role
+	deployment := gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, "Production", serviceName, roles, virtualNetworkName)
+	err = azure.AddDeployment(deployment, serviceName)
+
+	// TODO: Create inst.
+	var inst instance.Instance
+	// TODO: Make sure at least the ssh port is open.
+
+	// From here on, remember to shut down the instance before returning
+	// any error.
+	defer func() {
+		if err != nil && inst != nil {
+			err2 := env.StopInstances([]instance.Instance{inst})
+			if err2 != nil {
+				// Failure upon failure.  Log it, but return
+				// the original error.
+				log.Errorf("error releasing failed instance: %v", err)
+			}
+		}
+	}()
+
+	err = setServiceDNSName(azure.ManagementAPI, serviceName, deployment.Name)
+	if err != nil {
+		return nil, fmt.Errorf("could not set instance DNS name as service label: %v", err)
+	}
+
+	return inst, nil
 }
 
 // StartInstance is specified in the Environ interface.

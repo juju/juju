@@ -28,30 +28,32 @@ func (StorageSuite) TestId(c *C) {
 }
 
 func (StorageSuite) TestDNSName(c *C) {
-	label := "hostname"
-	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
-	testService := makeHostedServiceDescriptor("service-name", label)
+	// An instance's DNS name is taken from its Hosted Service label.
+	host := fmt.Sprintf("hostname.%s", AZURE_DOMAIN_NAME)
+	testService := makeHostedServiceDescriptor("service-name", host)
 	azInstance := azureInstance{*testService}
 	dnsName, err := azInstance.DNSName()
 	c.Assert(err, IsNil)
-	c.Check(dnsName, Equals, expectedDNSName)
+	c.Check(dnsName, Equals, host)
 }
 
 func (StorageSuite) TestDNSNameReturnsErrNoDNSNameIfNotDNSName(c *C) {
-	label := ""
+	// While a Hosted Service is waiting for the provider to register its
+	// DNS name, it still has a provisional label.  DNSName recognizes
+	// this as meaning "no DNS name yet."
+	label := makeProvisionalServiceLabel("foo")
 	testService := makeHostedServiceDescriptor("service-name", label)
 	azInstance := azureInstance{*testService}
 	dnsName, err := azInstance.DNSName()
-	c.Assert(err, Equals, instance.ErrNoDNSName)
+	c.Check(err, Equals, instance.ErrNoDNSName)
 	c.Check(dnsName, Equals, "")
 }
 
 func (StorageSuite) TestWaitDNSName(c *C) {
-	label := "hostname"
-	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
-	testService := makeHostedServiceDescriptor("service-name", label)
+	host := fmt.Sprintf("hostname.%s", AZURE_DOMAIN_NAME)
+	testService := makeHostedServiceDescriptor("service-name", host)
 	azInstance := azureInstance{*testService}
 	dnsName, err := azInstance.WaitDNSName()
 	c.Assert(err, IsNil)
-	c.Check(dnsName, Equals, expectedDNSName)
+	c.Check(dnsName, Equals, host)
 }
