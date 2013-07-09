@@ -125,6 +125,11 @@ func buildServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []
 	return responses
 }
 
+func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
+	responses := buildServiceListResponse(c, services)
+	return gwacl.PatchManagementAPIResponses(responses)
+}
+
 func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
@@ -134,8 +139,7 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
-	responses := buildServiceListResponse(c, services)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+	requests := patchWithServiceListResponse(c, services)
 	instances, err := env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Check(len(instances), Equals, 2)
@@ -146,8 +150,7 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 
 func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	responses := buildServiceListResponse(c, services)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1"})
 	c.Assert(err, IsNil)
@@ -158,8 +161,7 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 
 func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	responses := buildServiceListResponse(c, services)
-	gwacl.PatchManagementAPIResponses(responses)
+	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{})
 	c.Check(err, Equals, environs.ErrNoInstances)
@@ -168,8 +170,7 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequest
 
 func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{}
-	responses := buildServiceListResponse(c, services)
-	gwacl.PatchManagementAPIResponses(responses)
+	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deploy-id"})
 	c.Check(err, Equals, environs.ErrNoInstances)
@@ -178,8 +179,7 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c 
 
 func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	responses := buildServiceListResponse(c, services)
-	requests := gwacl.PatchManagementAPIResponses(responses)
+	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
@@ -495,7 +495,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 
 	// One request to get the list of all the environment's instances.
 	// Then two requests per destroyed machine (one to fetch the
-        // service's information, on to delete it).
+	// service's information, on to delete it).
 	c.Check((*requests), HasLen, 1+len(services)*2)
 	c.Check((*requests)[2].Method, Equals, "DELETE")
 	c.Check((*requests)[4].Method, Equals, "DELETE")
