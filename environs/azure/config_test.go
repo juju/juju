@@ -36,14 +36,13 @@ func makeConfigMap(configMap map[string]interface{}) map[string]interface{} {
 
 func makeAzureConfigMap(c *C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
-		"management-subscription-id":     "subscription-id",
-		"management-certificate":         "cert",
-		"management-hosted-service-name": "service-name",
-		"storage-account-name":           "account-name",
-		"storage-account-key":            "account-key",
-		"storage-container-name":         "container-name",
-		"public-storage-account-name":    "public-account-name",
-		"public-storage-container-name":  "public-container-name",
+		"management-subscription-id":    "subscription-id",
+		"management-certificate":        "cert",
+		"storage-account-name":          "account-name",
+		"storage-account-key":           "account-key",
+		"storage-container-name":        "container-name",
+		"public-storage-account-name":   "public-account-name",
+		"public-storage-container-name": "public-container-name",
 	}
 	return makeConfigMap(azureConfig)
 }
@@ -81,18 +80,6 @@ func (ConfigSuite) TestValidateAcceptsUnchangedConfig(c *C) {
 	c.Check(result.Name(), Equals, attrs["name"])
 }
 
-func (ConfigSuite) TestValidateRejectsChangingHostedServiceName(c *C) {
-	attrs := makeAzureConfigMap(c)
-	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	provider := azureEnvironProvider{}
-	attrs["management-hosted-service-name"] = "another name"
-	oldConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	_, err = provider.Validate(newConfig, oldConfig)
-	c.Check(err, ErrorMatches, ".*cannot change management-hosted-service-name.*")
-}
-
 func (ConfigSuite) TestValidateRejectsChangingStorageContainer(c *C) {
 	attrs := makeAzureConfigMap(c)
 	newConfig, err := config.New(attrs)
@@ -121,7 +108,6 @@ func (ConfigSuite) TestValidateChecksConfigChanges(c *C) {
 func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
-	managementHostedServiceName := "service-name"
 	storageAccountName := "account-name"
 	storageAccountKey := "account-key"
 	storageContainerName := "container-name"
@@ -129,15 +115,14 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	publicStorageContainerName := "public-container-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
-		"management-subscription-id":     managementSubscriptionId,
-		"management-certificate":         certificate,
-		"management-hosted-service-name": managementHostedServiceName,
-		"storage-account-name":           storageAccountName,
-		"storage-account-key":            storageAccountKey,
-		"storage-container-name":         storageContainerName,
-		"public-storage-account-name":    publicStorageAccountName,
-		"public-storage-container-name":  publicStorageContainerName,
-		"unknown-future-setting":         unknownFutureSetting,
+		"management-subscription-id":    managementSubscriptionId,
+		"management-certificate":        certificate,
+		"storage-account-name":          storageAccountName,
+		"storage-account-key":           storageAccountKey,
+		"storage-container-name":        storageContainerName,
+		"public-storage-account-name":   publicStorageAccountName,
+		"public-storage-container-name": publicStorageContainerName,
+		"unknown-future-setting":        unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
@@ -148,7 +133,6 @@ func (ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.Name(), Equals, attrs["name"])
 	c.Check(azConfig.ManagementSubscriptionId(), Equals, managementSubscriptionId)
 	c.Check(azConfig.ManagementCertificate(), Equals, certificate)
-	c.Check(azConfig.ManagementHostedServiceName(), Equals, managementHostedServiceName)
 	c.Check(azConfig.StorageAccountName(), Equals, storageAccountName)
 	c.Check(azConfig.StorageAccountKey(), Equals, storageAccountKey)
 	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)

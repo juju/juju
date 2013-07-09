@@ -8,7 +8,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/testing"
 )
@@ -24,46 +24,46 @@ var errorTransformTests = []struct {
 	code string
 }{{
 	err:  errors.NotFoundf("hello"),
-	code: api.CodeNotFound,
+	code: params.CodeNotFound,
 }, {
 	err:  errors.Unauthorizedf("hello"),
-	code: api.CodeUnauthorized,
+	code: params.CodeUnauthorized,
 }, {
 	err:  state.ErrCannotEnterScopeYet,
-	code: api.CodeCannotEnterScopeYet,
+	code: params.CodeCannotEnterScopeYet,
 }, {
 	err:  state.ErrCannotEnterScope,
-	code: api.CodeCannotEnterScope,
+	code: params.CodeCannotEnterScope,
 }, {
 	err:  state.ErrExcessiveContention,
-	code: api.CodeExcessiveContention,
+	code: params.CodeExcessiveContention,
 }, {
 	err:  state.ErrUnitHasSubordinates,
-	code: api.CodeUnitHasSubordinates,
+	code: params.CodeUnitHasSubordinates,
 }, {
 	err:  common.ErrBadId,
-	code: api.CodeNotFound,
+	code: params.CodeNotFound,
 }, {
 	err:  common.ErrBadCreds,
-	code: api.CodeUnauthorized,
+	code: params.CodeUnauthorized,
 }, {
 	err:  common.ErrPerm,
-	code: api.CodeUnauthorized,
+	code: params.CodeUnauthorized,
 }, {
 	err:  common.ErrNotLoggedIn,
-	code: api.CodeUnauthorized,
+	code: params.CodeUnauthorized,
 }, {
 	err:  common.ErrUnknownWatcher,
-	code: api.CodeNotFound,
+	code: params.CodeNotFound,
 }, {
 	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?! nah..
-	code: api.CodeNotAssigned,
+	code: params.CodeNotAssigned,
 }, {
 	err:  common.ErrStoppedWatcher,
-	code: api.CodeStopped,
+	code: params.CodeStopped,
 }, {
 	err:  &state.HasAssignedUnitsError{"42", []string{"a"}},
-	code: api.CodeHasAssignedUnits,
+	code: params.CodeHasAssignedUnits,
 }, {
 	err:  stderrors.New("an error"),
 	code: "",
