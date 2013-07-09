@@ -29,13 +29,12 @@ func (StorageSuite) TestId(c *C) {
 
 func (StorageSuite) TestDNSName(c *C) {
 	// An instance's DNS name is taken from its Hosted Service label.
-	label := "hostname"
-	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
-	testService := makeHostedServiceDescriptor("service-name", label)
+	host := fmt.Sprintf("hostname.%s", AZURE_DOMAIN_NAME)
+	testService := makeHostedServiceDescriptor("service-name", host)
 	azInstance := azureInstance{*testService}
 	dnsName, err := azInstance.DNSName()
 	c.Assert(err, IsNil)
-	c.Check(dnsName, Equals, expectedDNSName)
+	c.Check(dnsName, Equals, host)
 }
 
 func (StorageSuite) TestDNSNameReturnsErrNoDNSNameIfNotDNSName(c *C) {
@@ -51,11 +50,10 @@ func (StorageSuite) TestDNSNameReturnsErrNoDNSNameIfNotDNSName(c *C) {
 }
 
 func (StorageSuite) TestWaitDNSName(c *C) {
-	label := "hostname"
-	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
-	testService := makeHostedServiceDescriptor("service-name", label)
+	host := fmt.Sprintf("hostname.%s", AZURE_DOMAIN_NAME)
+	testService := makeHostedServiceDescriptor("service-name", host)
 	azInstance := azureInstance{*testService}
 	dnsName, err := azInstance.WaitDNSName()
 	c.Assert(err, IsNil)
-	c.Check(dnsName, Equals, expectedDNSName)
+	c.Check(dnsName, Equals, host)
 }

@@ -199,8 +199,8 @@ func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, e
 	return svc, nil
 }
 
-// extractDeploymentHostname extracts an instance's DNS name from its URL.
-func extractDeploymentHostname(instanceURL string) (string, error) {
+// extractDeploymentDNS extracts an instance's DNS name from its URL.
+func extractDeploymentDNS(instanceURL string) (string, error) {
 	parsedURL, err := url.Parse(instanceURL)
 	if err != nil {
 		return "", err
@@ -220,12 +220,12 @@ func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName s
 	if err != nil {
 		return fmt.Errorf("could not read newly created deployment: %v", err)
 	}
-	hostname, err := extractDeploymentHostname(deployment.URL)
+	host, err := extractDeploymentDNS(deployment.URL)
 	if err != nil {
 		return fmt.Errorf("could not parse instance URL %q: %v", deployment.URL, err)
 	}
 
-	update := gwacl.NewUpdateHostedService(hostname, "Juju instance", nil)
+	update := gwacl.NewUpdateHostedService(host, "Juju instance", nil)
 	return azure.UpdateHostedService(serviceName, update)
 }
 

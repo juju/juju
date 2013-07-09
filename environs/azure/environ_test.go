@@ -315,10 +315,9 @@ func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 
 func (EnvironSuite) TestStateInfo(c *C) {
 	instanceID := "my-instance"
-	label := "my-label"
-	// In the Azure provider, the hostname of the instance is the
-	// service's label.
-	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
+	label := fmt.Sprintf("my-label.%s", AZURE_DOMAIN_NAME)
+	// In the Azure provider, the DNS name of the instance is the
+	// service's label (instance==service).
 	encodedLabel := base64.StdEncoding.EncodeToString([]byte(label))
 	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
 		ServiceName: instanceID,
@@ -338,8 +337,8 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	config := env.Config()
 	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
 	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-	c.Check(stateInfo.Addrs, DeepEquals, []string{expectedDNSName + statePortSuffix})
-	c.Check(apiInfo.Addrs, DeepEquals, []string{expectedDNSName + apiPortSuffix})
+	c.Check(stateInfo.Addrs, DeepEquals, []string{label + statePortSuffix})
+	c.Check(apiInfo.Addrs, DeepEquals, []string{label + apiPortSuffix})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
@@ -433,13 +432,13 @@ func (EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
 
-func (EnvironSuite) TestExtractDeploymentHostnameExtractsHost(c *C) {
+func (EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
 	// Example taken from Azure documentation:
 	// http://msdn.microsoft.com/en-us/library/windowsazure/ee460804.aspx
 	instanceURL := "http://MyService.cloudapp.net"
-	hostname, err := extractDeploymentHostname(instanceURL)
+	instanceDNS, err := extractDeploymentDNS(instanceURL)
 	c.Assert(err, IsNil)
-	c.Check(hostname, Equals, "MyService.cloudapp.net")
+	c.Check(instanceDNS, Equals, "MyService.cloudapp.net")
 }
 
 func (EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
@@ -510,18 +509,18 @@ func (EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
 
-func (EnvironSuite) TestExtractDeploymentHostnamePropagatesError(c *C) {
-	_, err := extractDeploymentHostname(":x:THIS BREAKS:x:")
+func (EnvironSuite) TestExtractDeploymentDNSPropagatesError(c *C) {
+	_, err := extractDeploymentDNS(":x:THIS BREAKS:x:")
 	c.Check(err, NotNil)
 }
 
 func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) {
 	serviceName := "fub"
 	deploymentName := "default"
-	instanceHostname := "foobar.cloudapp.net"
+	instanceDNS := fmt.Sprintf("foobar.%s", AZURE_DOMAIN_NAME)
 	deploymentBody, err := xml.Marshal(gwacl.Deployment{
 		Name: deploymentName,
-		URL:  fmt.Sprintf("http://%s", instanceHostname),
+		URL:  fmt.Sprintf("http://%s", instanceDNS),
 	})
 	c.Assert(err, IsNil)
 	// setServiceDNSName reads the Deployment to obtain the instance URL,
@@ -549,7 +548,7 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	err = xml.Unmarshal(updateServiceReq.Payload, updateServiceBody)
 	c.Assert(err, IsNil)
 	newLabel, err := base64.StdEncoding.DecodeString(updateServiceBody.Label)
-	c.Check(string(newLabel), Equals, instanceHostname)
+	c.Check(string(newLabel), Equals, instanceDNS)
 }
 
 func (EnvironSuite) TestMakeProvisionalServiceLabelIsConsistent(c *C) {
