@@ -5,10 +5,11 @@ package constraints
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/instance"
 	"math"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/instance"
 )
 
 // Value describes a user's requirements of the hardware on which units

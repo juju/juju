@@ -9,11 +9,12 @@ import (
 	"path/filepath"
 	"time"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/loggo"
 )
 
 // Import the providers.

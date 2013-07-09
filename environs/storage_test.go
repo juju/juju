@@ -5,7 +5,9 @@ package environs_test
 
 import (
 	"io/ioutil"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"

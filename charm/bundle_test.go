@@ -8,15 +8,17 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	. "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/testing"
 )
 
 type BundleSuite struct {

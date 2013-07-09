@@ -4,11 +4,13 @@
 package utils_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/utils"
 	"strings"
 	"testing"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/utils"
 )
 
 func Test(t *testing.T) {

@@ -8,8 +8,9 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
-	"launchpad.net/juju-core/cert"
 	"time"
+
+	"launchpad.net/juju-core/cert"
 )
 
 func init() {

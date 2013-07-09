@@ -6,14 +6,16 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"path/filepath"
+
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	"net/url"
-	"path/filepath"
 )
 
 // transactionHook holds Before and After func()s that will be called

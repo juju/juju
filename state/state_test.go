@@ -5,8 +5,14 @@ package state_test
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -18,10 +24,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type D []bson.DocElem

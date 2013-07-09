@@ -5,8 +5,9 @@ package testing
 
 import (
 	"errors"
-	. "launchpad.net/gocheck"
 	"sync"
+
+	. "launchpad.net/gocheck"
 )
 
 type LockingSuite struct{}
