@@ -3,9 +3,16 @@
 
 package common
 
-func NewMockPasswordChanger(st authGetter, canChange func(tag string) bool) *PasswordChanger {
+func NewMockPasswordChanger(st authGetter, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
-		st:        st,
-		canChange: canChange,
+		st:           st,
+		getCanChange: getCanChange,
+	}
+}
+
+func NewMockLifeGetter(st liferGetter, getCanRead GetAuthFunc) *LifeGetter {
+	return &LifeGetter{
+		st:         st,
+		getCanRead: getCanRead,
 	}
 }

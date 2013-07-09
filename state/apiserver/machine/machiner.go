@@ -12,6 +12,7 @@ import (
 
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
+	*common.LifeGetter
 	st        *state.State
 	resources *common.Resources
 	auth      common.Authorizer
@@ -22,7 +23,18 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &MachinerAPI{st, resources, authorizer}, nil
+	getCanRead := func() (common.AuthFunc, error) {
+		return func(tag string) bool {
+			// TODO(go1.1): method expression
+			return authorizer.AuthOwner(tag)
+		}, nil
+	}
+	return &MachinerAPI{
+		LifeGetter: common.NewLifeGetter(st, getCanRead),
+		st:         st,
+		resources:  resources,
+		auth:       authorizer,
+	}, nil
 }
 
 // SetStatus sets the status of each given machine.
@@ -71,28 +83,6 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 				} else {
 					err = watcher.MustErr(watch)
 				}
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// Life returns the lifecycle state of each given machine.
-func (m *MachinerAPI) Life(args params.Entities) (params.LifeResults, error) {
-	result := params.LifeResults{
-		Results: make([]params.LifeResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if m.auth.AuthOwner(entity.Tag) {
-			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
-			if err == nil {
-				result.Results[i].Life = params.Life(machine.Life().String())
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
