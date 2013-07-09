@@ -5,6 +5,8 @@ package azure
 
 import (
 	"fmt"
+	"sync"
+
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -12,7 +14,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"sync"
 )
 
 type azureEnviron struct {
@@ -130,19 +131,32 @@ func (env *azureEnviron) StartInstance(machineId, machineNonce string, series st
 }
 
 // StopInstances is specified in the Environ interface.
-func (env *azureEnviron) StopInstances([]instance.Instance) error {
-	panic("unimplemented")
+func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
+	// Each Juju instance is an Azure Service (instance==service), destroy
+	// all the Azure services.
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return err
+	}
+	defer env.releaseManagementAPI(context)
+	// Shut down all the instances; if there are errors, return only the
+	// first one (but try to shut down all instances regardless).
+	var firstErr error
+	for _, instance := range instances {
+		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
+		err := context.DestroyHostedService(request)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // Instances is specified in the Environ interface.
 func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
 	// The instance list is built using the list of all the relevant
 	// Azure Services (instance==service).
-	// If the list of ids is empty, return nil as specified by the
-	// interface
-	if len(ids) == 0 {
-		return nil, environs.ErrNoInstances
-	}
 	// Acquire management API object.
 	context, err := env.getManagementAPI()
 	if err != nil {
@@ -223,8 +237,41 @@ func (env *azureEnviron) PublicStorage() environs.StorageReader {
 }
 
 // Destroy is specified in the Environ interface.
-func (env *azureEnviron) Destroy(insts []instance.Instance) error {
-	panic("unimplemented")
+func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
+	logger.Debugf("destroying environment %q", env.name)
+
+	// Delete storage.
+	st := env.Storage().(*azureStorage)
+	context, err := st.getStorageContext()
+	if err != nil {
+		return err
+	}
+	request := &gwacl.DeleteAllBlobsRequest{Container: st.getContainer()}
+	err = context.DeleteAllBlobs(request)
+	if err != nil {
+		return fmt.Errorf("cannot clean up storage: %v", err)
+	}
+
+	// Stop all instances.
+	insts, err := env.AllInstances()
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	found := make(map[instance.Id]bool)
+	for _, inst := range insts {
+		found[inst.Id()] = true
+	}
+
+	// Add any instances we've been told about but haven't yet shown
+	// up in the instance list.
+	for _, inst := range ensureInsts {
+		id := inst.Id()
+		if !found[id] {
+			insts = append(insts, inst)
+			found[id] = true
+		}
+	}
+	return env.StopInstances(insts)
 }
 
 // OpenPorts is specified in the Environ interface.
