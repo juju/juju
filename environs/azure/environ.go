@@ -22,10 +22,16 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-// In our initial implementation, each instance gets its own hosted service and
-// deployment in Azure.  The deployment always gets this name
-// (instance==service).
-const DeploymentName = "default"
+const (
+	// In our initial implementation, each instance gets its own hosted
+	// service and deployment in Azure.  The deployment always gets this
+	// name (instance==service).
+	DeploymentName = "default"
+
+	// Initially, this is the only location where Azure supports Linux.
+	// TODO: This is to become a configuration item.
+	serviceLocation = "East US"
+)
 
 type azureEnviron struct {
 	// Except where indicated otherwise, all fields in this object should
@@ -159,12 +165,9 @@ func isProvisionalServiceLabel(label string) bool {
 // the name is not available, it does not treat that as an error but just
 // returns nil.
 func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
-	// Initially, this is the only location where Azure supports Linux.
-	const location = "East US"
-
 	name := gwacl.MakeRandomHostedServiceName("juju")
 	label := makeProvisionalServiceLabel(name)
-	req := gwacl.NewCreateHostedServiceWithLocation(name, label, location)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, label, serviceLocation)
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
 	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
