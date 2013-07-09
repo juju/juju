@@ -71,24 +71,24 @@ func (mr *Machiner) Handle() error {
 		return err
 	}
 	if mr.machine.Life() == state.Alive {
-            return nil
-        }
-        logger.Debugf("machine %q is now %s", mr.machine, mr.machine.Life())
-        if err := mr.machine.SetStatus(params.StatusStopped, ""); err != nil {
-                return err
-        }
-        // If the machine is Dying, it has no units,
-        // and can be safely set to Dead.
-        if err := mr.machine.EnsureDead(); err != nil {
-                return err
-        }
-        logger.Infof("machine %q shutting down", mr.machine)
-        return worker.ErrTerminateAgent
+		return nil
+	}
+	logger.Debugf("machine %q is now %s", mr.machine, mr.machine.Life())
+	if err := mr.machine.SetStatus(params.StatusStopped, ""); err != nil {
+		return err
+	}
+	// If the machine is Dying, it has no units,
+	// and can be safely set to Dead.
+	if err := mr.machine.EnsureDead(); err != nil {
+		return err
+	}
+	logger.Infof("machine %q shutting down", mr.machine)
+	return worker.ErrTerminateAgent
 }
 
 func (mr *Machiner) TearDown() error {
 	if mr.pinger != nil {
-            return mr.pinger.Stop()
+		return mr.pinger.Stop()
 	}
 	return nil
 }
