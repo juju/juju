@@ -130,8 +130,28 @@ func (env *azureEnviron) StartInstance(machineId, machineNonce string, series st
 }
 
 // StopInstances is specified in the Environ interface.
-func (env *azureEnviron) StopInstances([]instance.Instance) error {
-	panic("unimplemented")
+func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
+	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
+	if len(instances) == 0 {
+		return nil
+	}
+	// Acquire management API object.
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return err
+	}
+	defer env.releaseManagementAPI(context)
+	// Shutdown all the instances; If there are errors, return only the
+	// first one (but try to shutdown all instances regardless).
+	var firstErr error
+	for _, instance := range instances {
+		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
+		err := context.DestroyHostedService(request)
+		if err != nil && firstErr == nil {
+			firstErr = err
+		}
+	}
+	return firstErr
 }
 
 // Instances is specified in the Environ interface.
@@ -223,8 +243,46 @@ func (env *azureEnviron) PublicStorage() environs.StorageReader {
 }
 
 // Destroy is specified in the Environ interface.
-func (env *azureEnviron) Destroy(insts []instance.Instance) error {
-	panic("unimplemented")
+func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
+	logger.Debugf("environs/azure: destroying environment %q", env.name)
+
+	// Delete storage.
+	st := env.Storage().(*azureStorage)
+	context, err := st.getStorageContext()
+	if err != nil {
+		return err
+	}
+	request := &gwacl.DeleteAllBlobsRequest{Container: st.getContainer()}
+	err = context.DeleteAllBlobs(request)
+	if err != nil {
+		return fmt.Errorf("cannot clean up storage: %v", err)
+	}
+
+	// Stop all instances.
+	insts, err := env.AllInstances()
+	if err != nil {
+		return fmt.Errorf("cannot get instances: %v", err)
+	}
+	found := make(map[instance.Id]bool)
+	for _, inst := range insts {
+		found[inst.Id()] = true
+	}
+
+	// Add any instances we've been told about but haven't yet shown
+	// up in the instance list.
+	for _, inst := range ensureInsts {
+		id := inst.Id()
+		if !found[id] {
+			insts = append(insts, inst)
+			found[id] = true
+		}
+	}
+	err = env.StopInstances(insts)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.

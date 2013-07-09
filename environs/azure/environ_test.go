@@ -6,6 +6,7 @@ package azure
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
@@ -112,7 +113,7 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
+func buildServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
 	c.Assert(err, IsNil)
@@ -121,8 +122,7 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 		http.StatusOK,
 		nil,
 	)}
-	requests := gwacl.PatchManagementAPIResponses(responses)
-	return requests
+	return responses
 }
 
 func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
@@ -134,7 +134,8 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
+	responses := buildServiceListResponse(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
 	instances, err := env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Check(len(instances), Equals, 2)
@@ -145,7 +146,8 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 
 func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
+	responses := buildServiceListResponse(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1"})
 	c.Assert(err, IsNil)
@@ -156,7 +158,8 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 
 func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	patchWithServiceListResponse(c, services)
+	responses := buildServiceListResponse(c, services)
+	gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{})
 	c.Check(err, Equals, environs.ErrNoInstances)
@@ -165,7 +168,8 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequest
 
 func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{}
-	patchWithServiceListResponse(c, services)
+	responses := buildServiceListResponse(c, services)
+	gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deploy-id"})
 	c.Check(err, Equals, environs.ErrNoInstances)
@@ -174,7 +178,8 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c 
 
 func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
-	requests := patchWithServiceListResponse(c, services)
+	responses := buildServiceListResponse(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	instances, err := env.Instances([]instance.Id{"deployment-1", "unknown-deployment"})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
@@ -318,10 +323,11 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	// service's label.
 	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
 	encodedLabel := base64.StdEncoding.EncodeToString([]byte(label))
-	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
+	responses := buildServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
 		ServiceName: instanceID,
 		Label:       encodedLabel,
 	}})
+	gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -338,4 +344,159 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
 	c.Check(stateInfo.Addrs, DeepEquals, []string{expectedDNSName + statePortSuffix})
 	c.Check(apiInfo.Addrs, DeepEquals, []string{expectedDNSName + apiPortSuffix})
+}
+
+func buildDestroyServiceResponses(c *C, services []*gwacl.HostedService) []gwacl.DispatcherResponse {
+	responses := []gwacl.DispatcherResponse{}
+	for _, service := range services {
+		// When destroying a hosted service, gwacl first issues a Get reques
+		// to fetch the properties of the services.  Then it destroys all the
+		// deployments found in this service (none in this case, we make sure
+		// the service does not contain deployments to keep the testing simple)
+		// And it finally deletes the service itself.
+		if len(service.Deployments) != 0 {
+			panic("buildDestroyServiceResponses does not support services with deployments!")
+		}
+		serviceXML, err := service.Serialize()
+		c.Assert(err, IsNil)
+		serviceGetResponse := gwacl.NewDispatcherResponse(
+			[]byte(serviceXML),
+			http.StatusOK,
+			nil,
+		)
+		responses = append(responses, serviceGetResponse)
+		serviceDeleteResponse := gwacl.NewDispatcherResponse(
+			[]byte(""),
+			http.StatusOK,
+			nil,
+		)
+		responses = append(responses, serviceDeleteResponse)
+	}
+	return responses
+	//	return requests
+}
+
+func makeService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
+	service1 := &gwacl.HostedService{ServiceName: name}
+	service1Desc := &gwacl.HostedServiceDescriptor{ServiceName: name}
+	return service1, service1Desc
+}
+
+func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
+	service1Name := "service1"
+	service1, service1Desc := makeService(service1Name)
+	service2Name := "service2"
+	service2, service2Desc := makeService(service2Name)
+	services := []*gwacl.HostedService{service1, service2}
+	responses := buildDestroyServiceResponses(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
+	// It takes 2 API calls to delete each service:
+	// - one GET request to fetch the infos about the service;
+	// - one DELETE request to delete the service.
+	c.Check(len(*requests), Equals, len(services)*2)
+	c.Check((*requests)[1].Method, Equals, "DELETE")
+	c.Check((*requests)[3].Method, Equals, "DELETE")
+}
+
+// makeAzureStorage creates a test azureStorage object that will talk to a
+// fake http server set up to always return the given http.Response object.
+// makeAzureStorage returns an azureStorage object and a TestTransport object.
+// The TestTransport object can be used to check that the expected query has
+// been issued to the test server.
+func makeAzureStorageMocking(transport http.RoundTripper, container string, account string) azureStorage {
+	client := &http.Client{Transport: transport}
+	storageContext := gwacl.NewTestStorageContext(client)
+	storageContext.Account = account
+	context := &testStorageContext{container: container, storageContext: storageContext}
+	azStorage := azureStorage{context}
+	return azStorage
+}
+
+var blobListWith2BlobsResponse = `
+        <?xml version="1.0" encoding="utf-8"?>
+        <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+          <Prefix>prefix</Prefix>
+          <Marker>marker</Marker>
+          <MaxResults>maxresults</MaxResults>
+          <Delimiter>delimiter</Delimiter>
+          <Blobs>
+            <Blob>
+              <Name>blob-1</Name>
+              <Url>blob-url1</Url>
+            </Blob>
+            <Blob>
+              <Name>blob-2</Name>
+              <Url>blob-url2</Url>
+           </Blob>
+          </Blobs>
+          <NextMarker />
+        </EnumerationResults>`
+
+func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
+	env := makeEnviron(c)
+	container := "container"
+	transport := &gwacl.MockingTransport{}
+	transport.AddExchange(&http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(strings.NewReader(blobListWith2BlobsResponse))}, nil)
+	transport.AddExchange(&http.Response{StatusCode: http.StatusAccepted, Body: nil}, nil)
+	transport.AddExchange(&http.Response{StatusCode: http.StatusAccepted, Body: nil}, nil)
+	azStorage := makeAzureStorageMocking(transport, container, "account")
+	env.storage = &azStorage
+	services := []gwacl.HostedServiceDescriptor{}
+	responses := buildServiceListResponse(c, services)
+	gwacl.PatchManagementAPIResponses(responses)
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
+
+	err := env.Destroy(instances)
+
+	c.Check(err, IsNil)
+	c.Check(transport.Exchanges[1].Request.Method, Equals, "DELETE")
+	c.Check(strings.HasSuffix(transport.Exchanges[1].Request.URL.String(), "blob-1"), IsTrue)
+	c.Check(transport.Exchanges[2].Request.Method, Equals, "DELETE")
+	c.Check(strings.HasSuffix(transport.Exchanges[2].Request.URL.String(), "blob-2"), IsTrue)
+}
+
+var emptyListResponse = `
+        <?xml version="1.0" encoding="utf-8"?>
+        <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+          <Prefix>prefix</Prefix>
+          <Marker>marker</Marker>
+          <MaxResults>maxresults</MaxResults>
+          <Delimiter>delimiter</Delimiter>
+          <Blobs></Blobs>
+          <NextMarker />
+        </EnumerationResults>`
+
+func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
+	env := makeEnviron(c)
+	// Setup an empty storage.
+	container := "container"
+	response := makeResponse(emptyListResponse, http.StatusOK)
+	azStorage, _ := makeAzureStorage(response, container, "account")
+	env.storage = &azStorage
+	// Simulate 2 nodes corresponding to two Azure services.
+	prefix := env.getEnvPrefix()
+	service1, service1Desc := makeService(prefix + "service1")
+	service2, service2Desc := makeService(prefix + "service2")
+	services := []*gwacl.HostedService{service1, service2}
+	// The call to AllInstances() will return only one service (service1).
+	listInstancesResponses := buildServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
+	destroyResponses := buildDestroyServiceResponses(c, services)
+	responses := append(listInstancesResponses, destroyResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	// Call Destroy with service1 and service2.
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+	err := env.Destroy(instances)
+	c.Check(err, IsNil)
+
+	// One request to get the list of all the environment's instances.
+	// Then two requests per destroyed machine (one to fetch the
+        // service's information, on to delete it).
+	c.Check((*requests), HasLen, 1+len(services)*2)
+	c.Check((*requests)[2].Method, Equals, "DELETE")
+	c.Check((*requests)[4].Method, Equals, "DELETE")
 }
