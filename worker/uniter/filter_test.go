@@ -358,7 +358,7 @@ func (s *FilterSuite) TestCharmErrorEvents(c *C) {
 		select {
 		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
-		case <-time.After(coretesting.LongWait):
+		case <-time.After(coretesting.ShortWait):
 		}
 	}
 
