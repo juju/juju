@@ -48,7 +48,7 @@ func setDummyStorage(c *C, env *azureEnviron) func() {
 	return func() { listener.Close() }
 }
 
-func (EnvironSuite) TestGetSnapshot(c *C) {
+func (*EnvironSuite) TestGetSnapshot(c *C) {
 	original := azureEnviron{name: "this-env", ecfg: new(azureEnvironConfig)}
 	snapshot := original.getSnapshot()
 
@@ -66,29 +66,29 @@ func (EnvironSuite) TestGetSnapshot(c *C) {
 	c.Check(snapshot.Mutex, Equals, sync.Mutex{})
 }
 
-func (EnvironSuite) TestGetSnapshotLocksEnviron(c *C) {
+func (*EnvironSuite) TestGetSnapshotLocksEnviron(c *C) {
 	original := azureEnviron{}
 	testing.TestLockingFunction(&original.Mutex, func() { original.getSnapshot() })
 }
 
-func (EnvironSuite) TestName(c *C) {
+func (*EnvironSuite) TestName(c *C) {
 	env := azureEnviron{name: "foo"}
 	c.Check(env.Name(), Equals, env.name)
 }
 
-func (EnvironSuite) TestConfigReturnsConfig(c *C) {
+func (*EnvironSuite) TestConfigReturnsConfig(c *C) {
 	cfg := new(config.Config)
 	ecfg := azureEnvironConfig{Config: cfg}
 	env := azureEnviron{ecfg: &ecfg}
 	c.Check(env.Config(), Equals, cfg)
 }
 
-func (EnvironSuite) TestConfigLocksEnviron(c *C) {
+func (*EnvironSuite) TestConfigLocksEnviron(c *C) {
 	env := azureEnviron{name: "env", ecfg: new(azureEnvironConfig)}
 	testing.TestLockingFunction(&env.Mutex, func() { env.Config() })
 }
 
-func (EnvironSuite) TestGetManagementAPI(c *C) {
+func (*EnvironSuite) TestGetManagementAPI(c *C) {
 	env := makeEnviron(c)
 	context, err := env.getManagementAPI()
 	c.Assert(err, IsNil)
@@ -98,13 +98,13 @@ func (EnvironSuite) TestGetManagementAPI(c *C) {
 	c.Check(context.certFile, NotNil)
 }
 
-func (EnvironSuite) TestReleaseManagementAPIAcceptsNil(c *C) {
+func (*EnvironSuite) TestReleaseManagementAPIAcceptsNil(c *C) {
 	env := makeEnviron(c)
 	env.releaseManagementAPI(nil)
 	// The real test is that this does not panic.
 }
 
-func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
+func (*EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	env := makeEnviron(c)
 	context := azureManagementContext{
 		ManagementAPI: nil,
@@ -185,7 +185,7 @@ func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAre
 	c.Check(len(*requests), Equals, 1)
 }
 
-func (EnvironSuite) TestStorage(c *C) {
+func (*EnvironSuite) TestStorage(c *C) {
 	env := makeEnviron(c)
 	baseStorage := env.Storage()
 	storage, ok := baseStorage.(*azureStorage)
@@ -198,7 +198,7 @@ func (EnvironSuite) TestStorage(c *C) {
 	c.Check(context.Key, Equals, env.ecfg.StorageAccountKey())
 }
 
-func (EnvironSuite) TestPublicStorage(c *C) {
+func (*EnvironSuite) TestPublicStorage(c *C) {
 	env := makeEnviron(c)
 	baseStorage := env.PublicStorage()
 	storage, ok := baseStorage.(*azureStorage)
@@ -211,7 +211,7 @@ func (EnvironSuite) TestPublicStorage(c *C) {
 	c.Check(context.Key, Equals, "")
 }
 
-func (EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
+func (*EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-container-name"] = ""
 	attrs["public-storage-account-name"] = ""
@@ -222,7 +222,7 @@ func (EnvironSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
 	c.Check(env.PublicStorage(), Equals, environs.EmptyStorage)
 }
 
-func (EnvironSuite) TestGetStorageContext(c *C) {
+func (*EnvironSuite) TestGetStorageContext(c *C) {
 	env := makeEnviron(c)
 	storage, err := env.getStorageContext()
 	c.Assert(err, IsNil)
@@ -231,7 +231,7 @@ func (EnvironSuite) TestGetStorageContext(c *C) {
 	c.Check(storage.Key, Equals, env.ecfg.StorageAccountKey())
 }
 
-func (EnvironSuite) TestGetPublicStorageContext(c *C) {
+func (*EnvironSuite) TestGetPublicStorageContext(c *C) {
 	env := makeEnviron(c)
 	storage, err := env.getPublicStorageContext()
 	c.Assert(err, IsNil)
@@ -240,7 +240,7 @@ func (EnvironSuite) TestGetPublicStorageContext(c *C) {
 	c.Check(storage.Key, Equals, "")
 }
 
-func (EnvironSuite) TestSetConfigValidates(c *C) {
+func (*EnvironSuite) TestSetConfigValidates(c *C) {
 	env := makeEnviron(c)
 	originalCfg := env.ecfg
 	attrs := makeAzureConfigMap(c)
@@ -261,7 +261,7 @@ func (EnvironSuite) TestSetConfigValidates(c *C) {
 	c.Check(env.ecfg, Equals, originalCfg)
 }
 
-func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+func (*EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	env := makeEnviron(c)
 	// We're going to set a new config.  It can be recognized by its
 	// unusual default Ubuntu release series: 7.04 Feisty Fawn.
@@ -276,7 +276,7 @@ func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	c.Check(env.ecfg.Config.DefaultSeries(), Equals, "feisty")
 }
 
-func (EnvironSuite) TestSetConfigLocksEnviron(c *C) {
+func (*EnvironSuite) TestSetConfigLocksEnviron(c *C) {
 	env := makeEnviron(c)
 	cfg, err := config.New(makeAzureConfigMap(c))
 	c.Assert(err, IsNil)
@@ -284,7 +284,7 @@ func (EnvironSuite) TestSetConfigLocksEnviron(c *C) {
 	testing.TestLockingFunction(&env.Mutex, func() { env.SetConfig(cfg) })
 }
 
-func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
+func (*EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	// Once the environment's name has been set, it cannot be updated.
 	// Global validation rejects such a change.
 	// This matters because the attribute is not protected by a lock.
@@ -305,7 +305,7 @@ func (EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	c.Check(env.Name(), Equals, originalName)
 }
 
-func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
+func (*EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -313,7 +313,7 @@ func (EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
-func (EnvironSuite) TestStateInfo(c *C) {
+func (*EnvironSuite) TestStateInfo(c *C) {
 	instanceID := "my-instance"
 	label := fmt.Sprintf("my-label.%s", AZURE_DOMAIN_NAME)
 	// In the Azure provider, the DNS name of the instance is the
@@ -366,7 +366,7 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 	return errorBody
 }
 
-func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
+func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -382,7 +382,7 @@ func (EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 }
 
-func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
+func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	errorBody := makeServiceNameAlreadyTakenError(c)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
@@ -396,7 +396,7 @@ func (EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	c.Check(service, IsNil)
 }
 
-func (EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C) {
+func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C) {
 	// Even if Azure or gwacl makes slight changes to the error they
 	// return (e.g. to translate output), attemptCreateService can still
 	// recognize the error that means "this service name is not unique."
@@ -419,7 +419,7 @@ func (EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C)
 	c.Check(service, IsNil)
 }
 
-func (EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
+func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
@@ -432,7 +432,7 @@ func (EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
 
-func (EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
+func (*EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
 	// Example taken from Azure documentation:
 	// http://msdn.microsoft.com/en-us/library/windowsazure/ee460804.aspx
 	instanceURL := "http://MyService.cloudapp.net"
@@ -441,7 +441,7 @@ func (EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
 	c.Check(instanceDNS, Equals, "MyService.cloudapp.net")
 }
 
-func (EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
+func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -457,7 +457,7 @@ func (EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 }
 
-func (EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
+func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	errorBody := makeServiceNameAlreadyTakenError(c)
 	// In this scenario, the first two names that we try are already
 	// taken.  The third one is unique though, so we succeed.
@@ -494,7 +494,7 @@ func (EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 		parseCreateServiceRequest(c, (*requests)[2]).ServiceName)
 }
 
-func (EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
+func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	errorBody := makeServiceNameAlreadyTakenError(c)
 	responses := []gwacl.DispatcherResponse{}
 	for counter := 0; counter < 100; counter++ {
@@ -509,12 +509,12 @@ func (EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
 
-func (EnvironSuite) TestExtractDeploymentDNSPropagatesError(c *C) {
+func (*EnvironSuite) TestExtractDeploymentDNSPropagatesError(c *C) {
 	_, err := extractDeploymentDNS(":x:THIS BREAKS:x:")
 	c.Check(err, NotNil)
 }
 
-func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) {
+func (*EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) {
 	serviceName := "fub"
 	deploymentName := "default"
 	instanceDNS := fmt.Sprintf("foobar.%s", AZURE_DOMAIN_NAME)
@@ -551,18 +551,18 @@ func (EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) 
 	c.Check(string(newLabel), Equals, instanceDNS)
 }
 
-func (EnvironSuite) TestMakeProvisionalServiceLabelIsConsistent(c *C) {
+func (*EnvironSuite) TestMakeProvisionalServiceLabelIsConsistent(c *C) {
 	c.Check(makeProvisionalServiceLabel("foo"), Equals, makeProvisionalServiceLabel("foo"))
 }
 
-func (EnvironSuite) TestMakeProvisionalServiceLabelIncludesName(c *C) {
+func (*EnvironSuite) TestMakeProvisionalServiceLabelIncludesName(c *C) {
 	c.Check(makeProvisionalServiceLabel("splyz"), Matches, ".*splyz.*")
 }
 
-func (EnvironSuite) TestIsProvisionalServiceLabelRecognizesProvisionalLabel(c *C) {
+func (*EnvironSuite) TestIsProvisionalServiceLabelRecognizesProvisionalLabel(c *C) {
 	c.Check(isProvisionalServiceLabel(makeProvisionalServiceLabel("x")), Equals, true)
 }
 
-func (EnvironSuite) TestIsProvisionalServiceLabelRecognizesPermanentLabel(c *C) {
+func (*EnvironSuite) TestIsProvisionalServiceLabelRecognizesPermanentLabel(c *C) {
 	c.Check(isProvisionalServiceLabel("label"), Equals, false)
 }
