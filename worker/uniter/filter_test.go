@@ -7,16 +7,18 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/juju/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/tomb"
 	"time"
 )
 
 type FilterSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 	wordpress  *state.Service
 	unit       *state.Unit
 	mysqlcharm *state.Charm
@@ -24,6 +26,43 @@ type FilterSuite struct {
 }
 
 var _ = Suite(&FilterSuite{})
+
+type ChannelAsserter struct {
+	C       *C
+	Precond func()
+}
+
+func (a *ChannelAsserter) AssertReceive(ch <-chan struct{}) {
+	if a.Precond != nil {
+		a.Precond()
+	}
+	select {
+	case _, ok := <-ch:
+		a.C.Assert(ok, jc.IsTrue)
+	case <-time.After(coretesting.LongWait):
+		a.C.Fatalf("timed out waiting for channel message")
+	}
+}
+
+func (a *ChannelAsserter) AssertClosed(ch <-chan struct{}) {
+	if a.Precond != nil {
+		a.Precond()
+	}
+	select {
+	case _, ok := <-ch:
+		a.C.Assert(ok, jc.IsFalse)
+	case <-time.After(coretesting.LongWait):
+		a.C.Fatalf("timed out waiting for channel to close")
+	}
+}
+
+func (a *ChannelAsserter) AssertNoReceive(ch <-chan struct{}) {
+	select {
+	case <-ch:
+		a.C.Fatalf("unexpected receive")
+	case <-time.After(coretesting.ShortWait):
+	}
+}
 
 func (s *FilterSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
@@ -47,41 +86,28 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
-	assertNotClosed := func() {
-		s.State.StartSync()
-		select {
-		case <-time.After(50 * time.Millisecond):
-		case <-f.UnitDying():
-			c.Fatalf("unexpected receive")
-		}
+	asserter := ChannelAsserter{
+		Precond: func() { s.State.StartSync() },
+		C:       c,
 	}
-	assertNotClosed()
+	asserter.AssertNoReceive(f.UnitDying())
 
 	// Irrelevant change.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	assertNotClosed()
+	asserter.AssertNoReceive(f.UnitDying())
 
 	// Set dying.
 	err = s.unit.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
-	assertClosed := func() {
-		s.State.StartSync()
-		select {
-		case <-time.After(50 * time.Millisecond):
-			c.Fatalf("dying not detected")
-		case _, ok := <-f.UnitDying():
-			c.Assert(ok, Equals, false)
-		}
-	}
-	assertClosed()
+	asserter.AssertClosed(f.UnitDying())
 
 	// Another irrelevant change.
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
-	assertClosed()
+	asserter.AssertClosed(f.UnitDying())
 
 	// Set dead.
 	err = s.unit.EnsureDead()
@@ -101,12 +127,11 @@ func (s *FilterSuite) TestUnitRemoval(c *C) {
 }
 
 func (s *FilterSuite) assertTerminateAgent(c *C, f *filter) {
-	s.State.StartSync()
-	select {
-	case <-f.Dead():
-	case <-time.After(50 * time.Millisecond):
-		c.Fatalf("dead not detected")
+	asserter := ChannelAsserter{
+		Precond: func() { s.State.StartSync() },
+		C:       c,
 	}
+	asserter.AssertClosed(f.Dead())
 	c.Assert(f.Wait(), Equals, worker.ErrTerminateAgent)
 }
 
@@ -116,7 +141,7 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 	defer f.Stop()
 	s.State.StartSync()
 	select {
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	case <-f.UnitDying():
 		c.Fatalf("unexpected receive")
 	}
@@ -125,13 +150,13 @@ func (s *FilterSuite) TestServiceDeath(c *C) {
 	c.Assert(err, IsNil)
 	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(coretesting.LongWait)
 loop:
 	for {
 		select {
 		case <-f.UnitDying():
 			break loop
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			s.State.StartSync()
 		case <-timeout:
 			c.Fatalf("dead not detected")
@@ -155,7 +180,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 		select {
 		case rm := <-f.ResolvedEvents():
 			c.Fatalf("unexpected %#v", rm)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 		}
 	}
 	assertNoChange()
@@ -177,7 +202,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 		select {
 		case rm := <-f.ResolvedEvents():
 			c.Assert(rm, Equals, expect)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
 		assertNoChange()
@@ -224,7 +249,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 		select {
 		case sch := <-f.UpgradeEvents():
 			c.Fatalf("unexpected %#v", sch)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 		}
 	}
 	assertNoChange()
@@ -252,7 +277,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *C) {
 		select {
 		case upgradeCharm := <-f.UpgradeEvents():
 			c.Assert(upgradeCharm, DeepEquals, url)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
 	}
@@ -290,7 +315,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		select {
 		case <-f.ConfigEvents():
 			c.Fatalf("unexpected config event")
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 		}
 	}
 	assertNoChange()
@@ -303,7 +328,7 @@ func (s *FilterSuite) TestConfigEvents(c *C) {
 		select {
 		case _, ok := <-f.ConfigEvents():
 			c.Assert(ok, Equals, true)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out")
 		}
 		assertNoChange()
