@@ -5,14 +5,16 @@ package uniter_test
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"path/filepath"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type ToolsSuite struct {

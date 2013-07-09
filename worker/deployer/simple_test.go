@@ -13,7 +13,8 @@ import (
 	"strings"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/agent"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing/checkers"
