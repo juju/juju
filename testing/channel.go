@@ -65,9 +65,14 @@ func (a *NotifyAsserterC) AssertNoReceive() {
 	}
 }
 
+
 // ContentAsserterC is like NotifyAsserterC in that it checks the behavior of a
 // channel. The difference is that we expect actual content on the channel, so
 // callers need to put that into and out of an 'interface{}'
+// TODO go1.1: We can use reflect.Select and reflect.Receive sort of
+//      functionality in order to avoid having to write a helper function to
+//      curry our requests into interface{} types.
+
 type ContentAsserterC struct {
 	// C is a gocheck C structure for doing assertions
 	C *gc.C
