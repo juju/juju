@@ -492,7 +492,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 
 	// One request to get the list of all the environment's instances.
 	// Then two requests per destroyed machine (one to fetch the
-	// service's information, on to delete it).
+	// service's information, one to delete it).
 	c.Check((*requests), HasLen, 1+len(services)*2)
 	c.Check((*requests)[0].Method, Equals, "GET")
 	c.Check((*requests)[1].Method, Equals, "GET")
