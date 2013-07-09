@@ -24,7 +24,7 @@ func NewState(caller common.Caller) *State {
 func (m *State) machineLife(tag string) (params.Life, error) {
 	var result params.MachinesLifeResults
 	args := params.Entities{
-		Entities: []params.Entity{{tag}},
+		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := m.caller.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
