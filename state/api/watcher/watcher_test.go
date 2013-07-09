@@ -84,7 +84,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *C) {
 	// call (for NotifyWatchers there is no state to be transmitted). So a
 	// call to Next() should not have anything to return.
 	var results params.NotifyWatchResults
-	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
 	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
 	c.Assert(err, IsNil)
 	c.Assert(results.Results, HasLen, 1)
@@ -107,7 +107,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *C) {
 
 func (s *watcherSuite) TestWatchMachine(c *C) {
 	var results params.NotifyWatchResults
-	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
 	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
 	c.Assert(err, IsNil)
 	c.Assert(results.Results, HasLen, 1)

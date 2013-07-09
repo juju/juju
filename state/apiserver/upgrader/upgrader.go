@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
 )
 
@@ -33,17 +34,23 @@ func NewUpgraderAPI(
 
 // Start a watcher to track if there is a new version of the API that we want
 // to upgrade to
-func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.NotifyWatchResults, error) {
+func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Agents)),
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	for i, agent := range args.Agents {
-		var err error
-		if !u.authorizer.AuthOwner(agent.Tag) {
-			err = common.ErrPerm
-		} else {
-			envWatcher := u.st.WatchForEnvironConfigChanges()
-			result.Results[i].NotifyWatcherId = u.resources.Register(envWatcher)
+	for i, agent := range args.Entities {
+		err := common.ErrPerm
+		if u.authorizer.AuthOwner(agent.Tag) {
+			watch := u.st.WatchForEnvironConfigChanges()
+			// Consume the initial event. Technically, API
+			// calls to Watch 'transmit' the initial event
+			// in the Watch response. But NotifyWatchers
+			// have no state to transmit.
+			if _, ok := <-watch.Changes(); ok {
+				result.Results[i].NotifyWatcherId = u.resources.Register(watch)
+			} else {
+				err = watcher.MustErr(watch)
+			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -52,11 +59,11 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Agents) (params.NotifyWatchRes
 
 var nilTools params.AgentTools
 
-func (u *UpgraderAPI) oneAgentTools(agent params.Agent, agentVersion version.Number, env environs.Environ) (params.AgentTools, error) {
-	if !u.authorizer.AuthOwner(agent.Tag) {
+func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.Number, env environs.Environ) (params.AgentTools, error) {
+	if !u.authorizer.AuthOwner(entity.Tag) {
 		return nilTools, common.ErrPerm
 	}
-	machine, err := u.st.Machine(state.MachineIdFromTag(agent.Tag))
+	machine, err := u.st.Machine(state.MachineIdFromTag(entity.Tag))
 	if err != nil {
 		return nilTools, err
 	}
@@ -79,7 +86,7 @@ func (u *UpgraderAPI) oneAgentTools(agent params.Agent, agentVersion version.Num
 		return nilTools, err
 	}
 	return params.AgentTools{
-		Tag:    agent.Tag,
+		Tag:    entity.Tag,
 		Arch:   tools.Arch,
 		Series: tools.Series,
 		URL:    tools.URL,
@@ -91,14 +98,14 @@ func (u *UpgraderAPI) oneAgentTools(agent params.Agent, agentVersion version.Num
 }
 
 // Find the Tools necessary for the given agents
-func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error) {
-	tools := make([]params.AgentToolsResult, len(args.Agents))
+func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, error) {
+	tools := make([]params.AgentToolsResult, len(args.Entities))
 	result := params.AgentToolsResults{Tools: tools}
-	if len(args.Agents) == 0 {
+	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	for i, agent := range args.Agents {
-		tools[i].AgentTools.Tag = agent.Tag
+	for i, entity := range args.Entities {
+		tools[i].AgentTools.Tag = entity.Tag
 	}
 	// For now, all agents get the same proposed version
 	cfg, err := u.st.EnvironConfig()
@@ -114,8 +121,8 @@ func (u *UpgraderAPI) Tools(args params.Agents) (params.AgentToolsResults, error
 	if err != nil {
 		return result, err
 	}
-	for i, agent := range args.Agents {
-		agentTools, err := u.oneAgentTools(agent, agentVersion, env)
+	for i, entity := range args.Entities {
+		agentTools, err := u.oneAgentTools(entity, agentVersion, env)
 		if err == nil {
 			tools[i].AgentTools = agentTools
 		}

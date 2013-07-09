@@ -36,7 +36,7 @@ type NotifyWorker interface {
 	// from Wait.
 	Kill()
 
-	// Stop will call both Kill and then Wait for the worker to exit. 
+	// Stop will call both Kill and then Wait for the worker to exit.
 	Stop() error
 }
 
