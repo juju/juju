@@ -118,7 +118,7 @@ func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.LifecycleWatcher)
+	watcher, ok := r.resources.Get(id).(state.StringsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
