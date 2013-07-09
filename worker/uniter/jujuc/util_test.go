@@ -36,14 +36,14 @@ func (s *ContextSuite) SetUpTest(c *C) {
 			id:   0,
 			name: "peer0",
 			units: map[string]Settings{
-				"u/0": {"private-address": "u-0.example.com"},
+				"u/0": {"private-address": "u-0.testing.invalid"},
 			},
 		},
 		1: {
 			id:   1,
 			name: "peer1",
 			units: map[string]Settings{
-				"u/0": {"private-address": "u-0.example.com"},
+				"u/0": {"private-address": "u-0.testing.invalid"},
 			},
 		},
 	}
@@ -84,7 +84,7 @@ func (c *Context) UnitName() string {
 }
 
 func (c *Context) PublicAddress() (string, bool) {
-	return "gimli.minecraft.example.com", true
+	return "gimli.minecraft.testing.invalid", true
 }
 
 func (c *Context) PrivateAddress() (string, bool) {
