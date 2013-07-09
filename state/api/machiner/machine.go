@@ -52,7 +52,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 func (m *Machine) EnsureDead() error {
 	var result params.ErrorResults
 	args := params.Entities{
-		Entities: []params.Entity{{m.tag}},
+		Entities: []params.Entity{{Tag: m.tag}},
 	}
 	err := m.mstate.caller.Call("Machiner", "", "EnsureDead", args, &result)
 	if err != nil {

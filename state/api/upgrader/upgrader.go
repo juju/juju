@@ -48,7 +48,7 @@ func (u *Upgrader) SetTools(tools params.AgentTools) error {
 func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
 	var results params.AgentToolsResults
 	args := params.Entities{
-		Entities: []params.Entity{{tag}},
+		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := u.caller.Call("Upgrader", "", "Tools", args, &results)
 	if err != nil {

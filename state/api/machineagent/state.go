@@ -26,7 +26,7 @@ func NewState(caller common.Caller) *State {
 func (st *State) getMachine(tag string) (*params.MachineAgentGetMachinesResult, error) {
 	var results params.MachineAgentGetMachinesResults
 	args := params.Entities{
-		Entities: []params.Entity{{tag}},
+		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := st.caller.Call("MachineAgent", "", "GetMachines", args, &results)
 	if err != nil {

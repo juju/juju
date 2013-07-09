@@ -92,9 +92,11 @@ func (s *machinerSuite) TestLife(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
 
-	args := params.Entities{
-		Entities: []params.Entity{{"machine-1"}, {"machine-0"}, {"machine-42"}},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Results, HasLen, 3)
@@ -108,9 +110,11 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine0.Life(), Equals, state.Alive)
 	c.Assert(s.machine1.Life(), Equals, state.Alive)
 
-	args := params.Entities{
-		Entities: []params.Entity{{"machine-1"}, {"machine-0"}, {"machine-42"}},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
@@ -127,7 +131,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 
 	// Try it again on a Dead machine; should work.
 	args = params.Entities{
-		Entities: []params.Entity{{"machine-1"}},
+		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
 	result, err = s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
@@ -143,9 +147,11 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(s.resources.Count(), Equals, 0)
 
-	args := params.Entities{
-		Entities: []params.Entity{{"machine-1"}, {"machine-0"}, {"machine-42"}},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.Watch(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Results, HasLen, 3)
