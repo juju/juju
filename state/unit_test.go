@@ -33,6 +33,7 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
+	c.Assert(s.unit.Series(), Equals, "series")
 }
 
 func (s *UnitSuite) TestUnitNotFound(c *C) {

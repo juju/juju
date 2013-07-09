@@ -10,21 +10,25 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"os"
+	"strings"
 )
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName      string
-	ServiceName    string
-	Config         cmd.FileVar
-	Constraints    constraints.Value
-	NumUnits       int // defaults to 1
-	BumpRevision   bool
-	RepoPath       string // defaults to JUJU_REPOSITORY
-	ForceMachineId string
+	CharmName          string
+	ServiceName        string
+	Config             cmd.FileVar
+	Constraints        constraints.Value
+	NumUnits           int // defaults to 1
+	BumpRevision       bool
+	RepoPath           string // defaults to JUJU_REPOSITORY
+	ForceMachineSpec   string
+	ForceMachineId     string
+	ForceContainerType instance.ContainerType
 }
 
 const deployDoc = `
@@ -61,7 +65,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineId, "force-machine", "", "Machine to deploy initial unit, bypasses constraints")
+	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "Machine/container to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -91,12 +95,25 @@ func (c *DeployCommand) Init(args []string) error {
 	if c.NumUnits < 1 {
 		return errors.New("--num-units must be a positive integer")
 	}
-	if c.ForceMachineId != "" {
+	if c.ForceMachineSpec != "" {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units with --force-machine")
 		}
+		specParts := strings.Split(c.ForceMachineSpec, ":")
+		if len(specParts) > 2 {
+			return fmt.Errorf("invalid --force-machine parameter %q, expected [<container>:]<machineId>", c.ForceMachineSpec)
+		}
+		if len(specParts) == 1 {
+			c.ForceMachineId = specParts[0]
+		} else {
+			var err error
+			if c.ForceContainerType, err = instance.ParseSupportedContainerType(specParts[0]); err != nil {
+				return fmt.Errorf("invalid force machine container %q", specParts[0])
+			}
+			c.ForceMachineId = specParts[1]
+		}
 		if !state.IsMachineId(c.ForceMachineId) {
-			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
+			return fmt.Errorf("invalid force machine id %q", c.ForceMachineId)
 		}
 	}
 	return nil
@@ -135,7 +152,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if c.Constraints != empty {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if numUnits == 1 && c.ForceMachineId == "" {
+		if numUnits == 1 && c.ForceMachineSpec == "" {
 			numUnits = 0
 		} else {
 			return errors.New("cannot use --num-units or --force-machine with subordinate service")
@@ -157,12 +174,13 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    serviceName,
-		Charm:          ch,
-		NumUnits:       numUnits,
-		ConfigSettings: settings,
-		Constraints:    c.Constraints,
-		ForceMachineId: c.ForceMachineId,
+		ServiceName:        serviceName,
+		Charm:              ch,
+		NumUnits:           numUnits,
+		ConfigSettings:     settings,
+		Constraints:        c.Constraints,
+		ForceMachineId:     c.ForceMachineId,
+		ForceContainerType: c.ForceContainerType,
 	})
 	return err
 }

@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -192,7 +193,8 @@ type DeployServiceParams struct {
 	Constraints    constraints.Value
 	NumUnits       int
 	// Use string for deploy-to machine to avoid ambiguity around machine 0.
-	ForceMachineId string
+	ForceMachineId     string
+	ForceContainerType instance.ContainerType
 }
 
 // DeployService takes a charm and various parameters and deploys it.
@@ -230,7 +232,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 		}
 	}
 	if args.NumUnits > 0 {
-		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineId); err != nil {
+		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineId, args.ForceContainerType); err != nil {
 			return nil, err
 		}
 	}
@@ -296,7 +298,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
-func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit, error) {
+func (conn *Conn) AddUnits(svc *state.Service, n int, mid string, ctype instance.ContainerType) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
@@ -310,7 +312,21 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, mid string) ([]*state.Unit
 			if n != 1 {
 				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 			}
-			m, err := conn.State.Machine(mid)
+			var err error
+			var m *state.Machine
+			// If a container is to be used, create it.
+			if ctype != "" {
+				params := state.AddMachineParams{
+					Series:        unit.Series(),
+					ParentId:      mid,
+					ContainerType: ctype,
+					Jobs:          []state.MachineJob{state.JobHostUnits},
+				}
+				m, err = conn.State.AddMachineWithConstraints(&params)
+
+			} else {
+				m, err = conn.State.Machine(mid)
+			}
 			if err != nil {
 				return nil, fmt.Errorf("cannot assign unit %q to machine: %v", unit.Name(), err)
 			}

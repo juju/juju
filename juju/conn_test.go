@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -385,7 +386,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	units, err := s.conn.AddUnits(svc, 2, "")
+	units, err := s.conn.AddUnits(svc, 2, "", "")
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 2)
 
@@ -395,14 +396,18 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id0, Not(Equals), id1)
 
-	units, err = s.conn.AddUnits(svc, 2, "0")
+	units, err = s.conn.AddUnits(svc, 2, "0", "")
 	c.Assert(err, ErrorMatches, `cannot add multiple units of service "testriak" to a single machine`)
 
-	units, err = s.conn.AddUnits(svc, 1, "0")
+	units, err = s.conn.AddUnits(svc, 1, "0", "")
 	c.Assert(err, IsNil)
 	id2, err := units[0].AssignedMachineId()
 	c.Assert(id2, Equals, id0)
 
+	units, err = s.conn.AddUnits(svc, 1, "0", instance.LXC)
+	c.Assert(err, IsNil)
+	id3, err := units[0].AssignedMachineId()
+	c.Assert(id3, Equals, id0+"/lxc/0")
 }
 
 // DeployLocalSuite uses a fresh copy of the same local dummy charm for each
@@ -522,6 +527,37 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *C) {
 	c.Assert(err, IsNil)
 	s.assertConstraints(c, service, serviceCons)
 	s.assertMachines(c, service, constraints.Value{}, "0")
+}
+
+func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Equals, "0")
+	cons := constraints.MustParse("mem=2G")
+	err = s.State.SetEnvironConstraints(cons)
+	c.Assert(err, IsNil)
+	serviceCons := constraints.MustParse("cpu-cores=2")
+	service, err := s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName:        "bob",
+		Charm:              s.charm,
+		Constraints:        serviceCons,
+		NumUnits:           1,
+		ForceMachineId:     "0",
+		ForceContainerType: instance.LXC,
+	})
+	c.Assert(err, IsNil)
+	s.assertConstraints(c, service, serviceCons)
+	units, err := service.AllUnits()
+	c.Assert(err, IsNil)
+	c.Assert(units, HasLen, 1)
+	// The newly created container will use the constraints.
+	id, err := units[0].AssignedMachineId()
+	c.Assert(err, IsNil)
+	machine, err = s.State.Machine(id)
+	c.Assert(err, IsNil)
+	expectedCons, err := machine.Constraints()
+	c.Assert(err, IsNil)
+	c.Assert(cons, DeepEquals, expectedCons)
 }
 
 func (s *DeployLocalSuite) assertCharm(c *C, service *state.Service, expect *charm.URL) {
