@@ -7,6 +7,10 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
+	"sync"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
@@ -16,9 +20,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	. "launchpad.net/juju-core/testing/checkers"
-	"net/http"
-	"strings"
-	"sync"
 )
 
 type EnvironSuite struct {
@@ -113,7 +114,7 @@ func (EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-func buildServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
+func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
 	c.Assert(err, IsNil)
@@ -126,7 +127,7 @@ func buildServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []
 }
 
 func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
-	responses := buildServiceListResponse(c, services)
+	responses := buildAzureServiceListResponse(c, services)
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
@@ -345,18 +346,18 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	c.Check(apiInfo.Addrs, DeepEquals, []string{expectedDNSName + apiPortSuffix})
 }
 
-// buildDestroyServiceResponses returns a slice containing the responses that a fake Azure server
+// buildDestroyAzureServiceResponses returns a slice containing the responses that a fake Azure server
 // can use to simulate the deletion of the given list of services.
-func buildDestroyServiceResponses(c *C, services []*gwacl.HostedService) []gwacl.DispatcherResponse {
+func buildDestroyAzureServiceResponses(c *C, services []*gwacl.HostedService) []gwacl.DispatcherResponse {
 	responses := []gwacl.DispatcherResponse{}
 	for _, service := range services {
-		// When destroying a hosted service, gwacl first issues a Get reques
+		// When destroying a hosted service, gwacl first issues a Get request
 		// to fetch the properties of the services.  Then it destroys all the
 		// deployments found in this service (none in this case, we make sure
 		// the service does not contain deployments to keep the testing simple)
 		// And it finally deletes the service itself.
 		if len(service.Deployments) != 0 {
-			panic("buildDestroyServiceResponses does not support services with deployments!")
+			panic("buildDestroyAzureServiceResponses does not support services with deployments!")
 		}
 		serviceXML, err := service.Serialize()
 		c.Assert(err, IsNil)
@@ -376,7 +377,7 @@ func buildDestroyServiceResponses(c *C, services []*gwacl.HostedService) []gwacl
 	return responses
 }
 
-func makeService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
+func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
 	service1 := &gwacl.HostedService{ServiceName: name}
 	service1Desc := &gwacl.HostedServiceDescriptor{ServiceName: name}
 	return service1, service1Desc
@@ -384,11 +385,11 @@ func makeService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescrip
 
 func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	service1Name := "service1"
-	service1, service1Desc := makeService(service1Name)
+	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
-	service2, service2Desc := makeService(service2Name)
+	service2, service2Desc := makeAzureService(service2Name)
 	services := []*gwacl.HostedService{service1, service2}
-	responses := buildDestroyServiceResponses(c, services)
+	responses := buildDestroyAzureServiceResponses(c, services)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
@@ -481,12 +482,12 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	prefix := env.getEnvPrefix()
 	service1Name := prefix + "service1"
 	service2Name := prefix + "service2"
-	service1, service1Desc := makeService(service1Name)
-	service2, service2Desc := makeService(service2Name)
+	service1, service1Desc := makeAzureService(service1Name)
+	service2, service2Desc := makeAzureService(service2Name)
 	services := []*gwacl.HostedService{service1, service2}
 	// The call to AllInstances() will return only one service (service1).
-	listInstancesResponses := buildServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
-	destroyResponses := buildDestroyServiceResponses(c, services)
+	listInstancesResponses := buildAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
+	destroyResponses := buildDestroyAzureServiceResponses(c, services)
 	responses := append(listInstancesResponses, destroyResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
