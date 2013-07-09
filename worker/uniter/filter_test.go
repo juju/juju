@@ -27,38 +27,39 @@ type FilterSuite struct {
 
 var _ = Suite(&FilterSuite{})
 
-type ChannelAsserter struct {
+type NotifyAsserter struct {
 	C       *C
+	Chan    <-chan struct{}
 	Precond func()
 }
 
-func (a *ChannelAsserter) AssertReceive(ch <-chan struct{}) {
+func (a *NotifyAsserter) AssertReceive() {
 	if a.Precond != nil {
 		a.Precond()
 	}
 	select {
-	case _, ok := <-ch:
+	case _, ok := <-a.Chan:
 		a.C.Assert(ok, jc.IsTrue)
 	case <-time.After(coretesting.LongWait):
 		a.C.Fatalf("timed out waiting for channel message")
 	}
 }
 
-func (a *ChannelAsserter) AssertClosed(ch <-chan struct{}) {
+func (a *NotifyAsserter) AssertClosed() {
 	if a.Precond != nil {
 		a.Precond()
 	}
 	select {
-	case _, ok := <-ch:
+	case _, ok := <-a.Chan:
 		a.C.Assert(ok, jc.IsFalse)
 	case <-time.After(coretesting.LongWait):
 		a.C.Fatalf("timed out waiting for channel to close")
 	}
 }
 
-func (a *ChannelAsserter) AssertNoReceive(ch <-chan struct{}) {
+func (a *NotifyAsserter) AssertNoReceive() {
 	select {
-	case <-ch:
+	case <-a.Chan:
 		a.C.Fatalf("unexpected receive")
 	case <-time.After(coretesting.ShortWait):
 	}
@@ -86,33 +87,34 @@ func (s *FilterSuite) TestUnitDeath(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
 	defer f.Stop()
-	asserter := ChannelAsserter{
+	asserter := NotifyAsserter{
 		Precond: func() { s.State.StartSync() },
 		C:       c,
+		Chan:    f.UnitDying(),
 	}
-	asserter.AssertNoReceive(f.UnitDying())
+	asserter.AssertNoReceive()
 
 	// Irrelevant change.
 	err = s.unit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, IsNil)
-	asserter.AssertNoReceive(f.UnitDying())
+	asserter.AssertNoReceive()
 
 	// Set dying.
 	err = s.unit.SetStatus(params.StatusStarted, "")
 	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
-	asserter.AssertClosed(f.UnitDying())
+	asserter.AssertClosed()
 
 	// Another irrelevant change.
 	err = s.unit.ClearResolved()
 	c.Assert(err, IsNil)
-	asserter.AssertClosed(f.UnitDying())
+	asserter.AssertClosed()
 
 	// Set dead.
 	err = s.unit.EnsureDead()
 	c.Assert(err, IsNil)
-	s.assertTerminateAgent(c, f)
+	s.assertAgentTerminates(c, f)
 }
 
 func (s *FilterSuite) TestUnitRemoval(c *C) {
@@ -123,15 +125,17 @@ func (s *FilterSuite) TestUnitRemoval(c *C) {
 	// short-circuit to remove because no status set.
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
-	s.assertTerminateAgent(c, f)
+	s.assertAgentTerminates(c, f)
 }
 
-func (s *FilterSuite) assertTerminateAgent(c *C, f *filter) {
-	asserter := ChannelAsserter{
+// Ensure we get a signal on f.Dead()
+func (s *FilterSuite) assertAgentTerminates(c *C, f *filter) {
+	asserter := NotifyAsserter{
 		Precond: func() { s.State.StartSync() },
 		C:       c,
+		Chan:    f.Dead(),
 	}
-	asserter.AssertClosed(f.Dead())
+	asserter.AssertClosed()
 	c.Assert(f.Wait(), Equals, worker.ErrTerminateAgent)
 }
 
