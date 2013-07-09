@@ -85,6 +85,10 @@ type fakeLifer struct {
 	err  error
 }
 
+func (l *fakeLifer) Tag() string {
+	panic("not needed")
+}
+
 func (l *fakeLifer) Life() state.Life {
 	return l.life
 }
