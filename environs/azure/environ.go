@@ -132,10 +132,8 @@ func (env *azureEnviron) StartInstance(machineId, machineNonce string, series st
 
 // StopInstances is specified in the Environ interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
-	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
-	if len(instances) == 0 {
-		return nil
-	}
+	// Each Juju instance is an Azure Service (instance==service), destroy
+	// all the Azure services.
 	// Acquire management API object.
 	context, err := env.getManagementAPI()
 	if err != nil {
