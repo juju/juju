@@ -323,11 +323,10 @@ func (EnvironSuite) TestStateInfo(c *C) {
 	// service's label.
 	expectedDNSName := fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME)
 	encodedLabel := base64.StdEncoding.EncodeToString([]byte(label))
-	responses := buildServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
+	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
 		ServiceName: instanceID,
 		Label:       encodedLabel,
 	}})
-	gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -446,8 +445,7 @@ func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	azStorage := makeAzureStorageMocking(transport, container, "account")
 	env.storage = &azStorage
 	services := []gwacl.HostedServiceDescriptor{}
-	responses := buildServiceListResponse(c, services)
-	gwacl.PatchManagementAPIResponses(responses)
+	patchWithServiceListResponse(c, services)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
 
 	err := env.Destroy(instances)
