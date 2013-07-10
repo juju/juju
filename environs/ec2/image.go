@@ -8,7 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-        "launchpad.net/loggo"	
+	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.environs.ec2")
