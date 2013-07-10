@@ -68,7 +68,6 @@ type SuperCommand struct {
 	flags           *gnuflag.FlagSet
 	subcmd          Command
 	showHelp        bool
-	showVersion     bool
 	missingCallback MissingCallback
 }
 
@@ -172,7 +171,6 @@ func (c *SuperCommand) Info() *Info {
 }
 
 const helpPurpose = "show help on a command or other topic"
-const versionPurpose = "show juju version"
 
 // SetFlags adds the options that apply to all commands, particularly those
 // due to logging.
@@ -182,17 +180,12 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	}
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
-	//f.BoolVar(&c.showVersion, "V", false, versionPurpose)
-	f.BoolVar(&c.showVersion, "version", false, versionPurpose)
 
 	c.flags = f
 }
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
-	if c.showVersion {
-		args = append([]string{"version"}, args...)
-	}
 	if len(args) == 0 {
 		c.subcmd = c.subcmds["help"]
 		return nil
