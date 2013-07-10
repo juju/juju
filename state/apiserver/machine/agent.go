@@ -24,6 +24,7 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
+		// TODO(go1.1): method expression
 		return func(tag string) bool {
 			return auth.AuthOwner(tag)
 		}, nil

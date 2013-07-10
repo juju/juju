@@ -10,17 +10,17 @@ import (
 
 // LifeGetter implements a common Life method for use by various facades.
 type LifeGetter struct {
-	st         liferGetter
+	st         LiferGetter
 	getCanRead GetAuthFunc
 }
 
-type liferGetter interface {
+type LiferGetter interface {
 	Lifer(tag string) (state.Lifer, error)
 }
 
 // NewLifeGetter returns a new LifeGetter. The GetAuthFunc will be used on
 // each invocation of Life to determine current permissions.
-func NewLifeGetter(st *state.State, getCanRead GetAuthFunc) *LifeGetter {
+func NewLifeGetter(st LiferGetter, getCanRead GetAuthFunc) *LifeGetter {
 	return &LifeGetter{
 		st:         st,
 		getCanRead: getCanRead,

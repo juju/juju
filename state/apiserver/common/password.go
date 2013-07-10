@@ -11,17 +11,17 @@ import (
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
 type PasswordChanger struct {
-	st           authGetter
+	st           AuthenticatorGetter
 	getCanChange GetAuthFunc
 }
 
-type authGetter interface {
+type AuthenticatorGetter interface {
 	Authenticator(tag string) (state.TaggedAuthenticator, error)
 }
 
 // NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
 // used on each invocation of SetPasswords to determine current permissions.
-func NewPasswordChanger(st *state.State, getCanChange GetAuthFunc) *PasswordChanger {
+func NewPasswordChanger(st AuthenticatorGetter, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
 		st:           st,
 		getCanChange: getCanChange,

@@ -5,12 +5,14 @@ package common_test
 
 import (
 	"fmt"
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	stdtesting "testing"
 )
 
 type passwordSuite struct{}
@@ -37,7 +39,7 @@ func (*passwordSuite) TestSetPasswords(c *C) {
 			return tag != "x0"
 		}, nil
 	}
-	pc := common.NewMockPasswordChanger(st, getCanChange)
+	pc := common.NewPasswordChanger(st, getCanChange)
 	var changes []params.PasswordChange
 	for i := 0; i < 4; i++ {
 		tag := fmt.Sprintf("x%d", i)
@@ -71,7 +73,7 @@ func (*passwordSuite) TestSetPasswordsError(c *C) {
 	getCanChange := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
-	pc := common.NewMockPasswordChanger(&fakeAuthState{}, getCanChange)
+	pc := common.NewPasswordChanger(&fakeAuthState{}, getCanChange)
 	var changes []params.PasswordChange
 	for i := 0; i < 4; i++ {
 		tag := fmt.Sprintf("x%d", i)

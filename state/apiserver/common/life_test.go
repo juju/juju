@@ -5,7 +5,9 @@ package common_test
 
 import (
 	"fmt"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -34,7 +36,7 @@ func (*lifeSuite) TestLife(c *C) {
 			return false
 		}, nil
 	}
-	lg := common.NewMockLifeGetter(st, getCanRead)
+	lg := common.NewLifeGetter(st, getCanRead)
 	entities := params.Entities{[]params.Entity{
 		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
 	}}
@@ -61,7 +63,7 @@ func (*lifeSuite) TestLifeError(c *C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewMockLifeGetter(&fakeLifeState{}, getCanRead)
+	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
 	_, err := lg.Life(params.Entities{})
 	c.Assert(err, ErrorMatches, "pow")
 }
