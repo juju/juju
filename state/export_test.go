@@ -65,6 +65,16 @@ func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
 	return SetTransactionHooks(c, st, transactionHooks...)
 }
 
+// SetAfterHooks uses SetTransactionHooks to queue N functions to be run
+// immediately after the next N transactions.
+func SetAfterHooks(c *C, st *State, fs ...func()) TransactionChecker {
+	transactionHooks := make([]TransactionHook, len(fs))
+	for i, f := range fs {
+		transactionHooks[i] = TransactionHook{After: f}
+	}
+	return SetTransactionHooks(c, st, transactionHooks...)
+}
+
 // SetRetryHooks uses SetTransactionHooks to inject a block function designed
 // to disrupt a transaction built against recent state, and a check function
 // designed to verify that the replacement transaction against the new state
