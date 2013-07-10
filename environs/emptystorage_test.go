@@ -48,6 +48,10 @@ environments:
         authorized-keys: i-am-a-key
 `
 
+func (s *verifyStorageSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
+
 func (s *verifyStorageSuite) TestVerifyStorage(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 

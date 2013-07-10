@@ -49,6 +49,11 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
+	err = environs.CheckEnvironment(environ)
+	if err != nil {
+		return nil, err
+	}
+
 	info.Password = password
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts)

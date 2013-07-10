@@ -18,6 +18,10 @@ var EmptyStorage StorageReader = emptyStorage{}
 
 type emptyStorage struct{}
 
+// File named `verificationFilename` in the storage will contain
+// `verificationContent`.  This is also used to differentiate between
+// Python Juju and juju-core environments, so change the content with
+// care (and update CheckEnvironment below when you do that).
 const verificationFilename string = "bootstrap-verify"
 const verificationContent = "juju-core storage writing verified: ok\n"
 
