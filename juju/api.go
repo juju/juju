@@ -5,6 +5,7 @@ package juju
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state/api"
 )

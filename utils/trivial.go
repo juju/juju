@@ -9,9 +9,10 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/goyaml"
 	"os"
 	"strings"
+
+	"launchpad.net/goyaml"
 )
 
 // WriteYaml marshals obj as yaml and then writes it to a file, atomically,

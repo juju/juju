@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 )
 
 var watchLogger = loggo.GetLogger("juju.state.watch")
@@ -1226,19 +1227,19 @@ func (w *machineUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
-// CleanupWatcher notifies of changes in the cleanups collection.
-type CleanupWatcher struct {
+// cleanupWatcher notifies of changes in the cleanups collection.
+type cleanupWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
 // WatchCleanups starts and returns a CleanupWatcher.
-func (st *State) WatchCleanups() *CleanupWatcher {
+func (st *State) WatchCleanups() NotifyWatcher {
 	return newCleanupWatcher(st)
 }
 
-func newCleanupWatcher(st *State) *CleanupWatcher {
-	w := &CleanupWatcher{
+func newCleanupWatcher(st *State) NotifyWatcher {
+	w := &cleanupWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
@@ -1251,11 +1252,11 @@ func newCleanupWatcher(st *State) *CleanupWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *CleanupWatcher) Changes() <-chan struct{} {
+func (w *cleanupWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *CleanupWatcher) loop() (err error) {
+func (w *cleanupWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
 
 	w.st.watcher.WatchCollection(w.st.cleanups.Name, in)

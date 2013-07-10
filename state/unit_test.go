@@ -4,7 +4,11 @@
 package state_test
 
 import (
+	"strconv"
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -12,8 +16,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
-	"strconv"
-	"time"
 )
 
 type UnitSuite struct {

@@ -6,12 +6,14 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"strings"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/charm"
 	errors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
-	"strings"
 )
 
 // RelationUnit holds information about a single unit in a relation, and

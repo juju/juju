@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
