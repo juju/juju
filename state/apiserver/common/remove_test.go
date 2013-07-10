@@ -28,7 +28,7 @@ func (*removeSuite) TestRemove(c *C) {
 			"x4": &fakeRemover{err: fmt.Errorf("x4 error")},
 		},
 	}
-	getCanRemove := func() (common.AuthFunc, error) {
+	getCanModify := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
 			case "x0", "x1", "x2", "x4":
@@ -37,7 +37,7 @@ func (*removeSuite) TestRemove(c *C) {
 			return false
 		}, nil
 	}
-	r := common.NewRemover(st, getCanRemove)
+	r := common.NewRemover(st, getCanModify)
 	entities := params.Entities{[]params.Entity{
 		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"},
 	}}
@@ -60,19 +60,19 @@ func (*removeSuite) TestRemove(c *C) {
 }
 
 func (*removeSuite) TestRemoveError(c *C) {
-	getCanRemove := func() (common.AuthFunc, error) {
+	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeRemoverState{}, getCanRemove)
+	r := common.NewRemover(&fakeRemoverState{}, getCanModify)
 	_, err := r.Remove(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, ErrorMatches, "pow")
 }
 
 func (*removeSuite) TestRemoveNoArgsNoError(c *C) {
-	getCanRemove := func() (common.AuthFunc, error) {
+	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	r := common.NewRemover(&fakeRemoverState{}, getCanRemove)
+	r := common.NewRemover(&fakeRemoverState{}, getCanModify)
 	result, err := r.Remove(params.Entities{})
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 0)

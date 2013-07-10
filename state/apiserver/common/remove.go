@@ -10,21 +10,35 @@ import (
 
 // Remover implements a common Remove method for use by various facades.
 type Remover struct {
-	st           RemoverGetter
-	getCanRemove GetAuthFunc
+	st           Removerer
+	getCanModify GetAuthFunc
 }
 
-type RemoverGetter interface {
+type Removerer interface {
+	// state.State implements Remover to provide ways for us to call
+	// object.Remove (for Units, etc). This is used to allow us to
+	// test with mocks without having to actually bring up state.
 	Remover(tag string) (state.Remover, error)
 }
 
 // NewRemover returns a new Remover. The GetAuthFunc will be used on
 // each invocation of Remove to determine current permissions.
-func NewRemover(st RemoverGetter, getCanRemove GetAuthFunc) *Remover {
+func NewRemover(st Removerer, getCanModify GetAuthFunc) *Remover {
 	return &Remover{
 		st:           st,
-		getCanRemove: getCanRemove,
+		getCanModify: getCanModify,
 	}
+}
+
+func (r *Remover) removeEntity(entity params.Entity) (err error) {
+	var remover state.Remover
+	if remover, err = r.st.Remover(entity.Tag); err != nil {
+		return err
+	}
+	if err = remover.EnsureDead(); err != nil {
+		return err
+	}
+	return remover.Remove()
 }
 
 // Remove removes every given entity from state, calling EnsureDead
@@ -36,19 +50,14 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRemove, err := r.getCanRemove()
+	canModify, err := r.getCanModify()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := ErrPerm
-		if canRemove(entity.Tag) {
-			var remover state.Remover
-			if remover, err = r.st.Remover(entity.Tag); err == nil {
-				if err = remover.EnsureDead(); err == nil {
-					err = remover.Remove()
-				}
-			}
+		if canModify(entity.Tag) {
+			err = r.removeEntity(entity)
 		}
 		result.Errors[i] = ServerError(err)
 	}
