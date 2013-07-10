@@ -160,22 +160,23 @@ func (s *upgraderSuite) TestTools(c *C) {
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	w, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
+	defer statetesting.AssertStop(c, w)
 	c.Assert(err, IsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	// Initial event
-	s.SyncAPIServerState()
 	wc.AssertOneChange()
-	// Setting the AgentVersion without actually changing it doesn't
-	// trigger an update
-	ver := version.Current.Number
-	err = statetesting.SetAgentVersion(s.State, ver)
+	vers := version.MustParse("10.20.34")
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, IsNil)
-	s.SyncAPIServerState()
+	// One change noticing the new version
+	wc.AssertOneChange()
+	// Setting the version to the same value doesn't trigger a change
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
+	c.Assert(err, IsNil)
 	wc.AssertNoChange()
-	ver.Minor += 1
-	err = statetesting.SetAgentVersion(s.State, ver)
+	vers = version.MustParse("10.20.35")
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, IsNil)
-	s.SyncAPIServerState()
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
