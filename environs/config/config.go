@@ -6,12 +6,19 @@ package config
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/schema"
-	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
+
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.environs.config")
 
 // FirewallMode defines the way in which the environment
 // handles opening and closing of firewall ports.
@@ -401,3 +408,41 @@ var defaults = schema.Defaults{
 }
 
 var checker = schema.FieldMap(fields, defaults)
+
+// ValidateUnknownAttrs checks the unknown attributes of the config against
+// the supplied fields and defaults, and returns an error if any fails to
+// validate. Unknown fields are warned about, but preserved, on the basis
+// that they are reasonably likely to have been written by or for a version
+// of juju that does recognise the fields, but that their presence is still
+// anomalous to some degree and should be flagged (and that there is thereby
+// a mechanism for observing fields that really are typos etc).
+func (cfg *Config) ValidateUnknownAttrs(fields schema.Fields, defaults schema.Defaults) (map[string]interface{}, error) {
+	attrs := cfg.UnknownAttrs()
+	checker := schema.FieldMap(fields, defaults)
+	coerced, err := checker.Coerce(attrs, nil)
+	if err != nil {
+		return nil, err
+	}
+	result := coerced.(map[string]interface{})
+	for name, value := range attrs {
+		if fields[name] == nil {
+			logger.Warningf("unknown config field %q", name)
+			result[name] = value
+		}
+	}
+	return result, nil
+}
+
+// GenerateStateServerCertAndKey makes sure that the config has a CACert and
+// CAPrivateKey, generates and retruns new certificate and key.
+func (cfg *Config) GenerateStateServerCertAndKey() ([]byte, []byte, error) {
+	caCert, hasCACert := cfg.CACert()
+	if !hasCACert {
+		return nil, nil, fmt.Errorf("environment configuration has no ca-cert")
+	}
+	caKey, hasCAKey := cfg.CAPrivateKey()
+	if !hasCAKey {
+		return nil, nil, fmt.Errorf("environment configuration has no ca-private-key")
+	}
+	return cert.NewServer(cfg.Name(), caCert, caKey, time.Now().UTC().AddDate(10, 0, 0))
+}

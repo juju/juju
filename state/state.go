@@ -8,9 +8,17 @@ package state
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -23,12 +31,6 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 // TODO(niemeyer): This must not be exported.
@@ -67,11 +69,13 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 }
 
 const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+const numberSnippet = "(0|[1-9][0-9]*)"
+const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
 
 var (
 	validService = regexp.MustCompile("^" + serviceSnippet + "$")
-	validUnit    = regexp.MustCompile("^" + serviceSnippet + "(-[a-z0-9]*[a-z][a-z0-9]*)*/[0-9]+$")
-	validMachine = regexp.MustCompile("^(0|[1-9][0-9]*)(/[a-z]+/(0|[1-9][0-9]*))*$")
+	validUnit    = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
+	validMachine = regexp.MustCompile("^" + numberSnippet + containerSnippet + "*$")
 )
 
 // BootstrapNonce is used as a nonce for the state server machine.
@@ -100,6 +104,7 @@ type State struct {
 	environments     *mgo.Collection
 	charms           *mgo.Collection
 	machines         *mgo.Collection
+	instanceData     *mgo.Collection
 	containerRefs    *mgo.Collection
 	relations        *mgo.Collection
 	relationScopes   *mgo.Collection
@@ -237,6 +242,7 @@ func (st *State) InjectMachine(series string, cons constraints.Value, instanceId
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
+	//TODO(wallyworld) - figure out how to determine the existing machine's characteristics so they can be recorded in state
 	return st.addMachine(&AddMachineParams{Series: series, Constraints: cons, instanceId: instanceId, nonce: BootstrapNonce, Jobs: jobs})
 }
 
@@ -248,7 +254,7 @@ type containerRefParams struct {
 	containerId string
 }
 
-func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, containerParams containerRefParams) (*machineDoc, []txn.Op, error) {
+func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons constraints.Value, containerParams *containerRefParams) (*machineDoc, []txn.Op, error) {
 	if mdoc.Series == "" {
 		return nil, nil, fmt.Errorf("no series specified")
 	}
@@ -288,6 +294,11 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, contain
 	sdoc := statusDoc{
 		Status: params.StatusPending,
 	}
+	// Machine constraints do not use a container constraint value.
+	// Both provisioning and deployment constraints use the same constraints.Value struct
+	// so here we clear the container value. Provisioning ignores the container value but
+	// clearing it avoids potential confusion.
+	cons.Container = nil
 	ops := []txn.Op{
 		{
 			C:      st.machines.Name,
@@ -298,6 +309,14 @@ func (st *State) addMachineOps(mdoc *machineDoc, cons constraints.Value, contain
 		createConstraintsOp(st, machineGlobalKey(mdoc.Id), cons),
 		createStatusOp(st, machineGlobalKey(mdoc.Id), sdoc),
 	}
+	if metadata != nil {
+		ops = append(ops, txn.Op{
+			C:      st.instanceData.Name,
+			Id:     mdoc.Id,
+			Assert: txn.DocMissing,
+			Insert: *metadata,
+		})
+	}
 	ops = append(ops, createContainerRefOp(st, containerParams)...)
 	return mdoc, ops, nil
 }
@@ -307,10 +326,53 @@ type AddMachineParams struct {
 	Series        string
 	Constraints   constraints.Value
 	ParentId      string
-	ContainerType ContainerType
+	ContainerType instance.ContainerType
 	instanceId    instance.Id
 	nonce         string
 	Jobs          []MachineJob
+}
+
+// addMachineContainerOps returns txn operations and associated Mongo records used to create a new machine,
+// accounting for the fact that a machine may require a container and may require instance data.
+// This method exists to cater for:
+// 1. InjectMachine, which is used to record in state an instantiated bootstrap node. When adding
+// a machine to state so that it is provisioned normally, the instance id is not known at this point.
+// 2. AssignToNewMachine, which is used to create a new machine on which to deploy a unit.
+func (st *State) addMachineContainerOps(params *AddMachineParams, cons constraints.Value) ([]txn.Op, *instanceData, *containerRefParams, error) {
+	var instData *instanceData
+	if params.instanceId != "" {
+		instData = &instanceData{
+			InstanceId: params.instanceId,
+		}
+	}
+	var ops []txn.Op
+	var containerParams = &containerRefParams{hostId: params.ParentId, hostOnly: true}
+	// If we are creating a container, first create the host (parent) machine if necessary.
+	if params.ContainerType != "" {
+		containerParams.hostOnly = false
+		if params.ParentId == "" {
+			// No parent machine is specified so create one.
+			mdoc := &machineDoc{
+				Series: params.Series,
+				Jobs:   params.Jobs,
+				Clean:  true,
+			}
+			mdoc, parentOps, err := st.addMachineOps(mdoc, instData, cons, &containerRefParams{})
+			if err != nil {
+				return nil, nil, nil, err
+			}
+			ops = parentOps
+			containerParams.hostId = mdoc.Id
+			containerParams.newHost = true
+		} else {
+			// If a parent machine is specified, make sure it exists.
+			_, err := st.Machine(containerParams.hostId)
+			if err != nil {
+				return nil, nil, nil, err
+			}
+		}
+	}
+	return ops, instData, containerParams, nil
 }
 
 // addMachine implements AddMachine and InjectMachine.
@@ -326,44 +388,22 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		return nil, err
 	}
 	cons = params.Constraints.WithFallbacks(cons)
-	var ops []txn.Op
-	var containerParams = containerRefParams{hostId: params.ParentId, hostOnly: true}
-	// If we are creating a container, first create the host (parent) machine if necessary.
-	if params.ContainerType != "" {
-		containerParams.hostOnly = false
-		if params.ParentId == "" {
-			// No parent machine is specified so create one.
-			mdoc := &machineDoc{
-				Series:     params.Series,
-				InstanceId: params.instanceId,
-				Nonce:      params.nonce,
-				Jobs:       params.Jobs,
-				Clean:      true,
-			}
-			mdoc, parentOps, err := st.addMachineOps(mdoc, cons, containerRefParams{})
-			if err != nil {
-				return nil, err
-			}
-			ops = parentOps
-			containerParams.hostId = mdoc.Id
-			containerParams.newHost = true
-		} else {
-			// If a parent machine is specified, make sure it exists.
-			_, err := st.Machine(containerParams.hostId)
-			if err != nil {
-				return nil, err
-			}
-		}
+
+	ops, instData, containerParams, err := st.addMachineContainerOps(params, cons)
+	if err != nil {
+		return nil, err
 	}
 	mdoc := &machineDoc{
 		Series:        params.Series,
 		ContainerType: string(params.ContainerType),
-		InstanceId:    params.instanceId,
-		Nonce:         params.nonce,
 		Jobs:          params.Jobs,
 		Clean:         true,
 	}
-	mdoc, machineOps, err := st.addMachineOps(mdoc, cons, containerParams)
+	if mdoc.ContainerType == "" {
+		mdoc.InstanceId = params.instanceId
+		mdoc.Nonce = params.nonce
+	}
+	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
 	if err != nil {
 		return nil, err
 	}
@@ -973,8 +1013,13 @@ func (st *State) AddRelation(eps ...Endpoint) (r *Relation, err error) {
 
 // EndpointsRelation returns the existing relation with the given endpoints.
 func (st *State) EndpointsRelation(endpoints ...Endpoint) (*Relation, error) {
+	return st.KeyRelation(relationKey(endpoints))
+}
+
+// KeyRelation returns the existing relation with the given key (which can
+// be derived unambiguously from the relation's endpoints).
+func (st *State) KeyRelation(key string) (*Relation, error) {
 	doc := relationDoc{}
-	key := relationKey(endpoints)
 	err := st.relations.Find(D{{"_id", key}}).One(&doc)
 	if err == mgo.ErrNotFound {
 		return nil, errors.NotFoundf("relation %q", key)
@@ -1087,15 +1132,20 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 			return err
 		}
 		return u.AssignToMachine(m)
-	case AssignUnused:
-		if _, err = u.AssignToUnusedMachine(); err != noUnusedMachines {
+	case AssignClean:
+		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
+			return err
+		}
+		return u.AssignToNewMachine()
+	case AssignCleanEmpty:
+		if _, err = u.AssignToCleanEmptyMachine(); err != noCleanMachines {
 			return err
 		}
 		return u.AssignToNewMachine()
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}
-	panic(fmt.Errorf("unknown unit assignment policy: %q", policy))
+	return fmt.Errorf("unknown unit assignment policy: %q", policy)
 }
 
 // StartSync forces watchers to resynchronize their state with the

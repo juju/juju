@@ -5,12 +5,12 @@ package machine_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	"time"
+	statetesting "launchpad.net/juju-core/state/testing"
 )
 
 type machinerSuite struct {
@@ -41,7 +41,7 @@ func (s *machinerSuite) SetUpTest(c *C) {
 
 func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp string) {
 	c.Assert(err, NotNil)
-	c.Assert(api.ErrCode(err), Equals, code)
+	c.Assert(params.ErrCode(err), Equals, code)
 	c.Assert(err, ErrorMatches, messageRegexp)
 }
 
@@ -62,16 +62,16 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 
 	args := params.MachinesSetStatus{
 		Machines: []params.MachineSetStatus{
-			{Id: "1", Status: params.StatusError, Info: "not really"},
-			{Id: "0", Status: params.StatusStopped, Info: "foobar"},
-			{Id: "42", Status: params.StatusStarted, Info: "blah"},
+			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
+			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
+			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Errors[2], params.CodeUnauthorized, "permission denied")
 
 	// Verify machine 0 - no change.
 	status, info, err := s.machine0.Status()
@@ -92,31 +92,35 @@ func (s *machinerSuite) TestLife(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
 
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Machines, HasLen, 3)
-	c.Assert(result.Machines[0].Error, IsNil)
-	c.Assert(string(result.Machines[0].Life), Equals, "dead")
-	s.assertError(c, result.Machines[1].Error, api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Machines[2].Error, api.CodeNotFound, "machine 42 not found")
+	c.Assert(result.Results, HasLen, 3)
+	c.Assert(result.Results[0].Error, IsNil)
+	c.Assert(string(result.Results[0].Life), Equals, "dead")
+	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Results[2].Error, params.CodeUnauthorized, "permission denied")
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine0.Life(), Equals, state.Alive)
 	c.Assert(s.machine1.Life(), Equals, state.Alive)
 
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Errors, HasLen, 3)
 	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Errors[2], params.CodeUnauthorized, "permission denied")
 
 	err = s.machine0.Refresh()
 	c.Assert(err, IsNil)
@@ -126,8 +130,8 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(s.machine1.Life(), Equals, state.Dead)
 
 	// Try it again on a Dead machine; should work.
-	args = params.Machines{
-		Ids: []string{"1"},
+	args = params.Entities{
+		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
 	result, err = s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
@@ -143,33 +147,26 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(s.resources.Count(), Equals, 0)
 
-	args := params.Machines{
-		Ids: []string{"1", "0", "42"},
-	}
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "machine-1"},
+		{Tag: "machine-0"},
+		{Tag: "machine-42"},
+	}}
 	result, err := s.machiner.Watch(args)
 	c.Assert(err, IsNil)
 	c.Assert(result.Results, HasLen, 3)
 	c.Assert(result.Results[0].Error, IsNil)
-	s.assertError(c, result.Results[1].Error, api.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Results[2].Error, api.CodeNotFound, "machine 42 not found")
+	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
+	s.assertError(c, result.Results[2].Error, params.CodeUnauthorized, "permission denied")
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), Equals, 1)
-	c.Assert(result.Results[0].EntityWatcherId, Equals, "1")
+	c.Assert(result.Results[0].NotifyWatcherId, Equals, "1")
 	resource := s.resources.Get("1")
-	defer func() {
-		err := resource.Stop()
-		c.Assert(err, IsNil)
-	}()
+	defer statetesting.AssertStop(c, resource)
 
-	// Check that the watcher returns an initial event
-	channel := resource.(*state.EntityWatcher).Changes()
-	// Should use helpers from state/watcher_test.go when generalised
-	select {
-	case _, ok := <-channel:
-		c.Assert(ok, Equals, true)
-		// The value is just an empty struct currently
-	case <-time.After(50 * time.Millisecond):
-		c.Fatal("timeout waiting for entity watcher")
-	}
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
+	wc.AssertNoChange()
 }

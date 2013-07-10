@@ -8,13 +8,14 @@ package version
 import (
 	"fmt"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"labix.org/v2/mgo/bson"
 )
 
 // The presence and format of this constant is very important.

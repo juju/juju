@@ -135,9 +135,12 @@ func (s *clientSuite) TestClientEnvironmentInfo(c *C) {
 	conf, _ := s.State.EnvironConfig()
 	info, err := s.APIState.Client().EnvironmentInfo()
 	c.Assert(err, IsNil)
+	env, err := s.State.Environment()
+	c.Assert(err, IsNil)
 	c.Assert(info.DefaultSeries, Equals, conf.DefaultSeries())
 	c.Assert(info.ProviderType, Equals, conf.Type())
 	c.Assert(info.Name, Equals, conf.Name())
+	c.Assert(info.UUID, Equals, env.UUID())
 }
 
 var clientAnnotationsTests = []struct {
@@ -554,7 +557,7 @@ func (s *clientSuite) TestClientWatchAll(c *C) {
 	// all the logic is tested elsewhere.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
-	err = m.SetProvisioned("i-0", state.BootstrapNonce)
+	err = m.SetProvisioned("i-0", state.BootstrapNonce, nil)
 	c.Assert(err, IsNil)
 	watcher, err := s.APIState.Client().WatchAll()
 	c.Assert(err, IsNil)

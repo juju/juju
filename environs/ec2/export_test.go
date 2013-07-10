@@ -16,18 +16,6 @@ import (
 	"net/http"
 )
 
-type BootstrapState struct {
-	StateInstances []instance.Id
-}
-
-func LoadState(e environs.Environ) (*BootstrapState, error) {
-	s, err := e.(*environ).loadState()
-	if err != nil {
-		return nil, err
-	}
-	return &BootstrapState{s.StateInstances}, nil
-}
-
 func JujuGroupName(e environs.Environ) string {
 	return e.(*environ).jujuGroupName()
 }
@@ -42,10 +30,6 @@ func EnvironEC2(e environs.Environ) *ec2.EC2 {
 
 func EnvironS3(e environs.Environ) *s3.S3 {
 	return e.(*environ).s3()
-}
-
-func DeleteStorageContent(s environs.Storage) error {
-	return s.(*storage).deleteAll()
 }
 
 func InstanceEC2(inst instance.Instance) *ec2.Instance {
@@ -121,7 +105,7 @@ func UseTestMetadata(content []jujutest.FileContent) {
 }
 
 var originalShortAttempt = shortAttempt
-var originalLongAttempt = longAttempt
+var originalLongAttempt = environs.LongAttempt
 
 // ShortTimeouts sets the timeouts to a short period as we
 // know that the ec2test server doesn't get better with time,
@@ -132,10 +116,10 @@ func ShortTimeouts(short bool) {
 			Total: 0.25e9,
 			Delay: 0.01e9,
 		}
-		longAttempt = shortAttempt
+		environs.LongAttempt = shortAttempt
 	} else {
 		shortAttempt = originalShortAttempt
-		longAttempt = originalLongAttempt
+		environs.LongAttempt = originalLongAttempt
 	}
 }
 

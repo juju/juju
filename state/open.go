@@ -14,6 +14,7 @@ import (
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -216,6 +217,7 @@ func newState(session *mgo.Session, info *Info) (*State, error) {
 		charms:         db.C("charms"),
 		machines:       db.C("machines"),
 		containerRefs:  db.C("containerRefs"),
+		instanceData:   db.C("instanceData"),
 		relations:      db.C("relations"),
 		relationScopes: db.C("relationscopes"),
 		services:       db.C("services"),

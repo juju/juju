@@ -10,27 +10,23 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-var azureConfigChecker = schema.StrictFieldMap(
-	schema.Fields{
-		"management-subscription-id":     schema.String(),
-		"management-certificate-path":    schema.String(),
-		"management-certificate":         schema.String(),
-		"management-hosted-service-name": schema.String(),
-		"storage-account-name":           schema.String(),
-		"storage-account-key":            schema.String(),
-		"storage-container-name":         schema.String(),
-		"public-storage-account-name":    schema.String(),
-		"public-storage-container-name":  schema.String(),
-	},
-	schema.Defaults{
-		"management-hosted-service-name": "",
-		"management-certificate":         "",
-		"management-certificate-path":    "",
-		"storage-container-name":         "",
-		"public-storage-account-name":    "",
-		"public-storage-container-name":  "",
-	},
-)
+var configFields = schema.Fields{
+	"management-subscription-id":    schema.String(),
+	"management-certificate-path":   schema.String(),
+	"management-certificate":        schema.String(),
+	"storage-account-name":          schema.String(),
+	"storage-account-key":           schema.String(),
+	"storage-container-name":        schema.String(),
+	"public-storage-account-name":   schema.String(),
+	"public-storage-container-name": schema.String(),
+}
+var configDefaults = schema.Defaults{
+	"management-certificate":        "",
+	"management-certificate-path":   "",
+	"storage-container-name":        "",
+	"public-storage-account-name":   "",
+	"public-storage-container-name": "",
+}
 
 type azureEnvironConfig struct {
 	*config.Config
@@ -43,10 +39,6 @@ func (cfg *azureEnvironConfig) ManagementSubscriptionId() string {
 
 func (cfg *azureEnvironConfig) ManagementCertificate() string {
 	return cfg.attrs["management-certificate"].(string)
-}
-
-func (cfg *azureEnvironConfig) ManagementHostedServiceName() string {
-	return cfg.attrs["management-hosted-service-name"].(string)
 }
 
 func (cfg *azureEnvironConfig) StorageAccountName() string {
@@ -89,13 +81,13 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 		return nil, err
 	}
 
-	v, err := azureConfigChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
 	envCfg := new(azureEnvironConfig)
 	envCfg.Config = cfg
-	envCfg.attrs = v.(map[string]interface{})
+	envCfg.attrs = validated
 
 	cert := envCfg.ManagementCertificate()
 	if cert == "" {
@@ -107,9 +99,6 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 		envCfg.attrs["management-certificate"] = string(pemData)
 	}
 	delete(envCfg.attrs, "management-certificate-path")
-	if envCfg.ManagementHostedServiceName() == "" {
-		return nil, fmt.Errorf("environment has no management-hosted-service-name; auto-creation of hosted services is not yet supported")
-	}
 	if envCfg.StorageContainerName() == "" {
 		return nil, fmt.Errorf("environment has no storage-container-name; auto-creation of storage containers is not yet supported")
 	}
@@ -118,9 +107,6 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	}
 	if oldCfg != nil {
 		attrs := oldCfg.UnknownAttrs()
-		if hostedServiceName, _ := attrs["management-hosted-service-name"].(string); envCfg.ManagementHostedServiceName() != hostedServiceName {
-			return nil, fmt.Errorf("cannot change management-hosted-service-name from %q to %q", hostedServiceName, envCfg.ManagementHostedServiceName())
-		}
 		if storageContainerName, _ := attrs["storage-container-name"].(string); envCfg.StorageContainerName() != storageContainerName {
 			return nil, fmt.Errorf("cannot change storage-container-name from %q to %q", storageContainerName, envCfg.StorageContainerName())
 		}
@@ -135,7 +121,6 @@ const boilerplateYAML = `azure:
   # Windows Azure Management info.
   management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d
   management-certificate-path: /home/me/azure.pem
-  management-hosted-service-name: gwaclbize3r9qh67ro6qbgvm
   # Windows Azure Storage info.
   storage-account-name: ghedlkjhw54e
   storage-account-key: fdjh4sfkg

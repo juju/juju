@@ -5,16 +5,18 @@ package state
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
-	"strings"
-	"time"
 )
 
 // Machine represents the state of a machine.
@@ -56,7 +58,6 @@ type machineDoc struct {
 	Nonce         string
 	Series        string
 	ContainerType string
-	InstanceId    instance.Id
 	Principals    []string
 	Life          Life
 	Tools         *Tools `bson:",omitempty"`
@@ -64,6 +65,11 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
+	// Deprecated. InstanceId, now lives on instanceData.
+	// This attribute is retained so that data from existing machines can be read.
+	// SCHEMACHANGE
+	// TODO(wallyworld): remove this attribute when schema upgrades are possible.
+	InstanceId instance.Id
 }
 
 func newMachine(st *State, doc *machineDoc) *Machine {
@@ -90,8 +96,8 @@ func (m *Machine) Series() string {
 }
 
 // ContainerType returns the type of container hosting this machine.
-func (m *Machine) ContainerType() ContainerType {
-	return ContainerType(m.doc.ContainerType)
+func (m *Machine) ContainerType() instance.ContainerType {
+	return instance.ContainerType(m.doc.ContainerType)
 }
 
 // machineGlobalKey returns the global database key for the identified machine.
@@ -102,6 +108,43 @@ func machineGlobalKey(id string) string {
 // globalKey returns the global database key for the machine.
 func (m *Machine) globalKey() string {
 	return machineGlobalKey(m.doc.Id)
+}
+
+// instanceData holds attributes relevant to a provisioned machine.
+type instanceData struct {
+	Id         string      `bson:"_id"`
+	InstanceId instance.Id `bson:"instanceid"`
+	Arch       *string     `bson:"arch,omitempty"`
+	Mem        *uint64     `bson:"mem,omitempty"`
+	CpuCores   *uint64     `bson:"cpucpores,omitempty"`
+	CpuPower   *uint64     `bson:"cpupower,omitempty"`
+	TxnRevno   int64       `bson:"txn-revno"`
+}
+
+// TODO(wallyworld): move this method to a service.
+func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, error) {
+	hc := &instance.HardwareCharacteristics{}
+	instData, err := getInstanceData(m.st, m.Id())
+	if err != nil {
+		return nil, err
+	}
+	hc.Arch = instData.Arch
+	hc.Mem = instData.Mem
+	hc.CpuCores = instData.CpuCores
+	hc.CpuPower = instData.CpuPower
+	return hc, nil
+}
+
+func getInstanceData(st *State, id string) (instanceData, error) {
+	var instData instanceData
+	err := st.instanceData.FindId(id).One(&instData)
+	if err == mgo.ErrNotFound {
+		return instanceData{}, errors.NotFoundf("instance data for machine %v", id)
+	}
+	if err != nil {
+		return instanceData{}, fmt.Errorf("cannot get instance data for machine %v: %v", id, err)
+	}
+	return instData, nil
 }
 
 const machineTagPrefix = "machine-"
@@ -384,6 +427,11 @@ func (m *Machine) Remove() (err error) {
 			Assert: txn.DocExists,
 			Remove: true,
 		},
+		{
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Remove: true,
+		},
 		removeStatusOp(m.st, m.globalKey()),
 		removeConstraintsOp(m.st, m.globalKey()),
 		annotationRemoveOp(m.st, m.globalKey()),
@@ -449,8 +497,21 @@ func (m *Machine) SetAgentAlive() (*presence.Pinger, error) {
 
 // InstanceId returns the provider specific instance id for this machine
 // and whether it has been set.
-func (m *Machine) InstanceId() (instance.Id, bool) {
-	return m.doc.InstanceId, m.doc.InstanceId != ""
+func (m *Machine) InstanceId() (instance.Id, error) {
+	// SCHEMACHANGE
+	// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
+	// (we first check for InstanceId stored on the machineDoc)
+	if m.doc.InstanceId != "" {
+		return m.doc.InstanceId, nil
+	}
+	instData, err := getInstanceData(m.st, m.Id())
+	if (err == nil && instData.InstanceId == "") || (err != nil && errors.IsNotFoundError(err)) {
+		err = &NotProvisionedError{m.Id()}
+	}
+	if err != nil {
+		return "", err
+	}
+	return instData.InstanceId, nil
 }
 
 // Units returns all the units that have been assigned to the machine.
@@ -475,25 +536,49 @@ func (m *Machine) Units() (units []*Unit, err error) {
 	return units, nil
 }
 
-// SetProvisioned sets the provider specific machine id and nonce for
+// SetProvisioned sets the provider specific machine id, nonce and also metadata for
 // this machine. Once set, the instance id cannot be changed.
-func (m *Machine) SetProvisioned(id instance.Id, nonce string) (err error) {
-	defer utils.ErrorContextf(&err, "cannot set instance id of machine %q", m)
+func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *instance.HardwareCharacteristics) (err error) {
+	defer utils.ErrorContextf(&err, "cannot set instance data for machine %q", m)
 
 	if id == "" || nonce == "" {
 		return fmt.Errorf("instance id and nonce cannot be empty")
 	}
+
+	if characteristics == nil {
+		characteristics = &instance.HardwareCharacteristics{}
+	}
+	hc := &instanceData{
+		Id:         m.doc.Id,
+		InstanceId: id,
+		Arch:       characteristics.Arch,
+		Mem:        characteristics.Mem,
+		CpuCores:   characteristics.CpuCores,
+		CpuPower:   characteristics.CpuPower,
+	}
+	// SCHEMACHANGE
+	// TODO(wallyworld) - do not check instanceId on machineDoc after schema is upgraded
 	notSetYet := D{{"instanceid", ""}, {"nonce", ""}}
-	ops := []txn.Op{{
-		C:      m.st.machines.Name,
-		Id:     m.doc.Id,
-		Assert: append(isAliveDoc, notSetYet...),
-		Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
-	}}
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: append(isAliveDoc, notSetYet...),
+			Update: D{{"$set", D{{"instanceid", id}, {"nonce", nonce}}}},
+		}, {
+			C:      m.st.instanceData.Name,
+			Id:     m.doc.Id,
+			Assert: txn.DocMissing,
+			Insert: hc,
+		},
+	}
 
 	if err = m.st.runTransaction(ops); err == nil {
-		m.doc.InstanceId = id
 		m.doc.Nonce = nonce
+		// SCHEMACHANGE
+		// TODO(wallyworld) - remove this backward compatibility code when schema upgrades are possible
+		// (InstanceId is stored on the instanceData document but we duplicate the value on the machineDoc.
+		m.doc.InstanceId = id
 		return nil
 	} else if err != txn.ErrAborted {
 		return err
@@ -505,10 +590,26 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string) (err error) {
 	return fmt.Errorf("already set")
 }
 
-// CheckProvisioned returns true if the machine was provisioned with
-// the given nonce.
+// NotProvisionedError records an error when a machine is not provisioned.
+type NotProvisionedError struct {
+	machineId string
+}
+
+// IsNotProvisionedError returns true if err is a NotProvisionedError.
+func IsNotProvisionedError(err error) bool {
+	if _, ok := err.(*NotProvisionedError); ok {
+		return true
+	}
+	return false
+}
+
+func (e *NotProvisionedError) Error() string {
+	return fmt.Sprintf("machine %v is not provisioned", e.machineId)
+}
+
+// CheckProvisioned returns true if the machine was provisioned with the given nonce.
 func (m *Machine) CheckProvisioned(nonce string) bool {
-	return m.doc.Nonce == nonce && m.doc.InstanceId != ""
+	return nonce == m.doc.Nonce && nonce != ""
 }
 
 // String returns a unique description of this machine.
@@ -527,12 +628,12 @@ func (m *Machine) Constraints() (constraints.Value, error) {
 // is already provisioned.
 func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set constraints")
-	notProvisioned := D{{"instanceid", ""}}
+	notSetYet := D{{"nonce", ""}}
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
-			Assert: append(isAliveDoc, notProvisioned...),
+			Assert: append(isAliveDoc, notSetYet...),
 		},
 		setConstraintsOp(m.st, m.globalKey(), cons),
 	}
@@ -545,8 +646,10 @@ func (m *Machine) SetConstraints(cons constraints.Value) (err error) {
 		if m.doc.Life != Alive {
 			return errNotAlive
 		}
-		if m.doc.InstanceId != "" {
+		if _, err := m.InstanceId(); err == nil {
 			return fmt.Errorf("machine is already provisioned")
+		} else if !IsNotProvisionedError(err) {
+			return err
 		}
 		if err := m.st.runTransaction(ops); err != txn.ErrAborted {
 			return err

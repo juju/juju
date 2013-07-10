@@ -4,10 +4,11 @@
 package environs_test
 
 import (
-	. "launchpad.net/gocheck"
 	"testing"
+
+	gc "launchpad.net/gocheck"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }

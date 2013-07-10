@@ -6,22 +6,20 @@ package cloudinit
 import (
 	"encoding/base64"
 	"fmt"
+	"path/filepath"
+
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
-	"path"
-)
-
-const (
-	maxMongoFiles = 65000
-	maxAgentFiles = 20000
 )
 
 // MachineConfig represents initialization information for a new juju machine.
@@ -76,7 +74,7 @@ type MachineConfig struct {
 
 	// MachineContainerType specifies the type of container that the machine
 	// is.  If the machine is not a container, then the type is "".
-	MachineContainerType state.ContainerType
+	MachineContainerType instance.ContainerType
 
 	// AuthorizedKeys specifies the keys that are allowed to
 	// connect to the machine (see cloudinit.SSHAddAuthorizedKeys)
@@ -121,7 +119,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	c.AddPackage("git")
 	// Perfectly reasonable to install lxc on environment instances and kvm
 	// containers.
-	if cfg.MachineContainerType != state.LXC {
+	if cfg.MachineContainerType != instance.LXC {
 		c.AddPackage("lxc")
 	}
 
@@ -189,9 +187,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		)
 	}
 
-	if err := cfg.addAgentToBoot(c, "machine",
-		machineTag,
-		fmt.Sprintf("--machine-id %s "+debugFlag, cfg.MachineId)); err != nil {
+	if err := cfg.addMachineAgentToBoot(c, machineTag, cfg.MachineId, debugFlag); err != nil {
 		return nil, err
 	}
 
@@ -231,7 +227,7 @@ func addFile(c *cloudinit.Config, filename, data string, mode uint) {
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
-	return path.Join(cfg.DataDir, name)
+	return filepath.Join(cfg.DataDir, name)
 }
 
 func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
@@ -272,7 +268,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (*agent.
 	return acfg, nil
 }
 
-func (cfg *MachineConfig) addAgentToBoot(c *cloudinit.Config, kind, tag, args string) error {
+func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machineId, logConfig string) error {
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
@@ -280,27 +276,8 @@ func (cfg *MachineConfig) addAgentToBoot(c *cloudinit.Config, kind, tag, args st
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
 
-	svc := upstart.NewService("jujud-" + tag)
-	logPath := fmt.Sprintf("/var/log/juju/%s.log", tag)
-	cmd := fmt.Sprintf(
-		"%s/jujud %s"+
-			" --log-file %s"+
-			" --data-dir '%s'"+
-			" %s",
-		toolsDir, kind,
-		logPath,
-		cfg.DataDir,
-		args,
-	)
-	conf := &upstart.Conf{
-		Service: *svc,
-		Desc:    fmt.Sprintf("juju %s agent", tag),
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
-		},
-		Cmd: cmd,
-		Out: logPath,
-	}
+	name := "jujud-" + tag
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
@@ -310,33 +287,16 @@ func (cfg *MachineConfig) addAgentToBoot(c *cloudinit.Config, kind, tag, args st
 }
 
 func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
+	dbDir := filepath.Join(cfg.DataDir, "db")
 	addScripts(c,
-		"mkdir -p /var/lib/juju/db/journal",
+		"mkdir -p "+dbDir+"/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
-		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.0",
-		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.1",
-		"dd bs=1M count=1 if=/dev/zero of=/var/lib/juju/db/journal/prealloc.2",
+		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.0",
+		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.1",
+		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.2",
 	)
-	svc := upstart.NewService("juju-db")
-	conf := &upstart.Conf{
-		Service: *svc,
-		Desc:    "juju state database",
-		Limit: map[string]string{
-			"nofile": fmt.Sprintf("%d %d", maxMongoFiles, maxMongoFiles),
-			"nproc":  fmt.Sprintf("%d %d", maxAgentFiles, maxAgentFiles),
-		},
-		Cmd: "/usr/bin/mongod" +
-			" --auth" +
-			" --dbpath=/var/lib/juju/db" +
-			" --sslOnNormalPorts" +
-			" --sslPEMKeyFile " + shquote(cfg.dataFile("server.pem")) +
-			" --sslPEMKeyPassword ignored" +
-			" --bind_ip 0.0.0.0" +
-			" --port " + fmt.Sprint(cfg.StatePort) +
-			" --noprealloc" +
-			" --syslog" +
-			" --smallfiles",
-	}
+
+	conf := upstart.MongoUpstartService("juju-db", cfg.DataDir, dbDir, cfg.StatePort)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
@@ -349,8 +309,8 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 // to use as a directory for storing the tools executables in
 // by using the last element stripped of its extension.
 func versionDir(toolsURL string) string {
-	name := path.Base(toolsURL)
-	ext := path.Ext(name)
+	name := filepath.Base(toolsURL)
+	ext := filepath.Ext(name)
 	return name[:len(name)-len(ext)]
 }
 

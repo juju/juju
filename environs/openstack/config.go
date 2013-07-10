@@ -12,44 +12,42 @@ import (
 	"net/url"
 )
 
-var configChecker = schema.StrictFieldMap(
-	schema.Fields{
-		"username":          schema.String(),
-		"password":          schema.String(),
-		"tenant-name":       schema.String(),
-		"auth-url":          schema.String(),
-		"auth-mode":         schema.String(),
-		"access-key":        schema.String(),
-		"secret-key":        schema.String(),
-		"region":            schema.String(),
-		"control-bucket":    schema.String(),
-		"public-bucket":     schema.String(),
-		"public-bucket-url": schema.String(),
-		"use-floating-ip":   schema.Bool(),
-		// These next keys are deprecated and ignored. We keep them them in the schema
-		// so existing configs do not error.
-		"default-image-id":      schema.String(),
-		"default-instance-type": schema.String(),
-	},
-	schema.Defaults{
-		"username":          "",
-		"password":          "",
-		"tenant-name":       "",
-		"auth-url":          "",
-		"auth-mode":         string(AuthUserPass),
-		"access-key":        "",
-		"secret-key":        "",
-		"region":            "",
-		"control-bucket":    "",
-		"public-bucket":     "juju-dist",
-		"public-bucket-url": "",
-		"use-floating-ip":   false,
-		// These next keys are deprecated and ignored. We keep them them in the schema
-		// so existing configs do not error.
-		"default-image-id":      "",
-		"default-instance-type": "",
-	},
-)
+var configFields = schema.Fields{
+	"username":          schema.String(),
+	"password":          schema.String(),
+	"tenant-name":       schema.String(),
+	"auth-url":          schema.String(),
+	"auth-mode":         schema.String(),
+	"access-key":        schema.String(),
+	"secret-key":        schema.String(),
+	"region":            schema.String(),
+	"control-bucket":    schema.String(),
+	"public-bucket":     schema.String(),
+	"public-bucket-url": schema.String(),
+	"use-floating-ip":   schema.Bool(),
+	// These next keys are deprecated and ignored. We keep them them in the schema
+	// so existing configs do not error.
+	"default-image-id":      schema.String(),
+	"default-instance-type": schema.String(),
+}
+var configDefaults = schema.Defaults{
+	"username":          "",
+	"password":          "",
+	"tenant-name":       "",
+	"auth-url":          "",
+	"auth-mode":         string(AuthUserPass),
+	"access-key":        "",
+	"secret-key":        "",
+	"region":            "",
+	"control-bucket":    "",
+	"public-bucket":     "juju-dist",
+	"public-bucket-url": "",
+	"use-floating-ip":   false,
+	// These next keys are deprecated and ignored. We keep them them in the schema
+	// so existing configs do not error.
+	"default-image-id":      "",
+	"default-instance-type": "",
+}
 
 type environConfig struct {
 	*config.Config
@@ -140,11 +138,11 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 		log.Warningf(msg)
 	}
 
-	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
-	ecfg := &environConfig{cfg, v.(map[string]interface{})}
+	ecfg := &environConfig{cfg, validated}
 
 	authMode := AuthMode(ecfg.authMode())
 	switch authMode {

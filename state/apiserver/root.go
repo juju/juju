@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
@@ -80,57 +81,47 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	return machine.NewAgentAPI(r.srv.state, r)
 }
 
-// EntityWatcher returns an object that provides
-// API access to methods on a state.EntityWatcher.
+// Upgrader returns an object that provides access to the Upgrader API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) Upgrader(id string) (*upgrader.UpgraderAPI, error) {
+	if id != "" {
+		// TODO: There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return upgrader.NewUpgraderAPI(r.srv.state, r.resources, r)
+}
+
+// NotifyWatcher returns an object that provides
+// API access to methods on a state.NotifyWatcher.
 // Each client has its own current set of watchers, stored
 // in r.resources.
-func (r *srvRoot) EntityWatcher(id string) (*srvEntityWatcher, error) {
+func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.EntityWatcher)
+	watcher, ok := r.resources.Get(id).(state.NotifyWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvEntityWatcher{
+	return &srvNotifyWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,
 	}, nil
 }
 
-// LifecycleWatcher returns an object that provides
-// API access to methods on a state.LifecycleWatcher.
-// Each client has its own current set of watchers, stored
-// in r.resources.
-func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
+// StringsWatcher returns an object that provides API access to
+// methods on a state.StringsWatcher.  Each client has its own
+// current set of watchers, stored in r.resources.
+func (r *srvRoot) StringsWatcher(id string) (*srvStringsWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.LifecycleWatcher)
+	watcher, ok := r.resources.Get(id).(state.StringsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvLifecycleWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: r.resources,
-	}, nil
-}
-
-// EnvironConfigWatcher returns an object that provides
-// API access to methods on a state.EnvironConfigWatcher.
-// Each client has its own current set of watchers, stored
-// in r.resources.
-func (r *srvRoot) EnvironConfigWatcher(id string) (*srvEnvironConfigWatcher, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	watcher, ok := r.resources.Get(id).(*state.EnvironConfigWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvEnvironConfigWatcher{
+	return &srvStringsWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,

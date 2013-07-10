@@ -287,17 +287,15 @@ func SetStorageDelay(d time.Duration) {
 	}
 }
 
-var checker = schema.StrictFieldMap(
-	schema.Fields{
-		"state-server": schema.Bool(),
-		"broken":       schema.String(),
-		"secret":       schema.String(),
-	},
-	schema.Defaults{
-		"broken": "",
-		"secret": "pork",
-	},
-)
+var configFields = schema.Fields{
+	"state-server": schema.Bool(),
+	"broken":       schema.String(),
+	"secret":       schema.String(),
+}
+var configDefaults = schema.Defaults{
+	"broken": "",
+	"secret": "pork",
+}
 
 type environConfig struct {
 	*config.Config
@@ -329,13 +327,12 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
-	v, err := checker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
 	// Apply the coerced unknown values back into the config.
-	attrs := v.(map[string]interface{})
-	return cfg.Apply(attrs)
+	return cfg.Apply(validated)
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -436,7 +433,12 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if _, ok := e.Config().CACert(); !ok {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if err := environs.VerifyStorage(e.Storage()); err != nil {
+
+	var shortAttempt = utils.AttemptStrategy{
+		Total: 200 * time.Millisecond,
+		Delay: 10 * time.Millisecond,
+	}
+	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
 		return err
 	}
 
@@ -567,26 +569,31 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		machineId: machineId,
 		series:    series,
 	}
-	// We will just assume the instance hardware characteristics exactly matches
-	// the supplied constraints (if specified).
-	hc := &instance.HardwareCharacteristics{
-		Arch:     cons.Arch,
-		Mem:      cons.Mem,
-		CpuCores: cons.CpuCores,
-		CpuPower: cons.CpuPower,
-	}
-	// Fill in some expected instance hardware characteristics if constraints not specified.
-	if hc.Arch == nil {
-		arch := "amd64"
-		hc.Arch = &arch
-	}
-	if hc.Mem == nil {
-		mem := uint64(1024)
-		hc.Mem = &mem
-	}
-	if hc.CpuCores == nil {
-		cores := uint64(1)
-		hc.CpuCores = &cores
+	var hc *instance.HardwareCharacteristics
+	// To match current system capability, only provide hardware characteristics for
+	// environ machines, not containers.
+	if state.ParentId(machineId) == "" {
+		// We will just assume the instance hardware characteristics exactly matches
+		// the supplied constraints (if specified).
+		hc = &instance.HardwareCharacteristics{
+			Arch:     cons.Arch,
+			Mem:      cons.Mem,
+			CpuCores: cons.CpuCores,
+			CpuPower: cons.CpuPower,
+		}
+		// Fill in some expected instance hardware characteristics if constraints not specified.
+		if hc.Arch == nil {
+			arch := "amd64"
+			hc.Arch = &arch
+		}
+		if hc.Mem == nil {
+			mem := uint64(1024)
+			hc.Mem = &mem
+		}
+		if hc.CpuCores == nil {
+			cores := uint64(1)
+			hc.CpuCores = &cores
+		}
 	}
 	e.state.insts[i.id] = i
 	e.state.maxId++
@@ -721,7 +728,7 @@ func (inst *dummyInstance) DNSName() (string, error) {
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return inst.DNSName()
+	return environs.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

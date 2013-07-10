@@ -7,7 +7,6 @@ import (
 	stderrors "errors"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -19,19 +18,20 @@ var (
 	ErrUnknownWatcher = stderrors.New("unknown watcher id")
 	ErrUnknownPinger  = stderrors.New("unknown pinger id")
 	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
+	ErrBadRequest     = stderrors.New("invalid request")
 )
 
 var singletonErrorCodes = map[error]string{
-	state.ErrCannotEnterScopeYet: api.CodeCannotEnterScopeYet,
-	state.ErrCannotEnterScope:    api.CodeCannotEnterScope,
-	state.ErrExcessiveContention: api.CodeExcessiveContention,
-	state.ErrUnitHasSubordinates: api.CodeUnitHasSubordinates,
-	ErrBadId:                     api.CodeNotFound,
-	ErrBadCreds:                  api.CodeUnauthorized,
-	ErrPerm:                      api.CodeUnauthorized,
-	ErrNotLoggedIn:               api.CodeUnauthorized,
-	ErrUnknownWatcher:            api.CodeNotFound,
-	ErrStoppedWatcher:            api.CodeStopped,
+	state.ErrCannotEnterScopeYet: params.CodeCannotEnterScopeYet,
+	state.ErrCannotEnterScope:    params.CodeCannotEnterScope,
+	state.ErrExcessiveContention: params.CodeExcessiveContention,
+	state.ErrUnitHasSubordinates: params.CodeUnitHasSubordinates,
+	ErrBadId:                     params.CodeNotFound,
+	ErrBadCreds:                  params.CodeUnauthorized,
+	ErrPerm:                      params.CodeUnauthorized,
+	ErrNotLoggedIn:               params.CodeUnauthorized,
+	ErrUnknownWatcher:            params.CodeNotFound,
+	ErrStoppedWatcher:            params.CodeStopped,
 }
 
 // ServerError returns an error suitable for returning to an API
@@ -45,15 +45,15 @@ func ServerError(err error) *params.Error {
 	switch {
 	case code != "":
 	case errors.IsUnauthorizedError(err):
-		code = api.CodeUnauthorized
+		code = params.CodeUnauthorized
 	case errors.IsNotFoundError(err):
-		code = api.CodeNotFound
+		code = params.CodeNotFound
 	case state.IsNotAssigned(err):
-		code = api.CodeNotAssigned
+		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
-		code = api.CodeHasAssignedUnits
+		code = params.CodeHasAssignedUnits
 	default:
-		code = api.ErrCode(err)
+		code = params.ErrCode(err)
 	}
 	return &params.Error{
 		Message: err.Error(),

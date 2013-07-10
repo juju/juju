@@ -120,7 +120,7 @@ the following types of entities:
 	RelationScopeWatcher
 	UnitsWatcher
 	ConfigWatcher
-	EntityWatcher
+	NotifyWatcher
 	MachineUnitsWatcher
 		These correspond directly to types exported by the
 		juju state package.  They are usable only by agents,
@@ -161,7 +161,7 @@ Server->Client
 	{
 		RequestId: 1000
 		Response: {
-			EntityWatcherId: "1"
+			NotifyWatcherId: "1"
 		}
 	}
 
@@ -171,7 +171,7 @@ only return when the entity has changed.
 Client->Server
 	{
 		RequestId: 1001
-		Type: "EntityWatcher"
+		Type: "NotifyWatcher"
 		Id: "1"
 		Request: "Next"
 	}
@@ -194,7 +194,7 @@ Next request.
 Client->Server
 	{
 		RequestId: 1002
-		Type: "EntityWatcher"
+		Type: "NotifyWatcher"
 		Id: "1"
 		Request: "Next"
 	}
@@ -206,7 +206,7 @@ in no particular order with respect to the Stop reply.
 Client->Server
 	{
 		RequestId: 1003
-		Type: "EntityWatcher"
+		Type: "NotifyWatcher"
 		Id: "1"
 		Request: "Stop"
 	}

@@ -5,12 +5,15 @@ package state
 
 import (
 	"fmt"
+	"reflect"
+	"strings"
+
 	"labix.org/v2/mgo"
+
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
-	"reflect"
-	"strings"
 )
 
 // allWatcherStateBacking implements allWatcherBacking by
@@ -26,8 +29,7 @@ type backingMachine machineDoc
 
 func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interface{}) error {
 	info := &params.MachineInfo{
-		Id:         m.Id,
-		InstanceId: string(m.InstanceId),
+		Id: m.Id,
 	}
 	oldInfo := store.Get(info.EntityId())
 	if oldInfo == nil {
@@ -40,10 +42,20 @@ func (m *backingMachine) updated(st *State, store *multiwatcher.Store, id interf
 		info.Status = sdoc.Status
 		info.StatusInfo = sdoc.StatusInfo
 	} else {
-		// The entry already exists, so preserve the current status.
+		// The entry already exists, so preserve the current status and instance id.
 		oldInfo := oldInfo.(*params.MachineInfo)
 		info.Status = oldInfo.Status
 		info.StatusInfo = oldInfo.StatusInfo
+		info.InstanceId = oldInfo.InstanceId
+	}
+	// If the machine is been provisioned, fetch the instance id if required.
+	if m.Nonce != "" && info.InstanceId == "" {
+		instanceData, err := getInstanceData(st, m.Id)
+		if err == nil {
+			info.InstanceId = string(instanceData.InstanceId)
+		} else if !errors.IsNotFoundError(err) {
+			return err
+		}
 	}
 	store.Update(info)
 	return nil

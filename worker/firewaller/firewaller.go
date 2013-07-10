@@ -23,7 +23,7 @@ type Firewaller struct {
 	st              *state.State
 	environ         environs.Environ
 	environWatcher  *state.EnvironConfigWatcher
-	machinesWatcher *state.LifecycleWatcher
+	machinesWatcher state.StringsWatcher
 	machineds       map[string]*machineData
 	unitsChange     chan *unitsChange
 	unitds          map[string]*unitData
@@ -269,9 +269,9 @@ func (fw *Firewaller) reconcileInstances() error {
 		} else if err != nil {
 			return err
 		}
-		instanceId, ok := m.InstanceId()
-		if !ok {
-			return errors.NotFoundf("instance id for %v", m)
+		instanceId, err := m.InstanceId()
+		if err != nil {
+			return err
 		}
 		instances, err := fw.environ.Instances([]instance.Id{instanceId})
 		if err == environs.ErrNoInstances {
@@ -440,9 +440,9 @@ func (fw *Firewaller) flushInstancePorts(machined *machineData, toOpen, toClose 
 	if err != nil {
 		return err
 	}
-	instanceId, ok := m.InstanceId()
-	if !ok {
-		return errors.NotFoundf("instance id for %v", m)
+	instanceId, err := m.InstanceId()
+	if err != nil {
+		return err
 	}
 	instances, err := fw.environ.Instances([]instance.Id{instanceId})
 	if err != nil {
@@ -590,7 +590,7 @@ func (md *machineData) machine() (*state.Machine, error) {
 }
 
 // watchLoop watches the machine for units added or removed.
-func (md *machineData) watchLoop(unitw *state.MachineUnitsWatcher) {
+func (md *machineData) watchLoop(unitw state.StringsWatcher) {
 	defer md.tomb.Done()
 	defer watcher.Stop(unitw, &md.tomb)
 	for {

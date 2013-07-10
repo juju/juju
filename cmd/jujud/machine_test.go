@@ -258,8 +258,10 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	for _ = range w.Changes() {
 		err = m1.Refresh()
 		c.Assert(err, IsNil)
-		if _, ok := m1.InstanceId(); ok {
+		if _, err := m1.InstanceId(); err == nil {
 			break
+		} else {
+			c.Check(err, FitsTypeOf, (*state.NotProvisionedError)(nil))
 		}
 	}
 	err = units[0].OpenPort("tcp", 999)
@@ -319,7 +321,7 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	defer st.Close()
 
 	// This just verifies we can log in successfully.
-	m, err := st.Machiner().Machine(stm.Id())
+	m, err := st.Machiner().Machine(stm.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(m.Life(), Equals, params.Alive)
 

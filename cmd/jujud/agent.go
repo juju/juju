@@ -150,7 +150,7 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 		return nil, nil, err
 	}
 	entity, err := a.APIEntity(st)
-	if api.ErrCode(err) == api.CodeNotFound || err == nil && entity.Life() == params.Dead {
+	if params.ErrCode(err) == params.CodeNotFound || err == nil && entity.Life() == params.Dead {
 		err = worker.ErrTerminateAgent
 	}
 	if err != nil {
@@ -228,14 +228,11 @@ func (c *closeWorker) Wait() error {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *state.State, dataDir string, machineId string) deployer.Context {
-	// TODO: pick context kind based on entity name? (once we have a
-	// container context for principal units, that is; for now, there
-	// is no distinction between principal and subordinate deployments)
-	return deployer.NewSimpleContext(dataDir, st.CACert(), machineId, st)
+var newDeployContext = func(st *state.State, dataDir string) deployer.Context {
+	return deployer.NewSimpleContext(dataDir, st.CACert(), st)
 }
 
 func newDeployer(st *state.State, machineId string, dataDir string) *deployer.Deployer {
-	ctx := newDeployContext(st, dataDir, machineId)
+	ctx := newDeployContext(st, dataDir)
 	return deployer.NewDeployer(st, ctx, machineId)
 }

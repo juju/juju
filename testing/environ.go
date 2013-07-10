@@ -5,10 +5,12 @@ package testing
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/environs/config"
 )
 
 // EnvironConfig returns a default environment configuration suitable for
@@ -115,6 +117,13 @@ func MakeFakeHome(c *C, envConfig string, certNames ...string) *FakeHome {
 }
 
 func MakeEmptyFakeHome(c *C) *FakeHome {
+	fake := MakeEmptyFakeHomeWithoutJuju(c)
+	err := os.Mkdir(config.JujuHome(), 0700)
+	c.Assert(err, IsNil)
+	return fake
+}
+
+func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
 	oldHomeEnv := os.Getenv("HOME")
 	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
 	oldJujuEnv := os.Getenv("JUJU_ENV")
@@ -123,15 +132,14 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 	os.Setenv("JUJU_HOME", "")
 	os.Setenv("JUJU_ENV", "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
-	err := os.Mkdir(jujuHome, 0755)
-	c.Assert(err, IsNil)
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
 		oldHomeEnv:     oldHomeEnv,
 		oldJujuEnv:     oldJujuEnv,
 		oldJujuHomeEnv: oldJujuHomeEnv,
 		oldJujuHome:    oldJujuHome,
-		files:          []TestFile{}}
+		files:          []TestFile{},
+	}
 }
 
 func HomePath(names ...string) string {

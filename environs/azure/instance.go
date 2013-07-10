@@ -4,40 +4,56 @@
 package azure
 
 import (
+	"launchpad.net/gwacl"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
 
-type azureInstance struct{}
+type azureInstance struct {
+	// An instance contains an Azure Service (instance==service).
+	gwacl.HostedServiceDescriptor
+}
 
 // azureInstance implements Instance.
 var _ instance.Instance = (*azureInstance)(nil)
 
 // Id is specified in the Instance interface.
-func (instance *azureInstance) Id() instance.Id {
-	panic("unimplemented")
+func (azInstance *azureInstance) Id() instance.Id {
+	return instance.Id(azInstance.ServiceName)
 }
 
+var AZURE_DOMAIN_NAME = "cloudapp.net"
+
 // DNSName is specified in the Instance interface.
-func (instance *azureInstance) DNSName() (string, error) {
-	panic("unimplemented")
+func (azInstance *azureInstance) DNSName() (string, error) {
+	// The hostname is stored in the hosted service's label.
+	label, err := azInstance.GetLabel()
+	if err != nil {
+		return "", err
+	}
+	if isProvisionalServiceLabel(label) {
+		// DNS name has not been registered yet.  Come back later.
+		return "", instance.ErrNoDNSName
+	}
+	return label, nil
 }
 
 // WaitDNSName is specified in the Instance interface.
-func (instance *azureInstance) WaitDNSName() (string, error) {
-	panic("unimplemented")
+func (azInstance *azureInstance) WaitDNSName() (string, error) {
+	return environs.WaitDNSName(azInstance)
 }
 
 // OpenPorts is specified in the Instance interface.
-func (instance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
+func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // ClosePorts is specified in the Instance interface.
-func (instance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
+func (azInstance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	panic("unimplemented")
 }
 
 // Ports is specified in the Instance interface.
-func (instance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
+func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
 	panic("unimplemented")
 }

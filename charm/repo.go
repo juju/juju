@@ -10,12 +10,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
 	"net/http"
 	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/juju-core/log"
 )
 
 // CacheDir stores the charm cache directory path.

@@ -5,14 +5,38 @@ package state
 
 import (
 	"fmt"
+	"regexp"
+	"strings"
+	"time"
+
 	"labix.org/v2/mgo"
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/tomb"
-	"strings"
 )
+
+var watchLogger = loggo.GetLogger("juju.state.watch")
+
+// NotifyWatcher generates signals when something changes, but it does not
+// return any content for those changes
+type NotifyWatcher interface {
+	Stop() error
+	Err() error
+	Changes() <-chan struct{}
+}
+
+// StringsWatcher generates signals when something changes, returning
+// the changes as a list of strings.
+type StringsWatcher interface {
+	Stop() error
+	Err() error
+	Changes() <-chan []string
+}
 
 // commonWatcher is part of all client watchers.
 type commonWatcher struct {
@@ -33,6 +57,33 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
+// collect combines the effects of the one change, and any further changes read
+// from more in the next 10ms. The result map describes the existence, or not,
+// of every id observed to have changed. If a value is read from the supplied
+// stop chan, collect returns false immediately.
+func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{}) (map[string]bool, bool) {
+	var count int
+	result := map[string]bool{}
+	handle := func(ch watcher.Change) {
+		count++
+		result[ch.Id.(string)] = ch.Revno != -1
+	}
+	handle(one)
+	timeout := time.After(10 * time.Millisecond)
+	for done := false; !done; {
+		select {
+		case <-stop:
+			return nil, false
+		case another := <-more:
+			handle(another)
+		case <-timeout:
+			done = true
+		}
+	}
+	watchLogger.Tracef("read %d events for %d documents", count, len(result))
+	return result, true
+}
+
 func hasString(changes []string, name string) bool {
 	for _, v := range changes {
 		if v == name {
@@ -42,50 +93,81 @@ func hasString(changes []string, name string) bool {
 	return false
 }
 
-func hasInt(changes []int, id int) bool {
-	for _, v := range changes {
-		if v == id {
-			return true
-		}
-	}
-	return false
-}
-
-// LifecycleWatcher notifies about lifecycle changes for all entities of a
-// given kind. The first event emitted will contain the ids of all non-Dead
+// lifecycleWatcher notifies about lifecycle changes for a set of entities of
+// the same kind. The first event emitted will contain the ids of all non-Dead
 // entities; subsequent events are emitted whenever one or more entities are
 // added, or change their lifecycle state. After an entity is found to be
-// Dead, no further event will include it. An optional filter can be used to
-// exclude some ids.
-type LifecycleWatcher struct {
+// Dead, no further event will include it.
+type lifecycleWatcher struct {
 	commonWatcher
+	out chan []string
+	// coll is the collection holding all interesting entities.
 	coll *mgo.Collection
-	// filter is an optional function returning true if key should be included in the change events.
-	filter func(key interface{}) bool
-	life   map[string]Life
-	out    chan []string
+	// members is used to select the initial set of interesting entities.
+	members D
+	// filter is used to exclude events not affecting interesting entities.
+	filter func(interface{}) bool
+	// life holds the most recent known life states of interesting entities.
+	life map[string]Life
 }
 
-// WatchEnvironMachines returns a LifecycleWatcher that notifies of changes to
-// the lifecycles of the machines (but not containers) in the environment.
-func (st *State) WatchEnvironMachines() *LifecycleWatcher {
-	filter := func(key interface{}) bool {
-		return !strings.Contains(key.(string), "/")
-	}
-	return newLifecycleWatcher(st, st.machines, filter)
-}
-
-// WatchServices returns a LifecycleWatcher that notifies of changes to
+// WatchServices returns a StringsWatcher that notifies of changes to
 // the lifecycles of the services in the environment.
-func (st *State) WatchServices() *LifecycleWatcher {
-	return newLifecycleWatcher(st, st.services, nil)
+func (st *State) WatchServices() StringsWatcher {
+	return newLifecycleWatcher(st, st.services, nil, nil)
 }
 
-//func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(ids []string) []string) *LifecycleWatcher {
-func newLifecycleWatcher(st *State, coll *mgo.Collection, filter func(key interface{}) bool) *LifecycleWatcher {
-	w := &LifecycleWatcher{
+// WatchUnits returns a StringsWatcher that notifies of changes to the
+// lifecycles of units of s.
+func (s *Service) WatchUnits() StringsWatcher {
+	members := D{{"service", s.doc.Name}}
+	prefix := s.doc.Name + "/"
+	filter := func(id interface{}) bool {
+		return strings.HasPrefix(id.(string), prefix)
+	}
+	return newLifecycleWatcher(s.st, s.st.units, members, filter)
+}
+
+// WatchRelations returns a StringsWatcher that notifies of changes to the
+// lifecycles of relations involving s.
+func (s *Service) WatchRelations() StringsWatcher {
+	members := D{{"endpoints.servicename", s.doc.Name}}
+	prefix := s.doc.Name + ":"
+	infix := " " + prefix
+	filter := func(key interface{}) bool {
+		k := key.(string)
+		return strings.HasPrefix(k, prefix) || strings.Contains(k, infix)
+	}
+	return newLifecycleWatcher(s.st, s.st.relations, members, filter)
+}
+
+// WatchEnvironMachines returns a StringsWatcher that notifies of changes to
+// the lifecycles of the machines (but not containers) in the environment.
+func (st *State) WatchEnvironMachines() StringsWatcher {
+	members := D{{"containertype", ""}}
+	filter := func(id interface{}) bool {
+		return !strings.Contains(id.(string), "/")
+	}
+	return newLifecycleWatcher(st, st.machines, members, filter)
+}
+
+// WatchContainers returns a StringsWatcher that notifies of changes to the
+// lifecycles of containers on a machine.
+func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
+	members := D{{"parent", m.doc.Id}}
+	match := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, numberSnippet)
+	child := regexp.MustCompile(match)
+	filter := func(key interface{}) bool {
+		return child.MatchString(key.(string))
+	}
+	return newLifecycleWatcher(m.st, m.st.machines, members, filter)
+}
+
+func newLifecycleWatcher(st *State, coll *mgo.Collection, members D, filter func(key interface{}) bool) StringsWatcher {
+	w := &lifecycleWatcher{
 		commonWatcher: commonWatcher{st: st},
 		coll:          coll,
+		members:       members,
 		filter:        filter,
 		life:          make(map[string]Life),
 		out:           make(chan []string),
@@ -106,18 +188,16 @@ type lifeDoc struct {
 var lifeFields = D{{"_id", 1}, {"life", 1}}
 
 // Changes returns the event channel for the LifecycleWatcher.
-func (w *LifecycleWatcher) Changes() <-chan []string {
+func (w *lifecycleWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *LifecycleWatcher) initial() (ids []string, err error) {
-	iter := w.coll.Find(nil).Select(lifeFields).Iter()
+func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
+	ids = &set.Strings{}
 	var doc lifeDoc
+	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
-		if w.filter != nil && !w.filter(doc.Id) {
-			continue
-		}
-		ids = append(ids, doc.Id)
+		ids.Add(doc.Id)
 		if doc.Life != Dead {
 			w.life[doc.Id] = doc.Life
 		}
@@ -128,40 +208,51 @@ func (w *LifecycleWatcher) initial() (ids []string, err error) {
 	return ids, nil
 }
 
-func (w *LifecycleWatcher) merge(ids []string, ch watcher.Change) ([]string, error) {
-	id := ch.Id.(string)
-	latest := lifeDoc{}
-	gone := false
-	if ch.Revno == -1 {
-		gone = true
-	} else {
-		err := w.coll.FindId(id).Select(lifeFields).One(&latest)
-		if err == mgo.ErrNotFound {
-			gone = true
-		} else if err != nil {
-			return nil, err
-		} else if latest.Life == Dead {
-			gone = true
+func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[string]bool) error {
+	// Separate ids into those thought to exist and those known to be removed.
+	changed := []string{}
+	latest := map[string]Life{}
+	for id, exists := range updates {
+		if exists {
+			changed = append(changed, id)
+		} else {
+			latest[id] = Dead
 		}
 	}
-	life, known := w.life[id]
-	switch {
-	case known && gone:
-		delete(w.life, id)
-	case !known && !gone:
-		w.life[id] = latest.Life
-	case known && life != latest.Life:
-		w.life[id] = latest.Life
-	default:
-		return ids, nil
+
+	// Collect life states from ids thought to exist. Any that don't actually
+	// exist are ignored (we'll hear about them in the next set of updates --
+	// all that's actually happened in that situation is that the watcher
+	// events have lagged a little behind reality).
+	iter := w.coll.Find(D{{"_id", D{{"$in", changed}}}}).Select(lifeFields).Iter()
+	var doc lifeDoc
+	for iter.Next(&doc) {
+		latest[doc.Id] = doc.Life
 	}
-	if !hasString(ids, id) {
-		ids = append(ids, id)
+	if err := iter.Err(); err != nil {
+		return err
 	}
-	return ids, nil
+
+	// Add to ids any whose life state is known to have changed.
+	for id, newLife := range latest {
+		gone := newLife == Dead
+		oldLife, known := w.life[id]
+		switch {
+		case known && gone:
+			delete(w.life, id)
+		case !known && !gone:
+			w.life[id] = newLife
+		case known && newLife != oldLife:
+			w.life[id] = newLife
+		default:
+			continue
+		}
+		ids.Add(id)
+	}
+	return nil
 }
 
-func (w *LifecycleWatcher) loop() (err error) {
+func (w *lifecycleWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
 	w.st.watcher.WatchCollectionWithFilter(w.coll.Name, in, w.filter)
 	defer w.st.watcher.UnwatchCollection(w.coll.Name, in)
@@ -177,49 +268,40 @@ func (w *LifecycleWatcher) loop() (err error) {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
 		case ch := <-in:
-			if ids, err = w.merge(ids, ch); err != nil {
+			updates, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.merge(ids, updates); err != nil {
 				return err
 			}
-			if len(ids) > 0 {
+			if !ids.IsEmpty() {
 				out = w.out
 			}
-		case out <- ids:
-			ids = nil
+		case out <- ids.Values():
+			ids = &set.Strings{}
 			out = nil
 		}
 	}
 	return nil
 }
 
-// ServiceUnitsWatcher notifies about the lifecycle changes of the units
-// belonging to the service. The first event returned by the watcher is the
-// set of names of all units that are part of the service, irrespective of
-// their life state. Subsequent events return batches of newly added units
-// and units which have changed their lifecycle.  After a unit is reported
-// to be Dead, no further event will include it.
-type ServiceUnitsWatcher struct {
+// minUnitsWatcher notifies about MinUnits changes of the services requiring
+// a minimum number of units to be alive. The first event returned by the
+// watcher is the set of service names requiring a minimum number of units.
+// Subsequent events are generated when a service increases MinUnits, or when
+// one or more units belonging to a service are destroyed.
+type minUnitsWatcher struct {
 	commonWatcher
-	service *Service
-	out     chan []string
-	known   map[string]Life
+	known map[string]int
+	out   chan []string
 }
 
-// Changes returns the event channel for w.
-func (w *ServiceUnitsWatcher) Changes() <-chan []string {
-	return w.out
-}
-
-// WatchUnits returns a new ServiceUnitsWatcher for s.
-func (s *Service) WatchUnits() *ServiceUnitsWatcher {
-	return newServiceUnitsWatcher(s)
-}
-
-func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
-	w := &ServiceUnitsWatcher{
-		commonWatcher: commonWatcher{st: svc.st},
-		known:         make(map[string]Life),
+func newMinUnitsWatcher(st *State) StringsWatcher {
+	w := &minUnitsWatcher{
+		commonWatcher: commonWatcher{st: st},
+		known:         make(map[string]int),
 		out:           make(chan []string),
-		service:       &Service{st: svc.st, doc: svc.doc}, // Copy so it may be freely refreshed.
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -229,194 +311,73 @@ func newServiceUnitsWatcher(svc *Service) *ServiceUnitsWatcher {
 	return w
 }
 
-func (w *ServiceUnitsWatcher) merge(pending []string, name string) (changes []string, err error) {
-	doc := unitDoc{}
-	err = w.st.units.FindId(name).One(&doc)
-	if err != nil && err != mgo.ErrNotFound {
-		return nil, err
-	}
-	life, known := w.known[name]
-	if err == mgo.ErrNotFound {
-		delete(w.known, name)
-		if known && life != Dead && !hasString(pending, name) {
-			return append(pending, name), nil
-		}
-		return pending, nil
-	}
-	w.known[name] = doc.Life
-	if !known {
-		return append(pending, name), nil
-	}
-	if life == doc.Life || hasString(pending, name) {
-		return pending, nil
-	}
-	return append(pending, name), nil
+func (st *State) WatchMinUnits() StringsWatcher {
+	return newMinUnitsWatcher(st)
 }
 
-func (w *ServiceUnitsWatcher) initial() (changes []string, err error) {
-	doc := &unitDoc{}
-	iter := w.st.units.Find(D{{"service", w.service.doc.Name}}).Select(lifeFields).Iter()
+func (w *minUnitsWatcher) initial() (*set.Strings, error) {
+	serviceNames := new(set.Strings)
+	doc := &minUnitsDoc{}
+	iter := w.st.minUnits.Find(nil).Iter()
 	for iter.Next(doc) {
-		w.known[doc.Name] = doc.Life
-		changes = append(changes, doc.Name)
+		w.known[doc.ServiceName] = doc.Revno
+		serviceNames.Add(doc.ServiceName)
 	}
-	if iter.Err() != nil {
-		return nil, err
-	}
-	return changes, nil
+	return serviceNames, iter.Err()
 }
 
-func (w *ServiceUnitsWatcher) loop() (err error) {
+func (w *minUnitsWatcher) merge(serviceNames *set.Strings, change watcher.Change) error {
+	serviceName := change.Id.(string)
+	if change.Revno == -1 {
+		delete(w.known, serviceName)
+		serviceNames.Remove(serviceName)
+		return nil
+	}
+	doc := minUnitsDoc{}
+	if err := w.st.minUnits.FindId(serviceName).One(&doc); err != nil {
+		return err
+	}
+	revno, known := w.known[serviceName]
+	w.known[serviceName] = doc.Revno
+	if !known || doc.Revno > revno {
+		serviceNames.Add(serviceName)
+	}
+	return nil
+}
+
+func (w *minUnitsWatcher) loop() (err error) {
 	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.units.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.units.Name, ch)
-	changes, err := w.initial()
+	w.st.watcher.WatchCollection(w.st.minUnits.Name, ch)
+	defer w.st.watcher.UnwatchCollection(w.st.minUnits.Name, ch)
+	serviceNames, err := w.initial()
 	if err != nil {
 		return err
 	}
-	prefix := w.service.doc.Name + "/"
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-ch:
-			name := c.Id.(string)
-			if !strings.HasPrefix(name, prefix) {
-				continue
+		case change, ok := <-ch:
+			if !ok {
+				return watcher.MustErr(w.st.watcher)
 			}
-			changes, err = w.merge(changes, name)
-			if err != nil {
+			if err = w.merge(serviceNames, change); err != nil {
 				return err
 			}
-			if len(changes) > 0 {
+			if !serviceNames.IsEmpty() {
 				out = w.out
 			}
-		case out <- changes:
+		case out <- serviceNames.Values():
 			out = nil
-			changes = nil
+			serviceNames = new(set.Strings)
 		}
 	}
 	return nil
 }
 
-// ServiceRelationsWatcher notifies about the lifecycle changes of the
-// relations the service is in. The first event returned by the watcher is
-// the set of ids of all relations that the service is part of, irrespective
-// of their life state. Subsequent events return batches of newly added
-// relations and relations which have changed their lifecycle. After a
-// relation is reported to be Dead, no further event will include it.
-type ServiceRelationsWatcher struct {
-	commonWatcher
-	service *Service
-	out     chan []int
-	known   map[string]relationDoc
-}
-
-// WatchRelations returns a new ServiceRelationsWatcher for s.
-func (s *Service) WatchRelations() *ServiceRelationsWatcher {
-	return newServiceRelationsWatcher(s)
-}
-
-func newServiceRelationsWatcher(s *Service) *ServiceRelationsWatcher {
-	w := &ServiceRelationsWatcher{
-		commonWatcher: commonWatcher{st: s.st},
-		out:           make(chan []int),
-		known:         make(map[string]relationDoc),
-		service:       &Service{st: s.st, doc: s.doc}, // Copy so it may be freely refreshed
-	}
-	go func() {
-		defer w.tomb.Done()
-		defer close(w.out)
-		w.tomb.Kill(w.loop())
-	}()
-	return w
-}
-
-func (w *ServiceRelationsWatcher) Stop() error {
-	w.tomb.Kill(nil)
-	return w.tomb.Wait()
-}
-
-// Changes returns the event channel for w.
-func (w *ServiceRelationsWatcher) Changes() <-chan []int {
+func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
-}
-
-func (w *ServiceRelationsWatcher) initial() (new []int, err error) {
-	doc := relationDoc{}
-	iter := w.st.relations.Find(D{{"endpoints.servicename", w.service.doc.Name}}).Select(append(D{{"id", 1}}, lifeFields...)).Iter()
-	for iter.Next(&doc) {
-		w.known[doc.Key] = doc
-		new = append(new, doc.Id)
-	}
-	if iter.Err() != nil {
-		return nil, err
-	}
-	return new, nil
-}
-
-func (w *ServiceRelationsWatcher) merge(pending []int, key string) (new []int, err error) {
-	doc := relationDoc{}
-	err = w.st.relations.FindId(key).One(&doc)
-	if err != nil && err != mgo.ErrNotFound {
-		return nil, err
-	}
-	old, known := w.known[key]
-	if err == mgo.ErrNotFound {
-		if known && old.Life != Dead && !hasInt(pending, old.Id) {
-			delete(w.known, key)
-			return append(pending, old.Id), nil
-		}
-		return pending, nil
-	}
-	w.known[key] = doc
-	if !known {
-		return append(pending, doc.Id), nil
-	}
-	if old.Life == doc.Life || hasInt(pending, old.Id) {
-		return pending, nil
-	}
-	return append(pending, doc.Id), nil
-}
-
-func (w *ServiceRelationsWatcher) loop() (err error) {
-	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.relations.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.relations.Name, ch)
-	changes, err := w.initial()
-	if err != nil {
-		return err
-	}
-	prefix1 := w.service.doc.Name + ":"
-	prefix2 := " " + w.service.doc.Name + ":"
-	out := w.out
-	for {
-		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case c := <-ch:
-			key := c.Id.(string)
-			if !strings.HasPrefix(key, prefix1) && !strings.Contains(key, prefix2) {
-				continue
-			}
-			changes, err = w.merge(changes, key)
-			if err != nil {
-				return err
-			}
-			if len(changes) > 0 {
-				out = w.out
-			}
-		case out <- changes:
-			out = nil
-			changes = nil
-		}
-	}
-	return nil
 }
 
 // RelationScopeWatcher observes changes to the set of units
@@ -694,12 +655,12 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
-// UnitsWatcher notifies of changes to a set of units. Notifications will be
+// unitsWatcher notifies of changes to a set of units. Notifications will be
 // sent when units enter or leave the set, and when units in the set change
 // their lifecycle status. The initial event contains all units in the set,
 // regardless of lifecycle status; once a unit observed to be Dead or removed
 // has been reported, it will not be reported again.
-type UnitsWatcher struct {
+type unitsWatcher struct {
 	commonWatcher
 	tag      string
 	getUnits func() ([]string, error)
@@ -708,8 +669,8 @@ type UnitsWatcher struct {
 	out      chan []string
 }
 
-// WatchSubordinateUnits returns a UnitsWatcher tracking the unit's subordinate units.
-func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
+// WatchSubordinateUnits returns a StringsWatcher tracking the unit's subordinate units.
+func (u *Unit) WatchSubordinateUnits() StringsWatcher {
 	u = &Unit{st: u.st, doc: u.doc}
 	coll := u.st.units.Name
 	getUnits := func() ([]string, error) {
@@ -721,9 +682,9 @@ func (u *Unit) WatchSubordinateUnits() *UnitsWatcher {
 	return newUnitsWatcher(u.st, u.Tag(), getUnits, coll, u.doc.Name, u.doc.TxnRevno)
 }
 
-// WatchPrincipalUnits returns a UnitsWatcher tracking the machine's principal
+// WatchPrincipalUnits returns a StringsWatcher tracking the machine's principal
 // units.
-func (m *Machine) WatchPrincipalUnits() *UnitsWatcher {
+func (m *Machine) WatchPrincipalUnits() StringsWatcher {
 	m = &Machine{st: m.st, doc: m.doc}
 	coll := m.st.machines.Name
 	getUnits := func() ([]string, error) {
@@ -735,8 +696,8 @@ func (m *Machine) WatchPrincipalUnits() *UnitsWatcher {
 	return newUnitsWatcher(m.st, m.Tag(), getUnits, coll, m.doc.Id, m.doc.TxnRevno)
 }
 
-func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), coll, id string, revno int64) *UnitsWatcher {
-	w := &UnitsWatcher{
+func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), coll, id string, revno int64) StringsWatcher {
+	w := &unitsWatcher{
 		commonWatcher: commonWatcher{st: st},
 		tag:           tag,
 		getUnits:      getUnits,
@@ -753,12 +714,12 @@ func newUnitsWatcher(st *State, tag string, getUnits func() ([]string, error), c
 }
 
 // Tag returns the tag of the entity whose units are being watched.
-func (w *UnitsWatcher) Tag() string {
+func (w *unitsWatcher) Tag() string {
 	return w.tag
 }
 
 // Changes returns the UnitsWatcher's output channel.
-func (w *UnitsWatcher) Changes() <-chan []string {
+func (w *unitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
@@ -774,7 +735,7 @@ type lifeWatchDoc struct {
 var lifeWatchFields = D{{"_id", 1}, {"life", 1}, {"txn-revno", 1}}
 
 // initial returns every member of the tracked set.
-func (w *UnitsWatcher) initial() ([]string, error) {
+func (w *unitsWatcher) initial() ([]string, error) {
 	initial, err := w.getUnits()
 	if err != nil {
 		return nil, err
@@ -797,7 +758,7 @@ func (w *UnitsWatcher) initial() ([]string, error) {
 
 // update adds to and returns changes, such that it contains the names of any
 // non-Dead units to have entered or left the tracked set.
-func (w *UnitsWatcher) update(changes []string) ([]string, error) {
+func (w *unitsWatcher) update(changes []string) ([]string, error) {
 	latest, err := w.getUnits()
 	if err != nil {
 		return nil, err
@@ -825,7 +786,7 @@ func (w *UnitsWatcher) update(changes []string) ([]string, error) {
 
 // merge adds to and returns changes, such that it contains the supplied unit
 // name if that unit is unknown and non-Dead, or has changed lifecycle status.
-func (w *UnitsWatcher) merge(changes []string, name string) ([]string, error) {
+func (w *unitsWatcher) merge(changes []string, name string) ([]string, error) {
 	doc := lifeWatchDoc{}
 	err := w.st.units.FindId(name).Select(lifeWatchFields).One(&doc)
 	gone := false
@@ -855,7 +816,7 @@ func (w *UnitsWatcher) merge(changes []string, name string) ([]string, error) {
 	return changes, nil
 }
 
-func (w *UnitsWatcher) loop(coll, id string, revno int64) error {
+func (w *unitsWatcher) loop(coll, id string, revno int64) error {
 	w.st.watcher.Watch(coll, id, revno, w.in)
 	defer func() {
 		w.st.watcher.Unwatch(coll, id, w.in)
@@ -1020,43 +981,37 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	return nil
 }
 
-// EntityWatcher observes changes to a state entity.
-type EntityWatcher struct {
+// entityWatcher generates an event when a document in the db changes
+type entityWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
-// Watch return a watcher for observing changes to a machine.
-func (m *Machine) Watch() *EntityWatcher {
-	return newEntityWatcher(m.st, m.st.machines.Name, m.doc.Id, m.doc.TxnRevno)
+// WatchHardwareCharacteristics returns a watcher for observing changes to a machine's hardware characteristics.
+func (m *Machine) WatchHardwareCharacteristics() NotifyWatcher {
+	return newEntityWatcher(m.st, m.st.instanceData, m.doc.Id)
 }
 
-// WatchContainers returns a watcher that notifies of changes to the lifecycle of containers on a machine.
-func (m *Machine) WatchContainers(ctype ContainerType) *LifecycleWatcher {
-	filter := func(key interface{}) bool {
-		// Filter out ids which are not of the specified container type on this machine.
-		id := key.(string)
-		// Ignore containers on different machines.
-		if ParentId(id) != m.Id() {
-			return false
-		}
-		// Extract the container type from the id.
-		idParts := strings.Split(id, "/")
-		containerType := ContainerType(idParts[len(idParts)-2])
-		return ctype == containerType
-	}
-
-	return newLifecycleWatcher(m.st, m.st.machines, filter)
+// Watch returns a watcher for observing changes to a machine.
+func (m *Machine) Watch() NotifyWatcher {
+	return newEntityWatcher(m.st, m.st.machines, m.doc.Id)
 }
 
-// Watch return a watcher for observing changes to a service.
-func (s *Service) Watch() *EntityWatcher {
-	return newEntityWatcher(s.st, s.st.services.Name, s.doc.Name, s.doc.TxnRevno)
+// Watch returns a watcher for observing changes to a service.
+func (s *Service) Watch() NotifyWatcher {
+	return newEntityWatcher(s.st, s.st.services, s.doc.Name)
 }
 
-// Watch return a watcher for observing changes to a unit.
-func (u *Unit) Watch() *EntityWatcher {
-	return newEntityWatcher(u.st, u.st.units.Name, u.doc.Name, u.doc.TxnRevno)
+// Watch returns a watcher for observing changes to a unit.
+func (u *Unit) Watch() NotifyWatcher {
+	return newEntityWatcher(u.st, u.st.units, u.doc.Name)
+}
+
+// WatchForEnvironConfigChanges return a NotifyWatcher waiting for the Environ
+// Config to change. This differs from WatchEnvironConfig in that the watcher
+// is a NotifyWatcher that does not give content during Changes()
+func (st *State) WatchForEnvironConfigChanges() NotifyWatcher {
+	return newEntityWatcher(st, st.settings, environGlobalKey)
 }
 
 // WatchConfigSettings returns a watcher for observing changes to the
@@ -1065,48 +1020,56 @@ func (u *Unit) Watch() *EntityWatcher {
 // valid only while the unit's charm URL is not changed.
 // TODO(fwereade): this could be much smarter; if it were, uniter.Filter
 // could be somewhat simpler.
-func (u *Unit) WatchConfigSettings() (*EntityWatcher, error) {
+func (u *Unit) WatchConfigSettings() (NotifyWatcher, error) {
 	if u.doc.CharmURL == nil {
 		return nil, fmt.Errorf("unit charm not set")
 	}
 	settingsKey := serviceSettingsKey(u.doc.Service, u.doc.CharmURL)
-	_, txnRevno, err := readSettingsDoc(u.st, settingsKey)
-	if err != nil {
-		return nil, err
-	}
-	return newEntityWatcher(u.st, u.st.settings.Name, settingsKey, txnRevno), nil
+	return newEntityWatcher(u.st, u.st.settings, settingsKey), nil
 }
 
-func newEntityWatcher(st *State, coll string, key interface{}, revno int64) *EntityWatcher {
-	w := &EntityWatcher{
+func newEntityWatcher(st *State, coll *mgo.Collection, key string) NotifyWatcher {
+	w := &entityWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		ch := make(chan watcher.Change)
-		w.st.watcher.Watch(coll, key, revno, ch)
-		defer w.st.watcher.Unwatch(coll, key, ch)
-		w.tomb.Kill(w.loop(ch))
+		w.tomb.Kill(w.loop(coll, key))
 	}()
 	return w
 }
 
-// Changes returns the event channel for the EntityWatcher.
-func (w *EntityWatcher) Changes() <-chan struct{} {
+// Changes returns the event channel for the entityWatcher.
+func (w *entityWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
+func (w *entityWatcher) loop(coll *mgo.Collection, key string) (err error) {
+	doc := &struct {
+		TxnRevno int64 `bson:"txn-revno"`
+	}{}
+	fields := D{{"txn-revno", 1}}
+	if err := coll.FindId(key).Select(fields).One(doc); err == mgo.ErrNotFound {
+		doc.TxnRevno = -1
+	} else if err != nil {
+		return err
+	}
+	in := make(chan watcher.Change)
+	w.st.watcher.Watch(coll.Name, key, doc.TxnRevno, in)
+	defer w.st.watcher.Unwatch(coll.Name, key, in)
 	out := w.out
 	for {
 		select {
-		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case <-ch:
+		case <-w.st.watcher.Dead():
+			return watcher.MustErr(w.st.watcher)
+		case ch := <-in:
+			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
 			out = w.out
 		case out <- struct{}{}:
 			out = nil
@@ -1115,7 +1078,7 @@ func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
 	return nil
 }
 
-// MachineUnitsWatcher notifies about assignments and lifecycle changes
+// machineUnitsWatcher notifies about assignments and lifecycle changes
 // for all units of a machine.
 //
 // The first event emitted contains the unit names of all units currently
@@ -1125,7 +1088,7 @@ func (w *EntityWatcher) loop(ch <-chan watcher.Change) (err error) {
 // the machine changes.
 //
 // After a unit is found to be Dead, no further event will include it.
-type MachineUnitsWatcher struct {
+type machineUnitsWatcher struct {
 	commonWatcher
 	machine *Machine
 	out     chan []string
@@ -1133,13 +1096,13 @@ type MachineUnitsWatcher struct {
 	known   map[string]Life
 }
 
-// WatchUnits returns a new MachineUnitsWatcher for m.
-func (m *Machine) WatchUnits() *MachineUnitsWatcher {
+// WatchUnits returns a new StringsWatcher watching m's units.
+func (m *Machine) WatchUnits() StringsWatcher {
 	return newMachineUnitsWatcher(m)
 }
 
-func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
-	w := &MachineUnitsWatcher{
+func newMachineUnitsWatcher(m *Machine) StringsWatcher {
+	w := &machineUnitsWatcher{
 		commonWatcher: commonWatcher{st: m.st},
 		out:           make(chan []string),
 		in:            make(chan watcher.Change),
@@ -1155,11 +1118,11 @@ func newMachineUnitsWatcher(m *Machine) *MachineUnitsWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *MachineUnitsWatcher) Changes() <-chan []string {
+func (w *machineUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-func (w *MachineUnitsWatcher) updateMachine(pending []string) (new []string, err error) {
+func (w *machineUnitsWatcher) updateMachine(pending []string) (new []string, err error) {
 	err = w.machine.Refresh()
 	if err != nil {
 		return nil, err
@@ -1175,7 +1138,7 @@ func (w *MachineUnitsWatcher) updateMachine(pending []string) (new []string, err
 	return pending, nil
 }
 
-func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string, err error) {
+func (w *machineUnitsWatcher) merge(pending []string, unit string) (new []string, err error) {
 	doc := unitDoc{}
 	err = w.st.units.FindId(unit).One(&doc)
 	if err != nil && err != mgo.ErrNotFound {
@@ -1220,7 +1183,7 @@ func (w *MachineUnitsWatcher) merge(pending []string, unit string) (new []string
 	return pending, nil
 }
 
-func (w *MachineUnitsWatcher) loop() (err error) {
+func (w *machineUnitsWatcher) loop() (err error) {
 	defer func() {
 		for unit := range w.known {
 			w.st.watcher.Unwatch(w.st.units.Name, unit, w.in)
@@ -1264,19 +1227,19 @@ func (w *MachineUnitsWatcher) loop() (err error) {
 	panic("unreachable")
 }
 
-// CleanupWatcher notifies of changes in the cleanups collection.
-type CleanupWatcher struct {
+// cleanupWatcher notifies of changes in the cleanups collection.
+type cleanupWatcher struct {
 	commonWatcher
 	out chan struct{}
 }
 
 // WatchCleanups starts and returns a CleanupWatcher.
-func (st *State) WatchCleanups() *CleanupWatcher {
+func (st *State) WatchCleanups() NotifyWatcher {
 	return newCleanupWatcher(st)
 }
 
-func newCleanupWatcher(st *State) *CleanupWatcher {
-	w := &CleanupWatcher{
+func newCleanupWatcher(st *State) NotifyWatcher {
+	w := &cleanupWatcher{
 		commonWatcher: commonWatcher{st: st},
 		out:           make(chan struct{}),
 	}
@@ -1289,11 +1252,11 @@ func newCleanupWatcher(st *State) *CleanupWatcher {
 }
 
 // Changes returns the event channel for w.
-func (w *CleanupWatcher) Changes() <-chan struct{} {
+func (w *cleanupWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-func (w *CleanupWatcher) loop() (err error) {
+func (w *cleanupWatcher) loop() (err error) {
 	in := make(chan watcher.Change)
 
 	w.st.watcher.WatchCollection(w.st.cleanups.Name, in)

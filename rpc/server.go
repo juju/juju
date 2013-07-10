@@ -7,9 +7,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/log"
 	"reflect"
 	"sync"
+
+	"launchpad.net/juju-core/log"
 )
 
 // A Codec implements reading and writing of messages in an RPC

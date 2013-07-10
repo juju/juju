@@ -5,11 +5,13 @@ package worker
 
 import (
 	"errors"
+
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/tomb"
 )
 
 var ErrTerminateAgent = errors.New("agent should be terminated")

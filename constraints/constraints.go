@@ -8,6 +8,8 @@ import (
 	"math"
 	"strconv"
 	"strings"
+
+	"launchpad.net/juju-core/instance"
 )
 
 // Value describes a user's requirements of the hardware on which units
@@ -19,6 +21,9 @@ type Value struct {
 	// Arch, if not nil or empty, indicates that a machine must run the named
 	// architecture.
 	Arch *string `json:"arch,omitempty" yaml:"arch,omitempty"`
+
+	// Container, if not nil, indicates that a machine must be the specified container type.
+	Container *instance.ContainerType `json:"container,omitempty" yaml:"container,omitempty"`
 
 	// CpuCores, if not nil, indicates that a machine must have at least that
 	// number of effective cores available.
@@ -39,6 +44,9 @@ func (v Value) String() string {
 	var strs []string
 	if v.Arch != nil {
 		strs = append(strs, "arch="+*v.Arch)
+	}
+	if v.Container != nil {
+		strs = append(strs, "container="+string(*v.Container))
 	}
 	if v.CpuCores != nil {
 		strs = append(strs, "cpu-cores="+uintStr(*v.CpuCores))
@@ -61,6 +69,9 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	v1 := v0
 	if v.Arch != nil {
 		v1.Arch = v.Arch
+	}
+	if v.Container != nil {
+		v1.Container = v.Container
 	}
 	if v.CpuCores != nil {
 		v1.CpuCores = v.CpuCores
@@ -139,6 +150,8 @@ func (v *Value) setRaw(raw string) error {
 	switch name {
 	case "arch":
 		err = v.setArch(str)
+	case "container":
+		err = v.setContainer(str)
 	case "cpu-cores":
 		err = v.setCpuCores(str)
 	case "cpu-power":
@@ -150,6 +163,55 @@ func (v *Value) setRaw(raw string) error {
 	}
 	if err != nil {
 		return fmt.Errorf("bad %q constraint: %v", name, err)
+	}
+	return nil
+}
+
+// SetYAML is required to unmarshall a constraints.Value object
+// to ensure the container attribute is correctly handled when it is empty.
+// Because ContainerType is an alias for string, Go's reflect logic used in the
+// YAML decode determines that *string and *ContainerType are not assignable so
+// the container value of "" in the YAML is ignored.
+func (v *Value) SetYAML(tag string, value interface{}) bool {
+	values := value.(map[interface{}]interface{})
+	for k, val := range values {
+		vstr := fmt.Sprintf("%v", val)
+		var err error
+		switch k {
+		case "arch":
+			v.Arch = &vstr
+		case "container":
+			ctype := instance.ContainerType(vstr)
+			v.Container = &ctype
+		case "cpu-cores":
+			v.CpuCores, err = parseUint64(vstr)
+		case "cpu-power":
+			v.CpuPower, err = parseUint64(vstr)
+		case "mem":
+			v.Mem, err = parseUint64(vstr)
+		default:
+			return false
+		}
+		if err != nil {
+			return false
+		}
+	}
+	return true
+}
+
+func (v *Value) setContainer(str string) error {
+	if v.Container != nil {
+		return fmt.Errorf("already set")
+	}
+	if str == "" {
+		ctype := instance.ContainerType("")
+		v.Container = &ctype
+	} else {
+		ctype, err := instance.ParseSupportedContainerTypeOrNone(str)
+		if err != nil {
+			return err
+		}
+		v.Container = &ctype
 	}
 	return nil
 }
@@ -209,7 +271,7 @@ func (v *Value) setMem(str string) error {
 func parseUint64(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
-		if val, err := strconv.Atoi(str); err != nil || val < 0 {
+		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
 			return nil, fmt.Errorf("must be a non-negative integer")
 		} else {
 			value = uint64(val)

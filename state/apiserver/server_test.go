@@ -32,10 +32,11 @@ func (s *serverSuite) TestStop(c *C) {
 	// a handle on it to stop it.
 	srv, err := apiserver.NewServer(s.State, "localhost:0", []byte(coretesting.ServerCert), []byte(coretesting.ServerKey))
 	c.Assert(err, IsNil)
+	defer srv.Stop()
 
 	stm, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = stm.SetProvisioned("foo", "fake_nonce")
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
@@ -51,13 +52,13 @@ func (s *serverSuite) TestStop(c *C) {
 	c.Assert(err, IsNil)
 	defer st.Close()
 
-	_, err = st.Machiner().Machine(stm.Id())
+	_, err = st.Machiner().Machine(stm.Tag())
 	c.Assert(err, IsNil)
 
 	err = srv.Stop()
 	c.Assert(err, IsNil)
 
-	_, err = st.Machiner().Machine(stm.Id())
+	_, err = st.Machiner().Machine(stm.Tag())
 	// The client has not necessarily seen the server shutdown yet,
 	// so there are two possible errors.
 	if err != rpc.ErrShutdown && err != io.ErrUnexpectedEOF {

@@ -10,6 +10,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
+	"os"
+	"path/filepath"
+	"time"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -18,10 +23,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
-	"net/url"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 // Conn holds a connection to a juju environment and its

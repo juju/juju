@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
@@ -65,7 +64,7 @@ func UseTestMetadata(metadata []jujutest.FileContent) {
 }
 
 var originalShortAttempt = shortAttempt
-var originalLongAttempt = longAttempt
+var originalLongAttempt = environs.LongAttempt
 
 // ShortTimeouts sets the timeouts to a short period as we
 // know that the testing server doesn't get better with time,
@@ -76,18 +75,14 @@ func ShortTimeouts(short bool) {
 			Total: 100 * time.Millisecond,
 			Delay: 10 * time.Millisecond,
 		}
-		longAttempt = shortAttempt
+		environs.LongAttempt = shortAttempt
 	} else {
 		shortAttempt = originalShortAttempt
-		longAttempt = originalLongAttempt
+		environs.LongAttempt = originalLongAttempt
 	}
 }
 
 var ShortAttempt = &shortAttempt
-
-func DeleteStorageContent(s environs.Storage) error {
-	return s.(*storage).deleteAll()
-}
 
 func SetFakeToolsStorage(useFake bool) {
 	if useFake {
@@ -283,16 +278,4 @@ func GetSwiftURL(e environs.Environ) (string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
-}
-
-type BootstrapState struct {
-	StateInstances []instance.Id
-}
-
-func LoadState(e environs.Environ) (*BootstrapState, error) {
-	s, err := e.(*environ).loadState()
-	if err != nil {
-		return nil, err
-	}
-	return &BootstrapState{s.StateInstances}, nil
 }

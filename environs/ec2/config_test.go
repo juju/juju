@@ -40,6 +40,7 @@ var testAuth = aws.Auth{"gopher", "long teeth"}
 type configTest struct {
 	config        attrs
 	change        attrs
+	expect        attrs
 	region        string
 	cbucket       string
 	pbucket       string
@@ -124,6 +125,11 @@ func (t configTest) check(c *C) {
 	}
 	if t.firewallMode != "" {
 		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
+	}
+	for name, expect := range t.expect {
+		actual, found := ecfg.UnknownAttrs()[name]
+		c.Check(found, Equals, true)
+		c.Check(actual, Equals, expect)
 	}
 
 	// check storage buckets are configured correctly
@@ -268,6 +274,20 @@ var configTests = []configTest{
 			"ssl-hostname-verification": false,
 		},
 		err: "disabling ssh-hostname-verification is not supported",
+	}, {
+		config: attrs{
+			"future": "hammerstein",
+		},
+		expect: attrs{
+			"future": "hammerstein",
+		},
+	}, {
+		change: attrs{
+			"future": "hammerstein",
+		},
+		expect: attrs{
+			"future": "hammerstein",
+		},
 	},
 }
 
@@ -315,6 +335,9 @@ func (s *ConfigSuite) TestConfig(c *C) {
 func (s *ConfigSuite) TestMissingAuth(c *C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
+	// Since r37 goamz uses these as fallbacks, so unset them too.
+	os.Setenv("EC2_ACCESS_KEY", "")
+	os.Setenv("EC2_SECRET_KEY", "")
 	test := configTests[0]
 	test.err = "environment has no access-key or secret-key"
 	test.check(c)

@@ -9,15 +9,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/testing"
 )
 
 type MockStore struct {

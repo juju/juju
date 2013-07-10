@@ -41,7 +41,7 @@ func (s *storage) Get(name string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, errors.NotFoundf("file %q not found", name)
+		return nil, errors.NotFoundf("file %q", name)
 	}
 	return resp.Body, nil
 }
@@ -123,4 +123,8 @@ func (s *storage) Remove(name string) error {
 		return fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
 	return nil
+}
+
+func (s *storage) RemoveAll() error {
+	return environs.RemoveAll(s)
 }

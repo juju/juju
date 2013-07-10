@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 )

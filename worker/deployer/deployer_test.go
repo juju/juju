@@ -11,7 +11,7 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/juju/testing"
+	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
@@ -23,7 +23,7 @@ func TestPackage(t *stdtesting.T) {
 }
 
 type DeployerSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 	SimpleToolsFixture
 }
 
@@ -45,7 +45,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = m.SetProvisioned("i-exist", "fake_nonce")
+	err = m.SetProvisioned("i-exist", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
@@ -55,7 +55,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	c.Assert(err, IsNil)
 
 	// Create a deployer acting on behalf of the machine.
-	ctx := s.getContext(c, m.Tag())
+	ctx := s.getContext(c)
 	dep := deployer.NewDeployer(s.State, ctx, m.Id())
 	defer stop(c, dep)
 
@@ -123,7 +123,7 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
-	ctx := s.getContext(c, m.Tag())
+	ctx := s.getContext(c)
 	dep := deployer.NewDeployer(s.State, ctx, m.Id())
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, u0.Name()))
@@ -159,7 +159,7 @@ func (s *DeployerSuite) prepareSubordinates(c *C) (*state.Unit, []*state.Relatio
 func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	// Create a deployer acting on behalf of the principal.
 	u, rus := s.prepareSubordinates(c)
-	ctx := s.getContext(c, u.Tag())
+	ctx := s.getContext(c)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, IsNil)
 	dep := deployer.NewDeployer(s.State, ctx, machineId)
@@ -212,7 +212,7 @@ func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
 
 	// When we start a new deployer, neither unit will be deployed and
 	// both will be removed.
-	ctx := s.getContext(c, u.Tag())
+	ctx := s.getContext(c)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, IsNil)
 	dep := deployer.NewDeployer(s.State, ctx, machineId)

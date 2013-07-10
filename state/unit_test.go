@@ -4,15 +4,18 @@
 package state_test
 
 import (
+	"strconv"
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
-	"strconv"
-	"time"
 )
 
 type UnitSuite struct {
@@ -105,10 +108,10 @@ func (s *UnitSuite) TestWatchConfigSettings(c *C) {
 	c.Assert(err, IsNil)
 	w, err := s.unit.WatchConfigSettings()
 	c.Assert(err, IsNil)
-	defer AssertStop(c, w)
+	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Update config a couple of times, check a single event.
@@ -462,7 +465,7 @@ func (s *UnitSuite) TestShortCircuitDestroyWithProvisionedMachine(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	err = machine.SetProvisioned("i-malive", "fake_nonce")
+	err = machine.SetProvisioned("i-malive", "fake_nonce", nil)
 	c.Assert(err, IsNil)
 	err = s.unit.Destroy()
 	c.Assert(err, IsNil)
@@ -954,8 +957,8 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Add a couple of subordinates, check change.
@@ -998,13 +1001,13 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
 
 	// Stop watcher, check closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
-	defer AssertStop(c, w)
-	wc = StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange(subUnits[0].Name())
 
 	// Remove the leftover, check no change.
@@ -1016,10 +1019,10 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 func (s *UnitSuite) TestWatchUnit(c *C) {
 	preventUnitDestroyRemove(c, s.unit)
 	w := s.unit.Watch()
-	defer AssertStop(c, w)
+	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -1037,7 +1040,7 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Remove unit, start new watch, check single event.
@@ -1046,8 +1049,8 @@ func (s *UnitSuite) TestWatchUnit(c *C) {
 	err = unit.Remove()
 	c.Assert(err, IsNil)
 	w = s.unit.Watch()
-	defer AssertStop(c, w)
-	NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	defer testing.AssertStop(c, w)
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *UnitSuite) TestAnnotatorForUnit(c *C) {

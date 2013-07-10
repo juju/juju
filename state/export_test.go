@@ -6,13 +6,16 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
-	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
 	"net/url"
 	"path/filepath"
+
+	"labix.org/v2/mgo"
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/testing"
 )
 
 // transactionHook holds Before and After func()s that will be called
@@ -141,6 +144,12 @@ func addCharm(c *C, st *State, series string, ch charm.Charm) *Charm {
 
 func MachineIdLessThan(id1, id2 string) bool {
 	return machineIdLessThan(id1, id2)
+}
+
+// SCHEMACHANGE
+// This method is used to reset a deprecated machine attriute.
+func SetMachineInstanceId(m *Machine, instanceId string) {
+	m.doc.InstanceId = instance.Id(instanceId)
 }
 
 func init() {

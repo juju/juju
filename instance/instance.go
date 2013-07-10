@@ -6,6 +6,7 @@ package instance
 import (
 	"errors"
 	"fmt"
+	"strings"
 )
 
 var ErrNoDNSName = errors.New("DNS name not allocated")
@@ -36,6 +37,8 @@ type Instance interface {
 
 	// WaitDNSName returns the DNS name for the instance,
 	// waiting until it is allocated if necessary.
+	// TODO: We may not need this in the interface any more.  All
+	// implementations now delegate to environs.WaitDNSName.
 	WaitDNSName() (string, error)
 
 	// OpenPorts opens the given ports on the instance, which
@@ -59,4 +62,32 @@ type HardwareCharacteristics struct {
 	Mem      *uint64
 	CpuCores *uint64
 	CpuPower *uint64
+}
+
+func uintStr(i uint64) string {
+	if i == 0 {
+		return ""
+	}
+	return fmt.Sprintf("%d", i)
+}
+
+func (v HardwareCharacteristics) String() string {
+	var strs []string
+	if v.Arch != nil {
+		strs = append(strs, "arch="+*v.Arch)
+	}
+	if v.CpuCores != nil {
+		strs = append(strs, "cpu-cores="+uintStr(*v.CpuCores))
+	}
+	if v.CpuPower != nil {
+		strs = append(strs, "cpu-power="+uintStr(*v.CpuPower))
+	}
+	if v.Mem != nil {
+		s := uintStr(*v.Mem)
+		if s != "" {
+			s += "M"
+		}
+		strs = append(strs, "mem="+s)
+	}
+	return strings.Join(strs, " ")
 }

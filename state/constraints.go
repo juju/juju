@@ -5,35 +5,41 @@ package state
 
 import (
 	"fmt"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 )
 
 // constraintsDoc is the mongodb representation of a constraints.Value.
 type constraintsDoc struct {
-	Arch     *string
-	CpuCores *uint64
-	CpuPower *uint64
-	Mem      *uint64
+	Arch      *string
+	CpuCores  *uint64
+	CpuPower  *uint64
+	Mem       *uint64
+	Container *instance.ContainerType
 }
 
 func (doc constraintsDoc) value() constraints.Value {
 	return constraints.Value{
-		Arch:     doc.Arch,
-		CpuCores: doc.CpuCores,
-		CpuPower: doc.CpuPower,
-		Mem:      doc.Mem,
+		Arch:      doc.Arch,
+		CpuCores:  doc.CpuCores,
+		CpuPower:  doc.CpuPower,
+		Mem:       doc.Mem,
+		Container: doc.Container,
 	}
 }
 
 func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 	return constraintsDoc{
-		Arch:     cons.Arch,
-		CpuCores: cons.CpuCores,
-		CpuPower: cons.CpuPower,
-		Mem:      cons.Mem,
+		Arch:      cons.Arch,
+		CpuCores:  cons.CpuCores,
+		CpuPower:  cons.CpuPower,
+		Mem:       cons.Mem,
+		Container: cons.Container,
 	}
 }
 

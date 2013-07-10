@@ -5,14 +5,17 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
+
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
-	"sort"
 )
 
 type ServiceSuite struct {
@@ -1219,8 +1222,8 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 
 	// All except gone unit are reported in initial event.
 	w := s.mysql.WatchUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange(alive.Name(), dying.Name(), dead.Name())
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
@@ -1238,8 +1241,8 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
 	// Empty initial event when no units.
 	w := s.mysql.WatchUnits()
-	defer AssertStop(c, w)
-	wc := StringsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Create one unit, check one change.
@@ -1280,8 +1283,8 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
 func (s *ServiceSuite) TestWatchRelations(c *C) {
 	// TODO(fwereade) split this test up a bit.
 	w := s.mysql.WatchRelations()
-	defer AssertStop(c, w)
-	wc := IntsWatcherC{c, s.State, w}
+	defer testing.AssertStop(c, w)
+	wc := testing.StringsWatcherC{c, s.State, w, false}
 	wc.AssertOneChange()
 
 	// Add a relation; check change.
@@ -1301,27 +1304,27 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 		return rel
 	}
 	rel0 := addRelation()
-	wc.AssertOneChange(0)
+	wc.AssertOneChange(rel0.String())
 
 	// Add another relation; check change.
-	addRelation()
-	wc.AssertOneChange(1)
+	rel1 := addRelation()
+	wc.AssertOneChange(rel1.String())
 
 	// Destroy a relation; check change.
 	err = rel0.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(0)
+	wc.AssertOneChange(rel0.String())
 
 	// Stop watcher; check change chan is closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
 	// Add a new relation; start a new watcher; check initial event.
 	rel2 := addRelation()
 	w = s.mysql.WatchRelations()
-	defer AssertStop(c, w)
-	wc = IntsWatcherC{c, s.State, w}
-	wc.AssertOneChange(1, 2)
+	defer testing.AssertStop(c, w)
+	wc = testing.StringsWatcherC{c, s.State, w, false}
+	wc.AssertOneChange(rel1.String(), rel2.String())
 
 	// Add a unit to the new relation; check no change.
 	unit, err := s.mysql.AddUnit()
@@ -1336,13 +1339,13 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	// changes.
 	err = rel2.Destroy()
 	c.Assert(err, IsNil)
-	addRelation()
-	wc.AssertOneChange(2, 3)
+	rel3 := addRelation()
+	wc.AssertOneChange(rel2.String(), rel3.String())
 
 	// Leave scope, destroying the relation, and check that change as well.
 	err = ru2.LeaveScope()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(2)
+	wc.AssertOneChange(rel2.String())
 }
 
 func removeAllUnits(c *C, s *state.Service) {
@@ -1358,10 +1361,10 @@ func removeAllUnits(c *C, s *state.Service) {
 
 func (s *ServiceSuite) TestWatchService(c *C) {
 	w := s.mysql.Watch()
-	defer AssertStop(c, w)
+	defer testing.AssertStop(c, w)
 
 	// Initial event.
-	wc := NotifyWatcherC{c, s.State, w}
+	wc := testing.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Make one change (to a separate instance), check one event.
@@ -1379,15 +1382,15 @@ func (s *ServiceSuite) TestWatchService(c *C) {
 	wc.AssertOneChange()
 
 	// Stop, check closed.
-	AssertStop(c, w)
+	testing.AssertStop(c, w)
 	wc.AssertClosed()
 
-	// Remove machine, start new watch, check single event.
+	// Remove service, start new watch, check single event.
 	err = service.Destroy()
 	c.Assert(err, IsNil)
 	w = s.mysql.Watch()
-	defer AssertStop(c, w)
-	NotifyWatcherC{c, s.State, w}.AssertOneChange()
+	defer testing.AssertStop(c, w)
+	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
 func (s *ServiceSuite) TestAnnotatorForService(c *C) {

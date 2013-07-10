@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/schema"
 )
 
@@ -111,7 +112,9 @@ func ReadConfig(r io.Reader) (*Config, error) {
 			return nil, fmt.Errorf("invalid config: option %q has unknown type %q", name, option.Type)
 		}
 		def := option.Default
-		if option.Default, err = option.validate(name, def); err != nil {
+		if def == "" && option.Type == "string" {
+			// Skip normal validation for compatibility with pyjuju.
+		} else if option.Default, err = option.validate(name, def); err != nil {
 			option.error(&err, name, def)
 			return nil, fmt.Errorf("invalid config default: %v", err)
 		}

@@ -5,7 +5,12 @@ package juju_test
 
 import (
 	"io/ioutil"
+	"os"
+	"path/filepath"
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -19,9 +24,6 @@ import (
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
-	"os"
-	"path/filepath"
-	stdtesting "testing"
 )
 
 func Test(t *stdtesting.T) {

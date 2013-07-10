@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 )
