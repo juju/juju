@@ -6,12 +6,14 @@ package upstart_test
 import (
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/upstart"
 	"os"
 	"path/filepath"
 	"testing"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/upstart"
 )
 
 func Test(t *testing.T) { TestingT(t) }

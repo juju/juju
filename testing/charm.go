@@ -6,10 +6,11 @@ package testing
 import (
 	"fmt"
 	"go/build"
-	"launchpad.net/juju-core/charm"
 	"os"
 	"os/exec"
 	"path/filepath"
+
+	"launchpad.net/juju-core/charm"
 )
 
 func init() {

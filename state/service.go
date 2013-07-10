@@ -6,16 +6,18 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"sort"
+	"strconv"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"sort"
-	"strconv"
 )
 
 // Service represents the state of a service.

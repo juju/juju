@@ -10,13 +10,14 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 )
 
 var watchLogger = loggo.GetLogger("juju.state.watch")

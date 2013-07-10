@@ -6,6 +6,7 @@ package environs
 import (
 	"errors"
 	"io"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"

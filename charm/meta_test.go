@@ -7,12 +7,14 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"strings"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/testing"
 )
 
 func repoMeta(name string) io.Reader {
