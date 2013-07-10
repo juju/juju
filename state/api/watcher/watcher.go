@@ -191,14 +191,14 @@ func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatch
 }
 
 func (w *LifecycleWatcher) loop() error {
-	var result params.LifecycleWatchResults
+	var result params.StringsWatchResult
 	if err := w.caller.Call("State", "", w.watchCall, nil, &result); err != nil {
 		return err
 	}
-	changes := result.Ids
-	w.newResult = func() interface{} { return new(params.LifecycleWatchResults) }
+	changes := result.Changes
+	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
 	w.call = func(request string, newResult interface{}) error {
-		return w.caller.Call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
+		return w.caller.Call("StringsWatcher", result.StringsWatcherId, request, nil, newResult)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -215,7 +215,7 @@ func (w *LifecycleWatcher) loop() error {
 				return nil
 			}
 			// We have received changes, so send them out.
-			changes = data.(*params.LifecycleWatchResults).Ids
+			changes = data.(*params.StringsWatchResult).Changes
 			out = w.out
 		case out <- changes:
 			// Wait until we have new changes to send.

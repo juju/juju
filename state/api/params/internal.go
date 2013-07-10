@@ -111,7 +111,7 @@ type NotifyWatcher interface {
 	Err() error
 }
 
-// NotifyWatchResult holds an NotifyWatcher id and an error (if any).
+// NotifyWatchResult holds a NotifyWatcher id and an error (if any).
 type NotifyWatchResult struct {
 	NotifyWatcherId string
 	Error           *Error
@@ -123,19 +123,10 @@ type NotifyWatchResults struct {
 	Results []NotifyWatchResult
 }
 
-// LifecycleWatchResults holds the results of API calls
-// that watch the lifecycle of a set of objects.
-// It is used both for the initial Watch request
-// and for subsequent Next requests.
-type LifecycleWatchResults struct {
-	// LifeCycleWatcherId holds the id of the newly
-	// created watcher. It will be empty for a Next
-	// request.
-	LifecycleWatcherId string
-
-	// Ids holds the list of entity ids.
-	// For a Watch request, it holds all entity ids being
-	// watched; for a Next request, it holds the ids of those
-	// that have changed.
-	Ids []string
+// StringsWatchResult holds a StringsWatcher id, changes and an error
+// (if any).
+type StringsWatchResult struct {
+	StringsWatcherId string
+	Changes          []string
+	Error            *Error
 }
