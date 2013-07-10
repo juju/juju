@@ -68,6 +68,16 @@ func (*lifeSuite) TestLifeError(c *C) {
 	c.Assert(err, ErrorMatches, "pow")
 }
 
+func (*lifeSuite) TestLifeNoArgsNoError(c *C) {
+	getCanRead := func() (common.AuthFunc, error) {
+		return nil, fmt.Errorf("pow")
+	}
+	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
+	result, err := lg.Life(params.Entities{})
+	c.Assert(err, IsNil)
+	c.Assert(result.Results, HasLen, 0)
+}
+
 type fakeLifeState struct {
 	entities map[string]*fakeLifer
 }

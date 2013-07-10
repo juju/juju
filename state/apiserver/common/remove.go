@@ -10,8 +10,8 @@ import (
 
 // Remover implements a common Remove method for use by various facades.
 type Remover struct {
-	st         RemoverGetter
-	getCanRead GetAuthFunc
+	st           RemoverGetter
+	getCanRemove GetAuthFunc
 }
 
 type RemoverGetter interface {
@@ -20,10 +20,10 @@ type RemoverGetter interface {
 
 // NewRemover returns a new Remover. The GetAuthFunc will be used on
 // each invocation of Remove to determine current permissions.
-func NewRemover(st RemoverGetter, getCanRead GetAuthFunc) *Remover {
+func NewRemover(st RemoverGetter, getCanRemove GetAuthFunc) *Remover {
 	return &Remover{
-		st:         st,
-		getCanRead: getCanRead,
+		st:           st,
+		getCanRemove: getCanRemove,
 	}
 }
 
@@ -36,16 +36,15 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := r.getCanRead()
+	canRemove, err := r.getCanRemove()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := ErrPerm
-		if canRead(entity.Tag) {
+		if canRemove(entity.Tag) {
 			var remover state.Remover
-			remover, err = r.st.Remover(entity.Tag)
-			if err == nil {
+			if remover, err = r.st.Remover(entity.Tag); err == nil {
 				if err = remover.EnsureDead(); err == nil {
 					err = remover.Remove()
 				}
