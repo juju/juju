@@ -541,8 +541,6 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 		return err
 	}
 
-	// To properly observe e.storageUnlocked we need to get its value while
-	// holding e.ecfgMutex. e.Storage() does this for us.
 	return e.Storage().RemoveAll()
 }
 

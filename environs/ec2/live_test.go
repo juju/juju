@@ -364,7 +364,7 @@ func (t *LiveTests) TestPublicStorage(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, contents)
 
-	// check that the public storage isn't aliased to the private storage.
+	// Check that the public storage isn't aliased to the private storage.
 	r, err = t.Env.Storage().Get("test-object")
 	var notFoundError *errors.NotFoundError
 	c.Assert(err, FitsTypeOf, notFoundError)
