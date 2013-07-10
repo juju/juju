@@ -56,7 +56,7 @@ func (s *watcherSuite) SetUpTest(c *C) {
 	// Start the testing API server.
 	s.server, err = apiserver.NewServer(
 		s.State,
-		"localhost:12345",
+		"localhost:0",
 		[]byte(coretesting.ServerCert),
 		[]byte(coretesting.ServerKey),
 	)
