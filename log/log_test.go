@@ -10,8 +10,9 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/log"
 )
 
 func Test(t *testing.T) {

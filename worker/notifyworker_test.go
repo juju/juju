@@ -11,24 +11,12 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker"
 )
-
-// shortWait is a reasonable amount of time to block waiting for something that
-// shouldn't actually happen. (as in, the test suite will *actually* wait this
-// long before continuing)
-var shortWait = 50 * time.Millisecond
-
-// longWait is used when something should have already happened, or happens
-// quickly, but we want to make sure we just haven't missed it. As in, the test
-// suite should proceed without sleeping at all, but just in case. It is long
-// so that we don't have spurious failures without actually slowing down the
-// test suite
-var longWait = 500 * time.Millisecond
 
 type notifyWorkerSuite struct {
 	coretesting.LoggingSuite
@@ -68,7 +56,7 @@ type actionsHandler struct {
 	description   string
 }
 
-func (a *actionsHandler) SetUp() (params.NotifyWatcher, error) {
+func (a *actionsHandler) SetUp() (api.NotifyWatcher, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "setup")
@@ -121,7 +109,7 @@ func (s *notifyWorkerSuite) stopWorker(c *gc.C) {
 	go func() {
 		done <- s.worker.Stop()
 	}()
-	err := waitForTimeout(c, done, longWait)
+	err := waitForTimeout(c, done, coretesting.LongWait)
 	c.Check(err, gc.IsNil)
 	s.actor = nil
 	s.worker = nil
@@ -162,8 +150,8 @@ func (tw *TestWatcher) SetStopError(err error) {
 func (tw *TestWatcher) TriggerChange(c *gc.C) {
 	select {
 	case tw.changes <- struct{}{}:
-	case <-time.After(longWait):
-		c.Errorf("Timeout changes triggering change after %s", longWait)
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("Timeout changes triggering change after %s", coretesting.LongWait)
 	}
 }
 
@@ -182,15 +170,15 @@ func WaitShort(c *gc.C, w worker.NotifyWorker) error {
 	go func() {
 		done <- w.Wait()
 	}()
-	return waitForTimeout(c, done, shortWait)
+	return waitForTimeout(c, done, coretesting.ShortWait)
 }
 
 func WaitForHandled(c *gc.C, handled chan struct{}) {
 	select {
 	case <-handled:
 		return
-	case <-time.After(longWait):
-		c.Errorf("handled failed to signal after %s", longWait)
+	case <-time.After(coretesting.LongWait):
+		c.Errorf("handled failed to signal after %s", coretesting.LongWait)
 	}
 }
 
@@ -217,10 +205,10 @@ func (s *notifyWorkerSuite) TestWait(c *gc.C) {
 	select {
 	case err := <-done:
 		c.Errorf("Wait() didn't wait until we stopped it: %v", err)
-	case <-time.After(shortWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 	s.worker.Kill()
-	err := waitForTimeout(c, done, longWait)
+	err := waitForTimeout(c, done, coretesting.LongWait)
 	c.Assert(err, gc.IsNil)
 }
 

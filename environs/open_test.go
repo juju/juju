@@ -5,10 +5,13 @@ package environs_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
+	"strings"
 )
 
 type OpenSuite struct{}
@@ -60,4 +63,95 @@ func (OpenSuite) TestNewFromNameGetDefault(c *C) {
 	e, err := environs.NewFromName("")
 	c.Assert(err, IsNil)
 	c.Assert(e.Name(), Equals, "erewhemos")
+}
+
+const checkEnv = `
+environments:
+    test:
+        type: dummy
+        state-server: false
+        authorized-keys: i-am-a-key
+`
+
+type checkEnvironmentSuite struct{}
+
+var _ = Suite(&checkEnvironmentSuite{})
+
+func (s *checkEnvironmentSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironment(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+
+	// VerifyStorage is sufficient for our tests and much simpler
+	// than Bootstrap which calls it.
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, IsNil)
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+
+	// VerifyStorage is sufficient for our tests and much simpler
+	// than Bootstrap which calls it.
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+
+	// When the bootstrap-verify file does not exist, it still believes
+	// the environment is a juju-core one because earlier versions
+	// did not create that file.
+	err = storage.Remove("bootstrap-verify")
+	c.Assert(err, IsNil)
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, IsNil)
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+
+	// VerifyStorage is sufficient for our tests and much simpler
+	// than Bootstrap which calls it.
+	storage := environ.Storage()
+	err = environs.VerifyStorage(storage)
+	c.Assert(err, IsNil)
+
+	// When fetching the verification file from storage fails,
+	// we get an InvalidEnvironmentError.
+	someError := errors.Unauthorizedf("you shall not pass")
+	dummy.Poison(storage, "bootstrap-verify", someError)
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, Equals, someError)
+}
+
+func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *C) {
+	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
+
+	environ, err := environs.NewFromName("test")
+	c.Assert(err, IsNil)
+
+	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.
+	storage := environ.Storage()
+	content := "bad verification content"
+	reader := strings.NewReader(content)
+	err = storage.Put("bootstrap-verify", reader, int64(len(content)))
+	c.Assert(err, IsNil)
+
+	// When the bootstrap-verify file contains unexpected content,
+	// we get an InvalidEnvironmentError.
+	err = environs.CheckEnvironment(environ)
+	c.Assert(err, Equals, environs.InvalidEnvironmentError)
 }

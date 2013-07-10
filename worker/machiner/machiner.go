@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/worker"
@@ -37,7 +38,7 @@ func (mr *Machiner) String() string {
 	return fmt.Sprintf("machiner %s", mr.id)
 }
 
-func (mr *Machiner) SetUp() (params.NotifyWatcher, error) {
+func (mr *Machiner) SetUp() (api.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.st.Machine(mr.id)
 	if errors.IsNotFoundError(err) {

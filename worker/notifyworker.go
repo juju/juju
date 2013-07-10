@@ -6,7 +6,7 @@ package worker
 import (
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 )
 
@@ -36,7 +36,7 @@ type NotifyWorker interface {
 	// from Wait.
 	Kill()
 
-	// Stop will call both Kill and then Wait for the worker to exit. 
+	// Stop will call both Kill and then Wait for the worker to exit.
 	Stop() error
 }
 
@@ -47,7 +47,7 @@ type WatchHandler interface {
 	// SetUp starts the handler, this should create the watcher we will be
 	// waiting on for more events. SetUp can return a Watcher even if there
 	// is an error, and NotifyWorker will make sure to stop the Watcher.
-	SetUp() (params.NotifyWatcher, error)
+	SetUp() (api.NotifyWatcher, error)
 
 	// TearDown should cleanup any resources that are left around
 	TearDown() error
@@ -106,7 +106,7 @@ func handlerTearDown(handler WatchHandler, t *tomb.Tomb) {
 }
 
 func (nw *notifyWorker) loop() error {
-	var w params.NotifyWatcher
+	var w api.NotifyWatcher
 	var err error
 	defer handlerTearDown(nw.handler, &nw.tomb)
 	if w, err = nw.handler.SetUp(); err != nil {

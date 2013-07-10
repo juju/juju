@@ -4,8 +4,9 @@
 package testing
 
 import (
-	. "launchpad.net/gocheck"
 	"os"
+
+	. "launchpad.net/gocheck"
 )
 
 type GitSuite struct {

@@ -4,9 +4,11 @@
 package state
 
 import (
-	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/instance"
 	"strings"
+
+	"labix.org/v2/mgo/txn"
+
+	"launchpad.net/juju-core/instance"
 )
 
 // machineContainers holds the machine ids of all the containers belonging to a parent machine.

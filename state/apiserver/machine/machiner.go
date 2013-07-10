@@ -7,10 +7,12 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
+	*common.LifeGetter
 	st        *state.State
 	resources *common.Resources
 	auth      common.Authorizer
@@ -21,7 +23,18 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	if !authorizer.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	return &MachinerAPI{st, resources, authorizer}, nil
+	getCanRead := func() (common.AuthFunc, error) {
+		return func(tag string) bool {
+			// TODO(go1.1): method expression
+			return authorizer.AuthOwner(tag)
+		}, nil
+	}
+	return &MachinerAPI{
+		LifeGetter: common.NewLifeGetter(st, getCanRead),
+		st:         st,
+		resources:  resources,
+		auth:       authorizer,
+	}, nil
 }
 
 // SetStatus sets the status of each given machine.
@@ -33,12 +46,11 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 		return result, nil
 	}
 	for i, arg := range args.Machines {
-		machine, err := m.st.Machine(arg.Id)
-		if err == nil {
-			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine.Tag()) {
-				err = common.ErrPerm
-			} else {
+		err := common.ErrPerm
+		if m.auth.AuthOwner(arg.Tag) {
+			var machine *state.Machine
+			machine, err = m.st.Machine(state.MachineIdFromTag(arg.Tag))
+			if err == nil {
 				err = machine.SetStatus(arg.Status, arg.Info)
 			}
 		}
@@ -48,27 +60,29 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 }
 
 // Watch starts an NotifyWatcher for each given machine.
-func (m *MachinerAPI) Watch(args params.Machines) (params.NotifyWatchResults, error) {
+func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Ids)),
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
 	}
-	if len(args.Ids) == 0 {
+	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	for i, id := range args.Ids {
-		machine, err := m.st.Machine(id)
-		if err == nil {
-			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine.Tag()) {
-				err = common.ErrPerm
-			} else {
-				watcher := machine.Watch()
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if m.auth.AuthOwner(entity.Tag) {
+			var machine *state.Machine
+			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
+			if err == nil {
+				watch := machine.Watch()
 				// Consume the initial event. Technically, API
 				// calls to Watch 'transmit' the initial event
 				// in the Watch response. But NotifyWatchers
 				// have no state to transmit.
-				_ = <-watcher.Changes()
-				result.Results[i].NotifyWatcherId = m.resources.Register(watcher)
+				if _, ok := <-watch.Changes(); ok {
+					result.Results[i].NotifyWatcherId = m.resources.Register(watch)
+				} else {
+					err = watcher.MustErr(watch)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -76,45 +90,21 @@ func (m *MachinerAPI) Watch(args params.Machines) (params.NotifyWatchResults, er
 	return result, nil
 }
 
-// Life returns the lifecycle state of each given machine.
-func (m *MachinerAPI) Life(args params.Machines) (params.MachinesLifeResults, error) {
-	result := params.MachinesLifeResults{
-		Machines: make([]params.MachineLifeResult, len(args.Ids)),
-	}
-	if len(args.Ids) == 0 {
-		return result, nil
-	}
-	for i, id := range args.Ids {
-		machine, err := m.st.Machine(id)
-		if err == nil {
-			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine.Tag()) {
-				err = common.ErrPerm
-			} else {
-				result.Machines[i].Life = params.Life(machine.Life().String())
-			}
-		}
-		result.Machines[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // EnsureDead changes the lifecycle of each given machine to Dead if
 // it's Alive or Dying. It does nothing otherwise.
-func (m *MachinerAPI) EnsureDead(args params.Machines) (params.ErrorResults, error) {
+func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Errors: make([]*params.Error, len(args.Ids)),
+		Errors: make([]*params.Error, len(args.Entities)),
 	}
-	if len(args.Ids) == 0 {
+	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	for i, id := range args.Ids {
-		machine, err := m.st.Machine(id)
-		if err == nil {
-			// Allow only for the owner agent.
-			if !m.auth.AuthOwner(machine.Tag()) {
-				err = common.ErrPerm
-			} else {
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if m.auth.AuthOwner(entity.Tag) {
+			var machine *state.Machine
+			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
+			if err == nil {
 				err = machine.EnsureDead()
 			}
 		}

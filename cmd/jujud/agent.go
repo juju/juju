@@ -6,9 +6,12 @@ package main
 import (
 	"fmt"
 	"io"
+	"time"
+
 	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -16,7 +19,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
-	"time"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -229,9 +231,6 @@ func (c *closeWorker) Wait() error {
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
 var newDeployContext = func(st *state.State, dataDir string) deployer.Context {
-	// TODO: pick context kind based on entity name? (once we have a
-	// container context for principal units, that is; for now, there
-	// is no distinction between principal and subordinate deployments)
 	return deployer.NewSimpleContext(dataDir, st.CACert(), st)
 }
 

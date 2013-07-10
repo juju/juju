@@ -124,12 +124,12 @@ func (s *storage) List(prefix string) ([]string, error) {
 	return names, nil
 }
 
-func (s *storage) deleteAll() error {
+func (s *storage) RemoveAll() error {
 	names, err := s.List("")
 	if err != nil {
 		return err
 	}
-	// Remove all the objects in parallel so that we incur less round-trips.
+	// Remove all the objects in parallel to minimize round-trips.
 	// If we're in danger of having hundreds of objects,
 	// we'll want to change this to limit the number
 	// of concurrent operations.

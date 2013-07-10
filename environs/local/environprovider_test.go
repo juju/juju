@@ -4,8 +4,6 @@
 package local_test
 
 import (
-	"path/filepath"
-
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
@@ -15,21 +13,18 @@ import (
 
 type baseProviderSuite struct {
 	testing.LoggingSuite
-	public     string
-	private    string
-	oldPublic  string
-	oldPrivate string
+	root    string
+	oldRoot string
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	loggo.GetLogger("juju.environs.local").SetLogLevel(loggo.TRACE)
-	s.public = filepath.Join(c.MkDir(), "%s", "public")
-	s.private = filepath.Join(c.MkDir(), "%s", "private")
-	s.oldPublic, s.oldPrivate = local.SetDefaultStorageDirs(s.public, s.private)
+	s.root = c.MkDir()
+	s.oldRoot = local.SetDefaultRootDir(s.root)
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {
-	local.SetDefaultStorageDirs(s.oldPublic, s.oldPrivate)
+	local.SetDefaultRootDir(s.oldRoot)
 	s.LoggingSuite.TearDownTest(c)
 }

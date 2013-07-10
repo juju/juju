@@ -10,11 +10,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/utils"
 	"net"
 	"os"
 	"os/exec"
@@ -23,6 +18,13 @@ import (
 	"strings"
 	stdtesting "testing"
 	"time"
+
+	"labix.org/v2/mgo"
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 var (

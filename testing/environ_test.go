@@ -8,6 +8,7 @@ import (
 	"path/filepath"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 )

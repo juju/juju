@@ -9,11 +9,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
 	"os"
 	"path/filepath"
 	"strconv"
 	"syscall"
+
+	"launchpad.net/juju-core/log"
 )
 
 // The Dir type encapsulates access to data and operations
