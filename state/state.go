@@ -8,9 +8,17 @@ package state
 
 import (
 	"fmt"
+	"net/url"
+	"regexp"
+	"sort"
+	"strconv"
+	"strings"
+	"sync"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -23,12 +31,6 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"regexp"
-	"sort"
-	"strconv"
-	"strings"
-	"sync"
 )
 
 // TODO(niemeyer): This must not be exported.
@@ -514,6 +516,19 @@ type Tagger interface {
 	Tag() string
 }
 
+// Lifer represents entities with a life.
+type Lifer interface {
+	Tagger
+	Life() Life
+}
+
+// Remover represents entities with EnsureDead and Remove methods.
+type Remover interface {
+	Tagger
+	EnsureDead() error
+	Remove() error
+}
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
@@ -541,28 +556,40 @@ type TaggedAnnotator interface {
 	Tagger
 }
 
-// Authenticator attempts to return a TaggedAuthenticator with the given name.
-func (st *State) Authenticator(name string) (TaggedAuthenticator, error) {
-	e, err := st.entity(name)
+// Authenticator attempts to return a TaggedAuthenticator with the given tag.
+func (st *State) Authenticator(tag string) (TaggedAuthenticator, error) {
+	e, err := st.entity(tag)
 	if err != nil {
 		return nil, err
 	}
 	if e, ok := e.(TaggedAuthenticator); ok {
 		return e, nil
 	}
-	return nil, fmt.Errorf("entity %q does not support authentication", name)
+	return nil, fmt.Errorf("entity %q does not support authentication", tag)
 }
 
-// Annotator attempts to return aa TaggedAnnotator with the given name.
-func (st *State) Annotator(name string) (TaggedAnnotator, error) {
-	e, err := st.entity(name)
+// Annotator attempts to return aa TaggedAnnotator with the given tag.
+func (st *State) Annotator(tag string) (TaggedAnnotator, error) {
+	e, err := st.entity(tag)
 	if err != nil {
 		return nil, err
 	}
 	if e, ok := e.(TaggedAnnotator); ok {
 		return e, nil
 	}
-	return nil, fmt.Errorf("entity %q does not support annotations", name)
+	return nil, fmt.Errorf("entity %q does not support annotations", tag)
+}
+
+// Lifer attempts to return a Lifer with the given tag.
+func (st *State) Lifer(tag string) (Lifer, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Lifer); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support lifecycles", tag)
 }
 
 // entity returns the entity for the given tag.

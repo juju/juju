@@ -5,12 +5,15 @@ package localstorage_test
 
 import (
 	"bytes"
+	"fmt"
 	"io/ioutil"
+	"net/http"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
-	"net/http"
 )
 
 type storageSuite struct{}
@@ -63,6 +66,9 @@ func (s *storageSuite) TestPersistence(c *C) {
 
 	// check they've all gone
 	checkList(c, storage2, "", nil)
+
+	// Check that RemoveAll works.
+	checkRemoveAll(c, storage2)
 }
 
 func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
@@ -104,4 +110,24 @@ func checkFileHasContents(c *C, storage environs.StorageReader, name string, con
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, Equals, http.StatusOK, Commentf("error response: %s", data))
 	c.Check(data, DeepEquals, contents)
+}
+
+func checkRemoveAll(c *C, storage environs.Storage) {
+	contents := []byte("File contents.")
+	aFile := "a-file.txt"
+	err := storage.Put(aFile, bytes.NewBuffer(contents), int64(len(contents)))
+	c.Assert(err, IsNil)
+	err = storage.Put("empty-file", bytes.NewBuffer(nil), 0)
+	c.Assert(err, IsNil)
+
+	err = storage.RemoveAll()
+	c.Assert(err, IsNil)
+
+	files, err := storage.List("")
+	c.Assert(err, IsNil)
+	c.Check(files, HasLen, 0)
+
+	_, err = storage.Get(aFile)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, fmt.Sprintf("file %q not found", aFile))
 }

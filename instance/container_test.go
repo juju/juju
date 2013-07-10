@@ -4,9 +4,11 @@
 package instance_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/instance"
 	"testing"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/instance"
 )
 
 func TestPackage(t *testing.T) {

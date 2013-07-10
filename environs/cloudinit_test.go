@@ -4,7 +4,10 @@
 package environs_test
 
 import (
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -14,7 +17,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
-	"time"
 )
 
 type CloudInitSuite struct{}

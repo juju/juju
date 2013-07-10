@@ -9,10 +9,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/gnuflag"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/gnuflag"
 )
 
 // ErrSilent can be returned from Run to signal that Main should exit with

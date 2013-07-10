@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -146,11 +146,11 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	return uconf.Install()
 }
 
-// findCompatibleUpstartJobs tries to find an upstart job matching the
+// findUpstartJob tries to find an upstart job matching the
 // given unit name in one of these formats:
 //   jujud-<deployer-tag>:<unit-tag>.conf (for compatibility)
 //   jujud-<unit-tag>.conf (default)
-func (ctx *SimpleContext) findCompatibleUpstartJob(unitName string) *upstart.Service {
+func (ctx *SimpleContext) findUpstartJob(unitName string) *upstart.Service {
 	unitsAndJobs, err := ctx.deployedUnitsUpstartJobs()
 	if err != nil {
 		return nil
@@ -164,7 +164,7 @@ func (ctx *SimpleContext) findCompatibleUpstartJob(unitName string) *upstart.Ser
 }
 
 func (ctx *SimpleContext) RecallUnit(unitName string) error {
-	svc := ctx.findCompatibleUpstartJob(unitName)
+	svc := ctx.findUpstartJob(unitName)
 	if svc == nil || !svc.Installed() {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}

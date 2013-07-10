@@ -5,12 +5,17 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"reflect"
+	"time"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
@@ -21,9 +26,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	"path/filepath"
-	"reflect"
-	"time"
 )
 
 type MachineSuite struct {
@@ -321,7 +323,7 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	defer st.Close()
 
 	// This just verifies we can log in successfully.
-	m, err := st.Machiner().Machine(stm.Id())
+	m, err := st.Machiner().Machine(stm.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(m.Life(), Equals, params.Alive)
 

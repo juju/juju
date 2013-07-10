@@ -110,19 +110,18 @@ func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	}, nil
 }
 
-// LifecycleWatcher returns an object that provides
-// API access to methods on a state.LifecycleWatcher.
-// Each client has its own current set of watchers, stored
-// in r.resources.
-func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
+// StringsWatcher returns an object that provides API access to
+// methods on a state.StringsWatcher.  Each client has its own
+// current set of watchers, stored in r.resources.
+func (r *srvRoot) StringsWatcher(id string) (*srvStringsWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.LifecycleWatcher)
+	watcher, ok := r.resources.Get(id).(state.StringsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvLifecycleWatcher{
+	return &srvStringsWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,

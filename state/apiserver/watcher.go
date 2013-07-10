@@ -52,31 +52,31 @@ func (w *srvNotifyWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }
 
-// srvLifecycleWatcher notifies about lifecycle changes for all
-// entities of a given kind. See state.LifecycleWatcher.
-type srvLifecycleWatcher struct {
-	watcher   *state.LifecycleWatcher
+// srvStringsWatcher notifies about changes for all entities of a
+// given kind, sending the changes as a list of strings.
+type srvStringsWatcher struct {
+	watcher   state.StringsWatcher
 	id        string
 	resources *common.Resources
 }
 
-// Next returns when a change has occured to the lifecycle of an
-// entity of the collection being watched since the most recent call
-// to Next or the Watch call that created the srvLifecycleWatcher.
-func (w *srvLifecycleWatcher) Next() (params.LifecycleWatchResults, error) {
+// Next returns when a change has occured to an entity of the
+// collection being watched since the most recent call to Next
+// or the Watch call that created the srvStringsWatcher.
+func (w *srvStringsWatcher) Next() (params.StringsWatchResult, error) {
 	if changes, ok := <-w.watcher.Changes(); ok {
-		return params.LifecycleWatchResults{
-			Ids: changes,
+		return params.StringsWatchResult{
+			Changes: changes,
 		}, nil
 	}
 	err := w.watcher.Err()
 	if err == nil {
 		err = common.ErrStoppedWatcher
 	}
-	return params.LifecycleWatchResults{}, err
+	return params.StringsWatchResult{}, err
 }
 
 // Stop stops the watcher.
-func (w *srvLifecycleWatcher) Stop() error {
+func (w *srvStringsWatcher) Stop() error {
 	return w.resources.Stop(w.id)
 }

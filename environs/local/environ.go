@@ -5,11 +5,14 @@ package local
 
 import (
 	"fmt"
+	"net"
+	"os"
 	"sync"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -19,9 +22,11 @@ import (
 var _ environs.Environ = (*localEnviron)(nil)
 
 type localEnviron struct {
-	localMutex sync.Mutex
-	config     *environConfig
-	name       string
+	localMutex            sync.Mutex
+	config                *environConfig
+	name                  string
+	sharedStorageListener net.Listener
+	storageListener       net.Listener
 }
 
 // Name is specified in the Environ interface.
@@ -46,6 +51,19 @@ func (env *localEnviron) Config() *config.Config {
 	return env.config.Config
 }
 
+func createLocalStorageListener(dir string) (net.Listener, error) {
+	info, err := os.Stat(dir)
+	if os.IsNotExist(err) {
+		return nil, fmt.Errorf("storage directory %q does not exist, bootstrap first", dir)
+	} else if err != nil {
+		return nil, err
+	} else if !info.Mode().IsDir() {
+		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
+	}
+	// TODO(thumper): this needs fixing when we have actual machines.
+	return localstorage.Serve("localhost:0", dir)
+}
+
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	config, err := provider.newConfig(cfg)
@@ -56,6 +74,25 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
 	env.config = config
+	env.name = config.Name()
+	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
+	if err != nil {
+		return err
+	}
+
+	storageListener, err := createLocalStorageListener(config.storageDir())
+	if err != nil {
+		sharedStorageListener.Close()
+		return err
+	}
+	if env.sharedStorageListener != nil {
+		env.sharedStorageListener.Close()
+	}
+	if env.storageListener != nil {
+		env.storageListener.Close()
+	}
+	env.sharedStorageListener = sharedStorageListener
+	env.storageListener = storageListener
 	return nil
 }
 
@@ -86,12 +123,12 @@ func (env *localEnviron) AllInstances() ([]instance.Instance, error) {
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() environs.Storage {
-	panic("unimplemented")
+	return localstorage.Client(env.storageListener.Addr().String())
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *localEnviron) PublicStorage() environs.StorageReader {
-	panic("unimplemented")
+	return localstorage.Client(env.sharedStorageListener.Addr().String())
 }
 
 // Destroy is specified in the Environ interface.

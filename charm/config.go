@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/schema"
 )
 

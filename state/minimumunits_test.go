@@ -6,6 +6,7 @@ package state_test
 import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state"
 )
 
