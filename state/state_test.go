@@ -842,7 +842,24 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
+func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *C) {
+	// Older versions of juju do not write the "containertype" field.
+	// This has caused machines to not be detected in the initial event.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.machines.Update(
+		D{{"_id", machine.Id()}},
+		D{{"$unset", D{{"containertype", 1}}}},
+	)
+	c.Assert(err, IsNil)
+
+	w := s.State.WatchEnvironMachines()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertOneChange(machine.Id())
+}
+
+func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)

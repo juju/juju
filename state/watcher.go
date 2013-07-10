@@ -144,7 +144,10 @@ func (s *Service) WatchRelations() StringsWatcher {
 // WatchEnvironMachines returns a StringsWatcher that notifies of changes to
 // the lifecycles of the machines (but not containers) in the environment.
 func (st *State) WatchEnvironMachines() StringsWatcher {
-	members := D{{"containertype", ""}}
+	members := D{{"$or", []D{
+		{{"containertype", ""}},
+		{{"containertype", D{{"$exists", false}}}},
+	}}}
 	filter := func(id interface{}) bool {
 		return !strings.Contains(id.(string), "/")
 	}
