@@ -6,6 +6,7 @@ package state
 import (
 	"errors"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -127,14 +128,8 @@ func (s *Service) EnsureMinUnits() (err error) {
 	defer utils.ErrorContextf(&err,
 		"cannot ensure minimum units for service %q", s)
 	service := &Service{st: s.st, doc: s.doc}
-	defer func() {
-		if err == nil {
-			s.doc.MinUnits = service.doc.MinUnits
-			s.doc.UnitCount = service.doc.UnitCount
-		}
-	}()
-loop:
 	for {
+		log.Debugf("======== START")
 		// Ensure the service is alive.
 		if service.doc.Life != Alive {
 			return errors.New("service is no longer alive")
@@ -153,27 +148,18 @@ loop:
 		if missing <= 0 {
 			return nil
 		}
-		// Add missing units.
-		for i := 0; i < missing; i++ {
-			name, ops, err := ensureMinUnitsOps(service)
-			if err != nil {
-				return err
-			}
-			err = service.st.runTransaction(ops)
-			// Refresh the service in two cases: either the transaction was
-			// aborted (in which case we also restart the whole loop) or the
-			// transaction run correctly but we still need to add more units.
-			if err == txn.ErrAborted || (err == nil && i != missing-1) {
-				if err := service.Refresh(); err != nil {
-					return err
-				}
-				if err == txn.ErrAborted {
-					continue loop
-				}
-			}
-			if err != nil {
-				return err
-			}
+		name, ops, err := ensureMinUnitsOps(service)
+		if err != nil {
+			return err
+		}
+		allunits, _ := service.AllUnits()
+		log.Debugf("======== BEFORE TXN, alive: %d | missing: %d | all: %d", aliveUnits, missing, len(allunits))
+		// Add missing unit.
+		log.Debugf("======== BEFORE TXN")
+		switch err := s.st.runTransaction(ops); err {
+		case nil:
+			log.Debugf("======== ADD UNIT")
+			// Assign the new unit.
 			unit, err := service.Unit(name)
 			if err != nil {
 				return err
@@ -181,10 +167,21 @@ loop:
 			if err := service.st.AssignUnit(unit, AssignNew); err != nil {
 				return err
 			}
+			// No need to proceed and refresh the service if this was the
+			// last/only missing unit.
+			if missing == 1 {
+				return nil
+			}
+		case txn.ErrAborted:
+			log.Debugf("======== ABORTED")
+		default:
+			return err
 		}
-		return nil
+		if err := service.Refresh(); err != nil {
+			return err
+		}
 	}
-	return nil
+	panic("unreachable")
 }
 
 // aliveUnitsCount returns the number a alive units for the service.
