@@ -64,7 +64,7 @@ func (*lifeSuite) TestLifeError(c *C) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
-	_, err := lg.Life(params.Entities{})
+	_, err := lg.Life(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, ErrorMatches, "pow")
 }
 

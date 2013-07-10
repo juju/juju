@@ -30,8 +30,11 @@ func NewPasswordChanger(st AuthenticatorGetter, getCanChange GetAuthFunc) *Passw
 
 // SetPasswords sets the given password for each supplied entity, if possible.
 func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) (params.ErrorResults, error) {
-	results := params.ErrorResults{
+	result := params.ErrorResults{
 		Errors: make([]*params.Error, len(args.Changes)),
+	}
+	if len(args.Changes) == 0 {
+		return result, nil
 	}
 	canChange, err := pc.getCanChange()
 	if err != nil {
@@ -39,14 +42,14 @@ func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) (params.Err
 	}
 	for i, param := range args.Changes {
 		if !canChange(param.Tag) {
-			results.Errors[i] = ServerError(ErrPerm)
+			result.Errors[i] = ServerError(ErrPerm)
 			continue
 		}
 		if err := pc.setPassword(param.Tag, param.Password); err != nil {
-			results.Errors[i] = ServerError(err)
+			result.Errors[i] = ServerError(err)
 		}
 	}
-	return results, nil
+	return result, nil
 }
 
 func (pc *PasswordChanger) setPassword(tag, password string) error {

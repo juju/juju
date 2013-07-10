@@ -521,6 +521,13 @@ type Lifer interface {
 	Life() Life
 }
 
+// Remover represents entities with EnsureDead and Remove methods.
+type Remover interface {
+	Tagger
+	EnsureDead() error
+	Remove() error
+}
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
