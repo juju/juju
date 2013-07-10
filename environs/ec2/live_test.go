@@ -93,7 +93,7 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		// This can happen if SetUpSuite fails.
 		return
 	}
-	err := ec2.DeleteStorageContent(t.writablePublicStorage)
+	err := t.writablePublicStorage.DeleteAll()
 	c.Assert(err, IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)

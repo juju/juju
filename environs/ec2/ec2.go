@@ -542,10 +542,8 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 	}
 
 	// To properly observe e.storageUnlocked we need to get its value while
-	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
-	// back to the (*storage) to access the private deleteAll() method.
-	st := e.Storage().(*storage)
-	return st.deleteAll()
+	// holding e.ecfgMutex. e.Storage() does this for us.
+	return e.Storage().RemoveAll()
 }
 
 func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {

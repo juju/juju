@@ -449,10 +449,8 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 	}
 
 	// To properly observe e.storageUnlocked we need to get its value while
-	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
-	// back to the (*storage) to access the private deleteAll() method.
-	st := environ.Storage().(*maasStorage)
-	return st.deleteAll()
+	// holding e.ecfgMutex. e.Storage() does this for us.
+	return environ.Storage().RemoveAll()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

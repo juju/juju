@@ -381,7 +381,7 @@ func (s *StorageSuite) TestDeleteAllDeletesAllFiles(c *C) {
 	const filename2 = "stored-data2"
 	s.fakeStoredFile(storage, filename2)
 
-	err := storage.deleteAll()
+	err := storage.RemoveAll()
 	c.Assert(err, IsNil)
 	listing, err := storage.List("")
 	c.Assert(err, IsNil)
