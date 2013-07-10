@@ -1443,8 +1443,8 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, erro
 }
 
 func (s *StateSuite) TestAuthenticator(c *C) {
-	getEntity := func(name string) (state.Tagger, error) {
-		e, err := s.State.Authenticator(name)
+	getEntity := func(tag string) (state.Tagger, error) {
+		e, err := s.State.Authenticator(tag)
 		if err != nil {
 			return nil, err
 		}
@@ -1475,8 +1475,8 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
-	getEntity := func(name string) (state.Tagger, error) {
-		e, err := s.State.Annotator(name)
+	getEntity := func(tag string) (state.Tagger, error) {
+		e, err := s.State.Annotator(tag)
 		if err != nil {
 			return nil, err
 		}
@@ -1508,6 +1508,39 @@ func (s *StateSuite) TestAnnotator(c *C) {
 		ErrorMatches,
 		`entity "user-arble" does not support annotations`,
 	)
+}
+
+func (s *StateSuite) TestLifer(c *C) {
+	getEntity := func(tag string) (state.Tagger, error) {
+		e, err := s.State.Lifer(tag)
+		if err != nil {
+			return nil, err
+		}
+		return e, nil
+	}
+	s.testEntity(c, getEntity)
+
+	svc, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	c.Assert(err, IsNil)
+	service, err := getEntity(svc.Tag())
+	c.Assert(err, IsNil)
+	c.Assert(service, FitsTypeOf, svc)
+	c.Assert(service.Tag(), Equals, svc.Tag())
+
+	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, check
+	// it works here.
+
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	envTag := "environment-" + cfg.Name()
+	_, err = getEntity(envTag)
+	errTemplate := "entity %q does not support lifecycles"
+	c.Assert(err, ErrorMatches, fmt.Sprintf(errTemplate, envTag))
+
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+	_, err = getEntity(user.Tag())
+	c.Assert(err, ErrorMatches, fmt.Sprintf(errTemplate, user.Tag()))
 }
 
 func (s *StateSuite) TestParseTag(c *C) {

@@ -8,28 +8,37 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
+// PasswordChanger implements a common SetPasswords method for use by
+// various facades.
 type PasswordChanger struct {
-	st        authGetter
-	canChange func(tag string) bool
+	st           AuthenticatorGetter
+	getCanChange GetAuthFunc
 }
 
-type authGetter interface {
+type AuthenticatorGetter interface {
 	Authenticator(tag string) (state.TaggedAuthenticator, error)
 }
 
-func NewPasswordChanger(st *state.State, canChange func(tag string) bool) *PasswordChanger {
+// NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
+// used on each invocation of SetPasswords to determine current permissions.
+func NewPasswordChanger(st AuthenticatorGetter, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
-		st:        st,
-		canChange: canChange,
+		st:           st,
+		getCanChange: getCanChange,
 	}
 }
 
-func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) params.ErrorResults {
+// SetPasswords sets the given password for each supplied entity, if possible.
+func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) (params.ErrorResults, error) {
 	results := params.ErrorResults{
 		Errors: make([]*params.Error, len(args.Changes)),
 	}
+	canChange, err := pc.getCanChange()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
 	for i, param := range args.Changes {
-		if !pc.canChange(param.Tag) {
+		if !canChange(param.Tag) {
 			results.Errors[i] = ServerError(ErrPerm)
 			continue
 		}
@@ -37,7 +46,7 @@ func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) params.Erro
 			results.Errors[i] = ServerError(err)
 		}
 	}
-	return results
+	return results, nil
 }
 
 func (pc *PasswordChanger) setPassword(tag, password string) error {
