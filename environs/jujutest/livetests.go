@@ -766,6 +766,14 @@ attempt:
 	// removing a file that does not exist should not be an error.
 	err = storage.Remove(name)
 	c.Check(err, IsNil)
+
+	// RemoveAll deletes all files from storage.
+	checkPutFile(c, storage, "file-1.txt", contents)
+	checkPutFile(c, storage, "file-2.txt", contents)
+	err = storage.RemoveAll()
+	c.Check(err, IsNil)
+	checkFileDoesNotExist(c, storage, "file-1.txt", t.Attempt)
+	checkFileDoesNotExist(c, storage, "file-2.txt", t.Attempt)
 }
 
 // Check that we can't start an instance running tools that correspond with no
