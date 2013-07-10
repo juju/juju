@@ -45,10 +45,10 @@ func (u *Upgrader) SetTools(tools params.AgentTools) error {
 	return nil
 }
 
-func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
+func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
 	var results params.AgentToolsResults
-	args := params.Agents{
-		Agents: []params.Agent{{Tag: agentTag}},
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := u.caller.Call("Upgrader", "", "Tools", args, &results)
 	if err != nil {
@@ -63,10 +63,10 @@ func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
 	if err := tools.Error; err != nil {
 		return nil, err
 	}
-	if tools.AgentTools.Tag != agentTag {
+	if tools.AgentTools.Tag != tag {
 		// TODO: Not directly tested
 		return nil, fmt.Errorf("server returned tag that did not match: got %q expected %q",
-			tools.AgentTools.Tag, agentTag)
+			tools.AgentTools.Tag, tag)
 	}
 	return &tools.AgentTools, nil
 }
