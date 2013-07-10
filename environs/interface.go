@@ -116,7 +116,7 @@ type Environ interface {
 	// Name returns the Environ's name.
 	Name() string
 
-	// Bootstrap initializes the state for the ehttp://e.linkedin.com/pub/cc?_ri_=X0Gzc2X%3DWQpglLjHJlYQGnWM9Wmzczb5jcumzdzbUza0krpJ1IHy1zbKM6oudBVXtpKX%3DSACTCD&_ei_=ElhY7pRVQKMkByKfU5j5nyTdqpv_9wz7Jge06DvYsd6c0nIJozNk4cNMOPC1Urjg7VaJ00kOxaaDHWP4Pi6FQTEX7HtnX6dCCY5_xSJOUbu4ajHGueKYqV91dfEPm_weAS30DdZlQpvjwJZconUle6z6-oOidmOLrLjX70.nvironment, possibly
+	// Bootstrap initializes the state for the environment, possibly
 	// starting one or more instances.  If the configuration's
 	// AdminSecret is non-empty, the adminstrator password on the
 	// newly bootstrapped state will be set to a hash of it (see
