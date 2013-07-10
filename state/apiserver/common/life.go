@@ -29,8 +29,11 @@ func NewLifeGetter(st LiferGetter, getCanRead GetAuthFunc) *LifeGetter {
 
 // Life returns the life status of every supplied entity, where available.
 func (lg *LifeGetter) Life(args params.Entities) (params.LifeResults, error) {
-	results := params.LifeResults{
+	result := params.LifeResults{
 		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
 	}
 	canRead, err := lg.getCanRead()
 	if err != nil {
@@ -42,10 +45,10 @@ func (lg *LifeGetter) Life(args params.Entities) (params.LifeResults, error) {
 			var lifer state.Lifer
 			lifer, err = lg.st.Lifer(entity.Tag)
 			if err == nil {
-				results.Results[i].Life = params.Life(lifer.Life().String())
+				result.Results[i].Life = params.Life(lifer.Life().String())
 			}
 		}
-		results.Results[i].Error = ServerError(err)
+		result.Results[i].Error = ServerError(err)
 	}
-	return results, nil
+	return result, nil
 }

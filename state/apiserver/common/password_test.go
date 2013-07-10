@@ -82,8 +82,18 @@ func (*passwordSuite) TestSetPasswordsError(c *C) {
 			Password: fmt.Sprintf("%spass", tag),
 		})
 	}
-	_, err := pc.SetPasswords(params.PasswordChanges{})
+	_, err := pc.SetPasswords(params.PasswordChanges{Changes: changes})
 	c.Assert(err, ErrorMatches, "splat")
+}
+
+func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *C) {
+	getCanChange := func() (common.AuthFunc, error) {
+		return nil, fmt.Errorf("splat")
+	}
+	pc := common.NewPasswordChanger(&fakeAuthState{}, getCanChange)
+	result, err := pc.SetPasswords(params.PasswordChanges{})
+	c.Assert(err, IsNil)
+	c.Assert(result.Errors, HasLen, 0)
 }
 
 type fakeAuthState struct {
