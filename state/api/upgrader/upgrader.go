@@ -72,7 +72,7 @@ func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
 	return &tools.AgentTools, nil
 }
 
-func (u *Upgrader) WatchAPIVersion(agentTag string) (params.NotifyWatcher, error) {
+func (u *Upgrader) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},

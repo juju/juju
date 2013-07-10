@@ -5,10 +5,12 @@ package state
 
 import (
 	"fmt"
+	"sort"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/errors"
-	"sort"
 )
 
 const (

@@ -7,9 +7,15 @@ import (
 	"bytes"
 	stderrors "errors"
 	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
+	"time"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -17,10 +23,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
-	"net/http"
-	"os"
-	"path/filepath"
-	"time"
 )
 
 var _ = Suite(&toolSuite{})

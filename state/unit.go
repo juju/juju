@@ -6,18 +6,20 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
+	"sort"
+	"strings"
+	"time"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
-	"sort"
-	"strings"
-	"time"
 )
 
 // AssignmentPolicy controls what machine a unit will be assigned to.

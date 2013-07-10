@@ -8,13 +8,15 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"strings"
 	"syscall"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/testing"
 )
 
 type DirSuite struct {

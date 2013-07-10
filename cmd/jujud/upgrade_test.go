@@ -6,16 +6,18 @@ package main
 import (
 	"fmt"
 	"io/ioutil"
+	"path/filepath"
+	"time"
+
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/agent"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
-	"path/filepath"
-	"time"
 )
 
 var _ = Suite(&UpgraderSuite{})

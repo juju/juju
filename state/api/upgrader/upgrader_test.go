@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
-	"launchpad.net/juju-core/state/apiserver"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -28,7 +27,6 @@ func TestAll(t *stdtesting.T) {
 type upgraderSuite struct {
 	testing.JujuConnSuite
 
-	server   *apiserver.Server
 	stateAPI *api.State
 
 	// These are raw State objects. Use them for setup and assertions, but
@@ -53,15 +51,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
-	// Start the testing API server.
-	s.server, err = apiserver.NewServer(
-		s.State,
-		"localhost:12345",
-		[]byte(coretesting.ServerCert),
-		[]byte(coretesting.ServerKey),
-	)
-	c.Assert(err, IsNil)
-
 	// Login as the machine agent of the created machine.
 	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
 	c.Assert(s.stateAPI, NotNil)
@@ -75,10 +64,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 func (s *upgraderSuite) TearDownTest(c *C) {
 	if s.stateAPI != nil {
 		err := s.stateAPI.Close()
-		c.Check(err, IsNil)
-	}
-	if s.server != nil {
-		err := s.server.Stop()
 		c.Check(err, IsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)

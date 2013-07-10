@@ -4,15 +4,17 @@
 package worker_test
 
 import (
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
-	stdtesting "testing"
 )
 
 type suite struct {

@@ -5,10 +5,12 @@ package version_test
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/version"
 	"os/exec"
 	"path/filepath"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/version"
 )
 
 type CurrentSuite struct{}

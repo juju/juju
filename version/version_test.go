@@ -4,11 +4,13 @@
 package version_test
 
 import (
-	"."
-	"labix.org/v2/mgo/bson"
-	. "launchpad.net/gocheck"
 	"strings"
 	"testing"
+
+	"labix.org/v2/mgo/bson"
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/version"
 )
 
 type suite struct{}

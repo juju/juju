@@ -447,7 +447,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
-func (s *localServerSuite) TestDeleteAll(c *C) {
+func (s *localServerSuite) TestRemoveAll(c *C) {
 	storage := s.Env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
@@ -461,7 +461,7 @@ func (s *localServerSuite) TestDeleteAll(c *C) {
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
 	c.Assert(string(allContent), Equals, "a")
-	err = openstack.DeleteStorageContent(storage)
+	err = storage.RemoveAll()
 	c.Assert(err, IsNil)
 	_, err = storage.Get("a")
 	c.Assert(err, NotNil)
@@ -484,7 +484,7 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
 	c.Assert(string(allContent), Equals, "ab")
-	err = openstack.DeleteStorageContent(storage)
+	err = storage.RemoveAll()
 	c.Assert(err, IsNil)
 	_, err = storage.Get("ab")
 	c.Assert(err, NotNil)

@@ -6,10 +6,11 @@ package charm
 import (
 	"encoding/json"
 	"fmt"
-	"labix.org/v2/mgo/bson"
 	"regexp"
 	"strconv"
 	"strings"
+
+	"labix.org/v2/mgo/bson"
 )
 
 // A charm URL represents charm locations such as:

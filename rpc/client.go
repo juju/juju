@@ -5,6 +5,7 @@ package rpc
 
 import (
 	"errors"
+
 	"launchpad.net/juju-core/log"
 )
 
