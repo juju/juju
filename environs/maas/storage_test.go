@@ -374,7 +374,7 @@ func (s *StorageSuite) TestNamesMayHaveSlashes(c *C) {
 	c.Check(data, DeepEquals, content)
 }
 
-func (s *StorageSuite) TestDeleteAllDeletesAllFiles(c *C) {
+func (s *StorageSuite) TestRemoveAllDeletesAllFiles(c *C) {
 	storage := s.makeStorage("get-retrieves-file")
 	const filename1 = "stored-data1"
 	s.fakeStoredFile(storage, filename1)

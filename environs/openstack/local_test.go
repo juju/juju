@@ -447,7 +447,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
-func (s *localServerSuite) TestDeleteAll(c *C) {
+func (s *localServerSuite) TestRemoveAll(c *C) {
 	storage := s.Env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}

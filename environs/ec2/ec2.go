@@ -49,8 +49,8 @@ type environ struct {
 	ecfgUnlocked          *environConfig
 	ec2Unlocked           *ec2.EC2
 	s3Unlocked            *s3.S3
-	storageUnlocked       *storage
-	publicStorageUnlocked *storage // optional.
+	storageUnlocked       environs.Storage
+	publicStorageUnlocked environs.StorageReader // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
