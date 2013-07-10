@@ -232,6 +232,7 @@ func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName s
 // internalStartInstance does the provider-specific work of starting an
 // instance.  The code in StartInstance is actually largely agnostic across
 // the EC2/OpenStack/MAAS/Azure providers.
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func (env *azureEnviron) internalStartInstance(machineID string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
@@ -305,10 +306,36 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 	return inst, nil
 }
 
+// makeMachineConfig sets up a basic machine configuration for use with
+// userData().  You may still need to supply more information, but this takes
+// care of the fixed entries and the ones that are always needed.
+func (env *azureEnviron) makeMachineConfig(machineID, machineNonce string,
+	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
+	return &cloudinit.MachineConfig{
+		// Fixed entries.
+		// TODO: Unify instances of this path, so tests can fake it.
+		DataDir: "/var/lib/juju",
+
+		// Parameter entries.
+		MachineId:    machineID,
+		MachineNonce: machineNonce,
+		StateInfo:    stateInfo,
+		APIInfo:      apiInfo,
+	}
+}
+
 // StartInstance is specified in the Environ interface.
-func (env *azureEnviron) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	panic("unimplemented")
+// TODO(bug 1199847): This work can be shared between providers.
+func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
+	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	possibleTools, err := environs.FindInstanceTools(env, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	mcfg := env.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	// TODO(bug 1193998) - return instance hardware characteristics as well.
+	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	return inst, nil, err
 }
 
 // StopInstances is specified in the Environ interface.

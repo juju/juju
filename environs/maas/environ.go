@@ -74,6 +74,7 @@ func (env *maasEnviron) Name() string {
 // makeMachineConfig sets up a basic machine configuration for use with
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
+// TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
@@ -109,6 +110,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 }
 
 // Bootstrap is specified in the Environ interface.
+// TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 
 	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
@@ -266,6 +268,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 
 // obtainNode allocates and starts a MAAS node.  It is used both for the
 // implementation of StartInstance, and to initialize the bootstrap node.
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
@@ -311,6 +314,7 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 }
 
 // StartInstance is specified in the Environ interface.
+// TODO(bug 1199847): This work can be shared between providers.
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
