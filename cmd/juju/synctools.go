@@ -7,6 +7,9 @@ import (
 	"bytes"
 	"fmt"
 	"io"
+	"os"
+	"path/filepath"
+	"sort"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
@@ -29,6 +32,7 @@ type SyncToolsCommand struct {
 	dryRun       bool
 	publicBucket bool
 	dev          bool
+	source       string
 }
 
 var _ cmd.Command = (*SyncToolsCommand)(nil)
@@ -53,6 +57,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
 	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
+	f.StringVar(&c.source, "source", "default", "chose a location on the file system or via http as source")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
 	// location, rather than only copying from us-east-1
@@ -106,7 +111,11 @@ func copyTools(
 }
 
 func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
-	sourceStorage := ec2.NewHTTPStorageReader(defaultToolsLocation)
+	sourceStorage, err := selectSourceStorage(c.source)
+	if err != nil {
+		log.Errorf("unable to select source: %v", err)
+		return err
+	}
 	targetEnv, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		log.Errorf("unable to read %q from environment", c.EnvName)
@@ -169,4 +178,73 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	fmt.Fprintf(ctx.Stderr, "copied %d tools\n", len(missing))
 	return nil
+}
+
+// selectSourceStorage returns a storage reader based on the passed source flag.
+func selectSourceStorage(sourceFlagValue string) (environs.StorageReader, error) {
+	if sourceFlagValue == "default" {
+		return ec2.NewHTTPStorageReader(defaultToolsLocation), nil
+	}
+	return newFileStorageReader(sourceFlagValue)
+}
+
+// fileStorageReader implements the StorageReader accessing the local 
+// file system.
+type fileStorageReader struct {
+	path string
+}
+
+// newFileStorageReader return a new storage reader for
+// a directory inside the local file system.
+func newFileStorageReader(path string) (environs.StorageReader, error) {
+	p := filepath.Clean(path)
+	fi, err := os.Stat(p)
+	if err != nil {
+		return nil, err
+	}
+	if !fi.Mode().IsDir() {
+		return nil, fmt.Errorf("specified source path is no directory: %s", p)
+	}
+	return &fileStorageReader{p}, nil
+}
+
+// Get implements environs.StorageReader.Get.
+func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
+	filename, err := f.URL(name)
+	if err != nil {
+		return nil, err
+	}
+	file, err := os.Open(filename)
+	if err != nil {
+		return nil, err
+	}
+	return file, nil
+}
+
+// List implements environs.StorageReader.List.
+func (f *fileStorageReader) List(prefix string) ([]string, error) {
+	pathlen := len(f.path) + 1
+	pattern := filepath.Join(f.path, prefix+"*")
+	matches, err := filepath.Glob(pattern)
+	if err != nil {
+		return nil, err
+	}
+	list := []string{}
+	for _, match := range matches {
+		fi, err := os.Stat(match)
+		if err != nil {
+			return nil, err
+		}
+		if !fi.Mode().IsDir() {
+			filename := match[pathlen:]
+			list = append(list, filename)
+		}
+	}
+	sort.Strings(list)
+	return list, nil
+}
+
+// URL implements environs.StorageReader.URL.
+func (f *fileStorageReader) URL(name string) (string, error) {
+	return filepath.Join(f.path, name), nil
 }

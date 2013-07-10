@@ -4,6 +4,9 @@
 package main
 
 import (
+	"os"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -21,6 +24,7 @@ type syncToolsSuite struct {
 	origVersion  version.Binary
 	origLocation string
 	storage      *envtesting.EC2HTTPTestStorage
+	localStorage string
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
@@ -48,6 +52,13 @@ environments:
 
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
+	}
+
+	// Create a local storage and populate it with public tools.
+	s.localStorage = c.MkDir()
+
+	for _, vers := range vAll {
+		putBinary(c, s.localStorage, vers)
 	}
 
 	s.origLocation = defaultToolsLocation
@@ -89,6 +100,20 @@ func assertEmpty(c *C, storage environs.StorageReader) {
 		c.Logf("got unexpected tools: %s", list)
 	}
 	c.Assert(err, Equals, tools.ErrNoTools)
+}
+
+func (s *syncToolsSuite) TestCopyNewestFromFilesystem(c *C) {
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--source", s.localStorage)
+	c.Assert(err, IsNil)
+	c.Assert(ctx, NotNil)
+
+	// Newest released v1 tools made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
+	c.Assert(err, IsNil)
+	assertToolsList(c, targetTools, v100all)
+
+	// Public bucket was not touched.
+	assertEmpty(c, s.targetEnv.PublicStorage())
 }
 
 func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
@@ -181,3 +206,18 @@ var (
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	vAll    = append(v1all, v200p64)
 )
+
+// putBinary stores a faked binary in the test directory.
+func putBinary(c *C, s string, v version.Binary) {
+	data := v.String()
+	name := tools.StorageName(v)
+	path := filepath.Join(s, name)
+	dir, _ := filepath.Split(path)
+	err := os.MkdirAll(dir, 0755)
+	c.Assert(err, IsNil)
+	file, err := os.Create(path)
+	c.Assert(err, IsNil)
+	defer file.Close()
+	_, err = file.Write([]byte(data))
+	c.Assert(err, IsNil)
+}
