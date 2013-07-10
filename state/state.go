@@ -155,7 +155,6 @@ func (st *State) runTransaction(ops []txn.Op) error {
 			transactionHooks[0].Before()
 		}
 	}
-	log.Debugf("========== TXN: %#v", ops)
 	return st.runner.Run(ops, "", nil)
 }
 

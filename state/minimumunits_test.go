@@ -288,7 +288,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *C) {
 		destroy:  4,
 		expected: 9,
 	}} {
-		c.Logf("test %d. %s @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", i, t.about)
+		c.Logf("test %d. %s", i, t.about)
 
 		// Set up initial units if required.
 		s.addUnits(c, t.initial)

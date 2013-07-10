@@ -7,7 +7,7 @@ import (
 	"errors"
 
 	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/log"
+
 	"launchpad.net/juju-core/utils"
 )
 
@@ -130,7 +130,6 @@ func (s *Service) EnsureMinUnits() (err error) {
 		"cannot ensure minimum units for service %q", s)
 	service := &Service{st: s.st, doc: s.doc}
 	for {
-		log.Debugf("======== START")
 		// Ensure the service is alive.
 		if service.doc.Life != Alive {
 			return errors.New("service is no longer alive")
@@ -153,13 +152,9 @@ func (s *Service) EnsureMinUnits() (err error) {
 		if err != nil {
 			return err
 		}
-		allunits, _ := service.AllUnits()
-		log.Debugf("======== BEFORE TXN, alive: %d | missing: %d | all: %d", aliveUnits, missing, len(allunits))
 		// Add missing unit.
-		log.Debugf("======== BEFORE TXN")
 		switch err := s.st.runTransaction(ops); err {
 		case nil:
-			log.Debugf("======== ADD UNIT")
 			// Assign the new unit.
 			unit, err := service.Unit(name)
 			if err != nil {
@@ -174,7 +169,6 @@ func (s *Service) EnsureMinUnits() (err error) {
 				return nil
 			}
 		case txn.ErrAborted:
-			log.Debugf("======== ABORTED")
 		default:
 			return err
 		}
@@ -196,13 +190,4 @@ func aliveUnitsCount(service *Service) (int, error) {
 // will be aborted if the service document changes when running the operations.
 func ensureMinUnitsOps(service *Service) (string, []txn.Op, error) {
 	return service.addUnitOps("", D{{"txn-revno", service.doc.TxnRevno}})
-	// if err != nil {
-	// 	return "", nil, err
-	// }
-	// ops = append(ops, txn.Op{
-	// 	C:      service.st.services.Name,
-	// 	Id:     service.doc.Name,
-	// 	Assert: D{{"txn-revno", service.doc.TxnRevno}},
-	// })
-	// return name, ops, nil
 }
