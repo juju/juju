@@ -46,18 +46,16 @@ environments:
 	c.Assert(err, IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
-	// Create a source environment and populate its public tools.
+	// Create a source storage.
 	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
-	for _, vers := range vAll {
-		s.storage.PutBinary(vers)
-	}
-
-	// Create a local storage and populate it with public tools.
+	// Create a local tool directory.
 	s.localStorage = c.MkDir()
 
+	// Populate both with the public tools.
 	for _, vers := range vAll {
+		s.storage.PutBinary(vers)
 		putBinary(c, s.localStorage, vers)
 	}
 

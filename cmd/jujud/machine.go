@@ -229,7 +229,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 }
 
 func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
-	m, err := st.MachineAgent().Machine(a.MachineId)
+	m, err := st.MachineAgent().Machine(a.Tag())
 	if err != nil {
 		return nil, err
 	}

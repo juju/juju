@@ -30,7 +30,7 @@ func (EnvironProviderSuite) TestOpen(c *C) {
 	c.Check(env.Name(), Equals, attrs["name"])
 }
 
-// writeWALASharedConfig creates a temporary file with a valid WALinux config 
+// writeWALASharedConfig creates a temporary file with a valid WALinux config
 // built using the given parameters. The file will be cleaned up at the end
 // of the test calling this method.
 func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, internalAddress string) string {
@@ -59,7 +59,7 @@ func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, int
 // given parameters.  The file will be cleaned up at the end of the test
 // calling this method.
 // - monkey patches the value of '_WALAConfigPath' (the path to the WALA
-// configuration file) so that it contains the path to the temporary file. 
+// configuration file) so that it contains the path to the temporary file.
 // overrideWALASharedConfig returns a cleanup method that the caller *must*
 // call in order to restore the original value of '_WALAConfigPath'
 func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddress string) func() {
@@ -105,7 +105,7 @@ func (EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
 
 func (EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
 	internalAddress := "10.76.200.59"
-	config := WALASharedConfig{Instances: []WALAInstance{WALAInstance{Address: internalAddress}}}
+	config := WALASharedConfig{Instances: []WALAInstance{{Address: internalAddress}}}
 
 	c.Check(config.getInternalIP(), Equals, internalAddress)
 }

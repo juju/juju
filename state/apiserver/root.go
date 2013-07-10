@@ -118,30 +118,11 @@ func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
-	watcher, ok := r.resources.Get(id).(*state.LifecycleWatcher)
+	watcher, ok := r.resources.Get(id).(state.StringsWatcher)
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
 	return &srvLifecycleWatcher{
-		watcher:   watcher,
-		id:        id,
-		resources: r.resources,
-	}, nil
-}
-
-// EnvironConfigWatcher returns an object that provides
-// API access to methods on a state.EnvironConfigWatcher.
-// Each client has its own current set of watchers, stored
-// in r.resources.
-func (r *srvRoot) EnvironConfigWatcher(id string) (*srvEnvironConfigWatcher, error) {
-	if err := r.requireAgent(); err != nil {
-		return nil, err
-	}
-	watcher, ok := r.resources.Get(id).(*state.EnvironConfigWatcher)
-	if !ok {
-		return nil, common.ErrUnknownWatcher
-	}
-	return &srvEnvironConfigWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,

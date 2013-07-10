@@ -102,7 +102,7 @@ func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
 		Build:  cur.Build,
 	})
 	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 }
 
 func (s *upgraderSuite) TestSetTools(c *C) {
@@ -131,7 +131,7 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
 	tools, err := s.upgrader.Tools("42")
 	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(api.ErrCode(err), Equals, api.CodeUnauthorized)
+	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(tools, IsNil)
 }
 
