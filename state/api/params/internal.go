@@ -103,14 +103,6 @@ type PasswordChange struct {
 	Password string
 }
 
-// A NotifyWatcher will send events when something changes.
-// It does not send content for those changes.
-type NotifyWatcher interface {
-	Changes() <-chan struct{}
-	Stop() error
-	Err() error
-}
-
 // NotifyWatchResult holds a NotifyWatcher id and an error (if any).
 type NotifyWatchResult struct {
 	NotifyWatcherId string

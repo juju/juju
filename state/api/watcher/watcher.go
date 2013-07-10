@@ -5,6 +5,7 @@ package watcher
 
 import (
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/tomb"
@@ -108,6 +109,8 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
+// notifyWatcher will send events when something changes.
+// It does not send content for those changes.
 type notifyWatcher struct {
 	commonWatcher
 	caller          common.Caller
@@ -117,7 +120,7 @@ type notifyWatcher struct {
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) params.NotifyWatcher {
+func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) api.NotifyWatcher {
 	w := &notifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
@@ -169,15 +172,17 @@ func (w *notifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-type LifecycleWatcher struct {
+// stringsWatcher will send events when something changes.
+// The content of the changes is a list of strings.
+type stringsWatcher struct {
 	commonWatcher
 	caller    common.Caller
 	watchCall string
 	out       chan []string
 }
 
-func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatcher {
-	w := &LifecycleWatcher{
+func NewStringsWatcher(caller common.Caller, watchCall string) api.StringsWatcher {
+	w := &stringsWatcher{
 		caller:    caller,
 		watchCall: watchCall,
 		out:       make(chan []string),
@@ -190,7 +195,7 @@ func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatch
 	return w
 }
 
-func (w *LifecycleWatcher) loop() error {
+func (w *stringsWatcher) loop() error {
 	var result params.StringsWatchResult
 	if err := w.caller.Call("State", "", w.watchCall, nil, &result); err != nil {
 		return err
@@ -225,8 +230,8 @@ func (w *LifecycleWatcher) loop() error {
 	panic("unreachable")
 }
 
-// Changes returns a channel that receives a list of ids of watched
-// entites whose lifecycle has changed.
-func (w *LifecycleWatcher) Changes() <-chan []string {
+// Changes returns a channel that receives a list of strings of watched
+// entites with changes.
+func (w *stringsWatcher) Changes() <-chan []string {
 	return w.out
 }
