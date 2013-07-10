@@ -6,7 +6,6 @@ package state_test
 import (
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 )
 
@@ -32,8 +31,6 @@ func (s *MinUnitsSuite) assertRevno(c *C, expectedRevno int, expectedErr error) 
 
 func (s *MinUnitsSuite) addUnits(c *C, count int) {
 	for i := 0; i < count; i++ {
-		allunits, _ := s.service.AllUnits()
-		log.Debugf("ADD UNIT ************* TEST -> all: %d", len(allunits))
 		_, err := s.service.AddUnit()
 		c.Assert(err, IsNil)
 	}
@@ -292,9 +289,6 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *C) {
 	}} {
 		c.Logf("test %d. %s @@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", i, t.about)
 
-		aaa, _ := service.AllUnits()
-		log.Debugf("******* Start test %d -> %#v", len(aaa), aaa)
-
 		// Set up initial units if required.
 		s.addUnits(c, t.initial)
 
@@ -320,16 +314,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnits(c *C) {
 		// Clean up the minUnits document and the units.
 		err = service.SetMinUnits(0)
 		c.Assert(err, IsNil)
-		err = s.State.Cleanup()
-		c.Assert(err, IsNil)
-		allUnits, err = service.AllUnits()
-		c.Assert(err, IsNil)
-		log.Debugf("******* DESTROY %d -> %#v", len(allUnits), allUnits)
-		for _, unit := range allUnits {
-			log.Debugf("Destroy unit %v", unit)
-			err = unit.Destroy()
-			c.Assert(err, IsNil)
-		}
+		removeAllUnits(c, service)
 	}
 }
 
@@ -427,9 +412,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *C) {
 	service := s.service
 	err := service.SetMinUnits(5)
 	c.Assert(err, IsNil)
-	log.Debugf("+++++++++++++++++++++++++++++ START +++++++++++++++")
 	defer state.SetAfterHooks(c, s.State, func() {
-		log.Debugf("AFTER HOOK")
 		err := service.SetMinUnits(3)
 		c.Assert(err, IsNil)
 	}).Check()
