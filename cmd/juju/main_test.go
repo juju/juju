@@ -159,6 +159,11 @@ func (s *MainSuite) TestRunMain(c *C) {
 		args:    []string{"version"},
 		code:    0,
 		out:     version.Current.String() + "\n",
+	}, {
+		summary: "check --version acts like 'juju version'",
+		args:    []string{"--version"},
+		code:    0,
+		out:     version.Current.String() + "\n",
 	},
 	} {
 		c.Logf("test %d: %s", i, t.summary)
@@ -303,6 +308,7 @@ var globalFlags = []string{
 	"--log-config .*",
 	"--log-file .*",
 	"-v, --verbose .*",
+	"--version .*",
 }
 
 func (s *MainSuite) TestHelpGlobalOptions(c *C) {
