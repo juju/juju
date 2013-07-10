@@ -194,14 +194,14 @@ func aliveUnitsCount(service *Service) (int, error) {
 // service in MongoDB and the name for the new unit. The resulting transaction
 // will be aborted if the service document changes when running the operations.
 func ensureMinUnitsOps(service *Service) (string, []txn.Op, error) {
-	name, ops, err := service.addUnitOps("")
-	if err != nil {
-		return "", nil, err
-	}
-	ops = append(ops, txn.Op{
-		C:      service.st.services.Name,
-		Id:     service.doc.Name,
-		Assert: D{{"txn-revno", service.doc.TxnRevno}},
-	})
-	return name, ops, nil
+	return service.addUnitOps("", D{{"txn-revno", service.doc.TxnRevno}})
+	// if err != nil {
+	// 	return "", nil, err
+	// }
+	// ops = append(ops, txn.Op{
+	// 	C:      service.st.services.Name,
+	// 	Id:     service.doc.Name,
+	// 	Assert: D{{"txn-revno", service.doc.TxnRevno}},
+	// })
+	// return name, ops, nil
 }
