@@ -699,7 +699,8 @@ attempt:
 	// RemoveAll deletes all files from storage.
 	checkPutFile(c, storage, "file-1.txt", contents)
 	checkPutFile(c, storage, "file-2.txt", contents)
-	storage.RemoveAll()
+	err = storage.RemoveAll()
+	c.Check(err, IsNil)
 	checkFileDoesNotExist(c, storage, "file-1.txt", t.Attempt)
 	checkFileDoesNotExist(c, storage, "file-2.txt", t.Attempt)
 }
