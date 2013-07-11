@@ -334,7 +334,7 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 	if cfg.StateServer {
 		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.APIPort))
 	}
-	if cfg.StateInfo != nil {
+	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
 	}
 	return hosts
