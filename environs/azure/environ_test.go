@@ -735,8 +735,7 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 
 	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
 	c.Check(err, IsNil)
-	st := env.Storage().(*azureStorage)
-	storageAccount := st.getContainer()
+	storageAccount := env.ecfg.StorageAccountName()
 	c.Check(mediaLinkUrl.Host, Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
 	// TODO: check vhd's sourceImageName when we will use simplestreams to
 	// to get the image name.

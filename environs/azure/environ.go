@@ -301,7 +301,13 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 		return nil, fmt.Errorf("could not set instance DNS name as service label: %v", err)
 	}
 
-	return env.getInstance(serviceName)
+	// Assign the returned instance to 'inst' so that the deferred method
+	// above can perform its check.
+	inst, err = env.getInstance(serviceName)
+	if err != nil {
+		return nil, err
+	}
+	return inst, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
@@ -325,8 +331,8 @@ func (env *azureEnviron) getInstance(instanceName string) (instance.Instance, er
 func (env *azureEnviron) newOSVirtualDisk() *gwacl.OSVirtualHardDisk {
 	vhdName := gwacl.MakeRandomDiskName("juju")
 	vhdPath := fmt.Sprintf("vhds/%s", vhdName)
-	st := env.Storage().(*azureStorage)
-	storageAccount := st.getContainer()
+	snap := env.getSnapshot()
+	storageAccount := snap.ecfg.StorageAccountName()
 	mediaLink := gwacl.CreateVirtualHardDiskMediaLink(storageAccount, vhdPath)
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
@@ -347,7 +353,9 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
 	hostname := DeploymentName
-	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, "", "", userData, "true")
+	username := "ubuntu"
+	password := gwacl.MakeRandomPassword()
+	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
 	// Generate a Network Configuration with port 22 open.
 	inputendpoint := gwacl.InputEndpoint{LocalPort: 22, Name: "sshport", Port: 22, Protocol: "TCP"}
 	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{inputendpoint})
