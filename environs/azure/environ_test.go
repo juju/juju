@@ -739,7 +739,7 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	storageAccount := st.getContainer()
 	c.Check(mediaLinkUrl.Host, Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
 	// TODO: check vhd's sourceImageName when we will use simplestreams to
-	// to get the image name to use.
+	// to get the image name.
 }
 
 func (EnvironSuite) TestNewRole(c *C) {
