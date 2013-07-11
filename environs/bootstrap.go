@@ -6,8 +6,8 @@ package environs
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"

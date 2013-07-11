@@ -3,25 +3,31 @@
 
 package params
 
-// Agent identifies a single agent
-type Agent struct {
+// Entity identifies a single entity.
+type Entity struct {
 	Tag string
 }
 
-// Agents holds a list of Tags for Unit- and Machine-Agents.
-type Agents struct {
-	Agents []Agent
+// Entities identifies multiple entities.
+type Entities struct {
+	Entities []Entity
 }
 
-// Machines holds the arguments for making an API call working on
-// multiple machine entities.
-type Machines struct {
-	Ids []string
+// LifeResult holds the life status of a single entity, or an error
+// indicating why it is not available.
+type LifeResult struct {
+	Life  Life
+	Error *Error
 }
 
-// MachineSetStatus holds a machine id, status and extra info.
+// LifeResults holds the life or error status of multiple entities.
+type LifeResults struct {
+	Results []LifeResult
+}
+
+// MachineSetStatus holds a machine tag, status and extra info.
 type MachineSetStatus struct {
-	Id     string
+	Tag    string
 	Status Status
 	Info   string
 }
@@ -29,17 +35,6 @@ type MachineSetStatus struct {
 // MachinesSetStatus holds the parameters for making a Machiner.SetStatus call.
 type MachinesSetStatus struct {
 	Machines []MachineSetStatus
-}
-
-// MachineLifeResult holds the result of Machiner.Life for a single machine.
-type MachineLifeResult struct {
-	Life  Life
-	Error *Error
-}
-
-// MachinesLifeResults holds the results of a Machiner.Life call.
-type MachinesLifeResults struct {
-	Machines []MachineLifeResult
 }
 
 // MachineAgentGetMachinesResults holds the results of a
@@ -108,15 +103,7 @@ type PasswordChange struct {
 	Password string
 }
 
-// A NotifyWatcher will send events when something changes.
-// It does not send content for those changes.
-type NotifyWatcher interface {
-	Changes() <-chan struct{}
-	Stop() error
-	Err() error
-}
-
-// NotifyWatchResult holds an NotifyWatcher id and an error (if any).
+// NotifyWatchResult holds a NotifyWatcher id and an error (if any).
 type NotifyWatchResult struct {
 	NotifyWatcherId string
 	Error           *Error
@@ -128,29 +115,10 @@ type NotifyWatchResults struct {
 	Results []NotifyWatchResult
 }
 
-// LifecycleWatchResults holds the results of API calls
-// that watch the lifecycle of a set of objects.
-// It is used both for the initial Watch request
-// and for subsequent Next requests.
-type LifecycleWatchResults struct {
-	// LifeCycleWatcherId holds the id of the newly
-	// created watcher. It will be empty for a Next
-	// request.
-	LifecycleWatcherId string
-
-	// Ids holds the list of entity ids.
-	// For a Watch request, it holds all entity ids being
-	// watched; for a Next request, it holds the ids of those
-	// that have changed.
-	Ids []string
-}
-
-// EnvironConfigWatchResults holds the result of
-// State.WatchEnvironConfig(): id of the created EnvironConfigWatcher,
-// along with the current environment configuration. It is also used
-// for the result of EnvironConfigWatcher.Next(), when it contains the
-// changed config (EnvironConfigWatcherId will be empty in this case).
-type EnvironConfigWatchResults struct {
-	EnvironConfigWatcherId string
-	Config                 map[string]interface{}
+// StringsWatchResult holds a StringsWatcher id, changes and an error
+// (if any).
+type StringsWatchResult struct {
+	StringsWatcherId string
+	Changes          []string
+	Error            *Error
 }

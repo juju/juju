@@ -5,15 +5,17 @@ package state_test
 
 import (
 	"fmt"
+	"sort"
+
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
-	"sort"
 )
 
 type ServiceSuite struct {

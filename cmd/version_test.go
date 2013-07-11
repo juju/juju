@@ -6,7 +6,9 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/version"
 )
 

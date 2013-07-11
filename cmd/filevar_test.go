@@ -4,11 +4,13 @@
 package cmd_test
 
 import (
+	"os"
+
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
-	"os"
 )
 
 type FileVarSuite struct {

@@ -68,6 +68,29 @@ You can also list any branches you are currently working on by
 
     bzr branch
 
+
+Imports
+-------
+
+Import statements are grouped into 3 sections: standard library, 3rd party
+libraries, juju-core imports. The tool "go fmt" can be used to ensure each
+group is alphabetically sorted. eg:
+
+    import (
+        "fmt"
+        "time"
+
+        "labix.org/v2/mgo"
+        gc "launchpad.net/gocheck"
+        "launchpad.net/loggo"
+
+        "launchpad.net/juju-core/state"
+        "launchpad.net/juju-core/worker"
+    )
+
+Because "launchpad.net/gocheck" will be referenced frequently in test suites,
+its name gets a default short name of just "gc".
+
 Testing
 =======
 

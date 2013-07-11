@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
-	"launchpad.net/juju-core/state/apiserver"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -30,7 +29,6 @@ const shortWait = 50 * time.Millisecond
 type watcherSuite struct {
 	testing.JujuConnSuite
 
-	server   *apiserver.Server
 	stateAPI *api.State
 
 	// These are raw State objects. Use them for setup and assertions, but
@@ -53,15 +51,6 @@ func (s *watcherSuite) SetUpTest(c *C) {
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
-	// Start the testing API server.
-	s.server, err = apiserver.NewServer(
-		s.State,
-		"localhost:12345",
-		[]byte(coretesting.ServerCert),
-		[]byte(coretesting.ServerKey),
-	)
-	c.Assert(err, IsNil)
-
 	// Login as the machine agent of the created machine.
 	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
 	c.Assert(s.stateAPI, NotNil)
@@ -72,10 +61,6 @@ func (s *watcherSuite) TearDownTest(c *C) {
 		err := s.stateAPI.Close()
 		c.Check(err, IsNil)
 	}
-	if s.server != nil {
-		err := s.server.Stop()
-		c.Check(err, IsNil)
-	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
@@ -84,7 +69,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *C) {
 	// call (for NotifyWatchers there is no state to be transmitted). So a
 	// call to Next() should not have anything to return.
 	var results params.NotifyWatchResults
-	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
 	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
 	c.Assert(err, IsNil)
 	c.Assert(results.Results, HasLen, 1)
@@ -107,7 +92,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *C) {
 
 func (s *watcherSuite) TestWatchMachine(c *C) {
 	var results params.NotifyWatchResults
-	args := params.Machines{Ids: []string{s.rawMachine.Id()}}
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
 	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
 	c.Assert(err, IsNil)
 	c.Assert(results.Results, HasLen, 1)

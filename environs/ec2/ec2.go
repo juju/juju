@@ -49,8 +49,8 @@ type environ struct {
 	ecfgUnlocked          *environConfig
 	ec2Unlocked           *ec2.EC2
 	s3Unlocked            *s3.S3
-	storageUnlocked       *storage
-	publicStorageUnlocked *storage // optional.
+	storageUnlocked       environs.Storage
+	publicStorageUnlocked environs.StorageReader // optional.
 }
 
 var _ environs.Environ = (*environ)(nil)
@@ -541,11 +541,7 @@ func (e *environ) Destroy(ensureInsts []instance.Instance) error {
 		return err
 	}
 
-	// To properly observe e.storageUnlocked we need to get its value while
-	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
-	// back to the (*storage) to access the private deleteAll() method.
-	st := e.Storage().(*storage)
-	return st.deleteAll()
+	return e.Storage().RemoveAll()
 }
 
 func portsToIPPerms(ports []instance.Port) []ec2.IPPerm {

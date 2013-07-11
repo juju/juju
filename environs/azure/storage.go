@@ -99,6 +99,17 @@ func (storage *azureStorage) Remove(name string) error {
 	return context.DeleteBlob(storage.getContainer(), name)
 }
 
+// RemoveAll is specified in the StorageWriter interface.
+func (storage *azureStorage) RemoveAll() error {
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.DeleteAllBlobs(&gwacl.DeleteAllBlobsRequest{
+		Container: storage.getContainer(),
+	})
+}
+
 // publicEnvironStorageContext is a storageContext which gets its information
 // from an azureEnviron object to create a public storage.
 type publicEnvironStorageContext struct {

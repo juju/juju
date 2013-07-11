@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 )
 
 // Server is an http.Handler that serves the HTTP API of juju

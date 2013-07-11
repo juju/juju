@@ -63,26 +63,32 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 
 func (s *upgraderSuite) TestWatchAPIVersionNothing(c *C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.WatchAPIVersion(params.Agents{})
+	results, err := s.upgrader.WatchAPIVersion(params.Entities{})
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 0)
 }
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
-	args := params.Agents{
-		Agents: []params.Agent{{Tag: s.rawMachine.Tag()}},
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, Not(Equals), "")
+	c.Check(results.Results[0].Error, IsNil)
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
 	c.Check(resource, NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc.AssertNoChange()
+
+	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
+	c.Assert(err, IsNil)
 	wc.AssertOneChange()
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
@@ -101,8 +107,8 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, IsNil)
-	args := params.Agents{
-		Agents: []params.Agent{{Tag: s.rawMachine.Tag()}},
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -116,7 +122,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 
 func (s *upgraderSuite) TestToolsNothing(c *C) {
 	// Not an error to watch nothing
-	results, err := s.upgrader.Tools(params.Agents{})
+	results, err := s.upgrader.Tools(params.Entities{})
 	c.Assert(err, IsNil)
 	c.Check(results.Tools, HasLen, 0)
 }
@@ -126,8 +132,8 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, IsNil)
-	args := params.Agents{
-		Agents: []params.Agent{{Tag: s.rawMachine.Tag()}},
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
@@ -142,9 +148,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 
 func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	cur := version.Current
-	agent := params.Agent{
-		Tag: s.rawMachine.Tag(),
-	}
+	agent := params.Entity{Tag: s.rawMachine.Tag()}
 
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
@@ -155,7 +159,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	})
 	c.Assert(err, IsNil)
 
-	args := params.Agents{Agents: []params.Agent{agent}}
+	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, IsNil)
 	c.Check(results.Tools, HasLen, 1)
