@@ -80,6 +80,10 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
+	if err := EnsureWeHaveLXC(a.Conf.DataDir); err != nil {
+		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
+		return err
+	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
 
 	// ensureStateWorker ensures that there is a worker that
