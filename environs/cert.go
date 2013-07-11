@@ -6,11 +6,12 @@ package environs
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/cert"
-	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
 	"time"
+
+	"launchpad.net/juju-core/cert"
+	"launchpad.net/juju-core/environs/config"
 )
 
 type CreatedCert bool

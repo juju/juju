@@ -4,10 +4,12 @@
 package testing_test
 
 import (
+	stdtesting "testing"
+
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing"
-	stdtesting "testing"
 )
 
 type mgoSuite struct {

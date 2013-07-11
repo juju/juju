@@ -124,3 +124,7 @@ func (s *storage) Remove(name string) error {
 	}
 	return nil
 }
+
+func (s *storage) RemoveAll() error {
+	return environs.RemoveAll(s)
+}

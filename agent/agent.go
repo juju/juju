@@ -6,15 +6,17 @@ package agent
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path"
+	"regexp"
+
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
-	"os"
-	"path"
-	"regexp"
 )
 
 // Conf holds information for a given agent.

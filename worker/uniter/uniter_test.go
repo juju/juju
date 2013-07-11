@@ -10,10 +10,21 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
+	"os"
+	"os/exec"
+	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	stdtesting "testing"
+	"time"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
@@ -24,15 +35,6 @@ import (
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
-	"net/url"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"regexp"
-	"strconv"
-	"strings"
-	stdtesting "testing"
-	"time"
 )
 
 // worstCase is used for timeouts when timing out
@@ -1093,6 +1095,8 @@ func (waitAddresses) step(c *C, ctx *context) {
 			if err != nil {
 				c.Fatalf("unit refresh failed: %v", err)
 			}
+			// GZ 2013-07-10: Hardcoded values from dummy environ
+			//                special cased here, questionable.
 			private, _ := ctx.unit.PrivateAddress()
 			if private != "private.dummy.address.example.com" {
 				continue

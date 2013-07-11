@@ -5,9 +5,11 @@ package cloudinit_test
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cloudinit"
 	"testing"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cloudinit"
 )
 
 // TODO integration tests, but how?

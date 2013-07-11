@@ -7,11 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
 	"net"
 	"net/http"
 	"os"
 	"time"
+
+	. "launchpad.net/gocheck"
 )
 
 type HTTPSuite struct{}

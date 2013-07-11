@@ -5,13 +5,15 @@ package downloader_test
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/downloader"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/downloader"
+	"launchpad.net/juju-core/testing"
 )
 
 type suite struct {

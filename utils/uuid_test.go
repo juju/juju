@@ -5,6 +5,7 @@ package utils_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 )

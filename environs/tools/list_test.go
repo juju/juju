@@ -22,7 +22,7 @@ var _ = Suite(&ListSuite{})
 func mustParseTools(name string) *state.Tools {
 	return &state.Tools{
 		Binary: version.MustParseBinary(name),
-		URL:    "http://example.com/" + name,
+		URL:    "http://testing.invalid/" + name,
 	}
 }
 

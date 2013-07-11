@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 )
 
 // Upgrader provides access to the Upgrader API facade.
@@ -69,4 +70,27 @@ func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
 			tools.AgentTools.Tag, tag)
 	}
 	return &tools.AgentTools, nil
+}
+
+func (u *Upgrader) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: agentTag}},
+	}
+	err := u.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		//  TODO: Not directly tested
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.caller, result)
+	return w, nil
 }

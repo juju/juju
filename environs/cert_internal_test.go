@@ -5,6 +5,7 @@ package environs
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/testing"
 )
