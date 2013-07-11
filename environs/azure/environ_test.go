@@ -128,7 +128,7 @@ func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescripto
 }
 
 // buildAzureServiceResponses returns the slice of responses
-// (gwacl.DispatcherResponse) which correspond to the API request used to
+// (gwacl.DispatcherResponse) which correspond to the API requests used to
 // get the properties of a Service.
 func buildAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
