@@ -21,11 +21,11 @@ var _ = Suite(&removeSuite{})
 func (*removeSuite) TestRemove(c *C) {
 	st := &fakeRemoverState{
 		entities: map[string]*fakeRemover{
-			"x0": &fakeRemover{errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
-			"x1": &fakeRemover{errRemove: fmt.Errorf("x1 Remove fails")},
-			"x2": &fakeRemover{},
-			"x3": &fakeRemover{},
-			"x4": &fakeRemover{err: fmt.Errorf("x4 error")},
+			"x0": {errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
+			"x1": {errRemove: fmt.Errorf("x1 Remove fails")},
+			"x2": {},
+			"x3": {},
+			"x4": {err: fmt.Errorf("x4 error")},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -49,11 +49,11 @@ func (*removeSuite) TestRemove(c *C) {
 	}
 	c.Assert(result, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
-			&params.Error{Message: "x0 EnsureDead fails"},
-			&params.Error{Message: "x1 Remove fails"},
+			{Message: "x0 EnsureDead fails"},
+			{Message: "x1 Remove fails"},
 			nil,
 			unauth,
-			&params.Error{Message: "x4 error"},
+			{Message: "x4 error"},
 			unauth,
 		},
 	})
