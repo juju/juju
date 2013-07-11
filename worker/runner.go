@@ -5,9 +5,11 @@ package worker
 
 import (
 	"errors"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/tomb"
 	"time"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/log"
 )
 
 // RestartDelay holds the length of time that a worker

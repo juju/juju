@@ -5,9 +5,10 @@ package rpc
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/log"
 	"reflect"
 	"sync"
+
+	"launchpad.net/juju-core/log"
 )
 
 var (

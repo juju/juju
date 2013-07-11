@@ -4,7 +4,11 @@
 package state_test
 
 import (
+	"sort"
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -13,8 +17,6 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	"sort"
-	"time"
 )
 
 type MachineSuite struct {

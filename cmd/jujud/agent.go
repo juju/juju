@@ -6,9 +6,12 @@ package main
 import (
 	"fmt"
 	"io"
+	"time"
+
 	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -16,7 +19,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
-	"time"
 )
 
 // requiredError is useful when complaining about missing command-line options.

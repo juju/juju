@@ -8,19 +8,20 @@ package version
 import (
 	"fmt"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
 	"os"
 	"path/filepath"
 	"regexp"
 	"runtime"
 	"strconv"
 	"strings"
+
+	"labix.org/v2/mgo/bson"
 )
 
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.11.2"
+const version = "1.11.3"
 
 // CurrentNumber returns the version number.
 func CurrentNumber() Number {

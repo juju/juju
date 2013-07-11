@@ -5,6 +5,7 @@ package machiner
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -21,32 +22,32 @@ func NewState(caller common.Caller) *State {
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (m *State) machineLife(id string) (params.Life, error) {
-	var result params.MachinesLifeResults
-	args := params.Machines{
-		Ids: []string{id},
+func (m *State) machineLife(tag string) (params.Life, error) {
+	var result params.LifeResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := m.caller.Call("Machiner", "", "Life", args, &result)
 	if err != nil {
 		return "", err
 	}
-	if len(result.Machines) != 1 {
-		return "", fmt.Errorf("expected one result, got %d", len(result.Machines))
+	if len(result.Results) != 1 {
+		return "", fmt.Errorf("expected one result, got %d", len(result.Results))
 	}
-	if err := result.Machines[0].Error; err != nil {
+	if err := result.Results[0].Error; err != nil {
 		return "", err
 	}
-	return result.Machines[0].Life, nil
+	return result.Results[0].Life, nil
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
-func (m *State) Machine(id string) (*Machine, error) {
-	life, err := m.machineLife(id)
+func (m *State) Machine(tag string) (*Machine, error) {
+	life, err := m.machineLife(tag)
 	if err != nil {
 		return nil, err
 	}
 	return &Machine{
-		id:     id,
+		tag:    tag,
 		life:   life,
 		mstate: m,
 	}, nil

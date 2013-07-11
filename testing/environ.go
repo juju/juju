@@ -5,10 +5,12 @@ package testing
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/environs/config"
 )
 
 // EnvironConfig returns a default environment configuration suitable for

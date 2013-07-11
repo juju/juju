@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"strings"
 
-	"launchpad.net/juju-core/environs/agent"
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"

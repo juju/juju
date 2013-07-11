@@ -6,12 +6,14 @@ package worker_test
 import (
 	"errors"
 	"fmt"
-	. "launchpad.net/gocheck"
-	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 	"sync/atomic"
 	"time"
+
+	. "launchpad.net/gocheck"
+	"launchpad.net/tomb"
+
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker"
 )
 
 type runnerSuite struct {

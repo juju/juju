@@ -49,7 +49,7 @@ func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus p
 	}
 }
 
-var _ worker.Worker = (*machiner.Machiner)(nil)
+var _ worker.WatchHandler = (*machiner.Machiner)(nil)
 
 func (s *MachinerSuite) TestNotFound(c *C) {
 	mr := machiner.NewMachiner(s.State, "eleventy-one")

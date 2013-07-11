@@ -6,16 +6,18 @@ package store_test
 import (
 	"encoding/json"
 	"io/ioutil"
-	"labix.org/v2/mgo/bson"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/store"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
 	"strconv"
 	"strings"
 	"time"
+
+	"labix.org/v2/mgo/bson"
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/store"
 )
 
 func (s *StoreSuite) prepareServer(c *C) (*store.Server, *charm.URL) {

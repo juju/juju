@@ -85,7 +85,7 @@ func (stor *maasStorage) retrieveFileObject(name string) (gomaasapi.MAASObject, 
 	return obj, nil
 }
 
-// Get is specified in the Storage interface.
+// Get is specified in the StorageReader interface.
 func (stor *maasStorage) Get(name string) (io.ReadCloser, error) {
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
@@ -125,7 +125,7 @@ func (stor *maasStorage) extractFilenames(listResult gomaasapi.JSONObject) ([]st
 	return result, nil
 }
 
-// List is specified in the Storage interface.
+// List is specified in the StorageReader interface.
 func (stor *maasStorage) List(prefix string) ([]string, error) {
 	params := make(url.Values)
 	params.Add("prefix", prefix)
@@ -137,7 +137,7 @@ func (stor *maasStorage) List(prefix string) ([]string, error) {
 	return snapshot.extractFilenames(obj)
 }
 
-// URL is specified in the Storage interface.
+// URL is specified in the StorageReader interface.
 func (stor *maasStorage) URL(name string) (string, error) {
 	fileObj, err := stor.retrieveFileObject(name)
 	if err != nil {
@@ -157,7 +157,7 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	return fullURL.String(), nil
 }
 
-// Put is specified in the Storage interface.
+// Put is specified in the StorageWriter interface.
 func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	data, err := ioutil.ReadAll(io.LimitReader(r, length))
 	if err != nil {
@@ -170,7 +170,7 @@ func (stor *maasStorage) Put(name string, r io.Reader, length int64) error {
 	return err
 }
 
-// Remove is specified in the Storage interface.
+// Remove is specified in the StorageWriter interface.
 func (stor *maasStorage) Remove(name string) error {
 	// The only thing that can go wrong here, really, is that the file
 	// does not exist.  But deletion is idempotent: deleting a file that
@@ -179,7 +179,8 @@ func (stor *maasStorage) Remove(name string) error {
 	return nil
 }
 
-func (stor *maasStorage) deleteAll() error {
+// RemoveAll is specified in the StorageWriter interface.
+func (stor *maasStorage) RemoveAll() error {
 	names, err := stor.List("")
 	if err != nil {
 		return err

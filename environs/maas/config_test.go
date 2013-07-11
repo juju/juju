@@ -47,7 +47,7 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 }
 
 func (ConfigSuite) TestParsesMAASSettings(c *C) {
-	server := "http://maas.example.com/maas/"
+	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
 	ecfg, err := newConfig(map[string]interface{}{
@@ -72,7 +72,7 @@ func (ConfigSuite) TestChecksWellFormedMaasServer(c *C) {
 
 func (ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
 	_, err := newConfig(map[string]interface{}{
-		"maas-server": "http://maas.example.com/maas/",
+		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "This should have been a 3-part token.",
 	})
 	c.Assert(err, NotNil)
@@ -84,7 +84,7 @@ func (ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().
 	baseAttrs := map[string]interface{}{
-		"maas-server": "http://maas.example.com/maas/",
+		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	}
 	oldCfg, err := newConfig(baseAttrs)

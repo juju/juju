@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 )
 
 // Upgrader provides access to the Upgrader API facade.
@@ -45,10 +46,10 @@ func (u *Upgrader) SetTools(tools params.AgentTools) error {
 	return nil
 }
 
-func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
+func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
 	var results params.AgentToolsResults
-	args := params.Agents{
-		Agents: []params.Agent{{Tag: agentTag}},
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
 	}
 	err := u.caller.Call("Upgrader", "", "Tools", args, &results)
 	if err != nil {
@@ -63,10 +64,33 @@ func (u *Upgrader) Tools(agentTag string) (*params.AgentTools, error) {
 	if err := tools.Error; err != nil {
 		return nil, err
 	}
-	if tools.AgentTools.Tag != agentTag {
+	if tools.AgentTools.Tag != tag {
 		// TODO: Not directly tested
 		return nil, fmt.Errorf("server returned tag that did not match: got %q expected %q",
-			tools.AgentTools.Tag, agentTag)
+			tools.AgentTools.Tag, tag)
 	}
 	return &tools.AgentTools, nil
+}
+
+func (u *Upgrader) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: agentTag}},
+	}
+	err := u.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		//  TODO: Not directly tested
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(u.caller, result)
+	return w, nil
 }
