@@ -886,7 +886,10 @@ func (u *Unit) assignToNewMachineOrContainer() (err error) {
 
 	// Find a clean, empty machine on which to create a container.
 	var host machineDoc
-	query, err := u.findCleanMachineQuery(true, instance.NONE)
+	hostCons := *cons
+	noContainer := instance.NONE
+	hostCons.Container = &noContainer
+	query, err := u.findCleanMachineQuery(true, &hostCons)
 	if err != nil {
 		return err
 	}
@@ -958,9 +961,14 @@ func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {
 	return u.assignToCleanMaybeEmptyMachine(true)
 }
 
-// findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines of the
-// specified container type.
-func (u *Unit) findCleanMachineQuery(requireEmpty bool, containerType instance.ContainerType) (*mgo.Query, error) {
+// findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
+// characteristics matching the specified constraints.
+func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (*mgo.Query, error) {
+	// TODO(wallyworld) - add support for constraints besides just container type
+	var containerType instance.ContainerType
+	if cons.Container != nil {
+		containerType = *cons.Container
+	}
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which have containers
@@ -1018,17 +1026,13 @@ func (u *Unit) assignToCleanMaybeEmptyMachine(requireEmpty bool) (m *Machine, er
 		return nil, err
 	}
 
-	// Get the service constraints to see if the charm is to be deployed into a container.
+	// Get the unit constraints to see what deployment requirements we have to adhere to.
 	cons, err := u.constraints()
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
 	}
-	var containerType instance.ContainerType
-	if cons.Container != nil {
-		containerType = *cons.Container
-	}
-	query, err := u.findCleanMachineQuery(requireEmpty, containerType)
+	query, err := u.findCleanMachineQuery(requireEmpty, cons)
 	if err != nil {
 		assignContextf(&err, u, context)
 		return nil, err
