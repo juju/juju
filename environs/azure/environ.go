@@ -352,7 +352,7 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 	inputendpoint := gwacl.InputEndpoint{LocalPort: 22, Name: "sshport", Port: 22, Protocol: "TCP"}
 	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{inputendpoint})
 	roleName := gwacl.MakeRandomRoleName("juju")
-        // Keep the ordering of the configuration sets like this: linux config then network config for the sake of testing.
+	// Keep the ordering of the configuration sets like this: linux config then network config for the sake of testing.
 	return gwacl.NewRole(roleSize, roleName, []gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet}, []gwacl.OSVirtualHardDisk{*vhd})
 }
 
@@ -369,7 +369,7 @@ func (env *azureEnviron) newDeployment(deploymentLabel, userData string) *gwacl.
 	// deployment will belong. We'll want to build this out later to
 	// support private communication between instances.
 	virtualNetworkName := ""
-        // Use the service name as the label for the deployment.
+	// Use the service name as the label for the deployment.
 	return gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }
 

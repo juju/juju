@@ -127,6 +127,9 @@ func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescripto
 	return responses
 }
 
+// buildAzureServiceResponses returns the slice of responses
+// (gwacl.DispatcherResponse) which correspond to the API request used to
+// get the properties of a Service.
 func buildAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
 	c.Assert(err, IsNil)
@@ -721,6 +724,7 @@ func (EnvironSuite) TestGetInstance(c *C) {
 
 	instance, err := env.getInstance("serviceName")
 	c.Check(err, IsNil)
+
 	c.Check(string(instance.Id()), Equals, serviceName)
 }
 
@@ -728,6 +732,7 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	env := makeEnviron(c)
 
 	vhd := env.newOSVirtualDisk()
+
 	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
 	c.Check(err, IsNil)
 	st := env.Storage().(*azureStorage)
@@ -762,6 +767,7 @@ func (EnvironSuite) TestNewDeployment(c *C) {
 	deploymentLabel := "deployment-label"
 
 	deployment := env.newDeployment(deploymentLabel, userData)
+
 	c.Check(deployment.RoleList[0].ConfigurationSets[0].UserData, Equals, userData)
 	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
 	c.Check(deployment.Label, Equals, base64Label)
