@@ -150,7 +150,7 @@ func (fix *SimpleToolsFixture) SetUp(c *C, dataDir string) {
 	err = ioutil.WriteFile(jujudPath, []byte(fakeJujud), 0755)
 	c.Assert(err, IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err = ioutil.WriteFile(urlPath, []byte("http://example.com/tools"), 0644)
+	err = ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
 	c.Assert(err, IsNil)
 	fix.binDir = c.MkDir()
 	fix.origPath = os.Getenv("PATH")
