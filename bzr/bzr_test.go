@@ -4,11 +4,13 @@
 package bzr_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/bzr"
 	"os"
 	"os/exec"
 	"testing"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/bzr"
 )
 
 func Test(t *testing.T) {

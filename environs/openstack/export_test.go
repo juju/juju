@@ -84,10 +84,6 @@ func ShortTimeouts(short bool) {
 
 var ShortAttempt = &shortAttempt
 
-func DeleteStorageContent(s environs.Storage) error {
-	return s.(*storage).deleteAll()
-}
-
 func SetFakeToolsStorage(useFake bool) {
 	if useFake {
 		tools.SetToolPrefix("tools_test/juju-")

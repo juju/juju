@@ -11,15 +11,15 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
+//TODO: When we get rid of *state.Tools, we won't need this test suite.
+//      This is used to ensure state.Tools is compatible with agent.Tools so we
+//      can migrate code over to agent.Tools and cast when needed
 var _ = gc.Suite(&ToolsCompatSuite{})
 
 type ToolsCompatSuite struct {
 	coretesting.LoggingSuite
 }
 
-// Just ensure you can simply cast the two types to each other
-// When Tim's patch lands to use agent.Tools everywhere, we can get rid of
-// these tests
 func (s *ToolsCompatSuite) TestToolsMatchStateTools(c *gc.C) {
 	testtools := agent.Tools{}
 	statetools := state.Tools(testtools)

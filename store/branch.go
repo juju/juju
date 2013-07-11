@@ -7,11 +7,12 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/juju-core/charm"
 )
 
 // PublishBazaarBranch checks out the Bazaar branch from burl and

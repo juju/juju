@@ -43,14 +43,15 @@ type JujuConnSuite struct {
 	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
-	Conn        *juju.Conn
-	State       *state.State
-	APIConn     *juju.APIConn
-	APIState    *api.State
-	RootDir     string // The faked-up root directory.
-	oldHome     string
-	oldJujuHome string
-	environ     environs.Environ
+	Conn         *juju.Conn
+	State        *state.State
+	APIConn      *juju.APIConn
+	APIState     *api.State
+	BackingState *state.State // The State being used by the API server
+	RootDir      string       // The faked-up root directory.
+	oldHome      string
+	oldJujuHome  string
+	environ      environs.Environ
 }
 
 // FakeStateInfo holds information about no state - it will always
@@ -202,6 +203,8 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(environ.Name(), Equals, "dummyenv")
 	c.Assert(environs.Bootstrap(environ, constraints.Value{}), IsNil)
 
+	s.BackingState = environ.(GetStater).GetStateInAPIServer()
+
 	conn, err := juju.NewConn(environ)
 	c.Assert(err, IsNil)
 	s.Conn = conn
@@ -212,6 +215,10 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	s.APIConn = apiConn
 	s.APIState = apiConn.State
 	s.environ = environ
+}
+
+type GetStater interface {
+	GetStateInAPIServer() *state.State
 }
 
 func (s *JujuConnSuite) tearDownConn(c *C) {
@@ -261,17 +268,4 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
-}
-
-type ServerSyncable interface {
-	SyncAPIServerState()
-}
-
-func (s *JujuConnSuite) SyncAPIServerState() {
-	if s.environ == nil {
-		return
-	}
-	if syncable, ok := s.environ.(ServerSyncable); ok {
-		syncable.SyncAPIServerState()
-	}
 }

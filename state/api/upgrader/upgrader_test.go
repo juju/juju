@@ -14,7 +14,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
-	"launchpad.net/juju-core/state/apiserver"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -28,7 +27,6 @@ func TestAll(t *stdtesting.T) {
 type upgraderSuite struct {
 	testing.JujuConnSuite
 
-	server   *apiserver.Server
 	stateAPI *api.State
 
 	// These are raw State objects. Use them for setup and assertions, but
@@ -53,15 +51,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
-	// Start the testing API server.
-	s.server, err = apiserver.NewServer(
-		s.State,
-		"localhost:12345",
-		[]byte(coretesting.ServerCert),
-		[]byte(coretesting.ServerKey),
-	)
-	c.Assert(err, IsNil)
-
 	// Login as the machine agent of the created machine.
 	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
 	c.Assert(s.stateAPI, NotNil)
@@ -75,10 +64,6 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 func (s *upgraderSuite) TearDownTest(c *C) {
 	if s.stateAPI != nil {
 		err := s.stateAPI.Close()
-		c.Check(err, IsNil)
-	}
-	if s.server != nil {
-		err := s.server.Stop()
 		c.Check(err, IsNil)
 	}
 	s.JujuConnSuite.TearDownTest(c)
@@ -160,22 +145,23 @@ func (s *upgraderSuite) TestTools(c *C) {
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	w, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
+	defer statetesting.AssertStop(c, w)
 	c.Assert(err, IsNil)
-	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	// Initial event
-	s.SyncAPIServerState()
 	wc.AssertOneChange()
-	// Setting the AgentVersion without actually changing it doesn't
-	// trigger an update
-	ver := version.Current.Number
-	err = statetesting.SetAgentVersion(s.State, ver)
+	vers := version.MustParse("10.20.34")
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, IsNil)
-	s.SyncAPIServerState()
+	// One change noticing the new version
+	wc.AssertOneChange()
+	// Setting the version to the same value doesn't trigger a change
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
+	c.Assert(err, IsNil)
 	wc.AssertNoChange()
-	ver.Minor += 1
-	err = statetesting.SetAgentVersion(s.State, ver)
+	vers = version.MustParse("10.20.35")
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
 	c.Assert(err, IsNil)
-	s.SyncAPIServerState()
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

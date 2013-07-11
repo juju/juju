@@ -4,11 +4,13 @@
 package state
 
 import (
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
-	"time"
 )
 
 type SettingsSuite struct {

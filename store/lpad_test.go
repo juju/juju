@@ -5,11 +5,13 @@ package store_test
 
 import (
 	"fmt"
+
 	. "launchpad.net/gocheck"
+	"launchpad.net/lpad"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/lpad"
 )
 
 var jsonType = map[string]string{

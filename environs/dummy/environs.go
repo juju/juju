@@ -220,17 +220,14 @@ func (state *environState) destroy() {
 	state.bootstrapped = false
 }
 
-// SyncAPIServerState will trigger a state.State.Sync() on the server's State
-// connection. This is a backdoor to allow tests to run without waiting for
-// sync to happen in the background.
-func (e *environ) SyncAPIServerState() {
+// GetStateInAPIServer returns the state connection used by the API server
+// This is so code in the test suite can trigger Syncs, etc that the API server
+// will see, which will then trigger API watchers, etc.
+func (e *environ) GetStateInAPIServer() *state.State {
 	if e.state == nil {
-		return
+		return nil
 	}
-	if e.state.apiState == nil {
-		return
-	}
-	e.state.apiState.Sync()
+	return e.state.apiState
 }
 
 // newState creates the state for a new environment with the
