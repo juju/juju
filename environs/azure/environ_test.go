@@ -752,6 +752,9 @@ func (EnvironSuite) TestNewRole(c *C) {
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
 	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.Hostname, Equals, DeploymentName)
+	c.Check(linuxConfig.Username, Not(Equals), "")
+	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
 	// The network config contains an endpoint for ssh communication.
 	firstEndpoint := (*networkConfig.InputEndpoints)[0]
