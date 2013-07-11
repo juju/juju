@@ -8,21 +8,17 @@ import (
 	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
-	"strings"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
 // and validation of force-machine and num-units arguments.
 type UnitCommandBase struct {
-	ForceMachineSpec   string
-	ForceMachineId     string
-	ForceContainerType instance.ContainerType
-	NumUnits           int
+	ForceMachineSpec string
+	NumUnits         int
 }
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
@@ -38,22 +34,8 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units with --force-machine")
 		}
-		// Force machine spec may be an existing machine or container, eg 3/lxc/2
-		// or a new container on a machine, eg 3/lxc
-		specParts := strings.Split(c.ForceMachineSpec, "/")
-		if len(specParts) == 1 {
-			c.ForceMachineId = specParts[0]
-		} else {
-			lastPart := specParts[len(specParts)-1]
-			var err error
-			if c.ForceContainerType, err = instance.ParseSupportedContainerType(lastPart); err == nil {
-				c.ForceMachineId = strings.Join(specParts[:len(specParts)-1], "/")
-			} else {
-				c.ForceMachineId = c.ForceMachineSpec
-			}
-		}
-		if !state.IsMachineId(c.ForceMachineId) {
-			return fmt.Errorf("invalid force machine id %q", c.ForceMachineId)
+		if !state.IsMachineOrNewContainer(c.ForceMachineSpec) {
+			return fmt.Errorf("invalid force machine parameter %q", c.ForceMachineSpec)
 		}
 	}
 	return nil
@@ -101,10 +83,9 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	defer conn.Close()
 
 	params := params.AddServiceUnits{
-		ServiceName:        c.ServiceName,
-		NumUnits:           c.NumUnits,
-		ForceMachineId:     c.ForceMachineId,
-		ForceContainerType: c.ForceContainerType,
+		ServiceName:      c.ServiceName,
+		NumUnits:         c.NumUnits,
+		ForceMachineSpec: c.ForceMachineSpec,
 	}
 	_, err = statecmd.AddServiceUnits(conn.State, params)
 	return err

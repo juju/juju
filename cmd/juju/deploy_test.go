@@ -44,7 +44,7 @@ var initErrorTests = []struct {
 		err:  `--num-units must be a positive integer`,
 	}, {
 		args: []string{"craziness", "burble1", "--force-machine", "bigglesplop"},
-		err:  `invalid force machine id "bigglesplop"`,
+		err:  `invalid force machine parameter "bigglesplop"`,
 	}, {
 		args: []string{"craziness", "burble1", "-n", "2", "--force-machine", "123"},
 		err:  `cannot use --num-units with --force-machine`,

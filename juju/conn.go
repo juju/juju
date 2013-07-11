@@ -22,6 +22,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -193,13 +194,15 @@ type DeployServiceParams struct {
 	Constraints    constraints.Value
 	NumUnits       int
 	// Use string for deploy-to machine to avoid ambiguity around machine 0.
-	ForceMachineId     string
-	ForceContainerType instance.ContainerType
+	// ForceMachineSpec is either:
+	// - an existing machine/container id eg "1" or "1/lxc/2"
+	// - a new container on an existing machine eg "1/lxc"
+	ForceMachineSpec string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	if args.NumUnits > 1 && args.ForceMachineId != "" {
+	if args.NumUnits > 1 && args.ForceMachineSpec != "" {
 		return nil, stderrors.New("cannot use --num-units with --force-machine")
 	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
@@ -208,7 +211,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	}
 	emptyCons := constraints.Value{}
 	if args.Charm.Meta().Subordinate {
-		if args.NumUnits != 0 || args.ForceMachineId != "" {
+		if args.NumUnits != 0 || args.ForceMachineSpec != "" {
 			return nil, fmt.Errorf("subordinate service must be deployed without units")
 		}
 		if args.Constraints != emptyCons {
@@ -235,7 +238,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 		}
 	}
 	if args.NumUnits > 0 {
-		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineId, args.ForceContainerType); err != nil {
+		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineSpec); err != nil {
 			return nil, err
 		}
 	}
@@ -301,7 +304,7 @@ func (conn *Conn) addCharm(curl *charm.URL, ch charm.Charm) (*state.Charm, error
 
 // AddUnits starts n units of the given service and allocates machines
 // to them as necessary.
-func (conn *Conn) AddUnits(svc *state.Service, n int, mid string, ctype instance.ContainerType) ([]*state.Unit, error) {
+func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*state.Unit, error) {
 	units := make([]*state.Unit, n)
 	// Hard code for now till we implement a different approach.
 	policy := state.AssignCleanEmpty
@@ -311,18 +314,36 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, mid string, ctype instance
 		if err != nil {
 			return nil, fmt.Errorf("cannot add unit %d/%d to service %q: %v", i+1, n, svc.Name(), err)
 		}
-		if mid != "" {
+		if machineIdSpec != "" {
 			if n != 1 {
 				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 			}
+			// machineIdSpec may be an existing machine or container, eg 3/lxc/2
+			// or a new container on a machine, eg 3/lxc
+			mid := machineIdSpec
+			var containerType instance.ContainerType
+			specParts := strings.Split(machineIdSpec, "/")
+			if len(specParts) > 1 {
+				lastPart := specParts[len(specParts)-1]
+				var err error
+				if containerType, err = instance.ParseSupportedContainerType(lastPart); err == nil {
+					mid = strings.Join(specParts[:len(specParts)-1], "/")
+				} else {
+					mid = machineIdSpec
+				}
+			}
+			if !state.IsMachineId(mid) {
+				return nil, fmt.Errorf("invalid force machine id %q", mid)
+			}
+
 			var err error
 			var m *state.Machine
 			// If a container is to be used, create it.
-			if ctype != "" {
+			if containerType != "" {
 				params := state.AddMachineParams{
 					Series:        unit.Series(),
 					ParentId:      mid,
-					ContainerType: ctype,
+					ContainerType: containerType,
 					Jobs:          []state.MachineJob{state.JobHostUnits},
 				}
 				m, err = conn.State.AddMachineWithConstraints(&params)

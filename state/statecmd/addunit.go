@@ -25,8 +25,8 @@ func AddServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 	if args.NumUnits < 1 {
 		return nil, errors.New("must add at least one unit")
 	}
-	if args.NumUnits > 1 && args.ForceMachineId != "" {
+	if args.NumUnits > 1 && args.ForceMachineSpec != "" {
 		return nil, errors.New("cannot use --num-units with --force-machine")
 	}
-	return conn.AddUnits(service, args.NumUnits, args.ForceMachineId, args.ForceContainerType)
+	return conn.AddUnits(service, args.NumUnits, args.ForceMachineSpec)
 }

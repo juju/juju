@@ -144,13 +144,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:        serviceName,
-		Charm:              ch,
-		NumUnits:           numUnits,
-		ConfigSettings:     settings,
-		Constraints:        c.Constraints,
-		ForceMachineId:     c.ForceMachineId,
-		ForceContainerType: c.ForceContainerType,
+		ServiceName:      serviceName,
+		Charm:            ch,
+		NumUnits:         numUnits,
+		ConfigSettings:   settings,
+		Constraints:      c.Constraints,
+		ForceMachineSpec: c.ForceMachineSpec,
 	})
 	return err
 }

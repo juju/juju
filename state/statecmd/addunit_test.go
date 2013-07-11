@@ -17,12 +17,12 @@ type AddUnitsSuite struct {
 var _ = Suite(&AddUnitsSuite{})
 
 var addUnitsTests = []struct {
-	about          string
-	service        string
-	numUnits       int
-	forceMachineId string
-	err            string
-	expectedUnits  int
+	about            string
+	service          string
+	numUnits         int
+	forceMachineSpec string
+	err              string
+	expectedUnits    int
 }{
 	{
 		about:    "unknown service name",
@@ -49,11 +49,11 @@ var addUnitsTests = []struct {
 		expectedUnits: 6,
 	},
 	{
-		about:          "add multiple units with force machine",
-		service:        "dummy-service",
-		numUnits:       5,
-		forceMachineId: "0",
-		err:            "cannot use --num-units with --force-machine",
+		about:            "add multiple units with force machine",
+		service:          "dummy-service",
+		numUnits:         5,
+		forceMachineSpec: "0",
+		err:              "cannot use --num-units with --force-machine",
 	},
 }
 
@@ -65,9 +65,9 @@ func (s *AddUnitsSuite) TestAddServiceUnits(c *C) {
 	for i, t := range addUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
 		units, err := statecmd.AddServiceUnits(s.State, params.AddServiceUnits{
-			ServiceName:    t.service,
-			ForceMachineId: t.forceMachineId,
-			NumUnits:       t.numUnits,
+			ServiceName:      t.service,
+			ForceMachineSpec: t.forceMachineSpec,
+			NumUnits:         t.numUnits,
 		})
 		if t.err != "" {
 			c.Assert(err, ErrorMatches, t.err)

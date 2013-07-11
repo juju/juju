@@ -244,7 +244,7 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 	c.Assert(err, IsNil)
 	err = svc.SetExposed()
 	c.Assert(err, IsNil)
-	units, err := s.Conn.AddUnits(svc, 1, "", "")
+	units, err := s.Conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), NotNil)
 

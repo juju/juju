@@ -1052,6 +1052,23 @@ func (*StateSuite) TestNameChecks(c *C) {
 	assertMachine("0/kvm/4", true)
 	assertMachine("0/no-dash/0", false)
 	assertMachine("0/lxc/1/embedded/2", true)
+
+	assertMachineOrNewContainer := func(s string, expect bool) {
+		c.Assert(state.IsMachineOrNewContainer(s), Equals, expect)
+	}
+	assertMachineOrNewContainer("0", true)
+	assertMachineOrNewContainer("00", false)
+	assertMachineOrNewContainer("1", true)
+	assertMachineOrNewContainer("0/lxc/0", true)
+	assertMachineOrNewContainer("0/lxc", true)
+	assertMachineOrNewContainer("0/lxc/1/kvm", true)
+	assertMachineOrNewContainer("0/lxc/", false)
+	assertMachine("0/lxc/00", false)
+	assertMachine("0/lxc/01", false)
+	assertMachineOrNewContainer("0/lxc/01", false)
+	assertMachineOrNewContainer("0/lxc/10", true)
+	assertMachineOrNewContainer("0/kvm/4", true)
+	assertMachine("0/lxc/1/embedded/2", true)
 }
 
 type attrs map[string]interface{}
