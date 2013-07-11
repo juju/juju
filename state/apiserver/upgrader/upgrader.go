@@ -48,6 +48,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 			// have no state to transmit.
 			if _, ok := <-watch.Changes(); ok {
 				result.Results[i].NotifyWatcherId = u.resources.Register(watch)
+				err = nil
 			} else {
 				err = watcher.MustErr(watch)
 			}

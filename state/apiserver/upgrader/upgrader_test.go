@@ -76,17 +76,19 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, Not(Equals), "")
+	c.Check(results.Results[0].Error, IsNil)
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
 	c.Check(resource, NotNil)
 
 	w := resource.(state.NotifyWatcher)
-	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
 	c.Assert(err, IsNil)
 	wc.AssertOneChange()
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
 
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {

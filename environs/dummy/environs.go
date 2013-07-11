@@ -220,6 +220,16 @@ func (state *environState) destroy() {
 	state.bootstrapped = false
 }
 
+// GetStateInAPIServer returns the state connection used by the API server
+// This is so code in the test suite can trigger Syncs, etc that the API server
+// will see, which will then trigger API watchers, etc.
+func (e *environ) GetStateInAPIServer() *state.State {
+	if e.state == nil {
+		return nil
+	}
+	return e.state.apiState
+}
+
 // newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
