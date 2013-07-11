@@ -5,9 +5,13 @@ package ec2
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/loggo"
 )
+
+var logger = loggo.GetLogger("juju.environs.ec2")
 
 // signedImageDataOnly is defined here to allow tests to override the content.
 // If true, only inline PGP signed image metadata will be used.
@@ -34,6 +38,9 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
+	}
+	if len(matchingImages) == 0 {
+		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
 	var images []instances.Image
 	for _, imageMetadata := range matchingImages {
