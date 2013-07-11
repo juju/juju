@@ -1,5 +1,8 @@
 #!/usr/bin/env bash -e
 
+# if someone invokes this with bash 
+set -e
+
 # build release tarball from a bzr branch 
 
 usage() {
@@ -16,13 +19,13 @@ bzr-checkout() {
 # hg-checkout $SOURCE_URL $TAG $TARGET_DIR
 hg-checkout() {
 	echo "cloning $1 at revision $2"
-	hg archive -q -r $2 $1 $WORK/src/$3
+	hg clone -q -r $2 $1 $WORK/src/$3
 }
 
 # git-checkout $SOURCE_URL $TARGET_DIR
 git-checkout() {
 	echo "cloning $1"
-	git archive -q $1 $WORK/src/$2
+	git clone -q $1 $WORK/src/$2
 }
 
 test $# -eq 1 ||  usage 
@@ -35,7 +38,7 @@ GOPATH=$WORK
 export GOPATH
 
 # populate top level dirs
-DIRS="$WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} $WORK/github.com/andelf"
+DIRS="$WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} $WORK/src/github.com/andelf"
 mkdir -p $DIRS
 
 # checkout juju
@@ -64,10 +67,10 @@ bzr-checkout lp:tomb -1 launchpad.net/tomb
 git-checkout https://github.com/andelf/go-curl github.com/andelf/go-curl
 
 # smoke test
-go build launchpad.net/juju-core/...
+go build -v launchpad.net/juju-core/...
 
 # tar it up
 cd $WORK/src
-tar cfz $WORK/juju-core-$VERSION.tar.gz .
+tar cfz $WORK/juju-core-$VERSION.tar.gz --exclude .hg --exclude .git --exclude .bzr .
 
 echo "release tarball: $WORK/juju-core-$VERSION.tar.gz"
