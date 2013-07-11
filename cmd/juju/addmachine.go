@@ -29,7 +29,7 @@ type AddMachineCommand struct {
 func (c *AddMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<machine>/<container> | /<container>]",
+		Args:    "[<machine>/<container> | <container>]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
 		Doc:     "Machines are created in a clean state and ready to have units deployed.",
 	}
@@ -52,13 +52,15 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if containerSpec == "" {
 		return nil
 	}
-	// container arg can either be 'machine/type' or '/type'
-	sep := strings.Index(containerSpec, "/")
-	if sep < 0 {
-		return fmt.Errorf("malformed container argument %q", containerSpec)
+	// container arg can either be 'machine/type' or 'type'
+	if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
+		sep := strings.Index(containerSpec, "/")
+		if sep < 0 {
+			return fmt.Errorf("malformed container argument %q", containerSpec)
+		}
+		c.MachineId = containerSpec[:sep]
+		c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[sep+1:])
 	}
-	c.MachineId = containerSpec[:sep]
-	c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[sep+1:])
 	return err
 }
 

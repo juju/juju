@@ -73,7 +73,7 @@ func (s *AddMachineSuite) _assertAddContainer(c *C, parentId, containerId string
 
 func (s *AddMachineSuite) TestAddContainerToNewMachine(c *C) {
 	for i, ctype := range instance.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("/%s", ctype))
+		err := runAddMachine(c, fmt.Sprintf("%s", ctype))
 		c.Assert(err, IsNil)
 		s._assertAddContainer(c, strconv.Itoa(2*i), fmt.Sprintf("0/%s/0", ctype), ctype)
 	}
