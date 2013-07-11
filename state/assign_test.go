@@ -721,6 +721,13 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 	c.Assert(m, IsNil)
 	c.Assert(err, ErrorMatches, `all eligible machines in use`)
 
+	// Add a state management machine which can host jobs and check it is not chosen.
+	m, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	m, err = s.assignUnit(unit)
+	c.Assert(m, IsNil)
+	c.Assert(err, ErrorMatches, `all eligible machines in use`)
+
 	// Add a machine with the wrong series and check it is not chosen.
 	m, err = s.State.AddMachine("anotherseries", state.JobHostUnits)
 	c.Assert(err, IsNil)

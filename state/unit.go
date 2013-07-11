@@ -985,7 +985,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, containerType instance.C
 	terms := D{
 		{"life", Alive},
 		{"series", u.doc.Series},
-		{"jobs", JobHostUnits},
+		{"jobs", []MachineJob{JobHostUnits}},
 		{"clean", D{{"$ne", false}}},
 		{"_id", D{{"$nin", machinesWithContainers}}},
 	}
