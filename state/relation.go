@@ -6,14 +6,16 @@ package state
 import (
 	stderrors "errors"
 	"fmt"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/txn"
-	"launchpad.net/juju-core/charm"
-	errors "launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/utils"
 	"sort"
 	"strconv"
 	"strings"
+
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/txn"
+
+	"launchpad.net/juju-core/charm"
+	errors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // relationKey returns a string describing the relation defined by

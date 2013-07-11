@@ -5,6 +5,7 @@ package testing
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/instance"
 )
 

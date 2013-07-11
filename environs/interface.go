@@ -6,6 +6,7 @@ package environs
 import (
 	"errors"
 	"io"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -81,6 +82,14 @@ type StorageWriter interface {
 	// storage. It should not return an error if the file does
 	// not exist.
 	Remove(name string) error
+
+	// RemoveAll deletes all files that have been stored here.
+	// If the underlying storage implementation may be shared
+	// with other actors, it must be sure not to delete their
+	// file as well.
+	// Nevertheless, use with care!  This method is only mean
+	// for cleaning up an environment that's being destroyed.
+	RemoveAll() error
 }
 
 // Storage represents storage that can be both

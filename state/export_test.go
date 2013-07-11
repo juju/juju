@@ -6,14 +6,16 @@ package state
 import (
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"path/filepath"
+
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	"net/url"
-	"path/filepath"
 )
 
 // transactionHook holds Before and After func()s that will be called
@@ -133,7 +135,7 @@ func AddCustomCharm(c *C, st *State, name, filename, content, series string, rev
 func addCharm(c *C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
-	bundleURL, err := url.Parse("http://bundles.example.com/" + ident)
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
 	c.Assert(err, IsNil)
 	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
 	c.Assert(err, IsNil)

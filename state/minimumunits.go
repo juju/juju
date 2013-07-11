@@ -5,7 +5,9 @@ package state
 
 import (
 	"errors"
+
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/utils"
 )
 

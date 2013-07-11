@@ -5,6 +5,7 @@ package state
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 )
 

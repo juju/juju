@@ -4,7 +4,6 @@
 package azure
 
 import (
-	"fmt"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
@@ -32,10 +31,11 @@ func (azInstance *azureInstance) DNSName() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	if label == "" {
+	if isProvisionalServiceLabel(label) {
+		// DNS name has not been registered yet.  Come back later.
 		return "", instance.ErrNoDNSName
 	}
-	return fmt.Sprintf("%s.%s", label, AZURE_DOMAIN_NAME), nil
+	return label, nil
 }
 
 // WaitDNSName is specified in the Instance interface.
