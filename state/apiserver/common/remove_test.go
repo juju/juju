@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type removeSuite struct{}
@@ -43,18 +44,14 @@ func (*removeSuite) TestRemove(c *C) {
 	}}
 	result, err := r.Remove(entities)
 	c.Assert(err, IsNil)
-	unauth := &params.Error{
-		Message: "permission denied",
-		Code:    params.CodeUnauthorized,
-	}
 	c.Assert(result, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
 			&params.Error{Message: "x0 EnsureDead fails"},
 			&params.Error{Message: "x1 Remove fails"},
 			nil,
-			unauth,
+			apitesting.UnauthorizedError,
 			&params.Error{Message: "x4 error"},
-			unauth,
+			apitesting.UnauthorizedError,
 		},
 	})
 }

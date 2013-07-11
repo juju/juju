@@ -591,6 +591,18 @@ func (st *State) Lifer(tag string) (Lifer, error) {
 	return nil, fmt.Errorf("entity %q does not support lifecycles", tag)
 }
 
+// Remover attempts to return a Remover with the given tag.
+func (st *State) Remover(tag string) (Remover, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Remover); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support removing", tag)
+}
+
 // entity returns the entity for the given tag.
 func (st *State) entity(tag string) (interface{}, error) {
 	i := strings.Index(tag, "-")
@@ -1327,9 +1339,9 @@ func (st *State) ResumeTransactions() error {
 }
 
 var tagPrefix = map[byte]string{
-	'm': "machine-",
+	'm': machineTagPrefix,
 	's': "service-",
-	'u': "unit-",
+	'u': unitTagPrefix,
 	'e': "environment-",
 }
 

@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	apitesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type passwordSuite struct{}
@@ -53,15 +54,14 @@ func (*passwordSuite) TestSetPasswords(c *C) {
 	})
 	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{{
-			Message: "permission denied",
-			Code:    params.CodeUnauthorized,
-		},
+		Errors: []*params.Error{
+			apitesting.UnauthorizedError,
 			nil, {
 				Message: "x2 error",
 			},
 			nil,
-		}})
+		},
+	})
 	c.Assert(st.entities["x0"].(*fakeAuthenticator).pass, Equals, "")
 	c.Assert(st.entities["x1"].(*fakeAuthenticator).pass, Equals, "x1pass")
 	c.Assert(st.entities["x2"].(*fakeAuthenticator).pass, Equals, "")
