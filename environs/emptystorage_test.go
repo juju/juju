@@ -5,7 +5,9 @@ package environs_test
 
 import (
 	"io/ioutil"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
@@ -45,6 +47,10 @@ environments:
         state-server: false
         authorized-keys: i-am-a-key
 `
+
+func (s *verifyStorageSuite) TearDownTest(c *C) {
+	dummy.Reset()
+}
 
 func (s *verifyStorageSuite) TestVerifyStorage(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()

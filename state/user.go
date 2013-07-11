@@ -5,11 +5,13 @@ package state
 
 import (
 	"fmt"
+	"regexp"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"
-	"regexp"
 )
 
 var validUser = regexp.MustCompile("^[a-zA-Z][a-zA-Z0-9]*$")

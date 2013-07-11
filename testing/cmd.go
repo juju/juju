@@ -6,8 +6,10 @@ package testing
 import (
 	"bytes"
 	"io/ioutil"
+
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 )
 

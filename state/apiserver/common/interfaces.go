@@ -3,12 +3,11 @@
 
 package common
 
-// Tagger is implemented by any entity with a Tag method, which should
-// return the tag of the entity (for instance a machine might return
-// the tag "machine-1")
-type Tagger interface {
-	Tag() string
-}
+// AuthFunc returns whether the given entity is available to some operation.
+type AuthFunc func(tag string) bool
+
+// GetAuthFunc returns an AuthFunc.
+type GetAuthFunc func() (AuthFunc, error)
 
 // Authorizer represents a value that can be asked for authorization
 // information on its associated authenticated entity. It is

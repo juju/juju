@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	stdtesting "testing"
 )
 
 func Test(t *stdtesting.T) {

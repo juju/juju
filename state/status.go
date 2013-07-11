@@ -5,8 +5,10 @@ package state
 
 import (
 	"fmt"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state/api/params"
 )

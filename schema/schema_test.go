@@ -4,10 +4,12 @@
 package schema_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/schema"
 	"math"
 	"testing"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/schema"
 )
 
 func Test(t *testing.T) {

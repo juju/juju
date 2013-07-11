@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -56,7 +56,7 @@ type actionsHandler struct {
 	description   string
 }
 
-func (a *actionsHandler) SetUp() (params.NotifyWatcher, error) {
+func (a *actionsHandler) SetUp() (api.NotifyWatcher, error) {
 	a.mu.Lock()
 	defer a.mu.Unlock()
 	a.actions = append(a.actions, "setup")

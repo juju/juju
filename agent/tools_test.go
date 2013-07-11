@@ -6,14 +6,16 @@ package agent_test
 import (
 	"bytes"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/agent"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"os"
 	"path/filepath"
 	"sort"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 )
 
 type ToolsSuite struct {
