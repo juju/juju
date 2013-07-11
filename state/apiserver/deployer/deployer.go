@@ -5,7 +5,6 @@ package deployer
 
 import (
 	"fmt"
-	"time"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -13,8 +12,6 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
 )
-
-const shortWait = 50 * time.Millisecond
 
 // DeployerAPI provides access to the Deployer API facade.
 type DeployerAPI struct {
@@ -37,16 +34,10 @@ func getAllUnits(st *state.State, machineTag string) ([]string, error) {
 	// Start a watcher on machine's units, read the initial event and stop it.
 	watch := machine.WatchUnits()
 	defer watch.Stop()
-	select {
-	case units, ok := <-watch.Changes():
-		if !ok {
-			return nil, fmt.Errorf("cannot obtain units of machine %q: %v", machineTag, watch.Err())
-		}
+	if units, ok := <-watch.Changes(); ok {
 		return units, nil
-	case <-time.After(shortWait):
-		return nil, fmt.Errorf("timed out waiting for units of machine %q", machineTag)
 	}
-	panic("unreachable")
+	return nil, fmt.Errorf("cannot obtain units of machine %q: %v", machineTag, watch.Err())
 }
 
 // NewDeployerAPI creates a new client-side DeployerAPI facade.

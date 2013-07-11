@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type lifeSuite struct{}
@@ -46,12 +46,10 @@ func (*lifeSuite) TestLife(c *C) {
 	c.Assert(results, DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: params.Alive},
-			{Error: apitesting.UnauthorizedError},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Life: params.Dead},
-			{Error: &params.Error{
-				Message: "x3 error",
-			}},
-			{Error: apitesting.UnauthorizedError},
+			{Error: &params.Error{Message: "x3 error"}},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }

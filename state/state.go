@@ -521,9 +521,9 @@ type Lifer interface {
 	Life() Life
 }
 
-// Remover represents entities with EnsureDead and Remove methods.
+// Remover represents entities with lifecycles, EnsureDead and Remove methods.
 type Remover interface {
-	Tagger
+	Lifer
 	EnsureDead() error
 	Remove() error
 }

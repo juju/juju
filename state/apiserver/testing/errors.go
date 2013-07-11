@@ -7,7 +7,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-var UnauthorizedError *params.Error = &params.Error{
+var ErrUnauthorized *params.Error = &params.Error{
 	Message: "permission denied",
 	Code:    params.CodeUnauthorized,
 }

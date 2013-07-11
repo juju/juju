@@ -10,7 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 )
 
@@ -66,8 +66,8 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 	c.Assert(result, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
 			nil,
-			apitesting.UnauthorizedError,
-			apitesting.UnauthorizedError,
+			apiservertesting.ErrUnauthorized,
+			apiservertesting.ErrUnauthorized,
 		},
 	})
 
@@ -100,8 +100,8 @@ func (s *machinerSuite) TestLife(c *C) {
 	c.Assert(result, DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "dead"},
-			{Error: apitesting.UnauthorizedError},
-			{Error: apitesting.UnauthorizedError},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -120,8 +120,8 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	c.Assert(result, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
 			nil,
-			apitesting.UnauthorizedError,
-			apitesting.UnauthorizedError,
+			apiservertesting.ErrUnauthorized,
+			apiservertesting.ErrUnauthorized,
 		},
 	})
 
@@ -161,8 +161,8 @@ func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(result, DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
-			{Error: apitesting.UnauthorizedError},
-			{Error: apitesting.UnauthorizedError},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 

@@ -5,7 +5,7 @@ import (
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/machine"
-	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type agentSuite struct {
@@ -52,8 +52,8 @@ func (s *agentSuite) TestGetMachines(c *C) {
 				Life: "dying",
 				Jobs: []params.MachineJob{params.JobHostUnits},
 			},
-			{Error: apitesting.UnauthorizedError},
-			{Error: apitesting.UnauthorizedError},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -90,9 +90,9 @@ func (s *agentSuite) TestSetPasswords(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
-			apitesting.UnauthorizedError,
+			apiservertesting.ErrUnauthorized,
 			nil,
-			apitesting.UnauthorizedError,
+			apiservertesting.ErrUnauthorized,
 		},
 	})
 	err = s.machine1.Refresh()
