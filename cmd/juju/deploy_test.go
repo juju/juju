@@ -213,7 +213,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = runDeploy(c, "--force-machine", "lxc:"+machine.Id(), "local:dummy", "portlandia")
+	err = runDeploy(c, "--force-machine", machine.Id()+"/lxc", "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 	ms, err := s.State.AllMachines()

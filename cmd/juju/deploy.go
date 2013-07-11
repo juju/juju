@@ -99,18 +99,19 @@ func (c *DeployCommand) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units with --force-machine")
 		}
-		specParts := strings.Split(c.ForceMachineSpec, ":")
-		if len(specParts) > 2 {
-			return fmt.Errorf("invalid --force-machine parameter %q, expected [<container>:]<machineId>", c.ForceMachineSpec)
-		}
+		// Force machine spec may be an existing machine or container, eg 3/lxc/2
+		// or a new container on a machine, eg 3/lxc
+		specParts := strings.Split(c.ForceMachineSpec, "/")
 		if len(specParts) == 1 {
 			c.ForceMachineId = specParts[0]
 		} else {
+			lastPart := specParts[len(specParts)-1]
 			var err error
-			if c.ForceContainerType, err = instance.ParseSupportedContainerType(specParts[0]); err != nil {
-				return fmt.Errorf("invalid force machine container %q", specParts[0])
+			if c.ForceContainerType, err = instance.ParseSupportedContainerType(lastPart); err == nil {
+				c.ForceMachineId = strings.Join(specParts[:len(specParts)-1], "/")
+			} else {
+				c.ForceMachineId = c.ForceMachineSpec
 			}
-			c.ForceMachineId = specParts[1]
 		}
 		if !state.IsMachineId(c.ForceMachineId) {
 			return fmt.Errorf("invalid force machine id %q", c.ForceMachineId)
