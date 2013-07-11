@@ -7,8 +7,8 @@ import (
 	"encoding/base64"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -121,6 +121,17 @@ func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescripto
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
 		[]byte(listXML),
+		http.StatusOK,
+		nil,
+	)}
+	return responses
+}
+
+func buildAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
+	serviceXML, err := service.Serialize()
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
+		[]byte(serviceXML),
 		http.StatusOK,
 		nil,
 	)}
@@ -625,7 +636,7 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check(err, IsNil)
 
 	// It takes 2 API calls to delete each service:
-	// - one GET request to fetch the properties about the service;
+	// - one GET request to fetch the service's properties;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
 	c.Check((*requests)[0].Method, Equals, "GET")
@@ -634,57 +645,20 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
-// makeAzureStorageMocking creates a test azureStorage object that will talk to a
-// fake http server set up to always return the given http.Response object.
-func makeAzureStorageMocking(transport http.RoundTripper, container string, account string) azureStorage {
-	client := &http.Client{Transport: transport}
-	storageContext := gwacl.NewTestStorageContext(client)
-	storageContext.Account = account
-	context := &testStorageContext{container: container, storageContext: storageContext}
-	azStorage := azureStorage{context}
-	return azStorage
-}
-
-var blobListWith2BlobsResponse = `
-  <?xml version="1.0" encoding="utf-8"?>
-  <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-    <Prefix>prefix</Prefix>
-    <Marker>marker</Marker>
-    <MaxResults>maxresults</MaxResults>
-    <Delimiter>delimiter</Delimiter>
-    <Blobs>
-      <Blob>
-        <Name>blob-1</Name>
-        <Url>blob-url1</Url>
-      </Blob>
-      <Blob>
-        <Name>blob-2</Name>
-        <Url>blob-url2</Url>
-     </Blob>
-    </Blobs>
-    <NextMarker />
-  </EnumerationResults>`
-
 func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
-	container := "container"
-	transport := &gwacl.MockingTransport{}
-	transport.AddExchange(&http.Response{StatusCode: http.StatusOK, Body: ioutil.NopCloser(strings.NewReader(blobListWith2BlobsResponse))}, nil)
-	transport.AddExchange(&http.Response{StatusCode: http.StatusAccepted, Body: nil}, nil)
-	transport.AddExchange(&http.Response{StatusCode: http.StatusAccepted, Body: nil}, nil)
-	azStorage := makeAzureStorageMocking(transport, container, "account")
-	env.storage = &azStorage
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
 	services := []gwacl.HostedServiceDescriptor{}
 	patchWithServiceListResponse(c, services)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
 
 	err := env.Destroy(instances)
-
 	c.Check(err, IsNil)
-	c.Check(transport.Exchanges[1].Request.Method, Equals, "DELETE")
-	c.Check(strings.HasSuffix(transport.Exchanges[1].Request.URL.String(), "blob-1"), IsTrue)
-	c.Check(transport.Exchanges[2].Request.Method, Equals, "DELETE")
-	c.Check(strings.HasSuffix(transport.Exchanges[2].Request.URL.String(), "blob-2"), IsTrue)
+
+	files, err := env.Storage().List("")
+	c.Assert(err, IsNil)
+	c.Check(files, HasLen, 0)
 }
 
 var emptyListResponse = `
@@ -700,11 +674,9 @@ var emptyListResponse = `
 
 func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	env := makeEnviron(c)
-	// Setup an empty storage.
-	container := "container"
-	response := makeResponse(emptyListResponse, http.StatusOK)
-	azStorage, _ := makeAzureStorage(response, container, "account")
-	env.storage = &azStorage
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+
 	// Simulate 2 nodes corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
 	service1Name := prefix + "service1"
@@ -736,4 +708,62 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
 	c.Check((*requests)[4].Method, Equals, "DELETE")
 	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+}
+
+func (EnvironSuite) TestGetInstance(c *C) {
+	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
+	serviceName := prefix + "instance-name"
+	serviceDesc := gwacl.HostedServiceDescriptor{ServiceName: serviceName}
+	service := gwacl.HostedService{HostedServiceDescriptor: serviceDesc}
+	responses := buildAzureServiceResponses(c, service)
+	gwacl.PatchManagementAPIResponses(responses)
+
+	instance, err := env.getInstance("serviceName")
+	c.Check(err, IsNil)
+	c.Check(string(instance.Id()), Equals, serviceName)
+}
+
+func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
+	env := makeEnviron(c)
+
+	vhd := env.newOSVirtualDisk()
+	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
+	c.Check(err, IsNil)
+	st := env.Storage().(*azureStorage)
+	storageAccount := st.getContainer()
+	c.Check(mediaLinkUrl.Host, Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
+	// TODO: check vhd's sourceImageName when we will use simplestreams to
+	// to get the image name to use.
+}
+
+func (EnvironSuite) TestNewRole(c *C) {
+	env := makeEnviron(c)
+	vhd := env.newOSVirtualDisk()
+	userData := "example-user-data"
+
+	role := env.newRole(vhd, userData)
+
+	configs := role.ConfigurationSets
+	linuxConfig := configs[0]
+	networkConfig := configs[1]
+	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
+	firstEndpoint := (*networkConfig.InputEndpoints)[0]
+	c.Check(firstEndpoint.LocalPort, Equals, 22)
+	c.Check(firstEndpoint.Port, Equals, 22)
+	c.Check(firstEndpoint.Protocol, Equals, "TCP")
+	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
+}
+
+func (EnvironSuite) TestNewDeployment(c *C) {
+	env := makeEnviron(c)
+	userData := "example-user-data"
+	deploymentLabel := "deployment-label"
+
+	deployment := env.newDeployment(deploymentLabel, userData)
+	c.Check(deployment.RoleList[0].ConfigurationSets[0].UserData, Equals, userData)
+	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
+	c.Check(deployment.Label, Equals, base64Label)
+	c.Check(deployment.RoleList, HasLen, 1)
 }

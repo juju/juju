@@ -352,12 +352,12 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 	inputendpoint := gwacl.InputEndpoint{LocalPort: 22, Name: "sshport", Port: 22, Protocol: "TCP"}
 	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{inputendpoint})
 	roleName := gwacl.MakeRandomRoleName("juju")
+        // Keep the ordering of the configuration sets like this: linux config then network config for the sake of testing.
 	return gwacl.NewRole(roleSize, roleName, []gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet}, []gwacl.OSVirtualHardDisk{*vhd})
 }
 
-// newDeployment creates and returns a gwacl Deployment object ready to be
-// added to the given Service.
-func (env *azureEnviron) newDeployment(serviceName, userData string) *gwacl.Deployment {
+// newDeployment creates and returns a gwacl Deployment object.
+func (env *azureEnviron) newDeployment(deploymentLabel, userData string) *gwacl.Deployment {
 	// 1. Create an OS Virtual Disk.
 	vhd := env.newOSVirtualDisk()
 
@@ -369,7 +369,8 @@ func (env *azureEnviron) newDeployment(serviceName, userData string) *gwacl.Depl
 	// deployment will belong. We'll want to build this out later to
 	// support private communication between instances.
 	virtualNetworkName := ""
-	return gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, DeploymentSlot, serviceName, []gwacl.Role{*role}, virtualNetworkName)
+        // Use the service name as the label for the deployment.
+	return gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }
 
 // StartInstance is specified in the Environ interface.
@@ -489,13 +490,7 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	logger.Debugf("destroying environment %q", env.name)
 
 	// Delete storage.
-	st := env.Storage().(*azureStorage)
-	context, err := st.getStorageContext()
-	if err != nil {
-		return err
-	}
-	request := &gwacl.DeleteAllBlobsRequest{Container: st.getContainer()}
-	err = context.DeleteAllBlobs(request)
+	err := env.Storage().RemoveAll()
 	if err != nil {
 		return fmt.Errorf("cannot clean up storage: %v", err)
 	}
