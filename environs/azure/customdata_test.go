@@ -67,7 +67,7 @@ func (*CustomDataSuite) TestUserDataProducesZipFile(c *gc.C) {
 	// The regex syntax is weird here.  It's a trick to work around
 	// gocheck's matcher prefixing "^" to the regex and suffixing "$".
 	// With this trick, we can scan for a pattern in a multi-line input.
-	c.Check(string(content), gc.Matches, "(.|\n)*"+marker+"(.|\n)*")
+	c.Check(string(content), gc.Matches, "(?s).*"+marker+".*")
 }
 
 func (*CustomDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
