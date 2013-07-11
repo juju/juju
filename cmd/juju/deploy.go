@@ -10,25 +10,20 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"os"
-	"strings"
 )
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName          string
-	ServiceName        string
-	Config             cmd.FileVar
-	Constraints        constraints.Value
-	NumUnits           int // defaults to 1
-	BumpRevision       bool
-	RepoPath           string // defaults to JUJU_REPOSITORY
-	ForceMachineSpec   string
-	ForceMachineId     string
-	ForceContainerType instance.ContainerType
+	UnitCommandBase
+	CharmName    string
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	BumpRevision bool
+	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -63,9 +58,8 @@ func (c *DeployCommand) Info() *cmd.Info {
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
-	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "Machine/container to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -92,32 +86,7 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-	if c.NumUnits < 1 {
-		return errors.New("--num-units must be a positive integer")
-	}
-	if c.ForceMachineSpec != "" {
-		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units with --force-machine")
-		}
-		// Force machine spec may be an existing machine or container, eg 3/lxc/2
-		// or a new container on a machine, eg 3/lxc
-		specParts := strings.Split(c.ForceMachineSpec, "/")
-		if len(specParts) == 1 {
-			c.ForceMachineId = specParts[0]
-		} else {
-			lastPart := specParts[len(specParts)-1]
-			var err error
-			if c.ForceContainerType, err = instance.ParseSupportedContainerType(lastPart); err == nil {
-				c.ForceMachineId = strings.Join(specParts[:len(specParts)-1], "/")
-			} else {
-				c.ForceMachineId = c.ForceMachineSpec
-			}
-		}
-		if !state.IsMachineId(c.ForceMachineId) {
-			return fmt.Errorf("invalid force machine id %q", c.ForceMachineId)
-		}
-	}
-	return nil
+	return c.UnitCommandBase.Init(args)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
