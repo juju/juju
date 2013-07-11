@@ -71,6 +71,6 @@ go build -v launchpad.net/juju-core/...
 
 # tar it up
 cd $WORK/src
-tar cfz $WORK/juju-core-$VERSION.tar.gz --exclude .hg --exclude .git --exclude .bzr .
+tar cfz $WORK/juju-core_$VERSION.tar.gz --exclude .hg --exclude .git --exclude .bzr .
 
 echo "release tarball: $WORK/juju-core-$VERSION.tar.gz"
