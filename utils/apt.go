@@ -14,9 +14,6 @@ var aptLogger = loggo.GetLogger("juju.utils.apt")
 
 // Some helpful functions for running apt in a sane way
 
-// TODO: When we have a unit-level lock to avoid multiple unit agents running
-//       apt concurrently, we should use that same locking here
-
 // osRunCommand calls cmd.Run, this is used as an overloading point so we can
 // test what *would* be run without actually executing another program
 func osRunCommand(cmd *exec.Cmd) error {

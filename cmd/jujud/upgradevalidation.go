@@ -27,7 +27,6 @@ func getUniterLock(dataDir, message string) (*fslock.Lock, error) {
 	lockDir := filepath.Join(dataDir, "locks")
 	hookLock, err := fslock.NewLock(lockDir, "uniter-hook-execution")
 	if err != nil {
-		// Note: Should we try to do the install anyway, just without the lock?
 		return nil, err
 	}
 	err = hookLock.LockWithTimeout(lockTimeout, message)
@@ -57,6 +56,8 @@ func EnsureWeHaveLXC(dataDir string) error {
 		lock, err := getUniterLock(dataDir, "apt-get install lxc for juju 1.11 upgrade")
 		if err == nil {
 			defer lock.Unlock()
+		} else {
+			validationLogger.Warningf("Failed to acquire lock: %v, will try to install lxc anyway", lock)
 		}
 		// If we got an error trying to acquire the lock, we try to install
 		// lxc anyway. Worst case the install will fail, which is where we
