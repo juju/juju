@@ -27,6 +27,6 @@ func EnsureWeHaveLXC() error {
 		// We already have it, nothing more to do
 		return nil
 	}
-        validationLogger.Debugf("got error looking for lxc, attempting to install")
+	validationLogger.Debugf("got error looking for lxc, attempting to install")
 	return utils.AptGetInstall("lxc")
 }
