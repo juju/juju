@@ -5,13 +5,10 @@ package upgrader
 
 import (
 	"fmt"
-        "io"
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/environs/agent"
-
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
@@ -25,14 +22,14 @@ type upgradeHandler struct {
 	apiState    *api.State
 	apiUpgrader *upgrader.Upgrader
 	agentTag    string
-        toolManager agent.ToolManager
+	toolManager agent.ToolsManager
 }
 
-func NewUpgrader(st *api.State, agentTag string, toolManager agent.ToolManager) worker.NotifyWorker {
+func NewUpgrader(st *api.State, agentTag string, toolManager agent.ToolsManager) worker.NotifyWorker {
 	return worker.NewNotifyWorker(&upgradeHandler{
-		apiState: st,
-		agentTag: agentTag,
-                toolManager: toolManager,
+		apiState:    st,
+		agentTag:    agentTag,
+		toolManager: toolManager,
 	})
 }
 
@@ -40,7 +37,7 @@ func (u *upgradeHandler) String() string {
 	return fmt.Sprintf("upgrader for %q", u.agentTag)
 }
 
-func (u *upgradeHandler) SetUp() (state.NotifyWatcher, error) {
+func (u *upgradeHandler) SetUp() (api.NotifyWatcher, error) {
 	// First thing we do is alert the API of our current tools
 	u.apiUpgrader = u.apiState.Upgrader()
 	cur := version.Current
@@ -60,9 +57,10 @@ func (u *upgradeHandler) SetUp() (state.NotifyWatcher, error) {
 	return u.apiUpgrader.WatchAPIVersion(u.agentTag)
 }
 
-func (u *upgradeHandler) TearDown() {
+func (u *upgradeHandler) TearDown() error {
 	u.apiUpgrader = nil
 	u.apiState = nil
+        return nil
 }
 
 func (u *upgradeHandler) Handle() error {

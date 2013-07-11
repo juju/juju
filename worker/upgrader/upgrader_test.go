@@ -53,7 +53,7 @@ func (s *UpgraderSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *UpgraderSuite) TestString(c *gc.C) {
-	upg := upgrader.NewUpgrader(s.APIState, "machine-tag")
+	upg := upgrader.NewUpgrader(s.APIState, "machine-tag", upgrader.NilToolsManager{})
 	c.Assert(fmt.Sprint(upg), gc.Equals, `upgrader for "machine-tag"`)
 	c.Assert(upg.Stop(), gc.ErrorMatches, "permission denied")
 }
@@ -61,14 +61,13 @@ func (s *UpgraderSuite) TestString(c *gc.C) {
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	upg := upgrader.NewUpgrader(s.apiState, s.rawMachine.Tag())
+	upg := upgrader.NewUpgrader(s.apiState, s.rawMachine.Tag(), upgrader.NilToolsManager{})
 	c.Assert(upg.Stop(), gc.IsNil)
 	s.rawMachine.Refresh()
 	ver, err := s.rawMachine.AgentTools()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ver.Binary, gc.Equals, version.Current)
 }
-
 
 type UpgradeHandlerSuite struct {
 	jujutesting.JujuConnSuite
