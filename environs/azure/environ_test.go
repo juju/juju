@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -120,6 +121,20 @@ func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescripto
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
 		[]byte(listXML),
+		http.StatusOK,
+		nil,
+	)}
+	return responses
+}
+
+// buildAzureServiceResponses returns the slice of responses
+// (gwacl.DispatcherResponse) which correspond to the API requests used to
+// get the properties of a Service.
+func buildAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
+	serviceXML, err := service.Serialize()
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
+		[]byte(serviceXML),
 		http.StatusOK,
 		nil,
 	)}
@@ -604,8 +619,8 @@ func buildDestroyAzureServiceResponses(c *C, services []*gwacl.HostedService) []
 }
 
 func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
-	service1 := &gwacl.HostedService{ServiceName: name}
 	service1Desc := &gwacl.HostedServiceDescriptor{ServiceName: name}
+	service1 := &gwacl.HostedService{HostedServiceDescriptor: *service1Desc}
 	return service1, service1Desc
 }
 
@@ -696,4 +711,65 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
 	c.Check((*requests)[4].Method, Equals, "DELETE")
 	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+}
+
+func (EnvironSuite) TestGetInstance(c *C) {
+	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
+	serviceName := prefix + "instance-name"
+	serviceDesc := gwacl.HostedServiceDescriptor{ServiceName: serviceName}
+	service := gwacl.HostedService{HostedServiceDescriptor: serviceDesc}
+	responses := buildAzureServiceResponses(c, service)
+	gwacl.PatchManagementAPIResponses(responses)
+
+	instance, err := env.getInstance("serviceName")
+	c.Check(err, IsNil)
+
+	c.Check(string(instance.Id()), Equals, serviceName)
+}
+
+func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
+	env := makeEnviron(c)
+
+	vhd := env.newOSVirtualDisk()
+
+	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
+	c.Check(err, IsNil)
+	storageAccount := env.ecfg.StorageAccountName()
+	c.Check(mediaLinkUrl.Host, Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
+	// TODO: check vhd's sourceImageName when we will use simplestreams to
+	// to get the image name.
+}
+
+func (EnvironSuite) TestNewRole(c *C) {
+	env := makeEnviron(c)
+	vhd := env.newOSVirtualDisk()
+	userData := "example-user-data"
+
+	role := env.newRole(vhd, userData)
+
+	configs := role.ConfigurationSets
+	linuxConfig := configs[0]
+	networkConfig := configs[1]
+	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
+	// The network config contains an endpoint for ssh communication.
+	firstEndpoint := (*networkConfig.InputEndpoints)[0]
+	c.Check(firstEndpoint.LocalPort, Equals, 22)
+	c.Check(firstEndpoint.Port, Equals, 22)
+	c.Check(firstEndpoint.Protocol, Equals, "TCP")
+	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
+}
+
+func (EnvironSuite) TestNewDeployment(c *C) {
+	env := makeEnviron(c)
+	userData := "example-user-data"
+	deploymentLabel := "deployment-label"
+
+	deployment := env.newDeployment(deploymentLabel, userData)
+
+	c.Check(deployment.RoleList[0].ConfigurationSets[0].UserData, Equals, userData)
+	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
+	c.Check(deployment.Label, Equals, base64Label)
+	c.Check(deployment.RoleList, HasLen, 1)
 }
