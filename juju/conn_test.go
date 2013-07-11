@@ -4,6 +4,7 @@
 package juju_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
@@ -386,7 +387,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := s.conn.State.AddService("testriak", sch)
 	c.Assert(err, IsNil)
-	units, err := s.conn.AddUnits(svc, 2, "", "")
+	units, err := s.conn.AddUnits(svc, 2, "")
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 2)
 
@@ -396,15 +397,15 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(id0, Not(Equals), id1)
 
-	units, err = s.conn.AddUnits(svc, 2, "0", "")
+	units, err = s.conn.AddUnits(svc, 2, "0")
 	c.Assert(err, ErrorMatches, `cannot add multiple units of service "testriak" to a single machine`)
 
-	units, err = s.conn.AddUnits(svc, 1, "0", "")
+	units, err = s.conn.AddUnits(svc, 1, "0")
 	c.Assert(err, IsNil)
 	id2, err := units[0].AssignedMachineId()
 	c.Assert(id2, Equals, id0)
 
-	units, err = s.conn.AddUnits(svc, 1, "0", instance.LXC)
+	units, err = s.conn.AddUnits(svc, 1, fmt.Sprintf("0/%s", instance.LXC))
 	c.Assert(err, IsNil)
 	id3, err := units[0].AssignedMachineId()
 	c.Assert(id3, Equals, id0+"/lxc/0")
@@ -518,11 +519,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *C) {
 	c.Assert(err, IsNil)
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	service, err := s.Conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    "bob",
-		Charm:          s.charm,
-		Constraints:    serviceCons,
-		NumUnits:       1,
-		ForceMachineId: "0",
+		ServiceName:      "bob",
+		Charm:            s.charm,
+		Constraints:      serviceCons,
+		NumUnits:         1,
+		ForceMachineSpec: "0",
 	})
 	c.Assert(err, IsNil)
 	s.assertConstraints(c, service, serviceCons)
@@ -538,12 +539,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *C) {
 	c.Assert(err, IsNil)
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	service, err := s.Conn.DeployService(juju.DeployServiceParams{
-		ServiceName:        "bob",
-		Charm:              s.charm,
-		Constraints:        serviceCons,
-		NumUnits:           1,
-		ForceMachineId:     "0",
-		ForceContainerType: instance.LXC,
+		ServiceName:      "bob",
+		Charm:            s.charm,
+		Constraints:      serviceCons,
+		NumUnits:         1,
+		ForceMachineSpec: fmt.Sprintf("0/%s", instance.LXC),
 	})
 	c.Assert(err, IsNil)
 	s.assertConstraints(c, service, serviceCons)

@@ -10,25 +10,21 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"os"
-	"strings"
 )
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName          string
-	ServiceName        string
-	Config             cmd.FileVar
-	Constraints        constraints.Value
-	NumUnits           int // defaults to 1
-	BumpRevision       bool
-	RepoPath           string // defaults to JUJU_REPOSITORY
-	ForceMachineSpec   string
-	ForceMachineId     string
-	ForceContainerType instance.ContainerType
+	CharmName        string
+	ServiceName      string
+	Config           cmd.FileVar
+	Constraints      constraints.Value
+	NumUnits         int // defaults to 1
+	BumpRevision     bool
+	RepoPath         string // defaults to JUJU_REPOSITORY
+	ForceMachineSpec string
 }
 
 const deployDoc = `
@@ -99,22 +95,8 @@ func (c *DeployCommand) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units with --force-machine")
 		}
-		// Force machine spec may be an existing machine or container, eg 3/lxc/2
-		// or a new container on a machine, eg 3/lxc
-		specParts := strings.Split(c.ForceMachineSpec, "/")
-		if len(specParts) == 1 {
-			c.ForceMachineId = specParts[0]
-		} else {
-			lastPart := specParts[len(specParts)-1]
-			var err error
-			if c.ForceContainerType, err = instance.ParseSupportedContainerType(lastPart); err == nil {
-				c.ForceMachineId = strings.Join(specParts[:len(specParts)-1], "/")
-			} else {
-				c.ForceMachineId = c.ForceMachineSpec
-			}
-		}
-		if !state.IsMachineId(c.ForceMachineId) {
-			return fmt.Errorf("invalid force machine id %q", c.ForceMachineId)
+		if !state.IsMachineOrNewContainer(c.ForceMachineSpec) {
+			return fmt.Errorf("invalid force machine parameter %q", c.ForceMachineSpec)
 		}
 	}
 	return nil
@@ -175,13 +157,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:        serviceName,
-		Charm:              ch,
-		NumUnits:           numUnits,
-		ConfigSettings:     settings,
-		Constraints:        c.Constraints,
-		ForceMachineId:     c.ForceMachineId,
-		ForceContainerType: c.ForceContainerType,
+		ServiceName:      serviceName,
+		Charm:            ch,
+		NumUnits:         numUnits,
+		ConfigSettings:   settings,
+		Constraints:      c.Constraints,
+		ForceMachineSpec: c.ForceMachineSpec,
 	})
 	return err
 }

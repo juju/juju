@@ -95,7 +95,7 @@ func (s *FirewallerSuite) TestStartStop(c *C) {
 }
 
 func (s *FirewallerSuite) addUnit(c *C, svc *state.Service) (*state.Unit, *state.Machine) {
-	units, err := s.Conn.AddUnits(svc, 1, "", "")
+	units, err := s.Conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	u := units[0]
 	id, err := u.AssignedMachineId()

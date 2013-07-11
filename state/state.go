@@ -69,11 +69,14 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 const numberSnippet = "(0|[1-9][0-9]*)"
 const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
+const containerNameSnippet = "(/[a-z]+)"
 
 var (
-	validService = regexp.MustCompile("^" + serviceSnippet + "$")
-	validUnit    = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
-	validMachine = regexp.MustCompile("^" + numberSnippet + containerSnippet + "*$")
+	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
+	validUnit                  = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
+	validMachine               = regexp.MustCompile("^" + numberSnippet + containerSnippet + "*$")
+	validMachineOrNewContainer = regexp.MustCompile(
+		"^" + numberSnippet + containerSnippet + "*" + containerNameSnippet + "*$")
 )
 
 // BootstrapNonce is used as a nonce for the state server machine.
@@ -90,8 +93,13 @@ func IsUnitName(name string) bool {
 }
 
 // IsMachineId returns whether id is a valid machine id.
-func IsMachineId(name string) bool {
-	return validMachine.MatchString(name)
+func IsMachineId(id string) bool {
+	return validMachine.MatchString(id)
+}
+
+// IsMachineOrNewContainer returns whether spec is a valid machine id or new container definition.
+func IsMachineOrNewContainer(spec string) bool {
+	return validMachineOrNewContainer.MatchString(spec)
 }
 
 // State represents the state of an environment

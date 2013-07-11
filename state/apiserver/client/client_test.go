@@ -327,7 +327,7 @@ func (s *clientSuite) TestClientServiceDeployCharmErrors(c *C) {
 }
 
 func (s *clientSuite) TestClientServiceDeployPrincipal(c *C) {
-	// TODO(fwereade): test ForceMachineId/ForceContainerType directly on srvClient, when we
+	// TODO(fwereade): test ForceMachineSpec directly on srvClient, when we
 	// manage to extract it as a package and can thus do it conveniently.
 	store, restore := makeMockCharmStore()
 	defer restore()

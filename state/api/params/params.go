@@ -40,14 +40,13 @@ type DestroyRelation struct {
 
 // ServiceDeploy holds the parameters for making the ServiceDeploy call.
 type ServiceDeploy struct {
-	ServiceName        string
-	CharmUrl           string
-	NumUnits           int
-	Config             map[string]string
-	ConfigYAML         string // Takes precedence over config if both are present.
-	Constraints        constraints.Value
-	ForceMachineId     string
-	ForceContainerType instance.ContainerType
+	ServiceName      string
+	CharmUrl         string
+	NumUnits         int
+	Config           map[string]string
+	ConfigYAML       string // Takes precedence over config if both are present.
+	Constraints      constraints.Value
+	ForceMachineSpec string
 }
 
 // ServiceSetCharm sets the charm for a given service.

@@ -385,7 +385,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	svc, err := conn.State.AddService("dummy", sch)
 	c.Assert(err, IsNil)
-	units, err := conn.AddUnits(svc, 1, "", "")
+	units, err := conn.AddUnits(svc, 1, "")
 	c.Assert(err, IsNil)
 	unit := units[0]
 
