@@ -254,7 +254,9 @@ func (a *MachineAgent) Tag() string {
 	return state.MachineTag(a.MachineId)
 }
 
-// Below pieces used for testing.
+// Below pieces are used for testing,to give us access to the *State opened
+// by the agent, and allow us to trigger syncs without waiting 5s for them
+// to happen automatically.
 
 var stateReporter chan<- *state.State
 
@@ -265,7 +267,8 @@ func reportOpenedState(st *state.State) {
 	}
 }
 
-func sendOpenedStates(dst chan<- *state.State) (original chan<- *state.State) {
+func sendOpenedStates(dst chan<- *state.State) (undo func()) {
+	var original chan<- *state.State
 	original, stateReporter = stateReporter, dst
-	return original
+	return func() { stateReporter = original }
 }

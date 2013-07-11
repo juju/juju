@@ -316,7 +316,9 @@ func (s *MachineSuite) assertJobWithState(c *C, job state.MachineJob, test func(
 	defer a.Stop()
 
 	agentStates := make(chan *state.State, 1000)
-	defer sendOpenedStates(sendOpenedStates(agentStates))
+	undo := sendOpenedStates(agentStates)
+	defer undo()
+
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
@@ -326,7 +328,7 @@ func (s *MachineSuite) assertJobWithState(c *C, job state.MachineJob, test func(
 	case agentState := <-agentStates:
 		c.Assert(agentState, NotNil)
 		test(conf, agentState)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("state not opened")
 	}
 
@@ -383,19 +385,20 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *C) {
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
 		agentState.Sync()
-		timeout := time.After(500 * time.Millisecond)
-		for {
+		timeout := time.After(testing.LongWait)
+		for done := false; !done; {
 			select {
 			case <-timeout:
 				c.Fatalf("unit not cleaned up")
-			case <-time.After(50 * time.Millisecond):
+			case <-time.After(testing.ShortWait):
 				s.State.StartSync()
 			case <-w.Changes():
 				err := unit.Refresh()
 				if errors.IsNotFoundError(err) {
-					return
+					done = true
+				} else {
+					c.Assert(err, IsNil)
 				}
-				c.Assert(err, IsNil)
 			}
 		}
 	})
