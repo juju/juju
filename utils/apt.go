@@ -6,7 +6,11 @@ package utils
 import (
 	"os"
 	"os/exec"
+
+        "launchpad.net/loggo"
 )
+
+var aptLogger = loggo.GetLogger("juju.utils.apt")
 
 // Some helpful functions for running apt in a sane way
 
@@ -37,6 +41,7 @@ func AptGetInstall(packages ...string) error {
 	cmdArgs := append([]string(nil), aptGetCommand...)
 	cmdArgs = append(cmdArgs, "install")
 	cmdArgs = append(cmdArgs, packages...)
+        aptLogger.Infof("Running: %s", cmdArgs)
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Env = append(os.Environ(), aptGetEnvOptions...)
 	return runCommand(cmd)
