@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -140,4 +141,28 @@ func (s *upgraderSuite) TestTools(c *C) {
 	c.Check(tools.Arch, Equals, cur.Arch)
 	c.Check(tools.Series, Equals, cur.Series)
 	c.Check(tools.URL, Not(Equals), "")
+}
+
+func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
+	w, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
+	defer statetesting.AssertStop(c, w)
+	c.Assert(err, IsNil)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+	// Initial event
+	wc.AssertOneChange()
+	vers := version.MustParse("10.20.34")
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
+	c.Assert(err, IsNil)
+	// One change noticing the new version
+	wc.AssertOneChange()
+	// Setting the version to the same value doesn't trigger a change
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+	vers = version.MustParse("10.20.35")
+	err = statetesting.SetAgentVersion(s.BackingState, vers)
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
