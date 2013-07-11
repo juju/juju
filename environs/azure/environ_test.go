@@ -605,8 +605,8 @@ func buildDestroyAzureServiceResponses(c *C, services []*gwacl.HostedService) []
 }
 
 func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDescriptor) {
-	service1 := &gwacl.HostedService{ServiceName: name}
 	service1Desc := &gwacl.HostedServiceDescriptor{ServiceName: name}
+	service1 := &gwacl.HostedService{HostedServiceDescriptor: *service1Desc}
 	return service1, service1Desc
 }
 
