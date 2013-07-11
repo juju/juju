@@ -206,10 +206,10 @@ var (
 )
 
 // putBinary stores a faked binary in the test directory.
-func putBinary(c *C, s string, v version.Binary) {
+func putBinary(c *C, storagePath string, v version.Binary) {
 	data := v.String()
 	name := tools.StorageName(v)
-	path := filepath.Join(s, name)
+	path := filepath.Join(storagePath, name)
 	dir, _ := filepath.Split(path)
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)

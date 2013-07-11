@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 
@@ -182,14 +183,13 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 
 // selectSourceStorage returns a storage reader based on the passed source flag.
 func selectSourceStorage(sourceFlagValue string) (environs.StorageReader, error) {
-	if sourceFlagValue == "default" {
+	if sourceFlagValue == "" || sourceFlagValue == "default" {
 		return ec2.NewHTTPStorageReader(defaultToolsLocation), nil
 	}
 	return newFileStorageReader(sourceFlagValue)
 }
 
-// fileStorageReader implements the StorageReader accessing the local 
-// file system.
+// fileStorageReader implements StorageReader backed by the local filesystem.
 type fileStorageReader struct {
 	path string
 }
@@ -246,5 +246,5 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 
 // URL implements environs.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
-	return filepath.Join(f.path, name), nil
+	return path.Join(f.path, name), nil
 }
