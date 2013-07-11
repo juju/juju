@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"strings"
 	"sync"
+	"time"
 
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/constraints"
@@ -17,9 +18,9 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 )
 
 const (
@@ -104,9 +105,58 @@ func (env *azureEnviron) getSnapshot() *azureEnviron {
 	return &snap
 }
 
+// startBootstrapInstance starts the bootstrap instance for this environment.
+func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instance.Instance, error) {
+	// The bootstrap instance gets machine id "0".  This is not related to
+	// instance ids or anything in Azure.  Juju assigns the machine ID.
+	const machineID = "0"
+	mcfg := env.makeMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg.StateServer = true
+
+	logger.Debugf("bootstrapping environment %q", env.Name())
+	possibleTools, err := environs.FindBootstrapTools(env, cons)
+	if err != nil {
+		return nil, err
+	}
+	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	if err != nil {
+		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
+	}
+	return inst, nil
+}
+
 // Bootstrap is specified in the Environ interface.
+// TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
-	panic("unimplemented")
+	shortAttempt := utils.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 200 * time.Millisecond,
+	}
+	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+		return err
+	}
+
+	inst, err := env.startBootstrapInstance(cons)
+	if err != nil {
+		return err
+	}
+	err = environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
+	if err != nil {
+		err2 := env.StopInstances([]instance.Instance{inst})
+		if err2 != nil {
+			// Failure upon failure.  Log it, but return the
+			// original error.
+			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
+		}
+		return fmt.Errorf("cannot save state: %v", err)
+	}
+
+	// TODO make safe in the case of racing Bootstraps
+	// If two Bootstraps are called concurrently, there's
+	// no way to make sure that only one succeeds.
+	return nil
 }
 
 // StateInfo is specified in the Environ interface.
@@ -293,7 +343,7 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 			if err2 != nil {
 				// Failure upon failure.  Log it, but return
 				// the original error.
-				log.Errorf("error releasing failed instance: %v", err)
+				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
 	}()
@@ -309,6 +359,7 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 // makeMachineConfig sets up a basic machine configuration for use with
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
+// TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{

@@ -6,6 +6,10 @@ package maas
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"sync"
+	"time"
+
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -17,9 +21,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
-	"net/url"
-	"sync"
-	"time"
 )
 
 const (
@@ -125,8 +126,11 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
-		if err := env.releaseInstance(inst); err != nil {
-			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
+		err2 := env.releaseInstance(inst)
+		if err2 != nil {
+			// Failure upon failure.  Log it, but return the
+			// original error.
+			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err2)
 		}
 		return fmt.Errorf("cannot save state: %v", err)
 	}
