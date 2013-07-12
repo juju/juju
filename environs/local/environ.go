@@ -12,9 +12,9 @@ import (
 	"sync"
 	"time"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/instance"
@@ -188,6 +188,11 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = config
 	env.name = config.Name()
+
+	if err := config.createDirs(); err != nil {
+		return err
+	}
+
 	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
 	if err != nil {
 		return err
