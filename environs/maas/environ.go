@@ -32,15 +32,10 @@ const (
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
+// dealt with by shortAttempt, the latter by LongAttempt.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-var longAttempt = utils.AttemptStrategy{
-	Total: 3 * time.Minute,
-	Delay: 1 * time.Second,
 }
 
 type maasEnviron struct {
