@@ -34,7 +34,6 @@ const (
 
 	// The deployment slot where to deploy instances ('Production' or
 	// 'Staging').
-	// TODO: This is to become a configuration item.
 	DeploymentSlot = "Production"
 )
 
@@ -275,7 +274,25 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 
 	// TODO: Compose userdata.
 	userData := ""
-	deployment := env.newDeployment(serviceName, userData)
+	// TODO: use simplestreams to get the name of the image given
+	// the constraints provided by Juju.
+	// In the meantime we use a Precise image.  Note that this image's
+	// cloud-init does not support Azure yet.
+	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130527-en-us-30GB"
+	// TODO: virtualNetworkName is the virtual network to which the
+	// deployment will belong. We'll want to build this out later to
+	// support private communication between instances.
+	virtualNetworkName := ""
+
+	// 1. Create an OS Disk.
+	vhd := env.newOSDisk(sourceImageName)
+
+	// 2. Create a Role for a Linux machine.
+	role := env.newRole(vhd, userData)
+
+	// 3. Create the Deployment object.
+	deployment := env.newDeployment(role, serviceName, virtualNetworkName)
+
 	err = azure.AddDeployment(deployment, serviceName)
 	if err != nil {
 		return nil, err
@@ -320,25 +337,20 @@ func (env *azureEnviron) getInstance(instanceName string) (instance.Instance, er
 	defer env.releaseManagementAPI(context)
 	service, err := context.GetHostedServiceProperties(instanceName, false)
 	if err != nil {
-		return nil, fmt.Errorf("could not get instance: %v", err)
+		return nil, fmt.Errorf("could not get instance %q: %v", instanceName, err)
 	}
 	instance := &azureInstance{service.HostedServiceDescriptor}
 	return instance, nil
 }
 
-// newOSVirtualDisk creates a gwacl.OSVirtualHardDisk object suitable for an
+// newOSDisk creates a gwacl.OSVirtualHardDisk object suitable for an
 // Azure Virtual Machine.
-func (env *azureEnviron) newOSVirtualDisk() *gwacl.OSVirtualHardDisk {
+func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardDisk {
 	vhdName := gwacl.MakeRandomDiskName("juju")
 	vhdPath := fmt.Sprintf("vhds/%s", vhdName)
 	snap := env.getSnapshot()
 	storageAccount := snap.ecfg.StorageAccountName()
 	mediaLink := gwacl.CreateVirtualHardDiskMediaLink(storageAccount, vhdPath)
-	// TODO: use simplestreams to get the name of the image given
-	// the constraints provided by Juju.
-	// In the meantime we use a Precise image.  Note that this image's
-	// cloud-init does not support Azure yet.
-	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130527-en-us-30GB"
 	// The disk label is optional and the disk name can be omitted if
 	// mediaLink is provided.
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
@@ -346,6 +358,9 @@ func (env *azureEnviron) newOSVirtualDisk() *gwacl.OSVirtualHardDisk {
 
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
+// The VM will have:
+// - an 'ubuntu' user defined with an unguessable (randomly generated) password
+// - its port 22 open
 func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) *gwacl.Role {
 	// TODO: Derive the role size from the constraints.
 	// ExtraSmall|Small|Medium|Large|ExtraLarge
@@ -357,26 +372,22 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
 	// Generate a Network Configuration with port 22 open.
-	inputendpoint := gwacl.InputEndpoint{LocalPort: 22, Name: "sshport", Port: 22, Protocol: "TCP"}
+	inputendpoint := gwacl.InputEndpoint{
+		LocalPort: 22,
+		Name:      "sshport",
+		Port:      22,
+		Protocol:  "TCP"}
 	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{inputendpoint})
 	roleName := gwacl.MakeRandomRoleName("juju")
-	// Keep the ordering of the configuration sets like this: linux config then network config for the sake of testing.
-	return gwacl.NewRole(roleSize, roleName, []gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet}, []gwacl.OSVirtualHardDisk{*vhd})
+	// The ordering of these configuration sets is significant for the tests.
+	return gwacl.NewRole(
+		roleSize, roleName,
+		[]gwacl.ConfigurationSet{*linuxConfigurationSet, *networkConfigurationSet},
+		[]gwacl.OSVirtualHardDisk{*vhd})
 }
 
 // newDeployment creates and returns a gwacl Deployment object.
-func (env *azureEnviron) newDeployment(deploymentLabel, userData string) *gwacl.Deployment {
-	// 1. Create an OS Virtual Disk.
-	vhd := env.newOSVirtualDisk()
-
-	// 2. Create a Role for a Linux machine.
-	role := env.newRole(vhd, userData)
-
-	// 3. Create the Deployment object.
-	// TODO: virtualNetworkName is the virtual network to which the
-	// deployment will belong. We'll want to build this out later to
-	// support private communication between instances.
-	virtualNetworkName := ""
+func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
 	// Use the service name as the label for the deployment.
 	return gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }

@@ -115,7 +115,7 @@ func (*EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
+func getAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
 	c.Assert(err, IsNil)
@@ -127,10 +127,10 @@ func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescripto
 	return responses
 }
 
-// buildAzureServiceResponses returns the slice of responses
+// getAzureServiceResponses returns the slice of responses
 // (gwacl.DispatcherResponse) which correspond to the API requests used to
 // get the properties of a Service.
-func buildAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
+func getAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
 	serviceXML, err := service.Serialize()
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
@@ -142,7 +142,7 @@ func buildAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.Dispa
 }
 
 func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
-	responses := buildAzureServiceListResponse(c, services)
+	responses := getAzureServiceListResponse(c, services)
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
@@ -688,7 +688,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	service2, service2Desc := makeAzureService(service2Name)
 	services := []*gwacl.HostedService{service1, service2}
 	// The call to AllInstances() will return only one service (service1).
-	listInstancesResponses := buildAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
+	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
 	destroyResponses := buildDestroyAzureServiceResponses(c, services)
 	responses := append(listInstancesResponses, destroyResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -719,7 +719,7 @@ func (EnvironSuite) TestGetInstance(c *C) {
 	serviceName := prefix + "instance-name"
 	serviceDesc := gwacl.HostedServiceDescriptor{ServiceName: serviceName}
 	service := gwacl.HostedService{HostedServiceDescriptor: serviceDesc}
-	responses := buildAzureServiceResponses(c, service)
+	responses := getAzureServiceResponses(c, service)
 	gwacl.PatchManagementAPIResponses(responses)
 
 	instance, err := env.getInstance("serviceName")
@@ -730,20 +730,20 @@ func (EnvironSuite) TestGetInstance(c *C) {
 
 func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	env := makeEnviron(c)
+	sourceImageName := "source-image-name"
 
-	vhd := env.newOSVirtualDisk()
+	vhd := env.newOSDisk(sourceImageName)
 
 	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
 	c.Check(err, IsNil)
 	storageAccount := env.ecfg.StorageAccountName()
 	c.Check(mediaLinkUrl.Host, Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
-	// TODO: check vhd's sourceImageName when we will use simplestreams to
-	// to get the image name.
+	c.Check(vhd.SourceImageName, Equals, sourceImageName)
 }
 
 func (EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
-	vhd := env.newOSVirtualDisk()
+	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
 
 	role := env.newRole(vhd, userData)
@@ -766,12 +766,13 @@ func (EnvironSuite) TestNewRole(c *C) {
 
 func (EnvironSuite) TestNewDeployment(c *C) {
 	env := makeEnviron(c)
-	userData := "example-user-data"
 	deploymentLabel := "deployment-label"
+	virtualNetworkName := "virtual-network-name"
+	vhd := env.newOSDisk("source-image-name")
+	role := env.newRole(vhd, "user-data")
 
-	deployment := env.newDeployment(deploymentLabel, userData)
+	deployment := env.newDeployment(role, deploymentLabel, virtualNetworkName)
 
-	c.Check(deployment.RoleList[0].ConfigurationSets[0].UserData, Equals, userData)
 	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
 	c.Check(deployment.Label, Equals, base64Label)
 	c.Check(deployment.RoleList, HasLen, 1)
