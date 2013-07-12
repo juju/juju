@@ -13,39 +13,38 @@ usage() {
 # bzr-checkout $SOURCE_URL $TAG $TARGET_DIR
 bzr-checkout() {
 	echo "cloning $1 at revision $2"
-	bzr branch -r $2 $1 $WORK/src/$3
+	bzr checkout --lightweight -r $2 $1 ${WORK}/src/$3
 }
 
 # hg-checkout $SOURCE_URL $TAG $TARGET_DIR
 hg-checkout() {
 	echo "cloning $1 at revision $2"
-	hg clone -q -r $2 $1 $WORK/src/$3
+	hg clone -q -r $2 $1 ${WORK}/src/$3
 }
 
 # git-checkout $SOURCE_URL $TARGET_DIR
 git-checkout() {
 	echo "cloning $1"
-	git clone -q $1 $WORK/src/$2
+	git clone -q $1 ${WORK}/src/$2
 }
 
 test $# -eq 1 ||  usage 
 TAG=$1
-
 WORK=$(mktemp -d)
 
-mkdir -p $WORK/src
-GOPATH=$WORK
-export GOPATH
-
 # populate top level dirs
-DIRS="$WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} $WORK/src/github.com/andelf"
-mkdir -p $DIRS
+mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} $WORK/src/github.com/andelf
 
-# checkout juju
+# checkout juju (manually, because we're redefining $WORK later on
 bzr-checkout lp:juju-core $TAG launchpad.net/juju-core
 
 # fetch the version
 VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' ${GOPATH}/src/launchpad.net/juju-core/version/version.go)
+
+# fixup paths for tarball
+mkdir $WORK/juju-core_${VERSION}
+mv $WORK/src $WORK/juju-core_${VERSION}/
+WORK=$WORK/juju-core_${VERSION}
 
 # fetch dependencies
 hg-checkout https://code.google.com/p/go.net tip code.google.com/p/go.net
@@ -67,10 +66,11 @@ bzr-checkout lp:tomb -1 launchpad.net/tomb
 git-checkout https://github.com/andelf/go-curl github.com/andelf/go-curl
 
 # smoke test
-go build -v launchpad.net/juju-core/...
+GOPATH=$WORK go build -v launchpad.net/juju-core/...
 
 # tar it up
-cd $WORK/src
-tar cfz $WORK/juju-core_$VERSION.tar.gz --exclude .hg --exclude .git --exclude .bzr .
+TARFILE=$WORK/juju-core_${VERSION}.tar.gz
+cd $WORK/..
+tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr .
 
-echo "release tarball: $WORK/juju-core-$VERSION.tar.gz"
+echo "release tarball: ${TARFILE}"
