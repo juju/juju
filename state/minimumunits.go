@@ -132,7 +132,7 @@ func (s *Service) EnsureMinUnits() (err error) {
 	for {
 		// Ensure the service is alive.
 		if service.doc.Life != Alive {
-			return errors.New("service is no longer alive")
+			return errors.New("service is not alive")
 		}
 		// Exit without errors if the MinUnits for the service is not set.
 		if service.doc.MinUnits == 0 {

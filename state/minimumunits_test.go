@@ -253,11 +253,11 @@ func assertAllUnits(c *C, service *state.Service, expected int) {
 func (s *MinUnitsSuite) TestEnsureMinUnits(c *C) {
 	service := s.service
 	for i, t := range []struct {
-		about    string
-		initial  int
-		minimum  int
-		destroy  int
-		expected int
+		about    string // Test description.
+		initial  int    // Initial number of units.
+		minimum  int    // Minimum number of units for the service.
+		destroy  int    // Number of units to be destroyed before calling EnsureMinUnits.
+		expected int    // Expected number of units after calling EnsureMinUnits.
 	}{{
 		about: "no minimum units set",
 	}, {
@@ -325,7 +325,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsServiceNotAlive(c *C) {
 	s.addUnits(c, 1)
 	err = s.service.Destroy()
 	c.Assert(err, IsNil)
-	expectedErr := `cannot ensure minimum units for service "dummy-service": service is no longer alive`
+	expectedErr := `cannot ensure minimum units for service "dummy-service": service is not alive`
 
 	// An error is returned if the service is not alive.
 	c.Assert(s.service.EnsureMinUnits(), ErrorMatches, expectedErr)
@@ -405,7 +405,7 @@ func (s *MinUnitsSuite) TestEnsureMinUnitsDestroyServiceBefore(c *C) {
 		c.Assert(err, IsNil)
 	}).Check()
 	c.Assert(s.service.EnsureMinUnits(), ErrorMatches,
-		`cannot ensure minimum units for service "dummy-service": service is no longer alive`)
+		`cannot ensure minimum units for service "dummy-service": service is not alive`)
 }
 
 func (s *MinUnitsSuite) TestEnsureMinUnitsDecreaseMinUnitsAfter(c *C) {
