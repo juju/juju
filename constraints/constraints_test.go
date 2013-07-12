@@ -399,3 +399,26 @@ func (s *ConstraintsSuite) TestWithFallbacks(c *C) {
 		c.Assert(initial.WithFallbacks(fallbacks), DeepEquals, final)
 	}
 }
+
+var hasContainerTests = []struct {
+	constraints string
+	hasContainer bool
+}{
+	{
+		hasContainer: false,
+	}, {
+		constraints: "container=lxc",
+		hasContainer: true,
+	}, {
+		constraints: "container=none",
+		hasContainer: false,
+	},
+}
+
+func (s *ConstraintsSuite) TestHasContainer(c *C) {
+	for i, t := range hasContainerTests {
+		c.Logf("test %d", i)
+		cons := constraints.MustParse(t.constraints)
+		c.Assert(cons.HasContainer(), Equals, t.hasContainer)
+	}
+}
