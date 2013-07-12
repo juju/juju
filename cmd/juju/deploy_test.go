@@ -44,10 +44,10 @@ var initErrorTests = []struct {
 		err:  `--num-units must be a positive integer`,
 	}, {
 		args: []string{"craziness", "burble1", "--force-machine", "bigglesplop"},
-		err:  `invalid force machine parameter "bigglesplop"`,
+		err:  `invalid --force-machine parameter "bigglesplop"`,
 	}, {
 		args: []string{"craziness", "burble1", "-n", "2", "--force-machine", "123"},
-		err:  `cannot use --num-units with --force-machine`,
+		err:  `cannot use --num-units > 1 with --force-machine`,
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
@@ -204,9 +204,9 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *C) {
 	err = runDeploy(c, "--force-machine", container.Id(), "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	s.assertForceMachine(c, container.Id())
-	ms, err := s.State.AllMachines()
+	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(ms, HasLen, 2)
+	c.Assert(machines, HasLen, 2)
 }
 
 func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
@@ -216,9 +216,9 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
 	err = runDeploy(c, "--force-machine", machine.Id()+"/lxc", "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
-	ms, err := s.State.AllMachines()
+	machines, err := s.State.AllMachines()
 	c.Assert(err, IsNil)
-	c.Assert(ms, HasLen, 2)
+	c.Assert(machines, HasLen, 2)
 }
 
 func (s *DeploySuite) TestForceMachineNotFound(c *C) {

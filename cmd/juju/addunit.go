@@ -23,7 +23,7 @@ type UnitCommandBase struct {
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "Machine/container to deploy unit, bypasses constraints")
+	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "machine/container to deploy unit, bypasses constraints")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
@@ -32,10 +32,10 @@ func (c *UnitCommandBase) Init(args []string) error {
 	}
 	if c.ForceMachineSpec != "" {
 		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units with --force-machine")
+			return errors.New("cannot use --num-units > 1 with --force-machine")
 		}
 		if !state.IsMachineOrNewContainer(c.ForceMachineSpec) {
-			return fmt.Errorf("invalid force machine parameter %q", c.ForceMachineSpec)
+			return fmt.Errorf("invalid --force-machine parameter %q", c.ForceMachineSpec)
 		}
 	}
 	return nil

@@ -27,10 +27,10 @@ var initAddUnitErrorTests = []struct {
 		err:  `--num-units must be a positive integer`,
 	}, {
 		args: []string{"some-service-name", "--force-machine", "bigglesplop"},
-		err:  `invalid force machine parameter "bigglesplop"`,
+		err:  `invalid --force-machine parameter "bigglesplop"`,
 	}, {
 		args: []string{"some-service-name", "-n", "2", "--force-machine", "123"},
-		err:  `cannot use --num-units with --force-machine`,
+		err:  `cannot use --num-units > 1 with --force-machine`,
 	},
 }
 
