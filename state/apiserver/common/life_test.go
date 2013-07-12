@@ -21,10 +21,10 @@ var _ = Suite(&lifeSuite{})
 func (*lifeSuite) TestLife(c *C) {
 	st := &fakeLifeState{
 		entities: map[string]*fakeLifer{
-			"x0": &fakeLifer{life: state.Alive},
-			"x1": &fakeLifer{life: state.Dying},
-			"x2": &fakeLifer{life: state.Dead},
-			"x3": &fakeLifer{err: fmt.Errorf("x3 error")},
+			"x0": {life: state.Alive},
+			"x1": {life: state.Dying},
+			"x2": {life: state.Dead},
+			"x3": {err: fmt.Errorf("x3 error")},
 		},
 	}
 	getCanRead := func() (common.AuthFunc, error) {
