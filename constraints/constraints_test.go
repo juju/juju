@@ -401,16 +401,16 @@ func (s *ConstraintsSuite) TestWithFallbacks(c *C) {
 }
 
 var hasContainerTests = []struct {
-	constraints string
+	constraints  string
 	hasContainer bool
 }{
 	{
 		hasContainer: false,
 	}, {
-		constraints: "container=lxc",
+		constraints:  "container=lxc",
 		hasContainer: true,
 	}, {
-		constraints: "container=none",
+		constraints:  "container=none",
 		hasContainer: false,
 	},
 }
