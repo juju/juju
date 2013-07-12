@@ -13,6 +13,11 @@ import (
 	"launchpad.net/loggo"
 )
 
+// Register the Azure provider with Juju.
+func init() {
+	environs.RegisterProvider("azure", azureEnvironProvider{})
+}
+
 // Logger for the Azure provider.
 var logger = loggo.GetLogger("juju.environs.azure")
 
