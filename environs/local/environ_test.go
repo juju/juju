@@ -26,9 +26,6 @@ func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 
 func (s *environSuite) TestNameAndStorage(c *gc.C) {
 	testConfig := minimalConfig(c)
-	err := local.CreateDirs(c, testConfig)
-	c.Assert(err, gc.IsNil)
-
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Name(), gc.Equals, "test")
@@ -43,9 +40,6 @@ type localJujuTestSuite struct {
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	// Construct the directories first.
-	err := local.CreateDirs(c, minimalConfig(c))
-	c.Assert(err, gc.IsNil)
 	s.Tests.SetUpTest(c)
 }
 
