@@ -18,9 +18,13 @@ var _ = gc.Suite(&environSuite{})
 
 func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 	testConfig := minimalConfig(c)
+	testConfig, err := testConfig.Apply(map[string]interface{}{
+		"root-dir": "/usr/lib/juju",
+	})
+	c.Assert(err, gc.IsNil)
 
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.ErrorMatches, "storage directory .* does not exist, bootstrap first")
+	c.Assert(err, gc.ErrorMatches, "mkdir .* permission denied")
 	c.Assert(environ, gc.IsNil)
 }
 
