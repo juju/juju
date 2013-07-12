@@ -822,14 +822,14 @@ func (u *Unit) assignToNewMachine(params *AddMachineParams, cons constraints.Val
 	// Ensure the host machine is really clean.
 	if params.ParentId != "" {
 		ops = append(ops, txn.Op{
-				C:      u.st.machines.Name,
-				Id:     params.ParentId,
-				Assert: D{{"clean", true}},
-			}, txn.Op{
-				C:      u.st.containerRefs.Name,
-				Id:     params.ParentId,
-				Assert: D{hasNoContainersTerm},
-			})
+			C:      u.st.machines.Name,
+			Id:     params.ParentId,
+			Assert: D{{"clean", true}},
+		}, txn.Op{
+			C:      u.st.containerRefs.Name,
+			Id:     params.ParentId,
+			Assert: D{hasNoContainersTerm},
+		})
 	}
 	ops = append(ops, txn.Op{
 		C:      u.st.units.Name,
@@ -996,13 +996,13 @@ var hasContainerTerm = bson.DocElem{
 	"$and", []D{
 		{{"children", D{{"$not", D{{"$size", 0}}}}}},
 		{{"children", D{{"$exists", true}}}},
-}}
+	}}
 
 var hasNoContainersTerm = bson.DocElem{
 	"$or", []D{
 		{{"children", D{{"$size", 0}}}},
 		{{"children", D{{"$exists", false}}}},
-}}
+	}}
 
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
