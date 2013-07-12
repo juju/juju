@@ -62,9 +62,9 @@ var _ environs.Environ = (*azureEnviron)(nil)
 // dealt with by shortAttempt, the latter by longAttempt.
 // TODO: These settings may still need Azure-specific tuning.
 var shortAttempt = utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -304,7 +304,9 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 		return nil, err
 	}
 
-	// TODO: Compose userdata.
+	// Pick tools.  Needed for the custom data (which is what we normally
+	// call userdata).
+	mcfg.Tools = possibleTools[0]
 
 	azure, err := env.getManagementAPI()
 	if err != nil {
