@@ -4,6 +4,7 @@
 package main
 
 import (
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
@@ -50,7 +51,7 @@ environments:
 	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
-	// Create a local tool directory.
+	// Create a local tools directory.
 	s.localStorage = c.MkDir()
 
 	// Populate both with the public tools.
@@ -209,13 +210,10 @@ var (
 func putBinary(c *C, storagePath string, v version.Binary) {
 	data := v.String()
 	name := tools.StorageName(v)
-	path := filepath.Join(storagePath, name)
-	dir, _ := filepath.Split(path)
+	filename := filepath.Join(storagePath, name)
+	dir := filepath.Dir(filename)
 	err := os.MkdirAll(dir, 0755)
 	c.Assert(err, IsNil)
-	file, err := os.Create(path)
-	c.Assert(err, IsNil)
-	defer file.Close()
-	_, err = file.Write([]byte(data))
+	err = ioutil.WriteFile(filename, []byte(data), 0666)
 	c.Assert(err, IsNil)
 }

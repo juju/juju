@@ -45,9 +45,12 @@ func (c *SyncToolsCommand) Info() *cmd.Info {
 		Doc: `
 This copies the Juju tools tarball from the official bucket into
 your environment. This is generally done when you want Juju to be able
-to run without having to access Amazon. Sometimes this is because the
-environment does not have public access, and sometimes you just want
-to avoid having to access data outside of the local cloud.
+to run without having to access Amazon. Alternatively you can specify
+a local directory as source.
+
+Sometimes this is because the environment does not have public access, 
+and sometimes you just want to avoid having to access data outside of 
+the local cloud.
 `,
 	}
 }
@@ -58,7 +61,7 @@ func (c *SyncToolsCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.dryRun, "dry-run", false, "don't copy, just print what would be copied")
 	f.BoolVar(&c.dev, "dev", false, "consider development versions as well as released ones")
 	f.BoolVar(&c.publicBucket, "public", false, "write to the public-bucket of the account, instead of the bucket private to the environment.")
-	f.StringVar(&c.source, "source", "default", "chose a location on the file system or via http as source")
+	f.StringVar(&c.source, "source", "", "chose a location on the file system as source")
 
 	// BUG(lp:1163164)  jam 2013-04-2 we would like to add a "source"
 	// location, rather than only copying from us-east-1
@@ -183,7 +186,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 
 // selectSourceStorage returns a storage reader based on the passed source flag.
 func selectSourceStorage(sourceFlagValue string) (environs.StorageReader, error) {
-	if sourceFlagValue == "" || sourceFlagValue == "default" {
+	if sourceFlagValue == "" {
 		return ec2.NewHTTPStorageReader(defaultToolsLocation), nil
 	}
 	return newFileStorageReader(sourceFlagValue)
@@ -203,7 +206,7 @@ func newFileStorageReader(path string) (environs.StorageReader, error) {
 		return nil, err
 	}
 	if !fi.Mode().IsDir() {
-		return nil, fmt.Errorf("specified source path is no directory: %s", p)
+		return nil, fmt.Errorf("specified source path is not a directory: %s", path)
 	}
 	return &fileStorageReader{p}, nil
 }
@@ -223,6 +226,7 @@ func (f *fileStorageReader) Get(name string) (io.ReadCloser, error) {
 
 // List implements environs.StorageReader.List.
 func (f *fileStorageReader) List(prefix string) ([]string, error) {
+	// Add one for the missing path separator.
 	pathlen := len(f.path) + 1
 	pattern := filepath.Join(f.path, prefix+"*")
 	matches, err := filepath.Glob(pattern)
