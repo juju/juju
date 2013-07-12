@@ -234,6 +234,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
+// TODO(bug 1199847): Much of this work can be shared between providers.
 func (e *environ) Bootstrap(cons constraints.Value) error {
 	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
@@ -285,6 +286,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
+// TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
@@ -302,6 +304,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	})
 }
 
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
 	mcfg := &cloudinit.MachineConfig{
 		MachineId:    scfg.machineId,
@@ -343,6 +346,7 @@ const ebsStorage = "ebs"
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
