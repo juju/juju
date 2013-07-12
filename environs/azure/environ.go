@@ -55,6 +55,11 @@ type azureEnviron struct {
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
 
+var shortAttempt = utils.AttemptStrategy{
+		Total: 5 * time.Second,
+		Delay: 200 * time.Millisecond,
+	}
+
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	env := azureEnviron{name: cfg.Name()}
@@ -128,10 +133,6 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
-	shortAttempt := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
 		return err
 	}
