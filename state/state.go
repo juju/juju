@@ -600,7 +600,7 @@ func (st *State) Remover(tag string) (Remover, error) {
 	if e, ok := e.(Remover); ok {
 		return e, nil
 	}
-	return nil, fmt.Errorf("entity %q does not support removing", tag)
+	return nil, fmt.Errorf("entity %q does not support removal", tag)
 }
 
 // entity returns the entity for the given tag.

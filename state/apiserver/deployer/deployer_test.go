@@ -273,7 +273,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.subordinate0.Life(), gc.Equals, state.Alive)
 
-	// Not make the subordinate dead and try again.
+	// Now make the subordinate dead and try again.
 	err = s.subordinate0.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.subordinate0.Refresh()
