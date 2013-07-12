@@ -311,7 +311,7 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 	// Pick tools.  Needed for the custom data (which is what we normally
 	// call userdata).
 	mcfg.Tools = possibleTools[0]
-	logger.Warningf("picked arbitrary tools %q", mcfg.Tools)
+	logger.Infof("picked tools %q", mcfg.Tools)
 
 	// Compose userdata.
 	userData, err := makeCustomData(mcfg)
