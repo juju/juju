@@ -12,8 +12,6 @@ import (
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/local"
-	"launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -24,20 +22,18 @@ var _ = gc.Suite(&environSuite{})
 
 func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 	testConfig := minimalConfig(c)
+	testConfig, err := testConfig.Apply(map[string]interface{}{
+		"root-dir": "/usr/lib/juju",
+	})
+	c.Assert(err, gc.IsNil)
 
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.ErrorMatches, "storage directory .* does not exist, bootstrap first")
+	c.Assert(err, gc.ErrorMatches, "mkdir .* permission denied")
 	c.Assert(environ, gc.IsNil)
 }
 
 func (s *environSuite) TestNameAndStorage(c *gc.C) {
-	c.Logf("root: %s", s.root)
-	c.Assert(s.root, jc.IsDirectory)
-
 	testConfig := minimalConfig(c)
-	err := local.CreateDirs(c, testConfig)
-	c.Assert(err, gc.IsNil)
-
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Name(), gc.Equals, "test")
@@ -48,7 +44,6 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests
-	home               *testing.FakeHome
 	rootCheckFunc      func() bool
 	oldUpstartLocation string
 	oldPath            string
@@ -61,7 +56,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	// Construct the directories first.
 	err := local.CreateDirs(c, minimalConfig(c))
 	c.Assert(err, gc.IsNil)
-	s.home = testing.MakeFakeHomeNoEnvironments(c)
 	s.oldUpstartLocation = local.SetUpstartScriptLocation(c.MkDir())
 	s.oldPath = os.Getenv("PATH")
 	s.testPath = c.MkDir()
@@ -77,7 +71,6 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	os.Setenv("PATH", s.oldPath)
-	s.home.Restore()
 	local.SetRootCheckFunction(s.rootCheckFunc)
 	local.SetUpstartScriptLocation(s.oldUpstartLocation)
 	s.baseProviderSuite.TearDownTest(c)
