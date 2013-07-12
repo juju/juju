@@ -706,6 +706,7 @@ func (u *Unit) AssignedMachineId() (id string, err error) {
 
 var (
 	machineNotAliveErr = stderrors.New("machine is not alive")
+	machineNotCleanErr = stderrors.New("machine is dirty")
 	unitNotAliveErr    = stderrors.New("unit is not alive")
 	alreadyAssignedErr = stderrors.New("unit is already assigned to a machine")
 	inUseErr           = stderrors.New("machine is not unused")
@@ -828,6 +829,18 @@ func (u *Unit) assignToNewMachine(params *AddMachineParams, cons constraints.Val
 		Assert: append(isAliveDoc, isUnassigned...),
 		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
 	})
+	// Ensure the host machine is really clean.
+	if params.ParentId != "" {
+		ops = append(ops, txn.Op{
+			C:      u.st.machines.Name,
+			Id:     params.ParentId,
+			Assert: D{{"clean", true}},
+		}, txn.Op{
+			C:      u.st.containerRefs.Name,
+			Id:     params.ParentId,
+			Assert: D{{"$not", hasContainerTerm}},
+		})
+	}
 	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
@@ -840,6 +853,7 @@ func (u *Unit) assignToNewMachine(params *AddMachineParams, cons constraints.Val
 	// reasons that the transaction could have been aborted are:
 	//  * the unit is no longer alive
 	//  * the unit has been assigned to a different machine
+	//  * the parent machine we want to create a container on was clean but became dirty
 	unit, err := u.st.Unit(u.Name())
 	if err != nil {
 		return err
@@ -849,6 +863,22 @@ func (u *Unit) assignToNewMachine(params *AddMachineParams, cons constraints.Val
 		return unitNotAliveErr
 	case unit.doc.MachineId != "":
 		return alreadyAssignedErr
+	}
+	if params.ParentId != "" {
+		m, err := u.st.Machine(params.ParentId)
+		if err != nil {
+			return err
+		}
+		if !m.Clean() {
+			return machineNotCleanErr
+		}
+		containers, err := m.Containers()
+		if err != nil {
+			return err
+		}
+		if len(containers) > 0 {
+			return machineNotCleanErr
+		}
 	}
 	// Other error condition not considered.
 	return fmt.Errorf("unknown error")
@@ -866,12 +896,12 @@ func (u *Unit) constraints() (*constraints.Value, error) {
 	return &cons, nil
 }
 
-// assignToNewMachineOrContainer assigns the unit to a new machine, with constraints
+// AssignToNewMachineOrContainer assigns the unit to a new machine, with constraints
 // determined according to the service and environment constraints at the time of unit creation.
 // If a container is required, a clean, empty machine instance is required on which to create
 // the container. An existing clean, empty instance is first searched for, and if not found,
 // a new one is created.
-func (u *Unit) assignToNewMachineOrContainer() (err error) {
+func (u *Unit) AssignToNewMachineOrContainer() (err error) {
 	defer assignContextf(&err, u, "new machine or container")
 	if u.doc.Principal != "" {
 		return fmt.Errorf("unit is a subordinate")
@@ -880,7 +910,7 @@ func (u *Unit) assignToNewMachineOrContainer() (err error) {
 	if err != nil {
 		return err
 	}
-	if cons.Container == nil || *cons.Container == "" || *cons.Container == instance.NONE {
+	if !cons.HasContainer() {
 		return u.AssignToNewMachine()
 	}
 
@@ -908,6 +938,11 @@ func (u *Unit) assignToNewMachineOrContainer() (err error) {
 		Jobs:          []MachineJob{JobHostUnits},
 	}
 	err = u.assignToNewMachine(params, *cons)
+	if err == machineNotCleanErr {
+		// The clean machine was used before we got a chance to use it so just
+		// stick the unit on a new machine.
+		return u.AssignToNewMachine()
+	}
 	return err
 }
 
@@ -927,7 +962,7 @@ func (u *Unit) AssignToNewMachine() (err error) {
 	}
 	var containerType instance.ContainerType
 	// Configure to create a new container if required.
-	if cons.Container != nil && *cons.Container != "" && *cons.Container != instance.NONE {
+	if cons.HasContainer() {
 		containerType = *cons.Container
 	}
 	params := &AddMachineParams{
@@ -961,6 +996,19 @@ func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {
 	return u.assignToCleanMaybeEmptyMachine(true)
 }
 
+var hasContainerTerm = bson.DocElem{
+	"$and", []D{
+		{{
+			"children",
+			D{{"$not", D{{"$size", 0}}}},
+		}},
+		{{
+			"children",
+			D{{"$exists", true}},
+		}},
+	},
+}
+
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (*mgo.Query, error) {
@@ -974,19 +1022,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	// If we need empty machines, first build up a list of machine ids which have containers
 	// so we can exclude those.
 	if requireEmpty {
-		err := u.st.containerRefs.Find(D{
-			{"$and", []D{
-				{{
-					"children",
-					D{{"$not", D{{"$size", 0}}}},
-				}},
-				{{
-					"children",
-					D{{"$exists", true}},
-				}},
-			},
-			}},
-		).Select(bson.M{"_id": 1}).All(&containerRefs)
+		err := u.st.containerRefs.Find(D{hasContainerTerm}).Select(bson.M{"_id": 1}).All(&containerRefs)
 		if err != nil {
 			return nil, err
 		}
@@ -999,7 +1035,7 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		{"life", Alive},
 		{"series", u.doc.Series},
 		{"jobs", []MachineJob{JobHostUnits}},
-		{"clean", D{{"$ne", false}}},
+		{"clean", true},
 		{"_id", D{{"$nin", machinesWithContainers}}},
 	}
 	// Add the container filter term if necessary.
