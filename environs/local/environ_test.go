@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/local"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -26,9 +25,6 @@ func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 }
 
 func (s *environSuite) TestNameAndStorage(c *gc.C) {
-	c.Logf("root: %s", s.root)
-	c.Assert(s.root, jc.IsDirectory)
-
 	testConfig := minimalConfig(c)
 	err := local.CreateDirs(c, testConfig)
 	c.Assert(err, gc.IsNil)

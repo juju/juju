@@ -5,7 +5,6 @@ package local
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"launchpad.net/loggo"
 

@@ -58,7 +58,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	expectedRootDir := filepath.Join(s.root, "tester-test")
+	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }
