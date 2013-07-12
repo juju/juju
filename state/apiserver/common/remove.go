@@ -4,6 +4,8 @@
 package common
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -34,6 +36,10 @@ func (r *Remover) removeEntity(entity params.Entity) (err error) {
 	var remover state.Remover
 	if remover, err = r.st.Remover(entity.Tag); err != nil {
 		return err
+	}
+	// Only remove entites that are not Alive.
+	if life := remover.Life(); life == state.Alive {
+		return fmt.Errorf("cannot remove entity %q: still alive", entity.Tag)
 	}
 	if err = remover.EnsureDead(); err != nil {
 		return err

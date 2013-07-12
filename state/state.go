@@ -521,9 +521,9 @@ type Lifer interface {
 	Life() Life
 }
 
-// Remover represents entities with EnsureDead and Remove methods.
+// Remover represents entities with lifecycles, EnsureDead and Remove methods.
 type Remover interface {
-	Tagger
+	Lifer
 	EnsureDead() error
 	Remove() error
 }
@@ -589,6 +589,18 @@ func (st *State) Lifer(tag string) (Lifer, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support lifecycles", tag)
+}
+
+// Remover attempts to return a Remover with the given tag.
+func (st *State) Remover(tag string) (Remover, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(Remover); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support removal", tag)
 }
 
 // entity returns the entity for the given tag.
@@ -1327,9 +1339,9 @@ func (st *State) ResumeTransactions() error {
 }
 
 var tagPrefix = map[byte]string{
-	'm': "machine-",
+	'm': machineTagPrefix,
 	's': "service-",
-	'u': "unit-",
+	'u': unitTagPrefix,
 	'e': "environment-",
 }
 

@@ -175,6 +175,13 @@ func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
+// AuthClient returns whether the authenticated entity is a client
+// user.
 func (r *srvRoot) AuthClient() bool {
 	return !isAgent(r.entity)
+}
+
+// GetAuthTag returns the tag of the authenticated entity.
+func (r *srvRoot) GetAuthTag() string {
+	return r.entity.Tag()
 }

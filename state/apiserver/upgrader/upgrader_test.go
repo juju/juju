@@ -11,7 +11,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
-	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -26,7 +26,7 @@ type upgraderSuite struct {
 	rawMachine *state.Machine
 	upgrader   *upgrader.UpgraderAPI
 	resources  *common.Resources
-	authorizer apitesting.FakeAuthorizer
+	authorizer apiservertesting.FakeAuthorizer
 }
 
 var _ = Suite(&upgraderSuite{})
@@ -43,7 +43,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 
 	// The default auth is as the machine agent
-	s.authorizer = apitesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          s.rawMachine.Tag(),
 		LoggedIn:     true,
 		Manager:      false,
@@ -115,9 +115,7 @@ func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
 	c.Assert(err, IsNil)
 	c.Check(results.Results, HasLen, 1)
 	c.Check(results.Results[0].NotifyWatcherId, Equals, "")
-	c.Assert(results.Results[0].Error, NotNil)
-	err = results.Results[0].Error
-	c.Check(err, ErrorMatches, "permission denied")
+	c.Assert(results.Results[0].Error, DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
 func (s *upgraderSuite) TestToolsNothing(c *C) {
@@ -141,9 +139,7 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	c.Check(results.Tools, HasLen, 1)
 	toolResult := results.Tools[0]
 	c.Check(toolResult.AgentTools.Tag, Equals, s.rawMachine.Tag())
-	c.Assert(toolResult.Error, NotNil)
-	err = toolResult.Error
-	c.Check(err, ErrorMatches, "permission denied")
+	c.Assert(toolResult.Error, DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
 func (s *upgraderSuite) TestToolsForAgent(c *C) {
@@ -202,9 +198,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 	results, err := anUpgrader.SetTools(args)
 	c.Assert(results.Results, HasLen, 1)
 	c.Assert(results.Results[0].Tag, Equals, s.rawMachine.Tag())
-	c.Assert(results.Results[0].Error, NotNil)
-	err = results.Results[0].Error
-	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(results.Results[0].Error, DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
 func (s *upgraderSuite) TestSetTools(c *C) {

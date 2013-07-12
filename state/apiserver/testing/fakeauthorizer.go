@@ -27,3 +27,7 @@ func (fa FakeAuthorizer) AuthMachineAgent() bool {
 func (fa FakeAuthorizer) AuthClient() bool {
 	return fa.Client
 }
+
+func (fa FakeAuthorizer) GetAuthTag() string {
+	return fa.Tag
+}
