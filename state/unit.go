@@ -823,24 +823,25 @@ func (u *Unit) assignToNewMachine(params *AddMachineParams, cons constraints.Val
 	}
 	ops = append(ops, machineOps...)
 	isUnassigned := D{{"machineid", ""}}
-	ops = append(ops, txn.Op{
-		C:      u.st.units.Name,
-		Id:     u.doc.Name,
-		Assert: append(isAliveDoc, isUnassigned...),
-		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
-	})
+	asserts := append(isAliveDoc, isUnassigned...)
 	// Ensure the host machine is really clean.
 	if params.ParentId != "" {
 		ops = append(ops, txn.Op{
-			C:      u.st.machines.Name,
-			Id:     params.ParentId,
-			Assert: D{{"clean", true}},
-		}, txn.Op{
-			C:      u.st.containerRefs.Name,
-			Id:     params.ParentId,
-			Assert: D{{"$not", hasContainerTerm}},
-		})
+				C:      u.st.machines.Name,
+				Id:     params.ParentId,
+				Assert: D{{"clean", true}},
+			}, txn.Op{
+				C:      u.st.containerRefs.Name,
+				Id:     params.ParentId,
+				Assert: D{hasNoContainersTerm},
+			})
 	}
+	ops = append(ops, txn.Op{
+		C:      u.st.units.Name,
+		Id:     u.doc.Name,
+		Assert: asserts,
+		Update: D{{"$set", D{{"machineid", mdoc.Id}}}},
+	})
 	err = u.st.runTransaction(ops)
 	if err == nil {
 		u.doc.MachineId = mdoc.Id
@@ -998,16 +999,15 @@ func (u *Unit) AssignToCleanEmptyMachine() (m *Machine, err error) {
 
 var hasContainerTerm = bson.DocElem{
 	"$and", []D{
-		{{
-			"children",
-			D{{"$not", D{{"$size", 0}}}},
-		}},
-		{{
-			"children",
-			D{{"$exists", true}},
-		}},
-	},
-}
+		{{"children", D{{"$not", D{{"$size", 0}}}}}},
+		{{"children", D{{"$exists", true}}}},
+}}
+
+var hasNoContainersTerm = bson.DocElem{
+	"$or", []D{
+		{{"children", D{{"$size", 0}}}},
+		{{"children", D{{"$exists", false}}}},
+}}
 
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
