@@ -8,6 +8,7 @@ import (
 	"encoding/xml"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"sync"
 
@@ -114,7 +115,7 @@ func (*EnvironSuite) TestReleaseManagementAPIAcceptsIncompleteContext(c *C) {
 	// The real test is that this does not panic.
 }
 
-func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
+func getAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) []gwacl.DispatcherResponse {
 	list := gwacl.HostedServiceDescriptorList{HostedServices: services}
 	listXML, err := list.Serialize()
 	c.Assert(err, IsNil)
@@ -126,8 +127,22 @@ func buildAzureServiceListResponse(c *C, services []gwacl.HostedServiceDescripto
 	return responses
 }
 
+// getAzureServiceResponses returns the slice of responses
+// (gwacl.DispatcherResponse) which correspond to the API requests used to
+// get the properties of a Service.
+func getAzureServiceResponses(c *C, service gwacl.HostedService) []gwacl.DispatcherResponse {
+	serviceXML, err := service.Serialize()
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{gwacl.NewDispatcherResponse(
+		[]byte(serviceXML),
+		http.StatusOK,
+		nil,
+	)}
+	return responses
+}
+
 func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor) *[]*gwacl.X509Request {
-	responses := buildAzureServiceListResponse(c, services)
+	responses := getAzureServiceListResponse(c, services)
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
@@ -673,7 +688,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	service2, service2Desc := makeAzureService(service2Name)
 	services := []*gwacl.HostedService{service1, service2}
 	// The call to AllInstances() will return only one service (service1).
-	listInstancesResponses := buildAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
+	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
 	destroyResponses := buildDestroyAzureServiceResponses(c, services)
 	responses := append(listInstancesResponses, destroyResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -696,4 +711,69 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
 	c.Check((*requests)[4].Method, Equals, "DELETE")
 	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+}
+
+func (EnvironSuite) TestGetInstance(c *C) {
+	env := makeEnviron(c)
+	prefix := env.getEnvPrefix()
+	serviceName := prefix + "instance-name"
+	serviceDesc := gwacl.HostedServiceDescriptor{ServiceName: serviceName}
+	service := gwacl.HostedService{HostedServiceDescriptor: serviceDesc}
+	responses := getAzureServiceResponses(c, service)
+	gwacl.PatchManagementAPIResponses(responses)
+
+	instance, err := env.getInstance("serviceName")
+	c.Check(err, IsNil)
+
+	c.Check(string(instance.Id()), Equals, serviceName)
+}
+
+func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
+	env := makeEnviron(c)
+	sourceImageName := "source-image-name"
+
+	vhd := env.newOSDisk(sourceImageName)
+
+	mediaLinkUrl, err := url.Parse(vhd.MediaLink)
+	c.Check(err, IsNil)
+	storageAccount := env.ecfg.StorageAccountName()
+	c.Check(mediaLinkUrl.Host, Equals, fmt.Sprintf("%s.blob.core.windows.net", storageAccount))
+	c.Check(vhd.SourceImageName, Equals, sourceImageName)
+}
+
+func (EnvironSuite) TestNewRole(c *C) {
+	env := makeEnviron(c)
+	vhd := env.newOSDisk("source-image-name")
+	userData := "example-user-data"
+
+	role := env.newRole(vhd, userData)
+
+	configs := role.ConfigurationSets
+	linuxConfig := configs[0]
+	networkConfig := configs[1]
+	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.Hostname, Equals, DeploymentName)
+	c.Check(linuxConfig.Username, Not(Equals), "")
+	c.Check(linuxConfig.Password, Not(Equals), "")
+	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
+	// The network config contains an endpoint for ssh communication.
+	firstEndpoint := (*networkConfig.InputEndpoints)[0]
+	c.Check(firstEndpoint.LocalPort, Equals, 22)
+	c.Check(firstEndpoint.Port, Equals, 22)
+	c.Check(firstEndpoint.Protocol, Equals, "TCP")
+	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
+}
+
+func (EnvironSuite) TestNewDeployment(c *C) {
+	env := makeEnviron(c)
+	deploymentLabel := "deployment-label"
+	virtualNetworkName := "virtual-network-name"
+	vhd := env.newOSDisk("source-image-name")
+	role := env.newRole(vhd, "user-data")
+
+	deployment := env.newDeployment(role, deploymentLabel, virtualNetworkName)
+
+	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
+	c.Check(deployment.Label, Equals, base64Label)
+	c.Check(deployment.RoleList, HasLen, 1)
 }
