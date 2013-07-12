@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	cloudinit_core "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
