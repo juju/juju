@@ -61,7 +61,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "Machine/container to deploy initial unit, bypasses constraints")
+	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "machine/container to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -93,10 +93,10 @@ func (c *DeployCommand) Init(args []string) error {
 	}
 	if c.ForceMachineSpec != "" {
 		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units with --force-machine")
+			return errors.New("cannot use --num-units > 1 with --force-machine")
 		}
 		if !state.IsMachineOrNewContainer(c.ForceMachineSpec) {
-			return fmt.Errorf("invalid force machine parameter %q", c.ForceMachineSpec)
+			return fmt.Errorf("invalid --force-machine parameter %q", c.ForceMachineSpec)
 		}
 	}
 	return nil

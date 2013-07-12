@@ -550,6 +550,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *C) {
 	units, err := service.AllUnits()
 	c.Assert(err, IsNil)
 	c.Assert(units, HasLen, 1)
+
 	// The newly created container will use the constraints.
 	id, err := units[0].AssignedMachineId()
 	c.Assert(err, IsNil)

@@ -193,10 +193,10 @@ type DeployServiceParams struct {
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
 	NumUnits       int
-	// Use string for deploy-to machine to avoid ambiguity around machine 0.
 	// ForceMachineSpec is either:
 	// - an existing machine/container id eg "1" or "1/lxc/2"
 	// - a new container on an existing machine eg "1/lxc"
+	// Use string to avoid ambiguity around machine 0.
 	ForceMachineSpec string
 }
 
