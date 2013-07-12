@@ -9,12 +9,17 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/version"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.environs.tools")
 
 // archive writes the executable files found in the given directory in
 // gzipped tar format to w.  An error is returned if an entry inside dir
@@ -33,6 +38,7 @@ func archive(w io.Writer, dir string) (err error) {
 
 	for _, ent := range entries {
 		h := tarHeader(ent)
+		logger.Debugf("adding entry: %#v", h)
 		// ignore local umask
 		if isExecutable(ent) {
 			h.Mode = 0755
@@ -103,6 +109,95 @@ func setenv(env []string, val string) []string {
 	return append(env, val)
 }
 
+func findExecutable(execFile string) (string, error) {
+	logger.Debugf("looking for: %s", execFile)
+	if filepath.IsAbs(execFile) {
+		return execFile, nil
+	}
+
+	dir, file := filepath.Split(execFile)
+
+	// Now we have two possibilities:
+	//   file == path indicating that the PATH was searched
+	//   dir != "" indicating that it is a relative path
+
+	if dir == "" {
+		path := os.Getenv("PATH")
+		for _, name := range filepath.SplitList(path) {
+			result := filepath.Join(name, file)
+			info, err := os.Stat(result)
+			if err == nil {
+				// Sanity check to see if executable.
+				if info.Mode()&0111 != 0 {
+					return result, nil
+				}
+			}
+		}
+
+		return "", fmt.Errorf("could not find %q in the path", file)
+	}
+	cwd, err := os.Getwd()
+	if err != nil {
+		return "", err
+	}
+	return filepath.Clean(filepath.Join(cwd, execFile)), nil
+}
+
+func copyExistingJujud(dir string) error {
+	// Assume that the user is running juju.
+	jujuLocation, err := findExecutable(os.Args[0])
+	if err != nil {
+		logger.Infof("%v", err)
+		return err
+	}
+	jujudLocation := filepath.Join(filepath.Dir(jujuLocation), "jujud")
+	logger.Debugf("checking: %s", jujudLocation)
+	info, err := os.Stat(jujudLocation)
+	if err != nil {
+		logger.Infof("couldn't find existing jujud")
+		return err
+	}
+	logger.Infof("found existing jujud")
+	// copy the file into the dir.
+	source, err := os.Open(jujudLocation)
+	if err != nil {
+		logger.Infof("open source failed: %v", err)
+		return err
+	}
+	defer source.Close()
+	target := filepath.Join(dir, "jujud")
+	logger.Infof("target: %v", target)
+	destination, err := os.OpenFile(target, os.O_RDWR|os.O_TRUNC|os.O_CREATE, info.Mode())
+	if err != nil {
+		logger.Infof("open destination failed: %v", err)
+		return err
+	}
+	defer destination.Close()
+	_, err = io.Copy(destination, source)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func buildJujud(dir string) error {
+	logger.Infof("building jujud")
+	cmds := [][]string{
+		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
+		{"strip", dir + "/jujud"},
+	}
+	env := setenv(os.Environ(), "GOBIN="+dir)
+	for _, args := range cmds {
+		cmd := exec.Command(args[0], args[1:]...)
+		cmd.Env = env
+		out, err := cmd.CombinedOutput()
+		if err != nil {
+			return fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
+		}
+	}
+	return nil
+}
+
 // bundleTools bundles all the current juju tools in gzipped tar
 // format to the given writer.
 // If forceVersion is not nil, a FORCE-VERSION file is included in
@@ -114,20 +209,15 @@ func bundleTools(w io.Writer, forceVersion *version.Number) (version.Binary, err
 	}
 	defer os.RemoveAll(dir)
 
-	cmds := [][]string{
-		{"go", "install", "launchpad.net/juju-core/cmd/jujud"},
-		{"strip", dir + "/jujud"},
-	}
-	env := setenv(os.Environ(), "GOBIN="+dir)
-	for _, args := range cmds {
-		cmd := exec.Command(args[0], args[1:]...)
-		cmd.Env = env
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return version.Binary{}, fmt.Errorf("build command %q failed: %v; %s", args[0], err, out)
+	if err := copyExistingJujud(dir); err != nil {
+		logger.Debugf("copy existing failed: %v", err)
+		if err := buildJujud(dir); err != nil {
+			return version.Binary{}, err
 		}
 	}
+
 	if forceVersion != nil {
+		logger.Debugf("forcing version to %s", forceVersion)
 		if err := ioutil.WriteFile(filepath.Join(dir, "FORCE-VERSION"), []byte(forceVersion.String()), 0666); err != nil {
 			return version.Binary{}, err
 		}
