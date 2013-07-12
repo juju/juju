@@ -680,7 +680,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 
-	// Simulate 2 nodes corresponding to two Azure services.
+	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
 	service1Name := prefix + "service1"
 	service2Name := prefix + "service2"

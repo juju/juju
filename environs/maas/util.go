@@ -35,6 +35,7 @@ func getSystemIdValues(instanceIds []instance.Id) url.Values {
 }
 
 // userData returns a zipped cloudinit config.
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	cloudcfg := cloudinit_core.New()
 	for _, script := range scripts {
