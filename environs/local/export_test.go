@@ -13,7 +13,7 @@ var Provider = provider
 // SetDefaultRootDir overrides the default root directory for testing
 // purposes.
 func SetDefaultRootDir(rootdir string) (old string) {
-	old, defaultRootDir = defaultRootDir, rootdir
+	old, environs.DataDir = environs.DataDir, rootdir
 	return
 }
 
