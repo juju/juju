@@ -76,7 +76,7 @@ func (s *PublishSuite) SetUpTest(c *C) {
 	s.home = testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
 		{
 			Name: ".bazaar/bazaar.conf",
-			Data: "[DEFAULT]\nemail = Test <testing@example.com>\n",
+			Data: "[DEFAULT]\nemail = Test <testing@testing.invalid>\n",
 		},
 	})
 

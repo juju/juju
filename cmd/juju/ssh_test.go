@@ -95,7 +95,7 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, IsNil)
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, IsNil)
