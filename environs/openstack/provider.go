@@ -463,6 +463,7 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return publicStorage
 }
 
+// TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) Bootstrap(cons constraints.Value) error {
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
@@ -596,6 +597,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return e.imageBaseURLs, nil
 }
 
+// TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
@@ -707,6 +709,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // startInstance is the internal version of StartInstance, used by Bootstrap
 // as well as via StartInstance itself.
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
