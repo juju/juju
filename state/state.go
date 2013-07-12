@@ -69,7 +69,7 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 const numberSnippet = "(0|[1-9][0-9]*)"
 const containerNameSnippet = "/[a-z]+"
-const containerSnippet = "(" + containerNameSnippet  + "/" + numberSnippet + ")"
+const containerSnippet = "(" + containerNameSnippet + "/" + numberSnippet + ")"
 
 var (
 	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
