@@ -66,7 +66,7 @@ type machineInfo struct {
 	Hostname   string `yaml:,omitempty`
 }
 
-var _MAASInstanceFilename = jujuDataDir + "/MAASmachine.txt"
+var _MAASInstanceFilename = environs.DataDir + "/MAASmachine.txt"
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the instanceId and the hostname of a machine.
@@ -76,7 +76,7 @@ func (info *machineInfo) cloudinitRunCmd() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(jujuDataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
+	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(environs.DataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
 	return script, nil
 }
 
