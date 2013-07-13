@@ -17,7 +17,6 @@ import (
 // NewMachineConfig sets up a basic machine configuration.  You'll still need
 // to supply more information, but this takes care of the fixed entries and
 // the ones that are always needed.
-// TODO(bug 1199847): This work can be shared between providers.
 func NewMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
