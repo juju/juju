@@ -4,12 +4,14 @@
 package maas
 
 import (
+	stdtesting "testing"
+	"time"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
-	stdtesting "testing"
 )
 
 func TestMAAS(t *stdtesting.T) {
@@ -18,19 +20,22 @@ func TestMAAS(t *stdtesting.T) {
 
 type ProviderSuite struct {
 	testing.LoggingSuite
-	environ             *maasEnviron
-	testMAASObject      *gomaasapi.TestMAASObject
-	originalLongAttempt utils.AttemptStrategy
+	environ              *maasEnviron
+	testMAASObject       *gomaasapi.TestMAASObject
+	originalShortAttempt utils.AttemptStrategy
+	originalLongAttempt  utils.AttemptStrategy
 }
 
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) SetUpSuite(c *C) {
+	s.originalShortAttempt = shortAttempt
 	s.originalLongAttempt = environs.LongAttempt
-	environs.LongAttempt = utils.AttemptStrategy{
-		Total: 10,
-		Delay: 1,
+	shortAttempt = utils.AttemptStrategy{
+		Total: 100 * time.Millisecond,
+		Delay: 10 * time.Millisecond,
 	}
+	environs.LongAttempt = shortAttempt
 	s.LoggingSuite.SetUpSuite(c)
 	TestMAASObject := gomaasapi.NewTestMAAS("1.0")
 	s.testMAASObject = TestMAASObject
@@ -48,6 +53,7 @@ func (s *ProviderSuite) TearDownTest(c *C) {
 
 func (s *ProviderSuite) TearDownSuite(c *C) {
 	s.testMAASObject.Close()
+	shortAttempt = s.originalShortAttempt
 	environs.LongAttempt = s.originalLongAttempt
 	s.LoggingSuite.TearDownSuite(c)
 }

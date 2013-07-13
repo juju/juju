@@ -218,14 +218,10 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
-	retry := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
-	for a := retry.Start(); a.Next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
 		result, err = client.CallPost("acquire", constraintsParams)
 		if err == nil {
@@ -247,10 +243,6 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools to
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
-	retry := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {series},
@@ -259,7 +251,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
 	err := fmt.Errorf("(no error)")
-	for a := retry.Start(); a.Next() && err != nil; {
+	for a := shortAttempt.Start(); a.Next() && err != nil; {
 		_, err = node.CallPost("start", params)
 	}
 	return err
