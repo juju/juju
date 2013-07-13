@@ -133,7 +133,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -294,7 +294,7 @@ func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName s
 // instance.  The code in StartInstance is actually largely agnostic across
 // the EC2/OpenStack/MAAS/Azure providers.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (env *azureEnviron) internalStartInstance(machineID string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
@@ -488,7 +488,7 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	}
 	mcfg := env.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well.
-	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
 	return inst, nil, err
 }
 
