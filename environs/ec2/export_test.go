@@ -5,6 +5,9 @@ package ec2
 
 import (
 	"io"
+	"net/http"
+	"time"
+
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -13,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
-	"net/http"
 )
 
 func JujuGroupName(e environs.Environ) string {
