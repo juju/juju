@@ -98,6 +98,10 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
+	err = environs.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
+	if err != nil {
+		return nil, err
+	}
 	inst, err := env.obtainNode(machineID, cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -271,7 +275,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 	var instance *maasInstance
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
@@ -317,6 +321,10 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = environs.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}

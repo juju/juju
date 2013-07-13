@@ -300,7 +300,7 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 
 	err = environs.FinishMachineConfig(mcfg, env.Config(), cons)
@@ -483,6 +483,10 @@ func (env *azureEnviron) makeMachineConfig(machineID, machineNonce string,
 func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(env, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = environs.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
