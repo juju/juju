@@ -248,7 +248,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.startInstance(&startInstanceParams{
+	inst, _, err := e.internalStartInstance(&startInstanceParams{
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
 		series:        e.Config().DefaultSeries(),
@@ -293,7 +293,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.startInstance(&startInstanceParams{
+	return e.internalStartInstance(&startInstanceParams{
 		machineId:     machineId,
 		machineNonce:  machineNonce,
 		series:        series,
@@ -344,10 +344,10 @@ type startInstanceParams struct {
 
 const ebsStorage = "ebs"
 
-// startInstance is the internal version of StartInstance, used by Bootstrap
-// as well as via StartInstance itself.
+// internalStartInstance is the internal version of StartInstance, used by
+// Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := scfg.possibleTools.Series()
 	if len(series) != 1 {
 		return nil, nil, fmt.Errorf("expected single series, got %v", series)
