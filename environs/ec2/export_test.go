@@ -113,8 +113,8 @@ var originalLongAttempt = environs.LongAttempt
 func ShortTimeouts(short bool) {
 	if short {
 		shortAttempt = utils.AttemptStrategy{
-			Total: 0.25e9,
-			Delay: 0.01e9,
+			Total: 100 * time.Millisecond,
+			Delay: 10 * time.Millisecond,
 		}
 		environs.LongAttempt = shortAttempt
 	} else {
