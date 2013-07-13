@@ -31,6 +31,10 @@ var _ = Suite(&ProviderSuite{})
 func (s *ProviderSuite) SetUpSuite(c *C) {
 	s.originalShortAttempt = shortAttempt
 	s.originalLongAttempt = environs.LongAttempt
+
+	// Careful: this must be an assignment ("="), not an
+	// initialization (":=").  We're trying to change a
+	// global variable here.
 	shortAttempt = utils.AttemptStrategy{
 		Total: 100 * time.Millisecond,
 		Delay: 10 * time.Millisecond,
@@ -53,6 +57,10 @@ func (s *ProviderSuite) TearDownTest(c *C) {
 
 func (s *ProviderSuite) TearDownSuite(c *C) {
 	s.testMAASObject.Close()
+
+	// Careful: this must be an assignment ("="), not an
+	// initialization (":=").  We're trying to change a
+	// global variable here.
 	shortAttempt = s.originalShortAttempt
 	environs.LongAttempt = s.originalLongAttempt
 	s.LoggingSuite.TearDownSuite(c)
