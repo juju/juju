@@ -272,6 +272,8 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // obtainNode allocates and starts a MAAS node.  It is used both for the
 // implementation of StartInstance, and to initialize the bootstrap node.
 // TODO(bug 1199847): Some of this work can be shared between providers.
+// The instance will be set up for the same series for which you pass tools.
+// All tools in possibleTools must be for the same series.
 func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {

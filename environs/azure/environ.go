@@ -294,6 +294,8 @@ func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName s
 // instance.  The code in StartInstance is actually largely agnostic across
 // the EC2/OpenStack/MAAS/Azure providers.
 // TODO(bug 1199847): Some of this work can be shared between providers.
+// The instance will be set up for the same series for which you pass tools.
+// All tools in possibleTools must be for the same series.
 func (env *azureEnviron) internalStartInstance(machineID string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
