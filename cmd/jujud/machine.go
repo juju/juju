@@ -100,7 +100,18 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			return a.StateWorker()
 		})
 	}
-	if a.MachineId == "0" {
+	// TODO: Eventually we want to stop creating the StateWorker on nodes
+	//       that can function purely with the API connection. However, due
+	//       to https://launchpad.net/bugs/1199915 Juju-1.10 never set an
+	//       API password for agents, so when upgrading to 1.11 they will
+	//       be unable to connect to the API to find out that they need to
+	//       start a state worker connection. Since we don't (yet) have any
+	//       agents that don't need a state connection, we always start the
+	//       state connection.
+	//       Once we have agents that actually only need the API
+	//       connection, we will have to figure out a different way to
+	//       upgrade from 1.10 to that version.
+	if true || a.MachineId == "0" {
 		// If we're bootstrapping, we don't have an API
 		// server to connect to, so start the state worker regardless.
 
@@ -109,6 +120,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		// instances of the API server have been started, we
 		// should follow the normal course of things and ignore
 		// the fact that this was once the bootstrap machine.
+		log.Infof("Starting StateWorker for machine-0")
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
@@ -160,12 +172,13 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	reportOpenedState(st)
 	// If this fails, other bits will fail, so we just log the error, and
 	// let the other failures actually restart runners
+	log.Infof("Calling EnsureAPIPassword for %v", entity)
 	if err := EnsureAPIPassword(a.Conf.Conf, entity); err != nil {
 		log.Warningf("failed to EnsureAPIPassword: %v", err)
 	}
+	reportOpenedState(st)
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
