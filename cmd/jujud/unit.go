@@ -5,14 +5,19 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/tomb"
 )
+
+var agentLogger = loggo.GetLogger("juju.jujud")
 
 // UnitAgent is a cmd.Command responsible for running a unit agent.
 type UnitAgent struct {
@@ -63,6 +68,7 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
+	agentLogger.Infof("unit agent %v start", a.Tag())
 	a.runner.StartWorker("toplevel", func() (worker.Worker, error) {
 		// TODO(rog) go1.1: use method expression
 		return a.Workers()
@@ -77,6 +83,11 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
+	}
+	if err := EnsureAPIPassword(a.Conf.Conf, entity); err != nil {
+		// We suppress this error, because it is probably more interesting
+		// to see other failures, but we log it, in case it is a root cause
+		agentLogger.Warningf("error while calling EnsureAPIPassword: %v", err)
 	}
 	unit := entity.(*state.Unit)
 	dataDir := a.Conf.DataDir

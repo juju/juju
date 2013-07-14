@@ -16,34 +16,34 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-var _ = gc.Suite(&UpgradeValidationSuite{})
+var _ = gc.Suite(&UpgradeValidationMachineSuite{})
 
-type UpgradeValidationSuite struct {
+type UpgradeValidationMachineSuite struct {
 	agentSuite
 	lxc.TestSuite
 }
 
-func (s *UpgradeValidationSuite) SetUpSuite(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) SetUpSuite(c *gc.C) {
 	s.agentSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 }
 
-func (s *UpgradeValidationSuite) TearDownSuite(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TearDownSuite(c *gc.C) {
 	s.TestSuite.TearDownSuite(c)
 	s.agentSuite.TearDownSuite(c)
 }
 
-func (s *UpgradeValidationSuite) SetUpTest(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) SetUpTest(c *gc.C) {
 	s.agentSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 }
 
-func (s *UpgradeValidationSuite) TearDownTest(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TearDownTest(c *gc.C) {
 	s.TestSuite.TearDownTest(c)
 	s.agentSuite.TearDownTest(c)
 }
 
-func (s *UpgradeValidationSuite) Create1_10Machine(c *gc.C) (*state.Machine, *agent.Conf) {
+func (s *UpgradeValidationMachineSuite) Create1_10Machine(c *gc.C) (*state.Machine, *agent.Conf) {
 	// Given the current connection to state, create a new machine, and 'reset'
 	// the configuration so that it looks like how juju 1.10 would have
 	// configured it
@@ -62,7 +62,7 @@ func (s *UpgradeValidationSuite) Create1_10Machine(c *gc.C) (*state.Machine, *ag
 	return m, conf
 }
 
-func (s *UpgradeValidationSuite) TestEnsureAPIPasswordMachine(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestEnsureAPIPassword(c *gc.C) {
 	m, conf := s.Create1_10Machine(c)
 	// Opening the API should fail as is
 	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
@@ -81,8 +81,33 @@ func (s *UpgradeValidationSuite) TestEnsureAPIPasswordMachine(c *gc.C) {
 	c.Assert(newPassword, gc.Equals, "")
 }
 
+func (s *UpgradeValidationMachineSuite) TestEnsureAPIPasswordNoOp(c *gc.C) {
+	m, conf := s.Create1_10Machine(c)
+	// Set the API password to something, and record it, ensure that
+	// EnsureAPIPassword doesn't change it on us
+	m.SetPassword("frobnizzle")
+	conf.APIInfo.Password = "frobnizzle"
+	// We matched them, so we should be able to open the API
+	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
+	c.Assert(apiState, gc.NotNil)
+	c.Assert(newPassword, gc.Equals, "")
+	c.Assert(err, gc.IsNil)
+	apiState.Close()
+
+	err = EnsureAPIPassword(conf, m)
+	c.Assert(err, gc.IsNil)
+	// After EnsureAPIPassword we should still be able to connect
+	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiState, gc.NotNil)
+	// We shouldn't need to set a new password
+	c.Assert(newPassword, gc.Equals, "")
+	// The password hasn't been changed
+	c.Assert(conf.APIInfo.Password, gc.Equals, "frobnizzle")
+}
+
 // Test that MachineAgent enforces the API password on startup
-func (s *UpgradeValidationSuite) TestMachineAgentEnsuresAPIPassword(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIPassword(c *gc.C) {
 	m, _ := s.Create1_10Machine(c)
 	// This is similar to assertJobWithState, however we need to control
 	// how the machine is initialized, so it looks like a 1.10 upgrade
@@ -111,7 +136,7 @@ func (s *UpgradeValidationSuite) TestMachineAgentEnsuresAPIPassword(c *gc.C) {
 }
 
 // Test that MachineAgent enforces the API password on startup even for machine>0
-func (s *UpgradeValidationSuite) TestMachineAgentEnsuresAPIPasswordOnWorkers(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIPasswordOnWorkers(c *gc.C) {
 	// create a machine-0, then create a new machine-1
 	_, _ = s.Create1_10Machine(c)
 	m1, _ := s.Create1_10Machine(c)
@@ -140,32 +165,24 @@ func (s *UpgradeValidationSuite) TestMachineAgentEnsuresAPIPasswordOnWorkers(c *
 	c.Assert(<-done, gc.IsNil)
 }
 
-func (s *UpgradeValidationSuite) TestEnsureAPIPasswordMachineNoOp(c *gc.C) {
-	m, conf := s.Create1_10Machine(c)
-	// Set the API password to something, and record it, ensure that
-	// EnsureAPIPassword doesn't change it on us
-	m.SetPassword("frobnizzle")
-	conf.APIInfo.Password = "frobnizzle"
-	// We matched them, so we should be able to open the API
-	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
-	c.Assert(apiState, gc.NotNil)
-	c.Assert(newPassword, gc.Equals, "")
-	c.Assert(err, gc.IsNil)
-	apiState.Close()
+var _ = gc.Suite(&UpgradeValidationUnitSuite{})
 
-	err = EnsureAPIPassword(conf, m)
-	c.Assert(err, gc.IsNil)
-	// After EnsureAPIPassword we should still be able to connect
-	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
-	c.Assert(err, gc.IsNil)
-	c.Assert(apiState, gc.NotNil)
-	// We shouldn't need to set a new password
-	c.Assert(newPassword, gc.Equals, "")
-	// The password hasn't been changed
-	c.Assert(conf.APIInfo.Password, gc.Equals, "frobnizzle")
+type UpgradeValidationUnitSuite struct {
+	agentSuite
+	testing.GitSuite
 }
 
-func (s *UpgradeValidationSuite) Create1_10Unit(c *gc.C) (*state.Unit, *agent.Conf) {
+func (s *UpgradeValidationUnitSuite) SetUpTest(c *gc.C) {
+	s.agentSuite.SetUpTest(c)
+	s.GitSuite.SetUpTest(c)
+}
+
+func (s *UpgradeValidationUnitSuite) TearDownTest(c *gc.C) {
+	s.GitSuite.SetUpTest(c)
+	s.agentSuite.TearDownTest(c)
+}
+
+func (s *UpgradeValidationUnitSuite) Create1_10Unit(c *gc.C) (*state.Unit, *agent.Conf) {
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
@@ -180,7 +197,7 @@ func (s *UpgradeValidationSuite) Create1_10Unit(c *gc.C) (*state.Unit, *agent.Co
 	return unit, conf
 }
 
-func (s *UpgradeValidationSuite) TestEnsureAPIPasswordUnit(c *gc.C) {
+func (s *UpgradeValidationUnitSuite) TestEnsureAPIPassword(c *gc.C) {
 	u, conf := s.Create1_10Unit(c)
 	// Opening the API should fail as is
 	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
@@ -197,4 +214,15 @@ func (s *UpgradeValidationSuite) TestEnsureAPIPasswordUnit(c *gc.C) {
 	c.Assert(apiState, gc.NotNil)
 	// We shouldn't need to set a new password
 	c.Assert(newPassword, gc.Equals, "")
+}
+
+// Test that UnitAgent enforces the API password on startup
+func (s *UpgradeValidationUnitSuite) TestAgentEnsuresAPIPassword(c *gc.C) {
+	unit, _ := s.Create1_10Unit(c)
+	a := &UnitAgent{}
+	s.initAgent(c, a, "--unit-name", unit.Name())
+	go func() { c.Check(a.Run(nil), gc.IsNil) }()
+	waitForUnitStarted(s.State, unit, c)
+	c.Check(a.Stop(), gc.IsNil)
+	c.Check(a.Conf.APIInfo.Password, gc.Equals, "unit-password")
 }
