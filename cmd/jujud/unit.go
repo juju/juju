@@ -84,10 +84,10 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := EnsureAPIPassword(a.Conf.Conf, entity); err != nil {
+	if err := EnsureAPIInfo(a.Conf.Conf, entity); err != nil {
 		// We suppress this error, because it is probably more interesting
 		// to see other failures, but we log it, in case it is a root cause
-		agentLogger.Warningf("error while calling EnsureAPIPassword: %v", err)
+		agentLogger.Warningf("error while calling EnsureAPIInfo: %v", err)
 	}
 	unit := entity.(*state.Unit)
 	dataDir := a.Conf.DataDir

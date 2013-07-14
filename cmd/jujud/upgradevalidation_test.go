@@ -4,6 +4,7 @@
 package main
 
 import (
+	"net"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -58,11 +59,13 @@ func (s *UpgradeValidationMachineSuite) Create1_10Machine(c *gc.C) (*state.Machi
 	conf.MachineNonce = state.BootstrapNonce
 	conf.APIInfo.Password = ""
 	conf.Write()
+	c.Assert(conf.StateInfo.Tag, gc.Equals, m.Tag())
+	c.Assert(conf.StateInfo.Password, gc.Equals, "machine-password")
 	c.Assert(err, gc.IsNil)
 	return m, conf
 }
 
-func (s *UpgradeValidationMachineSuite) TestEnsureAPIPassword(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestEnsureAPIInfo(c *gc.C) {
 	m, conf := s.Create1_10Machine(c)
 	// Opening the API should fail as is
 	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
@@ -71,9 +74,9 @@ func (s *UpgradeValidationMachineSuite) TestEnsureAPIPassword(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
-	err = EnsureAPIPassword(conf, m)
+	err = EnsureAPIInfo(conf, m)
 	c.Assert(err, gc.IsNil)
-	// After EnsureAPIPassword we should be able to connect
+	// After EnsureAPIInfo we should be able to connect
 	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiState, gc.NotNil)
@@ -81,10 +84,10 @@ func (s *UpgradeValidationMachineSuite) TestEnsureAPIPassword(c *gc.C) {
 	c.Assert(newPassword, gc.Equals, "")
 }
 
-func (s *UpgradeValidationMachineSuite) TestEnsureAPIPasswordNoOp(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestEnsureAPIInfoNoOp(c *gc.C) {
 	m, conf := s.Create1_10Machine(c)
 	// Set the API password to something, and record it, ensure that
-	// EnsureAPIPassword doesn't change it on us
+	// EnsureAPIInfo doesn't change it on us
 	m.SetPassword("frobnizzle")
 	conf.APIInfo.Password = "frobnizzle"
 	// We matched them, so we should be able to open the API
@@ -94,9 +97,9 @@ func (s *UpgradeValidationMachineSuite) TestEnsureAPIPasswordNoOp(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	apiState.Close()
 
-	err = EnsureAPIPassword(conf, m)
+	err = EnsureAPIInfo(conf, m)
 	c.Assert(err, gc.IsNil)
-	// After EnsureAPIPassword we should still be able to connect
+	// After EnsureAPIInfo we should still be able to connect
 	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiState, gc.NotNil)
@@ -107,7 +110,7 @@ func (s *UpgradeValidationMachineSuite) TestEnsureAPIPasswordNoOp(c *gc.C) {
 }
 
 // Test that MachineAgent enforces the API password on startup
-func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIPassword(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIInfo(c *gc.C) {
 	m, _ := s.Create1_10Machine(c)
 	// This is similar to assertJobWithState, however we need to control
 	// how the machine is initialized, so it looks like a 1.10 upgrade
@@ -136,7 +139,7 @@ func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIPassword(c *gc.C) {
 }
 
 // Test that MachineAgent enforces the API password on startup even for machine>0
-func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIPasswordOnWorkers(c *gc.C) {
+func (s *UpgradeValidationMachineSuite) TestAgentEnsuresAPIInfoOnWorkers(c *gc.C) {
 	// create a machine-0, then create a new machine-1
 	_, _ = s.Create1_10Machine(c)
 	m1, _ := s.Create1_10Machine(c)
@@ -190,34 +193,59 @@ func (s *UpgradeValidationUnitSuite) Create1_10Unit(c *gc.C) (*state.Unit, *agen
 	err = unit.SetMongoPassword("unit-password")
 	c.Assert(err, gc.IsNil)
 	// We do not call SetPassword for the unit agent, and we force the
-	// APIInfo.Password to be empty
+	// APIInfo to be empty
 	conf, _ := s.agentSuite.primeAgent(c, unit.Tag(), "unit-password")
 	conf.APIInfo = nil
 	c.Assert(conf.Write(), gc.IsNil)
 	return unit, conf
 }
 
-func (s *UpgradeValidationUnitSuite) TestEnsureAPIPassword(c *gc.C) {
+func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo(c *gc.C) {
 	u, conf := s.Create1_10Unit(c)
 	// Opening the API should fail as is
-	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
-	c.Assert(apiState, gc.IsNil)
-	c.Assert(newPassword, gc.Equals, "")
-	c.Assert(err, gc.NotNil)
-	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
+	c.Assert(func() { conf.OpenAPI(api.DialOpts{}) }, gc.PanicMatches, ".*nil pointer dereference")
 
-	err = EnsureAPIPassword(conf, u)
+	err := EnsureAPIInfo(conf, u)
 	c.Assert(err, gc.IsNil)
-	// After EnsureAPIPassword we should be able to connect
-	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
+	// The guessed API port is wrong in the test suite, because it goes to
+	// DefaultAPIPort. Validate this, and then set it to something correct
+	c.Assert(conf.StateInfo.Addrs, gc.HasLen, 1)
+	c.Assert(conf.APIInfo.Addrs, gc.HasLen, 1)
+	stateHost, _, err := net.SplitHostPort(conf.StateInfo.Addrs[0])
+	apiHostString := net.JoinHostPort(stateHost, "17070")
+	c.Assert(conf.APIInfo.Addrs, gc.DeepEquals, []string{apiHostString})
+	// Override that field
+	conf.APIInfo.Addrs = s.APIInfo(c).Addrs
+	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(apiState, gc.NotNil)
 	// We shouldn't need to set a new password
 	c.Assert(newPassword, gc.Equals, "")
 }
 
+func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo111(c *gc.C) {
+	// In 1.11 State.Password is actually "", and the valid password is
+	// OldPassword. This is because in 1.11 we only change the password in
+	// OpenAPI which we don't call until we actually have agent workers
+	// But we don't want to set the actual entity password to the empty string
+	u, conf := s.Create1_10Unit(c)
+	conf.OldPassword = conf.StateInfo.Password
+	conf.StateInfo.Password = ""
+
+	err := EnsureAPIInfo(conf, u)
+	c.Assert(err, gc.IsNil)
+	// The guessed APIInfo.Addrs is wrong because the test suite is on
+	// non-standard ports. Fix it
+	conf.APIInfo.Addrs = s.APIInfo(c).Addrs
+	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiState, gc.NotNil)
+	// It should want to set a new Password
+	c.Assert(newPassword, gc.Not(gc.Equals), "")
+}
+
 // Test that UnitAgent enforces the API password on startup
-func (s *UpgradeValidationUnitSuite) TestAgentEnsuresAPIPassword(c *gc.C) {
+func (s *UpgradeValidationUnitSuite) TestAgentEnsuresAPIInfo(c *gc.C) {
 	unit, _ := s.Create1_10Unit(c)
 	a := &UnitAgent{}
 	s.initAgent(c, a, "--unit-name", unit.Name())
@@ -225,4 +253,28 @@ func (s *UpgradeValidationUnitSuite) TestAgentEnsuresAPIPassword(c *gc.C) {
 	waitForUnitStarted(s.State, unit, c)
 	c.Check(a.Stop(), gc.IsNil)
 	c.Check(a.Conf.APIInfo.Password, gc.Equals, "unit-password")
+}
+
+var _ = gc.Suite(&UpgradeValidationSuite{})
+
+type UpgradeValidationSuite struct {
+}
+
+func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrs(c *gc.C) {
+	stateAddrs := []string{
+		"localhost:37017",
+		"123.123.123.456:37017",
+		"ec2.foo.bar.invalid:37017",
+		"custom.invalid:12345",
+		"ignored.invalid",
+		"[::1]:80",
+	}
+	c.Assert(apiAddrsFromStateAddrs(stateAddrs), gc.DeepEquals,
+		[]string{
+			"localhost:17070",
+			"123.123.123.456:17070",
+			"ec2.foo.bar.invalid:17070",
+			"custom.invalid:17070",
+			"[::1]:17070",
+		})
 }

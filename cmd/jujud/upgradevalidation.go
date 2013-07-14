@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"net"
 	"path/filepath"
 	"time"
 
@@ -12,6 +13,9 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
 )
@@ -78,13 +82,40 @@ type passwordSetter interface {
 	SetPassword(password string) error
 }
 
+// apiAddrsFromStateAddrs guesses the API addresses based on State addresses
+func apiAddrsFromStateAddrs(stateAddrs []string) []string {
+	res := make([]string, 0, len(stateAddrs))
+	for _, addr := range stateAddrs {
+		host, _, err := net.SplitHostPort(addr)
+		if err != nil {
+			//???
+			continue
+		}
+		res = append(res, net.JoinHostPort(host, fmt.Sprint(config.DefaultApiPort)))
+	}
+	return res
+}
+
+// apiInfoFromStateInfo tries to guess api.Info based on state.Info
+// This makes assumptions like default ports, which are usually correct, and
+// are the best we can do after something like upgrade doesn't actually set
+// them.
+func apiInfoFromStateInfo(stInfo *state.Info) *api.Info {
+	return &api.Info{
+		Addrs:    apiAddrsFromStateAddrs(stInfo.Addrs),
+		CACert:   stInfo.CACert,
+		Tag:      stInfo.Tag,
+		Password: stInfo.Password,
+	}
+}
+
 // EnsureAPIInfo makes sure we can connect as an agent to the API server 1.10
 // did not set an API password for machine agents, 1.11 sets it the same as the
 // mongo password.  1.10 also does not set any API Info at all for Unit agents.
 // conf is the agent.conf for this machine/unit agent.  agentConn is the direct
 // connection to the State database
-func EnsureAPIPassword(conf *agent.Conf, agentConn AgentState) error {
-	if conf.APIInfo.Password != "" {
+func EnsureAPIInfo(conf *agent.Conf, agentConn AgentState) error {
+	if conf.APIInfo != nil && conf.APIInfo.Password != "" {
 		// We must have set it earlier
 		return nil
 	}
@@ -94,12 +125,36 @@ func EnsureAPIPassword(conf *agent.Conf, agentConn AgentState) error {
 		// implement a direct request to set the API password in State
 		return fmt.Errorf("AgentState is missing a SetPassword method?")
 	}
+	if conf.APIInfo == nil {
+		// Unit agents didn't get any APIInfo in 1.10
+		conf.APIInfo = apiInfoFromStateInfo(conf.StateInfo)
+		validationLogger.Infof(
+			"agent.conf APIInfo is not set. Setting to {Addrs: %s, Tag: %s}",
+			conf.APIInfo.Addrs,
+			conf.APIInfo.Tag,
+		)
+	} else {
+		validationLogger.Infof("agent.conf APIInfo password is not set. Setting to state password")
+		conf.APIInfo.Password = conf.StateInfo.Password
+	}
+	password := conf.StateInfo.Password
+	if password == "" {
+		// In 1.11 we don't set a new password on connect (because it is
+		// done in the API code, and we don't have any API workers).
+		// We want to make sure the API user has the correct password
+		// (OldPassword). We *don't* want to set APIInfo.Password
+		// because then when we do connect via the API we wouldn't
+		// change the password. So this is only used for SetPassword
+		validationLogger.Infof(
+			"agent.conf StateInfo password is \"\". Setting Agent password for %s to OldPassword",
+			conf.APIInfo.Tag)
+		password = conf.OldPassword
+	}
 	// We set the actual password before writing it to disk, because
 	// otherwise we would not set it correctly in the future
-	if err := setter.SetPassword(conf.StateInfo.Password); err != nil {
+	if err := setter.SetPassword(password); err != nil {
 		return err
 	}
-	conf.APIInfo.Password = conf.StateInfo.Password
 	if err := conf.Write(); err != nil {
 		return err
 	}
