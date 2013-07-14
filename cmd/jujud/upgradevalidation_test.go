@@ -244,6 +244,33 @@ func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo111(c *gc.C) {
 	c.Assert(newPassword, gc.Not(gc.Equals), "")
 }
 
+func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo111Noop(c *gc.C) {
+	// We should notice if APIInfo is 'valid' in that it matches StateInfo
+	// even though in 1.1 both Password fields are empty.
+	u, conf := s.Create1_10Unit(c)
+	conf.OldPassword = conf.StateInfo.Password
+	conf.StateInfo.Password = ""
+	u.SetPassword(conf.OldPassword)
+	testAPIInfo := s.APIInfo(c)
+	conf.APIInfo = &api.Info{
+		Addrs:    testAPIInfo.Addrs,
+		Tag:      u.Tag(),
+		Password: "",
+		CACert:   testAPIInfo.CACert,
+	}
+
+	err := EnsureAPIInfo(conf, u)
+	c.Assert(err, gc.IsNil)
+	// We should not have changed the API Addrs or Password
+	c.Assert(conf.APIInfo.Password, gc.Equals, "")
+	c.Assert(conf.APIInfo.Addrs, gc.DeepEquals, testAPIInfo.Addrs)
+	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(apiState, gc.NotNil)
+	// It should want to set a new Password
+	c.Assert(newPassword, gc.Not(gc.Equals), "")
+}
+
 // Test that UnitAgent enforces the API password on startup
 func (s *UpgradeValidationUnitSuite) TestAgentEnsuresAPIInfo(c *gc.C) {
 	unit, _ := s.Create1_10Unit(c)

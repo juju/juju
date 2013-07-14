@@ -115,7 +115,17 @@ func apiInfoFromStateInfo(stInfo *state.Info) *api.Info {
 // conf is the agent.conf for this machine/unit agent.  agentConn is the direct
 // connection to the State database
 func EnsureAPIInfo(conf *agent.Conf, agentConn AgentState) error {
-	if conf.APIInfo != nil && conf.APIInfo.Password != "" {
+	// In 1.10 Machine Agents will have an API Info section, but will not
+	// have properly configured the Password field, so when upgrading to
+	// 1.11 we must set that field
+	// In 1.10 Unit Agents will not have an API Info section at all, so we
+	// must set everything from the StateInfo (correcting the Addrs for API
+	// port vs Mongo port)
+	// A new 1.11 Unit Agent will have an OldPassword but no Password set
+	// (in StateInfo or APIInfo). Because we only change the password on
+	// API connect, not on DB connect. We don't want to make extra
+	// SetPassword calls when we already have a valid password set
+	if conf.APIInfo != nil && (conf.APIInfo.Password != "" || conf.StateInfo.Password == "") {
 		// We must have set it earlier
 		return nil
 	}
