@@ -68,7 +68,10 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
+	// If we are using a local provider, always upload tools.
+	if environ.Config().Type() == "local" {
+		c.UploadTools = true
+	}
 	if c.UploadTools {
 		// Force version.Current, for consistency with subsequent upgrade-juju
 		// (see UpgradeJujuCommand).
