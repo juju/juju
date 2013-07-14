@@ -88,7 +88,13 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 	if err != nil {
 		return err
 	}
-	req, err := http.NewRequest("PUT", url, r)
+	// Here we wrap up the reader.  For some freaky unexplainable reason, the
+	// http library will call Close on the reader if it has a Close method
+	// available.  Since we sometimes reuse the reader, especially when
+	// putting tools, we don't want Close called.  So we wrap the reader in a
+	// struct so the Close method is not exposed.
+	justReader := struct{ io.Reader }{r}
+	req, err := http.NewRequest("PUT", url, justReader)
 	if err != nil {
 		return err
 	}
