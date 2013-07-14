@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -22,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 // lxcBridgeName is the name of the network interface that the local provider
@@ -62,6 +64,10 @@ func (env *localEnviron) Name() string {
 
 func (env *localEnviron) mongoServiceName() string {
 	return "juju-db-" + env.config.namespace()
+}
+
+func (env *localEnviron) machineAgentServiceName() string {
+	return "juju-agent-" + env.config.namespace()
 }
 
 // ensureCertOwner checks to make sure that the cert files created
@@ -145,11 +151,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 	defer stateConnection.Close()
 
-	// TODO(thumper): upload tools into the storage
-
-	// TODO(thumper): start the machine agent for machine-0
-
-	return nil
+	return env.setupLocalMachineAgent(cons)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -221,12 +223,12 @@ func (env *localEnviron) StartInstance(
 	info *state.Info,
 	apiInfo *api.Info,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+	return nil, nil, fmt.Errorf("start instance not implemented")
 }
 
 // StopInstances is specified in the Environ interface.
 func (env *localEnviron) StopInstances([]instance.Instance) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("stop instance not implemented")
 }
 
 // Instances is specified in the Environ interface.
@@ -284,17 +286,17 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 
 // OpenPorts is specified in the Environ interface.
 func (env *localEnviron) OpenPorts(ports []instance.Port) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("open ports not implemented")
 }
 
 // ClosePorts is specified in the Environ interface.
 func (env *localEnviron) ClosePorts(ports []instance.Port) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("close ports not implemented")
 }
 
 // Ports is specified in the Environ interface.
 func (env *localEnviron) Ports() ([]instance.Port, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, nil
 }
 
 // Provider is specified in the Environ interface.
@@ -339,6 +341,53 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
+func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
+	dataDir := env.config.rootDir()
+	toolList, err := environs.FindBootstrapTools(env, cons)
+	if err != nil {
+		return err
+	}
+	// ensure we have at least one valid tools
+	if len(toolList) == 0 {
+		return fmt.Errorf("No bootstrap tools found")
+	}
+	// unpack the first tools into the agent dir.
+	tools := toolList[0]
+	logger.Infof("tools: %#v", tools)
+	// brutally abuse our knowledge of storage to directly open the file
+	toolsUrl, err := url.Parse(tools.URL)
+	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
+	logger.Infof("tools location: %v", toolsLocation)
+	toolsFile, err := os.Open(toolsLocation)
+	defer toolsFile.Close()
+	// Again, brutally abuse our knowledge here.
+
+	// The tools that FindBootstrapTools has returned us are based on the
+	// default series in the config.  However we are running potentially on a
+	// different series.  When the machine agent is started, it will be
+	// looking based on the current series, so we need to override the series
+	// returned in the tools to be the current series.
+	tools.Binary.Series = version.CurrentSeries()
+	err = agent.UnpackTools(dataDir, tools, toolsFile)
+
+	machineId := "0" // Always machine 0
+	tag := state.MachineTag(machineId)
+	toolsDir := agent.SharedToolsDir(dataDir, tools.Binary)
+	logDir := env.config.logDir()
+	logConfig := "--debug" // TODO(thumper): specify loggo config
+	agent := upstart.MachineAgentUpstartService(
+		env.machineAgentServiceName(),
+		toolsDir, dataDir, logDir, tag, machineId, logConfig)
+
+	agent.InitDir = upstartScriptLocation
+	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
+	if err := agent.Install(); err != nil {
+		logger.Errorf("could not install machine agent service: %v", err)
+		return err
+	}
+	return nil
+}
+
 func (env *localEnviron) findBridgeAddress() (string, error) {
 	bridge, err := net.InterfaceByName(lxcBridgeName)
 	if err != nil {
@@ -369,7 +418,7 @@ func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
 		StateServerCert: cert,
 		StateServerKey:  key,
 		StatePort:       env.config.StatePort(),
-		APIPort:         env.config.StatePort(),
+		APIPort:         env.config.APIPort(),
 		MachineNonce:    state.BootstrapNonce,
 	}
 	if err := conf.Write(); err != nil {

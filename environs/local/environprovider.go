@@ -107,12 +107,12 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
 func (environProvider) PublicAddress() (string, error) {
-	return "", fmt.Errorf("not implemented")
+	return "", fmt.Errorf("public address not implemented")
 }
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
 func (environProvider) PrivateAddress() (string, error) {
-	return "", fmt.Errorf("not implemented")
+	return "", fmt.Errorf("private address not implemented")
 }
 
 // InstanceId implements environs.EnvironProvider.InstanceId.

@@ -73,6 +73,10 @@ func (c *environConfig) mongoDir() string {
 	return filepath.Join(c.rootDir(), "db")
 }
 
+func (c *environConfig) logDir() string {
+	return filepath.Join(c.rootDir(), "log")
+}
+
 func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
@@ -107,6 +111,7 @@ func (c *environConfig) createDirs() error {
 		c.sharedStorageDir(),
 		c.storageDir(),
 		c.mongoDir(),
+		c.logDir(),
 	} {
 		logger.Tracef("creating directory %s", dirname)
 		if err := os.MkdirAll(dirname, 0755); err != nil {
