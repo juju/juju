@@ -78,10 +78,10 @@ type passwordSetter interface {
 	SetPassword(password string) error
 }
 
-// EnsureAPIPassword makes sure we can connect as an agent to the API server
-// 1.10 did not set an API password, 1.11 sets it the same as the mongo
-// password.
-// conf is the agent.conf for this machine/unit agent. agentConn is the direct
+// EnsureAPIInfo makes sure we can connect as an agent to the API server 1.10
+// did not set an API password for machine agents, 1.11 sets it the same as the
+// mongo password.  1.10 also does not set any API Info at all for Unit agents.
+// conf is the agent.conf for this machine/unit agent.  agentConn is the direct
 // connection to the State database
 func EnsureAPIPassword(conf *agent.Conf, agentConn AgentState) error {
 	if conf.APIInfo.Password != "" {

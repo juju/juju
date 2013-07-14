@@ -192,7 +192,7 @@ func (s *UpgradeValidationUnitSuite) Create1_10Unit(c *gc.C) (*state.Unit, *agen
 	// We do not call SetPassword for the unit agent, and we force the
 	// APIInfo.Password to be empty
 	conf, _ := s.agentSuite.primeAgent(c, unit.Tag(), "unit-password")
-	conf.APIInfo.Password = ""
+	conf.APIInfo = nil
 	c.Assert(conf.Write(), gc.IsNil)
 	return unit, conf
 }
