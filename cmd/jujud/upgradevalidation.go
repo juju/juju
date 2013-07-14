@@ -4,11 +4,13 @@
 package main
 
 import (
+	"fmt"
 	"path/filepath"
 	"time"
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
@@ -70,4 +72,36 @@ func EnsureWeHaveLXC(dataDir string) error {
 	//       So this is really only upgrade compatibility and juju 1.10
 	//       only supports debian-based anyway
 	return utils.AptGetInstall("lxc")
+}
+
+type passwordSetter interface {
+	SetPassword(password string) error
+}
+
+// EnsureAPIPassword makes sure we can connect as an agent to the API server
+// 1.10 did not set an API password, 1.11 sets it the same as the mongo
+// password.
+// conf is the agent.conf for this machine/unit agent. agentConn is the direct
+// connection to the State database
+func EnsureAPIPassword(conf *agent.Conf, agentConn AgentState) error {
+	if conf.APIInfo.Password != "" {
+		// We must have set it earlier
+		return nil
+	}
+	setter, ok := agentConn.(passwordSetter)
+	if !ok {
+		// This is unexpected as all AgentState objects (Machine and Unit)
+		// implement a direct request to set the API password in State
+		return fmt.Errorf("AgentState is missing a SetPassword method?")
+	}
+	// We set the actual password before writing it to disk, because
+	// otherwise we would not set it correctly in the future
+	if err := setter.SetPassword(conf.StateInfo.Password); err != nil {
+		return err
+	}
+	conf.APIInfo.Password = conf.StateInfo.Password
+	if err := conf.Write(); err != nil {
+		return err
+	}
+	return nil
 }

@@ -161,6 +161,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		return nil, err
 	}
 	reportOpenedState(st)
+	// If this fails, other bits will fail, so we just log the error, and
+	// let the other failures actually restart runners
+	if err := EnsureAPIPassword(a.Conf.Conf, entity); err != nil {
+		log.Warningf("failed to EnsureAPIPassword: %v", err)
+	}
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
