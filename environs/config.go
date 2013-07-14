@@ -10,8 +10,9 @@ import (
 	"path/filepath"
 
 	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/environs/config"
 )
 
 var logger = loggo.GetLogger("juju.environs")

@@ -25,6 +25,7 @@ import (
 	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
+	"strings"
 	"time"
 )
 
@@ -473,6 +474,76 @@ func (t *LiveTests) TestBootstrapVerifyStorage(c *C) {
 		"juju-core storage writing verified: ok\n")
 }
 
+func restoreBootstrapVerificationFile(c *C, storage environs.Storage) {
+	content := "juju-core storage writing verified: ok\n"
+	contentReader := strings.NewReader(content)
+	err := storage.Put("bootstrap-verify", contentReader,
+		int64(len(content)))
+	c.Assert(err, IsNil)
+}
+
+func (t *LiveTests) TestCheckEnvironmentOnConnect(c *C) {
+	// When new connection is established to a bootstraped environment,
+	// it is checked that we are running against a juju-core environment.
+	if !t.CanOpenState {
+		c.Skip("CanOpenState is false; cannot open state connection")
+	}
+	t.BootstrapOnce(c)
+
+	conn, err := juju.NewConn(t.Env)
+	c.Assert(err, IsNil)
+	conn.Close()
+}
+
+func (t *LiveTests) TestCheckEnvironmentOnConnectNoVerificationFile(c *C) {
+	// When new connection is established to a bootstraped environment,
+	// it is checked that we are running against a juju-core environment.
+	//
+	// Absence of a verification file means it is a juju-core environment
+	// with an older version, which is fine.
+	if !t.CanOpenState {
+		c.Skip("CanOpenState is false; cannot open state connection")
+	}
+	t.BootstrapOnce(c)
+	environ := t.Env
+	storage := environ.Storage()
+	err := storage.Remove("bootstrap-verify")
+	c.Assert(err, IsNil)
+	defer restoreBootstrapVerificationFile(c, storage)
+
+	conn, err := juju.NewConn(t.Env)
+	c.Assert(err, IsNil)
+	conn.Close()
+}
+
+func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
+	// When new connection is established to a bootstraped environment,
+	// it is checked that we are running against a juju-core environment.
+	//
+	// If the verification file has unexpected content, it is not
+	// a juju-core environment (likely to a Python juju environment).
+	if !t.CanOpenState {
+		c.Skip("CanOpenState is false; cannot open state connection")
+	}
+	t.BootstrapOnce(c)
+	environ := t.Env
+	storage := environ.Storage()
+
+	// Finally, replace the content with an arbitrary string.
+	badVerificationContent := "bootstrap storage verification"
+	reader := strings.NewReader(badVerificationContent)
+	err := storage.Put(
+		"bootstrap-verify",
+		reader,
+		int64(len(badVerificationContent)))
+	c.Assert(err, IsNil)
+	defer restoreBootstrapVerificationFile(c, storage)
+
+	// Running NewConn() should fail.
+	_, err = juju.NewConn(t.Env)
+	c.Assert(err, Equals, environs.InvalidEnvironmentError)
+}
+
 type tooler interface {
 	Life() state.Life
 	AgentTools() (*state.Tools, error)
@@ -695,6 +766,14 @@ attempt:
 	// removing a file that does not exist should not be an error.
 	err = storage.Remove(name)
 	c.Check(err, IsNil)
+
+	// RemoveAll deletes all files from storage.
+	checkPutFile(c, storage, "file-1.txt", contents)
+	checkPutFile(c, storage, "file-2.txt", contents)
+	err = storage.RemoveAll()
+	c.Check(err, IsNil)
+	checkFileDoesNotExist(c, storage, "file-1.txt", t.Attempt)
+	checkFileDoesNotExist(c, storage, "file-2.txt", t.Attempt)
 }
 
 // Check that we can't start an instance running tools that correspond with no

@@ -6,8 +6,10 @@ package environs_test
 import (
 	"bytes"
 	"io/ioutil"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"

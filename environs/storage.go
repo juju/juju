@@ -5,45 +5,24 @@ package environs
 
 import (
 	"fmt"
-	"io"
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
-	"strings"
 )
 
-// EmptyStorage holds a StorageReader object that contains no files and
-// offers no URLs.
-var EmptyStorage StorageReader = emptyStorage{}
-
-type emptyStorage struct{}
-
-const verificationFilename string = "bootstrap-verify"
-const verificationContent = "juju-core storage writing verified: ok\n"
-
-var VerifyStorageError error = fmt.Errorf(
-	"provider storage is not writable")
-
-func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
-	return nil, errors.NotFoundf("file %q", name)
-}
-
-func (s emptyStorage) URL(name string) (string, error) {
-	return "", fmt.Errorf("file %q not found", name)
-}
-
-func (s emptyStorage) List(prefix string) ([]string, error) {
-	return nil, nil
-}
-
-func VerifyStorage(storage Storage) error {
-	reader := strings.NewReader(verificationContent)
-	err := storage.Put(verificationFilename, reader,
-		int64(len(verificationContent)))
+// RemoveAll is a default implementation for StorageWriter.RemoveAll.
+// Providers may have more efficient implementations, or better error handling,
+// or safeguards against races with other users of the same storage medium.
+// But a simple way to implement RemoveAll would be to delegate to here.
+func RemoveAll(stor Storage) error {
+	files, err := stor.List("")
 	if err != nil {
-		log.Debugf(
-			"environs: failed to write bootstrap-verify file: %v",
-			err)
-		return VerifyStorageError
+		return fmt.Errorf("unable to list files for deletion: %v", err)
 	}
-	return nil
+
+	// Some limited parallellism might be useful in this loop.
+	for _, file := range files {
+		err = stor.Remove(file)
+		if err != nil {
+			break
+		}
+	}
+	return err
 }

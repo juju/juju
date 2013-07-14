@@ -110,11 +110,10 @@ func (r *srvRoot) NotifyWatcher(id string) (*srvNotifyWatcher, error) {
 	}, nil
 }
 
-// LifecycleWatcher returns an object that provides
-// API access to methods on a state.LifecycleWatcher.
-// Each client has its own current set of watchers, stored
-// in r.resources.
-func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
+// StringsWatcher returns an object that provides API access to
+// methods on a state.StringsWatcher.  Each client has its own
+// current set of watchers, stored in r.resources.
+func (r *srvRoot) StringsWatcher(id string) (*srvStringsWatcher, error) {
 	if err := r.requireAgent(); err != nil {
 		return nil, err
 	}
@@ -122,7 +121,7 @@ func (r *srvRoot) LifecycleWatcher(id string) (*srvLifecycleWatcher, error) {
 	if !ok {
 		return nil, common.ErrUnknownWatcher
 	}
-	return &srvLifecycleWatcher{
+	return &srvStringsWatcher{
 		watcher:   watcher,
 		id:        id,
 		resources: r.resources,
@@ -176,6 +175,13 @@ func (r *srvRoot) AuthEnvironManager() bool {
 	return isMachineWithJob(r.entity, state.JobManageEnviron)
 }
 
+// AuthClient returns whether the authenticated entity is a client
+// user.
 func (r *srvRoot) AuthClient() bool {
 	return !isAgent(r.entity)
+}
+
+// GetAuthTag returns the tag of the authenticated entity.
+func (r *srvRoot) GetAuthTag() string {
+	return r.entity.Tag()
 }

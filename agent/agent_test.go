@@ -4,17 +4,19 @@
 package agent_test
 
 import (
+	"os"
+	"os/exec"
+	"path/filepath"
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/agent"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
-	"os"
-	"os/exec"
-	"path/filepath"
-	stdtesting "testing"
 )
 
 type suite struct {

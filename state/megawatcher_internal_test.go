@@ -6,8 +6,13 @@ package state
 import (
 	"errors"
 	"fmt"
+	"reflect"
+	"sort"
+	"time"
+
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
@@ -15,9 +20,6 @@ import (
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
-	"reflect"
-	"sort"
-	"time"
 )
 
 type storeManagerStateSuite struct {

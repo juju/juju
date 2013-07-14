@@ -5,13 +5,15 @@ package state_test
 
 import (
 	"bytes"
+	"net/url"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
-	"net/url"
 )
 
 type CharmSuite struct {
@@ -32,7 +34,7 @@ func (s *CharmSuite) TestCharm(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(dummy.URL().String(), Equals, s.curl.String())
 	c.Assert(dummy.Revision(), Equals, 1)
-	bundleURL, err := url.Parse("http://bundles.example.com/series-dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/series-dummy-1")
 	c.Assert(err, IsNil)
 	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
 	c.Assert(dummy.BundleSha256(), Equals, "series-dummy-1-sha256")

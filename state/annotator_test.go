@@ -5,6 +5,7 @@ package state_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state"
 )
 
