@@ -100,18 +100,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			return a.StateWorker()
 		})
 	}
-	// TODO: Eventually we want to stop creating the StateWorker on nodes
-	//       that can function purely with the API connection. However, due
-	//       to https://launchpad.net/bugs/1199915 Juju-1.10 never set an
-	//       API password for agents, so when upgrading to 1.11 they will
-	//       be unable to connect to the API to find out that they need to
-	//       start a state worker connection. Since we don't (yet) have any
-	//       agents that don't need a state connection, we always start the
-	//       state connection.
-	//       Once we have agents that actually only need the API
-	//       connection, we will have to figure out a different way to
-	//       upgrade from 1.10 to that version.
-	if true || a.MachineId == "0" {
+	if a.MachineId == "0" {
 		// If we're bootstrapping, we don't have an API
 		// server to connect to, so start the state worker regardless.
 
@@ -149,6 +138,15 @@ var stateJobs = map[params.MachineJob]bool{
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
+		// There was an error connecting to the API,
+		// https://launchpad.net/bugs/1199915 means that we may just
+		// not have an API password set. So force a state connection at
+		// this point.
+		// TODO: Once we can reliably trust that we have API passwords
+		//       set, and we no longer need state connections (and
+		//       possibly agents will be blocked from connecting
+		//       directly to state) we can remove this
+		ensureStateWorker()
 		return nil, err
 	}
 	m := entity.(*machineagent.Machine)
