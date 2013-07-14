@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -46,7 +45,7 @@ type URLLister interface {
 // ReadList returns a List of the tools in store with the given major version.
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(storage URLLister, majorVersion int) (List, error) {
-	log.Debugf("environs/tools: reading v%d.* tools", majorVersion)
+	logger.Debugf("reading v%d.* tools", majorVersion)
 	names, err := storage.List(toolPrefix)
 	if err != nil {
 		return nil, err
@@ -66,7 +65,7 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 		if t.Major != majorVersion {
 			continue
 		}
-		log.Debugf("environs/tools: found %s", vers)
+		logger.Debugf("found %s", vers)
 		if t.URL, err = storage.URL(name); err != nil {
 			return nil, err
 		}
@@ -99,6 +98,7 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
+	logger.Debugf("Uploading tools for %v", fakeSeries)
 	// We create the entire archive before asking the environment to
 	// start uploading so that we can be sure we have archived
 	// correctly.
@@ -108,6 +108,7 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
+	_ = os.Remove
 	toolsVersion, err := bundleTools(f, forceVersion)
 	if err != nil {
 		return nil, err
@@ -117,13 +118,13 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 		return nil, fmt.Errorf("cannot stat newly made tools archive: %v", err)
 	}
 	size := fileInfo.Size()
-	log.Infof("environs/tools: built %v (%dkB)", toolsVersion, (size+512)/1024)
+	logger.Infof("built %v (%dkB)", toolsVersion, (size+512)/1024)
 	putTools := func(vers version.Binary) (string, error) {
 		if _, err := f.Seek(0, 0); err != nil {
 			return "", fmt.Errorf("cannot seek to start of tools archive: %v", err)
 		}
 		name := StorageName(vers)
-		log.Infof("environs/tools: uploading %s", vers)
+		logger.Infof("uploading %s", vers)
 		if err := storage.Put(name, f, size); err != nil {
 			return "", err
 		}
