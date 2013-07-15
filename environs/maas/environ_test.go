@@ -239,6 +239,16 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	c.Check(found, Equals, true)
 	c.Check(actions, DeepEquals, []string{"acquire", "start"})
 
+	// Test the instance id is correctly recorded for the bootstrap node.
+	// Check that the state holds the id of the bootstrap machine.
+	stateData, err := environs.LoadState(env.Storage())
+	c.Assert(err, IsNil)
+	c.Assert(stateData.StateInstances, HasLen, 1)
+	insts, err := env.AllInstances()
+	c.Assert(err, IsNil)
+	c.Assert(insts, HasLen, 1)
+	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0].Id)
+
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -376,7 +386,7 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	testInstance := &maasInstance{&node, suite.environ}
 	err := environs.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
+		&environs.BootstrapState{StateInstances: []environs.InstanceInfo{{Id: testInstance.Id()}}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

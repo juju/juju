@@ -154,11 +154,6 @@ func (environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
 }
 
-func (environProvider) InstanceId() (instance.Id, error) {
-	str, err := fetchMetadata("instance-id")
-	return instance.Id(str), err
-}
-
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -247,20 +242,29 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.startInstance(&startInstanceParams{
+	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	if err != nil {
+		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	inst, characteristics, err := e.startInstance(&startInstanceParams{
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
 		series:        e.Config().DefaultSeries(),
 		constraints:   cons,
 		possibleTools: possibleTools,
 		stateServer:   true,
+		stateInfoURL:  stateFileURL,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances: []instance.Id{inst.Id()},
+		StateInstances: []environs.InstanceInfo{
+			{
+				Id:              instance.Id(inst.Id()),
+				Characteristics: *characteristics,
+			},
+		},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -314,6 +318,7 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 		APIInfo:      scfg.apiInfo,
 		DataDir:      "/var/lib/juju",
 		Tools:        tools,
+		StateInfoURL: scfg.stateInfoURL,
 	}
 	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
 		return nil, err
@@ -340,6 +345,7 @@ type startInstanceParams struct {
 	apiInfo       *api.Info
 	possibleTools tools.List
 	stateServer   bool
+	stateInfoURL  string
 }
 
 const ebsStorage = "ebs"

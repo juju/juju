@@ -17,9 +17,10 @@ import (
 
 type BootstrapCommand struct {
 	cmd.CommandBase
-	Conf        AgentConf
-	EnvConfig   map[string]interface{}
-	Constraints constraints.Value
+	Conf         AgentConf
+	EnvConfig    map[string]interface{}
+	Constraints  constraints.Value
+	stateInfoURL string
 }
 
 // Info returns a decription of the command.
@@ -33,6 +34,7 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Conf.addFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
+	f.StringVar(&c.stateInfoURL, "stateinfo-url", "", "the URL from which to load state information like instanc id and hardware")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 }
 
@@ -40,6 +42,9 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
+	}
+	if len(c.stateInfoURL) == 0 {
+		return requiredError("state-info-url")
 	}
 	return c.Conf.checkArgs(args)
 }
@@ -83,7 +88,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		state.JobManageEnviron, state.JobManageState, state.JobHostUnits,
 	}
 
-	return environs.ConfigureBootstrapMachine(st, cfg, c.Constraints, c.Conf.DataDir, jobs)
+	return environs.ConfigureBootstrapMachine(st, cfg, c.Constraints, c.Conf.DataDir, jobs, c.stateInfoURL)
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

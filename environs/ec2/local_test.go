@@ -30,7 +30,6 @@ var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) TestMetadata(c *C) {
 	metadataContent := []jujutest.FileContent{
-		{"/2011-01-01/meta-data/instance-id", "dummy.instance.id"},
 		{"/2011-01-01/meta-data/public-hostname", "public.dummy.address.invalid"},
 		{"/2011-01-01/meta-data/local-hostname", "private.dummy.address.invalid"},
 	}
@@ -47,10 +46,6 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 	addr, err = p.PrivateAddress()
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "private.dummy.address.invalid")
-
-	id, err := p.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instance.Id("dummy.instance.id"))
 }
 
 func registerLocalTests() {
@@ -244,10 +239,12 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapState.StateInstances, HasLen, 1)
 
-	insts, err := t.env.Instances(bootstrapState.StateInstances)
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M")
+	insts, err := t.env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, bootstrapState.StateInstances[0])
+	c.Check(insts[0].Id(), Equals, bootstrapState.StateInstances[0].Id)
+	c.Check(expectedHardware, DeepEquals, bootstrapState.StateInstances[0].Characteristics)
 
 	info, apiInfo, err := t.env.StateInfo()
 	c.Assert(err, IsNil)

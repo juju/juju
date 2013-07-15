@@ -11,11 +11,13 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"io"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"net/http"
 )
 
 // StateFile is the name of the file where the provider's state is stored.
@@ -26,9 +28,15 @@ const StateFile = "provider-state"
 // Individual providers may define their own state structures instead of
 // this one, and use their own code for loading and saving those, but this is
 // the definition that most practically useful providers share unchanged.
+
+type InstanceInfo struct {
+	Id              instance.Id
+	Characteristics instance.HardwareCharacteristics
+}
+
 type BootstrapState struct {
 	// StateInstances are the state servers.
-	StateInstances []instance.Id `yaml:"state-instances"`
+	StateInstances []InstanceInfo `yaml:"state-instances"`
 }
 
 // SaveState writes the given state to the given storage.
@@ -40,12 +48,25 @@ func SaveState(storage StorageWriter, state *BootstrapState) error {
 	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
+// LoadStateFromURL reads state from the given URL.
+func LoadStateFromURL(url string) (*BootstrapState, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	return loadState(resp.Body)
+}
+
 // LoadState reads state from the given storage.
 func LoadState(storage StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(StateFile)
 	if err != nil {
 		return nil, err
 	}
+	return loadState(r)
+}
+
+func loadState(r io.ReadCloser) (*BootstrapState, error) {
 	defer r.Close()
 	data, err := ioutil.ReadAll(r)
 	if err != nil {
@@ -117,8 +138,12 @@ func StateInfo(env Environ) (*state.Info, *api.Info, error) {
 	// to become available.
 	log.Debugf("waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	var hostnames []string
+	var ids []instance.Id
+	for _, stateInst := range st.StateInstances {
+		ids = append(ids, stateInst.Id)
+	}
 	for a := LongAttempt.Start(); len(hostnames) == 0 && a.Next(); {
-		insts, err := env.Instances(st.StateInstances)
+		insts, err := env.Instances(ids)
 		if err != nil && err != ErrPartialInstances {
 			log.Debugf("error getting state instances: %v", err.Error())
 			return nil, nil, err

@@ -89,6 +89,9 @@ type MachineConfig struct {
 
 	// Constraints holds the initial environment constraints.
 	Constraints constraints.Value
+
+	// StateInfoURL is the URL of a file which contains information about the state server machines.
+	StateInfoURL string
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -182,6 +185,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --constraints "+shquote(cfg.Constraints.String())+
+				" --stateinfo-url "+shquote(cfg.StateInfoURL)+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)

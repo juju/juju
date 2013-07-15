@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
+	"strings"
 )
 
 const (
@@ -93,6 +94,20 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	mcfg := env.makeMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 
+	// Create an empty bootstrap state file so we can get it's URL.
+	// If will be updated with the instance id and hardware characteristics after the
+	// bootstrap instance is started.
+	reader := strings.NewReader("")
+	err := env.Storage().Put(environs.StateFile, reader, int64(0))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	stateFileURL, err := env.Storage().URL(environs.StateFile)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	mcfg.StateInfoURL = stateFileURL
+
 	log.Debugf("environs/maas: bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
@@ -117,9 +132,12 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	// TODO add hardware characteristics to BootstrapState
 	err = environs.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
+		&environs.BootstrapState{StateInstances: []environs.InstanceInfo{
+			{Id: inst.Id()}},
+		})
 	if err != nil {
 		err2 := env.releaseInstance(inst)
 		if err2 != nil {

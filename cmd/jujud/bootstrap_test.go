@@ -11,12 +11,15 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
+	"net/http"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -29,9 +32,24 @@ type BootstrapSuite struct {
 
 var _ = Suite(&BootstrapSuite{})
 
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
+
+func init() {
+	// Prepare mock http transport for provider-state output in tests
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+}
+
 func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	stateInfo := environs.BootstrapState{
+		StateInstances: []environs.InstanceInfo{{Id: instance.Id("dummy.instance.id")}},
+	}
+	stateData, err := goyaml.Marshal(stateInfo)
+	c.Assert(err, IsNil)
+	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper([]jujutest.FileContent{
+		{"/" + environs.StateFile, string(stateData)},
+	}, nil)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *C) {
@@ -92,6 +110,7 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf
 	c.Assert(err, IsNil)
 
 	cmd = &BootstrapCommand{}
+	args = append(args, []string{"--stateinfo-url", "test://localhost/provider-state"}...)
 	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }

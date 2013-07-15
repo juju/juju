@@ -98,6 +98,7 @@ func ConfigureBootstrapMachine(
 	cons constraints.Value,
 	datadir string,
 	jobs []state.MachineJob,
+	stateInfoURL string,
 ) error {
 	logger.Debugf("setting environment constraints")
 	if err := st.SetEnvironConstraints(cons); err != nil {
@@ -105,17 +106,16 @@ func ConfigureBootstrapMachine(
 	}
 
 	logger.Debugf("configure bootstrap machine")
-	provider, err := Provider(cfg.Type())
+	bsState, err := LoadStateFromURL(stateInfoURL)
 	if err != nil {
+		logger.Errorf("cannot load state: %v", err)
 		return err
 	}
-	instanceId, err := provider.InstanceId()
-	if err != nil {
-		return err
-	}
+	instId := bsState.StateInstances[0].Id
+	characteristics := bsState.StateInstances[0].Characteristics
 
 	logger.Debugf("create bootstrap machine in state")
-	m, err := st.InjectMachine(version.Current.Series, cons, instanceId, jobs...)
+	m, err := st.InjectMachine(version.Current.Series, cons, instId, characteristics, jobs...)
 	if err != nil {
 		return err
 	}
