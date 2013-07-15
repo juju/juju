@@ -386,6 +386,7 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
+	prefix := "myservice"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -393,12 +394,13 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, prefix)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(service.ServiceName, Matches, prefix+".*")
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
@@ -410,7 +412,7 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, "service")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -433,7 +435,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, "service")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -446,7 +448,7 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure)
+	_, err = attemptCreateService(azure, "service")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
@@ -461,6 +463,7 @@ func (*EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
 }
 
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
+	prefix := "myservice"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -468,12 +471,13 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure)
+	service, err := newHostedService(azure, prefix)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(service.ServiceName, Matches, prefix+".*")
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
@@ -489,7 +493,7 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure)
+	service, err := newHostedService(azure, "service")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -523,7 +527,7 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure)
+	_, err = newHostedService(azure, "service")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
@@ -741,39 +745,81 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	c.Check(vhd.SourceImageName, Equals, sourceImageName)
 }
 
+// mapInputEndpointsByPort takes a slice of input endpoints, and returns them
+// as a map keyed by their (external) ports.  This makes it easier to query
+// individual endpoints from an array whose ordering you don't know.
+// Multiple input endpoints for the same port are treated as an error.
+func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwacl.InputEndpoint {
+	mapping := make(map[int]gwacl.InputEndpoint)
+	for _, endpoint := range endpoints {
+		_, have := mapping[endpoint.Port]
+		c.Assert(have, Equals, false)
+		mapping[endpoint.Port] = endpoint
+	}
+	return mapping
+}
+
 func (EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
+	hostname := "hostname"
 
-	role := env.newRole(vhd, userData)
+	role := env.newRole(vhd, userData, hostname)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
 	c.Check(linuxConfig.UserData, Equals, userData)
-	c.Check(linuxConfig.Hostname, Equals, DeploymentName)
+	c.Check(linuxConfig.Hostname, Equals, hostname)
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
-	// The network config contains an endpoint for ssh communication.
-	firstEndpoint := (*networkConfig.InputEndpoints)[0]
-	c.Check(firstEndpoint.LocalPort, Equals, 22)
-	c.Check(firstEndpoint.Port, Equals, 22)
-	c.Check(firstEndpoint.Protocol, Equals, "TCP")
 	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
+
+	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
+
+	// The network config contains an endpoint for ssh communication.
+	sshEndpoint, ok := endpoints[22]
+	c.Assert(ok, Equals, true)
+	c.Check(sshEndpoint.LocalPort, Equals, 22)
+	c.Check(sshEndpoint.Protocol, Equals, "TCP")
+
+	// There's also an endpoint for the state (mongodb) port.
+	// TODO: Ought to have this only for state servers.
+	stateEndpoint, ok := endpoints[env.Config().StatePort()]
+	c.Assert(ok, Equals, true)
+	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
+	c.Check(stateEndpoint.Protocol, Equals, "TCP")
+
+	// And one for the API port.
+	// TODO: Ought to have this only for API servers.
+	apiEndpoint, ok := endpoints[env.Config().APIPort()]
+	c.Assert(ok, Equals, true)
+	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())
+	c.Check(apiEndpoint.Protocol, Equals, "TCP")
 }
 
 func (EnvironSuite) TestNewDeployment(c *C) {
 	env := makeEnviron(c)
+	deploymentName := "deployment-name"
 	deploymentLabel := "deployment-label"
 	virtualNetworkName := "virtual-network-name"
 	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole(vhd, "user-data")
+	role := env.newRole(vhd, "user-data", "hostname")
 
-	deployment := env.newDeployment(role, deploymentLabel, virtualNetworkName)
+	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
 
 	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
 	c.Check(deployment.Label, Equals, base64Label)
+	c.Check(deployment.Name, Equals, deploymentName)
 	c.Check(deployment.RoleList, HasLen, 1)
+}
+
+func (*EnvironSuite) TestProviderReturnsAzureEnvironProvider(c *C) {
+	prov := makeEnviron(c).Provider()
+	c.Assert(prov, NotNil)
+	azprov, ok := prov.(azureEnvironProvider)
+	c.Assert(ok, Equals, true)
+	c.Check(azprov, NotNil)
 }
