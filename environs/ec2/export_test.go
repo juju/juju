@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/utils"
 	"net/http"
 )
 
@@ -101,25 +100,6 @@ func UseTestMetadata(content []jujutest.FileContent) {
 	} else {
 		testRoundTripper.Sub = nil
 		metadataHost = origMetadataHost
-	}
-}
-
-var originalShortAttempt = shortAttempt
-var originalLongAttempt = environs.LongAttempt
-
-// ShortTimeouts sets the timeouts to a short period as we
-// know that the ec2test server doesn't get better with time,
-// and this reduces the test time from 30s to 3s.
-func ShortTimeouts(short bool) {
-	if short {
-		shortAttempt = utils.AttemptStrategy{
-			Total: 0.25e9,
-			Delay: 0.01e9,
-		}
-		environs.LongAttempt = shortAttempt
-	} else {
-		shortAttempt = originalShortAttempt
-		environs.LongAttempt = originalLongAttempt
 	}
 }
 
