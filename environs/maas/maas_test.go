@@ -5,14 +5,11 @@ package maas
 
 import (
 	stdtesting "testing"
-	"time"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/gomaasapi"
-	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
 )
 
 func TestMAAS(t *stdtesting.T) {
@@ -21,8 +18,8 @@ func TestMAAS(t *stdtesting.T) {
 
 type ProviderSuite struct {
 	testing.LoggingSuite
-	environ              *maasEnviron
-	testMAASObject       *gomaasapi.TestMAASObject
+	environ         *maasEnviron
+	testMAASObject  *gomaasapi.TestMAASObject
 	restoreTimeouts func()
 }
 
