@@ -4,6 +4,8 @@
 package testing
 
 import (
+	"time"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
@@ -12,7 +14,7 @@ import (
 
 type testingSuite struct{}
 
-var _ = Suite(&testingSuite{})
+var _ = gc.Suite(&testingSuite{})
 
 func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
 	attempt := utils.AttemptStrategy{
@@ -22,9 +24,9 @@ func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
 
 	snapshot := saveAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 
-	c.Assert(shapshot, HasLen, 1)
-	c.Check(snapshot[0].address, Equals, &attempt)
-	c.Check(snapshot[0].original, DeepEquals, attempt)
+	c.Assert(snapshot, gc.HasLen, 1)
+	c.Check(snapshot[0].address, gc.Equals, &attempt)
+	c.Check(snapshot[0].original, gc.DeepEquals, attempt)
 }
 
 func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
@@ -36,7 +38,7 @@ func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
 
 	saveAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 
-	c.Check(attempt, DeepEquals, original)
+	c.Check(attempt, gc.DeepEquals, original)
 }
 
 func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *gc.C) {
@@ -44,11 +46,11 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *gc.C) {
 		Total: 33 * time.Millisecond,
 		Delay: 99 * time.Microsecond,
 	}
-	c.Assert(attempt, Not(DeepEquals), impatientAttempt)
+	c.Assert(attempt, gc.Not(gc.DeepEquals), impatientAttempt)
 
 	internalPatchAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 
-	c.Check(attempt, DeepEquals, impatientAttempt)
+	c.Check(attempt, gc.DeepEquals, impatientAttempt)
 }
 
 // internalPatchAttemptStrategies returns a cleanup function that restores
@@ -60,22 +62,22 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
 		Total: 22 * time.Millisecond,
 		Delay: 77 * time.Microsecond,
 	}
-	c.Assert(original, Not(DeepEquals), impatientAttempt)
+	c.Assert(original, gc.Not(gc.DeepEquals), impatientAttempt)
 	attempt := original
 
 	cleanup := internalPatchAttemptStrategies([]*utils.AttemptStrategy{&attempt})
 	cleanup()
 
-	c.Check(attempt, DeepEquals, original)
+	c.Check(attempt, gc.DeepEquals, original)
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesLongAttempt(c *gc.C) {
-	c.Assert(environs.LongAttempt, Not(DeepEquals), impatientAttempt)
+	c.Assert(environs.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
 
 	cleanup := PatchAttemptStrategies()
 	defer cleanup()
 
-	c.Check(environs.LongAttempt, DeepEquals, impatientAttempt)
+	c.Check(environs.LongAttempt, gc.DeepEquals, impatientAttempt)
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
@@ -88,9 +90,9 @@ func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
 		Delay: 62 * time.Nanosecond,
 	}
 
-	cleanup := PatchAttemptStrategies(attempt1, attempt2)
+	cleanup := PatchAttemptStrategies(&attempt1, &attempt2)
 	defer cleanup()
 
-	c.Check(attempt1, DeepEquals, impatientAttempt)
-	c.Check(attempt2, DeepEquals, impatientAttempt)
+	c.Check(attempt1, gc.DeepEquals, impatientAttempt)
+	c.Check(attempt2, gc.DeepEquals, impatientAttempt)
 }
