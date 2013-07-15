@@ -646,7 +646,7 @@ func (env *azureEnviron) Ports() ([]instance.Port, error) {
 
 // Provider is specified in the Environ interface.
 func (env *azureEnviron) Provider() environs.EnvironProvider {
-	panic("unimplemented")
+	return azureEnvironProvider{}
 }
 
 // azureManagementContext wraps two things: a gwacl.ManagementAPI (effectively
