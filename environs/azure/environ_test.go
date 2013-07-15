@@ -745,14 +745,15 @@ func (EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
+	hostname := "hostname"
 
-	role := env.newRole(vhd, userData)
+	role := env.newRole(vhd, userData, hostname)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
 	c.Check(linuxConfig.UserData, Equals, userData)
-	c.Check(linuxConfig.Hostname, Equals, DeploymentName)
+	c.Check(linuxConfig.Hostname, Equals, hostname)
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
@@ -766,14 +767,16 @@ func (EnvironSuite) TestNewRole(c *C) {
 
 func (EnvironSuite) TestNewDeployment(c *C) {
 	env := makeEnviron(c)
+	deploymentName := "deployment-name"
 	deploymentLabel := "deployment-label"
 	virtualNetworkName := "virtual-network-name"
 	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole(vhd, "user-data")
+	role := env.newRole(vhd, "user-data", "hostname")
 
-	deployment := env.newDeployment(role, deploymentLabel, virtualNetworkName)
+	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
 
 	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
 	c.Check(deployment.Label, Equals, base64Label)
+	c.Check(deployment.Name, Equals, deploymentName)
 	c.Check(deployment.RoleList, HasLen, 1)
 }

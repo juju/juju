@@ -25,9 +25,9 @@ import (
 
 const (
 	// In our initial implementation, each instance gets its own hosted
-	// service and deployment in Azure.  The deployment always gets this
-	// name (instance==service).
-	DeploymentName = "default"
+	// service, deployment and role in Azure.  The role always gets this
+	// hostname (instance==service).
+	roleHostname = "default"
 
 	// Initially, this is the only location where Azure supports Linux.
 	// TODO: This is to become a configuration item.
@@ -355,10 +355,10 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 	vhd := env.newOSDisk(sourceImageName)
 
 	// 2. Create a Role for a Linux machine.
-	role := env.newRole(vhd, userData)
+	role := env.newRole(vhd, userData, roleHostname)
 
 	// 3. Create the Deployment object.
-	deployment := env.newDeployment(role, serviceName, virtualNetworkName)
+	deployment := env.newDeployment(role, serviceName, serviceName, virtualNetworkName)
 
 	err = azure.AddDeployment(deployment, serviceName)
 	if err != nil {
@@ -428,13 +428,13 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 // The VM will have:
 // - an 'ubuntu' user defined with an unguessable (randomly generated) password
 // - its port 22 open
-func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) *gwacl.Role {
+func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
 	// TODO: Derive the role size from the constraints.
 	// ExtraSmall|Small|Medium|Large|ExtraLarge
 	roleSize := "ExtraSmall"
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
-	hostname := DeploymentName
+	hostname := roleHostname
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
@@ -454,9 +454,9 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 }
 
 // newDeployment creates and returns a gwacl Deployment object.
-func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
+func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
 	// Use the service name as the label for the deployment.
-	return gwacl.NewDeploymentForCreateVMDeployment(DeploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
+	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }
 
 // makeMachineConfig sets up a basic machine configuration for use with
