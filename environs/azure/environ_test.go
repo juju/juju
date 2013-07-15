@@ -745,12 +745,12 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 // as a map keyed by their (external) ports.  This makes it easier to query
 // individual endpoints from an array whose ordering you don't know.
 // Multiple input endpoints for the same port are treated as an error.
-func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]*gwacl.InputEndpoint {
-	mapping := make(map[int]*gwacl.InputEndpoint)
+func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwacl.InputEndpoint {
+	mapping := make(map[int]gwacl.InputEndpoint)
 	for _, endpoint := range endpoints {
 		_, have := mapping[endpoint.Port]
 		c.Assert(have, Equals, false)
-		mapping[endpoint.Port] = &endpoint
+		mapping[endpoint.Port] = endpoint
 	}
 	return mapping
 }
