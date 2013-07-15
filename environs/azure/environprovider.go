@@ -29,7 +29,11 @@ var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Debugf("opening environment %q.", cfg.Name())
-	return NewEnviron(cfg)
+	environ, err := NewEnviron(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return environ, nil
 }
 
 // PublicAddress is specified in the EnvironProvider interface.
