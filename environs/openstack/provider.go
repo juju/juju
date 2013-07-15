@@ -639,7 +639,7 @@ func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byt
 		StateServer:  scfg.stateServer,
 		StateInfo:    scfg.info,
 		APIInfo:      scfg.apiInfo,
-		DataDir:      "/var/lib/juju",
+		DataDir:      environs.DataDir,
 		Tools:        tools,
 	}
 	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {

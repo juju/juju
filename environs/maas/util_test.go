@@ -7,6 +7,7 @@ import (
 	"fmt"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -69,7 +70,7 @@ func (s *UtilSuite) TestUserData(c *C) {
 			Password: "pw2",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		DataDir:     jujuDataDir,
+		DataDir:     environs.DataDir,
 		Config:      envConfig,
 		StatePort:   envConfig.StatePort(),
 		APIPort:     envConfig.APIPort(),
@@ -111,7 +112,7 @@ func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
 	c.Assert(err, IsNil)
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, IsNil)
-	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", jujuDataDir, yaml, filename)
+	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", environs.DataDir, yaml, filename)
 	c.Check(script, Equals, expected)
 }
 

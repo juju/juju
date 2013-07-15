@@ -5,6 +5,9 @@ package ec2
 
 import (
 	"io"
+	"net/http"
+	"time"
+
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
@@ -13,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
-	"net/http"
 )
 
 func JujuGroupName(e environs.Environ) string {
@@ -112,12 +114,18 @@ var originalLongAttempt = environs.LongAttempt
 // and this reduces the test time from 30s to 3s.
 func ShortTimeouts(short bool) {
 	if short {
+		// Careful: this must be an assignment ("="), not an
+		// initialization (":=").  We're trying to change a
+		// global variable here.
 		shortAttempt = utils.AttemptStrategy{
-			Total: 0.25e9,
-			Delay: 0.01e9,
+			Total: 100 * time.Millisecond,
+			Delay: 10 * time.Millisecond,
 		}
 		environs.LongAttempt = shortAttempt
 	} else {
+		// Careful: this must be an assignment ("="), not an
+		// initialization (":=").  We're trying to change a
+		// global variable here.
 		shortAttempt = originalShortAttempt
 		environs.LongAttempt = originalLongAttempt
 	}

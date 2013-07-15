@@ -259,9 +259,9 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
-			&params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`},
+			{Message: `cannot remove entity "unit-mysql-0": still alive`},
 			apiservertesting.ErrUnauthorized,
-			&params.Error{Message: `cannot remove entity "unit-logging-0": still alive`},
+			{Message: `cannot remove entity "unit-logging-0": still alive`},
 			apiservertesting.ErrUnauthorized,
 		},
 	})

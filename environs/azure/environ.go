@@ -222,11 +222,11 @@ func isProvisionalServiceLabel(label string) bool {
 }
 
 // attemptCreateService tries to create a new hosted service on Azure, with a
-// name it chooses, but recognizes that the name may not be available.  If
-// the name is not available, it does not treat that as an error but just
-// returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
-	name := gwacl.MakeRandomHostedServiceName("juju")
+// name it chooses (based on the given prefix), but recognizes that the name
+// may not be available.  If the name is not available, it does not treat that
+// as an error but just returns nil.
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
+	name := gwacl.MakeRandomHostedServiceName(prefix)
 	label := makeProvisionalServiceLabel(name)
 	req := gwacl.NewCreateHostedServiceWithLocation(name, label, serviceLocation)
 	err := azure.AddHostedService(req)
@@ -244,12 +244,13 @@ func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedServic
 	return req, nil
 }
 
-// newHostedService creates a hosted service.  It will make up a unique name.
-func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
+// newHostedService creates a hosted service.  It will make up a unique name,
+// starting with the given prefix.
+func newHostedService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure)
+		svc, err = attemptCreateService(azure, prefix)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -325,7 +326,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI)
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix())
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +428,9 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 // the given Virtual Hard Drive.
 // The VM will have:
 // - an 'ubuntu' user defined with an unguessable (randomly generated) password
-// - its port 22 open
+// - its ssh port (TCP 22) open
+// - its state port (TCP mongoDB) port open
+// - its API port (TCP) open
 func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) *gwacl.Role {
 	// TODO: Derive the role size from the constraints.
 	// ExtraSmall|Small|Medium|Large|ExtraLarge
@@ -438,13 +441,31 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
-	// Generate a Network Configuration with port 22 open.
-	inputendpoint := gwacl.InputEndpoint{
-		LocalPort: 22,
-		Name:      "sshport",
-		Port:      22,
-		Protocol:  "TCP"}
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{inputendpoint})
+	config := env.Config()
+	// Generate a Network Configuration with the initially required ports
+	// open.
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{
+		{
+			LocalPort: 22,
+			Name:      "sshport",
+			Port:      22,
+			Protocol:  "TCP",
+		},
+		// TODO: Ought to have this only for state servers.
+		{
+			LocalPort: config.StatePort(),
+			Name:      "stateport",
+			Port:      config.StatePort(),
+			Protocol:  "TCP",
+		},
+		// TODO: Ought to have this only for API servers.
+		{
+			LocalPort: config.APIPort(),
+			Name:      "apiport",
+			Port:      config.APIPort(),
+			Protocol:  "TCP",
+		},
+	})
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(
@@ -467,8 +488,7 @@ func (env *azureEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		// TODO: Unify instances of this path, so tests can fake it.
-		DataDir: "/var/lib/juju",
+		DataDir: environs.DataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -647,7 +667,7 @@ func (env *azureEnviron) Ports() ([]instance.Port, error) {
 
 // Provider is specified in the Environ interface.
 func (env *azureEnviron) Provider() environs.EnvironProvider {
-	panic("unimplemented")
+	return azureEnvironProvider{}
 }
 
 // azureManagementContext wraps two things: a gwacl.ManagementAPI (effectively
