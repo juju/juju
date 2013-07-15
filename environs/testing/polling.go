@@ -62,6 +62,8 @@ func internalPatchAttemptStrategies(strategies []*utils.AttemptStrategy) func() 
 	return func() { restoreAttemptStrategies(snapshot) }
 }
 
+// TODO: Everything up to this point is generic.  Move it to utils?
+
 // PatchAttemptStrategies patches environs' global polling strategy, plus any
 // otther AttemptStrategy objects whose addresses you pass, to very short
 // polling and timeout times so that tests can run fast.
