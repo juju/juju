@@ -467,8 +467,7 @@ func (env *azureEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		// TODO: Unify instances of this path, so tests can fake it.
-		DataDir: "/var/lib/juju",
+		DataDir: environs.DataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,

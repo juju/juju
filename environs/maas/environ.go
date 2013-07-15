@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	jujuDataDir = "/var/lib/juju"
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
 )
@@ -75,7 +74,7 @@ func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir: jujuDataDir,
+		DataDir: environs.DataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,
