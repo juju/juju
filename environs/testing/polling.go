@@ -13,7 +13,7 @@ import (
 // impatientAttempt is an extremely short polling time suitable for tests.
 // It's aimed to be just long enough that the AttemptStrategy implementation
 // will yield at least once, but short enough that the test suite won't spend
-// much of its time sleeping. 
+// much of its time sleeping.
 var impatientAttempt = utils.AttemptStrategy{
 	Total: 100 * time.Millisecond,
 	Delay: 10 * time.Millisecond,
