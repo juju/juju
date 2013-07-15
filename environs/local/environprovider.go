@@ -119,8 +119,10 @@ func (environProvider) PrivateAddress() (string, error) {
 // InstanceId implements environs.EnvironProvider.InstanceId.
 func (environProvider) InstanceId() (instance.Id, error) {
 	// This hack only works until we get containers started.
+	// Interestingly, this method is only ever called for the bootstrap machine.
+	// This method should not be attached to the EnvironProvider interface.
+	// TODO(thumper): refactor this method out of existance from the interface
 	return instance.Id("localhost"), nil
-	// return "", fmt.Errorf("not implemented")
 }
 
 func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
