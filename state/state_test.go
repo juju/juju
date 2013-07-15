@@ -5,8 +5,14 @@ package state_test
 
 import (
 	"fmt"
+	"net/url"
+	"strconv"
+	"strings"
+	"time"
+
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -18,10 +24,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"strconv"
-	"strings"
-	"time"
 )
 
 type D []bson.DocElem
@@ -88,7 +90,7 @@ func (s *StateSuite) TestAddCharm(c *C) {
 	curl := charm.MustParseURL(
 		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
 	)
-	bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
+	bundleURL, err := url.Parse("http://bundles.testing.invalid/dummy-1")
 	c.Assert(err, IsNil)
 	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
 	c.Assert(err, IsNil)
@@ -840,7 +842,24 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	wc.AssertNoChange()
 }
 
-func (s *StateSuite) TestWatchMachinesLifecycleIgnoresContainers(c *C) {
+func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *C) {
+	// Older versions of juju do not write the "containertype" field.
+	// This has caused machines to not be detected in the initial event.
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.machines.Update(
+		D{{"_id", machine.Id()}},
+		D{{"$unset", D{{"containertype", 1}}}},
+	)
+	c.Assert(err, IsNil)
+
+	w := s.State.WatchEnvironMachines()
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertOneChange(machine.Id())
+}
+
+func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *C) {
 	// Initial event is empty when no machines.
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
@@ -1458,8 +1477,8 @@ func (s *StateSuite) testEntity(c *C, getEntity func(string) (state.Tagger, erro
 }
 
 func (s *StateSuite) TestAuthenticator(c *C) {
-	getEntity := func(name string) (state.Tagger, error) {
-		e, err := s.State.Authenticator(name)
+	getEntity := func(tag string) (state.Tagger, error) {
+		e, err := s.State.Authenticator(tag)
 		if err != nil {
 			return nil, err
 		}
@@ -1490,8 +1509,8 @@ func (s *StateSuite) TestAuthenticator(c *C) {
 }
 
 func (s *StateSuite) TestAnnotator(c *C) {
-	getEntity := func(name string) (state.Tagger, error) {
-		e, err := s.State.Annotator(name)
+	getEntity := func(tag string) (state.Tagger, error) {
+		e, err := s.State.Annotator(tag)
 		if err != nil {
 			return nil, err
 		}
@@ -1523,6 +1542,39 @@ func (s *StateSuite) TestAnnotator(c *C) {
 		ErrorMatches,
 		`entity "user-arble" does not support annotations`,
 	)
+}
+
+func (s *StateSuite) TestLifer(c *C) {
+	getEntity := func(tag string) (state.Tagger, error) {
+		e, err := s.State.Lifer(tag)
+		if err != nil {
+			return nil, err
+		}
+		return e, nil
+	}
+	s.testEntity(c, getEntity)
+
+	svc, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
+	c.Assert(err, IsNil)
+	service, err := getEntity(svc.Tag())
+	c.Assert(err, IsNil)
+	c.Assert(service, FitsTypeOf, svc)
+	c.Assert(service.Tag(), Equals, svc.Tag())
+
+	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, check
+	// it works here.
+
+	cfg, err := s.State.EnvironConfig()
+	c.Assert(err, IsNil)
+	envTag := "environment-" + cfg.Name()
+	_, err = getEntity(envTag)
+	errTemplate := "entity %q does not support lifecycles"
+	c.Assert(err, ErrorMatches, fmt.Sprintf(errTemplate, envTag))
+
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, IsNil)
+	_, err = getEntity(user.Tag())
+	c.Assert(err, ErrorMatches, fmt.Sprintf(errTemplate, user.Tag()))
 }
 
 func (s *StateSuite) TestParseTag(c *C) {

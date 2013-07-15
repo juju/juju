@@ -6,6 +6,10 @@ package maas
 import (
 	"encoding/base64"
 	"fmt"
+	"net/url"
+	"sync"
+	"time"
+
 	"launchpad.net/gomaasapi"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -17,13 +21,9 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
-	"net/url"
-	"sync"
-	"time"
 )
 
 const (
-	jujuDataDir = "/var/lib/juju"
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
 )
@@ -32,15 +32,10 @@ const (
 // should resolve fairly quickly.  A request may also fail due to a slow
 // state transition (for instance an instance taking a while to release
 // a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
+// dealt with by shortAttempt, the latter by LongAttempt.
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
-}
-
-var longAttempt = utils.AttemptStrategy{
-	Total: 3 * time.Minute,
-	Delay: 1 * time.Second,
 }
 
 type maasEnviron struct {
@@ -74,11 +69,12 @@ func (env *maasEnviron) Name() string {
 // makeMachineConfig sets up a basic machine configuration for use with
 // userData().  You may still need to supply more information, but this takes
 // care of the fixed entries and the ones that are always needed.
+// TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir: jujuDataDir,
+		DataDir: environs.DataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -101,7 +97,11 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.obtainNode(machineID, cons, possibleTools, mcfg)
+	err = environs.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
+	if err != nil {
+		return nil, err
+	}
+	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -109,6 +109,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 }
 
 // Bootstrap is specified in the Environ interface.
+// TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 
 	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
@@ -123,8 +124,11 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
-		if err := env.releaseInstance(inst); err != nil {
-			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err)
+		err2 := env.releaseInstance(inst)
+		if err2 != nil {
+			// Failure upon failure.  Log it, but return the
+			// original error.
+			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err2)
 		}
 		return fmt.Errorf("cannot save state: %v", err)
 	}
@@ -217,14 +221,10 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
-	retry := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
-	for a := retry.Start(); a.Next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
 		result, err = client.CallPost("acquire", constraintsParams)
 		if err == nil {
@@ -246,10 +246,6 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools to
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
-	retry := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {series},
@@ -258,18 +254,22 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
 	err := fmt.Errorf("(no error)")
-	for a := retry.Start(); a.Next() && err != nil; {
+	for a := shortAttempt.Start(); a.Next() && err != nil; {
 		_, err = node.CallPost("start", params)
 	}
 	return err
 }
 
-// obtainNode allocates and starts a MAAS node.  It is used both for the
-// implementation of StartInstance, and to initialize the bootstrap node.
-func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+// internalStartInstance allocates and starts a MAAS node.  It is used both
+// for the implementation of StartInstance, and to initialize the bootstrap
+// node.
+// The instance will be set up for the same series for which you pass tools.
+// All tools in possibleTools must be for the same series.
+// TODO(bug 1199847): Some of this work can be shared between providers.
+func (environ *maasEnviron) internalStartInstance(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 	var instance *maasInstance
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
@@ -311,15 +311,20 @@ func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value,
 }
 
 // StartInstance is specified in the Environ interface.
+// TODO(bug 1199847): This work can be shared between providers.
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
+	err = environs.CheckToolsSeries(possibleTools, series)
+	if err != nil {
+		return nil, nil, err
+	}
 	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.obtainNode(machineID, cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	return inst, nil, err
 }
 
@@ -448,11 +453,7 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 		return err
 	}
 
-	// To properly observe e.storageUnlocked we need to get its value while
-	// holding e.ecfgMutex. e.Storage() does this for us, then we convert
-	// back to the (*storage) to access the private deleteAll() method.
-	st := environ.Storage().(*maasStorage)
-	return st.deleteAll()
+	return environ.Storage().RemoveAll()
 }
 
 // MAAS does not do firewalling so these port methods do nothing.

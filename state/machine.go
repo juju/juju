@@ -5,16 +5,18 @@ package state
 
 import (
 	"fmt"
+	"strings"
+	"time"
+
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
-	"strings"
-	"time"
 )
 
 // Machine represents the state of a machine.

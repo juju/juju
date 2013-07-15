@@ -5,11 +5,13 @@ package cmd_test
 
 import (
 	"bytes"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
 	"path/filepath"
 	stdtesting "testing"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 )
 
 func Test(t *stdtesting.T) { TestingT(t) }

@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -135,6 +136,19 @@ func FindExactTools(environ Environ, vers version.Binary) (t *state.Tools, err e
 		return nil, err
 	}
 	return list[0], nil
+}
+
+// CheckToolsSeries verifies that all the given possible tools are for the
+// given OS series.
+func CheckToolsSeries(tools tools.List, series string) error {
+	toolsSeries := tools.Series()
+	if len(toolsSeries) != 1 {
+		return fmt.Errorf("expected single series, got %v", toolsSeries)
+	}
+	if toolsSeries[0] != series {
+		return fmt.Errorf("tools mismatch: expected series %v, got %v", series, toolsSeries[0])
+	}
+	return nil
 }
 
 func isToolsError(err error) bool {

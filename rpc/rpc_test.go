@@ -6,16 +6,18 @@ package rpc_test
 import (
 	"encoding/json"
 	"fmt"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/rpc"
-	"launchpad.net/juju-core/rpc/jsoncodec"
-	"launchpad.net/juju-core/testing"
 	"net"
 	"reflect"
 	"sync"
 	stdtesting "testing"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/rpc"
+	"launchpad.net/juju-core/rpc/jsoncodec"
+	"launchpad.net/juju-core/testing"
 )
 
 type suite struct {

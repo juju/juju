@@ -8,10 +8,11 @@ import (
 	"path/filepath"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/loggo"
 )
 
 type LogSuite struct {

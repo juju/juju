@@ -5,6 +5,7 @@ package cmd
 
 import (
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/version"
 )
 
