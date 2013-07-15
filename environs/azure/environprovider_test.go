@@ -30,6 +30,22 @@ func (EnvironProviderSuite) TestOpen(c *C) {
 	c.Check(env.Name(), Equals, attrs["name"])
 }
 
+func (EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) {
+	prov := azureEnvironProvider{}
+	attrs := makeAzureConfigMap(c)
+	// Make the config invalid.
+	attrs["public-storage-account-name"] = ""
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	env, err := prov.Open(cfg)
+	// When Open() fails (i.e. returns a non-nil error), it returns an
+	// environs.Environ interface object with a nil value and a nil
+	// type.
+	c.Check(env, Equals, nil)
+	c.Check(err, ErrorMatches, ".*must be specified both or none of them.*")
+}
+
 // writeWALASharedConfig creates a temporary file with a valid WALinux config
 // built using the given parameters. The file will be cleaned up at the end
 // of the test calling this method.
