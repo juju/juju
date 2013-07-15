@@ -1,0 +1,96 @@
+// Copyright 2012, 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+package testing
+
+import (
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/utils"
+)
+
+type testingSuite struct{}
+
+var _ = Suite(&testingSuite{})
+
+func (*testingSuite) TestSaveAttemptStrategiesSaves(c *gc.C) {
+	attempt := utils.AttemptStrategy{
+		Total: time.Second,
+		Delay: time.Millisecond,
+	}
+
+	snapshot := saveAttemptStrategies([]*utils.AttemptStrategy{&attempt})
+
+	c.Assert(shapshot, HasLen, 1)
+	c.Check(snapshot[0].address, Equals, &attempt)
+	c.Check(snapshot[0].original, DeepEquals, attempt)
+}
+
+func (*testingSuite) TestSaveAttemptStrategiesLeavesOriginalsIntact(c *gc.C) {
+	original := utils.AttemptStrategy{
+		Total: time.Second,
+		Delay: time.Millisecond,
+	}
+	attempt := original
+
+	saveAttemptStrategies([]*utils.AttemptStrategy{&attempt})
+
+	c.Check(attempt, DeepEquals, original)
+}
+
+func (*testingSuite) TestInternalPatchAttemptStrategiesPatches(c *gc.C) {
+	attempt := utils.AttemptStrategy{
+		Total: 33 * time.Millisecond,
+		Delay: 99 * time.Microsecond,
+	}
+	c.Assert(attempt, Not(DeepEquals), impatientAttempt)
+
+	internalPatchAttemptStrategies([]*utils.AttemptStrategy{&attempt})
+
+	c.Check(attempt, DeepEquals, impatientAttempt)
+}
+
+// internalPatchAttemptStrategies returns a cleanup function that restores
+// the given strategies to their original configurations.  For simplicity,
+// these tests take this as sufficient proof that any strategy that gets
+// patched, also gets restored by the cleanup function.
+func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
+	original := utils.AttemptStrategy{
+		Total: 22 * time.Millisecond,
+		Delay: 77 * time.Microsecond,
+	}
+	c.Assert(original, Not(DeepEquals), impatientAttempt)
+	attempt := original
+
+	cleanup := internalPatchAttemptStrategies([]*utils.AttemptStrategy{&attempt})
+	cleanup()
+
+	c.Check(attempt, DeepEquals, original)
+}
+
+func (*testingSuite) TestPatchAttemptStrategiesPatchesLongAttempt(c *gc.C) {
+	c.Assert(environs.LongAttempt, Not(DeepEquals), impatientAttempt)
+
+	cleanup := PatchAttemptStrategies()
+	defer cleanup()
+
+	c.Check(environs.LongAttempt, DeepEquals, impatientAttempt)
+}
+
+func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {
+	attempt1 := utils.AttemptStrategy{
+		Total: 33 * time.Millisecond,
+		Delay: 99 * time.Microsecond,
+	}
+	attempt2 := utils.AttemptStrategy{
+		Total: 82 * time.Microsecond,
+		Delay: 62 * time.Nanosecond,
+	}
+
+	cleanup := PatchAttemptStrategies(attempt1, attempt2)
+	defer cleanup()
+
+	c.Check(attempt1, DeepEquals, impatientAttempt)
+	c.Check(attempt2, DeepEquals, impatientAttempt)
+}
