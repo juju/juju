@@ -126,8 +126,7 @@ func (s *Service) MinUnits() int {
 // EnsureMinUnits adds new units if the service's MinUnits value is greater
 // than the number of alive units.
 func (s *Service) EnsureMinUnits() (err error) {
-	defer utils.ErrorContextf(&err,
-		"cannot ensure minimum units for service %q", s)
+	defer utils.ErrorContextf(&err, "cannot ensure minimum units for service %q", s)
 	service := &Service{st: s.st, doc: s.doc}
 	for {
 		// Ensure the service is alive.
@@ -169,6 +168,7 @@ func (s *Service) EnsureMinUnits() (err error) {
 				return nil
 			}
 		case txn.ErrAborted:
+			// Refresh the service and restart the loop.
 		default:
 			return err
 		}
