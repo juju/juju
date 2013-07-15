@@ -222,11 +222,11 @@ func isProvisionalServiceLabel(label string) bool {
 }
 
 // attemptCreateService tries to create a new hosted service on Azure, with a
-// name it chooses, but recognizes that the name may not be available.  If
-// the name is not available, it does not treat that as an error but just
-// returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
-	name := gwacl.MakeRandomHostedServiceName("juju")
+// name it chooses (based on the given prefix), but recognizes that the name
+// may not be available.  If the name is not available, it does not treat that
+// as an error but just returns nil.
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
+	name := gwacl.MakeRandomHostedServiceName(prefix)
 	label := makeProvisionalServiceLabel(name)
 	req := gwacl.NewCreateHostedServiceWithLocation(name, label, serviceLocation)
 	err := azure.AddHostedService(req)
@@ -244,12 +244,13 @@ func attemptCreateService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedServic
 	return req, nil
 }
 
-// newHostedService creates a hosted service.  It will make up a unique name.
-func newHostedService(azure *gwacl.ManagementAPI) (*gwacl.CreateHostedService, error) {
+// newHostedService creates a hosted service.  It will make up a unique name,
+// starting with the given prefix.
+func newHostedService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure)
+		svc, err = attemptCreateService(azure, prefix)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -325,7 +326,7 @@ func (env *azureEnviron) internalStartInstance(machineID string, cons constraint
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI)
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix())
 	if err != nil {
 		return nil, err
 	}

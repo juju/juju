@@ -386,6 +386,7 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
+	prefix := "myservice"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -393,12 +394,13 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, prefix)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(service.ServiceName, Matches, prefix+".*")
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
@@ -410,7 +412,7 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, "service")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -433,7 +435,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, "service")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -446,7 +448,7 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure)
+	_, err = attemptCreateService(azure, "service")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
@@ -461,6 +463,7 @@ func (*EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
 }
 
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
+	prefix := "myservice"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -468,12 +471,13 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure)
+	service, err := newHostedService(azure, prefix)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(service.ServiceName, Matches, prefix+".*")
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
@@ -489,7 +493,7 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure)
+	service, err := newHostedService(azure, "service")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -523,7 +527,7 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure)
+	_, err = newHostedService(azure, "service")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
