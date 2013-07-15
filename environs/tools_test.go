@@ -5,12 +5,14 @@ package environs_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -551,4 +553,56 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 			c.Check(err, DeepEquals, &errors.NotFoundError{test.err, ""})
 		}
 	}
+}
+
+// fakeToolsForSeries fakes a Tools object with just enough information for
+// testing the handling its OS series.
+func fakeToolsForSeries(series string) *state.Tools {
+	return &state.Tools{Binary: version.Binary{Series: series}}
+}
+
+// fakeToolsList fakes a tools.List containing Tools objects for the given
+// respective series, in the same number and order.
+func fakeToolsList(series ...string) tools.List {
+	list := tools.List{}
+	for _, name := range series {
+		list = append(list, fakeToolsForSeries(name))
+	}
+	return list
+}
+
+func (s *ToolsSuite) TestCheckToolsSeriesRequiresTools(c *C) {
+	err := environs.CheckToolsSeries(fakeToolsList(), "precise")
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, "expected single series, got \\[\\]")
+}
+
+func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *C) {
+	names := []string{"precise", "raring"}
+	for _, series := range names {
+		list := fakeToolsList(series)
+		err := environs.CheckToolsSeries(list, series)
+		c.Check(err, IsNil)
+	}
+}
+
+func (s *ToolsSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *C) {
+	series := "quantal"
+	list := fakeToolsList(series, series, series)
+	err := environs.CheckToolsSeries(list, series)
+	c.Check(err, IsNil)
+}
+
+func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *C) {
+	list := fakeToolsList("hoary")
+	err := environs.CheckToolsSeries(list, "warty")
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, "tools mismatch: expected series warty, got hoary")
+}
+
+func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *C) {
+	list := fakeToolsList("precise", "raring")
+	err := environs.CheckToolsSeries(list, "precise")
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, "expected single series, got .*")
 }

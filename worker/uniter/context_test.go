@@ -550,7 +550,7 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	ctx := s.GetContext(c, -1, "")
 	pr, ok := ctx.PrivateAddress()
 	c.Assert(ok, Equals, true)
-	c.Assert(pr, Equals, "u-0.example.com")
+	c.Assert(pr, Equals, "u-0.testing.invalid")
 	_, ok = ctx.PublicAddress()
 	c.Assert(ok, Equals, false)
 
@@ -559,13 +559,13 @@ func (s *InterfaceSuite) TestUnitCaching(c *C) {
 	c.Assert(err, IsNil)
 	err = u.SetPrivateAddress("")
 	c.Assert(err, IsNil)
-	err = u.SetPublicAddress("blah.example.com")
+	err = u.SetPublicAddress("blah.testing.invalid")
 	c.Assert(err, IsNil)
 
 	// Local view is unchanged.
 	pr, ok = ctx.PrivateAddress()
 	c.Assert(ok, Equals, true)
-	c.Assert(pr, Equals, "u-0.example.com")
+	c.Assert(pr, Equals, "u-0.testing.invalid")
 	_, ok = ctx.PublicAddress()
 	c.Assert(ok, Equals, false)
 }
@@ -620,7 +620,7 @@ func (s *HookContextSuite) AddUnit(c *C, svc *state.Service) *state.Unit {
 	unit, err := svc.AddUnit()
 	c.Assert(err, IsNil)
 	name := strings.Replace(unit.Name(), "/", "-", 1)
-	err = unit.SetPrivateAddress(name + ".example.com")
+	err = unit.SetPrivateAddress(name + ".testing.invalid")
 	c.Assert(err, IsNil)
 	return unit
 }

@@ -8,7 +8,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 )
 

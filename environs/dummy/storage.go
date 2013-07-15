@@ -119,6 +119,13 @@ func (s *storage) Remove(name string) error {
 	return nil
 }
 
+func (s *storage) RemoveAll() error {
+	s.state.mu.Lock()
+	s.files = make(map[string][]byte)
+	s.state.mu.Unlock()
+	return nil
+}
+
 func (s *storage) List(prefix string) ([]string, error) {
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()

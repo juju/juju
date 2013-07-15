@@ -78,10 +78,10 @@ func (suite *EnvironSuite) setupFakeTools(c *C) {
 	envtesting.UploadFakeTools(c, storage)
 }
 
-func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
+func (*EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	// SetConfig() validates the config change and disallows, for example,
 	// changes in the environment name.
-	server := "http://maas.example.com"
+	server := "http://maas.testing.invalid"
 	oauth := "a:b:c"
 	secret := "pssst"
 	oldCfg := getTestConfig("old-name", server, oauth, secret)
@@ -99,14 +99,14 @@ func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	c.Check(env.Name(), Equals, "old-name")
 }
 
-func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+func (*EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	name := "test env"
-	cfg := getTestConfig(name, "http://maas2.example.com", "a:b:c", "secret")
+	cfg := getTestConfig(name, "http://maas2.testing.invalid", "a:b:c", "secret")
 	env, err := NewEnviron(cfg)
 	c.Check(err, IsNil)
 	c.Check(env.name, Equals, "test env")
 
-	anotherServer := "http://maas.example.com"
+	anotherServer := "http://maas.testing.invalid"
 	anotherOauth := "c:d:e"
 	anotherSecret := "secret2"
 	cfg2 := getTestConfig(name, anotherServer, anotherOauth, anotherSecret)
@@ -119,9 +119,9 @@ func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	c.Check(MAASServer, DeepEquals, maas)
 }
 
-func (EnvironSuite) TestNewEnvironSetsConfig(c *C) {
+func (*EnvironSuite) TestNewEnvironSetsConfig(c *C) {
 	name := "test env"
-	cfg := getTestConfig(name, "http://maas.example.com", "a:b:c", "secret")
+	cfg := getTestConfig(name, "http://maas.testing.invalid", "a:b:c", "secret")
 
 	env, err := NewEnviron(cfg)
 

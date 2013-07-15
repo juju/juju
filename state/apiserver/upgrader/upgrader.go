@@ -32,8 +32,8 @@ func NewUpgraderAPI(
 	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
 }
 
-// Start a watcher to track if there is a new version of the API that we want
-// to upgrade to
+// WatchAPIVersion starts a watcher to track if there is a new version
+// of the API that we want to upgrade to
 func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
 		Results: make([]params.NotifyWatchResult, len(args.Entities)),
@@ -48,6 +48,7 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 			// have no state to transmit.
 			if _, ok := <-watch.Changes(); ok {
 				result.Results[i].NotifyWatcherId = u.resources.Register(watch)
+				err = nil
 			} else {
 				err = watcher.MustErr(watch)
 			}

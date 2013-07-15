@@ -103,13 +103,15 @@ func (s *storage) List(prefix string) ([]string, error) {
 // server. If only Openstack had a delete many request.
 const maxConcurrentDeletes = 8
 
-func (s *storage) deleteAll() error {
+// RemoveAll is specified in the StorageWriter interface.
+func (s *storage) RemoveAll() error {
 	names, err := s.List("")
 	if err != nil {
 		return err
 	}
-	// Remove all the objects in parallel so that we incur less round-trips.
-	// start with a goroutine feeding all the names that need to be deleted
+	// Remove all the objects in parallel so as to minimize round-trips.
+	// Start with a goroutine feeding all the names that need to be
+	// deleted.
 	toDelete := make(chan string)
 	go func() {
 		for _, name := range names {
@@ -117,14 +119,14 @@ func (s *storage) deleteAll() error {
 		}
 		close(toDelete)
 	}()
-	// Now spawn up to N routines to actually issue the requests
+	// Now spawn up to N routines to actually issue the requests.
 	maxRoutines := len(names)
 	if maxConcurrentDeletes < maxRoutines {
 		maxRoutines = maxConcurrentDeletes
 	}
 	var wg sync.WaitGroup
 	wg.Add(maxRoutines)
-	// make a channel long enough to buffer all possible errors
+	// Make a channel long enough to buffer all possible errors.
 	errc := make(chan error, len(names))
 	for i := 0; i < maxRoutines; i++ {
 		go func() {
@@ -145,8 +147,8 @@ func (s *storage) deleteAll() error {
 
 	s.Lock()
 	defer s.Unlock()
-	// Even DeleteContainer fails, it won't harm if we try again - the operation
-	// might have succeeded even if we get an error.
+	// Even DeleteContainer fails, it won't harm if we try again - the
+	// operation might have succeeded even if we get an error.
 	s.madeContainer = false
 	err = s.swift.DeleteContainer(s.containerName)
 	err, ok := maybeNotFound(err)

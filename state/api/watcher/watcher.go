@@ -108,7 +108,9 @@ func (w *commonWatcher) Err() error {
 	return w.tomb.Err()
 }
 
-type notifyWatcher struct {
+// NotifyWatcher will send events when something changes.
+// It does not send content for those changes.
+type NotifyWatcher struct {
 	commonWatcher
 	caller          common.Caller
 	notifyWatcherId string
@@ -117,8 +119,8 @@ type notifyWatcher struct {
 
 // If an API call returns a NotifyWatchResult, you can use this to turn it into
 // a local Watcher.
-func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) params.NotifyWatcher {
-	w := &notifyWatcher{
+func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) *NotifyWatcher {
+	w := &NotifyWatcher{
 		caller:          caller,
 		notifyWatcherId: result.NotifyWatcherId,
 		out:             make(chan struct{}),
@@ -132,7 +134,7 @@ func NewNotifyWatcher(caller common.Caller, result params.NotifyWatchResult) par
 	return w
 }
 
-func (w *notifyWatcher) loop() error {
+func (w *NotifyWatcher) loop() error {
 	// No results for this watcher type.
 	w.newResult = func() interface{} { return nil }
 	w.call = func(request string, result interface{}) error {
@@ -149,8 +151,8 @@ func (w *notifyWatcher) loop() error {
 		select {
 		case _, ok := <-w.in:
 			if !ok {
-				// The tomb is already killed with the correct error
-				// at this point, so just return.
+				// The tomb is already killed with the correct
+				// error at this point, so just return.
 				return nil
 			}
 			// We have received changes, so send them out.
@@ -165,19 +167,21 @@ func (w *notifyWatcher) loop() error {
 
 // Changes returns a channel that receives a value when a given entity
 // changes in some way.
-func (w *notifyWatcher) Changes() <-chan struct{} {
+func (w *NotifyWatcher) Changes() <-chan struct{} {
 	return w.out
 }
 
-type LifecycleWatcher struct {
+// StringsWatcher will send events when something changes.
+// The content of the changes is a list of strings.
+type StringsWatcher struct {
 	commonWatcher
 	caller    common.Caller
 	watchCall string
 	out       chan []string
 }
 
-func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatcher {
-	w := &LifecycleWatcher{
+func NewStringsWatcher(caller common.Caller, watchCall string) *StringsWatcher {
+	w := &StringsWatcher{
 		caller:    caller,
 		watchCall: watchCall,
 		out:       make(chan []string),
@@ -190,15 +194,15 @@ func newLifecycleWatcher(caller common.Caller, watchCall string) *LifecycleWatch
 	return w
 }
 
-func (w *LifecycleWatcher) loop() error {
-	var result params.LifecycleWatchResults
+func (w *StringsWatcher) loop() error {
+	var result params.StringsWatchResult
 	if err := w.caller.Call("State", "", w.watchCall, nil, &result); err != nil {
 		return err
 	}
-	changes := result.Ids
-	w.newResult = func() interface{} { return new(params.LifecycleWatchResults) }
+	changes := result.Changes
+	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
 	w.call = func(request string, newResult interface{}) error {
-		return w.caller.Call("LifecycleWatcher", result.LifecycleWatcherId, request, nil, newResult)
+		return w.caller.Call("StringsWatcher", result.StringsWatcherId, request, nil, newResult)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()
@@ -215,7 +219,7 @@ func (w *LifecycleWatcher) loop() error {
 				return nil
 			}
 			// We have received changes, so send them out.
-			changes = data.(*params.LifecycleWatchResults).Ids
+			changes = data.(*params.StringsWatchResult).Changes
 			out = w.out
 		case out <- changes:
 			// Wait until we have new changes to send.
@@ -225,8 +229,8 @@ func (w *LifecycleWatcher) loop() error {
 	panic("unreachable")
 }
 
-// Changes returns a channel that receives a list of ids of watched
-// entites whose lifecycle has changed.
-func (w *LifecycleWatcher) Changes() <-chan []string {
+// Changes returns a channel that receives a list of strings of watched
+// entites with changes.
+func (w *StringsWatcher) Changes() <-chan []string {
 	return w.out
 }

@@ -91,7 +91,7 @@ var blobListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
-func (StorageSuite) TestList(c *C) {
+func (*StorageSuite) TestList(c *C) {
 	container := "container"
 	response := makeResponse(blobListResponse, http.StatusOK)
 	azStorage, transport := makeAzureStorage(response, container, "account")
@@ -105,7 +105,7 @@ func (StorageSuite) TestList(c *C) {
 	c.Check(names, DeepEquals, []string{"prefix-1", "prefix-2"})
 }
 
-func (StorageSuite) TestGet(c *C) {
+func (*StorageSuite) TestGet(c *C) {
 	blobContent := "test blob"
 	container := "container"
 	filename := "blobname"
@@ -124,7 +124,7 @@ func (StorageSuite) TestGet(c *C) {
 	c.Check(string(data), Equals, blobContent)
 }
 
-func (StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
+func (*StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("not found", http.StatusNotFound)
@@ -134,7 +134,7 @@ func (StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
-func (StorageSuite) TestPut(c *C) {
+func (*StorageSuite) TestPut(c *C) {
 	blobContent := "test blob"
 	container := "container"
 	filename := "blobname"
@@ -148,7 +148,7 @@ func (StorageSuite) TestPut(c *C) {
 	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 }
 
-func (StorageSuite) TestRemove(c *C) {
+func (*StorageSuite) TestRemove(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusAccepted)
@@ -162,7 +162,7 @@ func (StorageSuite) TestRemove(c *C) {
 	c.Check(transport.Request.Method, Equals, "DELETE")
 }
 
-func (StorageSuite) TestRemoveErrors(c *C) {
+func (*StorageSuite) TestRemoveErrors(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusForbidden)
@@ -171,7 +171,32 @@ func (StorageSuite) TestRemoveErrors(c *C) {
 	c.Assert(err, NotNil)
 }
 
-func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
+var emptyBlobList = `
+	<?xml version="1.0" encoding="utf-8"?>
+	<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
+	</EnumerationResults>
+	`
+
+func (*StorageSuite) TestRemoveAll(c *C) {
+	// When we ask gwacl to remove all blobs, first thing it does is
+	// list them.  If the list is empty, we're done.
+	// Testing for the case where there are files is harder, but not
+	// needed: the difference is internal to gwacl, and tested there.
+	response := makeResponse(emptyBlobList, http.StatusOK)
+	storage, transport := makeAzureStorage(response, "cntnr", "account")
+
+	err := storage.RemoveAll()
+	c.Assert(err, IsNil)
+
+	_, err = storage.getStorageContext()
+	c.Assert(err, IsNil)
+	// Without going too far into gwacl's innards, this is roughly what
+	// it needs to do in order to list the files.
+	c.Check(transport.Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+	c.Check(transport.Request.Method, Equals, "GET")
+}
+
+func (*StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
@@ -180,7 +205,7 @@ func (StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (StorageSuite) TestURL(c *C) {
+func (*StorageSuite) TestURL(c *C) {
 	container := "container"
 	filename := "blobname"
 	account := "account"
