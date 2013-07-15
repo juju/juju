@@ -5,13 +5,11 @@ package azure
 
 import (
 	stdtesting "testing"
-	"time"
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
@@ -20,9 +18,8 @@ func TestAzureProvider(t *stdtesting.T) {
 
 type ProviderSuite struct {
 	testing.LoggingSuite
-	environ              *azureEnviron
-	originalShortAttempt utils.AttemptStrategy
-	originalLongAttempt  utils.AttemptStrategy
+	environ         *azureEnviron
+	restoreTimeouts func()
 }
 
 var _ = Suite(&ProviderSuite{})
@@ -30,25 +27,10 @@ var _ = Suite(&ProviderSuite{})
 func (s *ProviderSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.environ = &azureEnviron{}
-
-	s.originalShortAttempt = shortAttempt
-	s.originalLongAttempt = environs.LongAttempt
-
-	// Careful: this must be an assignment ("="), not an
-	// initialization (":=").  We're trying to change a
-	// global variable here.
-	shortAttempt = utils.AttemptStrategy{
-		Total: 100 * time.Millisecond,
-		Delay: 10 * time.Millisecond,
-	}
-	environs.LongAttempt = shortAttempt
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt)
 }
 
 func (s *ProviderSuite) TearDownSuite(c *C) {
-	// Careful: this must be an assignment ("="), not an
-	// initialization (":=").  We're trying to change a
-	// global variable here.
-	shortAttempt = s.originalShortAttempt
-	environs.LongAttempt = s.originalLongAttempt
+	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
 }
