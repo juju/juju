@@ -961,7 +961,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *C) {
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
-	c.Assert(hostMachine.Clean(), IsTrue)
+	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
 	// Set up constraints to specify we want to install into a container.
