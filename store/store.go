@@ -13,15 +13,17 @@ import (
 	"fmt"
 	"hash"
 	"io"
-	"labix.org/v2/mgo"
-	"labix.org/v2/mgo/bson"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"sort"
 	"strconv"
 	"strings"
 	"sync"
 	"time"
+
+	"labix.org/v2/mgo"
+	"labix.org/v2/mgo/bson"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
 )
 
 // The following MongoDB collections are currently used:

@@ -6,7 +6,9 @@ package charm_test
 import (
 	"bytes"
 	"fmt"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 )
 

@@ -10,6 +10,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net/url"
+	"os"
+	"path/filepath"
+	"time"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -19,11 +24,6 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
-	"net/url"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 // Conn holds a connection to a juju environment and its
@@ -50,6 +50,11 @@ func NewConn(environ environs.Environ) (*Conn, error) {
 	if password == "" {
 		return nil, fmt.Errorf("cannot connect without admin-secret")
 	}
+	err = environs.CheckEnvironment(environ)
+	if err != nil {
+		return nil, err
+	}
+
 	info.Password = password
 	opts := state.DefaultDialOpts()
 	st, err := state.Open(info, opts)

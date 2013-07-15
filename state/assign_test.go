@@ -5,14 +5,16 @@ package state_test
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	. "launchpad.net/juju-core/testing/checkers"
 	"sort"
 	"strconv"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type AssignSuite struct {
@@ -191,9 +193,9 @@ func (s *AssignSuite) TestDeployerTag(c *C) {
 		c.Assert(err, IsNil)
 		name, ok := u.DeployerTag()
 		if d == nil {
-			c.Assert(ok, IsFalse)
+			c.Assert(ok, jc.IsFalse)
 		} else {
-			c.Assert(ok, IsTrue)
+			c.Assert(ok, jc.IsTrue)
 			c.Assert(name, Equals, d.Tag())
 		}
 	}
@@ -371,7 +373,7 @@ func (s *AssignSuite) TestAssignToNewMachineMakesDirty(c *C) {
 	c.Assert(err, IsNil)
 	machine, err := s.State.Machine(mid)
 	c.Assert(err, IsNil)
-	c.Assert(machine.Clean(), IsFalse)
+	c.Assert(machine.Clean(), jc.IsFalse)
 }
 
 func (s *AssignSuite) TestAssignUnitToNewMachineSetsConstraints(c *C) {
@@ -721,13 +723,13 @@ func (s *assignCleanSuite) setupMachines(c *C) (hostMachine *state.Machine, cont
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err = s.State.AddMachineWithConstraints(&params)
-	c.Assert(hostMachine.Clean(), IsTrue)
+	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 
 	// Create a new, clean, empty machine.
 	cleanEmptyMachine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	c.Assert(cleanEmptyMachine.Clean(), IsTrue)
+	c.Assert(cleanEmptyMachine.Clean(), jc.IsTrue)
 	s.assertMachineEmpty(c, cleanEmptyMachine)
 	return hostMachine, container, cleanEmptyMachine
 }
@@ -738,7 +740,7 @@ func (s *assignCleanSuite) assertAssignUnit(c *C, expectedMachine *state.Machine
 	reusedMachine, err := s.assignUnit(unit)
 	c.Assert(err, IsNil)
 	c.Assert(reusedMachine.Id(), Equals, expectedMachine.Id())
-	c.Assert(reusedMachine.Clean(), IsFalse)
+	c.Assert(reusedMachine.Clean(), jc.IsFalse)
 }
 
 func (s *assignCleanSuite) TestAssignUnit(c *C) {
@@ -1025,7 +1027,7 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *C) {
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
-	c.Assert(hostMachine.Clean(), IsTrue)
+	c.Assert(hostMachine.Clean(), jc.IsTrue)
 	s.assertMachineNotEmpty(c, hostMachine)
 	if s.policy == state.AssignClean {
 		expectedMachines = append(expectedMachines, hostMachine.Id())

@@ -7,10 +7,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/tomb"
 	"net/http"
 	"os"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/log"
 )
 
 // Status represents the status of a completed download.

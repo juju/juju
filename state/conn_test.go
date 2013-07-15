@@ -4,11 +4,13 @@
 package state_test
 
 import (
+	stdtesting "testing"
+
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
-	stdtesting "testing"
 )
 
 // TestPackage integrates the tests into gotest.

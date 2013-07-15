@@ -5,17 +5,19 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"time"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/tomb"
-	"os"
-	"time"
 )
 
 var upgraderKillDelay = 5 * time.Minute

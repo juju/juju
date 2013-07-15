@@ -5,11 +5,13 @@ package constraints_test
 
 import (
 	"encoding/json"
+	"testing"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
-	"testing"
 )
 
 func TestPackage(t *testing.T) {

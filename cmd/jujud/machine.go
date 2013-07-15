@@ -16,9 +16,11 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
+	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/tomb"
 	"path/filepath"
 	"time"
@@ -76,6 +78,10 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
 	log.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
+		return err
+	}
+	if err := EnsureWeHaveLXC(a.Conf.DataDir); err != nil {
+		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
@@ -154,6 +160,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
+	reportOpenedState(st)
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
@@ -206,6 +213,15 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				}
 				return apiserver.NewServer(st, fmt.Sprintf(":%d", a.Conf.APIPort), a.Conf.StateServerCert, a.Conf.StateServerKey)
 			})
+			runner.StartWorker("cleaner", func() (worker.Worker, error) {
+				return cleaner.NewCleaner(st), nil
+			})
+			runner.StartWorker("resumer", func() (worker.Worker, error) {
+				// The action of resumer is so subtle that it is not tested,
+				// because we can't figure out how to do so without brutalising
+				// the transaction log.
+				return resumer.NewResumer(st), nil
+			})
 		default:
 			log.Warningf("ignoring unknown job %q", job)
 		}
@@ -240,4 +256,23 @@ func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
 
 func (a *MachineAgent) Tag() string {
 	return state.MachineTag(a.MachineId)
+}
+
+// Below pieces are used for testing,to give us access to the *State opened
+// by the agent, and allow us to trigger syncs without waiting 5s for them
+// to happen automatically.
+
+var stateReporter chan<- *state.State
+
+func reportOpenedState(st *state.State) {
+	select {
+	case stateReporter <- st:
+	default:
+	}
+}
+
+func sendOpenedStates(dst chan<- *state.State) (undo func()) {
+	var original chan<- *state.State
+	original, stateReporter = stateReporter, dst
+	return func() { stateReporter = original }
 }

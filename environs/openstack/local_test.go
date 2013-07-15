@@ -26,16 +26,18 @@ import (
 	"strings"
 )
 
-type ProviderSuite struct{}
+type ProviderSuite struct {
+	restoreTimeouts func()
+}
 
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *C) {
-	openstack.ShortTimeouts(true)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
 }
 
 func (s *ProviderSuite) TearDownTest(c *C) {
-	openstack.ShortTimeouts(false)
+	s.restoreTimeouts()
 }
 
 func (s *ProviderSuite) TestMetadata(c *C) {
@@ -124,10 +126,11 @@ func registerLocalTests() {
 
 // localServer is used to spin up a local Openstack service double.
 type localServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	Service    *openstackservice.Openstack
+	Server          *httptest.Server
+	Mux             *http.ServeMux
+	oldHandler      http.Handler
+	Service         *openstackservice.Openstack
+	restoreTimeouts func()
 }
 
 func (s *localServer) start(c *C, cred *identity.Credentials) {
@@ -140,14 +143,14 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	c.Logf("Started service at: %v", s.Server.URL)
 	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
-	openstack.ShortTimeouts(true)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
 }
 
 func (s *localServer) stop() {
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
 	s.Server.Close()
-	openstack.ShortTimeouts(false)
+	s.restoreTimeouts()
 }
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
@@ -447,7 +450,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
-func (s *localServerSuite) TestDeleteAll(c *C) {
+func (s *localServerSuite) TestRemoveAll(c *C) {
 	storage := s.Env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
 		content := []byte{a}
@@ -461,7 +464,7 @@ func (s *localServerSuite) TestDeleteAll(c *C) {
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
 	c.Assert(string(allContent), Equals, "a")
-	err = openstack.DeleteStorageContent(storage)
+	err = storage.RemoveAll()
 	c.Assert(err, IsNil)
 	_, err = storage.Get("a")
 	c.Assert(err, NotNil)
@@ -484,7 +487,7 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	allContent, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
 	c.Assert(string(allContent), Equals, "ab")
-	err = openstack.DeleteStorageContent(storage)
+	err = storage.RemoveAll()
 	c.Assert(err, IsNil)
 	_, err = storage.Get("ab")
 	c.Assert(err, NotNil)

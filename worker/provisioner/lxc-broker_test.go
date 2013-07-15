@@ -11,10 +11,11 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -70,7 +71,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.lxcSuite.SetUpTest(c)
 	tools := &state.Tools{
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:    "http://tools.example.com/2.3.4-foo-bar.tgz",
+		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 	s.broker = provisioner.NewLxcBroker(testing.EnvironConfig(c), tools)
 }
@@ -162,7 +163,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	toolsDir := agent.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
-	err := ioutil.WriteFile(urlPath, []byte("http://example.com/tools"), 0644)
+	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
 	c.Assert(err, IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on

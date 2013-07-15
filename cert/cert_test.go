@@ -11,12 +11,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cert"
 	"net"
 	"strings"
 	"testing"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cert"
 )
 
 func TestAll(t *testing.T) {

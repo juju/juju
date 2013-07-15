@@ -52,7 +52,7 @@ func (s *RelationerSuite) AddRelationUnit(c *C, name string) *state.RelationUnit
 	u, err := s.svc.AddUnit()
 	c.Assert(err, IsNil)
 	c.Assert(u.Name(), Equals, name)
-	err = u.SetPrivateAddress(strings.Replace(name, "/", "-", 1) + ".example.com")
+	err = u.SetPrivateAddress(strings.Replace(name, "/", "-", 1) + ".testing.invalid")
 	c.Assert(err, IsNil)
 	ru, err := s.rel.Unit(u)
 	c.Assert(err, IsNil)
@@ -237,7 +237,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 		Kind:       hooks.RelationJoined,
 		RemoteUnit: "u/1",
 		Members: map[string]map[string]interface{}{
-			"u/1": {"private-address": "u-1.example.com"},
+			"u/1": {"private-address": "u-1.testing.invalid"},
 		},
 	}
 	name, err := r.PrepareHook(joined)
@@ -279,7 +279,7 @@ func (s *RelationerSuite) TestPrepareCommitHooks(c *C) {
 	c.Assert(ctx.UnitNames(), DeepEquals, []string{"u/1"})
 	s1, err = ctx.ReadSettings("u/1")
 	c.Assert(err, IsNil)
-	c.Assert(s1, DeepEquals, map[string]interface{}{"private-address": "u-1.example.com"})
+	c.Assert(s1, DeepEquals, map[string]interface{}{"private-address": "u-1.testing.invalid"})
 
 	// ...and commit it.
 	err = r.CommitHook(changed)

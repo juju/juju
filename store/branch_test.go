@@ -7,15 +7,17 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/store"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/store"
+	"launchpad.net/juju-core/testing"
 )
 
 func (s *StoreSuite) dummyBranch(c *C, suffix string) bzrDir {
@@ -176,7 +178,7 @@ func (dir bzrDir) run(args ...string) []byte {
 	defer os.Setenv("EMAIL", oldemail)
 	// bzr will complain if bzr whoami has not been run previously,
 	// avoid this by passing $EMAIL into the environment.
-	os.Setenv("EMAIL", "nobody@example.com")
+	os.Setenv("EMAIL", "nobody@testing.invalid")
 	cmd.Dir = string(dir)
 	output, err := cmd.Output()
 	if err != nil {
