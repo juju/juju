@@ -294,6 +294,8 @@ func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName s
 // internalStartInstance does the provider-specific work of starting an
 // instance.  The code in StartInstance is actually largely agnostic across
 // the EC2/OpenStack/MAAS/Azure providers.
+// The instance will be set up for the same series for which you pass tools.
+// All tools in possibleTools must be for the same series.
 // TODO(bug 1199847): Some of this work can be shared between providers.
 func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
@@ -301,7 +303,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 
 	err = environs.FinishMachineConfig(mcfg, env.Config(), cons)
@@ -503,6 +505,10 @@ func (env *azureEnviron) makeMachineConfig(machineID, machineNonce string,
 func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(env, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = environs.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -146,12 +146,12 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
-func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
+func (suite *EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
 }
 
-func (suite EnvironSuite) TestAllInstances(c *C) {
+func (suite *EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
@@ -164,7 +164,7 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 	c.Check(len(*requests), Equals, 1)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
 	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -175,7 +175,7 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 	c.Check(len(*requests), Equals, 1)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
 	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -184,7 +184,7 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequest
 	c.Check(instances, IsNil)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{}
 	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -193,7 +193,7 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c 
 	c.Check(instances, IsNil)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
 	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -628,7 +628,7 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 	return service1, service1Desc
 }
 
-func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
+func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	service1Name := "service1"
 	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
@@ -652,7 +652,7 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
-func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
+func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -679,7 +679,7 @@ var emptyListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
-func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
+func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -717,7 +717,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
 }
 
-func (EnvironSuite) TestGetInstance(c *C) {
+func (*EnvironSuite) TestGetInstance(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	serviceName := prefix + "instance-name"
@@ -732,7 +732,7 @@ func (EnvironSuite) TestGetInstance(c *C) {
 	c.Check(string(instance.Id()), Equals, serviceName)
 }
 
-func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
+func (*EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	env := makeEnviron(c)
 	sourceImageName := "source-image-name"
 
@@ -759,7 +759,7 @@ func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwac
 	return mapping
 }
 
-func (EnvironSuite) TestNewRole(c *C) {
+func (*EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
@@ -800,7 +800,7 @@ func (EnvironSuite) TestNewRole(c *C) {
 	c.Check(apiEndpoint.Protocol, Equals, "TCP")
 }
 
-func (EnvironSuite) TestNewDeployment(c *C) {
+func (*EnvironSuite) TestNewDeployment(c *C) {
 	env := makeEnviron(c)
 	deploymentName := "deployment-name"
 	deploymentLabel := "deployment-label"
