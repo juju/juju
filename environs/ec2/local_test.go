@@ -103,8 +103,9 @@ func registerLocalTests() {
 type localLiveSuite struct {
 	testing.LoggingSuite
 	LiveTests
-	srv localServer
-	env environs.Environ
+	srv             localServer
+	env             environs.Environ
+	restoreTimeouts func()
 }
 
 func (t *localLiveSuite) SetUpSuite(c *C) {
@@ -115,14 +116,14 @@ func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
 	t.env = t.LiveTests.Env
-	ec2.ShortTimeouts(true)
+	t.restoreTimeouts = envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
 }
 
 func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
 	t.env = nil
-	ec2.ShortTimeouts(false)
+	t.restoreTimeouts()
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
 	ec2.UseTestRegionData(nil)
@@ -199,8 +200,9 @@ func (srv *localServer) stopServer(c *C) {
 type localServerSuite struct {
 	testing.LoggingSuite
 	jujutest.Tests
-	srv localServer
-	env environs.Environ
+	srv             localServer
+	env             environs.Environ
+	restoreTimeouts func()
 }
 
 func (t *localServerSuite) SetUpSuite(c *C) {
@@ -209,12 +211,12 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	t.Tests.SetUpSuite(c)
-	ec2.ShortTimeouts(true)
+	t.restoreTimeouts = envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
 }
 
 func (t *localServerSuite) TearDownSuite(c *C) {
 	t.Tests.TearDownSuite(c)
-	ec2.ShortTimeouts(false)
+	t.restoreTimeouts()
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
 	ec2.UseTestRegionData(nil)
@@ -387,9 +389,10 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 // behaves as if
 type localNonUSEastSuite struct {
 	testing.LoggingSuite
-	tests jujutest.Tests
-	srv   localServer
-	env   environs.Environ
+	tests           jujutest.Tests
+	srv             localServer
+	env             environs.Environ
+	restoreTimeouts func()
 }
 
 func (t *localNonUSEastSuite) SetUpSuite(c *C) {
@@ -398,11 +401,11 @@ func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
 	ec2.UseTestRegionData(ec2.TestRegions)
 	t.tests.SetUpSuite(c)
-	ec2.ShortTimeouts(true)
+	t.restoreTimeouts = envtesting.PatchAttemptStrategies(ec2.ShortAttempt)
 }
 
 func (t *localNonUSEastSuite) TearDownSuite(c *C) {
-	ec2.ShortTimeouts(false)
+	t.restoreTimeouts()
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
 	ec2.UseTestRegionData(nil)

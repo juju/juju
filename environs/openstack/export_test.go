@@ -15,11 +15,9 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
 	"text/template"
-	"time"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -60,31 +58,6 @@ func UseTestMetadata(metadata []jujutest.FileContent) {
 	} else {
 		testRoundTripper.Sub = nil
 		metadataHost = origMetadataHost
-	}
-}
-
-var originalShortAttempt = shortAttempt
-var originalLongAttempt = environs.LongAttempt
-
-// ShortTimeouts sets the timeouts to a short period as we
-// know that the testing server doesn't get better with time,
-// and this reduces the test time from 30s to 3s.
-func ShortTimeouts(short bool) {
-	if short {
-		// Careful: this must be an assignment ("="), not an
-		// initialization (":=").  We're trying to change a
-		// global variable here.
-		shortAttempt = utils.AttemptStrategy{
-			Total: 100 * time.Millisecond,
-			Delay: 10 * time.Millisecond,
-		}
-		environs.LongAttempt = shortAttempt
-	} else {
-		// Careful: this must be an assignment ("="), not an
-		// initialization (":=").  We're trying to change a
-		// global variable here.
-		shortAttempt = originalShortAttempt
-		environs.LongAttempt = originalLongAttempt
 	}
 }
 
