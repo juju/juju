@@ -25,9 +25,9 @@ var unitGetTests = []struct {
 	{[]string{"private-address"}, "192.168.0.99\n"},
 	{[]string{"private-address", "--format", "yaml"}, "192.168.0.99\n"},
 	{[]string{"private-address", "--format", "json"}, `"192.168.0.99"` + "\n"},
-	{[]string{"public-address"}, "gimli.minecraft.example.com\n"},
-	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.example.com\n"},
-	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.example.com"` + "\n"},
+	{[]string{"public-address"}, "gimli.minecraft.testing.invalid\n"},
+	{[]string{"public-address", "--format", "yaml"}, "gimli.minecraft.testing.invalid\n"},
+	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.testing.invalid"` + "\n"},
 }
 
 func (s *UnitGetSuite) createCommand(c *C) cmd.Command {
