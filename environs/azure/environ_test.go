@@ -777,3 +777,11 @@ func (EnvironSuite) TestNewDeployment(c *C) {
 	c.Check(deployment.Label, Equals, base64Label)
 	c.Check(deployment.RoleList, HasLen, 1)
 }
+
+func (*EnvironSuite) TestProviderReturnsAzureEnvironProvider(c *C) {
+	prov := makeEnviron(c).Provider()
+	c.Assert(prov, NotNil)
+	azprov, ok := prov.(azureEnvironProvider)
+	c.Assert(ok, Equals, true)
+	c.Check(azprov, NotNil)
+}
