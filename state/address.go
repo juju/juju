@@ -29,8 +29,8 @@ const (
 // Address represents the location of a machine, including metadata about what
 // kind of location the address describes.
 type Address struct {
-	Name         string
+	Value        string
 	Type         AddressType
 	NetworkName  string `bson:",omitempty"`
-	NetworkScope string `bson:",omitempty"`
+	NetworkScope `bson:",omitempty"`
 }
