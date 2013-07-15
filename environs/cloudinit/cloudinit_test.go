@@ -9,6 +9,7 @@ import (
 	"launchpad.net/goyaml"
 	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
@@ -73,7 +74,7 @@ var cloudinitTests = []cloudinitTest{
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
 			Constraints: envConstraints,
-			DataDir:     "/var/lib/juju",
+			DataDir:     environs.DataDir,
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -128,7 +129,7 @@ start jujud-machine-0
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
 			Constraints: envConstraints,
-			DataDir:     "/var/lib/juju",
+			DataDir:     environs.DataDir,
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -165,7 +166,7 @@ start jujud-machine-0
 		cfg: cloudinit.MachineConfig{
 			MachineId:      "99",
 			AuthorizedKeys: "sshkey1",
-			DataDir:        "/var/lib/juju",
+			DataDir:        environs.DataDir,
 			StateServer:    false,
 			Tools:          newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:   "FAKE_NONCE",
@@ -204,7 +205,7 @@ start jujud-machine-99
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
-			DataDir:              "/var/lib/juju",
+			DataDir:              environs.DataDir,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
 			MachineNonce:         "FAKE_NONCE",
@@ -562,7 +563,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 			CACert: []byte(testing.CACert),
 		},
 		Config:       minimalConfig(c),
-		DataDir:      "/var/lib/juju",
+		DataDir:      environs.DataDir,
 		MachineNonce: "FAKE_NONCE",
 	}
 	// check that the base configuration does not give an error

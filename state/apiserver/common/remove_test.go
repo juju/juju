@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type removeSuite struct{}
@@ -21,17 +22,18 @@ var _ = Suite(&removeSuite{})
 func (*removeSuite) TestRemove(c *C) {
 	st := &fakeRemoverState{
 		entities: map[string]*fakeRemover{
-			"x0": {errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
-			"x1": {errRemove: fmt.Errorf("x1 Remove fails")},
-			"x2": {},
-			"x3": {},
-			"x4": {err: fmt.Errorf("x4 error")},
+			"x0": {life: state.Dying, errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
+			"x1": {life: state.Dying, errRemove: fmt.Errorf("x1 Remove fails")},
+			"x2": {life: state.Alive},
+			"x3": {life: state.Dying},
+			"x4": {life: state.Dead},
+			"x5": {life: state.Dead, err: fmt.Errorf("x5 error")},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x1", "x2", "x4":
+			case "x0", "x1", "x2", "x3", "x5":
 				return true
 			}
 			return false
@@ -39,22 +41,19 @@ func (*removeSuite) TestRemove(c *C) {
 	}
 	r := common.NewRemover(st, getCanModify)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"},
+		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"}, {"x6"},
 	}}
 	result, err := r.Remove(entities)
 	c.Assert(err, IsNil)
-	unauth := &params.Error{
-		Message: "permission denied",
-		Code:    params.CodeUnauthorized,
-	}
 	c.Assert(result, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
 			{Message: "x0 EnsureDead fails"},
 			{Message: "x1 Remove fails"},
+			{Message: `cannot remove entity "x2": still alive`},
 			nil,
-			unauth,
-			{Message: "x4 error"},
-			unauth,
+			apiservertesting.ErrUnauthorized,
+			{Message: "x5 error"},
+			apiservertesting.ErrUnauthorized,
 		},
 	})
 }
@@ -93,6 +92,7 @@ func (st *fakeRemoverState) Remover(tag string) (state.Remover, error) {
 }
 
 type fakeRemover struct {
+	life          state.Life
 	err           error
 	errEnsureDead error
 	errRemove     error
@@ -108,4 +108,8 @@ func (r *fakeRemover) EnsureDead() error {
 
 func (r *fakeRemover) Remove() error {
 	return r.errRemove
+}
+
+func (r *fakeRemover) Life() state.Life {
+	return r.life
 }
