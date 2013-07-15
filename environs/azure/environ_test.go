@@ -741,6 +741,20 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	c.Check(vhd.SourceImageName, Equals, sourceImageName)
 }
 
+// mapInputEndpointsByPort takes a slice of input endpoints, and returns them
+// as a map keyed by their (external) ports.  This makes it easier to query
+// individual endpoints from an array whose ordering you don't know.
+// Multiple input endpoints for the same port are treated as an error.
+func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwacl.InputEndpoint {
+	mapping := make(map[int]gwacl.InputEndpoint)
+	for _, endpoint := range endpoints {
+		_, have := mapping[endpoint.Port]
+		c.Assert(have, Equals, false)
+		mapping[endpoint.Port] = endpoint
+	}
+	return mapping
+}
+
 func (EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
 	vhd := env.newOSDisk("source-image-name")
@@ -756,12 +770,29 @@ func (EnvironSuite) TestNewRole(c *C) {
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
-	// The network config contains an endpoint for ssh communication.
-	firstEndpoint := (*networkConfig.InputEndpoints)[0]
-	c.Check(firstEndpoint.LocalPort, Equals, 22)
-	c.Check(firstEndpoint.Port, Equals, 22)
-	c.Check(firstEndpoint.Protocol, Equals, "TCP")
 	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
+
+	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
+
+	// The network config contains an endpoint for ssh communication.
+	sshEndpoint, ok := endpoints[22]
+	c.Assert(ok, Equals, true)
+	c.Check(sshEndpoint.LocalPort, Equals, 22)
+	c.Check(sshEndpoint.Protocol, Equals, "TCP")
+
+	// There's also an endpoint for the state (mongodb) port.
+	// TODO: Ought to have this only for state servers.
+	stateEndpoint, ok := endpoints[env.Config().StatePort()]
+	c.Assert(ok, Equals, true)
+	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
+	c.Check(stateEndpoint.Protocol, Equals, "TCP")
+
+	// And one for the API port.
+	// TODO: Ought to have this only for API servers.
+	apiEndpoint, ok := endpoints[env.Config().APIPort()]
+	c.Assert(ok, Equals, true)
+	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())
+	c.Check(apiEndpoint.Protocol, Equals, "TCP")
 }
 
 func (EnvironSuite) TestNewDeployment(c *C) {
