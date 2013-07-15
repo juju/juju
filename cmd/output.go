@@ -7,12 +7,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"launchpad.net/gnuflag"
-	"launchpad.net/goyaml"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
+
+	"launchpad.net/gnuflag"
+	"launchpad.net/goyaml"
 )
 
 // Formatter converts an arbitrary object into a []byte.

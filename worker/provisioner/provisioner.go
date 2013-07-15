@@ -7,16 +7,17 @@ import (
 	"fmt"
 	"sync"
 
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 )
 
 type ProvisionerType string

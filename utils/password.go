@@ -9,6 +9,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"io"
+
 	"launchpad.net/juju-core/thirdparty/pbkdf2"
 )
 

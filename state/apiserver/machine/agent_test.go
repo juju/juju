@@ -2,8 +2,10 @@ package machine_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type agentSuite struct {
@@ -45,20 +47,14 @@ func (s *agentSuite) TestGetMachines(c *C) {
 		},
 	})
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
-		Machines: []params.MachineAgentGetMachinesResult{{
-			Life: "dying",
-			Jobs: []params.MachineJob{params.JobHostUnits},
-		}, {
-			Error: &params.Error{
-				Code:    params.CodeUnauthorized,
-				Message: "permission denied",
+		Machines: []params.MachineAgentGetMachinesResult{
+			{
+				Life: "dying",
+				Jobs: []params.MachineJob{params.JobHostUnits},
 			},
-		}, {
-			Error: &params.Error{
-				Code:    params.CodeUnauthorized,
-				Message: "permission denied",
-			},
-		}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
 	})
 }
 
@@ -81,4 +77,26 @@ func (s *agentSuite) TestGetNotFoundMachine(c *C) {
 			},
 		}},
 	})
+}
+
+func (s *agentSuite) TestSetPasswords(c *C) {
+	results, err := s.agent.SetPasswords(params.PasswordChanges{
+		Changes: []params.PasswordChange{
+			{Tag: "machine-0", Password: "xxx"},
+			{Tag: "machine-1", Password: "yyy"},
+			{Tag: "machine-42", Password: "zzz"},
+		},
+	})
+	c.Assert(err, IsNil)
+	c.Assert(results, DeepEquals, params.ErrorResults{
+		Errors: []*params.Error{
+			apiservertesting.ErrUnauthorized,
+			nil,
+			apiservertesting.ErrUnauthorized,
+		},
+	})
+	err = s.machine1.Refresh()
+	c.Assert(err, IsNil)
+	changed := s.machine1.PasswordValid("yyy")
+	c.Assert(changed, Equals, true)
 }

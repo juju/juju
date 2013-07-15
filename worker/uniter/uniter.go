@@ -6,10 +6,18 @@ package uniter
 import (
 	stderrors "errors"
 	"fmt"
+	"math/rand"
+	"os"
+	"path/filepath"
+	"strings"
+	"time"
+
+	"launchpad.net/tomb"
+
+	"launchpad.net/juju-core/agent"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -20,12 +28,6 @@ import (
 	"launchpad.net/juju-core/worker/uniter/hook"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"launchpad.net/juju-core/worker/uniter/relation"
-	"launchpad.net/tomb"
-	"math/rand"
-	"os"
-	"path/filepath"
-	"strings"
-	"time"
 )
 
 // Uniter implements the capabilities of the unit agent. It is not intended to

@@ -8,10 +8,12 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
+
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/schema"
-	"strings"
 )
 
 // RelationScope describes the scope of a relation.

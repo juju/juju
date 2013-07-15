@@ -5,8 +5,10 @@ package state_test
 
 import (
 	"fmt"
+
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing/checkers"

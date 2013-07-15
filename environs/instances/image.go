@@ -21,6 +21,22 @@ type InstanceConstraint struct {
 	Storage *string
 }
 
+// String returns a human readable form of this InstanceConstaint.
+func (ic *InstanceConstraint) String() string {
+	storage := "none"
+	if ic.Storage != nil {
+		storage = *ic.Storage
+	}
+	return fmt.Sprintf(
+		"{region: %s, series: %s, arches: %s, constraints: %s, storage: %s}",
+		ic.Region,
+		ic.Series,
+		ic.Arches,
+		ic.Constraints,
+		storage,
+	)
+}
+
 // InstanceSpec holds an instance type name and the chosen image info.
 type InstanceSpec struct {
 	InstanceType InstanceType

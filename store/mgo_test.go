@@ -5,10 +5,11 @@ package store_test
 
 import (
 	"bytes"
-	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
 	"os/exec"
 	"time"
+
+	"labix.org/v2/mgo"
+	. "launchpad.net/gocheck"
 )
 
 // ----------------------------------------------------------------------------

@@ -23,13 +23,16 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
-	canChangePassword := func(tag string) bool {
-		return auth.AuthOwner(tag)
+	getCanChange := func() (common.AuthFunc, error) {
+		// TODO(go1.1): method expression
+		return func(tag string) bool {
+			return auth.AuthOwner(tag)
+		}, nil
 	}
 	return &AgentAPI{
 		st:              st,
 		auth:            auth,
-		PasswordChanger: common.NewPasswordChanger(st, canChangePassword),
+		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
 	}, nil
 }
 

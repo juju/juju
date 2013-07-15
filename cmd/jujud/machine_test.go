@@ -5,12 +5,17 @@ package main
 
 import (
 	"fmt"
+	"path/filepath"
+	"reflect"
+	"time"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs/agent"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
@@ -21,9 +26,6 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	"path/filepath"
-	"reflect"
-	"time"
 )
 
 type MachineSuite struct {
@@ -305,35 +307,44 @@ var fastDialOpts = api.DialOpts{
 	RetryDelay: 10 * time.Millisecond,
 }
 
-func (s *MachineSuite) TestServeAPI(c *C) {
-	stm, conf, _ := s.primeAgent(c, state.JobManageState)
+func (s *MachineSuite) assertJobWithState(c *C, job state.MachineJob, test func(*agent.Conf, *state.State)) {
+	stm, conf, _ := s.primeAgent(c, job)
 	addAPIInfo(conf, stm)
 	err := conf.Write()
 	c.Assert(err, IsNil)
 	a := s.newAgent(c, stm)
+	defer a.Stop()
+
+	agentStates := make(chan *state.State, 1000)
+	undo := sendOpenedStates(agentStates)
+	defer undo()
+
 	done := make(chan error)
 	go func() {
 		done <- a.Run(nil)
 	}()
 
-	st, err := api.Open(conf.APIInfo, fastDialOpts)
-	c.Assert(err, IsNil)
-	defer st.Close()
-
-	// This just verifies we can log in successfully.
-	m, err := st.Machiner().Machine(stm.Tag())
-	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, params.Alive)
+	select {
+	case agentState := <-agentStates:
+		c.Assert(agentState, NotNil)
+		test(conf, agentState)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("state not opened")
+	}
 
 	err = a.Stop()
-	// When shutting down, the API server can be shut down before
-	// the other workers that connect to it, so they get an error so
-	// they then die, causing Stop to return an error.  It's not
-	// easy to control the actual error that's received in this
-	// circumstance so we just log it rather than asserting that it
-	// is not nil.
-	if err != nil {
-		c.Logf("error shutting down: %v", err)
+	if job == state.JobManageState {
+		// When shutting down, the API server can be shut down before
+		// the other workers that connect to it, so they get an error so
+		// they then die, causing Stop to return an error.  It's not
+		// easy to control the actual error that's received in this
+		// circumstance so we just log it rather than asserting that it
+		// is not nil.
+		if err != nil {
+			c.Logf("error shutting down state manager: %v", err)
+		}
+	} else {
+		c.Assert(err, IsNil)
 	}
 
 	select {
@@ -342,6 +353,55 @@ func (s *MachineSuite) TestServeAPI(c *C) {
 	case <-time.After(5 * time.Second):
 		c.Fatalf("timed out waiting for agent to terminate")
 	}
+}
+
+func (s *MachineSuite) TestManageStateServesAPI(c *C) {
+	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
+		st, err := api.Open(conf.APIInfo, fastDialOpts)
+		c.Assert(err, IsNil)
+		defer st.Close()
+		m, err := st.Machiner().Machine(conf.APIInfo.Tag)
+		c.Assert(err, IsNil)
+		c.Assert(m.Life(), Equals, params.Alive)
+	})
+}
+
+func (s *MachineSuite) TestManageStateRunsCleaner(c *C) {
+	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
+		// Create a service and unit, and destroy the service.
+		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+		c.Assert(err, IsNil)
+		unit, err := service.AddUnit()
+		c.Assert(err, IsNil)
+		err = service.Destroy()
+		c.Assert(err, IsNil)
+
+		// Check the unit was not yet removed.
+		err = unit.Refresh()
+		c.Assert(err, IsNil)
+		w := unit.Watch()
+		defer w.Stop()
+
+		// Trigger a sync on the state used by the agent, and wait
+		// for the unit to be removed.
+		agentState.Sync()
+		timeout := time.After(testing.LongWait)
+		for done := false; !done; {
+			select {
+			case <-timeout:
+				c.Fatalf("unit not cleaned up")
+			case <-time.After(testing.ShortWait):
+				s.State.StartSync()
+			case <-w.Changes():
+				err := unit.Refresh()
+				if errors.IsNotFoundError(err) {
+					done = true
+				} else {
+					c.Assert(err, IsNil)
+				}
+			}
+		}
+	})
 }
 
 var serveAPIWithBadConfTests = []struct {
