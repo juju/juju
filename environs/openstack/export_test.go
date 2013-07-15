@@ -15,11 +15,9 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
 	"text/template"
-	"time"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
