@@ -14,6 +14,11 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// Default data directory.
+// Tests can override this where needed, so they don't need to mess with global
+// system state.
+var DataDir = "/var/lib/juju"
+
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by
 // inspecting a plain config.Config and the machine constraints at the last
 // moment before bootstrapping. It assumes that the supplied Config comes from
