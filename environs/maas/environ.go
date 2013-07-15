@@ -97,7 +97,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.obtainNode(machineID, cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -256,10 +256,11 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
-// obtainNode allocates and starts a MAAS node.  It is used both for the
-// implementation of StartInstance, and to initialize the bootstrap node.
+// internalStartInstance allocates and starts a MAAS node.  It is used both
+// for the implementation of StartInstance, and to initialize the bootstrap
+// node.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		return nil, fmt.Errorf("expected single series, got %v", series)
@@ -313,7 +314,7 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	}
 	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.obtainNode(machineID, cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	return inst, nil, err
 }
 
