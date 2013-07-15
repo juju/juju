@@ -45,7 +45,7 @@ func getUniterLock(dataDir, message string) (*fslock.Lock, error) {
 // the uniter-hook-execution lock so that we don't try run to apt-get at the
 // same time that a hook might want to run it.
 func EnsureWeHaveLXC(dataDir string) error {
-	manager := lxc.NewContainerManager("lxc-test")
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{Name: "lxc-test"})
 	if _, err := manager.ListContainers(); err == nil {
 		validationLogger.Debugf("found lxc, not installing")
 		// We already have it, nothing more to do

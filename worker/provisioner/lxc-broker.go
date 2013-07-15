@@ -20,7 +20,7 @@ var _ Broker = (*lxcBroker)(nil)
 
 func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
 	return &lxcBroker{
-		manager: lxc.NewContainerManager("juju"),
+		manager: lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
 		config:  config,
 		tools:   tools,
 	}
