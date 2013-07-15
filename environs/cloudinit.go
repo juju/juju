@@ -21,7 +21,7 @@ func NewMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir: "/var/lib/juju",
+		DataDir: DataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,
