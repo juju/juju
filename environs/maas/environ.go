@@ -24,7 +24,6 @@ import (
 )
 
 const (
-	jujuDataDir = "/var/lib/juju"
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
 )

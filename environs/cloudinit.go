@@ -14,6 +14,11 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// Default data directory.
+// Tests can override this where needed, so they don't need to mess with global
+// system state.
+var DataDir = "/var/lib/juju"
+
 // NewMachineConfig sets up a basic machine configuration.  You'll still need
 // to supply more information, but this takes care of the fixed entries and
 // the ones that are always needed.

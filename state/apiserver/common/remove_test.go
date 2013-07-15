@@ -22,12 +22,12 @@ var _ = Suite(&removeSuite{})
 func (*removeSuite) TestRemove(c *C) {
 	st := &fakeRemoverState{
 		entities: map[string]*fakeRemover{
-			"x0": &fakeRemover{life: state.Dying, errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
-			"x1": &fakeRemover{life: state.Dying, errRemove: fmt.Errorf("x1 Remove fails")},
-			"x2": &fakeRemover{life: state.Alive},
-			"x3": &fakeRemover{life: state.Dying},
-			"x4": &fakeRemover{life: state.Dead},
-			"x5": &fakeRemover{life: state.Dead, err: fmt.Errorf("x5 error")},
+			"x0": {life: state.Dying, errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
+			"x1": {life: state.Dying, errRemove: fmt.Errorf("x1 Remove fails")},
+			"x2": {life: state.Alive},
+			"x3": {life: state.Dying},
+			"x4": {life: state.Dead},
+			"x5": {life: state.Dead, err: fmt.Errorf("x5 error")},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -47,12 +47,12 @@ func (*removeSuite) TestRemove(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
-			&params.Error{Message: "x0 EnsureDead fails"},
-			&params.Error{Message: "x1 Remove fails"},
-			&params.Error{Message: `cannot remove entity "x2": still alive`},
+			{Message: "x0 EnsureDead fails"},
+			{Message: "x1 Remove fails"},
+			{Message: `cannot remove entity "x2": still alive`},
 			nil,
 			apiservertesting.ErrUnauthorized,
-			&params.Error{Message: "x5 error"},
+			{Message: "x5 error"},
 			apiservertesting.ErrUnauthorized,
 		},
 	})
