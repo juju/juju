@@ -5,18 +5,10 @@ package local
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 )
 
 var Provider = provider
-
-// SetDefaultRootDir overrides the default root directory for testing
-// purposes.
-func SetDefaultRootDir(rootdir string) (old string) {
-	old, environs.DataDir = environs.DataDir, rootdir
-	return
-}
 
 // ConfigNamespace returns the result of the namespace call on the
 // localConfig.
