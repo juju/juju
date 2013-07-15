@@ -107,7 +107,8 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
 func (environProvider) PublicAddress() (string, error) {
-	return "", fmt.Errorf("public address not implemented")
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
