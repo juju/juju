@@ -707,12 +707,9 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 // Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
 func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := scfg.possibleTools.Series()
-	if len(series) != 1 {
-		return nil, nil, fmt.Errorf("expected single series, got %v", series)
-	}
-	if series[0] != scfg.series {
-		return nil, nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
+	if err != nil {
+		return nil, nil, err
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{

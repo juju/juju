@@ -79,6 +79,10 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
+	err = environs.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
+	if err != nil {
+		return nil, err
+	}
 	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
@@ -241,11 +245,13 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // internalStartInstance allocates and starts a MAAS node.  It is used both
 // for the implementation of StartInstance, and to initialize the bootstrap
 // node.
+// The instance will be set up for the same series for which you pass tools.
+// All tools in possibleTools must be for the same series.
 // TODO(bug 1199847): Some of this work can be shared between providers.
 func (environ *maasEnviron) internalStartInstance(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 	var instance *maasInstance
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
@@ -291,6 +297,10 @@ func (environ *maasEnviron) internalStartInstance(machineId string, cons constra
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = environs.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
