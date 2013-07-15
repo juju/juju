@@ -781,14 +781,14 @@ func (EnvironSuite) TestNewRole(c *C) {
 	c.Check(sshEndpoint.Protocol, Equals, "TCP")
 
 	// There's also an endpoint for the state (mongodb) port.
-	// TODO: Ought to have this only for the bootstrap node.
+	// TODO: Ought to have this only for state servers.
 	stateEndpoint, ok := endpoints[env.Config().StatePort()]
 	c.Assert(ok, Equals, true)
 	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
 	c.Check(stateEndpoint.Protocol, Equals, "TCP")
 
 	// And one for the API port.
-	// TODO: Ought to have this only for the bootstrap node.
+	// TODO: Ought to have this only for API servers.
 	apiEndpoint, ok := endpoints[env.Config().APIPort()]
 	c.Assert(ok, Equals, true)
 	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())

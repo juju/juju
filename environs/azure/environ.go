@@ -448,14 +448,14 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string) 
 			Port:      22,
 			Protocol:  "TCP",
 		},
-		// TODO: Ought to have this only for the bootstrap node.
+		// TODO: Ought to have this only for state servers.
 		{
 			LocalPort: config.StatePort(),
 			Name:      "stateport",
 			Port:      config.StatePort(),
 			Protocol:  "TCP",
 		},
-		// TODO: Ought to have this only for the bootstrap node.
+		// TODO: Ought to have this only for API servers.
 		{
 			LocalPort: config.APIPort(),
 			Name:      "apiport",
