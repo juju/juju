@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-var rootCheckFunction = func() bool {
+var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
@@ -35,7 +35,7 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
-	root := rootCheckFunction()
+	root := checkIfRoot()
 	if root {
 		sudo_user := os.Getenv("SUDO_USER")
 		if sudo_user != "" {
