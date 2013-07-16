@@ -101,7 +101,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -266,7 +266,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // The instance will be set up for the same series for which you pass tools.
 // All tools in possibleTools must be for the same series.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -324,7 +324,7 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	}
 	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(cons, possibleTools, mcfg)
 	return inst, nil, err
 }
 
