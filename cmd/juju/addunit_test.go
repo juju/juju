@@ -122,7 +122,7 @@ func (s *AddUnitSuite) TestForceMachineNewContainer(c *C) {
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
 
-	err = runAddUnit(c, "some-service-name", "--force-machine", machine.Id()+"/lxc")
+	err = runAddUnit(c, "some-service-name", "--force-machine", "lxc:"+machine.Id())
 	c.Assert(err, IsNil)
 	err = runAddUnit(c, "some-service-name", "--force-machine", machine.Id())
 	c.Assert(err, IsNil)
