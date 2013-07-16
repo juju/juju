@@ -15,6 +15,8 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+const ProviderType = "local"
+
 var logger = loggo.GetLogger("juju.environs.local")
 
 var _ environs.EnvironProvider = (*environProvider)(nil)
@@ -24,7 +26,7 @@ type environProvider struct{}
 var provider environProvider
 
 func init() {
-	environs.RegisterProvider("local", &environProvider{})
+	environs.RegisterProvider(ProviderType, &environProvider{})
 }
 
 // Open implements environs.EnvironProvider.Open.
