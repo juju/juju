@@ -70,15 +70,15 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 
 const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 const numberSnippet = "(0|[1-9][0-9]*)"
-const containerNameSnippet = "/[a-z]+"
-const containerSnippet = "(" + containerNameSnippet + "/" + numberSnippet + ")"
+const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
+const machineSnippet = numberSnippet + containerSnippet + "*"
+const containerSpecSnippet = "(([a-z])*:)*"
 
 var (
 	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
 	validUnit                  = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
-	validMachine               = regexp.MustCompile("^" + numberSnippet + containerSnippet + "*$")
-	validMachineOrNewContainer = regexp.MustCompile(
-		"^" + numberSnippet + containerSnippet + "*(" + containerNameSnippet + ")*$")
+	validMachine               = regexp.MustCompile("^" + machineSnippet + "$")
+	validMachineOrNewContainer = regexp.MustCompile("^" + containerSpecSnippet + machineSnippet + "$")
 )
 
 // BootstrapNonce is used as a nonce for the state server machine.
