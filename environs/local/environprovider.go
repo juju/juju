@@ -119,7 +119,6 @@ func (environProvider) PrivateAddress() (string, error) {
 func (environProvider) InstanceId() (instance.Id, error) {
 	// This hack only works until we get containers started.
 	return instance.Id("localhost"), nil
-	// return "", fmt.Errorf("not implemented")
 }
 
 func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
