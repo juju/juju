@@ -83,15 +83,19 @@ type passwordSetter interface {
 }
 
 // apiAddrsFromStateAddrs guesses the API addresses based on State addresses
-func apiAddrsFromStateAddrs(stateAddrs []string) []string {
+func apiAddrsFromStateAddrs(stateAddrs []string, apiPort int) []string {
 	res := make([]string, 0, len(stateAddrs))
+	if apiPort == 0 {
+		apiPort = config.DefaultApiPort
+	}
+	strApiPort := fmt.Sprint(apiPort)
 	for _, addr := range stateAddrs {
 		host, _, err := net.SplitHostPort(addr)
 		if err != nil {
-			//???
+			validationLogger.Warningf("unable to parse address: %s", addr)
 			continue
 		}
-		res = append(res, net.JoinHostPort(host, fmt.Sprint(config.DefaultApiPort)))
+		res = append(res, net.JoinHostPort(host, strApiPort))
 	}
 	return res
 }
@@ -100,9 +104,9 @@ func apiAddrsFromStateAddrs(stateAddrs []string) []string {
 // This makes assumptions like default ports, which are usually correct, and
 // are the best we can do after something like upgrade doesn't actually set
 // them.
-func apiInfoFromStateInfo(stInfo *state.Info) *api.Info {
+func apiInfoFromStateInfo(stInfo *state.Info, apiPort int) *api.Info {
 	return &api.Info{
-		Addrs:    apiAddrsFromStateAddrs(stInfo.Addrs),
+		Addrs:    apiAddrsFromStateAddrs(stInfo.Addrs, apiPort),
 		CACert:   stInfo.CACert,
 		Tag:      stInfo.Tag,
 		Password: stInfo.Password,
@@ -131,13 +135,11 @@ func EnsureAPIInfo(conf *agent.Conf, agentConn AgentState) error {
 	}
 	setter, ok := agentConn.(passwordSetter)
 	if !ok {
-		// This is unexpected as all AgentState objects (Machine and Unit)
-		// implement a direct request to set the API password in State
-		return fmt.Errorf("AgentState is missing a SetPassword method?")
+		panic("AgentState is missing a SetPassword method?")
 	}
 	if conf.APIInfo == nil {
 		// Unit agents didn't get any APIInfo in 1.10
-		conf.APIInfo = apiInfoFromStateInfo(conf.StateInfo)
+		conf.APIInfo = apiInfoFromStateInfo(conf.StateInfo, conf.APIPort)
 		validationLogger.Infof(
 			"agent.conf APIInfo is not set. Setting to {Addrs: %s, Tag: %s}",
 			conf.APIInfo.Addrs,

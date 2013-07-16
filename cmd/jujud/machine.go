@@ -142,10 +142,12 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		// https://launchpad.net/bugs/1199915 means that we may just
 		// not have an API password set. So force a state connection at
 		// this point.
-		// TODO: Once we can reliably trust that we have API passwords
-		//       set, and we no longer need state connections (and
-		//       possibly agents will be blocked from connecting
-		//       directly to state) we can remove this
+		// TODO(jam): Once we can reliably trust that we have API
+		//            passwords set, and we no longer need state
+		//            connections (and possibly agents will be blocked
+		//            from connecting directly to state) we can remove
+		//            this. Currently needed because 1.10 does not set
+		//            the API password and 1.11 requires it
 		ensureStateWorker()
 		return nil, err
 	}

@@ -223,7 +223,7 @@ func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo(c *gc.C) {
 	c.Assert(newPassword, gc.Equals, "")
 }
 
-func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo111(c *gc.C) {
+func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo1_11(c *gc.C) {
 	// In 1.11 State.Password is actually "", and the valid password is
 	// OldPassword. This is because in 1.11 we only change the password in
 	// OpenAPI which we don't call until we actually have agent workers
@@ -244,7 +244,7 @@ func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo111(c *gc.C) {
 	c.Assert(newPassword, gc.Not(gc.Equals), "")
 }
 
-func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo111Noop(c *gc.C) {
+func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo1_11Noop(c *gc.C) {
 	// We should notice if APIInfo is 'valid' in that it matches StateInfo
 	// even though in 1.1 both Password fields are empty.
 	u, conf := s.Create1_10Unit(c)
@@ -285,6 +285,7 @@ func (s *UpgradeValidationUnitSuite) TestAgentEnsuresAPIInfo(c *gc.C) {
 var _ = gc.Suite(&UpgradeValidationSuite{})
 
 type UpgradeValidationSuite struct {
+	testing.LoggingSuite
 }
 
 func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrs(c *gc.C) {
@@ -296,12 +297,37 @@ func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrs(c *gc.C) {
 		"ignored.invalid",
 		"[::1]:80",
 	}
-	c.Assert(apiAddrsFromStateAddrs(stateAddrs), gc.DeepEquals,
+	c.Assert(apiAddrsFromStateAddrs(stateAddrs, 17070), gc.DeepEquals,
 		[]string{
 			"localhost:17070",
 			"123.123.123.456:17070",
 			"ec2.foo.bar.invalid:17070",
 			"custom.invalid:17070",
+			"[::1]:17070",
+		})
+}
+
+func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrsCustomPort(c *gc.C) {
+	stateAddrs := []string{
+		"localhost:37017",
+		"[::1]:80",
+	}
+	c.Assert(apiAddrsFromStateAddrs(stateAddrs, 12345), gc.DeepEquals,
+		[]string{
+			"localhost:12345",
+			"[::1]:12345",
+		})
+}
+
+func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrsPort0(c *gc.C) {
+	// We should fall back to the default port 17070
+	stateAddrs := []string{
+		"localhost:37017",
+		"[::1]:80",
+	}
+	c.Assert(apiAddrsFromStateAddrs(stateAddrs, 0), gc.DeepEquals,
+		[]string{
+			"localhost:17070",
 			"[::1]:17070",
 		})
 }
