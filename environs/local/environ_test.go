@@ -20,7 +20,7 @@ type environSuite struct {
 
 var _ = gc.Suite(&environSuite{})
 
-func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
+func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	testConfig := minimalConfig(c)
 	testConfig, err := testConfig.Apply(map[string]interface{}{
 		"root-dir": "/usr/lib/juju",
