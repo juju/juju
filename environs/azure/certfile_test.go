@@ -14,12 +14,12 @@ type CertFileSuite struct{}
 
 var _ = Suite(new(CertFileSuite))
 
-func (CertFileSuite) TestPathReturnsFullPath(c *C) {
+func (*CertFileSuite) TestPathReturnsFullPath(c *C) {
 	certFile := tempCertFile{tempDir: "/tmp/dir", filename: "file"}
 	c.Check(certFile.Path(), Equals, "/tmp/dir/file")
 }
 
-func (CertFileSuite) TestNewTempCertFileCreatesFile(c *C) {
+func (*CertFileSuite) TestNewTempCertFileCreatesFile(c *C) {
 	certData := []byte("content")
 	certFile, err := newTempCertFile(certData)
 	c.Assert(err, IsNil)
@@ -31,7 +31,7 @@ func (CertFileSuite) TestNewTempCertFileCreatesFile(c *C) {
 	c.Check(storedData, DeepEquals, certData)
 }
 
-func (CertFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
+func (*CertFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	defer certFile.Delete()
@@ -40,7 +40,7 @@ func (CertFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
 	c.Check(info.Mode().Perm(), Equals, os.FileMode(0600))
 }
 
-func (CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
+func (*CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	defer certFile.Delete()
@@ -49,7 +49,7 @@ func (CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
 	c.Check(info.Mode().Perm(), Equals, os.FileMode(0700))
 }
 
-func (CertFileSuite) TestDeleteRemovesFile(c *C) {
+func (*CertFileSuite) TestDeleteRemovesFile(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	certFile.Delete()
@@ -57,7 +57,7 @@ func (CertFileSuite) TestDeleteRemovesFile(c *C) {
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
-func (CertFileSuite) TestDeleteIsIdempotent(c *C) {
+func (*CertFileSuite) TestDeleteIsIdempotent(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	certFile.Delete()
