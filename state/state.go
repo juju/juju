@@ -72,7 +72,7 @@ const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 const numberSnippet = "(0|[1-9][0-9]*)"
 const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
 const machineSnippet = numberSnippet + containerSnippet + "*"
-const containerSpecSnippet = "(([a-z])*:)*"
+const containerSpecSnippet = "(([a-z])*:)?"
 
 var (
 	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
