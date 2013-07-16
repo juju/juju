@@ -123,11 +123,11 @@ func (s *configSuite) TestSudoCallerIds(c *gc.C) {
 	}, {
 		uid:       "1001",
 		gid:       "foo",
-		errString: `strconv.ParseInt: .*`,
+		errString: `invalid value "foo" for SUDO_GID`,
 	}, {
 		uid:       "foo",
 		gid:       "bar",
-		errString: `strconv.ParseInt: .*`,
+		errString: `invalid value "foo" for SUDO_UID`,
 	}} {
 		os.Setenv("SUDO_UID", test.uid)
 		os.Setenv("SUDO_GID", test.gid)

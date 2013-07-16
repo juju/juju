@@ -81,23 +81,22 @@ func (c *environConfig) configFile(filename string) string {
 // If either is unset, it returns zero for both values.
 // An error is returned if the relevant environment variables
 // are not valid integers.
-func sudoCallerIds() (uid, gid int, err error) {
+func sudoCallerIds() (int, int, error) {
 	uidStr := os.Getenv("SUDO_UID")
 	gidStr := os.Getenv("SUDO_GID")
-	if uidStr != "" && gidStr != "" {
-		uid, err = strconv.Atoi(uidStr)
-		if err != nil {
-			logger.Errorf("expected %q for SUDO_UID to be an int: %v", uidStr, err)
-			return
-		}
-		gid, err = strconv.Atoi(gidStr)
-		if err != nil {
-			logger.Errorf("expected %q for SUDO_GID to be an int: %v", gidStr, err)
-			uid = 0 // clear out any value we may have
-			return
-		}
+
+	if uidStr == "" || gidStr == "" {
+		return 0, 0, nil
 	}
-	return
+	uid, err := strconv.Atoi(uidStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid value %q for SUDO_UID", uidStr)
+	}
+	gid, err := strconv.Atoi(gidStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid value %q for SUDO_GID", gidStr)
+	}
+	return uid, gid, nil
 }
 
 func (c *environConfig) createDirs() error {
