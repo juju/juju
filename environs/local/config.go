@@ -17,13 +17,19 @@ var rootCheckFunction = func() bool {
 	return os.Getuid() == 0
 }
 
-var configChecker = schema.StrictFieldMap(
-	schema.Fields{
-		"root-dir": schema.String(),
-	},
-	schema.Defaults{
-		"root-dir": "",
-	},
+var (
+	configFields = schema.Fields{
+		"root-dir":            schema.String(),
+		"bootstrap-ip":        schema.String(),
+		"storage-port":        schema.Int(),
+		"shared-storage-port": schema.Int(),
+	}
+	configDefaults = schema.Defaults{
+		"root-dir":            "",
+		"bootstrap-ip":        schema.Omit,
+		"storage-port":        8040,
+		"shared-storage-port": 8041,
+	}
 )
 
 type environConfig struct {
@@ -75,6 +81,36 @@ func (c *environConfig) mongoDir() string {
 
 func (c *environConfig) logDir() string {
 	return filepath.Join(c.rootDir(), "log")
+}
+
+// A config is bootstrapped if the bootstrap-ip address has been set.
+func (c *environConfig) bootstrapped() bool {
+	_, found := c.attrs["bootstrap-ip"]
+	return found
+}
+
+func (c *environConfig) bootstrapIPAddress() string {
+	addr, found := c.attrs["bootstrap-ip"]
+	if found {
+		return addr.(string)
+	}
+	return ""
+}
+
+func (c *environConfig) storagePort() int {
+	return int(c.attrs["storage-port"].(int64))
+}
+
+func (c *environConfig) sharedStoragePort() int {
+	return int(c.attrs["shared-storage-port"].(int64))
+}
+
+func (c *environConfig) storageAddr() string {
+	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.storagePort())
+}
+
+func (c *environConfig) sharedStorageAddr() string {
+	return fmt.Sprintf("%s:%d", c.bootstrapIPAddress(), c.sharedStoragePort())
 }
 
 func (c *environConfig) configFile(filename string) string {
