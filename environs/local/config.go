@@ -77,11 +77,11 @@ func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
 
-// getSudoCallerIds returns the user id and group id of the SUDO caller
-// if the values have been set.  If the values haven't been set, then
-// zero is returned.  Errors are returned if the environment variable
-// has been set to a non-integer.
-func getSudoCallerIds() (uid, gid int, err error) {
+// sudoCallerIds returns the user id and group id of the SUDO caller.
+// If either is unset, it returns zero for both values.
+// An error is returned if the relevant environment variables
+// are not valid integers.
+func sudoCallerIds() (uid, gid int, err error) {
 	// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
 	// change ownership of the directories.
 	uidStr := os.Getenv("SUDO_UID")
@@ -116,7 +116,7 @@ func (c *environConfig) createDirs() error {
 	if c.runningAsRoot {
 		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
 		// change ownership of the directories.
-		uid, gid, err := getSudoCallerIds()
+		uid, gid, err := sudoCallerIds()
 		if err != nil {
 			return err
 		}

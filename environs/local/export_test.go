@@ -42,6 +42,6 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 	}
 }
 
-func GetSudoCallerIds() (uid, gid int, err error) {
-	return getSudoCallerIds()
+func SudoCallerIds() (uid, gid int, err error) {
+	return sudoCallerIds()
 }
