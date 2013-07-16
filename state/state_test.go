@@ -1080,6 +1080,7 @@ func (*StateSuite) TestNameChecks(c *C) {
 	assertMachineOrNewContainer("1", true)
 	assertMachineOrNewContainer("0/lxc/0", true)
 	assertMachineOrNewContainer("lxc:0", true)
+	assertMachineOrNewContainer("lxc:lxc:0", false)
 	assertMachineOrNewContainer("kvm:0/lxc/1", true)
 	assertMachineOrNewContainer("lxc:", false)
 	assertMachineOrNewContainer(":lxc", false)
