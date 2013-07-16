@@ -397,6 +397,10 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+
+	label, err := base64.StdEncoding.DecodeString(service.Label)
+	c.Assert(err, IsNil)
+	c.Check(string(label), Equals, service.ServiceName)
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
