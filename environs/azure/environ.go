@@ -31,7 +31,9 @@ const (
 
 	// Initially, this is the only location where Azure supports Linux.
 	// TODO: This is to become a configuration item.
-	serviceLocation = "East US"
+	// We currently use "North Europe" because the temporary saucy image is
+	// is only supported there.
+	serviceLocation = "North Europe"
 
 	// The deployment slot where to deploy instances ('Production' or
 	// 'Staging').
@@ -346,9 +348,9 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
-	// In the meantime we use a Precise image.  Note that this image's
-	// cloud-init does not support Azure yet.
-	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130527-en-us-30GB"
+	// In the meantime we use a temporary saucy image containing a
+	// cloud-init package which supports Azure.
+	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
 	// TODO: virtualNetworkName is the virtual network to which the
 	// deployment will belong. We'll want to build this out later to
 	// support private communication between instances.
@@ -436,7 +438,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
 	// TODO: Derive the role size from the constraints.
 	// ExtraSmall|Small|Medium|Large|ExtraLarge
-	roleSize := "ExtraSmall"
+	roleSize := "Small"
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
 	hostname := roleHostname
@@ -640,17 +642,20 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 
 // OpenPorts is specified in the Environ interface.
 func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
-	panic("unimplemented")
+	// TODO: implement this.
+	return nil
 }
 
 // ClosePorts is specified in the Environ interface.
 func (env *azureEnviron) ClosePorts(ports []instance.Port) error {
-	panic("unimplemented")
+	// TODO: implement this.
+	return nil
 }
 
 // Ports is specified in the Environ interface.
 func (env *azureEnviron) Ports() ([]instance.Port, error) {
-	panic("unimplemented")
+	// TODO: implement this.
+	return []instance.Port{}, nil
 }
 
 // Provider is specified in the Environ interface.
