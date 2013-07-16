@@ -86,7 +86,7 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 // The id argument is reserved for future use and must be empty.
 func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
 	if id != "" {
-		// TODO: There is no direct test for this
+		// TODO(dimitern): There is no direct test for this
 		return nil, common.ErrBadId
 	}
 	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)

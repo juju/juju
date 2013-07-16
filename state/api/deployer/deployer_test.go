@@ -128,10 +128,14 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	// Initial event.
 	wc.AssertOneChange("mysql/0", "logging/0")
 
-	// Remove the subordinate and check it's detected.
-	err = s.subordinate.EnsureDead()
+	// Change something other than the lifecycle and make sure it's
+	// not detected.
+	err = s.subordinate.SetPassword("foo")
 	c.Assert(err, gc.IsNil)
-	err = s.subordinate.Remove()
+	wc.AssertNoChange()
+
+	// Make the subordinate dead and check it's detected.
+	err = s.subordinate.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange("logging/0")
 

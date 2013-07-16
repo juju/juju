@@ -175,16 +175,16 @@ func (w *NotifyWatcher) Changes() <-chan struct{} {
 // The content of the changes is a list of strings.
 type StringsWatcher struct {
 	commonWatcher
-	caller          common.Caller
-	stringWatcherId string
-	out             chan []string
+	caller           common.Caller
+	stringsWatcherId string
+	out              chan []string
 }
 
 func NewStringsWatcher(caller common.Caller, result params.StringsWatchResult) *StringsWatcher {
 	w := &StringsWatcher{
-		caller:          caller,
-		stringWatcherId: result.StringsWatcherId,
-		out:             make(chan []string),
+		caller:           caller,
+		stringsWatcherId: result.StringsWatcherId,
+		out:              make(chan []string),
 	}
 	go func() {
 		defer w.tomb.Done()
@@ -198,7 +198,7 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
 	w.call = func(request string, result interface{}) error {
-		return w.caller.Call("StringsWatcher", w.stringWatcherId, request, nil, &result)
+		return w.caller.Call("StringsWatcher", w.stringsWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()

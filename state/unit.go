@@ -632,6 +632,8 @@ func UnitTag(unitName string) string {
 
 // UnitNameFromTag returns the unit name that was used to create the tag.
 func UnitNameFromTag(tag string) string {
+	// TODO(dimitern): Possibly change this to return (string, error),
+	// so the case below can be reported.
 	if !strings.HasPrefix(tag, unitTagPrefix) {
 		return ""
 	}
