@@ -60,9 +60,10 @@ func (u *upgradeHandler) SetUp() (api.NotifyWatcher, error) {
 func (u *upgradeHandler) TearDown() error {
 	u.apiUpgrader = nil
 	u.apiState = nil
-        return nil
+	return nil
 }
 
 func (u *upgradeHandler) Handle() error {
+	requestedTools, err := u.apiUpgrader.Tools(u.agentTag)
 	return nil
 }

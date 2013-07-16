@@ -47,11 +47,6 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	s.apiState = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
 }
 
-func (s *UpgraderSuite) TearDownTest(c *gc.C) {
-	//s.SimpleToolsFixture.TearDown(c)
-	s.JujuConnSuite.TearDownTest(c)
-}
-
 func (s *UpgraderSuite) TestString(c *gc.C) {
 	upg := upgrader.NewUpgrader(s.APIState, "machine-tag", upgrader.NilToolsManager{})
 	c.Assert(fmt.Sprint(upg), gc.Equals, `upgrader for "machine-tag"`)
@@ -71,11 +66,9 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 
 type UpgradeHandlerSuite struct {
 	jujutesting.JujuConnSuite
-	//SimpleToolsFixture
-
 	rawMachine *state.Machine
 	apiState   *api.State
 }
 
-func (s *UpgraderSuite) TestUpgraderDoesNothingIfAgentVersionMatches(c *gc.C) {
+func (s *UpgradeHandlerSuite) TestUpgraderDoesNothingIfAgentVersionMatches(c *gc.C) {
 }

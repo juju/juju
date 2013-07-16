@@ -4,7 +4,7 @@
 package upgrader
 
 import (
-        "io"
+	"io"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/state/api/upgrader"
@@ -18,9 +18,9 @@ type NilToolsManager struct {
 }
 
 func (n NilToolsManager) ReadTools(version version.Binary) (*agent.Tools, error) {
-    return nil, nil
+	return nil, nil
 }
 
 func (n NilToolsManager) UnpackTools(tools *agent.Tools, r io.Reader) error {
-    return nil
+	return nil
 }
