@@ -45,15 +45,18 @@ func (azInstance *azureInstance) WaitDNSName() (string, error) {
 
 // OpenPorts is specified in the Instance interface.
 func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
-	panic("unimplemented")
+	// TODO: implement this.
+	return nil
 }
 
 // ClosePorts is specified in the Instance interface.
 func (azInstance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
-	panic("unimplemented")
+	// TODO: implement this.
+	return nil
 }
 
 // Ports is specified in the Instance interface.
 func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
-	panic("unimplemented")
+	// TODO: implement this.
+	return []instance.Port{}, nil
 }
