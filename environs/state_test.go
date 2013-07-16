@@ -36,12 +36,9 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
 	arch := "amd64"
-	state := environs.BootstrapState{StateInstances: []environs.InstanceInfo{
-		{
-			Id:              instance.Id("an-instance-id"),
-			Characteristics: instance.HardwareCharacteristics{Arch: &arch},
-		},
-	}}
+	state := environs.BootstrapState{
+		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
+		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, IsNil)
 
@@ -57,12 +54,9 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 
 func (suite *StateSuite) setupSavedState(c *C, storage environs.Storage) environs.BootstrapState {
 	arch := "amd64"
-	state := environs.BootstrapState{StateInstances: []environs.InstanceInfo{
-		{
-			Id:              instance.Id("an-instance-id"),
-			Characteristics: instance.HardwareCharacteristics{Arch: &arch},
-		},
-	}}
+	state := environs.BootstrapState{
+		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
+		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, IsNil)
 	err = storage.Put(environs.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
@@ -103,13 +97,9 @@ func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
 	arch := "amd64"
-	state := environs.BootstrapState{StateInstances: []environs.InstanceInfo{
-		{
-			Id:              instance.Id("an-instance-id"),
-			Characteristics: instance.HardwareCharacteristics{Arch: &arch},
-		},
-	}}
-
+	state := environs.BootstrapState{
+		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
+		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	err := environs.SaveState(storage, &state)
 	c.Assert(err, IsNil)
 	storedState, err := environs.LoadState(storage)

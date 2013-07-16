@@ -111,8 +111,8 @@ func ConfigureBootstrapMachine(
 		logger.Errorf("cannot load state: %v", err)
 		return err
 	}
-	instId := bsState.StateInstances[0].Id
-	characteristics := bsState.StateInstances[0].Characteristics
+	instId := bsState.StateInstances[0]
+	characteristics := bsState.Characteristics[0]
 
 	logger.Debugf("create bootstrap machine in state")
 	m, err := st.InjectMachine(version.Current.Series, cons, instId, characteristics, jobs...)

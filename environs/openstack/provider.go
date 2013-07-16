@@ -439,12 +439,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances: []environs.InstanceInfo{
-			{
-				Id:              instance.Id(inst.Id()),
-				Characteristics: *characteristics,
-			},
-		},
+		StateInstances:  []instance.Id{inst.Id()},
+		Characteristics: []instance.HardwareCharacteristics{*characteristics},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is

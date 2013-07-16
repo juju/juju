@@ -152,8 +152,9 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	// TODO - have hardware characteristics
-	err = environs.SaveState(env.Storage(), &environs.BootstrapState{
-		StateInstances: []environs.InstanceInfo{{Id: instance.Id(inst.Id())}}})
+	err = environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		err2 := env.StopInstances([]instance.Instance{inst})
 		if err2 != nil {

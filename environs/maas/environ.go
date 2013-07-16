@@ -138,9 +138,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	// TODO add hardware characteristics to BootstrapState
 	err = environs.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []environs.InstanceInfo{
-			{Id: inst.Id()}},
-		})
+		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
 	if err != nil {
 		err2 := env.releaseInstance(inst)
 		if err2 != nil {

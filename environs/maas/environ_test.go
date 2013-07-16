@@ -247,7 +247,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	insts, err := env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0].Id)
+	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
 
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
@@ -386,7 +386,7 @@ func (suite *EnvironSuite) TestStateInfo(c *C) {
 	testInstance := &maasInstance{&node, suite.environ}
 	err := environs.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []environs.InstanceInfo{{Id: testInstance.Id()}}})
+		&environs.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

@@ -43,7 +43,7 @@ func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 	stateInfo := environs.BootstrapState{
-		StateInstances: []environs.InstanceInfo{{Id: instance.Id("dummy.instance.id")}},
+		StateInstances: []instance.Id{instance.Id("dummy.instance.id")},
 	}
 	stateData, err := goyaml.Marshal(stateInfo)
 	c.Assert(err, IsNil)

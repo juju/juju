@@ -382,8 +382,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	insts, err := s.env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0].Id)
-	c.Check(expectedHardware, DeepEquals, stateData.StateInstances[0].Characteristics)
+	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
+	c.Check(expectedHardware, DeepEquals, stateData.Characteristics[0])
 
 	info, apiInfo, err := s.env.StateInfo()
 	c.Assert(err, IsNil)

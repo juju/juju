@@ -28,15 +28,11 @@ const StateFile = "provider-state"
 // Individual providers may define their own state structures instead of
 // this one, and use their own code for loading and saving those, but this is
 // the definition that most practically useful providers share unchanged.
-
-type InstanceInfo struct {
-	Id              instance.Id
-	Characteristics instance.HardwareCharacteristics
-}
-
 type BootstrapState struct {
 	// StateInstances are the state servers.
-	StateInstances []InstanceInfo `yaml:"state-instances"`
+	StateInstances []instance.Id `yaml:"state-instances"`
+	// Characteristics reflect the hardware each state server is running on.
+	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics"`
 }
 
 // SaveState writes the given state to the given storage.
@@ -138,12 +134,8 @@ func StateInfo(env Environ) (*state.Info, *api.Info, error) {
 	// to become available.
 	log.Debugf("waiting for DNS name(s) of state server instances %v", st.StateInstances)
 	var hostnames []string
-	var ids []instance.Id
-	for _, stateInst := range st.StateInstances {
-		ids = append(ids, stateInst.Id)
-	}
 	for a := LongAttempt.Start(); len(hostnames) == 0 && a.Next(); {
-		insts, err := env.Instances(ids)
+		insts, err := env.Instances(st.StateInstances)
 		if err != nil && err != ErrPartialInstances {
 			log.Debugf("error getting state instances: %v", err.Error())
 			return nil, nil, err
