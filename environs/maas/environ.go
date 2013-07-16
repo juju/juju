@@ -66,30 +66,12 @@ func (env *maasEnviron) Name() string {
 	return env.name
 }
 
-// makeMachineConfig sets up a basic machine configuration for use with
-// userData().  You may still need to supply more information, but this takes
-// care of the fixed entries and the ones that are always needed.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
-	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
-	return &cloudinit.MachineConfig{
-		// Fixed entries.
-		DataDir: environs.DataDir,
-
-		// Parameter entries.
-		MachineId:    machineID,
-		MachineNonce: machineNonce,
-		StateInfo:    stateInfo,
-		APIInfo:      apiInfo,
-	}
-}
-
 // startBootstrapNode starts the juju bootstrap node for this environment.
 func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Instance, error) {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := env.makeMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 
 	log.Debugf("environs/maas: bootstrapping environment %q", env.Name())
@@ -322,7 +304,7 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	mcfg := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
 	inst, err := environ.internalStartInstance(cons, possibleTools, mcfg)
 	return inst, nil, err

@@ -306,15 +306,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 
 // TODO(bug 1199847): Some of this work can be shared between providers.
 func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
-	mcfg := &cloudinit.MachineConfig{
-		MachineId:    scfg.machineId,
-		MachineNonce: scfg.machineNonce,
-		StateServer:  scfg.stateServer,
-		StateInfo:    scfg.info,
-		APIInfo:      scfg.apiInfo,
-		DataDir:      environs.DataDir,
-		Tools:        tools,
-	}
+	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
+	mcfg.StateServer = scfg.stateServer
+	mcfg.Tools = tools
+
 	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
 		return nil, err
 	}
