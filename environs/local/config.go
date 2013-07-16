@@ -13,7 +13,7 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
-var rootCheckFunction = func() bool {
+var checkIfRoot = func() bool {
 	return os.Getuid() == 0
 }
 
@@ -41,7 +41,7 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
-	root := rootCheckFunction()
+	root := checkIfRoot()
 	if root {
 		sudo_user := os.Getenv("SUDO_USER")
 		if sudo_user != "" {
@@ -117,29 +117,26 @@ func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
 }
 
-// getSudoCallerIds returns the user id and group id of the SUDO caller
-// if the values have been set.  If the values haven't been set, then
-// zero is returned.  Errors are returned if the environment variable
-// has been set to a non-integer.
-func getSudoCallerIds() (uid, gid int, err error) {
-	// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
-	// change ownership of the directories.
+// sudoCallerIds returns the user id and group id of the SUDO caller.
+// If either is unset, it returns zero for both values.
+// An error is returned if the relevant environment variables
+// are not valid integers.
+func sudoCallerIds() (int, int, error) {
 	uidStr := os.Getenv("SUDO_UID")
 	gidStr := os.Getenv("SUDO_GID")
-	if uidStr != "" && gidStr != "" {
-		uid, err = strconv.Atoi(uidStr)
-		if err != nil {
-			logger.Errorf("expected %q for SUDO_UID to be an int: %v", uidStr, err)
-			return
-		}
-		gid, err = strconv.Atoi(gidStr)
-		if err != nil {
-			logger.Errorf("expected %q for SUDO_GID to be an int: %v", gidStr, err)
-			uid = 0 // clear out any value we may have
-			return
-		}
+
+	if uidStr == "" || gidStr == "" {
+		return 0, 0, nil
 	}
-	return
+	uid, err := strconv.Atoi(uidStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid value %q for SUDO_UID", uidStr)
+	}
+	gid, err := strconv.Atoi(gidStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid value %q for SUDO_GID", gidStr)
+	}
+	return uid, gid, nil
 }
 
 func (c *environConfig) createDirs() error {
@@ -157,14 +154,14 @@ func (c *environConfig) createDirs() error {
 	if c.runningAsRoot {
 		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
 		// change ownership of the directories.
-		uid, gid, err := getSudoCallerIds()
+		uid, gid, err := sudoCallerIds()
 		if err != nil {
 			return err
 		}
 		if uid != 0 || gid != 0 {
 			filepath.Walk(c.rootDir(),
 				func(path string, info os.FileInfo, err error) error {
-					if info.IsDir() && err == nil {
+					if info != nil && info.IsDir() {
 						if err := os.Chown(path, uid, gid); err != nil {
 							return err
 						}
