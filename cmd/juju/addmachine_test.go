@@ -85,7 +85,7 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *C) {
 	err = runAddMachine(c)
 	c.Assert(err, IsNil)
 	for i, container := range instance.SupportedContainerTypes {
-		err := runAddMachine(c, fmt.Sprintf("1/%s", container))
+		err := runAddMachine(c, fmt.Sprintf("%s:1", container))
 		c.Assert(err, IsNil)
 		s._assertAddContainer(c, "1", fmt.Sprintf("1/%s/%d", container, i), container)
 	}
@@ -94,6 +94,8 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *C) {
 func (s *AddMachineSuite) TestAddMachineErrors(c *C) {
 	err := runAddMachine(c, ":foo")
 	c.Assert(err, ErrorMatches, `malformed container argument ":foo"`)
-	err = runAddMachine(c, "/lxc", "--constraints", "container=lxc")
+	err = runAddMachine(c, "foo:")
+	c.Assert(err, ErrorMatches, `malformed container argument "foo:"`)
+	err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
 	c.Assert(err, ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
 }
