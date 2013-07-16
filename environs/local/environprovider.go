@@ -5,7 +5,6 @@ package local
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"launchpad.net/loggo"
 
@@ -65,7 +64,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {
-		dir = filepath.Join(environs.DataDir, localConfig.namespace())
+		dir = config.JujuHomePath(cfg.Name())
 		localConfig.attrs["root-dir"] = dir
 	}
 
@@ -80,7 +79,8 @@ func (environProvider) BoilerplateConfig() string {
 local:
   type: local
   # Override the directory that is used for the storage files and database.
-  # The default location is /var/lib/juju/<USER>-<ENV>
+  # The default location is $JUJU_HOME/<ENV>.
+  # $JUJU_HOME defaults to ~/.juju
   # root-dir: ~/.juju/local
 
 `[1:]

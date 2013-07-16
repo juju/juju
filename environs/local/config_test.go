@@ -10,7 +10,7 @@ import (
 	"syscall"
 
 	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
 	"launchpad.net/juju-core/testing"
@@ -59,7 +59,7 @@ func (s *configSuite) TestValidateConfig(c *gc.C) {
 	valid, err := local.Provider.Validate(testConfig, nil)
 	c.Assert(err, gc.IsNil)
 
-	expectedRootDir := filepath.Join(environs.DataDir, "tester-test")
+	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "test")
 	unknownAttrs := valid.UnknownAttrs()
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
 }

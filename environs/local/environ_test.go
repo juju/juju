@@ -6,10 +6,8 @@ package local_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/local"
-	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -18,22 +16,20 @@ type environSuite struct {
 
 var _ = gc.Suite(&environSuite{})
 
-func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
+func (*environSuite) TestOpenFailsWithProtectedDirectories(c *gc.C) {
 	testConfig := minimalConfig(c)
+	testConfig, err := testConfig.Apply(map[string]interface{}{
+		"root-dir": "/usr/lib/juju",
+	})
+	c.Assert(err, gc.IsNil)
 
 	environ, err := local.Provider.Open(testConfig)
-	c.Assert(err, gc.ErrorMatches, "storage directory .* does not exist, bootstrap first")
+	c.Assert(err, gc.ErrorMatches, "mkdir .* permission denied")
 	c.Assert(environ, gc.IsNil)
 }
 
 func (s *environSuite) TestNameAndStorage(c *gc.C) {
-	c.Logf("root: %s", environs.DataDir)
-	c.Assert(environs.DataDir, jc.IsDirectory)
-
 	testConfig := minimalConfig(c)
-	err := local.CreateDirs(c, testConfig)
-	c.Assert(err, gc.IsNil)
-
 	environ, err := local.Provider.Open(testConfig)
 	c.Assert(err, gc.IsNil)
 	c.Assert(environ.Name(), gc.Equals, "test")
@@ -48,9 +44,6 @@ type localJujuTestSuite struct {
 
 func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 	s.baseProviderSuite.SetUpTest(c)
-	// Construct the directories first.
-	err := local.CreateDirs(c, minimalConfig(c))
-	c.Assert(err, gc.IsNil)
 	s.Tests.SetUpTest(c)
 }
 
