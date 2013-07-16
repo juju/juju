@@ -83,8 +83,8 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 }
 
 func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
-	rootCheck := local.SetRootCheckFunction(func() bool { return true })
-	defer local.SetRootCheckFunction(rootCheck)
+	restore := local.SetRootCheckFunction(func() bool { return true })
+	defer restore()
 	err := os.Setenv("USER", "root")
 	c.Assert(err, gc.IsNil)
 	testConfig := minimalConfig(c)
@@ -92,8 +92,8 @@ func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
 }
 
 func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
-	rootCheck := local.SetRootCheckFunction(func() bool { return true })
-	defer local.SetRootCheckFunction(rootCheck)
+	restore := local.SetRootCheckFunction(func() bool { return true })
+	defer restore()
 	err := os.Setenv("USER", "root")
 	c.Assert(err, gc.IsNil)
 	err = os.Setenv("SUDO_USER", "tester")
@@ -103,7 +103,7 @@ func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
 	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
 }
 
-func (s *configSuite) TestGetSudoCallerIds(c *gc.C) {
+func (s *configSuite) TestSudoCallerIds(c *gc.C) {
 	defer os.Setenv("SUDO_UID", os.Getenv("SUDO_UID"))
 	defer os.Setenv("SUDO_GID", os.Getenv("SUDO_GID"))
 	for _, test := range []struct {
@@ -123,15 +123,15 @@ func (s *configSuite) TestGetSudoCallerIds(c *gc.C) {
 	}, {
 		uid:       "1001",
 		gid:       "foo",
-		errString: `strconv.ParseInt: .*`,
+		errString: `invalid value "foo" for SUDO_GID`,
 	}, {
 		uid:       "foo",
 		gid:       "bar",
-		errString: `strconv.ParseInt: .*`,
+		errString: `invalid value "foo" for SUDO_UID`,
 	}} {
 		os.Setenv("SUDO_UID", test.uid)
 		os.Setenv("SUDO_GID", test.gid)
-		uid, gid, err := local.GetSudoCallerIds()
+		uid, gid, err := local.SudoCallerIds()
 		if test.errString == "" {
 			c.Assert(err, gc.IsNil)
 			c.Assert(uid, gc.Equals, test.expectedUid)
