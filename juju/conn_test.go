@@ -407,7 +407,7 @@ func (s *ConnSuite) TestAddUnits(c *C) {
 	id2, err := units[0].AssignedMachineId()
 	c.Assert(id2, Equals, id0)
 
-	units, err = s.conn.AddUnits(svc, 1, fmt.Sprintf("0/%s", instance.LXC))
+	units, err = s.conn.AddUnits(svc, 1, fmt.Sprintf("%s:0", instance.LXC))
 	c.Assert(err, IsNil)
 	id3, err := units[0].AssignedMachineId()
 	c.Assert(id3, Equals, id0+"/lxc/0")
