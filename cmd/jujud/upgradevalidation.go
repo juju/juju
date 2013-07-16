@@ -4,8 +4,6 @@
 package main
 
 import (
-	"fmt"
-	"net"
 	"path/filepath"
 	"time"
 
@@ -13,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -82,31 +79,19 @@ type passwordSetter interface {
 	SetPassword(password string) error
 }
 
-// apiAddrsFromStateAddrs guesses the API addresses based on State addresses
-func apiAddrsFromStateAddrs(stateAddrs []string, apiPort int) []string {
-	res := make([]string, 0, len(stateAddrs))
-	if apiPort == 0 {
-		apiPort = config.DefaultApiPort
-	}
-	strApiPort := fmt.Sprint(apiPort)
-	for _, addr := range stateAddrs {
-		host, _, err := net.SplitHostPort(addr)
-		if err != nil {
-			validationLogger.Warningf("unable to parse address: %s", addr)
-			continue
-		}
-		res = append(res, net.JoinHostPort(host, strApiPort))
-	}
-	return res
+// apiAddresser just implements APIAddresses
+// This is implemented by the standard *state.State object
+type apiAddresser interface {
+	APIAddresses() ([]string, error)
 }
 
-// apiInfoFromStateInfo tries to guess api.Info based on state.Info
-// This makes assumptions like default ports, which are usually correct, and
-// are the best we can do after something like upgrade doesn't actually set
-// them.
-func apiInfoFromStateInfo(stInfo *state.Info, apiPort int) *api.Info {
+func apiInfoFromStateInfo(stInfo *state.Info, stConn apiAddresser) *api.Info {
+	addrs, err := stConn.APIAddresses()
+	if err != nil {
+		validationLogger.Warningf("Unable to get the list of valid API Addresses: %v", err)
+	}
 	return &api.Info{
-		Addrs:    apiAddrsFromStateAddrs(stInfo.Addrs, apiPort),
+		Addrs:    addrs,
 		CACert:   stInfo.CACert,
 		Tag:      stInfo.Tag,
 		Password: stInfo.Password,
@@ -118,7 +103,7 @@ func apiInfoFromStateInfo(stInfo *state.Info, apiPort int) *api.Info {
 // mongo password.  1.10 also does not set any API Info at all for Unit agents.
 // conf is the agent.conf for this machine/unit agent.  agentConn is the direct
 // connection to the State database
-func EnsureAPIInfo(conf *agent.Conf, agentConn AgentState) error {
+func EnsureAPIInfo(conf *agent.Conf, stConn *state.State, agentConn AgentState) error {
 	// In 1.10 Machine Agents will have an API Info section, but will not
 	// have properly configured the Password field, so when upgrading to
 	// 1.11 we must set that field
@@ -139,7 +124,7 @@ func EnsureAPIInfo(conf *agent.Conf, agentConn AgentState) error {
 	}
 	if conf.APIInfo == nil {
 		// Unit agents didn't get any APIInfo in 1.10
-		conf.APIInfo = apiInfoFromStateInfo(conf.StateInfo, conf.APIPort)
+		conf.APIInfo = apiInfoFromStateInfo(conf.StateInfo, stConn)
 		validationLogger.Infof(
 			"agent.conf APIInfo is not set. Setting to {Addrs: %s, Tag: %s}",
 			conf.APIInfo.Addrs,

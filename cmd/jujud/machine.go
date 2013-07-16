@@ -174,7 +174,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	}
 	// If this fails, other bits will fail, so we just log the error, and
 	// let the other failures actually restart runners
-	if err := EnsureAPIInfo(a.Conf.Conf, entity); err != nil {
+	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
 		log.Warningf("failed to EnsureAPIInfo: %v", err)
 	}
 	reportOpenedState(st)

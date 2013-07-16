@@ -4,7 +4,7 @@
 package main
 
 import (
-	"net"
+	"fmt"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -74,7 +74,7 @@ func (s *UpgradeValidationMachineSuite) TestEnsureAPIInfo(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 	c.Assert(err, gc.ErrorMatches, "invalid entity name or password")
 
-	err = EnsureAPIInfo(conf, m)
+	err = EnsureAPIInfo(conf, s.State, m)
 	c.Assert(err, gc.IsNil)
 	// After EnsureAPIInfo we should be able to connect
 	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
@@ -97,7 +97,7 @@ func (s *UpgradeValidationMachineSuite) TestEnsureAPIInfoNoOp(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	apiState.Close()
 
-	err = EnsureAPIInfo(conf, m)
+	err = EnsureAPIInfo(conf, s.State, m)
 	c.Assert(err, gc.IsNil)
 	// After EnsureAPIInfo we should still be able to connect
 	apiState, newPassword, err = conf.OpenAPI(api.DialOpts{})
@@ -205,16 +205,12 @@ func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo(c *gc.C) {
 	// Opening the API should fail as is
 	c.Assert(func() { conf.OpenAPI(api.DialOpts{}) }, gc.PanicMatches, ".*nil pointer dereference")
 
-	err := EnsureAPIInfo(conf, u)
+	err := EnsureAPIInfo(conf, s.State, u)
 	c.Assert(err, gc.IsNil)
-	// The guessed API port is wrong in the test suite, because it goes to
-	// DefaultAPIPort. Validate this, and then set it to something correct
-	c.Assert(conf.StateInfo.Addrs, gc.HasLen, 1)
-	c.Assert(conf.APIInfo.Addrs, gc.HasLen, 1)
-	stateHost, _, err := net.SplitHostPort(conf.StateInfo.Addrs[0])
-	apiHostString := net.JoinHostPort(stateHost, "17070")
-	c.Assert(conf.APIInfo.Addrs, gc.DeepEquals, []string{apiHostString})
-	// Override that field
+	// The test suite runs the API on non-standard ports. Fix it
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(conf.APIInfo.Addrs, gc.DeepEquals, apiAddresses)
 	conf.APIInfo.Addrs = s.APIInfo(c).Addrs
 	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, gc.IsNil)
@@ -232,10 +228,12 @@ func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo1_11(c *gc.C) {
 	conf.OldPassword = conf.StateInfo.Password
 	conf.StateInfo.Password = ""
 
-	err := EnsureAPIInfo(conf, u)
+	err := EnsureAPIInfo(conf, s.State, u)
 	c.Assert(err, gc.IsNil)
-	// The guessed APIInfo.Addrs is wrong because the test suite is on
-	// non-standard ports. Fix it
+	// The test suite runs the API on non-standard ports. Fix it
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(conf.APIInfo.Addrs, gc.DeepEquals, apiAddresses)
 	conf.APIInfo.Addrs = s.APIInfo(c).Addrs
 	apiState, newPassword, err := conf.OpenAPI(api.DialOpts{})
 	c.Assert(err, gc.IsNil)
@@ -259,7 +257,7 @@ func (s *UpgradeValidationUnitSuite) TestEnsureAPIInfo1_11Noop(c *gc.C) {
 		CACert:   testAPIInfo.CACert,
 	}
 
-	err := EnsureAPIInfo(conf, u)
+	err := EnsureAPIInfo(conf, s.State, u)
 	c.Assert(err, gc.IsNil)
 	// We should not have changed the API Addrs or Password
 	c.Assert(conf.APIInfo.Password, gc.Equals, "")
@@ -288,46 +286,50 @@ type UpgradeValidationSuite struct {
 	testing.LoggingSuite
 }
 
-func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrs(c *gc.C) {
-	stateAddrs := []string{
-		"localhost:37017",
-		"123.123.123.456:37017",
-		"ec2.foo.bar.invalid:37017",
-		"custom.invalid:12345",
-		"ignored.invalid",
-		"[::1]:80",
-	}
-	c.Assert(apiAddrsFromStateAddrs(stateAddrs, 17070), gc.DeepEquals,
-		[]string{
-			"localhost:17070",
-			"123.123.123.456:17070",
-			"ec2.foo.bar.invalid:17070",
-			"custom.invalid:17070",
-			"[::1]:17070",
-		})
+type mockAddresser struct {
+	Addrs []string
+	Err   error
 }
 
-func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrsCustomPort(c *gc.C) {
-	stateAddrs := []string{
-		"localhost:37017",
-		"[::1]:80",
-	}
-	c.Assert(apiAddrsFromStateAddrs(stateAddrs, 12345), gc.DeepEquals,
-		[]string{
-			"localhost:12345",
-			"[::1]:12345",
-		})
+func (m *mockAddresser) APIAddresses() ([]string, error) {
+	return m.Addrs, m.Err
 }
 
-func (s *UpgradeValidationSuite) TestapiAddrsFromStateAddrsPort0(c *gc.C) {
-	// We should fall back to the default port 17070
-	stateAddrs := []string{
-		"localhost:37017",
-		"[::1]:80",
+func (s *UpgradeValidationSuite) TestapiInfoFromStateInfo(c *gc.C) {
+	cert := []byte("stuff")
+	stInfo := &state.Info{
+		Addrs:    []string{"example.invalid:37070"},
+		CACert:   cert,
+		Tag:      "machine-0",
+		Password: "abcdefh",
 	}
-	c.Assert(apiAddrsFromStateAddrs(stateAddrs, 0), gc.DeepEquals,
-		[]string{
-			"localhost:17070",
-			"[::1]:17070",
-		})
+	apiAddresses := []string{"example.invalid:17070", "another.invalid:1234"}
+	apiInfo := apiInfoFromStateInfo(stInfo, &mockAddresser{Addrs: apiAddresses})
+	c.Assert(*apiInfo, gc.DeepEquals, api.Info{
+		Addrs:    apiAddresses,
+		CACert:   cert,
+		Tag:      "machine-0",
+		Password: "abcdefh",
+	})
+
+}
+
+func (s *UpgradeValidationSuite) TestapiInfoFromStateInfoSwallowsError(c *gc.C) {
+	// No reason for it to die just because of this
+	cert := []byte("stuff")
+	stInfo := &state.Info{
+		Addrs:    []string{"example.invalid:37070"},
+		CACert:   cert,
+		Tag:      "machine-0",
+		Password: "abcdefh",
+	}
+	apiAddresses := []string{}
+	apiInfo := apiInfoFromStateInfo(stInfo, &mockAddresser{Addrs: apiAddresses, Err: fmt.Errorf("bad")})
+	c.Assert(*apiInfo, gc.DeepEquals, api.Info{
+		Addrs:    []string{},
+		CACert:   cert,
+		Tag:      "machine-0",
+		Password: "abcdefh",
+	})
+
 }
