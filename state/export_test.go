@@ -56,13 +56,27 @@ func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) T
 }
 
 // SetBeforeHooks uses SetTransactionHooks to queue N functions to be run
-// immediately before the next N transactions. Nil values are accepted, and
-// useful, in that they can be used to ensure that a transaction is run at
-// the expected time, without having to make any changes or assert any state.
+// immediately before the next N transactions. The first function is executed
+// before the first transaction, the second function before the second
+// transaction and so on. Nil values are accepted, and useful, in that they can
+// be used to ensure that a transaction is run at the expected time, without
+// having to make any changes or assert any state.
 func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
 	transactionHooks := make([]TransactionHook, len(fs))
 	for i, f := range fs {
 		transactionHooks[i] = TransactionHook{Before: f}
+	}
+	return SetTransactionHooks(c, st, transactionHooks...)
+}
+
+// SetAfterHooks uses SetTransactionHooks to queue N functions to be run
+// immediately after the next N transactions. The first function is executed
+// after the first transaction, the second function after the second
+// transaction and so on.
+func SetAfterHooks(c *C, st *State, fs ...func()) TransactionChecker {
+	transactionHooks := make([]TransactionHook, len(fs))
+	for i, f := range fs {
+		transactionHooks[i] = TransactionHook{After: f}
 	}
 	return SetTransactionHooks(c, st, transactionHooks...)
 }

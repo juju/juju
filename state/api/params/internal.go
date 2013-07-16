@@ -122,3 +122,9 @@ type StringsWatchResult struct {
 	Changes          []string
 	Error            *Error
 }
+
+// StringsWatchResults holds the results for any API call which ends up
+// returning a list of StringsWatchers.
+type StringsWatchResults struct {
+	Results []StringsWatchResult
+}

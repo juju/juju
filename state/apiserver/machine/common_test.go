@@ -7,7 +7,7 @@ import (
 
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	apitesting "launchpad.net/juju-core/state/apiserver/testing"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -18,7 +18,7 @@ func Test(t *stdtesting.T) {
 type commonSuite struct {
 	testing.JujuConnSuite
 
-	authorizer apitesting.FakeAuthorizer
+	authorizer apiservertesting.FakeAuthorizer
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -36,7 +36,7 @@ func (s *commonSuite) SetUpTest(c *C) {
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
-	s.authorizer = apitesting.FakeAuthorizer{
+	s.authorizer = apiservertesting.FakeAuthorizer{
 		Tag:          state.MachineTag(s.machine1.Id()),
 		LoggedIn:     true,
 		Manager:      false,

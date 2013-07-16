@@ -2,8 +2,10 @@ package machine_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type agentSuite struct {
@@ -45,20 +47,14 @@ func (s *agentSuite) TestGetMachines(c *C) {
 		},
 	})
 	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
-		Machines: []params.MachineAgentGetMachinesResult{{
-			Life: "dying",
-			Jobs: []params.MachineJob{params.JobHostUnits},
-		}, {
-			Error: &params.Error{
-				Code:    params.CodeUnauthorized,
-				Message: "permission denied",
+		Machines: []params.MachineAgentGetMachinesResult{
+			{
+				Life: "dying",
+				Jobs: []params.MachineJob{params.JobHostUnits},
 			},
-		}, {
-			Error: &params.Error{
-				Code:    params.CodeUnauthorized,
-				Message: "permission denied",
-			},
-		}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
 	})
 }
 
@@ -92,12 +88,12 @@ func (s *agentSuite) TestSetPasswords(c *C) {
 		},
 	})
 	c.Assert(err, IsNil)
-	unauth := &params.Error{
-		Message: "permission denied",
-		Code:    params.CodeUnauthorized,
-	}
 	c.Assert(results, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{unauth, nil, unauth},
+		Errors: []*params.Error{
+			apiservertesting.ErrUnauthorized,
+			nil,
+			apiservertesting.ErrUnauthorized,
+		},
 	})
 	err = s.machine1.Refresh()
 	c.Assert(err, IsNil)
