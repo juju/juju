@@ -94,7 +94,7 @@ func (hc HardwareCharacteristics) String() string {
 	return strings.Join(strs, " ")
 }
 
-// MustParseHardware constructs a HardwareCharacteristics.Value from the supplied arguments,
+// MustParseHardware constructs a HardwareCharacteristics from the supplied arguments,
 // as Parse, but panics on failure.
 func MustParseHardware(args ...string) HardwareCharacteristics {
 	hc, err := ParseHardware(args...)

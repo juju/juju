@@ -773,7 +773,7 @@ func (s *assignCleanSuite) TestAssignUnitTwiceFails(c *C) {
 	c.Assert(m.Remove(), IsNil)
 }
 
-var eligibleMachinesInUse = "all eligible machines in use"
+const eligibleMachinesInUse = "all eligible machines in use"
 
 func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 	// Try to assign a unit to a clean (maybe empty) machine and check that we can't.

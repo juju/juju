@@ -1059,10 +1059,10 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 
 	// Find the ids of machines which satisfy any required hardware constraints.
 	// If there is no instanceData for a machine, that machine is not considered as suitable for
-	// deploying the unit. This can happen if the machine is not yt provisioned. It may be that
+	// deploying the unit. This can happen if the machine is not yet provisioned. It may be that
 	// when the machine is provisioned it will be found to be suitable, but we don't know that right
 	// now and it's best to err on the side of caution and exclude such machines.
-	var suitableInstancData []instanceData
+	var suitableInstanceData []instanceData
 	var suitableTerms D
 	if cons.Arch != nil && *cons.Arch != "" {
 		suitableTerms = append(suitableTerms, bson.DocElem{"arch", *cons.Arch})
@@ -1077,12 +1077,12 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpupower", D{{"$gte", *cons.CpuPower}}})
 	}
 	if len(suitableTerms) > 0 {
-		err := u.st.instanceData.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstancData)
+		err := u.st.instanceData.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
 		if err != nil {
 			return nil, err
 		}
-		var suitableIds = make([]string, len(suitableInstancData))
-		for i, m := range suitableInstancData {
+		var suitableIds = make([]string, len(suitableInstanceData))
+		for i, m := range suitableInstanceData {
 			suitableIds[i] = m.Id
 		}
 		terms = append(terms, bson.DocElem{"_id", D{{"$in", suitableIds}}})
