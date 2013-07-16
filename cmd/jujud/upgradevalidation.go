@@ -4,12 +4,14 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"time"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/fslock"
@@ -55,7 +57,7 @@ func EnsureWeHaveLXC(dataDir, machineTag string) error {
 	//     package for exactly the same reasons.
 	// Later, post-precise LTS, when we have updated lxc, we can bring this
 	// back in to have nested lxc, but until then, we have to avoid it.
-	containerType := state.ContainerTypeFromId(MachineIdFromTag(machineTag))
+	containerType := state.ContainerTypeFromId(state.MachineIdFromTag(machineTag))
 	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
 	if providerType == "local" || containerType == instance.LXC {
 		return nil
