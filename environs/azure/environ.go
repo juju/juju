@@ -31,8 +31,8 @@ const (
 	// TODO: This is to become a configuration item.
 	serviceLocation = "East US"
 
-	// The deployment slot where to deploy instances.  Azure supports
-	// 'Production' or 'Staging'.
+	// deploymentSlot says in which slot to deploy instances.  Azure
+	// supports 'Production' or 'Staging'.
 	// This provider always deploys to Production.  Think twice about
 	// changing that: DNS names in the staging slot work differently from
 	// those in the production slot.  In Staging, Azure assigns an
@@ -40,7 +40,7 @@ const (
 	// URL.  In Production, the hostname in the deployment URL does not
 	// actually seem to resolve; instead, the service name is used as the
 	// DNS name, with ".cloudapp.net" appended.
-	DeploymentSlot = "Production"
+	deploymentSlot = "Production"
 )
 
 type azureEnviron struct {
@@ -429,7 +429,7 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, 
 // newDeployment creates and returns a gwacl Deployment object.
 func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
 	// Use the service name as the label for the deployment.
-	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
+	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, deploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }
 
 // makeMachineConfig sets up a basic machine configuration for use with
