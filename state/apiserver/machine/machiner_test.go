@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
 )
 
@@ -39,12 +40,6 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	s.machiner = machiner
 }
 
-func (s *machinerSuite) assertError(c *C, err *params.Error, code, messageRegexp string) {
-	c.Assert(err, NotNil)
-	c.Assert(params.ErrCode(err), Equals, code)
-	c.Assert(err, ErrorMatches, messageRegexp)
-}
-
 func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = false
@@ -68,10 +63,13 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 		}}
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Errors, HasLen, 3)
-	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], params.CodeUnauthorized, "permission denied")
+	c.Assert(result, DeepEquals, params.ErrorResults{
+		Errors: []*params.Error{
+			nil,
+			apiservertesting.ErrUnauthorized,
+			apiservertesting.ErrUnauthorized,
+		},
+	})
 
 	// Verify machine 0 - no change.
 	status, info, err := s.machine0.Status()
@@ -99,11 +97,13 @@ func (s *machinerSuite) TestLife(c *C) {
 	}}
 	result, err := s.machiner.Life(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Results, HasLen, 3)
-	c.Assert(result.Results[0].Error, IsNil)
-	c.Assert(string(result.Results[0].Life), Equals, "dead")
-	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Results[2].Error, params.CodeUnauthorized, "permission denied")
+	c.Assert(result, DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{Life: "dead"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }
 
 func (s *machinerSuite) TestEnsureDead(c *C) {
@@ -117,10 +117,13 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	}}
 	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Errors, HasLen, 3)
-	c.Assert(result.Errors[0], IsNil)
-	s.assertError(c, result.Errors[1], params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Errors[2], params.CodeUnauthorized, "permission denied")
+	c.Assert(result, DeepEquals, params.ErrorResults{
+		Errors: []*params.Error{
+			nil,
+			apiservertesting.ErrUnauthorized,
+			apiservertesting.ErrUnauthorized,
+		},
+	})
 
 	err = s.machine0.Refresh()
 	c.Assert(err, IsNil)
@@ -135,8 +138,9 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	}
 	result, err = s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Errors, HasLen, 1)
-	c.Assert(result.Errors[0], IsNil)
+	c.Assert(result, DeepEquals, params.ErrorResults{
+		Errors: []*params.Error{nil},
+	})
 
 	// Verify Life is unchanged.
 	err = s.machine1.Refresh()
@@ -154,10 +158,13 @@ func (s *machinerSuite) TestWatch(c *C) {
 	}}
 	result, err := s.machiner.Watch(args)
 	c.Assert(err, IsNil)
-	c.Assert(result.Results, HasLen, 3)
-	c.Assert(result.Results[0].Error, IsNil)
-	s.assertError(c, result.Results[1].Error, params.CodeUnauthorized, "permission denied")
-	s.assertError(c, result.Results[2].Error, params.CodeUnauthorized, "permission denied")
+	c.Assert(result, DeepEquals, params.NotifyWatchResults{
+		Results: []params.NotifyWatchResult{
+			{NotifyWatcherId: "1"},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 
 	// Verify the resource was registered and stop when done
 	c.Assert(s.resources.Count(), Equals, 1)

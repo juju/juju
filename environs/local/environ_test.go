@@ -6,6 +6,7 @@ package local_test
 import (
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/local"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -26,8 +27,8 @@ func (*environSuite) TestOpenFailsWithoutDirs(c *gc.C) {
 }
 
 func (s *environSuite) TestNameAndStorage(c *gc.C) {
-	c.Logf("root: %s", s.root)
-	c.Assert(s.root, jc.IsDirectory)
+	c.Logf("root: %s", environs.DataDir)
+	c.Assert(environs.DataDir, jc.IsDirectory)
 
 	testConfig := minimalConfig(c)
 	err := local.CreateDirs(c, testConfig)
