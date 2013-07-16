@@ -34,14 +34,12 @@ const (
 	// The deployment slot where to deploy instances.  Azure supports
 	// 'Production' or 'Staging'.
 	// This provider always deploys to Production.  Think twice about
-	// changing that: we're still not quite sure how DNS names in the
-	// staging slot are supposed to work.  There's a "deployment URL"
-	// whose hostname doesn't seem to resolve for staging deployments.
-	// The PrivateID seems to contain the hostname but this isn't
-	// documented and may not work for production anyway.  Azure does
-	// promise to keep a service's DNS name unchanged when it switches
-	// between staging and production, so the service name may work as
-	// the DNS name regardless of the slot, but we're not sure of this.
+	// changing that: DNS names in the staging slot work differently from
+	// those in the production slot.  In Staging, Azure assigns an
+	// arbitrary hostname that we can then extract from the deployment's
+	// URL.  In Production, the hostname in the deployment URL does not
+	// actually seem to resolve; instead, the service name is used as the
+	// DNS name, with ".cloudapp.net" appended.
 	DeploymentSlot = "Production"
 )
 
