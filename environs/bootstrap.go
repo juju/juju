@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -112,7 +113,10 @@ func ConfigureBootstrapMachine(
 		return err
 	}
 	instId := bsState.StateInstances[0]
-	characteristics := bsState.Characteristics[0]
+	var characteristics instance.HardwareCharacteristics
+	if len(bsState.Characteristics) > 0 {
+		characteristics = bsState.Characteristics[0]
+	}
 
 	logger.Debugf("create bootstrap machine in state")
 	m, err := st.InjectMachine(version.Current.Series, cons, instId, characteristics, jobs...)
