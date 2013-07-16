@@ -545,7 +545,7 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *C) {
 		Charm:            s.charm,
 		Constraints:      serviceCons,
 		NumUnits:         1,
-		ForceMachineSpec: fmt.Sprintf("0/%s", instance.LXC),
+		ForceMachineSpec: fmt.Sprintf("%s:0", instance.LXC),
 	})
 	c.Assert(err, IsNil)
 	s.assertConstraints(c, service, serviceCons)
