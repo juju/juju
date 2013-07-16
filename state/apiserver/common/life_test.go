@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 )
 
 type lifeSuite struct{}
@@ -21,10 +22,10 @@ var _ = Suite(&lifeSuite{})
 func (*lifeSuite) TestLife(c *C) {
 	st := &fakeLifeState{
 		entities: map[string]*fakeLifer{
-			"x0": &fakeLifer{life: state.Alive},
-			"x1": &fakeLifer{life: state.Dying},
-			"x2": &fakeLifer{life: state.Dead},
-			"x3": &fakeLifer{err: fmt.Errorf("x3 error")},
+			"x0": {life: state.Alive},
+			"x1": {life: state.Dying},
+			"x2": {life: state.Dead},
+			"x3": {err: fmt.Errorf("x3 error")},
 		},
 	}
 	getCanRead := func() (common.AuthFunc, error) {
@@ -42,19 +43,13 @@ func (*lifeSuite) TestLife(c *C) {
 	}}
 	results, err := lg.Life(entities)
 	c.Assert(err, IsNil)
-	unauth := &params.Error{
-		Message: "permission denied",
-		Code:    params.CodeUnauthorized,
-	}
 	c.Assert(results, DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: params.Alive},
-			{Error: unauth},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Life: params.Dead},
-			{Error: &params.Error{
-				Message: "x3 error",
-			}},
-			{Error: unauth},
+			{Error: &params.Error{Message: "x3 error"}},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
