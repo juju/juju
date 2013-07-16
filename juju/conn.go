@@ -13,6 +13,7 @@ import (
 	"net/url"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"launchpad.net/juju-core/charm"
@@ -324,15 +325,15 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 				return nil, fmt.Errorf("cannot add multiple units of service %q to a single machine", svc.Name())
 			}
 			// machineIdSpec may be an existing machine or container, eg 3/lxc/2
-			// or a new container on a machine, eg 3/lxc
+			// or a new container on a machine, eg lxc:3
 			mid := machineIdSpec
 			var containerType instance.ContainerType
-			specParts := strings.Split(machineIdSpec, "/")
+			specParts := strings.Split(machineIdSpec, ":")
 			if len(specParts) > 1 {
-				lastPart := specParts[len(specParts)-1]
+				firstPart := specParts[0]
 				var err error
-				if containerType, err = instance.ParseSupportedContainerType(lastPart); err == nil {
-					mid = strings.Join(specParts[:len(specParts)-1], "/")
+				if containerType, err = instance.ParseSupportedContainerType(firstPart); err == nil {
+					mid = strings.Join(specParts[1:len(specParts)], "/")
 				} else {
 					mid = machineIdSpec
 				}
