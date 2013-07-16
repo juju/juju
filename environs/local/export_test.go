@@ -12,7 +12,7 @@ var Provider = provider
 
 // SetRootCheckFunction allows tests to override the check for a root user.
 func SetRootCheckFunction(f func() bool) (old func() bool) {
-	old, rootCheckFunction = rootCheckFunction, f
+	old, checkIfRoot = checkIfRoot, f
 	return
 }
 
