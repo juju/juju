@@ -8,10 +8,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	"os"
 	"strings"
+
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/version"
 )
 
 var ErrNoTools = errors.New("no tools available")
@@ -108,7 +109,6 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 	}
 	defer f.Close()
 	defer os.Remove(f.Name())
-	_ = os.Remove
 	toolsVersion, err := bundleTools(f, forceVersion)
 	if err != nil {
 		return nil, err
