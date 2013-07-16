@@ -513,7 +513,7 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *C) {
 	s.assertMachines(c, service, constraints.MustParse("mem=2G cpu-cores=2"), "0", "1")
 }
 
-func (s *DeployLocalSuite) TestDeployForceMachineTooManyUnits(c *C) {
+func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	c.Assert(machine.Id(), Equals, "0")

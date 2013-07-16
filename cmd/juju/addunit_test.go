@@ -38,7 +38,7 @@ func (s *AddUnitSuite) TestInitErrors(c *C) {
 	for i, t := range initAddUnitErrorTests {
 		c.Logf("test %d", i)
 		err := testing.InitCommand(&AddUnitCommand{}, t.args)
-		c.Assert(err, ErrorMatches, t.err)
+		c.Check(err, ErrorMatches, t.err)
 	}
 }
 
@@ -68,10 +68,12 @@ func (s *AddUnitSuite) TestAddUnit(c *C) {
 	s.AssertService(c, "some-service-name", curl, 4, 0)
 }
 
-func (s *AddUnitSuite) assertForceMachine(c *C, svc *state.Service, unitNum int, machineId string) {
+// assertForceMachine ensures that the result of assigning a unit with --force-machine
+// is as expected.
+func (s *AddUnitSuite) assertForceMachine(c *C, svc *state.Service, expectedNumMachines, unitNum int, machineId string) {
 	units, err := svc.AllUnits()
 	c.Assert(err, IsNil)
-	c.Assert(units, HasLen, 3)
+	c.Assert(units, HasLen, expectedNumMachines)
 	mid, err := units[unitNum].AssignedMachineId()
 	c.Assert(err, IsNil)
 	c.Assert(mid, Equals, machineId)
@@ -79,23 +81,22 @@ func (s *AddUnitSuite) assertForceMachine(c *C, svc *state.Service, unitNum int,
 
 func (s *AddUnitSuite) TestForceMachine(c *C) {
 	curl := s.setupService(c)
-
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	machine2, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
+
 	err = runAddUnit(c, "some-service-name", "--force-machine", machine2.Id())
 	c.Assert(err, IsNil)
 	err = runAddUnit(c, "some-service-name", "--force-machine", machine.Id())
 	c.Assert(err, IsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
-	s.assertForceMachine(c, svc, 1, machine2.Id())
-	s.assertForceMachine(c, svc, 2, machine.Id())
+	s.assertForceMachine(c, svc, 3, 1, machine2.Id())
+	s.assertForceMachine(c, svc, 3, 2, machine.Id())
 }
 
 func (s *AddUnitSuite) TestForceMachineExistingContainer(c *C) {
 	curl := s.setupService(c)
-
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	params := &state.AddMachineParams{
@@ -106,25 +107,26 @@ func (s *AddUnitSuite) TestForceMachineExistingContainer(c *C) {
 	}
 	container, err := s.State.AddMachineWithConstraints(params)
 	c.Assert(err, IsNil)
+
 	err = runAddUnit(c, "some-service-name", "--force-machine", container.Id())
 	c.Assert(err, IsNil)
 	err = runAddUnit(c, "some-service-name", "--force-machine", machine.Id())
 	c.Assert(err, IsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
-	s.assertForceMachine(c, svc, 1, container.Id())
-	s.assertForceMachine(c, svc, 2, machine.Id())
+	s.assertForceMachine(c, svc, 3, 1, container.Id())
+	s.assertForceMachine(c, svc, 3, 2, machine.Id())
 }
 
 func (s *AddUnitSuite) TestForceMachineNewContainer(c *C) {
 	curl := s.setupService(c)
-
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
+
 	err = runAddUnit(c, "some-service-name", "--force-machine", machine.Id()+"/lxc")
 	c.Assert(err, IsNil)
 	err = runAddUnit(c, "some-service-name", "--force-machine", machine.Id())
 	c.Assert(err, IsNil)
 	svc, _ := s.AssertService(c, "some-service-name", curl, 3, 0)
-	s.assertForceMachine(c, svc, 1, machine.Id()+"/lxc/0")
-	s.assertForceMachine(c, svc, 2, machine.Id())
+	s.assertForceMachine(c, svc, 3, 1, machine.Id()+"/lxc/0")
+	s.assertForceMachine(c, svc, 3, 2, machine.Id())
 }
