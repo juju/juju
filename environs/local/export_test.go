@@ -11,9 +11,11 @@ import (
 var Provider = provider
 
 // SetRootCheckFunction allows tests to override the check for a root user.
-func SetRootCheckFunction(f func() bool) (old func() bool) {
-	old, checkIfRoot = checkIfRoot, f
-	return
+// The return value is the function to restore the old value.
+func SetRootCheckFunction(f func() bool) func() {
+	old := checkIfRoot
+	checkIfRoot = f
+	return func() { checkIfRoot = old }
 }
 
 // ConfigNamespace returns the result of the namespace call on the

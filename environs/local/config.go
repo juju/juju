@@ -120,7 +120,7 @@ func (c *environConfig) createDirs() error {
 		if uid != 0 || gid != 0 {
 			filepath.Walk(c.rootDir(),
 				func(path string, info os.FileInfo, err error) error {
-					if info.IsDir() && err == nil {
+					if info != nil && info.IsDir() {
 						if err := os.Chown(path, uid, gid); err != nil {
 							return err
 						}

@@ -83,8 +83,8 @@ func (s *configSuite) TestNamespace(c *gc.C) {
 }
 
 func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
-	rootCheck := local.SetRootCheckFunction(func() bool { return true })
-	defer local.SetRootCheckFunction(rootCheck)
+	restore := local.SetRootCheckFunction(func() bool { return true })
+	defer restore()
 	err := os.Setenv("USER", "root")
 	c.Assert(err, gc.IsNil)
 	testConfig := minimalConfig(c)
@@ -92,8 +92,8 @@ func (s *configSuite) TestNamespaceRootNoSudo(c *gc.C) {
 }
 
 func (s *configSuite) TestNamespaceRootWithSudo(c *gc.C) {
-	rootCheck := local.SetRootCheckFunction(func() bool { return true })
-	defer local.SetRootCheckFunction(rootCheck)
+	restore := local.SetRootCheckFunction(func() bool { return true })
+	defer restore()
 	err := os.Setenv("USER", "root")
 	c.Assert(err, gc.IsNil)
 	err = os.Setenv("SUDO_USER", "tester")
