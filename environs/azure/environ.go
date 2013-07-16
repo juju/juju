@@ -32,7 +32,7 @@ const (
 	// Initially, this is the only location where Azure supports Linux.
 	// TODO: This is to become a configuration item.
 	// We currently use "North Europe" because the temporary saucy image is
-	// is only supported there.
+	// only supported there.
 	serviceLocation = "North Europe"
 
 	// The deployment slot where to deploy instances ('Production' or
