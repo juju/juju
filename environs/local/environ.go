@@ -27,7 +27,7 @@ import (
 // lxcBridgeName is the name of the network interface that the local provider
 // uses to determine the ip address to use for machine-0 such that the
 // containers being created are able to communicate with it simply.
-var lxcBridgeName = "lxcbr0"
+const lxcBridgeName = "lxcbr0"
 
 // upstartScriptLocation is parameterised purely for testing purposes as we
 // don't really want to be installing and starting scripts as root for
@@ -103,10 +103,8 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+	var noRetry = utils.AttemptStrategy{}
+	if err := environs.VerifyBootstrapInit(env, noRetry); err != nil {
 		return err
 	}
 
@@ -231,6 +229,9 @@ func (env *localEnviron) StopInstances([]instance.Instance) error {
 
 // Instances is specified in the Environ interface.
 func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
+	// NOTE: do we actually care about checking the existance of the instances?
+	// I posit that here we don't really care, and that we are only called with
+	// instance ids that we know exist.
 	if len(ids) == 0 {
 		return nil, nil
 	}
