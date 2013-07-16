@@ -1173,12 +1173,12 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
 			return err
 		}
-		return u.AssignToNewMachine()
+		return u.AssignToNewMachineOrContainer()
 	case AssignCleanEmpty:
 		if _, err = u.AssignToCleanEmptyMachine(); err != noCleanMachines {
 			return err
 		}
-		return u.AssignToNewMachine()
+		return u.AssignToNewMachineOrContainer()
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}

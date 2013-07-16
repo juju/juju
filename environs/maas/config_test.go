@@ -46,7 +46,7 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 	return env.(*maasEnviron).ecfg(), nil
 }
 
-func (ConfigSuite) TestParsesMAASSettings(c *C) {
+func (*ConfigSuite) TestParsesMAASSettings(c *C) {
 	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
@@ -61,7 +61,7 @@ func (ConfigSuite) TestParsesMAASSettings(c *C) {
 	c.Check(ecfg.UnknownAttrs()["future-key"], DeepEquals, future)
 }
 
-func (ConfigSuite) TestChecksWellFormedMaasServer(c *C) {
+func (*ConfigSuite) TestChecksWellFormedMaasServer(c *C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "This should have been a URL.",
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
@@ -70,7 +70,7 @@ func (ConfigSuite) TestChecksWellFormedMaasServer(c *C) {
 	c.Check(err, ErrorMatches, ".*malformed maas-server.*")
 }
 
-func (ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
+func (*ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "This should have been a 3-part token.",
@@ -79,7 +79,7 @@ func (ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
 	c.Check(err, ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
+func (*ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
 	// The base Validate() function will not allow an environment to
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().
