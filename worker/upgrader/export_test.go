@@ -7,11 +7,16 @@ import (
 	"io"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/state/api/upgrader"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/version"
 )
 
-func NewUpgradeHandler(apiUpgrader *upgrader.Upgrader, agentTag string) {
+func NewUpgradeHandler(apiState *api.State, agentTag string) *upgradeHandler {
+	return &upgradeHandler{
+		apiState:    apiState,
+		agentTag:    agentTag,
+		toolManager: NilToolsManager{},
+	}
 }
 
 type NilToolsManager struct {
