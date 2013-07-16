@@ -110,7 +110,7 @@ func (*EnvironProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
 	serviceName := "r12slechtstschrijvende5"
 	config := WALASharedConfig{
 		Deployment: WALADeployment{
-			Name: deploymentId,
+			Name:    deploymentId,
 			Service: WALADeploymentService{Name: serviceName},
 		},
 	}
