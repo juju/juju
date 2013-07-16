@@ -82,8 +82,6 @@ func (c *environConfig) configFile(filename string) string {
 // An error is returned if the relevant environment variables
 // are not valid integers.
 func sudoCallerIds() (uid, gid int, err error) {
-	// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
-	// change ownership of the directories.
 	uidStr := os.Getenv("SUDO_UID")
 	gidStr := os.Getenv("SUDO_GID")
 	if uidStr != "" && gidStr != "" {
