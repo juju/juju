@@ -43,6 +43,12 @@ func (s *UnitSuite) TestUnitNotFound(c *C) {
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
+func (s *UnitSuite) TestUnitNameFromTag(c *C) {
+	// Try both valid and invalid tag formats.
+	c.Assert(state.UnitNameFromTag("unit-wordpress-0"), Equals, "wordpress/0")
+	c.Assert(state.UnitNameFromTag("foo"), Equals, "")
+}
+
 func (s *UnitSuite) TestService(c *C) {
 	svc, err := s.unit.Service()
 	c.Assert(err, IsNil)

@@ -631,11 +631,14 @@ func UnitTag(unitName string) string {
 
 // UnitNameFromTag returns the unit name that was used to create the tag.
 func UnitNameFromTag(tag string) string {
+	if !strings.HasPrefix(tag, unitTagPrefix) {
+		return ""
+	}
 	// Strip off the "unit-" prefix.
-	id := tag[len(unitTagPrefix):]
+	name := tag[len(unitTagPrefix):]
 	// Put the slashes back.
-	id = strings.Replace(id, "-", "/", -1)
-	return id
+	name = strings.Replace(name, "-", "/", -1)
+	return name
 }
 
 // Tag returns a name identifying the unit that is safe to use
