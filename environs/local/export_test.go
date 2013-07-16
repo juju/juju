@@ -11,9 +11,11 @@ import (
 var Provider = provider
 
 // SetRootCheckFunction allows tests to override the check for a root user.
-func SetRootCheckFunction(f func() bool) (old func() bool) {
-	old, rootCheckFunction = rootCheckFunction, f
-	return
+// The return value is the function to restore the old value.
+func SetRootCheckFunction(f func() bool) func() {
+	old := checkIfRoot
+	checkIfRoot = f
+	return func() { checkIfRoot = old }
 }
 
 // SetUpstartScriptLocation allows tests to override the directory where the
@@ -49,6 +51,6 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 	}
 }
 
-func GetSudoCallerIds() (uid, gid int, err error) {
-	return getSudoCallerIds()
+func SudoCallerIds() (uid, gid int, err error) {
+	return sudoCallerIds()
 }
