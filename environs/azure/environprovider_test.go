@@ -17,7 +17,7 @@ type EnvironProviderSuite struct {
 
 var _ = Suite(new(EnvironProviderSuite))
 
-func (EnvironProviderSuite) TestOpen(c *C) {
+func (*EnvironProviderSuite) TestOpen(c *C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "my-shiny-new-env"
@@ -28,6 +28,22 @@ func (EnvironProviderSuite) TestOpen(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Check(env.Name(), Equals, attrs["name"])
+}
+
+func (EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) {
+	prov := azureEnvironProvider{}
+	attrs := makeAzureConfigMap(c)
+	// Make the config invalid.
+	attrs["public-storage-account-name"] = ""
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	env, err := prov.Open(cfg)
+	// When Open() fails (i.e. returns a non-nil error), it returns an
+	// environs.Environ interface object with a nil value and a nil
+	// type.
+	c.Check(env, Equals, nil)
+	c.Check(err, ErrorMatches, ".*must be specified both or none of them.*")
 }
 
 // writeWALASharedConfig creates a temporary file with a valid WALinux config
@@ -74,7 +90,7 @@ func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddres
 	}
 }
 
-func (EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
+func (*EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	deploymentName := "gwaclmachineex95rsek"
 	internalAddress := "10.76.200.59"
@@ -89,28 +105,28 @@ func (EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	c.Check(config.Instances[0].Address, Equals, internalAddress)
 }
 
-func (EnvironProviderSuite) TestConfigGetDeploymentName(c *C) {
+func (*EnvironProviderSuite) TestConfigGetDeploymentName(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	config := WALASharedConfig{Deployment: WALADeployment{Name: deploymentId, Service: WALADeploymentService{Name: "name"}}}
 
 	c.Check(config.getDeploymentFQDN(), Equals, deploymentId+".cloudapp.net")
 }
 
-func (EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
+func (*EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
 	deploymentName := "gwaclmachineex95rsek"
 	config := WALASharedConfig{Deployment: WALADeployment{Name: "id", Service: WALADeploymentService{Name: deploymentName}}}
 
 	c.Check(config.getDeploymentName(), Equals, deploymentName)
 }
 
-func (EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
+func (*EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
 	internalAddress := "10.76.200.59"
 	config := WALASharedConfig{Instances: []WALAInstance{{Address: internalAddress}}}
 
 	c.Check(config.getInternalIP(), Equals, internalAddress)
 }
 
-func (EnvironProviderSuite) TestPublicAddress(c *C) {
+func (*EnvironProviderSuite) TestPublicAddress(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	cleanup := overrideWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
 	defer cleanup()
@@ -126,7 +142,7 @@ func (EnvironProviderSuite) TestPublicAddress(c *C) {
 // of the instance.  We need to figure out how to do instance-to-instance
 // communication using the private IPs before we can use the Azure private
 // address.
-func (EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
+func (*EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	cleanup := overrideWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
 	defer cleanup()
@@ -139,7 +155,7 @@ func (EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
 }
 
 /*
-func (EnvironProviderSuite) TestPrivateAddress(c *C) {
+func (*EnvironProviderSuite) TestPrivateAddress(c *C) {
 	internalAddress := "10.76.200.59"
 	cleanup := overrideWALASharedConfig(c, "deploy-id", "name", internalAddress)
 	defer cleanup()
@@ -151,7 +167,7 @@ func (EnvironProviderSuite) TestPrivateAddress(c *C) {
 }
 */
 
-func (EnvironProviderSuite) TestInstanceId(c *C) {
+func (*EnvironProviderSuite) TestInstanceId(c *C) {
 	deploymentName := "deploymentname"
 	cleanup := overrideWALASharedConfig(c, "deploy-id", deploymentName, "10.76.200.59")
 	defer cleanup()

@@ -621,10 +621,21 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
+const unitTagPrefix = "unit-"
+
 // UnitTag returns the tag for the
 // unit with the given name.
 func UnitTag(unitName string) string {
-	return "unit-" + strings.Replace(unitName, "/", "-", -1)
+	return unitTagPrefix + strings.Replace(unitName, "/", "-", -1)
+}
+
+// UnitNameFromTag returns the unit name that was used to create the tag.
+func UnitNameFromTag(tag string) string {
+	// Strip off the "unit-" prefix.
+	id := tag[len(unitTagPrefix):]
+	// Put the slashes back.
+	id = strings.Replace(id, "-", "/", -1)
+	return id
 }
 
 // Tag returns a name identifying the unit that is safe to use

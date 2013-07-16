@@ -29,4 +29,7 @@ type Authorizer interface {
 	// AuthClient returns whether the authenticated entity
 	// is a client user.
 	AuthClient() bool
+
+	// GetAuthTag returns the tag of the authenticated entity.
+	GetAuthTag() string
 }

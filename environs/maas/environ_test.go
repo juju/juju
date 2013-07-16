@@ -78,7 +78,7 @@ func (suite *EnvironSuite) setupFakeTools(c *C) {
 	envtesting.UploadFakeTools(c, storage)
 }
 
-func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
+func (*EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	// SetConfig() validates the config change and disallows, for example,
 	// changes in the environment name.
 	server := "http://maas.testing.invalid"
@@ -99,7 +99,7 @@ func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	c.Check(env.Name(), Equals, "old-name")
 }
 
-func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+func (*EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas2.testing.invalid", "a:b:c", "secret")
 	env, err := NewEnviron(cfg)
@@ -119,7 +119,7 @@ func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	c.Check(MAASServer, DeepEquals, maas)
 }
 
-func (EnvironSuite) TestNewEnvironSetsConfig(c *C) {
+func (*EnvironSuite) TestNewEnvironSetsConfig(c *C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas.testing.invalid", "a:b:c", "secret")
 

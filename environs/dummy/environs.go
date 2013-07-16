@@ -557,6 +557,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err != nil {
 		return nil, nil, err
 	}
+	err = environs.CheckToolsSeries(possibleTools, series)
+	if err != nil {
+		return nil, nil, err
+	}
 	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
