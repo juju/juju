@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -43,10 +44,10 @@ var initErrorTests = []struct {
 		err:  `--num-units must be a positive integer`,
 	}, {
 		args: []string{"craziness", "burble1", "--force-machine", "bigglesplop"},
-		err:  `invalid machine id "bigglesplop"`,
+		err:  `invalid --force-machine parameter "bigglesplop"`,
 	}, {
 		args: []string{"craziness", "burble1", "-n", "2", "--force-machine", "123"},
-		err:  `cannot use --num-units with --force-machine`,
+		err:  `cannot use --num-units > 1 with --force-machine`,
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
@@ -171,12 +172,7 @@ func (s *DeploySuite) TestNumUnitsSubordinate(c *C) {
 	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }
 
-func (s *DeploySuite) TestForceMachine(c *C) {
-	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = runDeploy(c, "--force-machine", machine.Id(), "local:dummy", "portlandia")
-	c.Assert(err, IsNil)
+func (s *DeploySuite) assertForceMachine(c *C, machineId string) {
 	svc, err := s.State.Service("portlandia")
 	c.Assert(err, IsNil)
 	units, err := svc.AllUnits()
@@ -184,7 +180,45 @@ func (s *DeploySuite) TestForceMachine(c *C) {
 	c.Assert(units, HasLen, 1)
 	mid, err := units[0].AssignedMachineId()
 	c.Assert(err, IsNil)
-	c.Assert(mid, Equals, machine.Id())
+	c.Assert(mid, Equals, machineId)
+}
+
+func (s *DeploySuite) TestForceMachine(c *C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = runDeploy(c, "--force-machine", machine.Id(), "local:dummy", "portlandia")
+	c.Assert(err, IsNil)
+	s.assertForceMachine(c, machine.Id())
+}
+
+func (s *DeploySuite) TestForceMachineExistingContainer(c *C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	params := &state.AddMachineParams{
+		Series:        "precise",
+		ContainerType: instance.LXC,
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(params)
+	c.Assert(err, IsNil)
+	err = runDeploy(c, "--force-machine", container.Id(), "local:dummy", "portlandia")
+	c.Assert(err, IsNil)
+	s.assertForceMachine(c, container.Id())
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 2)
+}
+
+func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
+	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
+	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = runDeploy(c, "--force-machine", "lxc:"+machine.Id(), "local:dummy", "portlandia")
+	c.Assert(err, IsNil)
+	s.assertForceMachine(c, machine.Id()+"/lxc/0")
+	machines, err := s.State.AllMachines()
+	c.Assert(err, IsNil)
+	c.Assert(machines, HasLen, 2)
 }
 
 func (s *DeploySuite) TestForceMachineNotFound(c *C) {

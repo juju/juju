@@ -136,6 +136,11 @@ func (u *Unit) ServiceName() string {
 	return u.doc.Service
 }
 
+// Series returns the deployed charm's series.
+func (u *Unit) Series() string {
+	return u.doc.Series
+}
+
 // String returns the unit as string.
 func (u *Unit) String() string {
 	return u.doc.Name
