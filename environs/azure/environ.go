@@ -6,8 +6,6 @@ package azure
 import (
 	"fmt"
 	"net/http"
-	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -35,9 +33,16 @@ const (
 	// only supported there.
 	serviceLocation = "North Europe"
 
-	// The deployment slot where to deploy instances ('Production' or
-	// 'Staging').
-	DeploymentSlot = "Production"
+	// deploymentSlot says in which slot to deploy instances.  Azure
+	// supports 'Production' or 'Staging'.
+	// This provider always deploys to Production.  Think twice about
+	// changing that: DNS names in the staging slot work differently from
+	// those in the production slot.  In Staging, Azure assigns an
+	// arbitrary hostname that we can then extract from the deployment's
+	// URL.  In Production, the hostname in the deployment URL does not
+	// actually seem to resolve; instead, the service name is used as the
+	// DNS name, with ".cloudapp.net" appended.
+	deploymentSlot = "Production"
 )
 
 type azureEnviron struct {
@@ -204,33 +209,13 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// makeProvisionalServiceLabel generates a label for a new Hosted Service of
-// the given name.  The label can be identified as provisional using
-// isProvisionalDeploymentLabel().  (Empty labels are not allowed).
-// In our initial implementation, each instance gets its own Azure hosted
-// service.  Once we have a DNS name for the deployment, we write it into the
-// Label field on the hosted service as a shortcut.
-// This will have to change once we suppport multiple instances per hosted
-// service (instance==service).
-func makeProvisionalServiceLabel(serviceName string) string {
-	return fmt.Sprintf("-(creating: %s)-", serviceName)
-}
-
-// isProvisionalDeploymentLabel tells you whether the given label is a
-// provisional one.  If not, the provider has set it to the DNS name for the
-// service's deployment.
-func isProvisionalServiceLabel(label string) bool {
-	return strings.HasPrefix(label, "-(") && strings.HasSuffix(label, ")-")
-}
-
 // attemptCreateService tries to create a new hosted service on Azure, with a
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
 func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
 	name := gwacl.MakeRandomHostedServiceName(prefix)
-	label := makeProvisionalServiceLabel(name)
-	req := gwacl.NewCreateHostedServiceWithLocation(name, label, serviceLocation)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, name, serviceLocation)
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
 	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
@@ -261,36 +246,6 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateH
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
 	}
 	return svc, nil
-}
-
-// extractDeploymentDNS extracts an instance's DNS name from its URL.
-func extractDeploymentDNS(instanceURL string) (string, error) {
-	parsedURL, err := url.Parse(instanceURL)
-	if err != nil {
-		return "", fmt.Errorf("parse error in instance URL: %v", err)
-	}
-	// net.url.URL.Host actually includes a port spec if the URL has one,
-	// but luckily a port wouldn't make sense on these URLs.
-	return parsedURL.Host, nil
-}
-
-// setServiceDNSName updates the hosted service's label to match the DNS name
-// for the Deployment.
-func setServiceDNSName(azure *gwacl.ManagementAPI, serviceName, deploymentName string) error {
-	deployment, err := azure.GetDeployment(&gwacl.GetDeploymentRequest{
-		ServiceName:    serviceName,
-		DeploymentName: deploymentName,
-	})
-	if err != nil {
-		return fmt.Errorf("could not read newly created deployment: %v", err)
-	}
-	host, err := extractDeploymentDNS(deployment.URL)
-	if err != nil {
-		return fmt.Errorf("could not parse instance URL %q: %v", deployment.URL, err)
-	}
-
-	update := gwacl.NewUpdateHostedService(host, "Juju instance", nil)
-	return azure.UpdateHostedService(serviceName, update)
 }
 
 // internalStartInstance does the provider-specific work of starting an
@@ -385,11 +340,6 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	err = setServiceDNSName(azure.ManagementAPI, serviceName, deployment.Name)
-	if err != nil {
-		return nil, fmt.Errorf("could not set instance DNS name as service label: %v", err)
-	}
-
 	// Assign the returned instance to 'inst' so that the deferred method
 	// above can perform its check.
 	inst, err = env.getInstance(serviceName)
@@ -481,7 +431,7 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, 
 // newDeployment creates and returns a gwacl Deployment object.
 func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
 	// Use the service name as the label for the deployment.
-	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, DeploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
+	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, deploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }
 
 // StartInstance is specified in the Environ interface.
