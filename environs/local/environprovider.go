@@ -27,10 +27,6 @@ func init() {
 	environs.RegisterProvider("local", &environProvider{})
 }
 
-var (
-	defaultRootDir = "/var/lib/juju/"
-)
-
 // Open implements environs.EnvironProvider.Open.
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
@@ -69,7 +65,7 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {
-		dir = filepath.Join(defaultRootDir, localConfig.namespace())
+		dir = filepath.Join(environs.DataDir, localConfig.namespace())
 		localConfig.attrs["root-dir"] = dir
 	}
 

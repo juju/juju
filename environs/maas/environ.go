@@ -25,7 +25,6 @@ import (
 )
 
 const (
-	jujuDataDir = "/var/lib/juju"
 	// We're using v1.0 of the MAAS API.
 	apiVersion = "1.0"
 )
@@ -76,7 +75,7 @@ func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
 		// Fixed entries.
-		DataDir: jujuDataDir,
+		DataDir: environs.DataDir,
 
 		// Parameter entries.
 		MachineId:    machineID,
@@ -113,7 +112,11 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.obtainNode(machineID, cons, possibleTools, mcfg)
+	err = environs.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
+	if err != nil {
+		return nil, err
+	}
+	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -236,14 +239,10 @@ func convertConstraints(cons constraints.Value) url.Values {
 
 // acquireNode allocates a node from the MAAS.
 func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
-	retry := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
-	for a := retry.Start(); a.Next(); {
+	for a := shortAttempt.Start(); a.Next(); {
 		client := environ.getMAASClient().GetSubObject("nodes/")
 		result, err = client.CallPost("acquire", constraintsParams)
 		if err == nil {
@@ -265,10 +264,6 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools to
 
 // startNode installs and boots a node.
 func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, userdata []byte) error {
-	retry := utils.AttemptStrategy{
-		Total: 5 * time.Second,
-		Delay: 200 * time.Millisecond,
-	}
 	userDataParam := base64.StdEncoding.EncodeToString(userdata)
 	params := url.Values{
 		"distro_series": {series},
@@ -277,19 +272,22 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	// Initialize err to a non-nil value as a sentinel for the following
 	// loop.
 	err := fmt.Errorf("(no error)")
-	for a := retry.Start(); a.Next() && err != nil; {
+	for a := shortAttempt.Start(); a.Next() && err != nil; {
 		_, err = node.CallPost("start", params)
 	}
 	return err
 }
 
-// obtainNode allocates and starts a MAAS node.  It is used both for the
-// implementation of StartInstance, and to initialize the bootstrap node.
+// internalStartInstance allocates and starts a MAAS node.  It is used both
+// for the implementation of StartInstance, and to initialize the bootstrap
+// node.
+// The instance will be set up for the same series for which you pass tools.
+// All tools in possibleTools must be for the same series.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) obtainNode(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
-		return nil, fmt.Errorf("expected single series, got %v", series)
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 	var instance *maasInstance
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
@@ -338,9 +336,13 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	if err != nil {
 		return nil, nil, err
 	}
+	err = environs.CheckToolsSeries(possibleTools, series)
+	if err != nil {
+		return nil, nil, err
+	}
 	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.obtainNode(machineID, cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(machineID, cons, possibleTools, mcfg)
 	return inst, nil, err
 }
 

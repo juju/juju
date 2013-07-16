@@ -7,24 +7,22 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/environs/local"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
 )
 
 type baseProviderSuite struct {
 	testing.LoggingSuite
-	root    string
-	oldRoot string
+	restoreDataDir func()
 }
 
 func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	loggo.GetLogger("juju.environs.local").SetLogLevel(loggo.TRACE)
-	s.root = c.MkDir()
-	s.oldRoot = local.SetDefaultRootDir(s.root)
+	s.restoreDataDir = envtesting.PatchDataDir(c.MkDir())
 }
 
 func (s *baseProviderSuite) TearDownTest(c *gc.C) {
-	local.SetDefaultRootDir(s.oldRoot)
+	s.restoreDataDir()
 	s.LoggingSuite.TearDownTest(c)
 }
