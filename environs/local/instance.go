@@ -38,17 +38,19 @@ func (inst *localInstance) DNSName() (string, error) {
 
 // WaitDNSName implements instance.Instance.WaitDNSName.
 func (inst *localInstance) WaitDNSName() (string, error) {
-	return inst.DNSName()
+	return environs.WaitDNSName(inst)
 }
 
 // OpenPorts implements instance.Instance.OpenPorts.
 func (inst *localInstance) OpenPorts(machineId string, ports []instance.Port) error {
-	return fmt.Errorf("instance open ports not implemented")
+	logger.Infof("OpenPorts called for %s:%v", machineId, ports)
+	return nil
 }
 
 // ClosePorts implements instance.Instance.ClosePorts.
 func (inst *localInstance) ClosePorts(machineId string, ports []instance.Port) error {
-	return fmt.Errorf("instance close not implemented")
+	logger.Infof("ClosePorts called for %s:%v", machineId, ports)
+	return nil
 }
 
 // Ports implements instance.Instance.Ports.
