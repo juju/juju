@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"launchpad.net/goyaml"
 	cloudinit_core "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
@@ -35,6 +36,7 @@ func getSystemIdValues(instanceIds []instance.Id) url.Values {
 }
 
 // userData returns a zipped cloudinit config.
+// TODO(bug 1199847): Some of this work can be shared between providers.
 func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
 	cloudcfg := cloudinit_core.New()
 	for _, script := range scripts {
@@ -65,7 +67,7 @@ type machineInfo struct {
 	Hostname   string `yaml:,omitempty`
 }
 
-var _MAASInstanceFilename = jujuDataDir + "/MAASmachine.txt"
+var _MAASInstanceFilename = environs.DataDir + "/MAASmachine.txt"
 
 // cloudinitRunCmd returns the shell command that, when run, will create the
 // "machine info" file containing the instanceId and the hostname of a machine.
@@ -75,7 +77,7 @@ func (info *machineInfo) cloudinitRunCmd() (string, error) {
 	if err != nil {
 		return "", err
 	}
-	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(jujuDataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
+	script := fmt.Sprintf(`mkdir -p %s; echo -n %s > %s`, utils.ShQuote(environs.DataDir), utils.ShQuote(string(yaml)), utils.ShQuote(_MAASInstanceFilename))
 	return script, nil
 }
 

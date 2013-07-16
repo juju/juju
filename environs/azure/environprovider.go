@@ -13,6 +13,11 @@ import (
 	"launchpad.net/loggo"
 )
 
+// Register the Azure provider with Juju.
+func init() {
+	environs.RegisterProvider("azure", azureEnvironProvider{})
+}
+
 // Logger for the Azure provider.
 var logger = loggo.GetLogger("juju.environs.azure")
 
@@ -24,7 +29,15 @@ var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Debugf("opening environment %q.", cfg.Name())
-	return NewEnviron(cfg)
+	// We can't return NewEnviron(cfg) directly here because otherwise,
+	// when err is not nil, we end up with a non-nil returned environ and
+	// this breaks the loop in cmd/jujud/upgrade.go:run() (see
+	// http://golang.org/doc/faq#nil_error for the gory details).
+	environ, err := NewEnviron(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return environ, nil
 }
 
 // PublicAddress is specified in the EnvironProvider interface.

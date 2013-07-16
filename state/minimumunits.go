@@ -122,3 +122,73 @@ func minUnitsRemoveOp(st *State, serviceName string) txn.Op {
 func (s *Service) MinUnits() int {
 	return s.doc.MinUnits
 }
+
+// EnsureMinUnits adds new units if the service's MinUnits value is greater
+// than the number of alive units.
+func (s *Service) EnsureMinUnits() (err error) {
+	defer utils.ErrorContextf(&err, "cannot ensure minimum units for service %q", s)
+	service := &Service{st: s.st, doc: s.doc}
+	for {
+		// Ensure the service is alive.
+		if service.doc.Life != Alive {
+			return errors.New("service is not alive")
+		}
+		// Exit without errors if the MinUnits for the service is not set.
+		if service.doc.MinUnits == 0 {
+			return nil
+		}
+		// Retrieve the number of alive units for the service.
+		aliveUnits, err := aliveUnitsCount(service)
+		if err != nil {
+			return err
+		}
+		// Calculate the number of required units to be added.
+		missing := service.doc.MinUnits - aliveUnits
+		if missing <= 0 {
+			return nil
+		}
+		name, ops, err := ensureMinUnitsOps(service)
+		if err != nil {
+			return err
+		}
+		// Add missing unit.
+		switch err := s.st.runTransaction(ops); err {
+		case nil:
+			// Assign the new unit.
+			unit, err := service.Unit(name)
+			if err != nil {
+				return err
+			}
+			if err := service.st.AssignUnit(unit, AssignNew); err != nil {
+				return err
+			}
+			// No need to proceed and refresh the service if this was the
+			// last/only missing unit.
+			if missing == 1 {
+				return nil
+			}
+		case txn.ErrAborted:
+			// Refresh the service and restart the loop.
+		default:
+			return err
+		}
+		if err := service.Refresh(); err != nil {
+			return err
+		}
+	}
+	panic("unreachable")
+}
+
+// aliveUnitsCount returns the number a alive units for the service.
+func aliveUnitsCount(service *Service) (int, error) {
+	query := D{{"service", service.doc.Name}, {"life", Alive}}
+	return service.st.units.Find(query).Count()
+}
+
+// ensureMinUnitsOps returns the operations required to add a unit for the
+// service in MongoDB and the name for the new unit. The resulting transaction
+// will be aborted if the service document changes when running the operations.
+func ensureMinUnitsOps(service *Service) (string, []txn.Op, error) {
+	asserts := D{{"txn-revno", service.doc.TxnRevno}}
+	return service.addUnitOps("", asserts)
+}

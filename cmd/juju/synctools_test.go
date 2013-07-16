@@ -4,6 +4,10 @@
 package main
 
 import (
+	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -21,6 +25,7 @@ type syncToolsSuite struct {
 	origVersion  version.Binary
 	origLocation string
 	storage      *envtesting.EC2HTTPTestStorage
+	localStorage string
 }
 
 func (s *syncToolsSuite) SetUpTest(c *C) {
@@ -42,12 +47,17 @@ environments:
 	c.Assert(err, IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
-	// Create a source environment and populate its public tools.
+	// Create a source storage.
 	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, IsNil)
 
+	// Create a local tools directory.
+	s.localStorage = c.MkDir()
+
+	// Populate both with the public tools.
 	for _, vers := range vAll {
 		s.storage.PutBinary(vers)
+		putBinary(c, s.localStorage, vers)
 	}
 
 	s.origLocation = defaultToolsLocation
@@ -89,6 +99,20 @@ func assertEmpty(c *C, storage environs.StorageReader) {
 		c.Logf("got unexpected tools: %s", list)
 	}
 	c.Assert(err, Equals, tools.ErrNoTools)
+}
+
+func (s *syncToolsSuite) TestCopyNewestFromFilesystem(c *C) {
+	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--source", s.localStorage)
+	c.Assert(err, IsNil)
+	c.Assert(ctx, NotNil)
+
+	// Newest released v1 tools made available to target env.
+	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
+	c.Assert(err, IsNil)
+	assertToolsList(c, targetTools, v100all)
+
+	// Public bucket was not touched.
+	assertEmpty(c, s.targetEnv.PublicStorage())
 }
 
 func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
@@ -181,3 +205,15 @@ var (
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	vAll    = append(v1all, v200p64)
 )
+
+// putBinary stores a faked binary in the test directory.
+func putBinary(c *C, storagePath string, v version.Binary) {
+	data := v.String()
+	name := tools.StorageName(v)
+	filename := filepath.Join(storagePath, name)
+	dir := filepath.Dir(filename)
+	err := os.MkdirAll(dir, 0755)
+	c.Assert(err, IsNil)
+	err = ioutil.WriteFile(filename, []byte(data), 0666)
+	c.Assert(err, IsNil)
+}
