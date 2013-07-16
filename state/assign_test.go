@@ -473,6 +473,81 @@ func (s *AssignSuite) TestAssignUnitToNewMachineUnitRemoved(c *C) {
 	c.Assert(err, ErrorMatches, `cannot assign unit "wordpress/0" to new machine: unit not found`)
 }
 
+func (s *AssignSuite) TestAssignUnitToNewMachineBecomesDirty(c *C) {
+	_, err := s.State.AddMachine("series", state.JobManageEnviron) // bootstrap machine
+	c.Assert(err, IsNil)
+
+	// Set up constraints to specify we want to install into a container.
+	econs := constraints.MustParse("container=lxc")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+
+	// Create some units and a clean machine.
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	anotherUnit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	makeDirty := state.TransactionHook{
+		Before: func() { c.Assert(unit.AssignToMachine(machine), IsNil) },
+	}
+	defer state.SetTransactionHooks(
+		c, s.State, makeDirty,
+	).Check()
+
+	err = anotherUnit.AssignToNewMachineOrContainer()
+	c.Assert(err, IsNil)
+
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, "1")
+
+	mid, err = anotherUnit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, "2/lxc/0")
+}
+
+func (s *AssignSuite) TestAssignUnitToNewMachineBecomesHost(c *C) {
+	_, err := s.State.AddMachine("series", state.JobManageEnviron) // bootstrap machine
+	c.Assert(err, IsNil)
+
+	// Set up constraints to specify we want to install into a container.
+	econs := constraints.MustParse("container=lxc")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+
+	// Create a unit and a clean machine.
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+
+	addContainer := state.TransactionHook{
+		Before: func() {
+			params := &state.AddMachineParams{
+				Series:        "series",
+				ParentId:      machine.Id(),
+				ContainerType: instance.LXC,
+				Jobs:          []state.MachineJob{state.JobHostUnits},
+			}
+			_, err := s.State.AddMachineWithConstraints(params)
+			c.Assert(err, IsNil)
+		},
+	}
+	defer state.SetTransactionHooks(
+		c, s.State, addContainer,
+	).Check()
+
+	err = unit.AssignToNewMachineOrContainer()
+	c.Assert(err, IsNil)
+
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, "2/lxc/0")
+}
+
 func (s *AssignSuite) TestAssignUnitBadPolicy(c *C) {
 	unit, err := s.wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -705,7 +780,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 
 	m, err := s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all eligible machines in use`)
+	c.Assert(err, ErrorMatches, "all eligible machines in use")
 
 	// Add a dying machine and check that it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobHostUnits)
@@ -714,21 +789,35 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all eligible machines in use`)
+	c.Assert(err, ErrorMatches, "all eligible machines in use")
 
 	// Add a non-unit-hosting machine and check it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all eligible machines in use`)
+	c.Assert(err, ErrorMatches, "all eligible machines in use")
+
+	// Add a state management machine which can host units and check it is not chosen.
+	m, err = s.State.AddMachine("series", state.JobManageState, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	m, err = s.assignUnit(unit)
+	c.Assert(m, IsNil)
+	c.Assert(err, ErrorMatches, "all eligible machines in use")
+
+	// Add a environ management machine which can host units and check it is not chosen.
+	m, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobHostUnits)
+	c.Assert(err, IsNil)
+	m, err = s.assignUnit(unit)
+	c.Assert(m, IsNil)
+	c.Assert(err, ErrorMatches, "all eligible machines in use")
 
 	// Add a machine with the wrong series and check it is not chosen.
 	m, err = s.State.AddMachine("anotherseries", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, `all eligible machines in use`)
+	c.Assert(err, ErrorMatches, "all eligible machines in use")
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *C) {
@@ -744,7 +833,7 @@ func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *C) {
 	_, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	_, err = s.assignUnit(unit)
-	c.Assert(err, ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.*: unit "wordpress/0" not found`))
+	c.Assert(err, ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.*: unit not found`))
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *C) {
@@ -761,7 +850,7 @@ func (s *assignCleanSuite) TestAssignUnitToMachineWithRemovedUnit(c *C) {
 	c.Assert(err, IsNil)
 
 	_, err = s.assignUnit(unit)
-	c.Assert(err, ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.*: unit "wordpress/0" not found`))
+	c.Assert(err, ErrorMatches, s.errorMessage(`cannot assign unit "wordpress/0" to %s machine.*: unit not found`))
 }
 
 func (s *assignCleanSuite) TestAssignUnitToMachineWorksWithMachine0(c *C) {
@@ -856,6 +945,74 @@ func (s *assignCleanSuite) TestAssignUnitPolicy(c *C) {
 	sort.Strings(expectedMachines)
 	sort.Strings(got)
 	c.Assert(got, DeepEquals, expectedMachines)
+}
+
+func (s *assignCleanSuite) TestAssignUnitPolicyWithContainers(c *C) {
+	_, err := s.State.AddMachine("series", state.JobManageEnviron) // bootstrap machine
+	c.Assert(err, IsNil)
+
+	// Create a machine and add a new container.
+	hostMachine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	params := state.AddMachineParams{
+		ParentId:      hostMachine.Id(),
+		ContainerType: instance.LXC,
+		Series:        "series",
+		Jobs:          []state.MachineJob{state.JobHostUnits},
+	}
+	container, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(hostMachine.Clean(), jc.IsTrue)
+	s.assertMachineNotEmpty(c, hostMachine)
+
+	// Set up constraints to specify we want to install into a container.
+	econs := constraints.MustParse("container=lxc")
+	err = s.State.SetEnvironConstraints(econs)
+	c.Assert(err, IsNil)
+
+	// Check the first placement goes into the newly created, clean container above.
+	unit, err := s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.State.AssignUnit(unit, s.policy)
+	c.Assert(err, IsNil)
+	mid, err := unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, container.Id())
+
+	assertContainerPlacement := func(expectedNumUnits int) {
+		unit, err := s.wordpress.AddUnit()
+		c.Assert(err, IsNil)
+		err = s.State.AssignUnit(unit, s.policy)
+		c.Assert(err, IsNil)
+		mid, err := unit.AssignedMachineId()
+		c.Assert(err, IsNil)
+		c.Assert(mid, Equals, fmt.Sprintf("%d/lxc/0", expectedNumUnits+1))
+		assertMachineCount(c, s.State, 2*expectedNumUnits+3)
+
+		// Sanity check that the machine knows about its assigned unit and was
+		// created with the appropriate series.
+		m, err := s.State.Machine(mid)
+		c.Assert(err, IsNil)
+		units, err := m.Units()
+		c.Assert(err, IsNil)
+		c.Assert(units, HasLen, 1)
+		c.Assert(units[0].Name(), Equals, unit.Name())
+		c.Assert(m.Series(), Equals, "series")
+	}
+
+	// Check unassigned placements with no clean and/or empty machines cause a new container to be created.
+	assertContainerPlacement(1)
+	assertContainerPlacement(2)
+
+	// Create a new, clean instance and check that the next container creation uses it.
+	hostMachine, err = s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	unit, err = s.wordpress.AddUnit()
+	c.Assert(err, IsNil)
+	err = s.State.AssignUnit(unit, s.policy)
+	c.Assert(err, IsNil)
+	mid, err = unit.AssignedMachineId()
+	c.Assert(err, IsNil)
+	c.Assert(mid, Equals, hostMachine.Id()+"/lxc/0")
 }
 
 func (s *assignCleanSuite) TestAssignUnitPolicyConcurrently(c *C) {
