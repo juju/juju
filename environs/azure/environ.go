@@ -31,7 +31,7 @@ const (
 
 	// Initially, this is the only location where Azure supports Linux.
 	// TODO: This is to become a configuration item.
-	// We currently use "North Europe" because the temporary saucy image is
+	// We currently use "North Europe" because the temporary Saucy image is
 	// only supported there.
 	serviceLocation = "North Europe"
 
@@ -348,7 +348,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
-	// In the meantime we use a temporary saucy image containing a
+	// In the meantime we use a temporary Saucy image containing a
 	// cloud-init package which supports Azure.
 	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
 	// TODO: virtualNetworkName is the virtual network to which the
