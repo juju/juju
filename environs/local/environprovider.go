@@ -53,11 +53,11 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
-	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
-	localConfig := newEnvironConfig(cfg, v.(map[string]interface{}))
+	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
 	if old != nil {
@@ -69,6 +69,16 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 			return nil, fmt.Errorf("cannot change root-dir from %q to %q",
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
+		}
+		if localConfig.storagePort() != oldLocalConfig.storagePort() {
+			return nil, fmt.Errorf("cannot change storage-port from %v to %v",
+				oldLocalConfig.storagePort(),
+				localConfig.storagePort())
+		}
+		if localConfig.sharedStoragePort() != oldLocalConfig.sharedStoragePort() {
+			return nil, fmt.Errorf("cannot change shared-storage-port from %v to %v",
+				oldLocalConfig.sharedStoragePort(),
+				localConfig.sharedStoragePort())
 		}
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())
@@ -91,6 +101,12 @@ local:
   # The default location is $JUJU_HOME/<ENV>.
   # $JUJU_HOME defaults to ~/.juju
   # root-dir: ~/.juju/local
+  # Override the storage port if you have multiple local providers, or if the
+  # default port is used by another program.
+  # storage-port: 8040
+  # Override the shared storage port if you have multiple local providers, or if the
+  # default port is used by another program.
+  # shared-storage-port: 8041
 
 `[1:]
 }
@@ -113,7 +129,8 @@ func (environProvider) PublicAddress() (string, error) {
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
 func (environProvider) PrivateAddress() (string, error) {
-	return "", fmt.Errorf("private address not implemented")
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
