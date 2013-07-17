@@ -57,6 +57,7 @@ var cloudinitTests = []cloudinitTest{
 		cfg: cloudinit.MachineConfig{
 			MachineId:      "0",
 			AuthorizedKeys: "sshkey1",
+			ProviderType:   "dummy",
 			// precise currently needs mongo from PPA
 			Tools:           newSimpleTools("1.2.3-precise-amd64"),
 			StateServer:     true,
@@ -104,7 +105,7 @@ chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file '/var/log/juju/machine-0\.log' --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\nenv JUJU_PROVIDER_TYPE="dummy"\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file '/var/log/juju/machine-0\.log' --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0
 `,
 	}, {
@@ -112,6 +113,7 @@ start jujud-machine-0
 		cfg: cloudinit.MachineConfig{
 			MachineId:      "0",
 			AuthorizedKeys: "sshkey1",
+			ProviderType:   "dummy",
 			// raring provides mongo in the archive
 			Tools:           newSimpleTools("1.2.3-raring-amd64"),
 			StateServer:     true,
@@ -159,13 +161,14 @@ chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
-cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file '/var/log/juju/machine-0\.log' --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\nenv JUJU_PROVIDER_TYPE="dummy"\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file '/var/log/juju/machine-0\.log' --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
 start jujud-machine-0
 `,
 	}, {
 		cfg: cloudinit.MachineConfig{
 			MachineId:      "99",
 			AuthorizedKeys: "sshkey1",
+			ProviderType:   "dummy",
 			DataDir:        environs.DataDir,
 			StateServer:    false,
 			Tools:          newSimpleTools("1.2.3-linux-amd64"),
@@ -197,7 +200,7 @@ mkdir -p '/var/lib/juju/agents/machine-99'
 echo 'datadir: /var/lib/juju\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - state-addr\.testing\.invalid:12345\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.testing\.invalid:54321\\n  cacert:\\n[^']+  tag: machine-99\\n  password: ""\\n' > '/var/lib/juju/agents/machine-99/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-99/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-99'
-cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --log-file '/var/log/juju/machine-99\.log' --data-dir '/var/lib/juju' --machine-id 99  --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-99\.conf << 'EOF'\\ndescription "juju machine-99 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\nenv JUJU_PROVIDER_TYPE="dummy"\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-99/jujud machine --log-file '/var/log/juju/machine-99\.log' --data-dir '/var/lib/juju' --machine-id 99  --debug >> /var/log/juju/machine-99\.log 2>&1\\nEOF\\n
 start jujud-machine-99
 `,
 	}, {
@@ -205,6 +208,7 @@ start jujud-machine-99
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
+			ProviderType:         "dummy",
 			DataDir:              environs.DataDir,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
@@ -236,7 +240,7 @@ mkdir -p '/var/lib/juju/agents/machine-2-lxc-1'
 echo 'datadir: /var/lib/juju\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - state-addr\.testing\.invalid:12345\\n  cacert:\\n[^']+  tag: machine-2-lxc-1\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - state-addr\.testing\.invalid:54321\\n  cacert:\\n[^']+  tag: machine-2-lxc-1\\n  password: ""\\n' > '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 chmod 600 '/var/lib/juju/agents/machine-2-lxc-1/agent\.conf'
 ln -s 1\.2\.3-linux-amd64 '/var/lib/juju/tools/machine-2-lxc-1'
-cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machine-2-lxc-1 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-2-lxc-1/jujud machine --log-file '/var/log/juju/machine-2-lxc-1\.log' --data-dir '/var/lib/juju' --machine-id 2/lxc/1  --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nEOF\\n
+cat >> /etc/init/jujud-machine-2-lxc-1\.conf << 'EOF'\\ndescription "juju machine-2-lxc-1 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\nenv JUJU_PROVIDER_TYPE="dummy"\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-2-lxc-1/jujud machine --log-file '/var/log/juju/machine-2-lxc-1\.log' --data-dir '/var/lib/juju' --machine-id 2/lxc/1  --debug >> /var/log/juju/machine-2-lxc-1\.log 2>&1\\nEOF\\n
 start jujud-machine-2-lxc-1
 `,
 	},
@@ -554,6 +558,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 		MachineId:       "99",
 		Tools:           newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:  "sshkey1",
+		ProviderType:    "dummy",
 		StateInfo: &state.Info{
 			Addrs:  []string{"host:98765"},
 			CACert: []byte(testing.CACert),

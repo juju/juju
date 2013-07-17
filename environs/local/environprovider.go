@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	constants "launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -24,7 +25,7 @@ type environProvider struct{}
 var provider environProvider
 
 func init() {
-	environs.RegisterProvider("local", &environProvider{})
+	environs.RegisterProvider(constants.Local, &environProvider{})
 }
 
 // Open implements environs.EnvironProvider.Open.
@@ -107,17 +108,21 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
 func (environProvider) PublicAddress() (string, error) {
-	return "", fmt.Errorf("not implemented")
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
 func (environProvider) PrivateAddress() (string, error) {
-	return "", fmt.Errorf("not implemented")
+	return "", fmt.Errorf("private address not implemented")
 }
 
 // InstanceId implements environs.EnvironProvider.InstanceId.
 func (environProvider) InstanceId() (instance.Id, error) {
 	// This hack only works until we get containers started.
+	// Interestingly, this method is only ever called for the bootstrap machine.
+	// This method should not be attached to the EnvironProvider interface.
+	// TODO(thumper): refactor this method out of existance from the interface
 	return instance.Id("localhost"), nil
 }
 

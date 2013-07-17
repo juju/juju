@@ -33,7 +33,8 @@ func (inst *localInstance) DNSName() (string, error) {
 		}
 		return addr, nil
 	}
-	return "", instance.ErrNoDNSName
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // WaitDNSName implements instance.Instance.WaitDNSName.
@@ -55,7 +56,7 @@ func (inst *localInstance) ClosePorts(machineId string, ports []instance.Port) e
 
 // Ports implements instance.Instance.Ports.
 func (inst *localInstance) Ports(machineId string) ([]instance.Port, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, nil
 }
 
 // Add a string representation of the id.

@@ -56,6 +56,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
 	mcfg.AuthorizedKeys = authKeys
+	mcfg.ProviderType = cfg.Type()
 	if !mcfg.StateServer {
 		return nil
 	}
