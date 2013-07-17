@@ -8,7 +8,6 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 )
 
 type EnvironProviderSuite struct {
@@ -172,14 +171,3 @@ func (*EnvironProviderSuite) TestPrivateAddress(c *C) {
 	c.Check(privAddress, Equals, internalAddress)
 }
 */
-
-func (*EnvironProviderSuite) TestInstanceId(c *C) {
-	deploymentName := "deploymentname"
-	cleanup := overrideWALASharedConfig(c, "deploy-id", deploymentName, "10.76.200.59")
-	defer cleanup()
-
-	prov := azureEnvironProvider{}
-	instanceId, err := prov.InstanceId()
-	c.Assert(err, IsNil)
-	c.Check(instanceId, Equals, instance.Id(deploymentName))
-}
