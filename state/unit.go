@@ -1025,11 +1025,6 @@ var hasNoContainersTerm = bson.DocElem{
 // findCleanMachineQuery returns a Mongo query to find clean (and possibly empty) machines with
 // characteristics matching the specified constraints.
 func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value) (*mgo.Query, error) {
-	// TODO(wallyworld) - add support for constraints besides just container type
-	var containerType instance.ContainerType
-	if cons.Container != nil {
-		containerType = *cons.Container
-	}
 	// Select all machines that can accept principal units and are clean.
 	var containerRefs []machineContainers
 	// If we need empty machines, first build up a list of machine ids which have containers
@@ -1052,10 +1047,45 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 		{"_id", D{{"$nin", machinesWithContainers}}},
 	}
 	// Add the container filter term if necessary.
+	var containerType instance.ContainerType
+	if cons.Container != nil {
+		containerType = *cons.Container
+	}
 	if containerType == instance.NONE {
 		terms = append(terms, bson.DocElem{"containertype", ""})
 	} else if containerType != "" {
 		terms = append(terms, bson.DocElem{"containertype", string(containerType)})
+	}
+
+	// Find the ids of machines which satisfy any required hardware constraints.
+	// If there is no instanceData for a machine, that machine is not considered as suitable for
+	// deploying the unit. This can happen if the machine is not yet provisioned. It may be that
+	// when the machine is provisioned it will be found to be suitable, but we don't know that right
+	// now and it's best to err on the side of caution and exclude such machines.
+	var suitableInstanceData []instanceData
+	var suitableTerms D
+	if cons.Arch != nil && *cons.Arch != "" {
+		suitableTerms = append(suitableTerms, bson.DocElem{"arch", *cons.Arch})
+	}
+	if cons.Mem != nil && *cons.Mem > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"mem", D{{"$gte", *cons.Mem}}})
+	}
+	if cons.CpuCores != nil && *cons.CpuCores > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"cpucores", D{{"$gte", *cons.CpuCores}}})
+	}
+	if cons.CpuPower != nil && *cons.CpuPower > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"cpupower", D{{"$gte", *cons.CpuPower}}})
+	}
+	if len(suitableTerms) > 0 {
+		err := u.st.instanceData.Find(suitableTerms).Select(bson.M{"_id": 1}).All(&suitableInstanceData)
+		if err != nil {
+			return nil, err
+		}
+		var suitableIds = make([]string, len(suitableInstanceData))
+		for i, m := range suitableInstanceData {
+			suitableIds[i] = m.Id
+		}
+		terms = append(terms, bson.DocElem{"_id", D{{"$in", suitableIds}}})
 	}
 	return u.st.machines.Find(terms), nil
 }
