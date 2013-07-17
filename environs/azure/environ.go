@@ -419,7 +419,7 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, 
 			Port:      config.APIPort(),
 			Protocol:  "TCP",
 		},
-	})
+	}, nil)
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(

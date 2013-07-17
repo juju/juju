@@ -40,6 +40,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(mcfg, DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys: "we-are-the-keys",
+		ProviderType:   "dummy",
 		StateInfo:      &state.Info{Tag: "not touched"},
 		APIInfo:        &api.Info{Tag: "not touched"},
 	})

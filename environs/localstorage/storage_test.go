@@ -6,6 +6,7 @@ package localstorage_test
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"net/http"
 
@@ -14,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type storageSuite struct{}
@@ -77,10 +79,25 @@ func checkList(c *C, storage environs.StorageReader, prefix string, names []stri
 	c.Assert(lnames, DeepEquals, names)
 }
 
+type readerWithClose struct {
+	*bytes.Buffer
+	closeCalled bool
+}
+
+var _ io.Reader = (*readerWithClose)(nil)
+var _ io.Closer = (*readerWithClose)(nil)
+
+func (r *readerWithClose) Close() error {
+	r.closeCalled = true
+	return nil
+}
+
 func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {
 	c.Logf("check putting file %s ...", name)
-	err := storage.Put(name, bytes.NewBuffer(contents), int64(len(contents)))
+	reader := &readerWithClose{bytes.NewBuffer(contents), false}
+	err := storage.Put(name, reader, int64(len(contents)))
 	c.Assert(err, IsNil)
+	c.Assert(reader.closeCalled, jc.IsFalse)
 }
 
 func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {

@@ -42,7 +42,7 @@ func MongoUpstartService(name, dataDir, dbDir string, port int) *Conf {
 
 // MachineAgentUpstartService returns the upstart config for a machine agent
 // based on the tag and machineId passed in.
-func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId, logConfig string) *Conf {
+func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId, logConfig, providerType string) *Conf {
 	svc := NewService(name)
 	logFile := filepath.Join(logDir, tag+".log")
 	return &Conf{
@@ -58,5 +58,8 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId,
 			" --machine-id " + machineId +
 			" " + logConfig,
 		Out: logFile,
+		Env: map[string]string{
+			"JUJU_PROVIDER_TYPE": providerType,
+		},
 	}
 }
