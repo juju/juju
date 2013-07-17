@@ -12,6 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
@@ -46,6 +47,7 @@ func (s *LxcSuite) TearDownSuite(c *gc.C) {
 func (s *LxcSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
+	loggo.GetLogger("juju.container.lxc").SetLogLevel(loggo.TRACE)
 }
 
 func (s *LxcSuite) TearDownTest(c *gc.C) {
@@ -96,6 +98,16 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)
+	// Check that the config file is linked in the restart dir.
+	expectedLinkLocation := filepath.Join(s.RestartDir, name+".conf")
+	expectedTarget := filepath.Join(s.LxcDir, name, "config")
+	linkInfo, err := os.Lstat(expectedLinkLocation)
+	c.Assert(err, gc.IsNil)
+	c.Assert(linkInfo.Mode()&os.ModeSymlink, gc.Equals, os.ModeSymlink)
+
+	location, err := os.Readlink(expectedLinkLocation)
+	c.Assert(err, gc.IsNil)
+	c.Assert(location, gc.Equals, expectedTarget)
 }
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {
@@ -110,6 +122,8 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
+	// Check that the restart link has been removed.
+	c.Assert(filepath.Join(s.RestartDir, name+".conf"), jc.DoesNotExist)
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {
