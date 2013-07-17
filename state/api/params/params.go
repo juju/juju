@@ -115,8 +115,9 @@ type AddServiceUnitsResults struct {
 
 // AddServiceUnits holds parameters for the AddUnits call.
 type AddServiceUnits struct {
-	ServiceName string
-	NumUnits    int
+	ServiceName      string
+	NumUnits         int
+	ForceMachineSpec string
 }
 
 // DestroyServiceUnits holds parameters for the DestroyUnits call.

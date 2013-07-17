@@ -17,14 +17,13 @@ import (
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName        string
-	ServiceName      string
-	Config           cmd.FileVar
-	Constraints      constraints.Value
-	NumUnits         int // defaults to 1
-	BumpRevision     bool
-	RepoPath         string // defaults to JUJU_REPOSITORY
-	ForceMachineSpec string
+	UnitCommandBase
+	CharmName    string
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	BumpRevision bool
+	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -59,9 +58,8 @@ func (c *DeployCommand) Info() *cmd.Info {
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
-	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "machine/container to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -88,18 +86,7 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-	if c.NumUnits < 1 {
-		return errors.New("--num-units must be a positive integer")
-	}
-	if c.ForceMachineSpec != "" {
-		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units > 1 with --force-machine")
-		}
-		if !state.IsMachineOrNewContainer(c.ForceMachineSpec) {
-			return fmt.Errorf("invalid --force-machine parameter %q", c.ForceMachineSpec)
-		}
-	}
-	return nil
+	return c.UnitCommandBase.Init(args)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {

@@ -208,6 +208,9 @@ type DeployServiceParams struct {
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
+	if args.NumUnits > 1 && args.ForceMachineSpec != "" {
+		return nil, stderrors.New("cannot use --num-units with --force-machine")
+	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
 		return nil, err

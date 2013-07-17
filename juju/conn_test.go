@@ -513,6 +513,19 @@ func (s *DeployLocalSuite) TestDeployNumUnits(c *C) {
 	s.assertMachines(c, service, constraints.MustParse("mem=2G cpu-cores=2"), "0", "1")
 }
 
+func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Id(), Equals, "0")
+	_, err = s.Conn.DeployService(juju.DeployServiceParams{
+		ServiceName:      "bob",
+		Charm:            s.charm,
+		NumUnits:         2,
+		ForceMachineSpec: "0",
+	})
+	c.Assert(err, ErrorMatches, "cannot use --num-units with --force-machine")
+}
+
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
