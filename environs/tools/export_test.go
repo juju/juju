@@ -4,3 +4,5 @@
 package tools
 
 var Setenv = setenv
+
+var FindExecutable = findExecutable

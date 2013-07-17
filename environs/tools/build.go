@@ -158,6 +158,7 @@ func copyExistingJujud(dir string) error {
 		return err
 	}
 	logger.Infof("found existing jujud")
+	// TODO(thumper): break this out into a util function.
 	// copy the file into the dir.
 	source, err := os.Open(jujudLocation)
 	if err != nil {
