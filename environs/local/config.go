@@ -24,6 +24,10 @@ var (
 		"storage-port":        schema.Int(),
 		"shared-storage-port": schema.Int(),
 	}
+	// The port defaults below are not entirely arbitrary.  Local user web
+	// frameworks often use 8000 or 8080, so I didn't want to use either of
+	// these, but did want the familiarity of using something in the 8000
+	// range.
 	configDefaults = schema.Defaults{
 		"root-dir":            "",
 		"bootstrap-ip":        schema.Omit,
