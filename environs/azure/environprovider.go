@@ -29,7 +29,15 @@ var _ environs.EnvironProvider = (*azureEnvironProvider)(nil)
 // Open is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Debugf("opening environment %q.", cfg.Name())
-	return NewEnviron(cfg)
+	// We can't return NewEnviron(cfg) directly here because otherwise,
+	// when err is not nil, we end up with a non-nil returned environ and
+	// this breaks the loop in cmd/jujud/upgrade.go:run() (see
+	// http://golang.org/doc/faq#nil_error for the gory details).
+	environ, err := NewEnviron(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return environ, nil
 }
 
 // PublicAddress is specified in the EnvironProvider interface.
@@ -108,10 +116,11 @@ func (config *WALASharedConfig) getDeploymentName() string {
 }
 
 // getDeploymentFQDN returns the FQDN of this deployment.
-// The hostname is taken from the 'name' attribute of the 'Deployment' element
-// and the domain name is Azure's domain name: 'cloudapp.net'.
+// The hostname is taken from the 'name' attribute of the Service element
+// embedded in the Deployment element.  The domain name is Azure's fixed
+// domain name: 'cloudapp.net'.
 func (config *WALASharedConfig) getDeploymentFQDN() string {
-	return fmt.Sprintf("%s.cloudapp.net", config.Deployment.Name)
+	return fmt.Sprintf("%s.%s", config.getDeploymentName(), AZURE_DOMAIN_NAME)
 }
 
 // getInternalIP returns the internal IP for this deployment.

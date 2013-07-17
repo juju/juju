@@ -5,14 +5,15 @@ package local
 
 import (
 	"fmt"
-	"path/filepath"
 
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	constants "launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 var logger = loggo.GetLogger("juju.environs.local")
@@ -24,18 +25,22 @@ type environProvider struct{}
 var provider environProvider
 
 func init() {
-	environs.RegisterProvider("local", &environProvider{})
+	environs.RegisterProvider(constants.Local, &environProvider{})
 }
 
-var (
-	defaultRootDir = "/var/lib/juju/"
-)
-
 // Open implements environs.EnvironProvider.Open.
-func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
+func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error) {
 	logger.Infof("opening environment %q", cfg.Name())
+	if _, ok := cfg.AgentVersion(); !ok {
+		cfg, err = cfg.Apply(map[string]interface{}{
+			"agent-version": version.CurrentNumber().String(),
+		})
+		if err != nil {
+			return nil, err
+		}
+	}
 	environ := &localEnviron{name: cfg.Name()}
-	err := environ.SetConfig(cfg)
+	err = environ.SetConfig(cfg)
 	if err != nil {
 		logger.Errorf("failure setting config: %v", err)
 		return nil, err
@@ -49,11 +54,11 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	if err := config.Validate(cfg, old); err != nil {
 		return nil, err
 	}
-	v, err := configChecker.Coerce(cfg.UnknownAttrs(), nil)
+	validated, err := cfg.ValidateUnknownAttrs(configFields, configDefaults)
 	if err != nil {
 		return nil, err
 	}
-	localConfig := newEnvironConfig(cfg, v.(map[string]interface{}))
+	localConfig := newEnvironConfig(cfg, validated)
 	// Before potentially creating directories, make sure that the
 	// root directory has not changed.
 	if old != nil {
@@ -66,10 +71,20 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 				oldLocalConfig.rootDir(),
 				localConfig.rootDir())
 		}
+		if localConfig.storagePort() != oldLocalConfig.storagePort() {
+			return nil, fmt.Errorf("cannot change storage-port from %v to %v",
+				oldLocalConfig.storagePort(),
+				localConfig.storagePort())
+		}
+		if localConfig.sharedStoragePort() != oldLocalConfig.sharedStoragePort() {
+			return nil, fmt.Errorf("cannot change shared-storage-port from %v to %v",
+				oldLocalConfig.sharedStoragePort(),
+				localConfig.sharedStoragePort())
+		}
 	}
 	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {
-		dir = filepath.Join(defaultRootDir, localConfig.namespace())
+		dir = config.JujuHomePath(cfg.Name())
 		localConfig.attrs["root-dir"] = dir
 	}
 
@@ -84,8 +99,15 @@ func (environProvider) BoilerplateConfig() string {
 local:
   type: local
   # Override the directory that is used for the storage files and database.
-  # The default location is /var/lib/juju/<USER>-<ENV>
+  # The default location is $JUJU_HOME/<ENV>.
+  # $JUJU_HOME defaults to ~/.juju
   # root-dir: ~/.juju/local
+  # Override the storage port if you have multiple local providers, or if the
+  # default port is used by another program.
+  # storage-port: 8040
+  # Override the shared storage port if you have multiple local providers, or if the
+  # default port is used by another program.
+  # shared-storage-port: 8041
 
 `[1:]
 }
@@ -102,17 +124,23 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
 func (environProvider) PublicAddress() (string, error) {
-	return "", fmt.Errorf("not implemented")
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
 func (environProvider) PrivateAddress() (string, error) {
-	return "", fmt.Errorf("not implemented")
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // InstanceId implements environs.EnvironProvider.InstanceId.
 func (environProvider) InstanceId() (instance.Id, error) {
-	return "", fmt.Errorf("not implemented")
+	// This hack only works until we get containers started.
+	// Interestingly, this method is only ever called for the bootstrap machine.
+	// This method should not be attached to the EnvironProvider interface.
+	// TODO(thumper): refactor this method out of existance from the interface
+	return instance.Id("localhost"), nil
 }
 
 func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

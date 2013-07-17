@@ -4,6 +4,7 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"time"
 
@@ -11,6 +12,8 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/environs/provider"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -47,8 +50,22 @@ func getUniterLock(dataDir, message string) (*fslock.Lock, error) {
 // dataDir is the root location where data files are put. It is used to grab
 // the uniter-hook-execution lock so that we don't try run to apt-get at the
 // same time that a hook might want to run it.
-func EnsureWeHaveLXC(dataDir string) error {
-	manager := lxc.NewContainerManager("lxc-test")
+func EnsureWeHaveLXC(dataDir, machineTag string) error {
+	// We need to short circuit this in two places:
+	//   1. if we are running a local provider, then the machines are lxc
+	//     containers, and if we install lxc on them, it adds an lxc bridge
+	//     network device with the same ip address as the hosts bridge.  This
+	//     screws up all the networking routes.
+	//   2. if the machine is an lxc container, we need to avoid installing lxc
+	//     package for exactly the same reasons.
+	// Later, post-precise LTS, when we have updated lxc, we can bring this
+	// back in to have nested lxc, but until then, we have to avoid it.
+	containerType := state.ContainerTypeFromId(state.MachineIdFromTag(machineTag))
+	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	if providerType == provider.Local || containerType == instance.LXC {
+		return nil
+	}
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{Name: "lxc-test"})
 	if _, err := manager.ListContainers(); err == nil {
 		validationLogger.Debugf("found lxc, not installing")
 		// We already have it, nothing more to do

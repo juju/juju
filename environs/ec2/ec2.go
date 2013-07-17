@@ -248,7 +248,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.startInstance(&startInstanceParams{
+	inst, _, err := e.internalStartInstance(&startInstanceParams{
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
 		series:        e.Config().DefaultSeries(),
@@ -293,7 +293,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.startInstance(&startInstanceParams{
+	return e.internalStartInstance(&startInstanceParams{
 		machineId:     machineId,
 		machineNonce:  machineNonce,
 		series:        series,
@@ -306,15 +306,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 
 // TODO(bug 1199847): Some of this work can be shared between providers.
 func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
-	mcfg := &cloudinit.MachineConfig{
-		MachineId:    scfg.machineId,
-		MachineNonce: scfg.machineNonce,
-		StateServer:  scfg.stateServer,
-		StateInfo:    scfg.info,
-		APIInfo:      scfg.apiInfo,
-		DataDir:      "/var/lib/juju",
-		Tools:        tools,
-	}
+	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
+	mcfg.StateServer = scfg.stateServer
+	mcfg.Tools = tools
+
 	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
 		return nil, err
 	}
@@ -344,16 +339,13 @@ type startInstanceParams struct {
 
 const ebsStorage = "ebs"
 
-// startInstance is the internal version of StartInstance, used by Bootstrap
-// as well as via StartInstance itself.
+// internalStartInstance is the internal version of StartInstance, used by
+// Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := scfg.possibleTools.Series()
-	if len(series) != 1 {
-		return nil, nil, fmt.Errorf("expected single series, got %v", series)
-	}
-	if series[0] != scfg.series {
-		return nil, nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
+	if err != nil {
+		return nil, nil, err
 	}
 	arches := scfg.possibleTools.Arches()
 	storage := ebsStorage
