@@ -20,14 +20,14 @@ import (
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type lxcSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }
@@ -73,7 +73,7 @@ func (s *lxcBrokerSuite) SetUpTest(c *C) {
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	s.broker = provisioner.NewLxcBroker(testing.EnvironConfig(c), tools)
+	s.broker = provisioner.NewLxcBroker(coretesting.EnvironConfig(c), tools)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance {
@@ -126,7 +126,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *C) {
 func (s *lxcBrokerSuite) assertInstances(c *C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
 	c.Assert(err, IsNil)
-	testing.MatchInstances(c, results, inst...)
+	coretesting.MatchInstances(c, results, inst...)
 }
 
 func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {
@@ -195,7 +195,7 @@ func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
 	select {
 	case event := <-s.events:
 		c.Fatalf("unexpected event %#v", event)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		return
 	}
 }

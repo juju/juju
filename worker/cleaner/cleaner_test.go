@@ -4,13 +4,15 @@
 package cleaner_test
 
 import (
+	stdtesting "testing"
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/cleaner"
-	stdtesting "testing"
-	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -53,11 +55,11 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 	err = relM.Destroy()
 	c.Assert(err, IsNil)
 
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(coretesting.LongWait)
 	for {
 		s.State.StartSync()
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			continue
 		case <-timeout:
 			c.Fatalf("timed out waiting for cleanup")

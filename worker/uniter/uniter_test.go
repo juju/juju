@@ -41,6 +41,8 @@ import (
 // will fail the test. Raising this value should
 // not affect the overall running time of the tests
 // unless they fail.
+// TODO(jam): coretesting.LongWait is only a second, why is this one 10? Are
+//            these tests slower? 
 const worstCase = 10 * time.Second
 
 func TestPackage(t *stdtesting.T) {
@@ -1090,7 +1092,7 @@ func (waitAddresses) step(c *C, ctx *context) {
 		select {
 		case <-timeout:
 			c.Fatalf("timed out waiting for unit addresses")
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			err := ctx.unit.Refresh()
 			if err != nil {
 				c.Fatalf("unit refresh failed: %v", err)
@@ -1163,7 +1165,7 @@ func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 		select {
 		case <-u.Dead():
 			return u.Wait()
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			continue
 		case <-timeout:
 			c.Fatalf("uniter still alive")
@@ -1273,7 +1275,7 @@ func (s waitUnit) step(c *C, ctx *context) {
 	for {
 		ctx.st.StartSync()
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			err := ctx.unit.Refresh()
 			if err != nil {
 				c.Fatalf("cannot refresh unit: %v", err)
@@ -1315,7 +1317,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	if len(s) == 0 {
 		// Give unwanted hooks a moment to run...
 		ctx.st.StartSync()
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(coretesting.ShortWait)
 	}
 	ctx.hooks = append(ctx.hooks, s...)
 	c.Logf("waiting for hooks: %#v", ctx.hooks)
@@ -1330,7 +1332,7 @@ func (s waitHooks) step(c *C, ctx *context) {
 	for {
 		ctx.st.StartSync()
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			if match, _ = ctx.matchLogHooks(c); match {
 				return
 			}
@@ -1559,7 +1561,7 @@ func (s waitSubordinateExists) step(c *C, ctx *context) {
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not created")
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			var err error
 			ctx.subordinate, err = ctx.st.Unit(s.name)
 			if errors.IsNotFoundError(err) {
@@ -1580,7 +1582,7 @@ func (waitSubordinateDying) step(c *C, ctx *context) {
 		select {
 		case <-timeout:
 			c.Fatalf("subordinate was not made Dying")
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			err := ctx.subordinate.Refresh()
 			c.Assert(err, IsNil)
 			if ctx.subordinate.Life() != state.Dying {
