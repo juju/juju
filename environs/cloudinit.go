@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 
+	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -91,4 +92,23 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	mcfg.StateServerCert = cert
 	mcfg.StateServerKey = key
 	return nil
+}
+
+// ComposeUserData puts together a binary (gzipped) blob of user data.
+// The additionalScripts are additional command lines that you need cloudinit
+// to run on the instance.  Use with care.
+func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
+	cloudcfg := cloudinit_core.New()
+	for _, script := range additionalScripts {
+		cloudcfg.AddRunCmd(script)
+	}
+	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
+	if err != nil {
+		return nil, err
+	}
+	data, err := cloudcfg.Render()
+	if err != nil {
+		return nil, err
+	}
+	return utils.Gzip(data), nil
 }

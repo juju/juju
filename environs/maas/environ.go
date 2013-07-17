@@ -280,11 +280,13 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err := environs.FinishMachineConfig(mcfg, environ.Config(), cons); err != nil {
 		return nil, err
 	}
-	userdata, err := userData(mcfg, runCmd)
+	userdata, err := environs.ComposeUserData(mcfg, runCmd)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
 	}
+	log.Debugf("environs/maas: maas user data; %d bytes", len(userdata))
+
 	if err := environ.startNode(*instance.maasObject, series[0], userdata); err != nil {
 		return nil, err
 	}
