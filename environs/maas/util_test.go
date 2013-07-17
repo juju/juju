@@ -99,13 +99,12 @@ func (s *UtilSuite) TestUserData(c *C) {
 }
 
 func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
-	instanceId := "instanceId"
 	hostname := "hostname"
 	filename := "path/to/file"
 	old_MAASInstanceFilename := _MAASInstanceFilename
 	_MAASInstanceFilename = filename
 	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
-	info := machineInfo{instanceId, hostname}
+	info := machineInfo{hostname}
 
 	script, err := info.cloudinitRunCmd()
 
@@ -117,9 +116,8 @@ func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
 }
 
 func (s *UtilSuite) TestMachineInfoLoad(c *C) {
-	instanceId := "instanceId"
 	hostname := "hostname"
-	yaml := fmt.Sprintf("instanceid: %s\nhostname: %s\n", instanceId, hostname)
+	yaml := fmt.Sprintf("hostname: %s\n", hostname)
 	filename := createTempFile(c, []byte(yaml))
 	old_MAASInstanceFilename := _MAASInstanceFilename
 	_MAASInstanceFilename = filename
@@ -129,6 +127,5 @@ func (s *UtilSuite) TestMachineInfoLoad(c *C) {
 	err := info.load()
 
 	c.Assert(err, IsNil)
-	c.Check(info.InstanceId, Equals, instanceId)
 	c.Check(info.Hostname, Equals, hostname)
 }

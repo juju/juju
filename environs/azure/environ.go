@@ -151,7 +151,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	// TODO - have hardware characteristics
+	// TODO(wallyworld) - save hardware characteristics
 	err = environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})

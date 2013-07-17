@@ -248,7 +248,8 @@ func (st *State) InjectMachine(series string, cons constraints.Value, instanceId
 		instanceId:      instanceId,
 		characteristics: hc,
 		nonce:           BootstrapNonce,
-		Jobs:            jobs})
+		Jobs:            jobs,
+	})
 }
 
 // containerRefParams specify how a machineContainers document is to be created.

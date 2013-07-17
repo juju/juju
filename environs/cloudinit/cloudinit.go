@@ -181,11 +181,11 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 			return nil, err
 		}
 		addScripts(c,
+			fmt.Sprintf("echo %s > /tmp/provider-state-url", shquote(cfg.StateInfoURL)),
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
 				" --constraints "+shquote(cfg.Constraints.String())+
-				" --stateinfo-url "+shquote(cfg.StateInfoURL)+
 				debugFlag,
 			"rm -rf "+shquote(acfg.Dir()),
 		)

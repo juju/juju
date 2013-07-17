@@ -7,17 +7,17 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 
 	"launchpad.net/goyaml"
 
-	"io"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"net/http"
 )
 
 // StateFile is the name of the file where the provider's state is stored.
@@ -32,7 +32,10 @@ type BootstrapState struct {
 	// StateInstances are the state servers.
 	StateInstances []instance.Id `yaml:"state-instances"`
 	// Characteristics reflect the hardware each state server is running on.
-	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics"`
+	// This is used at bootstrap time so the state server knows what hardware it has.
+	// The state *may* be updated later without this information, but by then it's
+	// served it's purpose.
+	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 
 // SaveState writes the given state to the given storage.

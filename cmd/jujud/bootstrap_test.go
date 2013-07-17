@@ -5,6 +5,9 @@ package main
 
 import (
 	"encoding/base64"
+	"io/ioutil"
+	"net/http"
+	"path/filepath"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -19,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
-	"net/http"
 )
 
 // We don't want to use JujuConnSuite because it gives us
@@ -27,7 +29,8 @@ import (
 type BootstrapSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	dataDir string
+	dataDir              string
+	providerStateURLFile string
 }
 
 var _ = Suite(&BootstrapSuite{})
@@ -50,6 +53,8 @@ func (s *BootstrapSuite) SetUpSuite(c *C) {
 	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper([]jujutest.FileContent{
 		{"/" + environs.StateFile, string(stateData)},
 	}, nil)
+	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
+	SetProviderStateURLFile(s.providerStateURLFile)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *C) {
@@ -75,6 +80,7 @@ func testPasswordHash() string {
 }
 
 func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf *agent.Conf, cmd *BootstrapCommand, err error) {
+	ioutil.WriteFile(s.providerStateURLFile, []byte("test://localhost/provider-state\n"), 0600)
 	bootConf := &agent.Conf{
 		DataDir:     s.dataDir,
 		OldPassword: testPasswordHash(),
@@ -110,7 +116,6 @@ func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf
 	c.Assert(err, IsNil)
 
 	cmd = &BootstrapCommand{}
-	args = append(args, []string{"--stateinfo-url", "test://localhost/provider-state"}...)
 	err = testing.InitCommand(cmd, append([]string{"--data-dir", s.dataDir}, args...))
 	return machineConf, cmd, err
 }

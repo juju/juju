@@ -75,7 +75,7 @@ var cloudinitTests = []cloudinitTest{
 			},
 			Constraints:  envConstraints,
 			DataDir:      environs.DataDir,
-			StateInfoURL: "http://somefile",
+			StateInfoURL: "some-url",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -102,7 +102,8 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
-/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --stateinfo-url 'http://somefile' --debug
+echo 'some-url' > /tmp/provider-state-url
+/var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file '/var/log/juju/machine-0\.log' --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n
@@ -131,7 +132,7 @@ start jujud-machine-0
 			},
 			Constraints:  envConstraints,
 			DataDir:      environs.DataDir,
-			StateInfoURL: "http://somefile",
+			StateInfoURL: "some-url",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -158,7 +159,8 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
-/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --stateinfo-url 'http://somefile' --debug
+echo 'some-url' > /tmp/provider-state-url
+/var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
 cat >> /etc/init/jujud-machine-0\.conf << 'EOF'\\ndescription "juju machine-0 agent"\\nauthor "Juju Team <juju@lists\.ubuntu\.com>"\\nstart on runlevel \[2345\]\\nstop on runlevel \[!2345\]\\nrespawn\\nnormal exit 0\\n\\nlimit nofile 20000 20000\\n\\nexec /var/lib/juju/tools/machine-0/jujud machine --log-file '/var/log/juju/machine-0\.log' --data-dir '/var/lib/juju' --machine-id 0  --debug >> /var/log/juju/machine-0\.log 2>&1\\nEOF\\n

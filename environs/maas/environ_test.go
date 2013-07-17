@@ -277,7 +277,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	userData := nodeRequestValues[1].Get("user_data")
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, IsNil)
-	info := machineInfo{string(instance.Id()), "host1"}
+	info := machineInfo{"host1"}
 	cloudinitRunCmd, err := info.cloudinitRunCmd()
 	c.Assert(err, IsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)

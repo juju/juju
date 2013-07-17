@@ -109,7 +109,7 @@ func ConfigureBootstrapMachine(
 	logger.Debugf("configure bootstrap machine")
 	bsState, err := LoadStateFromURL(stateInfoURL)
 	if err != nil {
-		logger.Errorf("cannot load state: %v", err)
+		logger.Errorf("cannot load state from URL %q: %v", stateInfoURL, err)
 		return err
 	}
 	instId := bsState.StateInstances[0]

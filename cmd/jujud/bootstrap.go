@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/base64"
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/gnuflag"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
@@ -13,14 +14,18 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/state"
+	"strings"
 )
+
+// Cloud-init write the URL to be used to load the bootstrap state into this file.
+// A variable is used here to allow tests to override.
+var providerStateURLFile = "/tmp/provider-state-url"
 
 type BootstrapCommand struct {
 	cmd.CommandBase
-	Conf         AgentConf
-	EnvConfig    map[string]interface{}
-	Constraints  constraints.Value
-	stateInfoURL string
+	Conf        AgentConf
+	EnvConfig   map[string]interface{}
+	Constraints constraints.Value
 }
 
 // Info returns a decription of the command.
@@ -34,7 +39,6 @@ func (c *BootstrapCommand) Info() *cmd.Info {
 func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Conf.addFlags(f)
 	yamlBase64Var(f, &c.EnvConfig, "env-config", "", "initial environment configuration (yaml, base64 encoded)")
-	f.StringVar(&c.stateInfoURL, "stateinfo-url", "", "the URL from which to load state information like instanc id and hardware")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "initial environment constraints (space-separated strings)")
 }
 
@@ -42,9 +46,6 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *BootstrapCommand) Init(args []string) error {
 	if len(c.EnvConfig) == 0 {
 		return requiredError("env-config")
-	}
-	if len(c.stateInfoURL) == 0 {
-		return requiredError("state-info-url")
 	}
 	return c.Conf.checkArgs(args)
 }
@@ -88,7 +89,13 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		state.JobManageEnviron, state.JobManageState, state.JobHostUnits,
 	}
 
-	return environs.ConfigureBootstrapMachine(st, cfg, c.Constraints, c.Conf.DataDir, jobs, c.stateInfoURL)
+	data, err := ioutil.ReadFile(providerStateURLFile)
+	if err != nil {
+		return fmt.Errorf("cannot read provider-state-url file: %v", err)
+	}
+	stateInfoURL := strings.Split(string(data), "\n")[0]
+
+	return environs.ConfigureBootstrapMachine(st, cfg, c.Constraints, c.Conf.DataDir, jobs, stateInfoURL)
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

@@ -52,7 +52,7 @@ func createTempFile(c *C, content []byte) string {
 // from the file _MAASInstanceFilename.
 func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMachineFile(c *C) {
 	hostname := "myhostname"
-	info := machineInfo{"instance-id", hostname}
+	info := machineInfo{hostname}
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, IsNil)
 	// Create a temporary file to act as the file where the instanceID

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,7 +22,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
-	"strings"
 )
 
 const (
@@ -135,7 +135,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	// TODO add hardware characteristics to BootstrapState
+	// TODO(wallyworld) add hardware characteristics to BootstrapState
 	err = environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
@@ -306,7 +306,7 @@ func (environ *maasEnviron) internalStartInstance(machineId string, cons constra
 	if err != nil {
 		return nil, err
 	}
-	info := machineInfo{string(instance.Id()), hostname}
+	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
 		return nil, err
