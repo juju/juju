@@ -17,7 +17,6 @@ import (
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -631,28 +630,6 @@ type startInstanceParams struct {
 	withPublicIP bool
 }
 
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
-	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
-	mcfg.StateServer = scfg.stateServer
-	mcfg.Tools = tools
-
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
-		return nil, err
-	}
-	cloudcfg, err := cloudinit.New(mcfg)
-	if err != nil {
-		return nil, err
-	}
-	data, err := cloudcfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	cdata := utils.Gzip(data)
-	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
-	return cdata, nil
-}
-
 // allocatePublicIP tries to find an available floating IP address, or
 // allocates a new one, returning it, or an error
 func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
@@ -725,10 +702,20 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
-	userData, err := e.userData(scfg, tools[0])
+
+	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
+	mcfg.StateServer = scfg.stateServer
+	mcfg.Tools = tools[0]
+
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+		return nil, nil, err
+	}
+	userData, err := environs.ComposeUserData(mcfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
+
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {

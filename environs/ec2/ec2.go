@@ -11,7 +11,6 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -304,28 +303,6 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	})
 }
 
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
-	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
-	mcfg.StateServer = scfg.stateServer
-	mcfg.Tools = tools
-
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
-		return nil, err
-	}
-	cloudcfg, err := cloudinit.New(mcfg)
-	if err != nil {
-		return nil, err
-	}
-	data, err := cloudcfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	cdata := utils.Gzip(data)
-	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
-	return cdata, nil
-}
-
 type startInstanceParams struct {
 	machineId     string
 	machineNonce  string
@@ -367,10 +344,19 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
-	userData, err := e.userData(scfg, tools[0])
+
+	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
+	mcfg.StateServer = scfg.stateServer
+	mcfg.Tools = tools[0]
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+		return nil, nil, err
+	}
+
+	userData, err := environs.ComposeUserData(mcfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
 	config := e.Config()
 	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
 	if err != nil {
