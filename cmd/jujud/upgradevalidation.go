@@ -11,6 +11,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -59,7 +60,7 @@ func EnsureWeHaveLXC(dataDir, machineTag string) error {
 	// back in to have nested lxc, but until then, we have to avoid it.
 	containerType := state.ContainerTypeFromId(state.MachineIdFromTag(machineTag))
 	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
-	if providerType == "local" || containerType == instance.LXC {
+	if providerType == provider.Local || containerType == instance.LXC {
 		return nil
 	}
 	manager := lxc.NewContainerManager(lxc.ManagerConfig{Name: "lxc-test"})
