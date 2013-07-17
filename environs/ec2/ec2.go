@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -235,6 +236,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 // TODO(bug 1199847): Much of this work can be shared between providers.
 func (e *environ) Bootstrap(cons constraints.Value) error {
+	// The bootstrap instance gets machine id "0".  This is not related to
+	// instance ids.  Juju assigns the machine ID.
+	const machineID = "0"
 	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
@@ -242,19 +246,21 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
 		return err
 	}
+
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
+	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	if err != nil {
+		return err
+	}
+
+	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg.StateServer = true
+
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.internalStartInstance(&startInstanceParams{
-		machineId:     "0",
-		machineNonce:  state.BootstrapNonce,
-		series:        e.Config().DefaultSeries(),
-		constraints:   cons,
-		possibleTools: possibleTools,
-		stateServer:   true,
-	})
+	inst, _, err := e.internalStartInstance(cons, possibleTools, mcfg)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -287,31 +293,18 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.internalStartInstance(&startInstanceParams{
-		machineId:     machineId,
-		machineNonce:  machineNonce,
-		series:        series,
-		constraints:   cons,
-		info:          info,
-		apiInfo:       apiInfo,
-		possibleTools: possibleTools,
-	})
-}
+	err = environs.CheckToolsSeries(possibleTools, series)
+	if err != nil {
+		return nil, nil, err
+	}
+	mcfg := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 
-type startInstanceParams struct {
-	machineId     string
-	machineNonce  string
-	series        string
-	constraints   constraints.Value
-	info          *state.Info
-	apiInfo       *api.Info
-	possibleTools tools.List
-	stateServer   bool
+	return e.internalStartInstance(cons, possibleTools, mcfg)
 }
 
 const ebsStorage = "ebs"
@@ -319,12 +312,12 @@ const ebsStorage = "ebs"
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
-	if err != nil {
-		return nil, nil, err
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	series := possibleTools.Series()
+	if len(series) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
-	arches := scfg.possibleTools.Arches()
+	arches := possibleTools.Arches()
 	storage := ebsStorage
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
@@ -332,23 +325,21 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	}
 	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      scfg.series,
+		Series:      series[0],
 		Arches:      arches,
-		Constraints: scfg.constraints,
+		Constraints: cons,
 		Storage:     &storage,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
-	mcfg.StateServer = scfg.stateServer
 	mcfg.Tools = tools[0]
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), cons); err != nil {
 		return nil, nil, err
 	}
 
@@ -358,7 +349,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	}
 	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
 	config := e.Config()
-	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
+	groups, err := e.setUpGroups(mcfg.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}

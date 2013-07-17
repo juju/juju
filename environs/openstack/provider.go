@@ -17,6 +17,7 @@ import (
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -464,6 +465,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) Bootstrap(cons constraints.Value) error {
+	// The bootstrap instance gets machine id "0".  This is not related
+	// to instance ids.  Juju assigns the machine ID.
+	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
 	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
@@ -474,16 +478,16 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	if err != nil {
+		return err
+	}
+
+	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg.StateServer = true
+
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.internalStartInstance(&startInstanceParams{
-		machineId:     "0",
-		machineNonce:  state.BootstrapNonce,
-		series:        e.Config().DefaultSeries(),
-		constraints:   cons,
-		possibleTools: possibleTools,
-		stateServer:   true,
-		withPublicIP:  e.ecfg().useFloatingIP(),
-	})
+	inst, _, err := e.internalStartInstance(cons, possibleTools, mcfg, e.ecfg().useFloatingIP())
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -598,36 +602,18 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.internalStartInstance(&startInstanceParams{
-		machineId:     machineId,
-		machineNonce:  machineNonce,
-		series:        series,
-		constraints:   cons,
-		info:          info,
-		apiInfo:       apiInfo,
-		possibleTools: possibleTools,
-		withPublicIP:  e.ecfg().useFloatingIP(),
-	})
-}
+	err = environs.CheckToolsSeries(possibleTools, series)
+	if err != nil {
+		return nil, nil, err
+	}
 
-type startInstanceParams struct {
-	machineId     string
-	machineNonce  string
-	series        string
-	constraints   constraints.Value
-	info          *state.Info
-	apiInfo       *api.Info
-	possibleTools tools.List
-	stateServer   bool
-
-	// withPublicIP, if true, causes a floating IP to be
-	// assigned to the server after starting
-	withPublicIP bool
+	mcfg := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	return e.internalStartInstance(cons, possibleTools, mcfg, false)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -682,32 +668,32 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
+// Setting withPublicIP to true causes a floating IP to be assigned to the
+// server after starting.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
-	if err != nil {
-		return nil, nil, err
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig, withPublicIP bool) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	series := possibleTools.Series()
+	if len(series) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
-	arches := scfg.possibleTools.Arches()
+	arches := possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      scfg.series,
+		Series:      series[0],
 		Arches:      arches,
-		Constraints: scfg.constraints,
+		Constraints: cons,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
-	mcfg.StateServer = scfg.stateServer
 	mcfg.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), cons); err != nil {
 		return nil, nil, err
 	}
 	userData, err := environs.ComposeUserData(mcfg)
@@ -717,7 +703,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
 
 	var publicIP *nova.FloatingIP
-	if scfg.withPublicIP {
+	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
 			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
@@ -726,7 +712,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		}
 	}
 	config := e.Config()
-	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
+	groups, err := e.setUpGroups(mcfg.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -738,7 +724,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               e.machineFullName(scfg.machineId),
+			Name:               e.machineFullName(mcfg.MachineId),
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
@@ -762,7 +748,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		instType:     &spec.InstanceType,
 	}
 	log.Infof("environs/openstack: started instance %q", inst.Id())
-	if scfg.withPublicIP {
+	if withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it

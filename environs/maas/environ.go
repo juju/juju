@@ -71,9 +71,6 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	mcfg.StateServer = true
-
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
@@ -83,6 +80,10 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
+
+	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg.StateServer = true
+
 	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
