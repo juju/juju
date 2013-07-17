@@ -43,6 +43,11 @@ const (
 	// actually seem to resolve; instead, the service name is used as the
 	// DNS name, with ".cloudapp.net" appended.
 	deploymentSlot = "Production"
+
+	// Address space of the virtual network used by the nodes in this
+	// environement, in CIDR notation. This is the network used for
+	// machine-to-machine communication.
+	networkDefinition = "10.0.0.0/8"
 )
 
 type azureEnviron struct {
@@ -147,12 +152,98 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	return inst, nil
 }
 
+// getAffinityGroupName returns the name of the affinity group used by all
+// the Services in this environment.
+func (env *azureEnviron) getAffinityGroupName() string {
+	return env.getEnvPrefix() + "-ag"
+}
+
+func (env *azureEnviron) createAffinityGroup() error {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	affinityGroupName := env.getAffinityGroupName()
+	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, serviceLocation)
+	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
+		CreateAffinityGroup: cag})
+}
+
+func (env *azureEnviron) destroyAffinityGroup() error {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	affinityGroupName := env.getAffinityGroupName()
+	return azure.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
+		Name: affinityGroupName})
+}
+
+// getVirtualNetworkName returns the name of the virtual network used by all
+// the VMs in this environment.
+func (env *azureEnviron) getVirtualNetworkName() string {
+	return env.getEnvPrefix() + "-vnet"
+}
+
+func (env *azureEnviron) createVirtualNetwork() error {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	vnetName := env.getVirtualNetworkName()
+	affinityGroupName := env.getAffinityGroupName()
+	virtualNetwork := gwacl.VirtualNetworkSite{
+		Name:          vnetName,
+		AffinityGroup: affinityGroupName,
+		AddressSpacePrefixes: []string{
+			networkDefinition,
+		},
+	}
+	return azure.AddVirtualNetworkSite(&virtualNetwork)
+}
+
+func (env *azureEnviron) destroyVirtualNetwork() error {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	vnetName := env.getVirtualNetworkName()
+	return azure.RemoveVirtualNetworkSite(vnetName)
+}
+
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
-func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
+func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
 		return err
 	}
+
+	// TODO(bug 1199847). The creation of the affinity group and the
+	// virtual network is specific to the Azure provider.
+	err = env.createAffinityGroup()
+	if err != nil {
+		return err
+	}
+	// If we fail after this point, clean up the affinity group.
+	defer func() {
+		if err != nil {
+			env.destroyAffinityGroup()
+		}
+	}()
+	err = env.createVirtualNetwork()
+	if err != nil {
+		return err
+	}
+	// If we fail after this point, clean up the virtual network.
+	defer func() {
+		if err != nil {
+			env.destroyVirtualNetwork()
+		}
+	}()
 
 	inst, err := env.startBootstrapInstance(cons)
 	if err != nil {
@@ -213,9 +304,10 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
 	name := gwacl.MakeRandomHostedServiceName(prefix)
 	req := gwacl.NewCreateHostedServiceWithLocation(name, name, serviceLocation)
+	req.AffinityGroup = affinityGroupName
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
 	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
@@ -233,11 +325,11 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.Cre
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix)
+		svc, err = attemptCreateService(azure, prefix, affinityGroupName)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -285,7 +377,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix())
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName())
 	if err != nil {
 		return nil, err
 	}
@@ -306,10 +398,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// In the meantime we use a temporary Saucy image containing a
 	// cloud-init package which supports Azure.
 	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
-	// TODO: virtualNetworkName is the virtual network to which the
-	// deployment will belong. We'll want to build this out later to
-	// support private communication between instances.
-	virtualNetworkName := ""
+
+	// virtualNetworkName is the virtual network to which all the
+	// deployments in this environment belong.
+	virtualNetworkName := env.getVirtualNetworkName()
 
 	// 1. Create an OS Disk.
 	vhd := env.newOSDisk(sourceImageName)

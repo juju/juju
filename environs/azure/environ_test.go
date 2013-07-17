@@ -383,6 +383,7 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	prefix := "myservice"
+	affinityGroup := "affinity-group"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -390,12 +391,13 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, prefix)
+	service, err := attemptCreateService(azure, prefix, affinityGroup)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
 
 	label, err := base64.StdEncoding.DecodeString(service.Label)
@@ -412,7 +414,7 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service")
+	service, err := attemptCreateService(azure, "service", "affinity-group")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -435,7 +437,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service")
+	service, err := attemptCreateService(azure, "service", "affinity-group")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -448,13 +450,14 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure, "service")
+	_, err = attemptCreateService(azure, "service", "affinity-group")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
 
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	prefix := "myservice"
+	affinityGroup := "affinity-group"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -462,12 +465,13 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, prefix)
+	service, err := newHostedService(azure, prefix, affinityGroup)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
 }
 
@@ -484,7 +488,7 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, "service")
+	service, err := newHostedService(azure, "service", "affinity-group")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -518,7 +522,7 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure, "service")
+	_, err = newHostedService(azure, "service", "affinity-group")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
@@ -754,4 +758,104 @@ func (*EnvironSuite) TestProviderReturnsAzureEnvironProvider(c *C) {
 	azprov, ok := prov.(azureEnvironProvider)
 	c.Assert(ok, Equals, true)
 	c.Check(azprov, NotNil)
+}
+
+func (*EnvironSuite) TestCreateVirtualNetwork(c *C) {
+	env := makeEnviron(c)
+	responses := []gwacl.DispatcherResponse{
+		// No existing configuration found.
+		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
+		// Accept upload of new configuration.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	env.createVirtualNetwork()
+
+	c.Assert(*requests, HasLen, 2)
+	request := (*requests)[1]
+	body := gwacl.NetworkConfiguration{}
+	err := xml.Unmarshal(request.Payload, &body)
+	c.Assert(err, IsNil)
+	networkConf := (*body.VirtualNetworkSites)[0]
+	c.Check(networkConf.Name, Equals, env.getVirtualNetworkName())
+	c.Check(networkConf.AffinityGroup, Equals, env.getAffinityGroupName())
+}
+
+func (*EnvironSuite) TestDestroyVirtualNetwork(c *C) {
+	env := makeEnviron(c)
+	// Prepare a configuration with a single virtual network.
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS: gwacl.XMLNS_NC,
+		VirtualNetworkSites: &[]gwacl.VirtualNetworkSite{
+			{Name: env.getVirtualNetworkName()},
+		},
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, IsNil)
+	responses := []gwacl.DispatcherResponse{
+		// Return existing configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+		// Accept upload of new configuration.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	env.destroyVirtualNetwork()
+
+	c.Assert(*requests, HasLen, 2)
+	// One request to get the existing network configuration.
+	getRequest := (*requests)[0]
+	c.Check(getRequest.Method, Equals, "GET")
+	// One request to update the network configuration.
+	putRequest := (*requests)[1]
+	c.Check(putRequest.Method, Equals, "PUT")
+	newConfig := gwacl.NetworkConfiguration{}
+	err = xml.Unmarshal(putRequest.Payload, &newConfig)
+	c.Assert(err, IsNil)
+	// The new configuration has no VirtualNetworkSites.
+	c.Check(newConfig.VirtualNetworkSites, IsNil)
+}
+
+func (*EnvironSuite) TestGetVirtualNetworkNameContainsEnvName(c *C) {
+	env := makeEnviron(c)
+	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), IsTrue)
+}
+
+func (*EnvironSuite) TestCreateAffinityGroup(c *C) {
+	env := makeEnviron(c)
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusCreated, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	env.createAffinityGroup()
+
+	c.Assert(*requests, HasLen, 1)
+	request := (*requests)[0]
+	body := gwacl.CreateAffinityGroup{}
+	err := xml.Unmarshal(request.Payload, &body)
+	c.Assert(err, IsNil)
+	c.Check(body.Name, Equals, env.getAffinityGroupName())
+	c.Check(body.Location, Equals, serviceLocation)
+}
+
+func (*EnvironSuite) TestDestroyAffinityGroup(c *C) {
+	env := makeEnviron(c)
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	requests := gwacl.PatchManagementAPIResponses(responses)
+
+	env.destroyAffinityGroup()
+
+	c.Assert(*requests, HasLen, 1)
+	request := (*requests)[0]
+	c.Check(strings.Contains(request.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(request.Method, Equals, "DELETE")
+}
+
+func (*EnvironSuite) TestGetAffinityGroupName(c *C) {
+	env := makeEnviron(c)
+	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), IsTrue)
 }
