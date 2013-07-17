@@ -160,6 +160,11 @@ func MachineTag(id string) string {
 
 // MachineIdFromTag returns the machine id that was used to create the tag.
 func MachineIdFromTag(tag string) string {
+	// TODO(dimitern): Possibly change this to return (string, error),
+	// so the case below can be reported.
+	if !strings.HasPrefix(tag, machineTagPrefix) {
+		return ""
+	}
 	// Strip off the "machine-" prefix.
 	id := tag[len(machineTagPrefix):]
 	// Put the slashes back.
