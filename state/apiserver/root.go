@@ -7,6 +7,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/apiserver/deployer"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -79,6 +80,16 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewAgentAPI(r.srv.state, r)
+}
+
+// Deployer returns an object that provides access to the Deployer API facade.
+// The id argument is reserved for future use and must be empty.
+func (r *srvRoot) Deployer(id string) (*deployer.DeployerAPI, error) {
+	if id != "" {
+		// TODO(dimitern): There is no direct test for this
+		return nil, common.ErrBadId
+	}
+	return deployer.NewDeployerAPI(r.srv.state, r.resources, r)
 }
 
 // Upgrader returns an object that provides access to the Upgrader API facade.

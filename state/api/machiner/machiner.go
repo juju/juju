@@ -15,7 +15,7 @@ type State struct {
 	caller common.Caller
 }
 
-// Machiner returns a version of the state that provides functionality
+// NewState returns a version of the state that provides functionality
 // required by the machiner worker.
 func NewState(caller common.Caller) *State {
 	return &State{caller}

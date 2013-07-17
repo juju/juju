@@ -145,8 +145,8 @@ func (s *upgraderSuite) TestTools(c *C) {
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 	w, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
-	defer statetesting.AssertStop(c, w)
 	c.Assert(err, IsNil)
+	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
 	// Initial event
 	wc.AssertOneChange()

@@ -8,7 +8,10 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-var Provider = provider
+var (
+	Provider      = provider
+	SudoCallerIds = sudoCallerIds
+)
 
 // SetRootCheckFunction allows tests to override the check for a root user.
 // The return value is the function to restore the old value.
@@ -51,6 +54,14 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 	}
 }
 
-func SudoCallerIds() (uid, gid int, err error) {
-	return sudoCallerIds()
+// MockAddressForInterface replaces the getAddressForInterface with a function
+// that returns a constant localhost ip address.
+func MockAddressForInterface() func() {
+	getAddressForInterface = func(name string) (string, error) {
+		logger.Debugf("getAddressForInterface called for %s", name)
+		return "127.0.0.1", nil
+	}
+	return func() {
+		getAddressForInterface = getAddressForInterfaceImpl
+	}
 }

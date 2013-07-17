@@ -255,6 +255,8 @@ func (s *MachineSuite) TestMachineIdFromTag(c *C) {
 	// Check reversability.
 	nested := "2/kvm/0/lxc/3"
 	c.Assert(state.MachineIdFromTag(state.MachineTag(nested)), Equals, nested)
+	// Try with an invalid tag format.
+	c.Assert(state.MachineIdFromTag("foo"), Equals, "")
 }
 
 func (s *MachineSuite) TestSetMongoPassword(c *C) {

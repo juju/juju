@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"launchpad.net/gomaasapi"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -74,7 +74,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 
-	log.Debugf("environs/maas: bootstrapping environment %q", env.Name())
+	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
@@ -110,7 +110,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 		if err2 != nil {
 			// Failure upon failure.  Log it, but return the
 			// original error.
-			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err2)
+			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
 		}
 		return fmt.Errorf("cannot save state: %v", err)
 	}
@@ -196,7 +196,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
 	if cons.CpuPower != nil {
-		log.Warningf("environs/maas: ignoring unsupported constraint 'cpu-power'")
+		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
 	return params
 }
@@ -222,7 +222,7 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools to
 		return gomaasapi.MAASObject{}, nil, msg
 	}
 	tools := possibleTools[0]
-	log.Warningf("environs/maas: picked arbitrary tools %q", tools)
+	logger.Warningf("picked arbitrary tools %q", tools)
 	return node, tools, nil
 }
 
@@ -263,7 +263,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	defer func() {
 		if err != nil {
 			if err := environ.releaseInstance(instance); err != nil {
-				log.Errorf("environs/maas: error releasing failed instance: %v", err)
+				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
 	}()
@@ -290,7 +290,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err := environ.startNode(*instance.maasObject, series[0], userdata); err != nil {
 		return nil, err
 	}
-	log.Debugf("environs/maas: started instance %q", instance.Id())
+	logger.Debugf("started instance %q", instance.Id())
 	return instance, nil
 }
 
@@ -337,7 +337,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 	maasObj := maasInst.maasObject
 	_, err := maasObj.CallPost("release", nil)
 	if err != nil {
-		log.Debugf("environs/maas: error releasing instance %v", maasInst)
+		logger.Debugf("error releasing instance %v", maasInst)
 	}
 	return err
 }
@@ -413,7 +413,7 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 }
 
 func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
-	log.Debugf("environs/maas: destroying environment %q", environ.name)
+	logger.Debugf("destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -442,17 +442,17 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 
 // MAAS does not do firewalling so these port methods do nothing.
 func (*maasEnviron) OpenPorts([]instance.Port) error {
-	log.Debugf("environs/maas: unimplemented OpenPorts() called")
+	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
 func (*maasEnviron) ClosePorts([]instance.Port) error {
-	log.Debugf("environs/maas: unimplemented ClosePorts() called")
+	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
 func (*maasEnviron) Ports() ([]instance.Port, error) {
-	log.Debugf("environs/maas: unimplemented Ports() called")
+	logger.Debugf("unimplemented Ports() called")
 	return []instance.Port{}, nil
 }
 
