@@ -197,12 +197,17 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	if config.bootstrapped() {
 		return nil
 	}
+	return env.bootstrapAddressAndStorage(cfg)
+}
 
+// bootstrapAddressAndStorage finishes up the setup of the environment in
+// situations where there is no machine agent running yet.
+func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 	// If we get to here, it is because we haven't yet bootstrapped an
 	// environment, and saved the config in it, or we are running a command
 	// from the command line, so it is ok to work on the assumption that we
 	// have direct access to the directories.
-	if err := config.createDirs(); err != nil {
+	if err := env.config.createDirs(); err != nil {
 		return err
 	}
 
@@ -218,7 +223,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		logger.Errorf("failed to apply new addresses to config: %v", err)
 		return err
 	}
-	config, err = provider.newConfig(cfg)
+	config, err := provider.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
@@ -228,6 +233,10 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	return env.setupLocalStorage()
 }
 
+// setupLocalStorage looks to see if there is someone listening on the storage
+// address port.  If there is we assume that it is ours and all is good.  If
+// there is no one listening on that port, create listeners for both storage
+// and the shared storage for the duration of the commands execution.
 func (env *localEnviron) setupLocalStorage() error {
 	// Try to listen to the storageAddress.
 	logger.Debugf("checking %s to see if machine agent running storage listener", env.config.storageAddr())
