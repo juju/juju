@@ -10,6 +10,21 @@ import (
 
 var Provider = provider
 
+// SetRootCheckFunction allows tests to override the check for a root user.
+// The return value is the function to restore the old value.
+func SetRootCheckFunction(f func() bool) func() {
+	old := checkIfRoot
+	checkIfRoot = f
+	return func() { checkIfRoot = old }
+}
+
+// SetUpstartScriptLocation allows tests to override the directory where the
+// provider writes the upstart scripts.
+func SetUpstartScriptLocation(location string) (old string) {
+	old, upstartScriptLocation = upstartScriptLocation, location
+	return
+}
+
 // ConfigNamespace returns the result of the namespace call on the
 // localConfig.
 func ConfigNamespace(cfg *config.Config) string {
@@ -34,4 +49,8 @@ func CheckDirs(c *gc.C, cfg *config.Config) []string {
 		localConfig.storageDir(),
 		localConfig.mongoDir(),
 	}
+}
+
+func SudoCallerIds() (uid, gid int, err error) {
+	return sudoCallerIds()
 }

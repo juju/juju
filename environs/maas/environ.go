@@ -67,30 +67,12 @@ func (env *maasEnviron) Name() string {
 	return env.name
 }
 
-// makeMachineConfig sets up a basic machine configuration for use with
-// userData().  You may still need to supply more information, but this takes
-// care of the fixed entries and the ones that are always needed.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *maasEnviron) makeMachineConfig(machineID, machineNonce string,
-	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
-	return &cloudinit.MachineConfig{
-		// Fixed entries.
-		DataDir: environs.DataDir,
-
-		// Parameter entries.
-		MachineId:    machineID,
-		MachineNonce: machineNonce,
-		StateInfo:    stateInfo,
-		APIInfo:      apiInfo,
-	}
-}
-
 // startBootstrapNode starts the juju bootstrap node for this environment.
 func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Instance, error) {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := env.makeMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 
 	// Create an empty bootstrap state file so we can get it's URL.
@@ -116,7 +98,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -282,7 +264,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // The instance will be set up for the same series for which you pass tools.
 // All tools in possibleTools must be for the same series.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(machineId string, cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -338,9 +320,9 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environ.makeMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	mcfg := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.internalStartInstance(machineID, cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(cons, possibleTools, mcfg)
 	return inst, nil, err
 }
 

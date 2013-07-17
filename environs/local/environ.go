@@ -5,10 +5,15 @@ package local
 
 import (
 	"fmt"
+	"io/ioutil"
 	"net"
+	"net/url"
 	"os"
+	"path/filepath"
 	"sync"
+	"time"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -16,7 +21,30 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
+
+// lxcBridgeName is the name of the network interface that the local provider
+// uses to determine the ip address to use for machine-0 such that the
+// containers being created are able to communicate with it simply.
+const lxcBridgeName = "lxcbr0"
+
+// upstartScriptLocation is parameterised purely for testing purposes as we
+// don't really want to be installing and starting scripts as root for
+// testing.
+var upstartScriptLocation = "/etc/init"
+
+// A request may fail to due "eventual consistency" semantics, which
+// should resolve fairly quickly.  A request may also fail due to a slow
+// state transition (for instance an instance taking a while to release
+// a security group after termination).  The former failure mode is
+// dealt with by shortAttempt, the latter by longAttempt.
+var shortAttempt = utils.AttemptStrategy{
+	Total: 1 * time.Second,
+	Delay: 50 * time.Millisecond,
+}
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -34,14 +62,99 @@ func (env *localEnviron) Name() string {
 	return env.name
 }
 
+func (env *localEnviron) mongoServiceName() string {
+	return "juju-db-" + env.config.namespace()
+}
+
+func (env *localEnviron) machineAgentServiceName() string {
+	return "juju-agent-" + env.config.namespace()
+}
+
+// ensureCertOwner checks to make sure that the cert files created
+// by the bootstrap command are owned by the user and not root.
+func (env *localEnviron) ensureCertOwner() error {
+	files := []string{
+		config.JujuHomePath(env.name + "-cert.pem"),
+		config.JujuHomePath(env.name + "-private-key.pem"),
+	}
+
+	uid, gid, err := sudoCallerIds()
+	if err != nil {
+		return err
+	}
+	if uid != 0 || gid != 0 {
+		for _, filename := range files {
+			if err := os.Chown(filename, uid, gid); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
 // Bootstrap is specified in the Environ interface.
 func (env *localEnviron) Bootstrap(cons constraints.Value) error {
-	return fmt.Errorf("not implemented")
+	logger.Infof("bootstrapping environment %q", env.name)
+	if !env.config.runningAsRoot {
+		return fmt.Errorf("bootstrapping a local environment must be done as root")
+	}
+	if err := env.config.createDirs(); err != nil {
+		logger.Errorf("failed to create necessary directories: %v", err)
+		return err
+	}
+
+	if err := env.ensureCertOwner(); err != nil {
+		logger.Errorf("failed to reassign ownership of the certs to the user: %v", err)
+		return err
+	}
+	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
+
+	var noRetry = utils.AttemptStrategy{}
+	if err := environs.VerifyBootstrapInit(env, noRetry); err != nil {
+		return err
+	}
+
+	cert, key, err := env.setupLocalMongoService()
+	if err != nil {
+		return err
+	}
+
+	// Work out the ip address of the lxc bridge, and use that for the mongo config.
+	bridgeAddress, err := env.findBridgeAddress()
+	if err != nil {
+		return err
+	}
+	logger.Debugf("found %q as address for %q", bridgeAddress, lxcBridgeName)
+
+	// Before we write the agent config file, we need to make sure the
+	// instance is saved in the StateInfo.
+	bootstrapId := instance.Id("localhost")
+	if err := environs.SaveState(env.Storage(), &environs.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+		logger.Errorf("failed to save state instances: %v", err)
+		return err
+	}
+
+	// Need to write out the agent file for machine-0 before initializing
+	// state, as as part of that process, it will reset the password in the
+	// agent file.
+	if err := env.writeBootstrapAgentConfFile(cert, key); err != nil {
+		return err
+	}
+
+	// Have to initialize the state configuration with localhost so we get
+	// "special" permissions.
+	stateConnection, err := env.initialStateConfiguration("localhost", cons)
+	if err != nil {
+		return err
+	}
+	defer stateConnection.Close()
+
+	return env.setupLocalMachineAgent(cons)
 }
 
 // StateInfo is specified in the Environ interface.
 func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+	return environs.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
@@ -75,6 +188,11 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	defer env.localMutex.Unlock()
 	env.config = config
 	env.name = config.Name()
+
+	if err := config.createDirs(); err != nil {
+		return err
+	}
+
 	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
 	if err != nil {
 		return err
@@ -103,22 +221,34 @@ func (env *localEnviron) StartInstance(
 	info *state.Info,
 	apiInfo *api.Info,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return nil, nil, fmt.Errorf("not implemented")
+	return nil, nil, fmt.Errorf("start instance not implemented")
 }
 
 // StopInstances is specified in the Environ interface.
 func (env *localEnviron) StopInstances([]instance.Instance) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("stop instance not implemented")
 }
 
 // Instances is specified in the Environ interface.
 func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, error) {
-	return nil, fmt.Errorf("not implemented")
+	// NOTE: do we actually care about checking the existance of the instances?
+	// I posit that here we don't really care, and that we are only called with
+	// instance ids that we know exist.
+	if len(ids) == 0 {
+		return nil, nil
+	}
+	insts := make([]instance.Instance, len(ids))
+	for i, id := range ids {
+		insts[i] = &localInstance{id, env}
+	}
+	return insts, nil
 }
 
 // AllInstances is specified in the Environ interface.
-func (env *localEnviron) AllInstances() ([]instance.Instance, error) {
-	return nil, fmt.Errorf("not implemented")
+func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
+	// TODO(thumper): get all the instances from the container manager
+	instances = append(instances, &localInstance{"localhost", env})
+	return instances, nil
 }
 
 // Storage is specified in the Environ interface.
@@ -133,25 +263,212 @@ func (env *localEnviron) PublicStorage() environs.StorageReader {
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
-	return fmt.Errorf("not implemented")
+	if !env.config.runningAsRoot {
+		return fmt.Errorf("destroying a local environment must be done as root")
+	}
+
+	logger.Infof("removing service %s", env.mongoServiceName())
+	mongo := upstart.NewService(env.mongoServiceName())
+	mongo.InitDir = upstartScriptLocation
+	if err := mongo.Remove(); err != nil {
+		logger.Errorf("could not remove mongo service: %v", err)
+		return err
+	}
+
+	// Remove the rootdir.
+	logger.Infof("removing state dir %s", env.config.rootDir())
+	if err := os.RemoveAll(env.config.rootDir()); err != nil {
+		logger.Errorf("could not remove local state dir: %v", err)
+		return err
+	}
+
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.
 func (env *localEnviron) OpenPorts(ports []instance.Port) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("open ports not implemented")
 }
 
 // ClosePorts is specified in the Environ interface.
 func (env *localEnviron) ClosePorts(ports []instance.Port) error {
-	return fmt.Errorf("not implemented")
+	return fmt.Errorf("close ports not implemented")
 }
 
 // Ports is specified in the Environ interface.
 func (env *localEnviron) Ports() ([]instance.Port, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, nil
 }
 
 // Provider is specified in the Environ interface.
 func (env *localEnviron) Provider() environs.EnvironProvider {
 	return &provider
+}
+
+// setupLocalMongoService returns the cert and key if there was no error.
+func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
+	journalDir := filepath.Join(env.config.mongoDir(), "journal")
+	logger.Debugf("create mongo journal dir: %v", journalDir)
+	if err := os.MkdirAll(journalDir, 0755); err != nil {
+		logger.Errorf("failed to make mongo journal dir %s: %v", journalDir, err)
+		return nil, nil, err
+	}
+
+	logger.Debugf("generate server cert")
+	cert, key, err := env.config.GenerateStateServerCertAndKey()
+	if err != nil {
+		logger.Errorf("failed to generate server cert: %v", err)
+		return nil, nil, err
+	}
+	if err := ioutil.WriteFile(
+		env.config.configFile("server.pem"),
+		append(cert, key...),
+		0600); err != nil {
+		logger.Errorf("failed to write server.pem: %v", err)
+		return nil, nil, err
+	}
+
+	mongo := upstart.MongoUpstartService(
+		env.mongoServiceName(),
+		env.config.rootDir(),
+		env.config.mongoDir(),
+		env.config.StatePort())
+	mongo.InitDir = upstartScriptLocation
+	logger.Infof("installing service %s to %s", env.mongoServiceName(), mongo.InitDir)
+	if err := mongo.Install(); err != nil {
+		logger.Errorf("could not install mongo service: %v", err)
+		return nil, nil, err
+	}
+	return cert, key, nil
+}
+
+func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
+	dataDir := env.config.rootDir()
+	toolList, err := environs.FindBootstrapTools(env, cons)
+	if err != nil {
+		return err
+	}
+	// ensure we have at least one valid tools
+	if len(toolList) == 0 {
+		return fmt.Errorf("No bootstrap tools found")
+	}
+	// unpack the first tools into the agent dir.
+	tools := toolList[0]
+	logger.Infof("tools: %#v", tools)
+	// brutally abuse our knowledge of storage to directly open the file
+	toolsUrl, err := url.Parse(tools.URL)
+	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
+	logger.Infof("tools location: %v", toolsLocation)
+	toolsFile, err := os.Open(toolsLocation)
+	defer toolsFile.Close()
+	// Again, brutally abuse our knowledge here.
+
+	// The tools that FindBootstrapTools has returned us are based on the
+	// default series in the config.  However we are running potentially on a
+	// different series.  When the machine agent is started, it will be
+	// looking based on the current series, so we need to override the series
+	// returned in the tools to be the current series.
+	tools.Binary.Series = version.CurrentSeries()
+	err = agent.UnpackTools(dataDir, tools, toolsFile)
+
+	machineId := "0" // Always machine 0
+	tag := state.MachineTag(machineId)
+	toolsDir := agent.SharedToolsDir(dataDir, tools.Binary)
+	logDir := env.config.logDir()
+	logConfig := "--debug" // TODO(thumper): specify loggo config
+	agent := upstart.MachineAgentUpstartService(
+		env.machineAgentServiceName(),
+		toolsDir, dataDir, logDir, tag, machineId, logConfig, env.config.Type())
+	agent.Env["USER"] = env.config.user
+	agent.Env["HOME"] = os.Getenv("HOME")
+
+	agent.InitDir = upstartScriptLocation
+	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
+	if err := agent.Install(); err != nil {
+		logger.Errorf("could not install machine agent service: %v", err)
+		return err
+	}
+	return nil
+}
+
+func getAddressForInterface(interfaceName string) (string, error) {
+	bridge, err := net.InterfaceByName(interfaceName)
+	if err != nil {
+		logger.Errorf("cannot find network interface %q: %v", interfaceName, err)
+		return "", err
+	}
+	addrs, err := bridge.Addrs()
+	if err != nil {
+		logger.Errorf("cannot get addresses for network interface %q: %v", interfaceName, err)
+		return "", err
+	}
+	return utils.GetIPv4Address(addrs)
+}
+
+func (env *localEnviron) findBridgeAddress() (string, error) {
+	return getAddressForInterface(lxcBridgeName)
+}
+
+func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
+	info, apiInfo, err := env.StateInfo()
+	if err != nil {
+		logger.Errorf("failed to get state info to write bootstrap agent file: %v", err)
+		return err
+	}
+	tag := state.MachineTag("0")
+	info.Tag = tag
+	apiInfo.Tag = tag
+	conf := &agent.Conf{
+		DataDir:         env.config.rootDir(),
+		StateInfo:       info,
+		APIInfo:         apiInfo,
+		StateServerCert: cert,
+		StateServerKey:  key,
+		StatePort:       env.config.StatePort(),
+		APIPort:         env.config.APIPort(),
+		MachineNonce:    state.BootstrapNonce,
+	}
+	if err := conf.Write(); err != nil {
+		logger.Errorf("failed to write bootstrap agent file: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (env *localEnviron) initialStateConfiguration(addr string, cons constraints.Value) (*state.State, error) {
+	// We don't check the existance of the CACert here as if it wasn't set, we
+	// wouldn't get this far.
+	cfg := env.config.Config
+	caCert, _ := cfg.CACert()
+	addr = fmt.Sprintf("%s:%d", addr, cfg.StatePort())
+	info := &state.Info{
+		Addrs:  []string{addr},
+		CACert: caCert,
+	}
+	timeout := state.DialOpts{10 * time.Second}
+	bootstrap, err := environs.BootstrapConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	st, err := state.Initialize(info, bootstrap, timeout)
+	if err != nil {
+		logger.Errorf("failed to initialize state: %v", err)
+		return nil, err
+	}
+	logger.Debugf("state initialized")
+
+	passwordHash := utils.PasswordHash(cfg.AdminSecret())
+	if err := environs.BootstrapUsers(st, cfg, passwordHash); err != nil {
+		st.Close()
+		return nil, err
+	}
+	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
+
+	if err := environs.ConfigureBootstrapMachine(st, cfg, cons, env.config.rootDir(), jobs, ""); err != nil {
+		st.Close()
+		return nil, err
+	}
+
+	// Return an open state reference.
+	return st, nil
 }

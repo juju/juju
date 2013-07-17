@@ -4,7 +4,10 @@
 package azure
 
 import (
+	"fmt"
+
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
@@ -26,16 +29,13 @@ var AZURE_DOMAIN_NAME = "cloudapp.net"
 
 // DNSName is specified in the Instance interface.
 func (azInstance *azureInstance) DNSName() (string, error) {
-	// The hostname is stored in the hosted service's label.
-	label, err := azInstance.GetLabel()
-	if err != nil {
-		return "", err
-	}
-	if isProvisionalServiceLabel(label) {
-		// DNS name has not been registered yet.  Come back later.
-		return "", instance.ErrNoDNSName
-	}
-	return label, nil
+	// For deployments in the Production slot, the instance's DNS name
+	// is its service name, in the cloudapp.net domain.
+	// (For Staging deployments it's all much weirder: they get random
+	// names assigned, which somehow don't seem to resolve from the
+	// outside.)
+	name := fmt.Sprintf("%s.%s", azInstance.ServiceName, AZURE_DOMAIN_NAME)
+	return name, nil
 }
 
 // WaitDNSName is specified in the Instance interface.
@@ -45,15 +45,18 @@ func (azInstance *azureInstance) WaitDNSName() (string, error) {
 
 // OpenPorts is specified in the Instance interface.
 func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
-	panic("unimplemented")
+	// TODO: implement this.
+	return nil
 }
 
 // ClosePorts is specified in the Instance interface.
 func (azInstance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
-	panic("unimplemented")
+	// TODO: implement this.
+	return nil
 }
 
 // Ports is specified in the Instance interface.
 func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
-	panic("unimplemented")
+	// TODO: implement this.
+	return []instance.Port{}, nil
 }

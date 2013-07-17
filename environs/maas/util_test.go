@@ -70,11 +70,12 @@ func (s *UtilSuite) TestUserData(c *C) {
 			Password: "pw2",
 			CACert:   []byte("CA CERT\n" + testing.CACert),
 		},
-		DataDir:     environs.DataDir,
-		Config:      envConfig,
-		StatePort:   envConfig.StatePort(),
-		APIPort:     envConfig.APIPort(),
-		StateServer: true,
+		DataDir:      environs.DataDir,
+		Config:       envConfig,
+		StatePort:    envConfig.StatePort(),
+		APIPort:      envConfig.APIPort(),
+		StateServer:  true,
+		ProviderType: "maas",
 	}
 	script1 := "script1"
 	script2 := "script2"

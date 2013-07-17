@@ -19,6 +19,23 @@ import (
 // system state.
 var DataDir = "/var/lib/juju"
 
+// NewMachineConfig sets up a basic machine configuration.  You'll still need
+// to supply more information, but this takes care of the fixed entries and
+// the ones that are always needed.
+func NewMachineConfig(machineID, machineNonce string,
+	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
+	return &cloudinit.MachineConfig{
+		// Fixed entries.
+		DataDir: DataDir,
+
+		// Parameter entries.
+		MachineId:    machineID,
+		MachineNonce: machineNonce,
+		StateInfo:    stateInfo,
+		APIInfo:      apiInfo,
+	}
+}
+
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by
 // inspecting a plain config.Config and the machine constraints at the last
 // moment before bootstrapping. It assumes that the supplied Config comes from
@@ -38,6 +55,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
 	mcfg.AuthorizedKeys = authKeys
+	mcfg.ProviderType = cfg.Type()
 	if !mcfg.StateServer {
 		return nil
 	}

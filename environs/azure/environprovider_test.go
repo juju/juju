@@ -105,11 +105,17 @@ func (*EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	c.Check(config.Instances[0].Address, Equals, internalAddress)
 }
 
-func (*EnvironProviderSuite) TestConfigGetDeploymentName(c *C) {
+func (*EnvironProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
-	config := WALASharedConfig{Deployment: WALADeployment{Name: deploymentId, Service: WALADeploymentService{Name: "name"}}}
+	serviceName := "gwaclr12slechtstschrijvende5"
+	config := WALASharedConfig{
+		Deployment: WALADeployment{
+			Name:    deploymentId,
+			Service: WALADeploymentService{Name: serviceName},
+		},
+	}
 
-	c.Check(config.getDeploymentFQDN(), Equals, deploymentId+".cloudapp.net")
+	c.Check(config.getDeploymentFQDN(), Equals, serviceName+".cloudapp.net")
 }
 
 func (*EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
@@ -127,11 +133,11 @@ func (*EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
 }
 
 func (*EnvironProviderSuite) TestPublicAddress(c *C) {
-	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
-	cleanup := overrideWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
+	deploymentName := "b6de4c4c7d4a49c39270e0c57481fd9b"
+	cleanup := overrideWALASharedConfig(c, "deploymentid", deploymentName, "10.76.200.59")
 	defer cleanup()
 
-	expectedAddress := deploymentId + ".cloudapp.net"
+	expectedAddress := deploymentName + ".cloudapp.net"
 	prov := azureEnvironProvider{}
 	pubAddress, err := prov.PublicAddress()
 	c.Assert(err, IsNil)
@@ -143,11 +149,11 @@ func (*EnvironProviderSuite) TestPublicAddress(c *C) {
 // communication using the private IPs before we can use the Azure private
 // address.
 func (*EnvironProviderSuite) TestPrivateAddressReturnsPublicAddress(c *C) {
-	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
-	cleanup := overrideWALASharedConfig(c, deploymentId, "name", "10.76.200.59")
+	deploymentName := "b6de4c4c7d4a49c39270e0c57481fd9b"
+	cleanup := overrideWALASharedConfig(c, "deploymentid", deploymentName, "10.76.200.59")
 	defer cleanup()
 
-	expectedAddress := deploymentId + ".cloudapp.net"
+	expectedAddress := deploymentName + ".cloudapp.net"
 	prov := azureEnvironProvider{}
 	pubAddress, err := prov.PrivateAddress()
 	c.Assert(err, IsNil)

@@ -116,7 +116,7 @@ type instanceData struct {
 	InstanceId instance.Id `bson:"instanceid"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
-	CpuCores   *uint64     `bson:"cpucpores,omitempty"`
+	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
 }

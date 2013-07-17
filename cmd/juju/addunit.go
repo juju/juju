@@ -5,18 +5,47 @@ package main
 
 import (
 	"errors"
+	"fmt"
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
+// UnitCommandBase provides support for commands which deploy units. It handles the parsing
+// and validation of force-machine and num-units arguments.
+type UnitCommandBase struct {
+	ForceMachineSpec string
+	NumUnits         int
+}
+
+func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
+	f.IntVar(&c.NumUnits, "num-units", 1, "")
+	f.StringVar(&c.ForceMachineSpec, "force-machine", "", "machine/container to deploy unit, bypasses constraints")
+}
+
+func (c *UnitCommandBase) Init(args []string) error {
+	if c.NumUnits < 1 {
+		return errors.New("--num-units must be a positive integer")
+	}
+	if c.ForceMachineSpec != "" {
+		if c.NumUnits > 1 {
+			return errors.New("cannot use --num-units > 1 with --force-machine")
+		}
+		if !state.IsMachineOrNewContainer(c.ForceMachineSpec) {
+			return fmt.Errorf("invalid --force-machine parameter %q", c.ForceMachineSpec)
+		}
+	}
+	return nil
+}
+
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
 	EnvCommandBase
+	UnitCommandBase
 	ServiceName string
-	NumUnits    int
 }
 
 func (c *AddUnitCommand) Info() *cmd.Info {
@@ -28,8 +57,8 @@ func (c *AddUnitCommand) Info() *cmd.Info {
 
 func (c *AddUnitCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to add")
-	f.IntVar(&c.NumUnits, "num-units", 1, "")
 }
 
 func (c *AddUnitCommand) Init(args []string) error {
@@ -41,10 +70,7 @@ func (c *AddUnitCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[1:])
 	}
-	if c.NumUnits < 1 {
-		return errors.New("must add at least one unit")
-	}
-	return nil
+	return c.UnitCommandBase.Init(args)
 }
 
 // Run connects to the environment specified on the command line
@@ -57,8 +83,9 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	defer conn.Close()
 
 	params := params.AddServiceUnits{
-		ServiceName: c.ServiceName,
-		NumUnits:    c.NumUnits,
+		ServiceName:      c.ServiceName,
+		NumUnits:         c.NumUnits,
+		ForceMachineSpec: c.ForceMachineSpec,
 	}
 	_, err = statecmd.AddServiceUnits(conn.State, params)
 	return err

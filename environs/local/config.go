@@ -13,6 +13,10 @@ import (
 	"launchpad.net/juju-core/schema"
 )
 
+var checkIfRoot = func() bool {
+	return os.Getuid() == 0
+}
+
 var configChecker = schema.StrictFieldMap(
 	schema.Fields{
 		"root-dir": schema.String(),
@@ -31,9 +35,8 @@ type environConfig struct {
 
 func newEnvironConfig(config *config.Config, attrs map[string]interface{}) *environConfig {
 	user := os.Getenv("USER")
-	root := false
-	if user == "root" {
-		root = true
+	root := checkIfRoot()
+	if root {
 		sudo_user := os.Getenv("SUDO_USER")
 		if sudo_user != "" {
 			user = sudo_user
@@ -70,8 +73,34 @@ func (c *environConfig) mongoDir() string {
 	return filepath.Join(c.rootDir(), "db")
 }
 
+func (c *environConfig) logDir() string {
+	return filepath.Join(c.rootDir(), "log")
+}
+
 func (c *environConfig) configFile(filename string) string {
 	return filepath.Join(c.rootDir(), filename)
+}
+
+// sudoCallerIds returns the user id and group id of the SUDO caller.
+// If either is unset, it returns zero for both values.
+// An error is returned if the relevant environment variables
+// are not valid integers.
+func sudoCallerIds() (int, int, error) {
+	uidStr := os.Getenv("SUDO_UID")
+	gidStr := os.Getenv("SUDO_GID")
+
+	if uidStr == "" || gidStr == "" {
+		return 0, 0, nil
+	}
+	uid, err := strconv.Atoi(uidStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid value %q for SUDO_UID", uidStr)
+	}
+	gid, err := strconv.Atoi(gidStr)
+	if err != nil {
+		return 0, 0, fmt.Errorf("invalid value %q for SUDO_GID", gidStr)
+	}
+	return uid, gid, nil
 }
 
 func (c *environConfig) createDirs() error {
@@ -79,6 +108,7 @@ func (c *environConfig) createDirs() error {
 		c.sharedStorageDir(),
 		c.storageDir(),
 		c.mongoDir(),
+		c.logDir(),
 	} {
 		logger.Tracef("creating directory %s", dirname)
 		if err := os.MkdirAll(dirname, 0755); err != nil {
@@ -88,23 +118,14 @@ func (c *environConfig) createDirs() error {
 	if c.runningAsRoot {
 		// If we have SUDO_UID and SUDO_GID, start with rootDir(), and
 		// change ownership of the directories.
-		uidStr := os.Getenv("SUDO_UID")
-		gidStr := os.Getenv("SUDO_GID")
-		if uidStr != "" && gidStr != "" {
-			uid, err := strconv.Atoi(uidStr)
-			if err != nil {
-				logger.Errorf("Expected %q for SUDO_UID to be an int: %v", uidStr, err)
-				return err
-			}
-			gid, err := strconv.Atoi(gidStr)
-			if err != nil {
-				logger.Errorf("Expected %q for SUDO_GID to be an int: %v", gidStr, err)
-				return err
-			}
-
+		uid, gid, err := sudoCallerIds()
+		if err != nil {
+			return err
+		}
+		if uid != 0 || gid != 0 {
 			filepath.Walk(c.rootDir(),
 				func(path string, info os.FileInfo, err error) error {
-					if info.IsDir() && err == nil {
+					if info != nil && info.IsDir() {
 						if err := os.Chown(path, uid, gid); err != nil {
 							return err
 						}
