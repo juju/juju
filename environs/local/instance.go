@@ -55,7 +55,7 @@ func (inst *localInstance) ClosePorts(machineId string, ports []instance.Port) e
 
 // Ports implements instance.Instance.Ports.
 func (inst *localInstance) Ports(machineId string) ([]instance.Port, error) {
-	return nil, fmt.Errorf("not implemented")
+	return nil, nil
 }
 
 // Add a string representation of the id.
