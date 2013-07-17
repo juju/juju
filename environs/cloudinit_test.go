@@ -132,6 +132,7 @@ func (*CloudInitSuite) TestUserData(c *C) {
 		StatePort:   envConfig.StatePort(),
 		APIPort:     envConfig.APIPort(),
 		StateServer: true,
+		ProviderType: "dummy",
 	}
 	script1 := "script1"
 	script2 := "script2"
