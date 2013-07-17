@@ -8,8 +8,9 @@
 package lxc
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
+
 	"launchpad.net/juju-core/container/lxc/mock"
 )
 
@@ -54,11 +55,11 @@ type TestSuite struct {
 	oldLxcContainerDir string
 }
 
-func (s *TestSuite) SetUpSuite(c *C) {}
+func (s *TestSuite) SetUpSuite(c *gc.C) {}
 
-func (s *TestSuite) TearDownSuite(c *C) {}
+func (s *TestSuite) TearDownSuite(c *gc.C) {}
 
-func (s *TestSuite) SetUpTest(c *C) {
+func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.ContainerDir = c.MkDir()
 	s.oldContainerDir = SetContainerDir(s.ContainerDir)
 	s.RemovedDir = c.MkDir()
@@ -69,7 +70,7 @@ func (s *TestSuite) SetUpTest(c *C) {
 	s.oldFactory = SetLxcFactory(s.Factory)
 }
 
-func (s *TestSuite) TearDownTest(c *C) {
+func (s *TestSuite) TearDownTest(c *gc.C) {
 	SetContainerDir(s.oldContainerDir)
 	SetLxcContainerDir(s.oldLxcContainerDir)
 	SetRemovedContainerDir(s.oldRemovedDir)
