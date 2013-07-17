@@ -11,7 +11,6 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -304,21 +303,6 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	})
 }
 
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) userData(mcfg *cloudinit.MachineConfig) ([]byte, error) {
-	cloudcfg, err := cloudinit.New(mcfg)
-	if err != nil {
-		return nil, err
-	}
-	data, err := cloudcfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	cdata := utils.Gzip(data)
-	log.Debugf("environs/ec2: ec2 user data; %d bytes: %q", len(cdata), data)
-	return cdata, nil
-}
-
 type startInstanceParams struct {
 	machineId     string
 	machineNonce  string
@@ -368,10 +352,11 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		return nil, nil, err
 	}
 
-	userData, err := e.userData(mcfg)
+	userData, err := environs.ComposeUserData(mcfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
 	config := e.Config()
 	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
 	if err != nil {
