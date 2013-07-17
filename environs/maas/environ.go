@@ -285,7 +285,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
 	}
-	log.Debugf("environs/maas: maas user data; %d bytes", len(userdata))
+	logger.Debugf("maas user data; %d bytes", len(userdata))
 
 	if err := environ.startNode(*instance.maasObject, series[0], userdata); err != nil {
 		return nil, err
