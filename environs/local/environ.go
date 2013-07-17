@@ -378,7 +378,9 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	agent := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, logConfig)
+		toolsDir, dataDir, logDir, tag, machineId, logConfig, env.config.Type())
+	agent.Env["USER"] = env.config.user
+	agent.Env["HOME"] = os.Getenv("HOME")
 
 	agent.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)

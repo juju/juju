@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -38,7 +39,7 @@ func (s *configSuite) TearDownTest(c *gc.C) {
 func minimalConfigValues() map[string]interface{} {
 	return map[string]interface{}{
 		"name": "test",
-		"type": "local",
+		"type": provider.Local,
 		// While the ca-cert bits aren't entirely minimal, they avoid the need
 		// to set up a fake home.
 		"ca-cert":        testing.CACert,

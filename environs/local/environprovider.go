@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	constants "launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -24,7 +25,7 @@ type environProvider struct{}
 var provider environProvider
 
 func init() {
-	environs.RegisterProvider("local", &environProvider{})
+	environs.RegisterProvider(constants.Local, &environProvider{})
 }
 
 // Open implements environs.EnvironProvider.Open.

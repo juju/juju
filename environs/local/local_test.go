@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -24,7 +25,7 @@ type localSuite struct {
 var _ = Suite(&localSuite{})
 
 func (*localSuite) TestProviderRegistered(c *C) {
-	provider, error := environs.Provider("local")
+	provider, error := environs.Provider(provider.Local)
 	c.Assert(error, IsNil)
 	c.Assert(provider, DeepEquals, &local.Provider)
 }
