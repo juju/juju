@@ -62,7 +62,7 @@ func assertChange(c *C, watch <-chan presence.Change, want presence.Change) {
 		if got != want {
 			c.Fatalf("watch reported %v, want %v", got, want)
 		}
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("watch reported nothing, want %v", want)
 	}
 }
@@ -71,7 +71,7 @@ func assertNoChange(c *C, watch <-chan presence.Change) {
 	select {
 	case got := <-watch:
 		c.Fatalf("watch reported %v, want nothing", got)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(testing.ShortWait):
 	}
 }
 
@@ -338,6 +338,8 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 			}
 		}
 	}()
+	// TODO(jam): This forceful delay of 500ms sounds like a bad test,
+	//            since we always sleep for the full timeout
 	time.Sleep(500 * time.Millisecond)
 	done <- true
 	done <- true
@@ -405,7 +407,7 @@ func (s *PresenceSuite) TestStartSync(c *C) {
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testing.ShortWait):
 		c.Fatalf("StartSync failed to return")
 	}
 
@@ -436,14 +438,17 @@ func (s *PresenceSuite) TestSync(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("Sync returned too early")
-	case <-time.After(200 * time.Millisecond):
+		// Note(jam): This used to wait 200ms to ensure that Sync was actually
+		//            blocked waiting for a presence change. Is ShortWait long
+		//            enough for this assurance?
+	case <-time.After(testing.ShortWait):
 	}
 
 	assertChange(c, ch, presence.Change{"a", true})
 
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("Sync failed to returned")
 	}
 }
@@ -469,7 +474,7 @@ func (s *PresenceSuite) TestFindAllBeings(c *C) {
 	c.Assert(results, HasLen, 1)
 	select {
 	case <-done:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("Sync failed to returned")
 	}
 }

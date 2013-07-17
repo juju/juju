@@ -67,7 +67,7 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 				got, err := ctx.DeployedUnits()
 				c.Assert(err, IsNil)
 				c.Fatalf("unexpected units: %#v", got)
-			case <-time.After(coretesting.ShortWait):
+			case <-time.After(testing.ShortWait):
 				got, err := ctx.DeployedUnits()
 				c.Assert(err, IsNil)
 				if reflect.DeepEqual(got, want) {

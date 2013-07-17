@@ -53,6 +53,7 @@ func (s *PublishSuite) runPublish(c *C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommandInDir(c, &PublishCommand{}, args, s.dir)
 }
 
+// TODO(jam): Could this be changed to coretesting.ShortWait
 const pollDelay = 100 * time.Millisecond
 
 func (s *PublishSuite) SetUpSuite(c *C) {

@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"sort"
-	"time"
 
 	. "launchpad.net/gocheck"
 
@@ -15,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -270,20 +270,19 @@ func (s *MachineSuite) TestSetPassword(c *C) {
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
-	timeout := 200 * time.Millisecond
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 
 	alive, err = s.machine.AgentAlive()
