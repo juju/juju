@@ -6,6 +6,7 @@ package local
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
 

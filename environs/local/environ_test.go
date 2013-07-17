@@ -44,7 +44,7 @@ func (s *environSuite) TestNameAndStorage(c *gc.C) {
 type localJujuTestSuite struct {
 	baseProviderSuite
 	jujutest.Tests
-	rootCheckFunc      func() bool
+	restoreRootCheck   func()
 	oldUpstartLocation string
 	oldPath            string
 	testPath           string
@@ -63,7 +63,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 
 	// Add in an admin secret
 	s.Tests.TestConfig.Config["admin-secret"] = "sekrit"
-	s.rootCheckFunc = local.SetRootCheckFunction(func() bool { return true })
+	s.restoreRootCheck = local.SetRootCheckFunction(func() bool { return true })
 	s.Tests.SetUpTest(c)
 	s.dbServiceName = "juju-db-" + local.ConfigNamespace(s.Env.Config())
 }
@@ -71,7 +71,7 @@ func (s *localJujuTestSuite) SetUpTest(c *gc.C) {
 func (s *localJujuTestSuite) TearDownTest(c *gc.C) {
 	s.Tests.TearDownTest(c)
 	os.Setenv("PATH", s.oldPath)
-	local.SetRootCheckFunction(s.rootCheckFunc)
+	s.restoreRootCheck()
 	local.SetUpstartScriptLocation(s.oldUpstartLocation)
 	s.baseProviderSuite.TearDownTest(c)
 }

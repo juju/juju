@@ -72,7 +72,7 @@ func (env *localEnviron) ensureCertOwner() error {
 		config.JujuHomePath(env.name + "-private-key.pem"),
 	}
 
-	uid, gid, err := getSudoCallerIds()
+	uid, gid, err := sudoCallerIds()
 	if err != nil {
 		return err
 	}
