@@ -5,9 +5,17 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
 	"launchpad.net/gnuflag"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	localstorage "launchpad.net/juju-core/environs/local/storage"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -21,10 +29,9 @@ import (
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
-	"launchpad.net/tomb"
-	"path/filepath"
-	"time"
 )
+
+const bootstrapMachineId = "0"
 
 var retryDelay = 3 * time.Second
 
@@ -100,7 +107,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			return a.StateWorker()
 		})
 	}
-	if a.MachineId == "0" {
+	if a.MachineId == bootstrapMachineId {
 		// If we're bootstrapping, we don't have an API
 		// server to connect to, so start the state worker regardless.
 
@@ -181,10 +188,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	if m.ContainerType() != instance.LXC {
+	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
 			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
+		})
+	}
+	// Take advantage of special knowledge here in that we will only ever want
+	// the storage provider on one machine, and that is the "bootstrap" node.
+	if providerType == provider.Local && m.Id() == bootstrapMachineId {
+		runner.StartWorker("local-storage", func() (worker.Worker, error) {
+			return localstorage.NewWorker(), nil
 		})
 	}
 	for _, job := range m.Jobs() {

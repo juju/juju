@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
@@ -30,6 +31,10 @@ import (
 // uses to determine the ip address to use for machine-0 such that the
 // containers being created are able to communicate with it simply.
 const lxcBridgeName = "lxcbr0"
+
+// boostrapInstanceId is just the name we give to the bootstrap machine.
+// Using "localhost" because it is, and it makes sense.
+const boostrapInstanceId = "localhost"
 
 // upstartScriptLocation is parameterised purely for testing purposes as we
 // don't really want to be installing and starting scripts as root for
@@ -55,6 +60,7 @@ type localEnviron struct {
 	name                  string
 	sharedStorageListener net.Listener
 	storageListener       net.Listener
+	containerManager      lxc.ContainerManager
 }
 
 // Name is specified in the Environ interface.
@@ -119,16 +125,9 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
-	// Work out the ip address of the lxc bridge, and use that for the mongo config.
-	bridgeAddress, err := env.findBridgeAddress()
-	if err != nil {
-		return err
-	}
-	logger.Debugf("found %q as address for %q", bridgeAddress, lxcBridgeName)
-
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	bootstrapId := instance.Id("localhost")
+	bootstrapId := instance.Id(boostrapInstanceId)
 	if err := environs.SaveState(env.Storage(), &environs.BootstrapState{[]instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
@@ -143,7 +142,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 
 	// Have to initialize the state configuration with localhost so we get
 	// "special" permissions.
-	stateConnection, err := env.initialStateConfiguration("localhost", cons)
+	stateConnection, err := env.initialStateConfiguration(boostrapInstanceId, cons)
 	if err != nil {
 		return err
 	}
@@ -164,7 +163,7 @@ func (env *localEnviron) Config() *config.Config {
 	return env.config.Config
 }
 
-func createLocalStorageListener(dir string) (net.Listener, error) {
+func createLocalStorageListener(dir, address string) (net.Listener, error) {
 	info, err := os.Stat(dir)
 	if os.IsNotExist(err) {
 		return nil, fmt.Errorf("storage directory %q does not exist, bootstrap first", dir)
@@ -173,8 +172,7 @@ func createLocalStorageListener(dir string) (net.Listener, error) {
 	} else if !info.Mode().IsDir() {
 		return nil, fmt.Errorf("%q exists but is not a directory (and it needs to be)", dir)
 	}
-	// TODO(thumper): this needs fixing when we have actual machines.
-	return localstorage.Serve("localhost:0", dir)
+	return localstorage.Serve(address, dir)
 }
 
 // SetConfig is specified in the Environ interface.
@@ -189,28 +187,77 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 	env.config = config
 	env.name = config.Name()
 
-	if err := config.createDirs(); err != nil {
+	env.containerManager = lxc.NewContainerManager(
+		lxc.ManagerConfig{
+			Name:   env.config.namespace(),
+			LogDir: env.config.logDir(),
+		})
+
+	// Here is the end of normal config setting.
+	if config.bootstrapped() {
+		return nil
+	}
+	return env.bootstrapAddressAndStorage(cfg)
+}
+
+// bootstrapAddressAndStorage finishes up the setup of the environment in
+// situations where there is no machine agent running yet.
+func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
+	// If we get to here, it is because we haven't yet bootstrapped an
+	// environment, and saved the config in it, or we are running a command
+	// from the command line, so it is ok to work on the assumption that we
+	// have direct access to the directories.
+	if err := env.config.createDirs(); err != nil {
 		return err
 	}
 
-	sharedStorageListener, err := createLocalStorageListener(config.sharedStorageDir())
+	bridgeAddress, err := env.findBridgeAddress()
 	if err != nil {
 		return err
 	}
+	logger.Debugf("found %q as address for %q", bridgeAddress, lxcBridgeName)
+	cfg, err = cfg.Apply(map[string]interface{}{
+		"bootstrap-ip": bridgeAddress,
+	})
+	if err != nil {
+		logger.Errorf("failed to apply new addresses to config: %v", err)
+		return err
+	}
+	config, err := provider.newConfig(cfg)
+	if err != nil {
+		logger.Errorf("failed to create new environ config: %v", err)
+		return err
+	}
+	env.config = config
 
-	storageListener, err := createLocalStorageListener(config.storageDir())
+	return env.setupLocalStorage()
+}
+
+// setupLocalStorage looks to see if there is someone listening on the storage
+// address port.  If there is we assume that it is ours and all is good.  If
+// there is no one listening on that port, create listeners for both storage
+// and the shared storage for the duration of the commands execution.
+func (env *localEnviron) setupLocalStorage() error {
+	// Try to listen to the storageAddress.
+	logger.Debugf("checking %s to see if machine agent running storage listener", env.config.storageAddr())
+	connection, err := net.Dial("tcp", env.config.storageAddr())
 	if err != nil {
-		sharedStorageListener.Close()
-		return err
+		logger.Debugf("nope, start some")
+		// These listeners are part of the environment structure so as to remain
+		// referenced for the duration of the open environment.  This is only for
+		// environs that have been created due to a user command.
+		env.storageListener, err = createLocalStorageListener(env.config.storageDir(), env.config.storageAddr())
+		if err != nil {
+			return err
+		}
+		env.sharedStorageListener, err = createLocalStorageListener(env.config.sharedStorageDir(), env.config.sharedStorageAddr())
+		if err != nil {
+			return err
+		}
+	} else {
+		logger.Debugf("yes, don't start local storage listeners")
+		connection.Close()
 	}
-	if env.sharedStorageListener != nil {
-		env.sharedStorageListener.Close()
-	}
-	if env.storageListener != nil {
-		env.storageListener.Close()
-	}
-	env.sharedStorageListener = sharedStorageListener
-	env.storageListener = storageListener
 	return nil
 }
 
@@ -218,15 +265,44 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 func (env *localEnviron) StartInstance(
 	machineId, machineNonce, series string,
 	cons constraints.Value,
-	info *state.Info,
+	stateInfo *state.Info,
 	apiInfo *api.Info,
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	return nil, nil, fmt.Errorf("start instance not implemented")
+	// We pretty much ignore the constraints.
+	logger.Debugf("StartInstance: %q, %s", machineId, series)
+	possibleTools, err := environs.FindInstanceTools(env, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(possibleTools) == 0 {
+		return nil, nil, fmt.Errorf("could not find appropriate tools")
+	}
+
+	tools := possibleTools[0]
+	logger.Debugf("tools: %#v", tools)
+
+	inst, err := env.containerManager.StartContainer(
+		machineId, series, machineNonce,
+		tools, env.config.Config,
+		stateInfo, apiInfo)
+	if err != nil {
+		return nil, nil, err
+	}
+	// TODO(thumper): return some hardware characteristics.
+	return inst, nil, nil
 }
 
 // StopInstances is specified in the Environ interface.
-func (env *localEnviron) StopInstances([]instance.Instance) error {
-	return fmt.Errorf("stop instance not implemented")
+func (env *localEnviron) StopInstances(instances []instance.Instance) error {
+	for _, inst := range instances {
+		if inst.Id() == boostrapInstanceId {
+			return fmt.Errorf("cannot stop the bootstrap instance")
+		}
+		if err := env.containerManager.StopContainer(inst); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // Instances is specified in the Environ interface.
@@ -246,25 +322,50 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 
 // AllInstances is specified in the Environ interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
-	// TODO(thumper): get all the instances from the container manager
-	instances = append(instances, &localInstance{"localhost", env})
+	instances = append(instances, &localInstance{boostrapInstanceId, env})
+	// Add in all the containers as well.
+	lxcInstances, err := env.containerManager.ListContainers()
+	if err != nil {
+		return nil, err
+	}
+	for _, inst := range lxcInstances {
+		instances = append(instances, &localInstance{inst.Id(), env})
+	}
 	return instances, nil
 }
 
 // Storage is specified in the Environ interface.
 func (env *localEnviron) Storage() environs.Storage {
-	return localstorage.Client(env.storageListener.Addr().String())
+	return localstorage.Client(env.config.storageAddr())
 }
 
 // PublicStorage is specified in the Environ interface.
 func (env *localEnviron) PublicStorage() environs.StorageReader {
-	return localstorage.Client(env.sharedStorageListener.Addr().String())
+	return localstorage.Client(env.config.sharedStorageAddr())
 }
 
 // Destroy is specified in the Environ interface.
 func (env *localEnviron) Destroy(insts []instance.Instance) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("destroying a local environment must be done as root")
+	}
+	// Kill all running instances.
+	containers, err := env.containerManager.ListContainers()
+	if err != nil {
+		return err
+	}
+	for _, inst := range containers {
+		if err := env.containerManager.StopContainer(inst); err != nil {
+			return err
+		}
+	}
+
+	logger.Infof("removing service %s", env.machineAgentServiceName())
+	machineAgent := upstart.NewService(env.machineAgentServiceName())
+	machineAgent.InitDir = upstartScriptLocation
+	if err := machineAgent.Remove(); err != nil {
+		logger.Errorf("could not remove machine agent service: %v", err)
+		return err
 	}
 
 	logger.Infof("removing service %s", env.mongoServiceName())
@@ -354,7 +455,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	}
 	// unpack the first tools into the agent dir.
 	tools := toolList[0]
-	logger.Infof("tools: %#v", tools)
+	logger.Debugf("tools: %#v", tools)
 	// brutally abuse our knowledge of storage to directly open the file
 	toolsUrl, err := url.Parse(tools.URL)
 	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
@@ -381,6 +482,10 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 		toolsDir, dataDir, logDir, tag, machineId, logConfig, env.config.Type())
 	agent.Env["USER"] = env.config.user
 	agent.Env["HOME"] = os.Getenv("HOME")
+	agent.Env["JUJU_STORAGE_DIR"] = env.config.storageDir()
+	agent.Env["JUJU_STORAGE_ADDR"] = env.config.storageAddr()
+	agent.Env["JUJU_SHARED_STORAGE_DIR"] = env.config.sharedStorageDir()
+	agent.Env["JUJU_SHARED_STORAGE_ADDR"] = env.config.sharedStorageAddr()
 
 	agent.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
@@ -389,20 +494,6 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 		return err
 	}
 	return nil
-}
-
-func getAddressForInterface(interfaceName string) (string, error) {
-	bridge, err := net.InterfaceByName(interfaceName)
-	if err != nil {
-		logger.Errorf("cannot find network interface %q: %v", interfaceName, err)
-		return "", err
-	}
-	addrs, err := bridge.Addrs()
-	if err != nil {
-		logger.Errorf("cannot get addresses for network interface %q: %v", interfaceName, err)
-		return "", err
-	}
-	return utils.GetIPv4Address(addrs)
 }
 
 func (env *localEnviron) findBridgeAddress() (string, error) {
