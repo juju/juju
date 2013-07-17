@@ -32,6 +32,10 @@ import (
 // containers being created are able to communicate with it simply.
 const lxcBridgeName = "lxcbr0"
 
+// boostrapInstanceId is just the name we give to the bootstrap machine.
+// Using "localhost" because it is, and it makes sense.
+const boostrapInstanceId = "localhost"
+
 // upstartScriptLocation is parameterised purely for testing purposes as we
 // don't really want to be installing and starting scripts as root for
 // testing.
@@ -123,7 +127,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
-	bootstrapId := instance.Id("localhost")
+	bootstrapId := instance.Id(boostrapInstanceId)
 	if err := environs.SaveState(env.Storage(), &environs.BootstrapState{[]instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
@@ -138,7 +142,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 
 	// Have to initialize the state configuration with localhost so we get
 	// "special" permissions.
-	stateConnection, err := env.initialStateConfiguration("localhost", cons)
+	stateConnection, err := env.initialStateConfiguration(boostrapInstanceId, cons)
 	if err != nil {
 		return err
 	}
@@ -282,7 +286,7 @@ func (env *localEnviron) StartInstance(
 // StopInstances is specified in the Environ interface.
 func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 	for _, inst := range instances {
-		if inst.Id() == "localhost" {
+		if inst.Id() == boostrapInstanceId {
 			return fmt.Errorf("cannot stop the bootstrap instance")
 		}
 		if err := env.containerManager.StopContainer(inst); err != nil {
@@ -309,7 +313,7 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 
 // AllInstances is specified in the Environ interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
-	instances = append(instances, &localInstance{"localhost", env})
+	instances = append(instances, &localInstance{boostrapInstanceId, env})
 	// Add in all the containers as well.
 	lxcInstances, err := env.containerManager.ListContainers()
 	if err != nil {
