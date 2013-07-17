@@ -52,7 +52,7 @@ func makeBadMachineConfig() *cloudinit.MachineConfig {
 func (*CustomDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
 	_, err := makeCustomData(makeBadMachineConfig())
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "failure while generating custom data: .*")
+	c.Check(err, gc.ErrorMatches, "failure while generating custom data: invalid machine configuration: invalid machine id")
 }
 
 func (*CustomDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
