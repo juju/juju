@@ -6,7 +6,7 @@ package environs
 import (
 	"fmt"
 
-	cloudinit_core "launchpad.net/juju-core/cloudinit"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -99,7 +99,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 // The additionalScripts are additional command lines that you need cloudinit
 // to run on the instance.  Use with care.
 func ComposeUserData(cfg *cloudinit.MachineConfig, additionalScripts ...string) ([]byte, error) {
-	cloudcfg := cloudinit_core.New()
+	cloudcfg := coreCloudinit.New()
 	for _, script := range additionalScripts {
 		cloudcfg.AddRunCmd(script)
 	}
