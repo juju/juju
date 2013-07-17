@@ -536,7 +536,7 @@ func (env *localEnviron) initialStateConfiguration(addr string, cons constraints
 		Addrs:  []string{addr},
 		CACert: caCert,
 	}
-	timeout := state.DialOpts{10 * time.Second}
+	timeout := state.DialOpts{60 * time.Second}
 	bootstrap, err := environs.BootstrapConfig(cfg)
 	if err != nil {
 		return nil, err

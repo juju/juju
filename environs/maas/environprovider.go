@@ -4,10 +4,14 @@
 package maas
 
 import (
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/log"
 )
+
+// Logger for the MAAS provider.
+var logger = loggo.GetLogger("juju.environs.maas")
 
 type maasEnvironProvider struct{}
 
@@ -20,7 +24,7 @@ func init() {
 }
 
 func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Debugf("environs/maas: opening environment %q.", cfg.Name())
+	logger.Debugf("opening environment %q.", cfg.Name())
 	env, err := NewEnviron(cfg)
 	if err != nil {
 		return nil, err

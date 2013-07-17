@@ -6,11 +6,8 @@ package maas
 import (
 	"fmt"
 	"launchpad.net/goyaml"
-	cloudinit_core "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/utils"
 	"net/url"
 	"strings"
@@ -33,26 +30,6 @@ func getSystemIdValues(instanceIds []instance.Id) url.Values {
 		values.Add("id", extractSystemId(instanceId))
 	}
 	return values
-}
-
-// userData returns a zipped cloudinit config.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func userData(cfg *cloudinit.MachineConfig, scripts ...string) ([]byte, error) {
-	cloudcfg := cloudinit_core.New()
-	for _, script := range scripts {
-		cloudcfg.AddRunCmd(script)
-	}
-	cloudcfg, err := cloudinit.Configure(cfg, cloudcfg)
-	if err != nil {
-		return nil, err
-	}
-	data, err := cloudcfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	cdata := utils.Gzip(data)
-	log.Debugf("environs/maas: maas user data; %d bytes", len(cdata))
-	return cdata, nil
 }
 
 // machineInfo is the structure used to pass information between the provider

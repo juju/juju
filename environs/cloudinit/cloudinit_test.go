@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	cloudinit_core "launchpad.net/juju-core/cloudinit"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -326,7 +326,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg := cloudinit_core.New()
+		cloudcfg := coreCloudinit.New()
 		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
@@ -335,7 +335,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg := cloudinit_core.New()
+	cloudcfg := coreCloudinit.New()
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
