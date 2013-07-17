@@ -70,7 +70,7 @@ func StartContainer(c *C, manager lxc.ContainerManager, machineId string) instan
 }
 
 func (s *LxcSuite) TestStartContainer(c *C) {
-	manager := lxc.NewContainerManager("")
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -98,7 +98,7 @@ func (s *LxcSuite) TestStartContainer(c *C) {
 }
 
 func (s *LxcSuite) TestStopContainer(c *C) {
-	manager := lxc.NewContainerManager("")
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	err := manager.StopContainer(instance)
@@ -112,7 +112,7 @@ func (s *LxcSuite) TestStopContainer(c *C) {
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *C) {
-	manager := lxc.NewContainerManager("")
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	name := string(instance.Id())
@@ -130,14 +130,14 @@ func (s *LxcSuite) TestStopContainerNameClash(c *C) {
 }
 
 func (s *LxcSuite) TestNamedManagerPrefix(c *C) {
-	manager := lxc.NewContainerManager("eric")
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{Name: "eric"})
 	instance := StartContainer(c, manager, "1/lxc/0")
 	c.Assert(string(instance.Id()), Equals, "eric-machine-1-lxc-0")
 }
 
 func (s *LxcSuite) TestListContainers(c *C) {
-	foo := lxc.NewContainerManager("foo")
-	bar := lxc.NewContainerManager("bar")
+	foo := lxc.NewContainerManager(lxc.ManagerConfig{Name: "foo"})
+	bar := lxc.NewContainerManager(lxc.ManagerConfig{Name: "bar"})
 
 	foo1 := StartContainer(c, foo, "1/lxc/0")
 	foo2 := StartContainer(c, foo, "1/lxc/1")

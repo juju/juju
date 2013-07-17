@@ -389,18 +389,22 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	return nil
 }
 
-func (env *localEnviron) findBridgeAddress() (string, error) {
-	bridge, err := net.InterfaceByName(lxcBridgeName)
+func getAddressForInterface(interfaceName string) (string, error) {
+	bridge, err := net.InterfaceByName(interfaceName)
 	if err != nil {
-		logger.Errorf("cannot find network interface %q: %v", lxcBridgeName, err)
+		logger.Errorf("cannot find network interface %q: %v", interfaceName, err)
 		return "", err
 	}
 	addrs, err := bridge.Addrs()
 	if err != nil {
-		logger.Errorf("cannot get addresses for network interface %q: %v", lxcBridgeName, err)
+		logger.Errorf("cannot get addresses for network interface %q: %v", interfaceName, err)
 		return "", err
 	}
 	return utils.GetIPv4Address(addrs)
+}
+
+func (env *localEnviron) findBridgeAddress() (string, error) {
+	return getAddressForInterface(lxcBridgeName)
 }
 
 func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {

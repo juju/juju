@@ -33,7 +33,8 @@ func (inst *localInstance) DNSName() (string, error) {
 		}
 		return addr, nil
 	}
-	return "", instance.ErrNoDNSName
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // WaitDNSName implements instance.Instance.WaitDNSName.

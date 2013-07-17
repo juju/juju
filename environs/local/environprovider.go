@@ -107,7 +107,8 @@ func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, 
 
 // PublicAddress implements environs.EnvironProvider.PublicAddress.
 func (environProvider) PublicAddress() (string, error) {
-	return "", fmt.Errorf("public address not implemented")
+	// Get the IPv4 address from eth0
+	return getAddressForInterface("eth0")
 }
 
 // PrivateAddress implements environs.EnvironProvider.PrivateAddress.
@@ -118,6 +119,9 @@ func (environProvider) PrivateAddress() (string, error) {
 // InstanceId implements environs.EnvironProvider.InstanceId.
 func (environProvider) InstanceId() (instance.Id, error) {
 	// This hack only works until we get containers started.
+	// Interestingly, this method is only ever called for the bootstrap machine.
+	// This method should not be attached to the EnvironProvider interface.
+	// TODO(thumper): refactor this method out of existance from the interface
 	return instance.Id("localhost"), nil
 }
 

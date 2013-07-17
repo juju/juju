@@ -31,6 +31,12 @@ var (
 	lxcObjectFactory    = golxc.Factory()
 )
 
+// ManagerConfig contains the initialization parameters for the ContainerManager.
+type ManagerConfig struct {
+	Name   string
+	LogDir string
+}
+
 // ContainerManager is responsible for starting containers, and stopping and
 // listing containers that it has started.  The name of the manager is used to
 // namespace the lxc containers on the machine.
@@ -50,14 +56,19 @@ type ContainerManager interface {
 }
 
 type containerManager struct {
-	name string
+	name   string
+	logdir string
 }
 
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(name string) ContainerManager {
-	return &containerManager{name}
+func NewContainerManager(conf ManagerConfig) ContainerManager {
+	logdir := "/var/log/juju"
+	if conf.LogDir != "" {
+		logdir = conf.LogDir
+	}
+	return &containerManager{name: conf.Name, logdir: logdir}
 }
 
 func (manager *containerManager) StartContainer(
@@ -90,7 +101,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(directory)
+	configFile, err := writeLxcConfig(directory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, err
@@ -200,13 +211,14 @@ lxc.network.type = veth
 lxc.network.link = lxcbr0
 lxc.network.flags = up
 
-lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
 `
 
-func writeLxcConfig(directory string) (string, error) {
+func writeLxcConfig(directory, logdir string) (string, error) {
 	// TODO(thumper): support different network settings.
 	configFilename := filepath.Join(directory, "lxc.conf")
-	if err := ioutil.WriteFile(configFilename, []byte(localConfig), 0644); err != nil {
+	configContent := fmt.Sprintf(localConfig, logdir)
+	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil
