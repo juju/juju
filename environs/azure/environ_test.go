@@ -822,6 +822,11 @@ func (*EnvironSuite) TestGetVirtualNetworkNameContainsEnvName(c *C) {
 	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), IsTrue)
 }
 
+func (*EnvironSuite) TestGetVirtualNetworkNameIsConstant(c *C) {
+	env := makeEnviron(c)
+	c.Check(env.getVirtualNetworkName(), Equals, env.getVirtualNetworkName())
+}
+
 func (*EnvironSuite) TestCreateAffinityGroup(c *C) {
 	env := makeEnviron(c)
 	responses := []gwacl.DispatcherResponse{
@@ -858,4 +863,9 @@ func (*EnvironSuite) TestDestroyAffinityGroup(c *C) {
 func (*EnvironSuite) TestGetAffinityGroupName(c *C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), IsTrue)
+}
+
+func (*EnvironSuite) TestGetAffinityGroupNameIsConstant(c *C) {
+	env := makeEnviron(c)
+	c.Check(env.getAffinityGroupName(), Equals, env.getAffinityGroupName())
 }

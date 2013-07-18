@@ -159,24 +159,24 @@ func (env *azureEnviron) getAffinityGroupName() string {
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
+	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return nil
 	}
 	defer env.releaseManagementAPI(azure)
-	affinityGroupName := env.getAffinityGroupName()
 	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, serviceLocation)
 	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
 		CreateAffinityGroup: cag})
 }
 
 func (env *azureEnviron) destroyAffinityGroup() error {
+	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return nil
 	}
 	defer env.releaseManagementAPI(azure)
-	affinityGroupName := env.getAffinityGroupName()
 	return azure.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
 		Name: affinityGroupName})
 }
@@ -188,13 +188,13 @@ func (env *azureEnviron) getVirtualNetworkName() string {
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
+	vnetName := env.getVirtualNetworkName()
+	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return nil
 	}
 	defer env.releaseManagementAPI(azure)
-	vnetName := env.getVirtualNetworkName()
-	affinityGroupName := env.getAffinityGroupName()
 	virtualNetwork := gwacl.VirtualNetworkSite{
 		Name:          vnetName,
 		AffinityGroup: affinityGroupName,
