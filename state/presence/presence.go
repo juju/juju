@@ -610,12 +610,12 @@ func (p *Pinger) ping() error {
 // clockDelta returns the approximate skew between
 // the local clock and the database clock.
 func clockDelta(c *mgo.Collection) (time.Duration, error) {
-	var server struct {
-		time.Time "retval"
+	var isMaster struct {
+		LocalTime time.Time "localTime"
 	}
 	for i := 0; i < 10; i++ {
 		before := time.Now()
-		err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
+		err := c.Database.Run("isMaster", &isMaster)
 		after := time.Now()
 		if err != nil {
 			return 0, err
@@ -624,7 +624,10 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 		if delay > 5*time.Second {
 			continue
 		}
-		return server.Sub(before), nil
+		if isMaster.LocalTime.IsZero() {
+			return 0, fmt.Errorf("MongoDB doesn't have localTime as part of isMaster result")
+		}
+		return isMaster.LocalTime.Sub(before), nil
 	}
 	return 0, fmt.Errorf("cannot synchronize clock with database server")
 }
