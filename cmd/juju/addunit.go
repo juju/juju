@@ -23,7 +23,7 @@ type UnitCommandBase struct {
 
 func (c *UnitCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ToMachineSpec, "to", "", "machine/container to which deploy unit, bypasses constraints")
+	f.StringVar(&c.ToMachineSpec, "to", "", "the machine or container to deploy the unit in, bypasses constraints")
 }
 
 func (c *UnitCommandBase) Init(args []string) error {
