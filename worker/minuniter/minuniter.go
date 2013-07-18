@@ -56,7 +56,7 @@ func (mu *MinUniter) handle(serviceName string) error {
 }
 
 func (mu *MinUniter) loop() error {
-	w := mu.st.WatchMinimumUnits()
+	w := mu.st.WatchMinUnits()
 	defer watcher.Stop(w, &mu.tomb)
 	for {
 		select {

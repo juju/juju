@@ -30,9 +30,9 @@ func (s *MinuniterSuite) TestMinUniter(c *C) {
 	defer func() { c.Assert(mu.Stop(), IsNil) }()
 
 	// Set up services and units for later use.
-	wordpress, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
-	mysql, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, IsNil)
 	unit, err := wordpress.AddUnit()
 	c.Assert(err, IsNil)
@@ -44,23 +44,30 @@ func (s *MinuniterSuite) TestMinUniter(c *C) {
 	defer func() { c.Assert(w.Stop(), IsNil) }()
 
 	// Set up minimum units for services.
-	// TODO.
+	err = wordpress.SetMinUnits(3)
+	c.Assert(err, IsNil)
+	err = mysql.SetMinUnits(2)
+	c.Assert(err, IsNil)
+
+	// Remove a unit for a service.
+	err = unit.Destroy()
+	c.Assert(err, IsNil)
 
 	timeout := time.After(500 * time.Millisecond)
+loop:
 	for {
 		s.State.StartSync()
 		select {
 		case <-time.After(50 * time.Millisecond):
-			continue
-		case <-timeout:
-			c.Fatalf("timed out waiting for cleanup")
-		case <-w.Changes():
-			needed, err = s.State.NeedsCleanup()
+			wordpressUnits, err := wordpress.AllUnits()
 			c.Assert(err, IsNil)
-			if needed {
-				continue
+			mysqlUnits, err := mysql.AllUnits()
+			c.Assert(err, IsNil)
+			if len(wordpressUnits) == 3 && len(mysqlUnits) == 2 {
+				break loop
 			}
+		case <-timeout:
+			c.Fatalf("timed out waiting for minunit events")
 		}
-		break
 	}
 }
