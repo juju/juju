@@ -43,6 +43,7 @@ const boilerplateYAML = `maas:
   authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
   # Or:
   # authorized-keys: ssh-rsa keymaterialhere
+
 `
 
 // BoilerplateConfig is specified in the EnvironProvider interface.
