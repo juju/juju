@@ -128,8 +128,7 @@ func (manager *containerManager) StartContainer(
 	logger.Tracef("lxc container created")
 	// Now symlink the config file into the restart directory.
 	containerConfigFile := filepath.Join(lxcContainerDir, name, "config")
-	linkLocation := filepath.Join(lxcRestartDir, name+".conf")
-	if err := os.Symlink(containerConfigFile, linkLocation); err != nil {
+	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
 		return nil, err
 	}
 	logger.Tracef("auto-restart link created")
@@ -163,8 +162,7 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		return err
 	}
 	// Remove the autostart symlink
-	linkLocation := filepath.Join(lxcRestartDir, name+".conf")
-	if err := os.Remove(linkLocation); err != nil {
+	if err := os.Remove(restartSymlink(name)); err != nil {
 		return err
 	}
 	logger.Tracef("auto-restart link removed")
@@ -219,6 +217,10 @@ const internalLogDirTemplate = "%s/%s/rootfs/var/log/juju"
 
 func internalLogDir(containerName string) string {
 	return fmt.Sprintf(internalLogDirTemplate, lxcContainerDir, containerName)
+}
+
+func restartSymlink(name string) string {
+	return filepath.Join(lxcRestartDir, name+".conf")
 }
 
 const localConfig = `
