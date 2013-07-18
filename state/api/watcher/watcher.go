@@ -207,7 +207,7 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 	// try to send immediately.
 	out := w.out
 	// Use a local copy of the in chan to synchronize sending/receiving.
-	in := w.in
+	var in chan interface{}
 	for {
 		select {
 		case data, ok := <-in:

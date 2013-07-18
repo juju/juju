@@ -132,7 +132,9 @@ func (c StringsWatcherC) AssertNoChange() {
 	}
 }
 
-func (c StringsWatcherC) assertChanges(moreFollowing bool, expect ...string) {
+// AssertChange asserts the given list of changes was reported by
+// the watcher, but does not assume there are no following changes.
+func (c StringsWatcherC) AssertChange(expect ...string) {
 	if c.FullSync {
 		c.State.Sync()
 	} else {
@@ -151,23 +153,13 @@ func (c StringsWatcherC) assertChanges(moreFollowing bool, expect ...string) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
-	if !moreFollowing {
-		// Ensure no other events follow.
-		c.AssertNoChange()
-	}
 }
 
 // AssertOneChange asserts the given list of changes was reported by
 // the watcher and there are no more changes after that.
 func (c StringsWatcherC) AssertOneChange(expect ...string) {
-	c.assertChanges(false, expect...)
-}
-
-// AssertMoreChanges asserts the given list of changes was reported by
-// the watcher, but does not assume there are no following changes
-// after that, like AssertOneChange does.
-func (c StringsWatcherC) AssertMoreChanges(expect ...string) {
-	c.assertChanges(true, expect...)
+	c.AssertChange(expect...)
+	c.AssertNoChange()
 }
 
 func (c StringsWatcherC) AssertClosed() {
