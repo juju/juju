@@ -966,7 +966,8 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a couple of subordinates, check change.
 	subCharm := s.AddTestingCharm(c, "logging")
@@ -991,12 +992,14 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 		c.Assert(units, HasLen, 1)
 		subUnits = append(subUnits, units[0])
 	}
-	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertNoChange()
 
 	// Set one to Dying, check change.
 	err := subUnits[0].Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(subUnits[0].Name())
+	wc.AssertChange(subUnits[0].Name())
+	wc.AssertNoChange()
 
 	// Set both to Dead, and remove one; check change.
 	err = subUnits[0].EnsureDead()
@@ -1005,7 +1008,8 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	err = subUnits[1].Remove()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
 	testing.AssertStop(c, w)
@@ -1015,7 +1019,8 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w = s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange(subUnits[0].Name())
+	wc.AssertChange(subUnits[0].Name())
+	wc.AssertNoChange()
 
 	// Remove the leftover, check no change.
 	err = subUnits[0].Remove()
