@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -74,6 +75,20 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 
+	// Create an empty bootstrap state file so we can get it's URL.
+	// If will be updated with the instance id and hardware characteristics after the
+	// bootstrap instance is started.
+	reader := strings.NewReader("")
+	err := env.Storage().Put(environs.StateFile, reader, int64(0))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	stateFileURL, err := env.Storage().URL(environs.StateFile)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	mcfg.StateInfoURL = stateFileURL
+
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
@@ -102,6 +117,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	// TODO(wallyworld) add hardware characteristics to BootstrapState
 	err = environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
@@ -272,7 +288,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err != nil {
 		return nil, err
 	}
-	info := machineInfo{string(instance.Id()), hostname}
+	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
 		return nil, err

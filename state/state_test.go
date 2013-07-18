@@ -305,17 +305,24 @@ func (s *StateSuite) TestAddContainerErrors(c *C) {
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), state.JobHostUnits)
+	hc := instance.HardwareCharacteristics{}
+	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), hc, state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), hc, state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"))
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"), hc)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
 	cons := constraints.MustParse("mem=4G")
-	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	arch := "amd64"
+	mem := uint64(1024)
+	hc := instance.HardwareCharacteristics{
+		Arch: &arch,
+		Mem:  &mem,
+	}
+	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, err := m.InstanceId()
@@ -324,6 +331,9 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons, DeepEquals, mcons)
+	characteristics, err := m.HardwareCharacteristics()
+	c.Assert(err, IsNil)
+	c.Assert(*characteristics, DeepEquals, hc)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
@@ -331,7 +341,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	hc := instance.HardwareCharacteristics{}
+	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 
 	// Add first container.
