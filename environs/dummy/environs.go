@@ -395,10 +395,6 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
-func (*environProvider) InstanceId() (instance.Id, error) {
-	return instance.Id("dummy.instance.id"), nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 ## Fake configuration for dummy provider.
@@ -554,6 +550,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		return nil, nil, err
 	}
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = environs.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}

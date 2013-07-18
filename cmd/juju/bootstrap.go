@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 	"os"
@@ -68,7 +69,10 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-
+	// If we are using a local provider, always upload tools.
+	if environ.Config().Type() == provider.Local {
+		c.UploadTools = true
+	}
 	if c.UploadTools {
 		// Force version.Current, for consistency with subsequent upgrade-juju
 		// (see UpgradeJujuCommand).

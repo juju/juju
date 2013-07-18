@@ -4,6 +4,7 @@
 package api
 
 import (
+	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/machineagent"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
@@ -41,4 +42,9 @@ func (st *State) MachineAgent() *machineagent.State {
 // Upgrader returns access to the Upgrader API
 func (st *State) Upgrader() *upgrader.Upgrader {
 	return upgrader.New(st)
+}
+
+// Deployer returns access to the Deployer API
+func (st *State) Deployer() (*deployer.Deployer, error) {
+	return deployer.New(st), nil
 }

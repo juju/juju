@@ -6,7 +6,6 @@
 package openstack
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -17,7 +16,6 @@ import (
 	"launchpad.net/goose/swift"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
@@ -28,7 +26,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -149,14 +146,6 @@ func (p environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-ipv4")
 }
 
-func (p environProvider) InstanceId() (instance.Id, error) {
-	str, err := fetchInstanceUUID()
-	if err != nil {
-		str, err = fetchLegacyId()
-	}
-	return instance.Id(str), err
-}
-
 // metadataHost holds the address of the instance metadata service.
 // It is a variable so that tests can change it to refer to a local
 // server when needed.
@@ -172,50 +161,6 @@ func fetchMetadata(name string) (value string, err error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(data)), nil
-}
-
-// fetchInstanceUUID fetches the openstack instance UUID, which is not at all
-// the same thing as the "instance-id" in the ec2-style metadata. This only
-// works on openstack Folsom or later.
-func fetchInstanceUUID() (string, error) {
-	uri := fmt.Sprintf("%s/openstack/2012-08-10/meta_data.json", metadataHost)
-	data, err := retryGet(uri)
-	if err != nil {
-		return "", err
-	}
-	var uuid struct {
-		Uuid string
-	}
-	if err := json.Unmarshal(data, &uuid); err != nil {
-		return "", err
-	}
-	if uuid.Uuid == "" {
-		return "", fmt.Errorf("no instance UUID found")
-	}
-	return uuid.Uuid, nil
-}
-
-// fetchLegacyId fetches the openstack numeric instance Id, which is derived
-// from the "instance-id" in the ec2-style metadata. The ec2 id contains
-// the numeric instance id encoded as hex with a "i-" prefix.
-// This numeric id is required for older versions of Openstack which do
-// not yet support providing UUID's via the metadata. HP Cloud is one such case.
-// Even though using the numeric id is deprecated in favour of using UUID, where
-// UUID is not yet supported, we need to revert to numeric id.
-func fetchLegacyId() (string, error) {
-	instId, err := fetchMetadata("instance-id")
-	if err != nil {
-		return "", err
-	}
-	if strings.Index(instId, "i-") >= 0 {
-		hex := strings.SplitAfter(instId, "i-")[1]
-		id, err := strconv.ParseInt("0x"+hex, 0, 32)
-		if err != nil {
-			return "", err
-		}
-		instId = fmt.Sprintf("%d", id)
-	}
-	return instId, nil
 }
 
 func retryGet(uri string) (data []byte, err error) {
@@ -475,8 +420,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.startInstance(&startInstanceParams{
+	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	if err != nil {
+		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	inst, characteristics, err := e.internalStartInstance(&startInstanceParams{
 		machineId:     "0",
 		machineNonce:  state.BootstrapNonce,
 		series:        e.Config().DefaultSeries(),
@@ -484,12 +432,14 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		possibleTools: possibleTools,
 		stateServer:   true,
 		withPublicIP:  e.ecfg().useFloatingIP(),
+		stateInfoURL:  stateFileURL,
 	})
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances: []instance.Id{inst.Id()},
+		StateInstances:  []instance.Id{inst.Id()},
+		Characteristics: []instance.HardwareCharacteristics{*characteristics},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -604,7 +554,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.startInstance(&startInstanceParams{
+	return e.internalStartInstance(&startInstanceParams{
 		machineId:     machineId,
 		machineNonce:  machineNonce,
 		series:        series,
@@ -625,37 +575,11 @@ type startInstanceParams struct {
 	apiInfo       *api.Info
 	possibleTools tools.List
 	stateServer   bool
+	stateInfoURL  string
 
 	// withPublicIP, if true, causes a floating IP to be
 	// assigned to the server after starting
 	withPublicIP bool
-}
-
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
-	mcfg := &cloudinit.MachineConfig{
-		MachineId:    scfg.machineId,
-		MachineNonce: scfg.machineNonce,
-		StateServer:  scfg.stateServer,
-		StateInfo:    scfg.info,
-		APIInfo:      scfg.apiInfo,
-		DataDir:      environs.DataDir,
-		Tools:        tools,
-	}
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
-		return nil, err
-	}
-	cloudcfg, err := cloudinit.New(mcfg)
-	if err != nil {
-		return nil, err
-	}
-	data, err := cloudcfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	cdata := utils.Gzip(data)
-	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
-	return cdata, nil
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -708,16 +632,13 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	return err
 }
 
-// startInstance is the internal version of StartInstance, used by Bootstrap
-// as well as via StartInstance itself.
+// internalStartInstance is the internal version of StartInstance, used by
+// Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := scfg.possibleTools.Series()
-	if len(series) != 1 {
-		return nil, nil, fmt.Errorf("expected single series, got %v", series)
-	}
-	if series[0] != scfg.series {
-		return nil, nil, fmt.Errorf("tools mismatch: expected series %v, got %v", series, series[0])
+func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
+	if err != nil {
+		return nil, nil, err
 	}
 	arches := scfg.possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
@@ -733,10 +654,21 @@ func (e *environ) startInstance(scfg *startInstanceParams) (instance.Instance, *
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
-	userData, err := e.userData(scfg, tools[0])
+
+	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
+	mcfg.StateServer = scfg.stateServer
+	mcfg.StateInfoURL = scfg.stateInfoURL
+	mcfg.Tools = tools[0]
+
+	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+		return nil, nil, err
+	}
+	userData, err := environs.ComposeUserData(mcfg)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
+
 	var publicIP *nova.FloatingIP
 	if scfg.withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {

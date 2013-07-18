@@ -216,6 +216,11 @@ func (v *Value) setContainer(str string) error {
 	return nil
 }
 
+// HasContainer returns true if the constraints.Value specifies a container.
+func (v *Value) HasContainer() bool {
+	return v.Container != nil && *v.Container != "" && *v.Container != instance.NONE
+}
+
 func (v *Value) setArch(str string) error {
 	if v.Arch != nil {
 		return fmt.Errorf("already set")

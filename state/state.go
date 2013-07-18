@@ -71,11 +71,14 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 const numberSnippet = "(0|[1-9][0-9]*)"
 const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
+const machineSnippet = numberSnippet + containerSnippet + "*"
+const containerSpecSnippet = "(([a-z])*:)?"
 
 var (
-	validService = regexp.MustCompile("^" + serviceSnippet + "$")
-	validUnit    = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
-	validMachine = regexp.MustCompile("^" + numberSnippet + containerSnippet + "*$")
+	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
+	validUnit                  = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
+	validMachine               = regexp.MustCompile("^" + machineSnippet + "$")
+	validMachineOrNewContainer = regexp.MustCompile("^" + containerSpecSnippet + machineSnippet + "$")
 )
 
 // BootstrapNonce is used as a nonce for the state server machine.
@@ -92,8 +95,13 @@ func IsUnitName(name string) bool {
 }
 
 // IsMachineId returns whether id is a valid machine id.
-func IsMachineId(name string) bool {
-	return validMachine.MatchString(name)
+func IsMachineId(id string) bool {
+	return validMachine.MatchString(id)
+}
+
+// IsMachineOrNewContainer returns whether spec is a valid machine id or new container definition.
+func IsMachineOrNewContainer(spec string) bool {
+	return validMachineOrNewContainer.MatchString(spec)
 }
 
 // State represents the state of an environment
@@ -238,12 +246,18 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 // InjectMachine adds a new machine, corresponding to an existing provider
 // instance, configured to run the supplied jobs on the supplied series, using
 // the specified constraints.
-func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, jobs ...MachineJob) (m *Machine, err error) {
+func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, hc instance.HardwareCharacteristics, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	//TODO(wallyworld) - figure out how to determine the existing machine's characteristics so they can be recorded in state
-	return st.addMachine(&AddMachineParams{Series: series, Constraints: cons, instanceId: instanceId, nonce: BootstrapNonce, Jobs: jobs})
+	return st.addMachine(&AddMachineParams{
+		Series:          series,
+		Constraints:     cons,
+		instanceId:      instanceId,
+		characteristics: hc,
+		nonce:           BootstrapNonce,
+		Jobs:            jobs,
+	})
 }
 
 // containerRefParams specify how a machineContainers document is to be created.
@@ -323,13 +337,14 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
-	Series        string
-	Constraints   constraints.Value
-	ParentId      string
-	ContainerType instance.ContainerType
-	instanceId    instance.Id
-	nonce         string
-	Jobs          []MachineJob
+	Series          string
+	Constraints     constraints.Value
+	ParentId        string
+	ContainerType   instance.ContainerType
+	instanceId      instance.Id
+	characteristics instance.HardwareCharacteristics
+	nonce           string
+	Jobs            []MachineJob
 }
 
 // addMachineContainerOps returns txn operations and associated Mongo records used to create a new machine,
@@ -343,6 +358,10 @@ func (st *State) addMachineContainerOps(params *AddMachineParams, cons constrain
 	if params.instanceId != "" {
 		instData = &instanceData{
 			InstanceId: params.instanceId,
+			Arch:       params.characteristics.Arch,
+			Mem:        params.characteristics.Mem,
+			CpuCores:   params.characteristics.CpuCores,
+			CpuPower:   params.characteristics.CpuPower,
 		}
 	}
 	var ops []txn.Op
@@ -1173,12 +1192,12 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 		if _, err = u.AssignToCleanMachine(); err != noCleanMachines {
 			return err
 		}
-		return u.AssignToNewMachine()
+		return u.AssignToNewMachineOrContainer()
 	case AssignCleanEmpty:
 		if _, err = u.AssignToCleanEmptyMachine(); err != noCleanMachines {
 			return err
 		}
-		return u.AssignToNewMachine()
+		return u.AssignToNewMachineOrContainer()
 	case AssignNew:
 		return u.AssignToNewMachine()
 	}

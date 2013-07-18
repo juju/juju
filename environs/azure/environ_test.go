@@ -146,12 +146,12 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
-func (suite EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
+func (suite *EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
 }
 
-func (suite EnvironSuite) TestAllInstances(c *C) {
+func (suite *EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
@@ -164,7 +164,7 @@ func (suite EnvironSuite) TestAllInstances(c *C) {
 	c.Check(len(*requests), Equals, 1)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
 	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -175,7 +175,7 @@ func (suite EnvironSuite) TestInstancesReturnsFilteredList(c *C) {
 	c.Check(len(*requests), Equals, 1)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequested(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
 	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -184,7 +184,7 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstancesRequest
 	c.Check(instances, IsNil)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{}
 	patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -193,7 +193,7 @@ func (suite EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoInstanceFound(c 
 	c.Check(instances, IsNil)
 }
 
-func (suite EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
+func (suite *EnvironSuite) TestInstancesReturnsPartialInstancesIfSomeInstancesAreNotFound(c *C) {
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-1"}, {ServiceName: "deployment-2"}}
 	requests := patchWithServiceListResponse(c, services)
 	env := makeEnviron(c)
@@ -334,13 +334,8 @@ func (*EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 
 func (*EnvironSuite) TestStateInfo(c *C) {
 	instanceID := "my-instance"
-	label := fmt.Sprintf("my-label.%s", AZURE_DOMAIN_NAME)
-	// In the Azure provider, the DNS name of the instance is the
-	// service's label (instance==service).
-	encodedLabel := base64.StdEncoding.EncodeToString([]byte(label))
 	patchWithServiceListResponse(c, []gwacl.HostedServiceDescriptor{{
 		ServiceName: instanceID,
-		Label:       encodedLabel,
 	}})
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
@@ -354,10 +349,11 @@ func (*EnvironSuite) TestStateInfo(c *C) {
 	c.Assert(err, IsNil)
 
 	config := env.Config()
-	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
-	c.Check(stateInfo.Addrs, DeepEquals, []string{label + statePortSuffix})
-	c.Check(apiInfo.Addrs, DeepEquals, []string{label + apiPortSuffix})
+	dnsName := "my-instance." + AZURE_DOMAIN_NAME
+	stateServerAddr := fmt.Sprintf("%s:%d", dnsName, config.StatePort())
+	apiServerAddr := fmt.Sprintf("%s:%d", dnsName, config.APIPort())
+	c.Check(stateInfo.Addrs, DeepEquals, []string{stateServerAddr})
+	c.Check(apiInfo.Addrs, DeepEquals, []string{apiServerAddr})
 }
 
 // parseCreateServiceRequest reconstructs the original CreateHostedService
@@ -386,6 +382,7 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
+	prefix := "myservice"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -393,12 +390,17 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, prefix)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(service.ServiceName, Matches, prefix+".*")
+
+	label, err := base64.StdEncoding.DecodeString(service.Label)
+	c.Assert(err, IsNil)
+	c.Check(string(label), Equals, service.ServiceName)
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
@@ -410,7 +412,7 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, "service")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -433,7 +435,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure)
+	service, err := attemptCreateService(azure, "service")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -446,21 +448,13 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure)
+	_, err = attemptCreateService(azure, "service")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
 
-func (*EnvironSuite) TestExtractDeploymentDNSExtractsHost(c *C) {
-	// Example taken from Azure documentation:
-	// http://msdn.microsoft.com/en-us/library/windowsazure/ee460804.aspx
-	instanceURL := "http://MyService.cloudapp.net"
-	instanceDNS, err := extractDeploymentDNS(instanceURL)
-	c.Assert(err, IsNil)
-	c.Check(instanceDNS, Equals, "MyService.cloudapp.net")
-}
-
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
+	prefix := "myservice"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -468,12 +462,13 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure)
+	service, err := newHostedService(azure, prefix)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
 	body := parseCreateServiceRequest(c, (*requests)[0])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
+	c.Check(service.ServiceName, Matches, prefix+".*")
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
@@ -489,7 +484,7 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure)
+	service, err := newHostedService(azure, "service")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -523,68 +518,9 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure)
+	_, err = newHostedService(azure, "service")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
-}
-
-func (*EnvironSuite) TestExtractDeploymentDNSPropagatesError(c *C) {
-	_, err := extractDeploymentDNS(":x:THIS BREAKS:x:")
-	c.Check(err, NotNil)
-	c.Check(err, ErrorMatches, "parse error in instance URL: .*")
-}
-
-func (*EnvironSuite) TestSetServiceDNSNameReadsDeploymentAndUpdatesService(c *C) {
-	serviceName := "fub"
-	deploymentName := "default"
-	instanceDNS := fmt.Sprintf("foobar.%s", AZURE_DOMAIN_NAME)
-	deploymentBody, err := xml.Marshal(gwacl.Deployment{
-		Name: deploymentName,
-		URL:  fmt.Sprintf("http://%s", instanceDNS),
-	})
-	c.Assert(err, IsNil)
-	// setServiceDNSName reads the Deployment to obtain the instance URL,
-	// then updates the Hosted Service by setting its label to the DNS
-	// name of the instance.
-	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(deploymentBody, http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
-	}
-	requests := gwacl.PatchManagementAPIResponses(responses)
-
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
-	c.Assert(err, IsNil)
-	err = setServiceDNSName(azure, serviceName, deploymentName)
-	c.Assert(err, IsNil)
-
-	c.Assert(*requests, HasLen, 2)
-	getDeploymentReq := (*requests)[0]
-	updateServiceReq := (*requests)[1]
-
-	c.Check(getDeploymentReq.URL, Equals, fmt.Sprintf(
-		"https://management.core.windows.net/%s/services/hostedservices/%s/deployments/%s",
-		"subscription", serviceName, deploymentName))
-	updateServiceBody := &gwacl.UpdateHostedService{}
-	err = xml.Unmarshal(updateServiceReq.Payload, updateServiceBody)
-	c.Assert(err, IsNil)
-	newLabel, err := base64.StdEncoding.DecodeString(updateServiceBody.Label)
-	c.Check(string(newLabel), Equals, instanceDNS)
-}
-
-func (*EnvironSuite) TestMakeProvisionalServiceLabelIsConsistent(c *C) {
-	c.Check(makeProvisionalServiceLabel("foo"), Equals, makeProvisionalServiceLabel("foo"))
-}
-
-func (*EnvironSuite) TestMakeProvisionalServiceLabelIncludesName(c *C) {
-	c.Check(makeProvisionalServiceLabel("splyz"), Matches, ".*splyz.*")
-}
-
-func (*EnvironSuite) TestIsProvisionalServiceLabelRecognizesProvisionalLabel(c *C) {
-	c.Check(isProvisionalServiceLabel(makeProvisionalServiceLabel("x")), Equals, true)
-}
-
-func (*EnvironSuite) TestIsProvisionalServiceLabelRecognizesPermanentLabel(c *C) {
-	c.Check(isProvisionalServiceLabel("label"), Equals, false)
 }
 
 // buildDestroyAzureServiceResponses returns a slice containing the responses that a fake Azure server
@@ -624,7 +560,7 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 	return service1, service1Desc
 }
 
-func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
+func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	service1Name := "service1"
 	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
@@ -648,7 +584,7 @@ func (EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
-func (EnvironSuite) TestDestroyCleansUpStorage(c *C) {
+func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -675,7 +611,7 @@ var emptyListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
-func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
+func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
@@ -713,7 +649,7 @@ func (EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
 }
 
-func (EnvironSuite) TestGetInstance(c *C) {
+func (*EnvironSuite) TestGetInstance(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
 	serviceName := prefix + "instance-name"
@@ -728,7 +664,7 @@ func (EnvironSuite) TestGetInstance(c *C) {
 	c.Check(string(instance.Id()), Equals, serviceName)
 }
 
-func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
+func (*EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	env := makeEnviron(c)
 	sourceImageName := "source-image-name"
 
@@ -741,39 +677,81 @@ func (EnvironSuite) TestNewOSVirtualDisk(c *C) {
 	c.Check(vhd.SourceImageName, Equals, sourceImageName)
 }
 
-func (EnvironSuite) TestNewRole(c *C) {
+// mapInputEndpointsByPort takes a slice of input endpoints, and returns them
+// as a map keyed by their (external) ports.  This makes it easier to query
+// individual endpoints from an array whose ordering you don't know.
+// Multiple input endpoints for the same port are treated as an error.
+func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwacl.InputEndpoint {
+	mapping := make(map[int]gwacl.InputEndpoint)
+	for _, endpoint := range endpoints {
+		_, have := mapping[endpoint.Port]
+		c.Assert(have, Equals, false)
+		mapping[endpoint.Port] = endpoint
+	}
+	return mapping
+}
+
+func (*EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
+	hostname := "hostname"
 
-	role := env.newRole(vhd, userData)
+	role := env.newRole(vhd, userData, hostname)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
 	c.Check(linuxConfig.UserData, Equals, userData)
-	c.Check(linuxConfig.Hostname, Equals, DeploymentName)
+	c.Check(linuxConfig.Hostname, Equals, hostname)
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
-	// The network config contains an endpoint for ssh communication.
-	firstEndpoint := (*networkConfig.InputEndpoints)[0]
-	c.Check(firstEndpoint.LocalPort, Equals, 22)
-	c.Check(firstEndpoint.Port, Equals, 22)
-	c.Check(firstEndpoint.Protocol, Equals, "TCP")
 	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
+
+	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
+
+	// The network config contains an endpoint for ssh communication.
+	sshEndpoint, ok := endpoints[22]
+	c.Assert(ok, Equals, true)
+	c.Check(sshEndpoint.LocalPort, Equals, 22)
+	c.Check(sshEndpoint.Protocol, Equals, "TCP")
+
+	// There's also an endpoint for the state (mongodb) port.
+	// TODO: Ought to have this only for state servers.
+	stateEndpoint, ok := endpoints[env.Config().StatePort()]
+	c.Assert(ok, Equals, true)
+	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
+	c.Check(stateEndpoint.Protocol, Equals, "TCP")
+
+	// And one for the API port.
+	// TODO: Ought to have this only for API servers.
+	apiEndpoint, ok := endpoints[env.Config().APIPort()]
+	c.Assert(ok, Equals, true)
+	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())
+	c.Check(apiEndpoint.Protocol, Equals, "TCP")
 }
 
-func (EnvironSuite) TestNewDeployment(c *C) {
+func (*EnvironSuite) TestNewDeployment(c *C) {
 	env := makeEnviron(c)
+	deploymentName := "deployment-name"
 	deploymentLabel := "deployment-label"
 	virtualNetworkName := "virtual-network-name"
 	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole(vhd, "user-data")
+	role := env.newRole(vhd, "user-data", "hostname")
 
-	deployment := env.newDeployment(role, deploymentLabel, virtualNetworkName)
+	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
 
 	base64Label := base64.StdEncoding.EncodeToString([]byte(deploymentLabel))
 	c.Check(deployment.Label, Equals, base64Label)
+	c.Check(deployment.Name, Equals, deploymentName)
 	c.Check(deployment.RoleList, HasLen, 1)
+}
+
+func (*EnvironSuite) TestProviderReturnsAzureEnvironProvider(c *C) {
+	prov := makeEnviron(c).Provider()
+	c.Assert(prov, NotNil)
+	azprov, ok := prov.(azureEnvironProvider)
+	c.Assert(ok, Equals, true)
+	c.Check(azprov, NotNil)
 }

@@ -41,6 +41,7 @@ type serviceDoc struct {
 	RelationCount int
 	Exposed       bool
 	MinUnits      int
+	TxnRevno      int64 `bson:"txn-revno"`
 }
 
 func newService(st *State, doc *serviceDoc) *Service {
@@ -540,8 +541,9 @@ func (s *Service) newUnitName() (string, error) {
 // addUnitOps returns a unique name for a new unit, and a list of txn operations
 // necessary to create that unit. The principalName param must be non-empty if
 // and only if s is a subordinate service. Only one subordinate of a given
-// service will be assigned to a given principal.
-func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
+// service will be assigned to a given principal. The asserts param can be used
+// to include additional assertions for the service document.
+func (s *Service) addUnitOps(principalName string, asserts D) (string, []txn.Op, error) {
 	if s.doc.Subordinate && principalName == "" {
 		return "", nil, fmt.Errorf("service is a subordinate")
 	} else if !s.doc.Subordinate && principalName != "" {
@@ -573,7 +575,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 		{
 			C:      s.st.services.Name,
 			Id:     s.doc.Name,
-			Assert: isAliveDoc,
+			Assert: append(isAliveDoc, asserts...),
 			Update: D{{"$inc", D{{"unitcount", 1}}}},
 		}}
 	if s.doc.Subordinate {
@@ -603,7 +605,7 @@ func (s *Service) addUnitOps(principalName string) (string, []txn.Op, error) {
 // AddUnit adds a new principal unit to the service.
 func (s *Service) AddUnit() (unit *Unit, err error) {
 	defer utils.ErrorContextf(&err, "cannot add unit to service %q", s)
-	name, ops, err := s.addUnitOps("")
+	name, ops, err := s.addUnitOps("", nil)
 	if err != nil {
 		return nil, err
 	}

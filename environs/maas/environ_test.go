@@ -78,7 +78,7 @@ func (suite *EnvironSuite) setupFakeTools(c *C) {
 	envtesting.UploadFakeTools(c, storage)
 }
 
-func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
+func (*EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	// SetConfig() validates the config change and disallows, for example,
 	// changes in the environment name.
 	server := "http://maas.testing.invalid"
@@ -99,7 +99,7 @@ func (EnvironSuite) TestSetConfigValidatesFirst(c *C) {
 	c.Check(env.Name(), Equals, "old-name")
 }
 
-func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
+func (*EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas2.testing.invalid", "a:b:c", "secret")
 	env, err := NewEnviron(cfg)
@@ -119,7 +119,7 @@ func (EnvironSuite) TestSetConfigUpdatesConfig(c *C) {
 	c.Check(MAASServer, DeepEquals, maas)
 }
 
-func (EnvironSuite) TestNewEnvironSetsConfig(c *C) {
+func (*EnvironSuite) TestNewEnvironSetsConfig(c *C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas.testing.invalid", "a:b:c", "secret")
 
@@ -239,6 +239,16 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	c.Check(found, Equals, true)
 	c.Check(actions, DeepEquals, []string{"acquire", "start"})
 
+	// Test the instance id is correctly recorded for the bootstrap node.
+	// Check that the state holds the id of the bootstrap machine.
+	stateData, err := environs.LoadState(env.Storage())
+	c.Assert(err, IsNil)
+	c.Assert(stateData.StateInstances, HasLen, 1)
+	insts, err := env.AllInstances()
+	c.Assert(err, IsNil)
+	c.Assert(insts, HasLen, 1)
+	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
+
 	// Create node 1: it will be used as instance number 1.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node1", "hostname": "host1"}`)
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -267,7 +277,7 @@ func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *C) {
 	userData := nodeRequestValues[1].Get("user_data")
 	decodedUserData, err := decodeUserData(userData)
 	c.Assert(err, IsNil)
-	info := machineInfo{string(instance.Id()), "host1"}
+	info := machineInfo{"host1"}
 	cloudinitRunCmd, err := info.cloudinitRunCmd()
 	c.Assert(err, IsNil)
 	data, err := goyaml.Marshal(cloudinitRunCmd)

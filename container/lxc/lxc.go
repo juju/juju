@@ -28,8 +28,15 @@ var (
 	containerDir        = "/var/lib/juju/containers"
 	removedContainerDir = "/var/lib/juju/removed-containers"
 	lxcContainerDir     = "/var/lib/lxc"
+	lxcRestartDir       = "/etc/lxc/auto"
 	lxcObjectFactory    = golxc.Factory()
 )
+
+// ManagerConfig contains the initialization parameters for the ContainerManager.
+type ManagerConfig struct {
+	Name   string
+	LogDir string
+}
 
 // ContainerManager is responsible for starting containers, and stopping and
 // listing containers that it has started.  The name of the manager is used to
@@ -50,14 +57,19 @@ type ContainerManager interface {
 }
 
 type containerManager struct {
-	name string
+	name   string
+	logdir string
 }
 
 // NewContainerManager returns a manager object that can start and stop lxc
 // containers. The containers that are created are namespaced by the name
 // parameter.
-func NewContainerManager(name string) ContainerManager {
-	return &containerManager{name}
+func NewContainerManager(conf ManagerConfig) ContainerManager {
+	logdir := "/var/log/juju"
+	if conf.LogDir != "" {
+		logdir = conf.LogDir
+	}
+	return &containerManager{name: conf.Name, logdir: logdir}
 }
 
 func (manager *containerManager) StartContainer(
@@ -90,7 +102,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(directory)
+	configFile, err := writeLxcConfig(directory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, err
@@ -114,6 +126,12 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("lxc container created")
+	// Now symlink the config file into the restart directory.
+	containerConfigFile := filepath.Join(lxcContainerDir, name, "config")
+	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
+		return nil, err
+	}
+	logger.Tracef("auto-restart link created")
 
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
@@ -143,6 +161,12 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		logger.Errorf("failed to destroy lxc container: %v", err)
 		return err
 	}
+	// Remove the autostart symlink
+	if err := os.Remove(restartSymlink(name)); err != nil {
+		return err
+	}
+	logger.Tracef("auto-restart link removed")
+
 	// Move the directory.
 	logger.Tracef("create old container dir: %s", removedContainerDir)
 	if err := os.MkdirAll(removedContainerDir, 0755); err != nil {
@@ -195,18 +219,23 @@ func internalLogDir(containerName string) string {
 	return fmt.Sprintf(internalLogDirTemplate, lxcContainerDir, containerName)
 }
 
+func restartSymlink(name string) string {
+	return filepath.Join(lxcRestartDir, name+".conf")
+}
+
 const localConfig = `
 lxc.network.type = veth
 lxc.network.link = lxcbr0
 lxc.network.flags = up
 
-lxc.mount.entry=/var/log/juju var/log/juju none defaults,bind 0 0
+lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
 `
 
-func writeLxcConfig(directory string) (string, error) {
+func writeLxcConfig(directory, logdir string) (string, error) {
 	// TODO(thumper): support different network settings.
 	configFilename := filepath.Join(directory, "lxc.conf")
-	if err := ioutil.WriteFile(configFilename, []byte(localConfig), 0644); err != nil {
+	configContent := fmt.Sprintf(localConfig, logdir)
+	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
 		return "", err
 	}
 	return configFilename, nil

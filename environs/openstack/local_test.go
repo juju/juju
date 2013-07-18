@@ -26,20 +26,22 @@ import (
 	"strings"
 )
 
-type ProviderSuite struct{}
+type ProviderSuite struct {
+	restoreTimeouts func()
+}
 
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *C) {
-	openstack.ShortTimeouts(true)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
 }
 
 func (s *ProviderSuite) TearDownTest(c *C) {
-	openstack.ShortTimeouts(false)
+	s.restoreTimeouts()
 }
 
 func (s *ProviderSuite) TestMetadata(c *C) {
-	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	openstack.UseTestMetadata(openstack.MetadataTesting)
 	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
@@ -52,10 +54,6 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 	addr, err = p.PrivateAddress()
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "10.1.1.2")
-
-	id, err := p.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instance.Id("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
 }
 
 func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
@@ -78,18 +76,6 @@ func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
 	addr, err = p.PublicAddress()
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "10.1.1.2")
-}
-
-func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
-	openstack.UseTestMetadata(openstack.MetadataHP)
-	defer openstack.UseTestMetadata(nil)
-
-	p, err := environs.Provider("openstack")
-	c.Assert(err, IsNil)
-
-	id, err := p.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instance.Id("2748"))
 }
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -124,10 +110,11 @@ func registerLocalTests() {
 
 // localServer is used to spin up a local Openstack service double.
 type localServer struct {
-	Server     *httptest.Server
-	Mux        *http.ServeMux
-	oldHandler http.Handler
-	Service    *openstackservice.Openstack
+	Server          *httptest.Server
+	Mux             *http.ServeMux
+	oldHandler      http.Handler
+	Service         *openstackservice.Openstack
+	restoreTimeouts func()
 }
 
 func (s *localServer) start(c *C, cred *identity.Credentials) {
@@ -140,14 +127,14 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	c.Logf("Started service at: %v", s.Server.URL)
 	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
-	openstack.ShortTimeouts(true)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
 }
 
 func (s *localServer) stop() {
 	s.Mux = nil
 	s.Server.Config.Handler = s.oldHandler
 	s.Server.Close()
-	openstack.ShortTimeouts(false)
+	s.restoreTimeouts()
 }
 
 // localLiveSuite runs tests from LiveTests using an Openstack service double.
@@ -391,10 +378,12 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(stateData.StateInstances, HasLen, 1)
 
-	insts, err := s.env.Instances(stateData.StateInstances)
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=512M")
+	insts, err := s.env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
+	c.Check(expectedHardware, DeepEquals, stateData.Characteristics[0])
 
 	info, apiInfo, err := s.env.StateInfo()
 	c.Assert(err, IsNil)

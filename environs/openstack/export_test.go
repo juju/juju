@@ -15,11 +15,9 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/utils"
 	"net/http"
 	"strings"
 	"text/template"
-	"time"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
@@ -33,24 +31,18 @@ func init() {
 
 var origMetadataHost = metadataHost
 
-var metadataContent = `{"uuid": "d8e02d56-2648-49a3-bf97-6be8f1204f38",` +
-	`"availability_zone": "nova", "hostname": "test.novalocal", ` +
+var metadataContent = `"availability_zone": "nova", "hostname": "test.novalocal", ` +
 	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
 	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
 
 // A group of canned responses for the "metadata server". These match
 // reasonably well with the results of making those requests on a Folsom+
 // Openstack service
-var MetadataTestingBase = []jujutest.FileContent{
-	{"/latest/meta-data/instance-id", "i-000abc"},
+var MetadataTesting = []jujutest.FileContent{
 	{"/latest/meta-data/local-ipv4", "10.1.1.2"},
 	{"/latest/meta-data/public-ipv4", "203.1.1.2"},
 	{"/openstack/2012-08-10/meta_data.json", metadataContent},
 }
-
-// This is the same as MetadataTestingBase, but it doesn't have the openstack
-// 2012-08-08 API. This matches what is available in HP Cloud.
-var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 
 // Set Metadata requests to be served by the filecontent supplied.
 func UseTestMetadata(metadata []jujutest.FileContent) {
@@ -60,25 +52,6 @@ func UseTestMetadata(metadata []jujutest.FileContent) {
 	} else {
 		testRoundTripper.Sub = nil
 		metadataHost = origMetadataHost
-	}
-}
-
-var originalShortAttempt = shortAttempt
-var originalLongAttempt = environs.LongAttempt
-
-// ShortTimeouts sets the timeouts to a short period as we
-// know that the testing server doesn't get better with time,
-// and this reduces the test time from 30s to 3s.
-func ShortTimeouts(short bool) {
-	if short {
-		shortAttempt = utils.AttemptStrategy{
-			Total: 100 * time.Millisecond,
-			Delay: 10 * time.Millisecond,
-		}
-		environs.LongAttempt = shortAttempt
-	} else {
-		shortAttempt = originalShortAttempt
-		environs.LongAttempt = originalLongAttempt
 	}
 }
 
