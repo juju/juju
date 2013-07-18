@@ -137,7 +137,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	mcfg.StateServer = true
 
 	// Create an empty bootstrap state file so we can get it's URL.
-	// If will be updated with the instance id and hardware characteristics after the
+	// It will be updated with the instance id and hardware characteristics after the
 	// bootstrap instance is started.
 	reader := strings.NewReader("")
 	err := env.Storage().Put(environs.StateFile, reader, int64(0))
