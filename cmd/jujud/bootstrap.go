@@ -98,7 +98,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	stateInfoURL := strings.Split(string(data), "\n")[0]
 	bsState, err := environs.LoadStateFromURL(stateInfoURL)
 	if err != nil {
-		fmt.Errorf("cannot load state from URL %q: %v", stateInfoURL, err)
+		return fmt.Errorf("cannot load state from URL %q: %q, %v", stateInfoURL, providerStateURLFile, err)
 	}
 	instId := bsState.StateInstances[0]
 	var characteristics instance.HardwareCharacteristics
