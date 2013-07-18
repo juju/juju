@@ -256,11 +256,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 
-	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	mcfg.StateServer = true
+	machineConfig := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	machineConfig.StateServer = true
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.internalStartInstance(cons, possibleTools, mcfg)
+	inst, _, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -302,9 +302,9 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
 
-	return e.internalStartInstance(cons, possibleTools, mcfg)
+	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 const ebsStorage = "ebs"
@@ -312,7 +312,7 @@ const ebsStorage = "ebs"
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -338,18 +338,18 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	mcfg.Tools = tools[0]
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), cons); err != nil {
+	machineConfig.Tools = tools[0]
+	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
 		return nil, nil, err
 	}
 
-	userData, err := environs.ComposeUserData(mcfg)
+	userData, err := environs.ComposeUserData(machineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
 	config := e.Config()
-	groups, err := e.setUpGroups(mcfg.MachineId, config.StatePort(), config.APIPort())
+	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
