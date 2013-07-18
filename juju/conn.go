@@ -199,17 +199,17 @@ type DeployServiceParams struct {
 	ConfigSettings charm.Settings
 	Constraints    constraints.Value
 	NumUnits       int
-	// ForceMachineSpec is either:
+	// ToMachineSpec is either:
 	// - an existing machine/container id eg "1" or "1/lxc/2"
-	// - a new container on an existing machine eg "1/lxc"
+	// - a new container on an existing machine eg "lxc:1"
 	// Use string to avoid ambiguity around machine 0.
-	ForceMachineSpec string
+	ToMachineSpec string
 }
 
 // DeployService takes a charm and various parameters and deploys it.
 func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error) {
-	if args.NumUnits > 1 && args.ForceMachineSpec != "" {
-		return nil, stderrors.New("cannot use --num-units with --force-machine")
+	if args.NumUnits > 1 && args.ToMachineSpec != "" {
+		return nil, stderrors.New("cannot use --num-units with --to")
 	}
 	settings, err := args.Charm.Config().ValidateSettings(args.ConfigSettings)
 	if err != nil {
@@ -217,7 +217,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 	}
 	emptyCons := constraints.Value{}
 	if args.Charm.Meta().Subordinate {
-		if args.NumUnits != 0 || args.ForceMachineSpec != "" {
+		if args.NumUnits != 0 || args.ToMachineSpec != "" {
 			return nil, fmt.Errorf("subordinate service must be deployed without units")
 		}
 		if args.Constraints != emptyCons {
@@ -244,7 +244,7 @@ func (conn *Conn) DeployService(args DeployServiceParams) (*state.Service, error
 		}
 	}
 	if args.NumUnits > 0 {
-		if _, err := conn.AddUnits(service, args.NumUnits, args.ForceMachineSpec); err != nil {
+		if _, err := conn.AddUnits(service, args.NumUnits, args.ToMachineSpec); err != nil {
 			return nil, err
 		}
 	}

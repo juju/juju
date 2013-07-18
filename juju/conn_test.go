@@ -518,12 +518,12 @@ func (s *DeployLocalSuite) TestDeployWithForceMachineRejectsTooManyUnits(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(machine.Id(), Equals, "0")
 	_, err = s.Conn.DeployService(juju.DeployServiceParams{
-		ServiceName:      "bob",
-		Charm:            s.charm,
-		NumUnits:         2,
-		ForceMachineSpec: "0",
+		ServiceName:   "bob",
+		Charm:         s.charm,
+		NumUnits:      2,
+		ToMachineSpec: "0",
 	})
-	c.Assert(err, ErrorMatches, "cannot use --num-units with --force-machine")
+	c.Assert(err, ErrorMatches, "cannot use --num-units with --to")
 }
 
 func (s *DeployLocalSuite) TestDeployForceMachineId(c *C) {
@@ -534,11 +534,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineId(c *C) {
 	c.Assert(err, IsNil)
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	service, err := s.Conn.DeployService(juju.DeployServiceParams{
-		ServiceName:      "bob",
-		Charm:            s.charm,
-		Constraints:      serviceCons,
-		NumUnits:         1,
-		ForceMachineSpec: "0",
+		ServiceName:   "bob",
+		Charm:         s.charm,
+		Constraints:   serviceCons,
+		NumUnits:      1,
+		ToMachineSpec: "0",
 	})
 	c.Assert(err, IsNil)
 	s.assertConstraints(c, service, serviceCons)
@@ -554,11 +554,11 @@ func (s *DeployLocalSuite) TestDeployForceMachineIdWithContainer(c *C) {
 	c.Assert(err, IsNil)
 	serviceCons := constraints.MustParse("cpu-cores=2")
 	service, err := s.Conn.DeployService(juju.DeployServiceParams{
-		ServiceName:      "bob",
-		Charm:            s.charm,
-		Constraints:      serviceCons,
-		NumUnits:         1,
-		ForceMachineSpec: fmt.Sprintf("%s:0", instance.LXC),
+		ServiceName:   "bob",
+		Charm:         s.charm,
+		Constraints:   serviceCons,
+		NumUnits:      1,
+		ToMachineSpec: fmt.Sprintf("%s:0", instance.LXC),
 	})
 	c.Assert(err, IsNil)
 	s.assertConstraints(c, service, serviceCons)

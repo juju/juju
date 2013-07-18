@@ -82,7 +82,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	// user's environment credentials. However, given that this point
 	// is currently moot (see Upgrader in this package), the pseudo-
 	// local provider mode (in which everything is deployed with
-	// `--force-machine 0`) offers enough value to enough people that
+	// `--to 0`) offers enough value to enough people that
 	// JobHostUnits is currently always enabled. This will one day
 	// have to change, but it's strictly less important than fixing
 	// Upgrader, and it's a capability we'll always want to have
