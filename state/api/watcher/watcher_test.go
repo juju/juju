@@ -104,6 +104,24 @@ func (s *watcherSuite) TestWatchMachine(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
+	var results params.NotifyWatchResults
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	err := s.stateAPI.Call("Machiner", "", "Watch", args, &results)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+
+	// params.NotifyWatcher conforms to the state.NotifyWatcher interface
+	w := watcher.NewNotifyWatcher(s.stateAPI, result)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
+
+	// Now, without reading any changes try stopping the watcher.
+	statetesting.AssertStoppedWhenSending(c, w)
+	wc.AssertClosed()
+}
+
 func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// Create two services, relate them, and add one unit to each - a
 	// principal and a subordinate.
@@ -159,5 +177,34 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	wc.AssertOneChange("mysql/0")
 
 	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
+}
+
+func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
+	// Call the Deployer facade's WatchUnits for machine-0.
+	var results params.StringsWatchResults
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	err := s.stateAPI.Call("Deployer", "", "WatchUnits", args, &results)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	result := results.Results[0]
+	c.Assert(result.Error, gc.IsNil)
+
+	// Start a StringsWatcher and check the initial event.
+	w := watcher.NewStringsWatcher(s.stateAPI, result)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
+
+	// Create a service, deploy a unit of it on the machine.
+	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	c.Assert(err, gc.IsNil)
+	principal, err := mysql.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = principal.AssignToMachine(s.rawMachine)
+	c.Assert(err, gc.IsNil)
+
+	// Ensure the initial event is delivered. Then test the watcher
+	// can be stopped cleanly without reading the pending change.
+	s.BackingState.Sync()
+	statetesting.AssertStoppedWhenSending(c, w)
 	wc.AssertClosed()
 }
