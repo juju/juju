@@ -206,9 +206,13 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 	// The first watch call returns the initial result value which we
 	// try to send immediately.
 	out := w.out
+	// Use a local copy of the in chan to synchronize sending/receiving.
+	in := w.in
 	for {
 		select {
-		case data, ok := <-w.in:
+		case data, ok := <-in:
+			// Stop reading until we've sent what we just read.
+			in = nil
 			if !ok {
 				// The tomb is already killed with the correct error
 				// at this point, so just return.
@@ -220,6 +224,7 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 		case out <- changes:
 			// Wait until we have new changes to send.
 			out = nil
+			in = w.in
 		}
 	}
 	panic("unreachable")
