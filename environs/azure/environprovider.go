@@ -52,19 +52,12 @@ func (prov azureEnvironProvider) PublicAddress() (string, error) {
 
 // PrivateAddress is specified in the EnvironProvider interface.
 func (prov azureEnvironProvider) PrivateAddress() (string, error) {
-	// This returns the instance's *public* address for now.
-	// We need to figure out how to do instance-to-instance
-	// communication using the private IP before we can use the Azure
-	// private address.
-	return prov.PublicAddress()
-	/*
-		config, err := parseWALAConfig()
-		if err != nil {
-			logger.Errorf("error parsing Windows Azure Linux Agent config file (%q): %v", _WALAConfigPath, err)
-			return "", err
-		}
-		return config.getInternalIP(), nil
-	*/
+	config, err := parseWALAConfig()
+	if err != nil {
+		logger.Errorf("error parsing Windows Azure Linux Agent config file (%q): %v", _WALAConfigPath, err)
+		return "", err
+	}
+	return config.getInternalIP(), nil
 }
 
 // InstanceId is specified in the EnvironProvider interface.
