@@ -19,6 +19,30 @@ func AssertStop(c *C, stopper Stopper) {
 	c.Assert(stopper.Stop(), IsNil)
 }
 
+// AssertCanStopWhenSending ensures even when there are changes
+// pending to be delivered by the watcher it can still stop
+// cleanly. This is necessary to check for deadlocks in case the
+// watcher's inner loop is blocked trying to send and its tomb is
+// already dying.
+func AssertCanStopWhenSending(c *C, stopper Stopper) {
+	// Leave some time for the event to be delivered and the watcher
+	// to block on sending it.
+	<-time.After(testing.ShortWait)
+	stopped := make(chan bool)
+	// Stop() blocks, so we need to call it in a separate goroutine.
+	go func() {
+		c.Check(stopper.Stop(), IsNil)
+		stopped <- true
+	}()
+	select {
+	case <-time.After(testing.LongWait):
+		// NOTE: If this test fails here it means we have a deadlock
+		// in the client-side watcher implementation.
+		c.Fatalf("watcher did not stop as expected")
+	case <-stopped:
+	}
+}
+
 type NotifyWatcher interface {
 	Changes() <-chan struct{}
 }
@@ -132,7 +156,9 @@ func (c StringsWatcherC) AssertNoChange() {
 	}
 }
 
-func (c StringsWatcherC) AssertOneChange(expect ...string) {
+// AssertChange asserts the given list of changes was reported by
+// the watcher, but does not assume there are no following changes.
+func (c StringsWatcherC) AssertChange(expect ...string) {
 	if c.FullSync {
 		c.State.Sync()
 	} else {
@@ -151,7 +177,6 @@ func (c StringsWatcherC) AssertOneChange(expect ...string) {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
-	c.AssertNoChange()
 }
 
 func (c StringsWatcherC) AssertClosed() {
