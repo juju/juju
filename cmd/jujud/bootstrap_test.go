@@ -54,7 +54,7 @@ func (s *BootstrapSuite) SetUpSuite(c *C) {
 		{"/" + environs.StateFile, string(stateData)},
 	}, nil)
 	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
-	SetProviderStateURLFile(s.providerStateURLFile)
+	providerStateURLFile = s.providerStateURLFile
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *C) {

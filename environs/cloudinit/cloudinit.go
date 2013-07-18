@@ -22,6 +22,12 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// BootstrapStateURLFile is used to communicate to the first bootstrap node
+// the URL from which to obtain important state information (instance id and
+// hardware characteristics). It is a transient file, only used as the node
+// is bootstrapping.
+const BootstrapStateURLFile = "/tmp/provider-state-url"
+
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
 	// StateServer specifies whether the new machine will run the
@@ -184,7 +190,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 			return nil, err
 		}
 		addScripts(c,
-			fmt.Sprintf("echo %s > /tmp/provider-state-url", shquote(cfg.StateInfoURL)),
+			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+

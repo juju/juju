@@ -95,27 +95,15 @@ func BootstrapUsers(st *state.State, cfg *config.Config, passwordHash string) er
 // when bootstrapping are considered constraints for the entire environment.
 func ConfigureBootstrapMachine(
 	st *state.State,
-	cfg *config.Config,
 	cons constraints.Value,
 	datadir string,
 	jobs []state.MachineJob,
-	stateInfoURL string,
+	instId instance.Id,
+	characteristics instance.HardwareCharacteristics,
 ) error {
 	logger.Debugf("setting environment constraints")
 	if err := st.SetEnvironConstraints(cons); err != nil {
 		return err
-	}
-
-	logger.Debugf("configure bootstrap machine")
-	bsState, err := LoadStateFromURL(stateInfoURL)
-	if err != nil {
-		logger.Errorf("cannot load state from URL %q: %v", stateInfoURL, err)
-		return err
-	}
-	instId := bsState.StateInstances[0]
-	var characteristics instance.HardwareCharacteristics
-	if len(bsState.Characteristics) > 0 {
-		characteristics = bsState.Characteristics[0]
 	}
 
 	logger.Debugf("create bootstrap machine in state")

@@ -12,14 +12,16 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"strings"
 )
 
 // Cloud-init write the URL to be used to load the bootstrap state into this file.
 // A variable is used here to allow tests to override.
-var providerStateURLFile = "/tmp/provider-state-url"
+var providerStateURLFile = cloudinit.BootstrapStateURLFile
 
 type BootstrapCommand struct {
 	cmd.CommandBase
@@ -94,8 +96,17 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		return fmt.Errorf("cannot read provider-state-url file: %v", err)
 	}
 	stateInfoURL := strings.Split(string(data), "\n")[0]
+	bsState, err := environs.LoadStateFromURL(stateInfoURL)
+	if err != nil {
+		fmt.Errorf("cannot load state from URL %q: %v", stateInfoURL, err)
+	}
+	instId := bsState.StateInstances[0]
+	var characteristics instance.HardwareCharacteristics
+	if len(bsState.Characteristics) > 0 {
+		characteristics = bsState.Characteristics[0]
+	}
 
-	return environs.ConfigureBootstrapMachine(st, cfg, c.Constraints, c.Conf.DataDir, jobs, stateInfoURL)
+	return environs.ConfigureBootstrapMachine(st, c.Constraints, c.Conf.DataDir, jobs, instance.Id(instId), characteristics)
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

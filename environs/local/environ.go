@@ -555,7 +555,8 @@ func (env *localEnviron) initialStateConfiguration(addr string, cons constraints
 	}
 	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
 
-	if err := environs.ConfigureBootstrapMachine(st, cfg, cons, env.config.rootDir(), jobs, ""); err != nil {
+	if err := environs.ConfigureBootstrapMachine(
+		st, cons, env.config.rootDir(), jobs, instance.Id(boostrapInstanceId), instance.HardwareCharacteristics{}); err != nil {
 		st.Close()
 		return nil, err
 	}
