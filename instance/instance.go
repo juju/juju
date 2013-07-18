@@ -60,10 +60,10 @@ type Instance interface {
 // HardwareCharacteristics represents the characteristics of the instance (if known).
 // Attributes that are nil are unknown or not supported.
 type HardwareCharacteristics struct {
-	Arch     *string
-	Mem      *uint64
-	CpuCores *uint64
-	CpuPower *uint64
+	Arch     *string `yaml:"arch,omitempty"`
+	Mem      *uint64 `yaml:"mem,omitempty"`
+	CpuCores *uint64 `yaml:"cpucores,omitempty"`
+	CpuPower *uint64 `yaml:"cpupower,omitempty"`
 }
 
 func uintStr(i uint64) string {

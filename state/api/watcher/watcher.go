@@ -175,34 +175,30 @@ func (w *NotifyWatcher) Changes() <-chan struct{} {
 // The content of the changes is a list of strings.
 type StringsWatcher struct {
 	commonWatcher
-	caller    common.Caller
-	watchCall string
-	out       chan []string
+	caller           common.Caller
+	stringsWatcherId string
+	out              chan []string
 }
 
-func NewStringsWatcher(caller common.Caller, watchCall string) *StringsWatcher {
+func NewStringsWatcher(caller common.Caller, result params.StringsWatchResult) *StringsWatcher {
 	w := &StringsWatcher{
-		caller:    caller,
-		watchCall: watchCall,
-		out:       make(chan []string),
+		caller:           caller,
+		stringsWatcherId: result.StringsWatcherId,
+		out:              make(chan []string),
 	}
 	go func() {
 		defer w.tomb.Done()
 		defer close(w.out)
-		w.tomb.Kill(w.loop())
+		w.tomb.Kill(w.loop(result.Changes))
 	}()
 	return w
 }
 
-func (w *StringsWatcher) loop() error {
-	var result params.StringsWatchResult
-	if err := w.caller.Call("State", "", w.watchCall, nil, &result); err != nil {
-		return err
-	}
-	changes := result.Changes
+func (w *StringsWatcher) loop(initialChanges []string) error {
+	changes := initialChanges
 	w.newResult = func() interface{} { return new(params.StringsWatchResult) }
-	w.call = func(request string, newResult interface{}) error {
-		return w.caller.Call("StringsWatcher", result.StringsWatcherId, request, nil, newResult)
+	w.call = func(request string, result interface{}) error {
+		return w.caller.Call("StringsWatcher", w.stringsWatcherId, request, nil, &result)
 	}
 	w.commonWatcher.init()
 	go w.commonLoop()

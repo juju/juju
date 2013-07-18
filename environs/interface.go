@@ -45,9 +45,6 @@ type EnvironProvider interface {
 
 	// PrivateAddress returns this machine's private host name.
 	PrivateAddress() (string, error)
-
-	// InstanceId returns this machine's instance id.
-	InstanceId() (instance.Id, error)
 }
 
 var ErrNoInstances = errors.New("no instances found")
@@ -119,7 +116,7 @@ type Environ interface {
 
 	// Bootstrap initializes the state for the environment, possibly
 	// starting one or more instances.  If the configuration's
-	// AdminSecret is non-empty, the adminstrator password on the
+	// AdminSecret is non-empty, the administrator password on the
 	// newly bootstrapped state will be set to a hash of it (see
 	// utils.PasswordHash), When first connecting to the
 	// environment via the juju package, the password hash will be

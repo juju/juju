@@ -5,12 +5,17 @@ package main
 
 import (
 	"encoding/base64"
+	"io/ioutil"
+	"net/http"
+	"path/filepath"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -24,14 +29,32 @@ import (
 type BootstrapSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
-	dataDir string
+	dataDir              string
+	providerStateURLFile string
 }
 
 var _ = Suite(&BootstrapSuite{})
 
+var testRoundTripper = &jujutest.ProxyRoundTripper{}
+
+func init() {
+	// Prepare mock http transport for provider-state output in tests
+	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+}
+
 func (s *BootstrapSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
+	stateInfo := environs.BootstrapState{
+		StateInstances: []instance.Id{instance.Id("dummy.instance.id")},
+	}
+	stateData, err := goyaml.Marshal(stateInfo)
+	c.Assert(err, IsNil)
+	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper([]jujutest.FileContent{
+		{"/" + environs.StateFile, string(stateData)},
+	}, nil)
+	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
+	providerStateURLFile = s.providerStateURLFile
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *C) {
@@ -57,6 +80,7 @@ func testPasswordHash() string {
 }
 
 func (s *BootstrapSuite) initBootstrapCommand(c *C, args ...string) (machineConf *agent.Conf, cmd *BootstrapCommand, err error) {
+	ioutil.WriteFile(s.providerStateURLFile, []byte("test://localhost/provider-state\n"), 0600)
 	bootConf := &agent.Conf{
 		DataDir:     s.dataDir,
 		OldPassword: testPasswordHash(),

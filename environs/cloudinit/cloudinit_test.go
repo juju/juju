@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
-	cloudinit_core "launchpad.net/juju-core/cloudinit"
+	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -74,8 +74,9 @@ var cloudinitTests = []cloudinitTest{
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			Constraints: envConstraints,
-			DataDir:     environs.DataDir,
+			Constraints:  envConstraints,
+			DataDir:      environs.DataDir,
+			StateInfoURL: "some-url",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -102,6 +103,7 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'some-url' > /tmp/provider-state-url
 /var/lib/juju/tools/1\.2\.3-precise-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-precise-amd64 '/var/lib/juju/tools/machine-0'
@@ -130,8 +132,9 @@ start jujud-machine-0
 				Password: "bletch",
 				CACert:   []byte("CA CERT\n" + testing.CACert),
 			},
-			Constraints: envConstraints,
-			DataDir:     environs.DataDir,
+			Constraints:  envConstraints,
+			DataDir:      environs.DataDir,
+			StateInfoURL: "some-url",
 		},
 		setEnvConfig: true,
 		expectScripts: `
@@ -158,6 +161,7 @@ start juju-db
 mkdir -p '/var/lib/juju/agents/bootstrap'
 echo 'datadir: /var/lib/juju\\nstateservercert:\\n[^']+stateserverkey:\\n[^']+stateport: 37017\\napiport: 17070\\noldpassword: arble\\nmachinenonce: FAKE_NONCE\\nstateinfo:\\n  addrs:\\n  - localhost:37017\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\noldapipassword: ""\\napiinfo:\\n  addrs:\\n  - localhost:17070\\n  cacert:\\n[^']+  tag: bootstrap\\n  password: ""\\n' > '/var/lib/juju/agents/bootstrap/agent\.conf'
 chmod 600 '/var/lib/juju/agents/bootstrap/agent\.conf'
+echo 'some-url' > /tmp/provider-state-url
 /var/lib/juju/tools/1\.2\.3-raring-amd64/jujud bootstrap-state --data-dir '/var/lib/juju' --env-config '[^']*' --constraints 'mem=2048M' --debug
 rm -rf '/var/lib/juju/agents/bootstrap'
 ln -s 1\.2\.3-raring-amd64 '/var/lib/juju/tools/machine-0'
@@ -322,7 +326,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
-		cloudcfg := cloudinit_core.New()
+		cloudcfg := coreCloudinit.New()
 		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
 		c.Assert(err, IsNil)
 		c.Check(ci, NotNil)
@@ -331,7 +335,7 @@ func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
 
 func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
-	cloudcfg := cloudinit_core.New()
+	cloudcfg := coreCloudinit.New()
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
