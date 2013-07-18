@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"errors"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 
 	"launchpad.net/goyaml"
 
@@ -29,6 +31,11 @@ const StateFile = "provider-state"
 type BootstrapState struct {
 	// StateInstances are the state servers.
 	StateInstances []instance.Id `yaml:"state-instances"`
+	// Characteristics reflect the hardware each state server is running on.
+	// This is used at bootstrap time so the state server knows what hardware it has.
+	// The state *may* be updated later without this information, but by then it's
+	// served it's purpose.
+	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 
 // SaveState writes the given state to the given storage.
@@ -40,12 +47,25 @@ func SaveState(storage StorageWriter, state *BootstrapState) error {
 	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
+// LoadStateFromURL reads state from the given URL.
+func LoadStateFromURL(url string) (*BootstrapState, error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, err
+	}
+	return loadState(resp.Body)
+}
+
 // LoadState reads state from the given storage.
 func LoadState(storage StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(StateFile)
 	if err != nil {
 		return nil, err
 	}
+	return loadState(r)
+}
+
+func loadState(r io.ReadCloser) (*BootstrapState, error) {
 	defer r.Close()
 	data, err := ioutil.ReadAll(r)
 	if err != nil {

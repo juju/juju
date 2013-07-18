@@ -6,6 +6,7 @@ package azure
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -135,6 +136,19 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	mcfg.StateServer = true
 
+	// Create an empty bootstrap state file so we can get its URL.
+	// It will be updated with the instance id and hardware characteristics after the
+	// bootstrap instance is started.
+	err := env.Storage().Put(environs.StateFile, strings.NewReader(""), 0)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	stateFileURL, err := env.Storage().URL(environs.StateFile)
+	if err != nil {
+		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
+	}
+	mcfg.StateInfoURL = stateFileURL
+
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
@@ -158,6 +172,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	// TODO(wallyworld) - save hardware characteristics
 	err = environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
@@ -419,7 +434,7 @@ func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, 
 			Port:      config.APIPort(),
 			Protocol:  "TCP",
 		},
-	})
+	}, nil)
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(

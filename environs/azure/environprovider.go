@@ -9,7 +9,6 @@ import (
 	"io/ioutil"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/loggo"
 )
 
@@ -65,16 +64,6 @@ func (prov azureEnvironProvider) PrivateAddress() (string, error) {
 		}
 		return config.getInternalIP(), nil
 	*/
-}
-
-// InstanceId is specified in the EnvironProvider interface.
-func (prov azureEnvironProvider) InstanceId() (instance.Id, error) {
-	config, err := parseWALAConfig()
-	if err != nil {
-		logger.Errorf("error parsing WALA config file (%q): %v", _WALAConfigPath, err)
-		return instance.Id(""), err
-	}
-	return instance.Id(config.getDeploymentName()), nil
 }
 
 // The XML Windows Azure Linux Agent (WALA) is the agent which runs on all

@@ -773,6 +773,8 @@ func (s *assignCleanSuite) TestAssignUnitTwiceFails(c *C) {
 	c.Assert(m.Remove(), IsNil)
 }
 
+const eligibleMachinesInUse = "all eligible machines in use"
+
 func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 	// Try to assign a unit to a clean (maybe empty) machine and check that we can't.
 	unit, err := s.wordpress.AddUnit()
@@ -780,7 +782,7 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 
 	m, err := s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, "all eligible machines in use")
+	c.Assert(err, ErrorMatches, eligibleMachinesInUse)
 
 	// Add a dying machine and check that it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobHostUnits)
@@ -789,35 +791,143 @@ func (s *assignCleanSuite) TestAssignToMachineNoneAvailable(c *C) {
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, "all eligible machines in use")
+	c.Assert(err, ErrorMatches, eligibleMachinesInUse)
 
 	// Add a non-unit-hosting machine and check it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, "all eligible machines in use")
+	c.Assert(err, ErrorMatches, eligibleMachinesInUse)
 
 	// Add a state management machine which can host units and check it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobManageState, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, "all eligible machines in use")
+	c.Assert(err, ErrorMatches, eligibleMachinesInUse)
 
 	// Add a environ management machine which can host units and check it is not chosen.
 	m, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobHostUnits)
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, "all eligible machines in use")
+	c.Assert(err, ErrorMatches, eligibleMachinesInUse)
 
 	// Add a machine with the wrong series and check it is not chosen.
 	m, err = s.State.AddMachine("anotherseries", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	m, err = s.assignUnit(unit)
 	c.Assert(m, IsNil)
-	c.Assert(err, ErrorMatches, "all eligible machines in use")
+	c.Assert(err, ErrorMatches, eligibleMachinesInUse)
+}
+
+var assignUsingConstraintsTests = []struct {
+	unitConstraints         string
+	hardwareCharacteristics string
+	assignOk                bool
+}{
+	{
+		unitConstraints:         "",
+		hardwareCharacteristics: "",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "arch=amd64",
+		hardwareCharacteristics: "none",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "arch=amd64",
+		hardwareCharacteristics: "cpu-cores=1",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "arch=amd64",
+		hardwareCharacteristics: "arch=amd64",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "arch=amd64",
+		hardwareCharacteristics: "arch=i386",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "mem=4G",
+		hardwareCharacteristics: "none",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "mem=4G",
+		hardwareCharacteristics: "cpu-cores=1",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "mem=4G",
+		hardwareCharacteristics: "mem=4G",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "mem=4G",
+		hardwareCharacteristics: "mem=2G",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "cpu-cores=2",
+		hardwareCharacteristics: "cpu-cores=2",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "cpu-cores=2",
+		hardwareCharacteristics: "cpu-cores=1",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "cpu-cores=2",
+		hardwareCharacteristics: "mem=4G",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "cpu-power=50",
+		hardwareCharacteristics: "cpu-power=50",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "cpu-power=100",
+		hardwareCharacteristics: "cpu-power=50",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "cpu-power=50",
+		hardwareCharacteristics: "mem=4G",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2",
+		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=2 cpu-power=50",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2",
+		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=1 cpu-power=50",
+		assignOk:                false,
+	},
+}
+
+func (s *assignCleanSuite) TestAssignUsingConstraintsToMachine(c *C) {
+	for i, t := range assignUsingConstraintsTests {
+		c.Logf("test %d", i)
+		cons := constraints.MustParse(t.unitConstraints)
+		err := s.State.SetEnvironConstraints(cons)
+		c.Assert(err, IsNil)
+
+		unit, err := s.wordpress.AddUnit()
+		c.Assert(err, IsNil)
+
+		m, err := s.State.AddMachine("series", state.JobHostUnits)
+		c.Assert(err, IsNil)
+		if t.hardwareCharacteristics != "none" {
+			hc := instance.MustParseHardware(t.hardwareCharacteristics)
+			err = m.SetProvisioned("inst-id", "fake_nonce", &hc)
+			c.Assert(err, IsNil)
+		}
+
+		um, err := s.assignUnit(unit)
+		if t.assignOk {
+			c.Assert(err, IsNil)
+			c.Assert(um.Id(), Equals, m.Id())
+		} else {
+			c.Assert(um, IsNil)
+			c.Assert(err, ErrorMatches, eligibleMachinesInUse)
+			// Destroy the machine so it can't be used for the next test.
+			err = m.Destroy()
+			c.Assert(err, IsNil)
+		}
+	}
 }
 
 func (s *assignCleanSuite) TestAssignUnitWithRemovedService(c *C) {

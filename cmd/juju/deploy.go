@@ -17,14 +17,13 @@ import (
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName      string
-	ServiceName    string
-	Config         cmd.FileVar
-	Constraints    constraints.Value
-	NumUnits       int // defaults to 1
-	BumpRevision   bool
-	RepoPath       string // defaults to JUJU_REPOSITORY
-	ForceMachineId string
+	UnitCommandBase
+	CharmName    string
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	BumpRevision bool
+	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -59,9 +58,8 @@ func (c *DeployCommand) Info() *cmd.Info {
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
-	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineId, "force-machine", "", "Machine to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -88,18 +86,7 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-	if c.NumUnits < 1 {
-		return errors.New("--num-units must be a positive integer")
-	}
-	if c.ForceMachineId != "" {
-		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units with --force-machine")
-		}
-		if !state.IsMachineId(c.ForceMachineId) {
-			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
-		}
-	}
-	return nil
+	return c.UnitCommandBase.Init(args)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
@@ -135,7 +122,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if c.Constraints != empty {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if numUnits == 1 && c.ForceMachineId == "" {
+		if numUnits == 1 && c.ForceMachineSpec == "" {
 			numUnits = 0
 		} else {
 			return errors.New("cannot use --num-units or --force-machine with subordinate service")
@@ -157,12 +144,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:    serviceName,
-		Charm:          ch,
-		NumUnits:       numUnits,
-		ConfigSettings: settings,
-		Constraints:    c.Constraints,
-		ForceMachineId: c.ForceMachineId,
+		ServiceName:      serviceName,
+		Charm:            ch,
+		NumUnits:         numUnits,
+		ConfigSettings:   settings,
+		Constraints:      c.Constraints,
+		ForceMachineSpec: c.ForceMachineSpec,
 	})
 	return err
 }

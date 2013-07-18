@@ -8,11 +8,11 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
 )
 
 type CustomDataSuite struct{}
@@ -38,6 +38,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Addrs:  []string{"127.0.0.1:123"},
 			Tag:    state.MachineTag(machineID),
 		},
+		ProviderType: "azure",
 	}
 }
 
@@ -48,32 +49,10 @@ func makeBadMachineConfig() *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{}
 }
 
-func (*CustomDataSuite) TestUserDataFailsOnBadData(c *gc.C) {
-	_, err := userData(makeBadMachineConfig())
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "problem with cloudinit config: .*")
-}
-
-func (*CustomDataSuite) TestUserDataProducesZipFile(c *gc.C) {
-	marker := "recognizable_text"
-	cfg := makeMachineConfig(c)
-	cfg.MachineNonce = marker
-
-	data, err := userData(cfg)
-	c.Assert(err, gc.IsNil)
-
-	content, err := utils.Gunzip(data)
-	c.Assert(err, gc.IsNil)
-	// The regex syntax is weird here.  It's a trick to work around
-	// gocheck's matcher prefixing "^" to the regex and suffixing "$".
-	// With this trick, we can scan for a pattern in a multi-line input.
-	c.Check(string(content), gc.Matches, "(?s).*"+marker+".*")
-}
-
 func (*CustomDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
 	_, err := makeCustomData(makeBadMachineConfig())
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "failure while generating custom data: problem with cloudinit config: .*")
+	c.Check(err, gc.ErrorMatches, "failure while generating custom data: invalid machine configuration: invalid machine id")
 }
 
 func (*CustomDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
@@ -84,7 +63,7 @@ func (*CustomDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 
 	data, err := base64.StdEncoding.DecodeString(encodedData)
 	c.Assert(err, gc.IsNil)
-	reference, err := userData(cfg)
+	reference, err := environs.ComposeUserData(cfg)
 	c.Assert(err, gc.IsNil)
 	c.Check(data, gc.DeepEquals, reference)
 }
