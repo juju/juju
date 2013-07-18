@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	constants "launchpad.net/juju-core/environs/provider"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -98,6 +97,7 @@ func (environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/local/
 local:
   type: local
+  admin-secret: {{rand}}
   # Override the directory that is used for the storage files and database.
   # The default location is $JUJU_HOME/<ENV>.
   # $JUJU_HOME defaults to ~/.juju
@@ -132,15 +132,6 @@ func (environProvider) PublicAddress() (string, error) {
 func (environProvider) PrivateAddress() (string, error) {
 	// Get the IPv4 address from eth0
 	return getAddressForInterface("eth0")
-}
-
-// InstanceId implements environs.EnvironProvider.InstanceId.
-func (environProvider) InstanceId() (instance.Id, error) {
-	// This hack only works until we get containers started.
-	// Interestingly, this method is only ever called for the bootstrap machine.
-	// This method should not be attached to the EnvironProvider interface.
-	// TODO(thumper): refactor this method out of existance from the interface
-	return instance.Id("localhost"), nil
 }
 
 func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {

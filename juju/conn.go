@@ -333,7 +333,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 				firstPart := specParts[0]
 				var err error
 				if containerType, err = instance.ParseSupportedContainerType(firstPart); err == nil {
-					mid = strings.Join(specParts[1:len(specParts)], "/")
+					mid = strings.Join(specParts[1:], "/")
 				} else {
 					mid = machineIdSpec
 				}

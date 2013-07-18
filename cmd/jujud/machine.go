@@ -116,6 +116,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		// instances of the API server have been started, we
 		// should follow the normal course of things and ignore
 		// the fact that this was once the bootstrap machine.
+		log.Infof("Starting StateWorker for machine-0")
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
@@ -144,6 +145,17 @@ var stateJobs = map[params.MachineJob]bool{
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
+		// There was an error connecting to the API,
+		// https://launchpad.net/bugs/1199915 means that we may just
+		// not have an API password set. So force a state connection at
+		// this point.
+		// TODO(jam): Once we can reliably trust that we have API
+		//            passwords set, and we no longer need state
+		//            connections (and possibly agents will be blocked
+		//            from connecting directly to state) we can remove
+		//            this. Currently needed because 1.10 does not set
+		//            the API password and 1.11 requires it
+		ensureStateWorker()
 		return nil, err
 	}
 	m := entity.(*machineagent.Machine)
@@ -166,6 +178,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
+	}
+	// If this fails, other bits will fail, so we just log the error, and
+	// let the other failures actually restart runners
+	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
+		log.Warningf("failed to EnsureAPIInfo: %v", err)
 	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)

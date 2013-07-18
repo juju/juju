@@ -85,14 +85,9 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func (s *UnitSuite) TestRunStop(c *C) {
-	unit, _, _ := s.primeAgent(c)
-	a := s.newAgent(c, unit)
-	go func() { c.Check(a.Run(nil), IsNil) }()
-	defer func() { c.Check(a.Stop(), IsNil) }()
+func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *C) {
 	timeout := time.After(5 * time.Second)
 
-waitStarted:
 	for {
 		select {
 		case <-timeout:
@@ -108,15 +103,23 @@ waitStarted:
 				continue
 			case params.StatusStarted:
 				c.Logf("started!")
-				break waitStarted
+				return
 			case params.StatusDown:
-				s.State.StartSync()
+				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
 				c.Fatalf("unexpected status %s %s", st, info)
 			}
 		}
 	}
+}
+
+func (s *UnitSuite) TestRunStop(c *C) {
+	unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), IsNil) }()
+	defer func() { c.Check(a.Stop(), IsNil) }()
+	waitForUnitStarted(s.State, unit, c)
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {

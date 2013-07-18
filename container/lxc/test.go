@@ -8,8 +8,9 @@
 package lxc
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/golxc"
+
 	"launchpad.net/juju-core/container/lxc/mock"
 )
 
@@ -24,6 +25,14 @@ func SetContainerDir(dir string) (old string) {
 // lxcContainerDir.
 func SetLxcContainerDir(dir string) (old string) {
 	old, lxcContainerDir = lxcContainerDir, dir
+	return
+}
+
+// SetLxcRestartDir allows tests in other packages to override the
+// lxcRestartDir, which contains the symlinks to the config files so
+// containers can be auto-restarted on reboot.
+func SetLxcRestartDir(dir string) (old string) {
+	old, lxcRestartDir = lxcRestartDir, dir
 	return
 }
 
@@ -49,27 +58,31 @@ type TestSuite struct {
 	ContainerDir       string
 	RemovedDir         string
 	LxcDir             string
+	RestartDir         string
 	oldContainerDir    string
 	oldRemovedDir      string
 	oldLxcContainerDir string
+	oldRestartDir      string
 }
 
-func (s *TestSuite) SetUpSuite(c *C) {}
+func (s *TestSuite) SetUpSuite(c *gc.C) {}
 
-func (s *TestSuite) TearDownSuite(c *C) {}
+func (s *TestSuite) TearDownSuite(c *gc.C) {}
 
-func (s *TestSuite) SetUpTest(c *C) {
+func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.ContainerDir = c.MkDir()
 	s.oldContainerDir = SetContainerDir(s.ContainerDir)
 	s.RemovedDir = c.MkDir()
 	s.oldRemovedDir = SetRemovedContainerDir(s.RemovedDir)
 	s.LxcDir = c.MkDir()
 	s.oldLxcContainerDir = SetLxcContainerDir(s.LxcDir)
+	s.RestartDir = c.MkDir()
+	s.oldRestartDir = SetLxcRestartDir(s.RestartDir)
 	s.Factory = mock.MockFactory()
 	s.oldFactory = SetLxcFactory(s.Factory)
 }
 
-func (s *TestSuite) TearDownTest(c *C) {
+func (s *TestSuite) TearDownTest(c *gc.C) {
 	SetContainerDir(s.oldContainerDir)
 	SetLxcContainerDir(s.oldLxcContainerDir)
 	SetRemovedContainerDir(s.oldRemovedDir)
