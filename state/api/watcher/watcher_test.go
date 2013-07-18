@@ -159,9 +159,8 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	wc.AssertOneChange("mysql/0", "logging/0")
 
 	// Now, without reading any changes advance the lifecycle of both
-	// units, inducing an update server-side in between the two
-	// changes to ensure they're reported as separate events over the
-	// API.
+	// units, inducing an update server-side after each two changes to
+	// ensure they're reported as separate events over the API.
 	err = subordinate.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	s.BackingState.Sync()
