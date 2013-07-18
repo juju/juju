@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -94,28 +95,19 @@ func BootstrapUsers(st *state.State, cfg *config.Config, passwordHash string) er
 // when bootstrapping are considered constraints for the entire environment.
 func ConfigureBootstrapMachine(
 	st *state.State,
-	cfg *config.Config,
 	cons constraints.Value,
 	datadir string,
 	jobs []state.MachineJob,
+	instId instance.Id,
+	characteristics instance.HardwareCharacteristics,
 ) error {
 	logger.Debugf("setting environment constraints")
 	if err := st.SetEnvironConstraints(cons); err != nil {
 		return err
 	}
 
-	logger.Debugf("configure bootstrap machine")
-	provider, err := Provider(cfg.Type())
-	if err != nil {
-		return err
-	}
-	instanceId, err := provider.InstanceId()
-	if err != nil {
-		return err
-	}
-
 	logger.Debugf("create bootstrap machine in state")
-	m, err := st.InjectMachine(version.Current.Series, cons, instanceId, jobs...)
+	m, err := st.InjectMachine(version.Current.Series, cons, instId, characteristics, jobs...)
 	if err != nil {
 		return err
 	}

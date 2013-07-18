@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 )
 
 // Logger for the MAAS provider.
@@ -79,14 +78,4 @@ func (prov maasEnvironProvider) PublicAddress() (string, error) {
 // PrivateAddress is specified in the EnvironProvider interface.
 func (prov maasEnvironProvider) PrivateAddress() (string, error) {
 	return prov.hostname()
-}
-
-// InstanceId is specified in the EnvironProvider interface.
-func (maasEnvironProvider) InstanceId() (instance.Id, error) {
-	info := machineInfo{}
-	err := info.load()
-	if err != nil {
-		return "", err
-	}
-	return instance.Id(info.InstanceId), nil
 }
