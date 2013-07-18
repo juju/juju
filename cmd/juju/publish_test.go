@@ -53,8 +53,7 @@ func (s *PublishSuite) runPublish(c *C, args ...string) (*cmd.Context, error) {
 	return testing.RunCommandInDir(c, &PublishCommand{}, args, s.dir)
 }
 
-// TODO(jam): Could this be changed to coretesting.ShortWait
-const pollDelay = 100 * time.Millisecond
+const pollDelay = testing.ShortWait
 
 func (s *PublishSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
@@ -245,7 +244,7 @@ func (s *PublishSuite) TestFullPublish(c *C) {
 		c.Assert(location, Equals, "lp:~user/charms/precise/wordpress/trunk")
 		return pushBranch.Location()
 	})
-	cmd.SetPollDelay(pollDelay)
+	cmd.SetPollDelay(testing.ShortWait)
 
 	var body string
 

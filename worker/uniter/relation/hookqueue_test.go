@@ -283,7 +283,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Inf
 		select {
 		case unexpected := <-out:
 			c.Fatalf("got %#v", unexpected)
-		case <-time.After(coretesting.LongWait):
+		case <-time.After(coretesting.ShortWait):
 		}
 		return
 	}

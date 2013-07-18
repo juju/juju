@@ -20,8 +20,7 @@ const (
 	// will fail the test. Raising this value should
 	// not affect the overall running time of the tests
 	// unless they fail.
-	// TODO(jam): Unify this with coretesting.LongWait
-	worstCase = 10 * time.Second
+	worstCase = testing.LongWait
 
 	// justLongEnough is used for timeouts that
 	// are expected to happen for a test to complete

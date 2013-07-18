@@ -339,7 +339,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 		}
 	}()
 	// TODO(jam): This forceful delay of 500ms sounds like a bad test,
-	//            since we always sleep for the full timeout
+	//  since we always sleep for the full timeout
 	time.Sleep(500 * time.Millisecond)
 	done <- true
 	done <- true
@@ -438,9 +438,9 @@ func (s *PresenceSuite) TestSync(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("Sync returned too early")
-		// Note(jam): This used to wait 200ms to ensure that Sync was actually
-		//            blocked waiting for a presence change. Is ShortWait long
-		//            enough for this assurance?
+		// Note(jam): This used to wait 200ms to ensure that
+		// Sync was actually blocked waiting for a presence
+		// change. Is ShortWait long enough for this assurance?
 	case <-time.After(testing.ShortWait):
 	}
 

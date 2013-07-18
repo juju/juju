@@ -41,9 +41,7 @@ import (
 // will fail the test. Raising this value should
 // not affect the overall running time of the tests
 // unless they fail.
-// TODO(jam): coretesting.LongWait is only a second, why is this one 10? Are
-//            these tests slower? 
-const worstCase = 10 * time.Second
+const worstCase = coretesting.LongWait
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)

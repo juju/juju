@@ -176,7 +176,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *C) {
 	select {
 	case o := <-s.op:
 		c.Fatalf("unexpected operation %#v", o)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(coretesting.ShortWait):
 		return
 	}
 }
@@ -210,9 +210,10 @@ func (s *CommonProvisionerSuite) checkStopInstances(c *C, instances ...instance.
 }
 
 func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool) {
-	// TODO(jam): We need to grow a new method on NotifyWatcherC that calls
-	//            StartSync while waiting for changes, then waitMachine and
-	//            waitHardwareCharacteristics can use that instead
+	// TODO(jam): We need to grow a new method on NotifyWatcherC
+	// that calls StartSync while waiting for changes, then
+	// waitMachine and waitHardwareCharacteristics can use that
+	// instead
 	w := m.Watch()
 	defer stop(c, w)
 	timeout := time.After(coretesting.LongWait)
