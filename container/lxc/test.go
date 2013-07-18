@@ -28,6 +28,14 @@ func SetLxcContainerDir(dir string) (old string) {
 	return
 }
 
+// SetLxcRestartDir allows tests in other packages to override the
+// lxcRestartDir, which contains the symlinks to the config files so
+// containers can be auto-restarted on reboot.
+func SetLxcRestartDir(dir string) (old string) {
+	old, lxcRestartDir = lxcRestartDir, dir
+	return
+}
+
 // SetRemovedContainerDir allows tests in other packages to override the
 // removedContainerDir.
 func SetRemovedContainerDir(dir string) (old string) {
@@ -50,9 +58,11 @@ type TestSuite struct {
 	ContainerDir       string
 	RemovedDir         string
 	LxcDir             string
+	RestartDir         string
 	oldContainerDir    string
 	oldRemovedDir      string
 	oldLxcContainerDir string
+	oldRestartDir      string
 }
 
 func (s *TestSuite) SetUpSuite(c *gc.C) {}
@@ -66,6 +76,8 @@ func (s *TestSuite) SetUpTest(c *gc.C) {
 	s.oldRemovedDir = SetRemovedContainerDir(s.RemovedDir)
 	s.LxcDir = c.MkDir()
 	s.oldLxcContainerDir = SetLxcContainerDir(s.LxcDir)
+	s.RestartDir = c.MkDir()
+	s.oldRestartDir = SetLxcRestartDir(s.RestartDir)
 	s.Factory = mock.MockFactory()
 	s.oldFactory = SetLxcFactory(s.Factory)
 }
