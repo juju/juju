@@ -118,7 +118,7 @@ func (s *watcherSuite) TestNotifyWatcherStopsWithPendingSend(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 
 	// Now, without reading any changes try stopping the watcher.
-	statetesting.AssertStoppedWhenSending(c, w)
+	statetesting.AssertCanStopWhenSending(c, w)
 	wc.AssertClosed()
 }
 
@@ -156,7 +156,8 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// Start a StringsWatcher and check the initial event.
 	w := watcher.NewStringsWatcher(s.stateAPI, result)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange("mysql/0", "logging/0")
+	wc.AssertChange("mysql/0", "logging/0")
+	wc.AssertNoChange()
 
 	// Now, without reading any changes advance the lifecycle of both
 	// units, inducing an update server-side after each two changes to
@@ -173,7 +174,8 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// Expect these changes as 2 separate events, so that
 	// nothing gets lost.
 	wc.AssertChange("logging/0")
-	wc.AssertOneChange("mysql/0")
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
@@ -204,6 +206,6 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 	// Ensure the initial event is delivered. Then test the watcher
 	// can be stopped cleanly without reading the pending change.
 	s.BackingState.Sync()
-	statetesting.AssertStoppedWhenSending(c, w)
+	statetesting.AssertCanStopWhenSending(c, w)
 	wc.AssertClosed()
 }

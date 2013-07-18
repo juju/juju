@@ -153,8 +153,8 @@ func (w *NotifyWatcher) loop() error {
 		}
 		if _, ok := <-w.in; !ok {
 			// The tomb is already killed with the correct
-			// error at this point, so just stop.
-			break
+			// error at this point, so just return.
+			return nil
 		}
 	}
 	return nil
@@ -200,17 +200,17 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 
 	for {
 		select {
-		// Send changes when we have them.
+		// Send the initial event or subsequent change.
 		case w.out <- changes:
 		case <-w.tomb.Dying():
 			return nil
 		}
-		// Then read the next event, so we ensure the order of delivery.
+		// Read the next change.
 		data, ok := <-w.in
 		if !ok {
 			// The tomb is already killed with the correct error
-			// at this point, so just stop.
-			break
+			// at this point, so just return.
+			return nil
 		}
 		changes = data.(*params.StringsWatchResult).Changes
 	}
