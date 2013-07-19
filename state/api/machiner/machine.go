@@ -14,7 +14,7 @@ import (
 type Machine struct {
 	tag    string
 	life   params.Life
-	mstate *Machiner
+	mstate *State
 }
 
 // Tag returns the machine's tag.

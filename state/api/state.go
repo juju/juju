@@ -31,8 +31,8 @@ func (st *State) Client() *Client {
 
 // Machiner returns a version of the state that provides functionality
 // required by the machiner worker.
-func (st *State) Machiner() *machiner.Machiner {
-	return machiner.New(st)
+func (st *State) Machiner() *machiner.State {
+	return machiner.NewState(st)
 }
 
 // MachineAgent returns a version of the state that provides
