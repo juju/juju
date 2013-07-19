@@ -305,17 +305,24 @@ func (s *StateSuite) TestAddContainerErrors(c *C) {
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *C) {
-	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), state.JobHostUnits)
+	hc := instance.HardwareCharacteristics{}
+	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), hc, state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), hc, state.JobHostUnits)
 	c.Assert(err, ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"))
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"), hc)
 	c.Assert(err, ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
 func (s *StateSuite) TestInjectMachine(c *C) {
 	cons := constraints.MustParse("mem=4G")
-	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	arch := "amd64"
+	mem := uint64(1024)
+	hc := instance.HardwareCharacteristics{
+		Arch: &arch,
+		Mem:  &mem,
+	}
+	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 	c.Assert(m.Jobs(), DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, err := m.InstanceId()
@@ -324,6 +331,9 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 	mcons, err := m.Constraints()
 	c.Assert(err, IsNil)
 	c.Assert(cons, DeepEquals, mcons)
+	characteristics, err := m.HardwareCharacteristics()
+	c.Assert(err, IsNil)
+	c.Assert(*characteristics, DeepEquals, hc)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), Equals, true)
@@ -331,7 +341,8 @@ func (s *StateSuite) TestInjectMachine(c *C) {
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), state.JobHostUnits, state.JobManageEnviron)
+	hc := instance.HardwareCharacteristics{}
+	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, IsNil)
 
 	// Add first container.
@@ -726,14 +737,16 @@ func (s *StateSuite) TestWatchServicesBulkEvents(c *C) {
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange(alive.Name(), dying.Name())
+	wc.AssertChange(alive.Name(), dying.Name())
+	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported.
 	err = alive.Destroy()
 	c.Assert(err, IsNil)
 	err = keepDying.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(alive.Name(), dying.Name())
+	wc.AssertChange(alive.Name(), dying.Name())
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
@@ -741,12 +754,14 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
 	w := s.State.WatchServices()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a service: reported.
 	service, err := s.State.AddService("service", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("service")
+	wc.AssertChange("service")
+	wc.AssertNoChange()
 
 	// Change the service: not reported.
 	keepDying, err := service.AddUnit()
@@ -756,12 +771,14 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *C) {
 	// Make it Dying: reported.
 	err = service.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("service")
+	wc.AssertChange("service")
+	wc.AssertNoChange()
 
 	// Make it Dead(/removed): reported.
 	err = keepDying.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("service")
+	wc.AssertChange("service")
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
@@ -795,7 +812,8 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange(alive.Id(), dying.Id(), dead.Id())
+	wc.AssertChange(alive.Id(), dying.Id(), dead.Id())
+	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
 	err = alive.Destroy()
@@ -806,7 +824,8 @@ func (s *StateSuite) TestWatchMachinesBulkEvents(c *C) {
 	c.Assert(err, IsNil)
 	err = dead.Remove()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(alive.Id(), dying.Id())
+	wc.AssertChange(alive.Id(), dying.Id())
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
@@ -814,12 +833,14 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a machine: reported.
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0")
+	wc.AssertChange("0")
+	wc.AssertNoChange()
 
 	// Change the machine: not reported.
 	err = machine.SetProvisioned(instance.Id("i-blah"), "fake-nonce", nil)
@@ -829,12 +850,14 @@ func (s *StateSuite) TestWatchMachinesLifecycle(c *C) {
 	// Make it Dying: reported.
 	err = machine.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0")
+	wc.AssertChange("0")
+	wc.AssertNoChange()
 
 	// Make it Dead: reported.
 	err = machine.EnsureDead()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0")
+	wc.AssertChange("0")
+	wc.AssertNoChange()
 
 	// Remove it: not reported.
 	err = machine.Remove()
@@ -856,7 +879,8 @@ func (s *StateSuite) TestWatchMachinesIncludesOldMachines(c *C) {
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange(machine.Id())
+	wc.AssertChange(machine.Id())
+	wc.AssertNoChange()
 }
 
 func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *C) {
@@ -864,7 +888,8 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *C) {
 	w := s.State.WatchEnvironMachines()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a machine: reported.
 	params := state.AddMachineParams{
@@ -873,7 +898,8 @@ func (s *StateSuite) TestWatchMachinesIgnoresContainers(c *C) {
 	}
 	machine, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0")
+	wc.AssertChange("0")
+	wc.AssertNoChange()
 
 	// Add a container: not reported.
 	params.ParentId = machine.Id()
@@ -914,14 +940,16 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	w := machine.WatchContainers(instance.LXC)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a container of the required type: reported.
 	params.ParentId = machine.Id()
 	params.ContainerType = instance.LXC
 	m, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0/lxc/0")
+	wc.AssertChange("0/lxc/0")
+	wc.AssertNoChange()
 
 	// Add a container of a different type: not reported.
 	params.ContainerType = instance.KVM
@@ -939,7 +967,8 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	// Make the container Dying: reported.
 	err = m.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0/lxc/0")
+	wc.AssertChange("0/lxc/0")
+	wc.AssertNoChange()
 
 	// Make the other containers Dying: not reported.
 	err = m1.Destroy()
@@ -951,7 +980,8 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *C) {
 	// Make the container Dead: reported.
 	err = m.EnsureDead()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("0/lxc/0")
+	wc.AssertChange("0/lxc/0")
+	wc.AssertNoChange()
 
 	// Make the other containers Dead: not reported.
 	err = m1.EnsureDead()
@@ -1107,7 +1137,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		select {
 		case got := <-w.Changes():
 			c.Fatalf("got unexpected change: %#v", got)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(testing.ShortWait):
 		}
 	}
 	assertChange := func(change attrs) {
@@ -1124,7 +1154,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(testing.LongWait):
 			c.Fatalf("did not get change: %#v", change)
 		}
 		assertNoChange()
@@ -1197,7 +1227,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("configuration returned too soon")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testing.ShortWait):
 	}
 
 	// Fix the configuration.
@@ -1749,7 +1779,8 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	w := s.State.WatchMinUnits()
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Set up services for later use.
 	wordpress, err := s.State.AddService(
@@ -1772,7 +1803,8 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	// Add minimum units to a service; a single change should occur.
 	err = wordpress.SetMinUnits(2)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(wordpressName)
+	wc.AssertChange(wordpressName)
+	wc.AssertNoChange()
 
 	// Decrease minimum units for a service; expect no changes.
 	err = wordpress.SetMinUnits(1)
@@ -1784,7 +1816,8 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = wordpress.SetMinUnits(3)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(mysql.Name(), wordpressName)
+	wc.AssertChange(mysql.Name(), wordpressName)
+	wc.AssertNoChange()
 
 	// Remove minimum units for a service; expect no changes.
 	err = mysql.SetMinUnits(0)
@@ -1796,7 +1829,8 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	preventUnitDestroyRemove(c, wordpress0)
 	err = wordpress0.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(wordpressName)
+	wc.AssertChange(wordpressName)
+	wc.AssertNoChange()
 
 	// Two actions: destroy a unit and increase minimum units for a service.
 	// A single change should occur, and the service name should appear only
@@ -1805,7 +1839,8 @@ func (s *StateSuite) TestWatchMinUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = wordpress1.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(wordpressName)
+	wc.AssertChange(wordpressName)
+	wc.AssertNoChange()
 
 	// Destroy a unit of a service not requiring minimum units; expect no changes.
 	err = mysql0.Destroy()

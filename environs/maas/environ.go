@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
+	"strings"
 	"sync"
 	"time"
 
@@ -71,7 +72,19 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := environs.NewBootstrapMachineConfig(machineID, state.BootstrapNonce)
+
+	// Create an empty bootstrap state file so we can get its URL.
+	// If will be updated with the instance id and hardware characteristics
+	// after the bootstrap instance is started.
+	reader := strings.NewReader("")
+	err := env.Storage().Put(environs.StateFile, reader, int64(0))
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
+	stateFileURL, err := env.Storage().URL(environs.StateFile)
+	if err != nil {
+		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
@@ -82,7 +95,12 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
+
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, state.BootstrapNonce)
+	machineConfig.StateServer = true
+	machineConfig.StateInfoURL = stateFileURL
+
+	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -101,6 +119,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	// TODO(wallyworld) add hardware characteristics to BootstrapState
 	err = environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
@@ -246,8 +265,10 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // node.
 // The instance will be set up for the same series for which you pass tools.
 // All tools in possibleTools must be for the same series.
+// machineConfig will be filled out with further details, but should contain
+// MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -257,7 +278,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 		return nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		instance = &maasInstance{&node, environ}
-		mcfg.Tools = tools
+		machineConfig.Tools = tools
 	}
 	defer func() {
 		if err != nil {
@@ -271,15 +292,15 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err != nil {
 		return nil, err
 	}
-	info := machineInfo{string(instance.Id()), hostname}
+	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(mcfg, environ.Config(), cons); err != nil {
+	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(mcfg, runCmd)
+	userdata, err := environs.ComposeUserData(machineConfig, runCmd)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
@@ -305,9 +326,9 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.internalStartInstance(cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(cons, possibleTools, machineConfig)
 	return inst, nil, err
 }
 

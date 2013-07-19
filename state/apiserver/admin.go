@@ -77,12 +77,21 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return common.ErrBadCreds
 	}
-	// We have authenticated the user; now choose an appropriate
-	// API to serve to them.
+	// We have authenticated the user; now choose an appropriate API
+	// to serve to them.
 	newRoot, err := a.apiRootForEntity(entity)
 	if err != nil {
 		return err
 	}
+
+	// Finally, if this is a machine agent connecting, we need to
+	// check the nonce matches, otherwise the wrong agent might be
+	// trying to connect.
+	if m, ok := entity.(*state.Machine); ok && !m.CheckProvisioned(c.Nonce) {
+		return common.ErrNotProvisioned
+	}
+
+	// All good, start serving the new root.
 	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
 		return err
 	}

@@ -8,7 +8,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
 )
 
 type EnvironProviderSuite struct {
@@ -49,33 +48,11 @@ func createTempFile(c *C, content []byte) string {
 	return filename
 }
 
-// InstanceId returns the instanceId of the machine read from the file
-// _MAASInstanceFilename.
-func (suite *EnvironProviderSuite) TestInstanceIdReadsInstanceIdFromMachineFile(c *C) {
-	instanceId := "instance-id"
-	info := machineInfo{instanceId, "hostname"}
-	yaml, err := goyaml.Marshal(info)
-	c.Assert(err, IsNil)
-	// Create a temporary file to act as the file where the instanceID
-	// is stored.
-	filename := createTempFile(c, yaml)
-	// "Monkey patch" the value of _MAASInstanceFilename with the path
-	// to the temporary file.
-	old_MAASInstanceFilename := _MAASInstanceFilename
-	_MAASInstanceFilename = filename
-	defer func() { _MAASInstanceFilename = old_MAASInstanceFilename }()
-
-	provider := suite.environ.Provider()
-	returnedInstanceId, err := provider.InstanceId()
-	c.Assert(err, IsNil)
-	c.Check(returnedInstanceId, Equals, instance.Id(instanceId))
-}
-
 // PublicAddress and PrivateAddress return the hostname of the machine read
 // from the file _MAASInstanceFilename.
 func (suite *EnvironProviderSuite) TestPrivatePublicAddressReadsHostnameFromMachineFile(c *C) {
 	hostname := "myhostname"
-	info := machineInfo{"instance-id", hostname}
+	info := machineInfo{hostname}
 	yaml, err := goyaml.Marshal(info)
 	c.Assert(err, IsNil)
 	// Create a temporary file to act as the file where the instanceID
