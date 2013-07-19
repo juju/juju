@@ -53,7 +53,7 @@ func (st *State) Unit(tag string) (*Unit, error) {
 	}, nil
 }
 
-// Machine provides access to methods of a state.Machine through the facade.
+// Machine returns the machine with the given tag.	
 func (st *State) Machine(tag string) (*Machine, error) {
 	return &Machine{
 		tag: tag,

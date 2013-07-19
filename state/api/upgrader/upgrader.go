@@ -18,7 +18,7 @@ type State struct {
 
 // NewState returns a version of the state that provides functionality
 // required by the upgrader worker.
-func New(caller common.Caller) *State {
+func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 

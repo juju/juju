@@ -41,7 +41,7 @@ func (st *State) MachineAgent() *machineagent.State {
 
 // Upgrader returns access to the Upgrader API
 func (st *State) Upgrader() (*upgrader.State, error) {
-	return upgrader.New(st), nil
+	return upgrader.NewState(st), nil
 }
 
 // Deployer returns access to the Deployer API
