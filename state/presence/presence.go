@@ -613,18 +613,62 @@ func clockDelta(c *mgo.Collection) (time.Duration, error) {
 	var server struct {
 		time.Time "retval"
 	}
+	var isMaster struct {
+		LocalTime time.Time "localTime"
+	}
+	var after time.Time
+	var before time.Time
+	var serverDelay time.Duration
+	supportsMasterLocalTime := true
 	for i := 0; i < 10; i++ {
-		before := time.Now()
-		err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
-		after := time.Now()
-		if err != nil {
-			return 0, err
+		if supportsMasterLocalTime {
+			// Try isMaster.localTime, which is present since MongoDB 2.2
+			// and does not require admin privileges.
+			before = time.Now()
+			err := c.Database.Run("isMaster", &isMaster)
+			after = time.Now()
+			if err != nil {
+				return 0, err
+			}
+			if isMaster.LocalTime.IsZero() {
+				supportsMasterLocalTime = false
+				continue
+			} else {
+				serverDelay = isMaster.LocalTime.Sub(before)
+			}
+		} else {
+			// If MongoDB doesn't have localTime as part of
+			// isMaster result, it means that the server is likely
+			// a MongoDB older than 2.2.
+			//
+			// Fallback to 'eval' works fine on versions older than
+			// 2.4 where it does not require admin privileges.
+			//
+			// NOTE: 'eval' takes a global write lock unless you
+			// specify 'nolock' (which we are not doing below, for
+			// no apparent reason), so it is quite likely that the
+			// eval could take a relatively long time to acquire
+			// the lock and thus cause a retry on the callDelay
+			// check below on a busy server.
+			before = time.Now()
+			err := c.Database.Run(bson.D{{"$eval", "function() { return new Date(); }"}}, &server)
+			after = time.Now()
+			if err != nil {
+				return 0, err
+			}
+			serverDelay = server.Sub(before)
 		}
-		delay := after.Sub(before)
-		if delay > 5*time.Second {
+		// If the call to the server takes longer than a few seconds we
+		// retry it a couple more times before giving up. It is unclear
+		// why the retry would help at all here.
+		//
+		// If the server takes longer than the specified amount of time
+		// on every single try, then we simply give up.
+		callDelay := after.Sub(before)
+		if callDelay > 5*time.Second {
 			continue
 		}
-		return server.Sub(before), nil
+		return serverDelay, nil
 	}
 	return 0, fmt.Errorf("cannot synchronize clock with database server")
 }
