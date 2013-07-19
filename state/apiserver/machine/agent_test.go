@@ -3,13 +3,9 @@ package machine_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/machine"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
-	coretesting "launchpad.net/juju-core/testing"
 )
 
 type agentSuite struct {
@@ -23,11 +19,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
 	// Create a machiner API for machine 1.
-	api, err := machine.NewAgentAPI(
-		s.State,
-		s.resources,
-		s.authorizer,
-	)
+	api, err := machine.NewAgentAPI(s.State, s.authorizer)
 	c.Assert(err, gc.IsNil)
 	s.agent = api
 }
@@ -35,7 +27,7 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = false
-	api, err := machine.NewAgentAPI(s.State, s.resources, auth)
+	api, err := machine.NewAgentAPI(s.State, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
@@ -104,49 +96,4 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	changed := s.machine1.PasswordValid("yyy")
 	c.Assert(changed, gc.Equals, true)
-}
-
-func (s *agentSuite) TestNewStartsPinger(c *gc.C) {
-	// Create a new machine to verify "agent alive" behavior.
-	machine2, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, gc.IsNil)
-
-	// Not alive yet.
-	s.State.Sync()
-	alive, err := machine2.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(alive, gc.Equals, false)
-
-	// Create a FakeAuthorizer for the machine.
-	authorizer := apiservertesting.FakeAuthorizer{
-		Tag:          machine2.Tag(),
-		LoggedIn:     true,
-		Manager:      false,
-		MachineAgent: true,
-	}
-
-	// Create the resource registry separately to track invocations to
-	// Register.
-	resources := common.NewResources()
-
-	// Create a machiner API for the machine.
-	api, err := machine.NewAgentAPI(
-		s.State,
-		resources,
-		authorizer,
-	)
-	c.Assert(err, gc.IsNil)
-	c.Assert(api, gc.NotNil)
-
-	// Verify the pinger was registered as a resource.
-	c.Assert(resources.Count(), gc.Equals, 1)
-	pinger := resources.Get("1")
-	defer statetesting.AssertStop(c, pinger)
-
-	// Make sure the pinger has started.
-	s.State.Sync()
-	machine2.WaitAgentAlive(coretesting.LongWait)
-	alive, err = machine2.AgentAlive()
-	c.Assert(err, gc.IsNil)
-	c.Assert(alive, gc.Equals, true)
 }

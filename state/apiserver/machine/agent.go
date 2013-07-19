@@ -14,14 +14,13 @@ import (
 type AgentAPI struct {
 	*common.PasswordChanger
 
-	st        *state.State
-	resources *common.Resources
-	auth      common.Authorizer
+	st   *state.State
+	auth common.Authorizer
 }
 
 // NewAgentAPI returns an object implementing the machine agent API
 // with the given authorizer representing the currently logged in client.
-func NewAgentAPI(st *state.State, resources *common.Resources, auth common.Authorizer) (*AgentAPI, error) {
+func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm
 	}
@@ -31,21 +30,9 @@ func NewAgentAPI(st *state.State, resources *common.Resources, auth common.Autho
 			return auth.AuthOwner(tag)
 		}, nil
 	}
-	// The machine agent has connected, so start a pinger to announce
-	// it's now alive.
-	machine, err := st.Machine(state.MachineIdFromTag(auth.GetAuthTag()))
-	if err != nil {
-		return nil, err
-	}
-	pinger, err := machine.SetAgentAlive()
-	if err != nil {
-		return nil, err
-	}
-	resources.Register(pinger)
 	return &AgentAPI{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
 		st:              st,
-		resources:       resources,
 		auth:            auth,
 	}, nil
 }
