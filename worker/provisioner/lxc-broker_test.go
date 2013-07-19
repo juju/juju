@@ -195,7 +195,7 @@ func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
 	select {
 	case event := <-s.events:
 		c.Fatalf("unexpected event %#v", event)
-	case <-time.After(coretesting.LongWait):
+	case <-time.After(coretesting.ShortWait):
 		return
 	}
 }

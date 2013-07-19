@@ -74,8 +74,6 @@ func (s *FirewallerSuite) assertEnvironPorts(c *C, expected []instance.Port) {
 			c.Succeed()
 			return
 		}
-		// TODO(jam): Why is this timeout 5 seconds rather than the
-		//            standard coretesting.LongWait?
 		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return

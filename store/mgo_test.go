@@ -10,6 +10,7 @@ import (
 
 	"labix.org/v2/mgo"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/testing"
 )
 
 // ----------------------------------------------------------------------------
@@ -61,17 +62,18 @@ func (s *MgoSuite) TearDownTest(c *C) {
 	if s.Session != nil {
 		s.Session.Close()
 	}
+	t0 := time.Now()
 	for i := 0; ; i++ {
 		stats := mgo.GetStats()
 		if stats.SocketsInUse == 0 && stats.SocketsAlive == 0 {
 			break
 		}
-		if i == 100 {
+		if time.Since(t0) > testing.LongWait {
 			// We wait up to 10s for all workers to finish up
 			c.Fatal("Test left sockets in a dirty state")
 		}
 		c.Logf("Waiting for sockets to die: %d in use, %d alive", stats.SocketsInUse, stats.SocketsAlive)
-		time.Sleep(100 * time.Millisecond)
+		time.Sleep(testing.ShortWait)
 	}
 }
 

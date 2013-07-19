@@ -643,7 +643,7 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	err = s.unit.WaitAgentAlive(coretesting.LongWait)
+	err = s.unit.WaitAgentAlive(coretesting.ShortWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
 	pinger, err := s.unit.SetAgentAlive()

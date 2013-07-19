@@ -275,7 +275,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
 	c.Assert(alive, Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(coretesting.LongWait)
+	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()

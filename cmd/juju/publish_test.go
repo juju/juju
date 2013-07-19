@@ -11,7 +11,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"os"
-	"time"
 )
 
 // Sadly, this is a very slow test suite, heavily dominated by calls to bzr.
