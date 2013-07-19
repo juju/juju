@@ -102,6 +102,9 @@ func ReadConfig(r io.Reader) (*Config, error) {
 	if err := goyaml.Unmarshal(data, &config); err != nil {
 		return nil, err
 	}
+	if config == nil {
+		return nil, fmt.Errorf("invalid config: empty configuration")
+	}
 	for name, option := range config.Options {
 		switch option.Type {
 		case "string", "int", "float", "boolean":

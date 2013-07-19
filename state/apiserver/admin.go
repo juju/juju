@@ -84,7 +84,6 @@ func (a *srvAdmin) Login(c params.Creds) error {
 		return err
 	}
 
-	// All good, start serving the new root.
 	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
 		return err
 	}

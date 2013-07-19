@@ -159,12 +159,12 @@ func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	return apiInfo
 }
 
-func (s *JujuConnSuite) openAPIAs(c *C, tag, password, machineNonce string) *api.State {
+func (s *JujuConnSuite) openAPIAs(c *C, tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 	info.Tag = tag
 	info.Password = password
-	info.MachineNonce = machineNonce
+	info.Nonce = nonce
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)

@@ -71,7 +71,7 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
 	conf.MachineNonce = state.BootstrapNonce
-	conf.APIInfo.MachineNonce = conf.MachineNonce
+	conf.APIInfo.Nonce = conf.MachineNonce
 	err = conf.Write()
 	c.Assert(err, IsNil)
 	return m, conf, tools

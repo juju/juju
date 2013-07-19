@@ -132,9 +132,9 @@ type ServiceDestroy struct {
 
 // Creds holds credentials for identifying an entity.
 type Creds struct {
-	AuthTag      string
-	Password     string
-	MachineNonce string
+	AuthTag  string
+	Password string
+	Nonce    string
 }
 
 // GetAnnotationsResults holds annotations associated with an entity.
