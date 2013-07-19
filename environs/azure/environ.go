@@ -170,7 +170,7 @@ func (env *azureEnviron) createAffinityGroup() error {
 		CreateAffinityGroup: cag})
 }
 
-func (env *azureEnviron) destroyAffinityGroup() error {
+func (env *azureEnviron) deleteAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
@@ -205,7 +205,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	return azure.AddVirtualNetworkSite(&virtualNetwork)
 }
 
-func (env *azureEnviron) destroyVirtualNetwork() error {
+func (env *azureEnviron) deleteVirtualNetwork() error {
 	azure, err := env.getManagementAPI()
 	if err != nil {
 		return nil
@@ -231,7 +231,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 	// If we fail after this point, clean up the affinity group.
 	defer func() {
 		if err != nil {
-			env.destroyAffinityGroup()
+			env.deleteAffinityGroup()
 		}
 	}()
 	err = env.createVirtualNetwork()
@@ -241,7 +241,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 	// If we fail after this point, clean up the virtual network.
 	defer func() {
 		if err != nil {
-			env.destroyVirtualNetwork()
+			env.deleteVirtualNetwork()
 		}
 	}()
 

@@ -801,7 +801,7 @@ func (*EnvironSuite) TestDestroyVirtualNetwork(c *C) {
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	env.destroyVirtualNetwork()
+	env.deleteVirtualNetwork()
 
 	c.Assert(*requests, HasLen, 2)
 	// One request to get the existing network configuration.
@@ -852,7 +852,7 @@ func (*EnvironSuite) TestDestroyAffinityGroup(c *C) {
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
-	env.destroyAffinityGroup()
+	env.deleteAffinityGroup()
 
 	c.Assert(*requests, HasLen, 1)
 	request := (*requests)[0]
