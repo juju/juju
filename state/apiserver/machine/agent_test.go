@@ -1,8 +1,6 @@
 package machine_test
 
 import (
-	"time"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
@@ -11,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/machine"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type agentSuite struct {
@@ -146,8 +145,7 @@ func (s *agentSuite) TestNewStartsPinger(c *gc.C) {
 
 	// Make sure the pinger has started.
 	s.State.Sync()
-	// TODO(dimitern): replace this with coretesting.LongWait when merging trunk.
-	machine2.WaitAgentAlive(5 * time.Second)
+	machine2.WaitAgentAlive(coretesting.LongWait)
 	alive, err = machine2.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
