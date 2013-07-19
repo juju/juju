@@ -55,6 +55,7 @@ type MachineAgentGetMachinesResult struct {
 // state.Tools description, plus an agent Tag field.
 type AgentTools struct {
 	Tag    string
+	// TODO(rog) use version.Number directly.
 	Major  int
 	Minor  int
 	Patch  int

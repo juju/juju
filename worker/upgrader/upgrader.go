@@ -18,138 +18,129 @@ import (
 	"launchpad.net/juju-core/worker"
 )
 
+// UpgradeReadyError is returned by an Upgrader to report that
+// an upgrade is ready to be performed and a restart is due.
+type UpgradeReadyError struct {
+	AgentName string
+	OldTools  *state.Tools
+	NewTools  *state.Tools
+	DataDir   string
+}
+
 var logger = loggo.GetLogger("juju.upgrader")
 
-type UpgradeWorker struct {
+type Upgrader struct {
 	tomb    tomb.Tomb
-	handler *upgradeHandler
+	st *upgrader.State
+	dataDir string
+	tag string
 }
 
-// Kill the loop with no-error
-func (uw *UpgradeWorker) Kill() {
-	uw.tomb.Kill(nil)
-}
-
-// Stop kils the worker and waits for it to exit
-func (uw *UpgradeWorker) Stop() error {
-	uw.tomb.Kill(nil)
-	return uw.tomb.Wait()
-}
-
-// Wait for the looping to finish
-func (uw *UpgradeWorker) Wait() error {
-	return uw.tomb.Wait()
-}
-
-// String returns a nice description of this worker, taken from the underlying handler
-func (uw *UpgradeWorker) String() string {
-	return uw.handler.String()
-}
-
-// TearDown the handler, but ensure any error is propagated
-func handlerTearDown(handler worker.WatchHandler, t *tomb.Tomb) {
-	if err := handler.TearDown(); err != nil {
-		t.Kill(err)
-	}
-}
-
-func (uw *UpgradeWorker) loop() error {
-	var w api.NotifyWatcher
-	var err error
-	defer handlerTearDown(uw.handler, &uw.tomb)
-	if w, err = uw.handler.SetUp(); err != nil {
-		if w != nil {
-			// We don't bother to propogate an error, because we
-			// already have an error
-			w.Stop()
-		}
-		return err
-	}
-	defer watcher.Stop(w, &uw.tomb)
-	for {
-		select {
-		case <-uw.tomb.Dying():
-			return tomb.ErrDying
-		case _, ok := <-w.Changes():
-			if !ok {
-				return watcher.MustErr(w)
-			}
-			if err := uw.handler.Handle(); err != nil {
-				return err
-			}
-		case <-uw.handler.DownloadChannel():
-			continue
-		}
-	}
-	panic("unreachable")
-}
-
-func NewUpgrader(st *api.State, agentTag string, toolManager agent.ToolsManager) worker.NotifyWorker {
-	uw := &UpgradeWorker{
-		handler: &upgradeHandler{
-			apiState:    st,
-			agentTag:    agentTag,
-			toolManager: toolManager,
-		},
+// NewUpgrader returns a new upgrader worker. It watches changes to the
+// current version and tries to download the tools for any new version.
+// If an upgrade is needed, the worker will exit with an
+// UpgradeReadyError holding details of the requested upgrade. The tools
+// will have been downloaded and unpacked.
+func NewUpgrader(st *upgrader.State, dataDir, tag string) *Upgrader {
+	u := &Upgrader{
+		st: st,
+		dataDir: dataDir,
+		tag: tag,
 	}
 	go func() {
-		defer uw.tomb.Done()
-		uw.tomb.Kill(uw.loop())
+		defer u.tomb.Done()
+		u.tomb.Kill(u.loop())
 	}()
-	return uw
+	return u
 }
 
-type upgradeHandler struct {
-	apiState    *api.State
-	apiUpgrader *upgrader.Upgrader
-	agentTag    string
-	toolManager agent.ToolsManager
+// Kill implements worker.Worker.Kill.
+func (u *UpgradeWorker) Kill() {
+	u.tomb.Kill(nil)
 }
 
-func (u *upgradeHandler) String() string {
-	return fmt.Sprintf("upgrader for %q", u.agentTag)
+// Wait implements worker.Worker.Wait.
+func (u *UpgradeWorker) Wait() error {
+	return u.tomb.Wait()
 }
 
-func (u *upgradeHandler) SetUp() (api.NotifyWatcher, error) {
-	// First thing we do is alert the API of our current tools
-	u.apiUpgrader = u.apiState.Upgrader()
-	cur := version.Current
-	err := u.apiUpgrader.SetTools(params.AgentTools{
-		Tag:    u.agentTag,
-		Major:  cur.Major,
-		Minor:  cur.Minor,
-		Patch:  cur.Patch,
-		Build:  cur.Build,
-		Arch:   cur.Arch,
-		Series: cur.Series,
-		URL:    "",
-	})
+func (u *UpgradeWorker) Stop() error {
+	u.Kill(nil)
+	return u.Wait()
+}
+
+func (u *UpgradeWorker) loop() error {
+	currentTools, err := agent.ReadTools(u.dataDir, version.Current)
+	if err != nil {
+		// Don't abort everything because we can't find the tools directory.
+		// The problem should sort itself out as we will immediately
+		// download some more tools and upgrade.
+		log.Warningf("upgrader cannot read current tools: %v", err)
+		currentTools = &state.Tools{
+			Binary: version.Current,
+		}
+	}
+	err = u.st.SetTools(currentTools)
+	if err != nil {
+		return err
+	}
+	versionWatcher, err := u.st.WatchAPIVersion(u.tag)
+	if err != nil {
+		return err
+	}
+	changes := versionWatcher.Changes()
+	if _, ok := <-changes; !ok {
+		return watcher.MustErr(versionWatcher)
+	}
+	wantTools, err := st.Tools(u.tag)
+	if err != nil {
+		return err
+	}
+	var retry <-chan time.Time
+	for {
+		if wantTools.Number != currentTools.Number {
+			// The worker cannot be stopped while we're downloading
+			// the tools - this means that even if the API is going down
+			// repeatedly (causing the agent to be stopped), as long
+			// as we have got as far as this, we will still be able to
+			// upgrade the agent.
+			err := fetchTools(wantTools)
+			if err != nil {
+				if err, ok := err.(*UpgradeReadyError); ok {
+					// fill in information that fetchTools doesn't have.
+					err.OldTools = currentTools
+					err.AgentName = u.tag
+					err.DataDir = u.dataDir
+					return err
+				}
+				logger.Errorf("failed to fetch tools: %v", err)
+				retry = time.After(retryDelay)
+				continue
+			}
+		}
+		select {
+		case <-retry:
+		case <-changes:
+		case <-u.tomb.Dying():
+			return nil
+		}
+	}
+}
+
+func fetchTools(tools *agent.Tools) error {
+	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
 	}
-	return u.apiUpgrader.WatchAPIVersion(u.agentTag)
-}
-
-func (u *upgradeHandler) TearDown() error {
-	u.apiUpgrader = nil
-	u.apiState = nil
-	return nil
-}
-
-func (u *upgradeHandler) Handle() error {
-	_, err := u.apiUpgrader.Tools(u.agentTag)
-	if err != nil {
-		return err
+	defer resp.Body.Close(0
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("bad http response: %v", resp.Status)
 	}
-	return nil
-}
-
-// DownloadChannel will signal to indicate the download has completed
-func (u *upgradeHandler) DownloadChannel() chan struct{} {
-	return nil
-}
-
-// DownloadHandle should be called when download completes
-func (u *upgradeHandler) DownloadHandle() error {
-	return nil
+	err := agent.UnpackTools(u.dataDir, tools, resp.Body)
+	if err != nil {
+		return nil, fmt.Errorf("cannot unpack tools: %v", err)
+	}
+	return &UpgradeReadyError{
+		NewTools: tools,
+	}
 }
