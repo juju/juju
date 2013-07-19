@@ -22,6 +22,8 @@ var testPingPeriod = 100 * time.Millisecond
 func (s *stateSuite) TestConnectionBrokenDetection(c *C) {
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
 	c.Assert(err, IsNil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
 
@@ -31,7 +33,7 @@ func (s *stateSuite) TestConnectionBrokenDetection(c *C) {
 		api.PingPeriod = origPingPeriod
 	}()
 
-	st := s.OpenAPIAs(c, stm.Tag(), "password")
+	st := s.OpenAPIAsMachine(c, stm.Tag(), "password", "fake_nonce")
 	defer st.Close()
 
 	// Connection still alive

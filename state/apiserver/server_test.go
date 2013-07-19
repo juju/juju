@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
@@ -43,12 +44,14 @@ func (s *serverSuite) TestStop(c *C) {
 
 	// Note we can't use openAs because we're not connecting to
 	// s.APIConn.
-	st, err := api.Open(&api.Info{
-		Tag:      stm.Tag(),
-		Password: "password",
-		Addrs:    []string{srv.Addr()},
-		CACert:   []byte(coretesting.CACert),
-	}, fastDialOpts)
+	apiInfo := &api.Info{
+		Tag:          stm.Tag(),
+		Password:     "password",
+		MachineNonce: "fake_nonce",
+		Addrs:        []string{srv.Addr()},
+		CACert:       []byte(coretesting.CACert),
+	}
+	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, IsNil)
 	defer st.Close()
 
@@ -68,4 +71,49 @@ func (s *serverSuite) TestStop(c *C) {
 	// Check it can be stopped twice.
 	err = srv.Stop()
 	c.Assert(err, IsNil)
+}
+
+func (s *serverSuite) TestOpenAsMachineErrors(c *C) {
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
+	err = stm.SetPassword("password")
+	c.Assert(err, IsNil)
+
+	// This does almost exactly the same as OpenAsMachine but checks
+	// for failures instead.
+	_, info, err := s.APIConn.Environ.StateInfo()
+	info.Tag = stm.Tag()
+	info.Password = "password"
+	info.MachineNonce = "invalid-nonce"
+	st, err := api.Open(info, fastDialOpts)
+	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
+	c.Assert(st, IsNil)
+
+	// Try with empty nonce as well.
+	info.MachineNonce = ""
+	st, err = api.Open(info, fastDialOpts)
+	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
+	c.Assert(st, IsNil)
+
+	// Finally, with the correct one succeeds.
+	info.MachineNonce = "fake_nonce"
+	st, err = api.Open(info, fastDialOpts)
+	c.Assert(err, IsNil)
+	c.Assert(st, NotNil)
+	st.Close()
+
+	// Now add another machine, intentionally unprovisioned.
+	stm1, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm1.SetPassword("password")
+	c.Assert(err, IsNil)
+
+	// Try connecting, it will fail.
+	info.Tag = stm1.Tag()
+	info.MachineNonce = ""
+	st, err = api.Open(info, fastDialOpts)
+	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
+	c.Assert(st, IsNil)
 }

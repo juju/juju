@@ -14,10 +14,11 @@ import (
 // Login authenticates as the entity with the given name and password.
 // Subsequent requests on the state will act as that entity.
 // This method is usually called automatically by Open.
-func (st *State) Login(tag, password string) error {
+func (st *State) Login(tag, password, machineNonce string) error {
 	return st.Call("Admin", "", "Login", &params.Creds{
-		AuthTag:  tag,
-		Password: password,
+		AuthTag:      tag,
+		Password:     password,
+		MachineNonce: machineNonce,
 	}, nil)
 }
 

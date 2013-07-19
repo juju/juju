@@ -6,6 +6,7 @@ package apiserver
 import (
 	stderrors "errors"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -77,12 +78,31 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return common.ErrBadCreds
 	}
-	// We have authenticated the user; now choose an appropriate
-	// API to serve to them.
+	// We have authenticated the user, now choose an appropriate API
+	// to serve to them.
 	newRoot, err := a.apiRootForEntity(entity)
 	if err != nil {
 		return err
 	}
+
+	// Finally, if this is a machine agent connecting, we need to
+	// check the nonce matches, otherwise the wrong agent might be
+	// trying to connect.
+	newRootAsRoot := newRoot.(*srvRoot)
+	if isAgent(entity) && newRootAsRoot.AuthMachineAgent() {
+		machine, err := a.root.srv.state.Machine(state.MachineIdFromTag(entity.Tag()))
+		if err != nil {
+			// This shouldn't happen, but if it does we assume it's
+			// the same as unauthorized error.
+			log.Errorf("error while trying to connect as %q: %v", entity.Tag(), err)
+			return common.ErrBadCreds
+		}
+		if !machine.CheckProvisioned(c.MachineNonce) {
+			return common.ErrNotProvisioned
+		}
+	}
+
+	// All good, start serving the new root.
 	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
 		return err
 	}

@@ -47,6 +47,10 @@ type Info struct {
 
 	// Password holds the password for the administrator or connecting entity.
 	Password string
+
+	// MachineNonce holds the nonce used when provisioning the
+	// machine. Used only by the machine agent.
+	MachineNonce string
 }
 
 var openAttempt = utils.AttemptStrategy{
@@ -118,7 +122,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 		conn:   conn,
 	}
 	if info.Tag != "" || info.Password != "" {
-		if err := st.Login(info.Tag, info.Password); err != nil {
+		if err := st.Login(info.Tag, info.Password, info.MachineNonce); err != nil {
 			conn.Close()
 			return nil, err
 		}

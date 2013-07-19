@@ -34,8 +34,11 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
 	err = s.machine.SetPassword("password")
-	s.st = s.OpenAPIAs(c, s.machine.Tag(), "password")
+	c.Assert(err, IsNil)
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
 }
 
 func (s *machinerSuite) TearDownTest(c *C) {
