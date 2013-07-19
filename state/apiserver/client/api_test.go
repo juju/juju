@@ -123,6 +123,9 @@ func (s *baseSuite) openAs(c *C, tag string) *api.State {
 	c.Assert(err, IsNil)
 	info.Tag = tag
 	info.Password = fmt.Sprintf("%s password", tag)
+	// Set this always, so that the login attempts as a machine will
+	// not fail with ErrNotProvisioned; it's not used otherwise.
+	info.Nonce = "fake_nonce"
 	c.Logf("opening state; entity %q; password %q", info.Tag, info.Password)
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, IsNil)
