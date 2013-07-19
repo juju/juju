@@ -407,7 +407,7 @@ func (s *PresenceSuite) TestStartSync(c *C) {
 
 	select {
 	case <-done:
-	case <-time.After(testing.ShortWait):
+	case <-time.After(testing.LongWait):
 		c.Fatalf("StartSync failed to return")
 	}
 
