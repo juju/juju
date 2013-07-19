@@ -706,7 +706,7 @@ func (*EnvironSuite) TestNewRole(c *C) {
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
-	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.CustomData, Equals, userData)
 	c.Check(linuxConfig.Hostname, Equals, hostname)
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
