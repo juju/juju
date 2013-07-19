@@ -79,7 +79,7 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
-	return machine.NewAgentAPI(r.srv.state, r)
+	return machine.NewAgentAPI(r.srv.state, r.resources, r)
 }
 
 // Deployer returns an object that provides access to the Deployer API facade.
