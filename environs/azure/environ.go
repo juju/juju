@@ -138,8 +138,6 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or anything in Azure.  Juju assigns the machine ID.
 	const machineID = "0"
-	machineConfig := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	machineConfig.StateServer = true
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics after the
@@ -152,7 +150,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	if err != nil {
 		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
 	}
-	machineConfig.StateInfoURL = stateFileURL
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)

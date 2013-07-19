@@ -20,9 +20,9 @@ import (
 // system state.
 var DataDir = "/var/lib/juju"
 
-// NewMachineConfig sets up a basic machine configuration.  You'll still need
-// to supply more information, but this takes care of the fixed entries and
-// the ones that are always needed.
+// NewMachineConfig sets up a basic machine configuration, for a non-bootstrap
+// node.  You'll still need to supply more information, but this takes care of
+// the fixed entries and the ones that are always needed.
 func NewMachineConfig(machineID, machineNonce string,
 	stateInfo *state.Info, apiInfo *api.Info) *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{
@@ -35,6 +35,19 @@ func NewMachineConfig(machineID, machineNonce string,
 		StateInfo:    stateInfo,
 		APIInfo:      apiInfo,
 	}
+}
+
+// NewBootstrapMachineConfig sets up a basic machine configuration for a
+// bootstrap node.  You'll still need to supply more information, but this
+// takes care of the fixed entries and the ones that are always needed.
+// stateInfoURL is the storage URL for the environment's state file.
+func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.MachineConfig {
+	// For a bootstrap instance, FinishMachineConfig will provide the
+	// state.Info and the api.Info.
+	mcfg := NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
+	mcfg.StateServer = true
+	mcfg.StateInfoURL = stateInfoURL
+	return mcfg
 }
 
 // FinishMachineConfig sets fields on a MachineConfig that can be determined by

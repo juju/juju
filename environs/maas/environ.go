@@ -96,10 +96,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 		return nil, err
 	}
 
-	machineConfig := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	machineConfig.StateServer = true
-	machineConfig.StateInfoURL = stateFileURL
-
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
