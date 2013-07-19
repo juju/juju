@@ -99,9 +99,10 @@ func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.C
 	// nonce matches, otherwise the wrong agent might be trying to
 	// connect.
 	machine, ok := entity.(*state.Machine)
-	if ok && !machine.CheckProvisioned(c.MachineNonce) {
-		return nil, common.ErrNotProvisioned
-	} else if ok && machine.CheckProvisioned(c.MachineNonce) {
+	if ok {
+		if !machine.CheckProvisioned(c.MachineNonce) {
+			return nil, common.ErrNotProvisioned
+		}
 		// The machine agent has connected, so start a pinger to announce
 		// it's now alive.
 		pinger, err := machine.SetAgentAlive()
