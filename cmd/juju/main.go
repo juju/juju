@@ -86,6 +86,7 @@ func Main(args []string) {
 	juju.Register(&UnexposeCommand{})
 	juju.Register(&UpgradeJujuCommand{})
 	juju.Register(&UpgradeCharmCommand{})
+	juju.Register(&ValidateMetadataCommand{})
 
 	// Charm publishing commands.
 	juju.Register(&PublishCommand{})

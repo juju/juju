@@ -319,6 +319,13 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	c.Assert(*hc.CpuPower, Equals, uint64(100))
 }
 
+func (t *localServerSuite) TestValidateImageMetadata(c *C) {
+	region, image_ids, err := ec2.ValidateImageMetadata(t.env, "precise", "test")
+	c.Assert(err, IsNil)
+	c.Assert(region, Equals, "test")
+	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000035", "ami-00000034"})
+}
+
 // If match is true, CheckScripts checks that at least one script started
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests

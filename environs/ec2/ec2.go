@@ -134,6 +134,38 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+// See ImageMetadataValidator.ValidateImageMetadata
+func (p environProvider) ValidateImageMetadata(cfg *config.Config, series, region, endpoint, metadataDir string) (string, []string, error) {
+	var baseURLs []string
+	if cfg != nil {
+		e, err := p.Open(cfg)
+		if err != nil {
+			return "", nil, err
+		}
+		environ := e.(*environ)
+		baseURLs, err = environ.getImageBaseURLs()
+		if err != nil {
+			return "", nil, err
+		}
+		if region == "" {
+			region = environ.ecfg().region()
+		}
+	}
+	if endpoint == "" {
+		ec2Region, ok := allRegions[region]
+		if !ok {
+			return "", nil, fmt.Errorf("unknown region %q", region)
+		}
+		endpoint = ec2Region.EC2Endpoint
+	}
+	if metadataDir != "" {
+		baseURLs = []string{"file://" + metadataDir}
+	}
+	arches := []string{"amd64", "i386", "arm"}
+	ids, err := instances.ValidateImageMetadata(series, region, endpoint, arches, baseURLs)
+	return region, ids, err
+}
+
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
 	ecfg, err := providerInstance.newConfig(cfg)

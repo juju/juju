@@ -250,6 +250,7 @@ var commandNames = []string{
 	"unexpose",
 	"upgrade-charm",
 	"upgrade-juju",
+	"validate-metadata",
 	"version",
 }
 

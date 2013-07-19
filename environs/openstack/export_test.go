@@ -240,6 +240,11 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 	return
 }
 
+func ValidateImageMetadata(e environs.Environ, series, region string) (string, []string, error) {
+	env := e.(*environ)
+	return env.Provider().(environs.ImageMetadataValidator).ValidateImageMetadata(env.Config(), series, region, "", "")
+}
+
 func GetImageURLs(e environs.Environ) ([]string, error) {
 	return e.(*environ).getImageBaseURLs()
 }
