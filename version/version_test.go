@@ -4,12 +4,12 @@
 package version_test
 
 import (
+	"encoding/json"
+	"labix.org/v2/mgo/bson"
 	"strings"
 	"testing"
 
-	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
-
 	"launchpad.net/juju-core/version"
 )
 
@@ -184,28 +184,51 @@ func (suite) TestParseBinary(c *C) {
 	}
 }
 
-func (suite) TestBinaryBSON(c *C) {
-	type doc struct {
-		Version version.Binary
+var marshallers = []struct {
+	name      string
+	marshal   func(interface{}) ([]byte, error)
+	unmarshal func([]byte, interface{}) error
+}{{
+	"json",
+	json.Marshal,
+	json.Unmarshal,
+}, {
+	"bson",
+	bson.Marshal,
+	bson.Unmarshal,
+}}
+
+func (suite) TestBinaryMarshalUnmarshal(c *C) {
+	for _, m := range marshallers {
+		c.Logf("encoding %v", m.name)
+		type doc struct {
+			Version version.Binary
+		}
+		v := doc{version.MustParseBinary("1.2.3-foo-bar")}
+		data, err := m.marshal(v)
+		c.Assert(err, IsNil)
+		var nv doc
+		err = m.unmarshal(data, &nv)
+		c.Assert(err, IsNil)
+		c.Assert(v, Equals, nv)
 	}
-	v := doc{version.MustParseBinary("1.2.3-foo-bar")}
-	data, err := bson.Marshal(v)
-	c.Assert(err, IsNil)
-	var nv doc
-	err = bson.Unmarshal(data, &nv)
-	c.Assert(err, IsNil)
-	c.Assert(v, Equals, nv)
 }
 
-func (suite) TestNumberBSON(c *C) {
-	type doc struct {
-		Version version.Number
+func (suite) TestNumberMarshalUnmarshal(c *C) {
+	for _, m := range marshallers {
+		c.Logf("encoding %v", m.name)
+		type doc struct {
+			Version version.Number
+		}
+		v := doc{version.MustParse("1.2.3")}
+		data, err := m.marshal(&v)
+		c.Assert(err, IsNil)
+		var nv doc
+		err = m.unmarshal(data, &nv)
+		c.Assert(err, IsNil)
+		c.Assert(v, Equals, nv)
 	}
-	v := doc{version.MustParse("1.2.3")}
-	data, err := bson.Marshal(&v)
-	c.Assert(err, IsNil)
-	var nv doc
-	err = bson.Unmarshal(data, &nv)
-	c.Assert(err, IsNil)
-	c.Assert(v, Equals, nv)
+}
+
+func (suite) TestBinaryJSON(c *C) {
 }
