@@ -694,7 +694,21 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 			found[id] = true
 		}
 	}
-	return env.StopInstances(insts)
+	err = env.StopInstances(insts)
+	if err != nil {
+		return fmt.Errorf("cannot stop instances: %v", err)
+	}
+
+	// Delete vnet and affinity group.
+	err = env.deleteVirtualNetwork()
+	if err != nil {
+		return fmt.Errorf("cannot delete the environment's virtual network: %v", err)
+	}
+	err = env.deleteAffinityGroup()
+	if err != nil {
+		return fmt.Errorf("cannot delete the environment's affinity group: %v", err)
+	}
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.

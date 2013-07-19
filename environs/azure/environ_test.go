@@ -588,12 +588,31 @@ func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
+func getVnetAndAffinityGroupCleanupResponses(c *C) []gwacl.DispatcherResponse {
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS:               gwacl.XMLNS_NC,
+		VirtualNetworkSites: nil,
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, IsNil)
+	cleanupResponses := []gwacl.DispatcherResponse{
+		// Return empty net configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+		// Accept deletion of affinity group.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	return cleanupResponses
+}
+
 func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	services := []gwacl.HostedServiceDescriptor{}
-	patchWithServiceListResponse(c, services)
+	responses := getAzureServiceListResponse(c, services)
+	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
+	responses = append(responses, cleanupResponses...)
+	gwacl.PatchManagementAPIResponses(responses)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
 
 	err := env.Destroy(instances)
@@ -602,6 +621,52 @@ func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	files, err := env.Storage().List("")
 	c.Assert(err, IsNil)
 	c.Check(files, HasLen, 0)
+}
+
+func (*EnvironSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	services := []gwacl.HostedServiceDescriptor{}
+	responses := getAzureServiceListResponse(c, services)
+	// Prepare a configuration with a single virtual network.
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS: gwacl.XMLNS_NC,
+		VirtualNetworkSites: &[]gwacl.VirtualNetworkSite{
+			{Name: env.getVirtualNetworkName()},
+		},
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, IsNil)
+	cleanupResponses := []gwacl.DispatcherResponse{
+		// Return existing configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+		// Accept upload of new configuration.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		// Accept deletion of affinity group.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	responses = append(responses, cleanupResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
+
+	err = env.Destroy(instances)
+	c.Check(err, IsNil)
+
+	c.Assert(*requests, HasLen, 4)
+	// One request to get the network configuration.
+	getRequest := (*requests)[1]
+	c.Check(getRequest.Method, Equals, "GET")
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), Equals, true)
+	// One request to upload the new version of the network configuration.
+	putRequest := (*requests)[2]
+	c.Check(putRequest.Method, Equals, "PUT")
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), Equals, true)
+	// One request to delete the Affinity Group.
+	agRequest := (*requests)[3]
+	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(agRequest.Method, Equals, "DELETE")
+
 }
 
 var emptyListResponse = `
@@ -631,6 +696,8 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
 	destroyResponses := buildDestroyAzureServiceResponses(c, services)
 	responses := append(listInstancesResponses, destroyResponses...)
+	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
+	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	// Call Destroy with service1 and service2.
@@ -640,8 +707,9 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 
 	// One request to get the list of all the environment's instances.
 	// Then two requests per destroyed machine (one to fetch the
-	// service's information, one to delete it).
-	c.Check((*requests), HasLen, 1+len(services)*2)
+	// service's information, one to delete it) and two requests to delete
+	// the Virtual Network and the Affinity Group.
+	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
 	c.Check((*requests)[1].Method, Equals, "GET")
 	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
