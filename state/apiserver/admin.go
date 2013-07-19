@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/presence"
 	"sync"
 )
 
@@ -90,6 +91,17 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	return nil
 }
 
+// machinePinger wraps a presence.Pinger.
+type machinePinger struct {
+	*presence.Pinger
+}
+
+// Stop implements Pinger.Stop() as Pinger.Kill(), needed at
+// connection closing time to properly stop the wrapped pinger.
+func (p *machinePinger) Stop() error {
+	return p.Pinger.Kill()
+}
+
 func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.Creds) (interface{}, error) {
 	// TODO(rog) choose appropriate object to serve.
 	newRoot := newSrvRoot(a.root.srv, entity)
@@ -99,7 +111,7 @@ func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.C
 	// connect.
 	machine, ok := entity.(*state.Machine)
 	if ok {
-		if !machine.CheckProvisioned(c.MachineNonce) {
+		if !machine.CheckProvisioned(c.Nonce) {
 			return nil, common.ErrNotProvisioned
 		}
 		// The machine agent has connected, so start a pinger to announce
@@ -108,7 +120,7 @@ func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.C
 		if err != nil {
 			return nil, err
 		}
-		newRoot.resources.Register(pinger)
+		newRoot.resources.Register(&machinePinger{pinger})
 	}
 	return newRoot, nil
 }
