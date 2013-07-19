@@ -259,15 +259,15 @@ func (inst *openstackInstance) Addresses() ([]instance.Address, error) {
 
 // convertNovaAddresses returns nova addresses in generic format
 func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Address {
-	// GZ 2013-07-18: Really want to have an ordering on nova addresses as
-	//                it may be significant, see lp:1188126 for instance.
+	// TODO(gz) Network ordering may be significant but is not preserved by
+	// the map, see lp:1188126 for example. That could potentially be fixed
+	// in goose, or left to be derived by other means.
 	var machineAddresses []instance.Address
 	for network, ips := range addresses {
 		networkscope := instance.NetworkUnknown
-		// GZ 2013-07-18: For canonistack and hpcloud, public floating
-		//                addresses may be put in networks named
-		//                something other than public. Rely on address
-		//                sanity logic to catch and mark them corectly.
+		// For canonistack and hpcloud, public floating addresses may
+		// be put in networks named something other than public. Rely
+		// on address sanity logic to catch and mark them corectly.
 		if network == "public" {
 			networkscope = instance.NetworkPublic
 		}
