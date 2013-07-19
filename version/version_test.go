@@ -229,6 +229,3 @@ func (suite) TestNumberMarshalUnmarshal(c *C) {
 		c.Assert(v, Equals, nv)
 	}
 }
-
-func (suite) TestBinaryJSON(c *C) {
-}
