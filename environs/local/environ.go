@@ -128,7 +128,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
 	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := environs.SaveState(env.Storage(), &environs.BootstrapState{[]instance.Id{bootstrapId}}); err != nil {
+	if err := environs.SaveState(env.Storage(), &environs.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -536,7 +536,7 @@ func (env *localEnviron) initialStateConfiguration(addr string, cons constraints
 		Addrs:  []string{addr},
 		CACert: caCert,
 	}
-	timeout := state.DialOpts{10 * time.Second}
+	timeout := state.DialOpts{60 * time.Second}
 	bootstrap, err := environs.BootstrapConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -555,7 +555,8 @@ func (env *localEnviron) initialStateConfiguration(addr string, cons constraints
 	}
 	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
 
-	if err := environs.ConfigureBootstrapMachine(st, cfg, cons, env.config.rootDir(), jobs); err != nil {
+	if err := environs.ConfigureBootstrapMachine(
+		st, cons, env.config.rootDir(), jobs, instance.Id(boostrapInstanceId), instance.HardwareCharacteristics{}); err != nil {
 		st.Close()
 		return nil, err
 	}

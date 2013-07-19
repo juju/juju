@@ -154,11 +154,6 @@ func (environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-hostname")
 }
 
-func (environProvider) InstanceId() (instance.Id, error) {
-	str, err := fetchMetadata("instance-id")
-	return instance.Id(str), err
-}
-
 func (e *environ) Config() *config.Config {
 	return e.ecfg().Config
 }
@@ -255,17 +250,23 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	if err != nil {
+		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+	}
 
 	machineConfig := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
 	machineConfig.StateServer = true
+	machineConfig.StateInfoURL = stateFileURL
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.internalStartInstance(cons, possibleTools, machineConfig)
+	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances: []instance.Id{inst.Id()},
+		StateInstances:  []instance.Id{inst.Id()},
+		Characteristics: []instance.HardwareCharacteristics{*characteristics},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is

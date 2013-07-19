@@ -45,6 +45,12 @@ In all cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
 <service name>, if omitted, will be derived from <charm name>.
+
+Charms can be deployed to a specific machine using the --to argument.
+Examples:
+ juju deploy mysql --to 23       (Deploy to machine 23)
+ juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
+ juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
 `
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -68,7 +74,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	// TODO --constraints
 	switch len(args) {
 	case 2:
 		if !state.IsServiceName(args[1]) {
@@ -122,10 +127,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if c.Constraints != empty {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if numUnits == 1 && c.ForceMachineSpec == "" {
+		if numUnits == 1 && c.ToMachineSpec == "" {
 			numUnits = 0
 		} else {
-			return errors.New("cannot use --num-units or --force-machine with subordinate service")
+			return errors.New("cannot use --num-units or --to with subordinate service")
 		}
 	}
 	serviceName := c.ServiceName
@@ -144,12 +149,12 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:      serviceName,
-		Charm:            ch,
-		NumUnits:         numUnits,
-		ConfigSettings:   settings,
-		Constraints:      c.Constraints,
-		ForceMachineSpec: c.ForceMachineSpec,
+		ServiceName:    serviceName,
+		Charm:          ch,
+		NumUnits:       numUnits,
+		ConfigSettings: settings,
+		Constraints:    c.Constraints,
+		ToMachineSpec:  c.ToMachineSpec,
 	})
 	return err
 }

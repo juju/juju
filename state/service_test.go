@@ -1224,7 +1224,8 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 	w := s.mysql.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange(alive.Name(), dying.Name(), dead.Name())
+	wc.AssertChange(alive.Name(), dying.Name(), dead.Name())
+	wc.AssertNoChange()
 
 	// Remove them all; alive/dying changes reported; dead never mentioned again.
 	err = alive.Destroy()
@@ -1235,7 +1236,8 @@ func (s *ServiceSuite) TestWatchUnitsBulkEvents(c *C) {
 	c.Assert(err, IsNil)
 	err = dead.Remove()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(alive.Name(), dying.Name())
+	wc.AssertChange(alive.Name(), dying.Name())
+	wc.AssertNoChange()
 }
 
 func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
@@ -1243,22 +1245,26 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
 	w := s.mysql.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Create one unit, check one change.
 	quick, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(quick.Name())
+	wc.AssertChange(quick.Name())
+	wc.AssertNoChange()
 
 	// Destroy that unit (short-circuited to removal), check one change.
 	err = quick.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(quick.Name())
+	wc.AssertChange(quick.Name())
+	wc.AssertNoChange()
 
-	// Create another, chck one change.
+	// Create another, check one change.
 	slow, err := s.mysql.AddUnit()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(slow.Name())
+	wc.AssertChange(slow.Name())
+	wc.AssertNoChange()
 
 	// Change unit itself, no change.
 	preventUnitDestroyRemove(c, slow)
@@ -1267,12 +1273,14 @@ func (s *ServiceSuite) TestWatchUnitsLifecycle(c *C) {
 	// Make unit Dying, change detected.
 	err = slow.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(slow.Name())
+	wc.AssertChange(slow.Name())
+	wc.AssertNoChange()
 
 	// Make unit Dead, change detected.
 	err = slow.EnsureDead()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(slow.Name())
+	wc.AssertChange(slow.Name())
+	wc.AssertNoChange()
 
 	// Remove unit, final change not detected.
 	err = slow.Remove()
@@ -1285,7 +1293,8 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	w := s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
 	wc := testing.StringsWatcherC{c, s.State, w, false}
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a relation; check change.
 	mysqlep, err := s.mysql.Endpoint("server")
@@ -1304,16 +1313,19 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 		return rel
 	}
 	rel0 := addRelation()
-	wc.AssertOneChange(rel0.String())
+	wc.AssertChange(rel0.String())
+	wc.AssertNoChange()
 
 	// Add another relation; check change.
 	rel1 := addRelation()
-	wc.AssertOneChange(rel1.String())
+	wc.AssertChange(rel1.String())
+	wc.AssertNoChange()
 
 	// Destroy a relation; check change.
 	err = rel0.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(rel0.String())
+	wc.AssertChange(rel0.String())
+	wc.AssertNoChange()
 
 	// Stop watcher; check change chan is closed.
 	testing.AssertStop(c, w)
@@ -1324,7 +1336,8 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	w = s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
 	wc = testing.StringsWatcherC{c, s.State, w, false}
-	wc.AssertOneChange(rel1.String(), rel2.String())
+	wc.AssertChange(rel1.String(), rel2.String())
+	wc.AssertNoChange()
 
 	// Add a unit to the new relation; check no change.
 	unit, err := s.mysql.AddUnit()
@@ -1340,12 +1353,14 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	err = rel2.Destroy()
 	c.Assert(err, IsNil)
 	rel3 := addRelation()
-	wc.AssertOneChange(rel2.String(), rel3.String())
+	wc.AssertChange(rel2.String(), rel3.String())
+	wc.AssertNoChange()
 
 	// Leave scope, destroying the relation, and check that change as well.
 	err = ru2.LeaveScope()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(rel2.String())
+	wc.AssertChange(rel2.String())
+	wc.AssertNoChange()
 }
 
 func removeAllUnits(c *C, s *state.Service) {

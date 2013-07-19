@@ -43,11 +43,11 @@ var initErrorTests = []struct {
 		args: []string{"craziness", "burble1", "-n", "0"},
 		err:  `--num-units must be a positive integer`,
 	}, {
-		args: []string{"craziness", "burble1", "--force-machine", "bigglesplop"},
-		err:  `invalid --force-machine parameter "bigglesplop"`,
+		args: []string{"craziness", "burble1", "--to", "bigglesplop"},
+		err:  `invalid --to parameter "bigglesplop"`,
 	}, {
-		args: []string{"craziness", "burble1", "-n", "2", "--force-machine", "123"},
-		err:  `cannot use --num-units > 1 with --force-machine`,
+		args: []string{"craziness", "burble1", "-n", "2", "--to", "123"},
+		err:  `cannot use --num-units > 1 with --to`,
 	}, {
 		args: []string{"craziness", "burble1", "--constraints", "gibber=plop"},
 		err:  `invalid value "gibber=plop" for flag --constraints: unknown constraint "gibber"`,
@@ -167,7 +167,7 @@ func (s *DeploySuite) TestNumUnits(c *C) {
 func (s *DeploySuite) TestNumUnitsSubordinate(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "--num-units", "3", "local:logging")
-	c.Assert(err, ErrorMatches, "cannot use --num-units or --force-machine with subordinate service")
+	c.Assert(err, ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")
 	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }
@@ -187,7 +187,7 @@ func (s *DeploySuite) TestForceMachine(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = runDeploy(c, "--force-machine", machine.Id(), "local:dummy", "portlandia")
+	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	s.assertForceMachine(c, machine.Id())
 }
@@ -201,7 +201,7 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *C) {
 	}
 	container, err := s.State.AddMachineWithConstraints(params)
 	c.Assert(err, IsNil)
-	err = runDeploy(c, "--force-machine", container.Id(), "local:dummy", "portlandia")
+	err = runDeploy(c, "--to", container.Id(), "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
@@ -213,7 +213,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
-	err = runDeploy(c, "--force-machine", "lxc:"+machine.Id(), "local:dummy", "portlandia")
+	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
 	c.Assert(err, IsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 	machines, err := s.State.AllMachines()
@@ -223,7 +223,7 @@ func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
 
 func (s *DeploySuite) TestForceMachineNotFound(c *C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	err := runDeploy(c, "--force-machine", "42", "local:dummy", "portlandia")
+	err := runDeploy(c, "--to", "42", "local:dummy", "portlandia")
 	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
 	_, err = s.State.Service("dummy")
 	c.Assert(err, ErrorMatches, `service "dummy" not found`)
@@ -233,8 +233,8 @@ func (s *DeploySuite) TestForceMachineSubordinate(c *C) {
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
 	c.Assert(err, IsNil)
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
-	err = runDeploy(c, "--force-machine", machine.Id(), "local:logging")
-	c.Assert(err, ErrorMatches, "cannot use --num-units or --force-machine with subordinate service")
+	err = runDeploy(c, "--to", machine.Id(), "local:logging")
+	c.Assert(err, ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")
 	c.Assert(err, ErrorMatches, `service "dummy" not found`)
 }

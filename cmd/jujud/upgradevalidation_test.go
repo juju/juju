@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -48,7 +49,7 @@ func (s *UpgradeValidationMachineSuite) Create1_10Machine(c *gc.C) (*state.Machi
 	// Given the current connection to state, create a new machine, and 'reset'
 	// the configuration so that it looks like how juju 1.10 would have
 	// configured it
-	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", state.JobHostUnits)
+	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", instance.HardwareCharacteristics{}, state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, gc.IsNil)
