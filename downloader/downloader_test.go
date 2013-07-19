@@ -77,7 +77,7 @@ func (s *suite) TestStopDownload(c *C) {
 	select {
 	case status := <-d.Done():
 		c.Fatalf("received status %#v after stop", status)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testing.ShortWait):
 	}
 	infos, err := ioutil.ReadDir(tmp)
 	c.Assert(err, IsNil)

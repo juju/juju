@@ -17,4 +17,4 @@ const ShortWait = 50 * time.Millisecond
 // suite should proceed without sleeping at all, but just in case. It is long
 // so that we don't have spurious failures without actually slowing down the
 // test suite
-const LongWait = 500 * time.Millisecond
+const LongWait = 10 * time.Second
