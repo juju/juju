@@ -10,19 +10,18 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// State provides access to a machiner worker's view of the state.
-type State struct {
+// Machiner provides access to the Machiner API facade.
+type Machiner struct {
 	caller common.Caller
 }
 
-// NewState returns a version of the state that provides functionality
-// required by the machiner worker.
-func NewState(caller common.Caller) *State {
-	return &State{caller}
+// New creates a new client-side Machiner facade.
+func New(caller common.Caller) *Machiner {
+	return &Machiner{caller}
 }
 
 // machineLife requests the lifecycle of the given machine from the server.
-func (m *State) machineLife(tag string) (params.Life, error) {
+func (m *Machiner) machineLife(tag string) (params.Life, error) {
 	var result params.LifeResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -41,7 +40,7 @@ func (m *State) machineLife(tag string) (params.Life, error) {
 }
 
 // Machine provides access to methods of a state.Machine through the facade.
-func (m *State) Machine(tag string) (*Machine, error) {
+func (m *Machiner) Machine(tag string) (*Machine, error) {
 	life, err := m.machineLife(tag)
 	if err != nil {
 		return nil, err

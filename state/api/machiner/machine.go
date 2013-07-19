@@ -3,13 +3,18 @@
 
 package machiner
 
-import "launchpad.net/juju-core/state/api/params"
+import (
+	"fmt"
+
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
+)
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
 	tag    string
 	life   params.Life
-	mstate *State
+	mstate *Machiner
 }
 
 // Tag returns the machine's tag.
@@ -44,6 +49,9 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 	if err != nil {
 		return err
 	}
+	if len(result.Errors) != 1 {
+		return fmt.Errorf("expected one result, got %d", len(result.Errors))
+	}
 	return result.Errors[0]
 }
 
@@ -58,5 +66,29 @@ func (m *Machine) EnsureDead() error {
 	if err != nil {
 		return err
 	}
+	if len(result.Errors) != 1 {
+		return fmt.Errorf("expected one result, got %d", len(result.Errors))
+	}
 	return result.Errors[0]
+}
+
+// Watch returns a watcher for observing changes to the machine.
+func (m *Machine) Watch() (*watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag}},
+	}
+	err := m.mstate.caller.Call("Machiner", "", "Watch", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(m.mstate.caller, result)
+	return w, nil
 }
