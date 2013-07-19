@@ -8,18 +8,20 @@ import (
 	"encoding/hex"
 	"fmt"
 	"io/ioutil"
+	"net/url"
+	"os"
+	"path/filepath"
+	stdtesting "testing"
+	"time"
+
 	. "launchpad.net/gocheck"
+
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
-	"net/url"
-	"os"
-	"path/filepath"
-	stdtesting "testing"
-	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -115,7 +117,7 @@ func (s *BundlesDirSuite) TestGet(c *C) {
 	coretesting.Server.Response(500, nil, nil)
 	select {
 	case <-done:
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for abort")
 	}
 }

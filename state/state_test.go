@@ -1137,7 +1137,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		select {
 		case got := <-w.Changes():
 			c.Fatalf("got unexpected change: %#v", got)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(testing.ShortWait):
 		}
 	}
 	assertChange := func(change attrs) {
@@ -1154,7 +1154,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *C) {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, Equals, true)
 			c.Assert(got.AllAttrs(), DeepEquals, cfg.AllAttrs())
-		case <-time.After(500 * time.Millisecond):
+		case <-time.After(testing.LongWait):
 			c.Fatalf("did not get change: %#v", change)
 		}
 		assertNoChange()
@@ -1227,7 +1227,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *C) {
 	select {
 	case <-done:
 		c.Fatalf("configuration returned too soon")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testing.ShortWait):
 	}
 
 	// Fix the configuration.

@@ -7,8 +7,11 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -20,8 +23,6 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"time"
 )
 
 func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
@@ -908,7 +909,7 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 	pinger, err := m.SetAgentAlive()
 	c.Assert(err, IsNil)
 	ctx.st.StartSync()
-	err = m.WaitAgentAlive(200 * time.Millisecond)
+	err = m.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 	agentAlive, err := m.AgentAlive()
 	c.Assert(err, IsNil)
@@ -1003,7 +1004,7 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 	pinger, err := u.SetAgentAlive()
 	c.Assert(err, IsNil)
 	ctx.st.StartSync()
-	err = u.WaitAgentAlive(200 * time.Millisecond)
+	err = u.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 	agentAlive, err := u.AgentAlive()
 	c.Assert(err, IsNil)
@@ -1028,7 +1029,7 @@ func (sua setUnitsAlive) step(c *C, ctx *context) {
 		pinger, err := u.SetAgentAlive()
 		c.Assert(err, IsNil)
 		ctx.st.StartSync()
-		err = u.WaitAgentAlive(200 * time.Millisecond)
+		err = u.WaitAgentAlive(coretesting.LongWait)
 		c.Assert(err, IsNil)
 		agentAlive, err := u.AgentAlive()
 		c.Assert(err, IsNil)

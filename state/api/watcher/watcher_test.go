@@ -22,10 +22,6 @@ func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-// shortWait is a reasonable amount of time to be sure a call is in a blocking
-// state (won't return without other prompting)
-const shortWait = 50 * time.Millisecond
-
 type watcherSuite struct {
 	testing.JujuConnSuite
 
@@ -83,7 +79,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
 	select {
 	case err := <-done:
 		c.Errorf("Call(Next) did not block immediately after Watch(): err %v", err)
-	case <-time.After(shortWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
