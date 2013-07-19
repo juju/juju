@@ -139,7 +139,7 @@ func (s *machinerSuite) TestWatch(c *C) {
 	c.Assert(err, IsNil)
 	wc.AssertNoChange()
 
-	// Make the machine dying and check it's detected.
+	// Make the machine dead and check it's detected.
 	err = machine.EnsureDead()
 	c.Assert(err, IsNil)
 	wc.AssertOneChange()
