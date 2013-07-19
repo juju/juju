@@ -79,16 +79,9 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
-	newRoot, err := a.apiRootForEntity(entity)
+	newRoot, err := a.apiRootForEntity(entity, c)
 	if err != nil {
 		return err
-	}
-
-	// Finally, if this is a machine agent connecting, we need to
-	// check the nonce matches, otherwise the wrong agent might be
-	// trying to connect.
-	if m, ok := entity.(*state.Machine); ok && !m.CheckProvisioned(c.MachineNonce) {
-		return common.ErrNotProvisioned
 	}
 
 	// All good, start serving the new root.
@@ -98,7 +91,24 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	return nil
 }
 
-func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator) (interface{}, error) {
+func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.Creds) (interface{}, error) {
 	// TODO(rog) choose appropriate object to serve.
-	return newSrvRoot(a.root.srv, entity), nil
+	newRoot := newSrvRoot(a.root.srv, entity)
+
+	// If this is a machine agent connecting, we need to check the
+	// nonce matches, otherwise the wrong agent might be trying to
+	// connect.
+	machine, ok := entity.(*state.Machine)
+	if ok && !machine.CheckProvisioned(c.MachineNonce) {
+		return nil, common.ErrNotProvisioned
+	} else if ok && machine.CheckProvisioned(c.MachineNonce) {
+		// The machine agent has connected, so start a pinger to announce
+		// it's now alive.
+		pinger, err := machine.SetAgentAlive()
+		if err != nil {
+			return nil, err
+		}
+		newRoot.resources.Register(pinger)
+	}
+	return newRoot, nil
 }

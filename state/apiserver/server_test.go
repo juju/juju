@@ -81,7 +81,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *C) {
 	err = stm.SetPassword("password")
 	c.Assert(err, IsNil)
 
-	// This does almost exactly the same as OpenAsMachine but checks
+	// This does almost exactly the same as OpenAPIAsMachine but checks
 	// for failures instead.
 	_, info, err := s.APIConn.Environ.StateInfo()
 	info.Tag = stm.Tag()
@@ -116,4 +116,31 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *C) {
 	st, err = api.Open(info, fastDialOpts)
 	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
 	c.Assert(st, IsNil)
+}
+
+func (s *serverSuite) TestMachineLoginStartsPinger(c *C) {
+	// Create a new machine to verify "agent alive" behavior.
+	stm, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = stm.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
+	err = stm.SetPassword("password")
+	c.Assert(err, IsNil)
+
+	// Not alive yet.
+	s.State.Sync()
+	alive, err := stm.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, false)
+
+	// Login as the machine agent of the created machine.
+	st := s.OpenAPIAsMachine(c, stm.Tag(), "password", "fake_nonce")
+	defer st.Close()
+
+	// Make sure the pinger has started.
+	s.State.Sync()
+	stm.WaitAgentAlive(coretesting.LongWait)
+	alive, err = stm.AgentAlive()
+	c.Assert(err, IsNil)
+	c.Assert(alive, Equals, true)
 }
