@@ -81,6 +81,11 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
+func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("ec2Instance.Addresses not implemented")
+	return nil, nil
+}
+
 func (inst *ec2Instance) DNSName() (string, error) {
 	if inst.Instance.DNSName != "" {
 		return inst.Instance.DNSName, nil

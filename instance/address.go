@@ -58,3 +58,21 @@ func NewAddress(value string) Address {
 	addresstype := deriveAddressType(value)
 	return Address{value, addresstype, "", NetworkUnknown}
 }
+
+// SelectPublicAddress picks one address from a slice that would
+// be appropriate to display as a publicly accessible endpoint.
+// If there are no suitable addresses, the empty string is returned.
+func SelectPublicAddress(addresses []Address) string {
+	mostpublic := ""
+	for _, addr := range addresses {
+		if addr.Type != Ipv6Address {
+			switch addr.NetworkScope {
+			case NetworkPublic:
+				return addr.Value
+			case NetworkCloudLocal, NetworkUnknown:
+				mostpublic = addr.Value
+			}
+		}
+	}
+	return mostpublic
+}

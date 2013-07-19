@@ -20,6 +20,11 @@ func (lxc *lxcInstance) Id() instance.Id {
 	return instance.Id(lxc.id)
 }
 
+func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("lxcInstance.Addresses not implemented")
+	return nil, nil
+}
+
 // DNSName implements instance.Instance.DNSName.
 func (lxc *lxcInstance) DNSName() (string, error) {
 	return "", instance.ErrNoDNSName
