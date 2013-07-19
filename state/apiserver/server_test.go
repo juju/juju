@@ -45,11 +45,11 @@ func (s *serverSuite) TestStop(c *C) {
 	// Note we can't use openAs because we're not connecting to
 	// s.APIConn.
 	apiInfo := &api.Info{
-		Tag:          stm.Tag(),
-		Password:     "password",
-		MachineNonce: "fake_nonce",
-		Addrs:        []string{srv.Addr()},
-		CACert:       []byte(coretesting.CACert),
+		Tag:      stm.Tag(),
+		Password: "password",
+		Nonce:    "fake_nonce",
+		Addrs:    []string{srv.Addr()},
+		CACert:   []byte(coretesting.CACert),
 	}
 	st, err := api.Open(apiInfo, fastDialOpts)
 	c.Assert(err, IsNil)
@@ -86,19 +86,19 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *C) {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	info.Tag = stm.Tag()
 	info.Password = "password"
-	info.MachineNonce = "invalid-nonce"
+	info.Nonce = "invalid-nonce"
 	st, err := api.Open(info, fastDialOpts)
 	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
 	c.Assert(st, IsNil)
 
 	// Try with empty nonce as well.
-	info.MachineNonce = ""
+	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
 	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
 	c.Assert(st, IsNil)
 
 	// Finally, with the correct one succeeds.
-	info.MachineNonce = "fake_nonce"
+	info.Nonce = "fake_nonce"
 	st, err = api.Open(info, fastDialOpts)
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
@@ -112,7 +112,7 @@ func (s *serverSuite) TestOpenAsMachineErrors(c *C) {
 
 	// Try connecting, it will fail.
 	info.Tag = stm1.Tag()
-	info.MachineNonce = ""
+	info.Nonce = ""
 	st, err = api.Open(info, fastDialOpts)
 	c.Assert(err, ErrorMatches, params.CodeNotProvisioned)
 	c.Assert(st, IsNil)
