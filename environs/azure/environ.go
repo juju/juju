@@ -150,8 +150,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	if err != nil {
 		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
 	}
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, state.BootstrapNonce)
-	machineConfig.StateInfoURL = stateFileURL
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)

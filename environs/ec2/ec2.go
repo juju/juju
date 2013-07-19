@@ -255,8 +255,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot create bootstrap state file: %v", err)
 	}
 
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, state.BootstrapNonce)
-	machineConfig.StateInfoURL = stateFileURL
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	// TODO(wallyworld) - save bootstrap machine metadata
 	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
