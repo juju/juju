@@ -588,6 +588,10 @@ func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
+// getVnetAndAffinityGroupCleanupResponses returns the responses
+// (gwacl.DispatcherResponse) that a fake http server should return
+// when gwacl's RemoveVirtualNetworkSite() and DeleteAffinityGroup()
+// are called.
 func getVnetAndAffinityGroupCleanupResponses(c *C) []gwacl.DispatcherResponse {
 	existingConfig := &gwacl.NetworkConfiguration{
 		XMLNS:               gwacl.XMLNS_NC,
