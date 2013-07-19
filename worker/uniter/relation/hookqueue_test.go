@@ -4,17 +4,19 @@
 package relation_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/juju-core/worker/uniter/relation"
 	stdtesting "testing"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm/hooks"
+	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/relation"
 )
 
-func Test(t *stdtesting.T) { testing.MgoTestPackage(t) }
+func Test(t *stdtesting.T) { coretesting.MgoTestPackage(t) }
 
 type HookQueueSuite struct{}
 
@@ -263,7 +265,7 @@ func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan hook.In
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(coretesting.LongWait):
 			c.Fatalf("timed out waiting for event %d", i)
 		}
 	}
@@ -281,7 +283,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Inf
 		select {
 		case unexpected := <-out:
 			c.Fatalf("got %#v", unexpected)
-		case <-time.After(200 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 		}
 		return
 	}
@@ -300,7 +302,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Inf
 	select {
 	case actual := <-out:
 		c.Assert(actual, DeepEquals, expect)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for %#v", expect)
 	}
 }

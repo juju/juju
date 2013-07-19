@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 )
 
@@ -535,7 +536,7 @@ func (s *RelationUnitSuite) assertScopeChange(c *C, w *state.RelationScopeWatche
 		sort.Strings(left)
 		sort.Strings(ch.Left)
 		c.Assert(ch.Left, DeepEquals, left)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no change")
 	}
 }
@@ -546,7 +547,7 @@ func (s *RelationUnitSuite) assertNoScopeChange(c *C, ws ...*state.RelationScope
 		select {
 		case ch, ok := <-w.Changes():
 			c.Fatalf("got unwanted change: %#v, %t", ch, ok)
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 		}
 	}
 }

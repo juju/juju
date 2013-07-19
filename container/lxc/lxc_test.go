@@ -122,8 +122,6 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
-	// Check that the restart link has been removed.
-	c.Assert(filepath.Join(s.RestartDir, name+".conf"), jc.DoesNotExist)
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {

@@ -126,7 +126,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
 	// Initial event.
-	wc.AssertOneChange("mysql/0", "logging/0")
+	wc.AssertChange("mysql/0", "logging/0")
+	wc.AssertNoChange()
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
@@ -137,7 +138,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	// Make the subordinate dead and check it's detected.
 	err = s.subordinate.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange("logging/0")
+	wc.AssertChange("logging/0")
+	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
