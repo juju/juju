@@ -7,17 +7,17 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
-// Address represents the location of a machine, including metadata about what
+// address represents the location of a machine, including metadata about what
 // kind of location the address describes.
-type Address struct {
+type address struct {
 	value        string
 	addresstype  instance.AddressType
 	networkname  string                `bson:",omitempty"`
 	networkscope instance.NetworkScope `bson:",omitempty"`
 }
 
-func NewAddress(addr instance.Address) Address {
-	stateaddr := Address{
+func NewAddress(addr instance.Address) address {
+	stateaddr := address{
 		value:        addr.Value,
 		addresstype:  addr.Type,
 		networkname:  addr.NetworkName,
@@ -26,7 +26,7 @@ func NewAddress(addr instance.Address) Address {
 	return stateaddr
 }
 
-func (addr *Address) InstanceAddress() instance.Address {
+func (addr *address) InstanceAddress() instance.Address {
 	instanceaddr := instance.Address{
 		Value:        addr.value,
 		Type:         addr.addresstype,

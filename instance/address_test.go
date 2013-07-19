@@ -4,29 +4,29 @@
 package instance_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
 )
 
 type AddressSuite struct{}
 
-var _ = Suite(&AddressSuite{})
+var _ = gc.Suite(&AddressSuite{})
 
-func (s *AddressSuite) TestNewAddressIpv4(c *C) {
+func (s *AddressSuite) TestNewAddressIpv4(c *gc.C) {
 	addr := instance.NewAddress("127.0.0.1")
-	c.Check(addr.Value, Equals, "127.0.0.1")
-	c.Check(addr.Type, Equals, instance.Ipv4Address)
+	c.Check(addr.Value, gc.Equals, "127.0.0.1")
+	c.Check(addr.Type, gc.Equals, instance.Ipv4Address)
 }
 
-func (s *AddressSuite) TestNewAddressIpv6(c *C) {
+func (s *AddressSuite) TestNewAddressIpv6(c *gc.C) {
 	addr := instance.NewAddress("::1")
-	c.Check(addr.Value, Equals, "::1")
-	c.Check(addr.Type, Equals, instance.Ipv6Address)
+	c.Check(addr.Value, gc.Equals, "::1")
+	c.Check(addr.Type, gc.Equals, instance.Ipv6Address)
 }
 
-func (s *AddressSuite) TestNewAddressHostname(c *C) {
+func (s *AddressSuite) TestNewAddressHostname(c *gc.C) {
 	addr := instance.NewAddress("localhost")
-	c.Check(addr.Value, Equals, "localhost")
-	c.Check(addr.Type, Equals, instance.HostName)
+	c.Check(addr.Value, gc.Equals, "localhost")
+	c.Check(addr.Type, gc.Equals, instance.HostName)
 }

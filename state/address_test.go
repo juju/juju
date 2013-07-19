@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
@@ -12,19 +12,19 @@ import (
 
 type AddressSuite struct{}
 
-var _ = Suite(&AddressSuite{})
+var _ = gc.Suite(&AddressSuite{})
 
-func (s *AddressSuite) TestNewAddress(c *C) {
+func (s *AddressSuite) TestNewAddress(c *gc.C) {
 	instanceaddress := instance.Address{"0.0.0.0", instance.Ipv4Address,
 		"net", instance.NetworkUnknown}
 	stateaddress := state.NewAddress(instanceaddress)
-	c.Assert(stateaddress, NotNil)
+	c.Assert(stateaddress, gc.NotNil)
 }
 
-func (s *AddressSuite) TestInstanceAddressRoundtrips(c *C) {
+func (s *AddressSuite) TestInstanceAddressRoundtrips(c *gc.C) {
 	instanceaddress := instance.Address{"0.0.0.0", instance.Ipv4Address,
 		"net", instance.NetworkUnknown}
 	stateaddress := state.NewAddress(instanceaddress)
 	addr := stateaddress.InstanceAddress()
-	c.Assert(addr, Equals, instanceaddress)
+	c.Assert(addr, gc.Equals, instanceaddress)
 }
