@@ -72,7 +72,7 @@ func (s *upgraderSuite) TearDownTest(c *C) {
 // Note: This is really meant as a unit-test, this isn't a test that should
 //       need all of the setup we have for this test suite
 func (s *upgraderSuite) TestNew(c *C) {
-	upgrader := upgrader.New(s.stateAPI)
+	upgrader := upgrader.NewState(s.stateAPI)
 	c.Assert(upgrader, NotNil)
 }
 
