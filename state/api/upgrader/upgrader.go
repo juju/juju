@@ -11,22 +11,23 @@ import (
 	"launchpad.net/juju-core/state/api/watcher"
 )
 
-// Upgrader provides access to the Upgrader API facade.
-type Upgrader struct {
+// State provides access to an upgrader worker's view of the state.
+type State struct {
 	caller common.Caller
 }
 
-// New creates a new client-side Upgrader facade.
-func New(caller common.Caller) *Upgrader {
-	return &Upgrader{caller}
+// NewState returns a version of the state that provides functionality
+// required by the upgrader worker.
+func New(caller common.Caller) *State {
+	return &State{caller}
 }
 
-func (u *Upgrader) SetTools(tools params.AgentTools) error {
+func (st *State) SetTools(tools params.AgentTools) error {
 	var results params.SetAgentToolsResults
 	args := params.SetAgentTools{
 		AgentTools: []params.AgentTools{tools},
 	}
-	err := u.caller.Call("Upgrader", "", "SetTools", args, &results)
+	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return err
@@ -46,12 +47,12 @@ func (u *Upgrader) SetTools(tools params.AgentTools) error {
 	return nil
 }
 
-func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
+func (st *State) Tools(tag string) (*params.AgentTools, error) {
 	var results params.AgentToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
 	}
-	err := u.caller.Call("Upgrader", "", "Tools", args, &results)
+	err := st.caller.Call("Upgrader", "", "Tools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -72,12 +73,12 @@ func (u *Upgrader) Tools(tag string) (*params.AgentTools, error) {
 	return &tools.AgentTools, nil
 }
 
-func (u *Upgrader) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
+func (st *State) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
 	}
-	err := u.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
+	err := st.caller.Call("Upgrader", "", "WatchAPIVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return nil, err
@@ -91,6 +92,6 @@ func (u *Upgrader) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, err
 		//  TODO: Not directly tested
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(u.caller, result)
+	w := watcher.NewNotifyWatcher(st.caller, result)
 	return w, nil
 }

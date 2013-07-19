@@ -36,7 +36,7 @@ type upgraderSuite struct {
 	rawService *state.Service
 	rawUnit    *state.Unit
 
-	upgrader *upgrader.Upgrader
+	st *upgrader.State
 }
 
 var _ = Suite(&upgraderSuite{})
@@ -56,9 +56,9 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(s.stateAPI, NotNil)
 
 	// Create the upgrader facade.
-	s.upgrader, err = s.stateAPI.Upgrader()
+	s.st, err = s.stateAPI.Upgrader()
 	c.Assert(err, IsNil)
-	c.Assert(s.upgrader, NotNil)
+	c.Assert(s.st, NotNil)
 }
 
 func (s *upgraderSuite) TearDownTest(c *C) {
@@ -78,7 +78,7 @@ func (s *upgraderSuite) TestNew(c *C) {
 
 func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
 	cur := version.Current
-	err := s.upgrader.SetTools(params.AgentTools{
+	err := s.st.SetTools(params.AgentTools{
 		Tag:    "42",
 		Arch:   cur.Arch,
 		Series: cur.Series,
@@ -96,7 +96,7 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 	tools, err := s.rawMachine.AgentTools()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	c.Assert(tools, IsNil)
-	err = s.upgrader.SetTools(params.AgentTools{
+	err = s.st.SetTools(params.AgentTools{
 		Tag:    s.rawMachine.Tag(),
 		Arch:   cur.Arch,
 		Series: cur.Series,
@@ -115,7 +115,7 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 }
 
 func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
-	tools, err := s.upgrader.Tools("42")
+	tools, err := s.st.Tools("42")
 	c.Assert(err, ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(tools, IsNil)
@@ -130,7 +130,7 @@ func (s *upgraderSuite) TestTools(c *C) {
 	s.rawMachine.SetAgentTools(curTools)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to upgraded to cur.Version
-	tools, err := s.upgrader.Tools(s.rawMachine.Tag())
+	tools, err := s.st.Tools(s.rawMachine.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(tools, NotNil)
 	c.Check(tools.Tag, Equals, s.rawMachine.Tag())
@@ -144,7 +144,7 @@ func (s *upgraderSuite) TestTools(c *C) {
 }
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
-	w, err := s.upgrader.WatchAPIVersion(s.rawMachine.Tag())
+	w, err := s.st.WatchAPIVersion(s.rawMachine.Tag())
 	c.Assert(err, IsNil)
 	defer statetesting.AssertStop(c, w)
 	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
