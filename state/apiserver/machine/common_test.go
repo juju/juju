@@ -7,7 +7,6 @@ import (
 
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/apiserver/common"
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -20,7 +19,6 @@ type commonSuite struct {
 	testing.JujuConnSuite
 
 	authorizer apiservertesting.FakeAuthorizer
-	resources  *common.Resources
 
 	machine0 *state.Machine
 	machine1 *state.Machine
@@ -35,10 +33,6 @@ func (s *commonSuite) SetUpTest(c *C) {
 
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
-
-	// Create the resource registry separately to track invocations to
-	// Register.
-	s.resources = common.NewResources()
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
