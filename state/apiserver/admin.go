@@ -87,7 +87,7 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	// Finally, if this is a machine agent connecting, we need to
 	// check the nonce matches, otherwise the wrong agent might be
 	// trying to connect.
-	if m, ok := entity.(*state.Machine); ok && !m.CheckProvisioned(c.MachineNonce) {
+	if m, ok := entity.(*state.Machine); ok && !m.CheckProvisioned(c.Nonce) {
 		return common.ErrNotProvisioned
 	}
 
