@@ -6,7 +6,6 @@ package azure
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -140,15 +139,11 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	const machineID = "0"
 
 	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics after the
-	// bootstrap instance is started.
-	err := env.Storage().Put(environs.StateFile, strings.NewReader(""), 0)
+	// It will be updated with the instance id and hardware characteristics
+	// after the bootstrap instance is started.
+	stateFileURL, err := environs.CreateStateFile(env.Storage())
 	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
-	}
-	stateFileURL, err := env.Storage().URL(environs.StateFile)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
+		return nil, err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 

@@ -250,9 +250,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	stateFileURL, err := environs.CreateStateFile(e.Storage())
 	if err != nil {
-		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return err
 	}
 
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
