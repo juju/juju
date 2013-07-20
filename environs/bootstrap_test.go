@@ -94,7 +94,7 @@ type bootstrapEnviron struct {
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
 	constraints    constraints.Value
-	storage environs.Storage
+	storage        environs.Storage
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
