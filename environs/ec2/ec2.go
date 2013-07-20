@@ -235,13 +235,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
 	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
-	// If the state file exists, it might actually have just been
-	// removed by Destroy, and eventual consistency has not caught
-	// up yet, so we retry to verify if that is happening.
-	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
-		return err
-	}
-
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
