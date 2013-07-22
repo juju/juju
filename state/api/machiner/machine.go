@@ -52,7 +52,10 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 	if len(result.Errors) != 1 {
 		return fmt.Errorf("expected one result, got %d", len(result.Errors))
 	}
-	return result.Errors[0]
+	if result.Errors[0] != nil {
+		return result.Errors[0]
+	}
+	return nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or
@@ -69,7 +72,10 @@ func (m *Machine) EnsureDead() error {
 	if len(result.Errors) != 1 {
 		return fmt.Errorf("expected one result, got %d", len(result.Errors))
 	}
-	return result.Errors[0]
+	if result.Errors[0] != nil {
+		return result.Errors[0]
+	}
+	return nil
 }
 
 // Watch returns a watcher for observing changes to the machine.

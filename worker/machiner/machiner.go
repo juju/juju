@@ -1,6 +1,5 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
-
 package machiner
 
 import (
@@ -9,10 +8,9 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -20,76 +18,75 @@ var logger = loggo.GetLogger("juju.worker.machiner")
 
 // Machiner is responsible for a machine agent's lifecycle.
 type Machiner struct {
-	st      *state.State
-	id      string
-	pinger  *presence.Pinger
-	machine *state.Machine
+	st      *machiner.State
+	tag     string
+	machine *machiner.Machine
 }
 
 // NewMachiner returns a Machiner that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
-func NewMachiner(st *state.State, id string) worker.NotifyWorker {
-	mr := &Machiner{st: st, id: id}
+func NewMachiner(st *machiner.State, tag string) worker.NotifyWorker {
+	mr := &Machiner{st: st, tag: tag}
 	return worker.NewNotifyWorker(mr)
 }
 
 func (mr *Machiner) String() string {
-	return fmt.Sprintf("machiner %s", mr.id)
+	return fmt.Sprintf("machiner for %s", mr.tag)
+}
+
+func isNotFoundOrUnauthorized(err error) bool {
+	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
 }
 
 func (mr *Machiner) SetUp() (api.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
-	m, err := mr.st.Machine(mr.id)
-	if errors.IsNotFoundError(err) {
+	m, err := mr.st.Machine(mr.tag)
+	if isNotFoundOrUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
+		logger.Errorf("error while starting %q: %v", mr, err)
 		return nil, err
 	}
 	mr.machine = m
 
-	// Announce our presence to the world.
-	mr.pinger, err = m.SetAgentAlive()
-	if err != nil {
-		return nil, err
-	}
-	logger.Debugf("agent for machine %q is now alive", m)
-
 	// Mark the machine as started and log it.
 	if err := m.SetStatus(params.StatusStarted, ""); err != nil {
+		logger.Errorf("%s failed to set status started: %v", mr, err)
 		return nil, err
 	}
-	logger.Infof("machine %q started", m)
+	logger.Infof("%q started", mr.tag)
 
-	w := m.Watch()
-	return w, nil
+	return m.Watch()
 }
 
 func (mr *Machiner) Handle() error {
-	if err := mr.machine.Refresh(); errors.IsNotFoundError(err) {
+	if err := mr.machine.Refresh(); isNotFoundOrUnauthorized(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
+		logger.Errorf("%s falied to refresh: %v", mr, err)
 		return err
 	}
-	if mr.machine.Life() == state.Alive {
+	if mr.machine.Life() == params.Alive {
 		return nil
 	}
-	logger.Debugf("machine %q is now %s", mr.machine, mr.machine.Life())
+	logger.Debugf("%q is now %s", mr.tag, mr.machine.Life())
 	if err := mr.machine.SetStatus(params.StatusStopped, ""); err != nil {
+		logger.Errorf("%s failed to set status stopped: %v", mr, err)
 		return err
 	}
+
 	// If the machine is Dying, it has no units,
 	// and can be safely set to Dead.
 	if err := mr.machine.EnsureDead(); err != nil {
+		logger.Errorf("%s falied to set machine to dead: %v", mr, err)
 		return err
 	}
-	logger.Infof("machine %q shutting down", mr.machine)
+	logger.Infof("%q shutting down", mr.tag)
 	return worker.ErrTerminateAgent
 }
 
 func (mr *Machiner) TearDown() error {
-	if mr.pinger != nil {
-		return mr.pinger.Stop()
-	}
+	// Nothing to do here.
 	return nil
 }
