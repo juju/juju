@@ -1,7 +1,8 @@
 package utils_test
+
 import (
-	"launchpad.net/juju-core/utils"
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/utils"
 	"time"
 )
 
