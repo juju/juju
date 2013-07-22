@@ -470,7 +470,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
 	tools.Binary.Series = version.CurrentSeries()
-	err = agent.UnpackTools(dataDir, tools, toolsFile)
+	err = tools.UnpackTools(dataDir, tools, toolsFile)
 
 	machineId := "0" // Always machine 0
 	tag := state.MachineTag(machineId)

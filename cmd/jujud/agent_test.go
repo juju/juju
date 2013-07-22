@@ -180,7 +180,7 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
 	resp, err := http.Get(tools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-	err = agent.UnpackTools(s.DataDir(), tools, resp.Body)
+	err = tools.UnpackTools(s.DataDir(), tools, resp.Body)
 	c.Assert(err, IsNil)
 	return tools
 }

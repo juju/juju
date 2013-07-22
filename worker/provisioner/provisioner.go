@@ -10,7 +10,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"

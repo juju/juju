@@ -217,7 +217,7 @@ func (u *Upgrader) run() error {
 				noDelay()
 				break
 			}
-			err := agent.UnpackTools(u.dataDir, tools, status.File)
+			err := tools.UnpackTools(u.dataDir, tools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
 				log.Warningf("upgrader cannot remove temporary download file: %v", err)
