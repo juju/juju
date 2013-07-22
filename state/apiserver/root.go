@@ -4,6 +4,7 @@
 package apiserver
 
 import (
+	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -38,6 +39,7 @@ func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
 // Kill implements rpc.Killer.  It cleans up any resources that need
 // cleaning up to ensure that all outstanding requests return.
 func (r *srvRoot) Kill() {
+	log.Infof("Killing all resources: %#v", r.resources)
 	r.resources.StopAll()
 }
 

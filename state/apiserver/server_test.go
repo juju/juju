@@ -147,6 +147,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *C) {
 	// Now make sure it stops when connection is closed.
 	c.Assert(st.Close(), IsNil)
 	s.State.Sync()
+	c.Assert(err, IsNil)
 	alive, err = stm.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
