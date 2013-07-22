@@ -30,7 +30,6 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
 )
 
 // TODO(niemeyer): This must not be exported.

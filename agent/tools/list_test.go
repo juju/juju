@@ -4,23 +4,18 @@
 package tools_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
-	"testing"
-)
+	gc "launchpad.net/gocheck"
 
-func TestPackage(t *testing.T) {
-	TestingT(t)
-}
+	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/version"
+)
 
 type ListSuite struct{}
 
-var _ = Suite(&ListSuite{})
+var _ = gc.Suite(&ListSuite{})
 
-func mustParseTools(name string) *state.Tools {
-	return &state.Tools{
+func mustParseTools(name string) *tools.Tools {
+	return &tools.Tools{
 		Binary: version.MustParseBinary(name),
 		URL:    "http://testing.invalid/" + name,
 	}
@@ -241,15 +236,15 @@ var matchTests = []struct {
 	tools.List{t200quantal32},
 }}
 
-func (s *ListSuite) TestMatch(c *C) {
+func (s *ListSuite) TestMatch(c *tc.C) {
 	for i, test := range matchTests {
 		c.Logf("test %d", i)
 		actual, err := test.src.Match(test.filter)
-		c.Check(actual, DeepEquals, test.expect)
+		c.Check(actual, gc.DeepEquals, test.expect)
 		if len(test.expect) > 0 {
-			c.Check(err, IsNil)
+			c.Check(err, gc.IsNil)
 		} else {
-			c.Check(err, Equals, tools.ErrNoMatches)
+			c.Check(err, gc.Equals, tools.ErrNoMatches)
 		}
 	}
 }
