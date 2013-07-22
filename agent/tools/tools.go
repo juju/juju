@@ -1,13 +1,17 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent
+package tools
 
 import (
 	"io"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/version"
 )
+
+var logger = loggo.GetLogger("juju.agent.tools")
 
 type Tools struct {
 	version.Binary
