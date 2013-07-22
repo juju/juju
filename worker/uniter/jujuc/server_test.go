@@ -135,7 +135,7 @@ func (s *ServerSuite) TestLocks(c *C) {
 	}
 	wg.Wait()
 	t1 := time.Now()
-	c.Assert(t0.Add(200*time.Millisecond).Before(t1), Equals, true)
+	c.Assert(t0.Add(4 * testing.ShortWait).Before(t1), Equals, true)
 }
 
 func (s *ServerSuite) TestBadCommandName(c *C) {
