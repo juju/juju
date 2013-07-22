@@ -403,3 +403,11 @@ func (s *ConfigSuite) TestDefaultType(c *C) {
 	assertTypeError("float", "123", "123")
 	assertTypeError("int", "true", "true")
 }
+
+// When an empty config is supplied an error should be returned
+func (s *ConfigSuite) TestEmptyConfigReturnsError(c *C) {
+	config := ""
+	result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
+	c.Assert(result, IsNil)
+	c.Assert(err, ErrorMatches, "invalid config: empty configuration")
+}

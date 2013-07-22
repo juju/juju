@@ -176,7 +176,7 @@ func (s *CommonProvisionerSuite) checkNoOperations(c *C) {
 	select {
 	case o := <-s.op:
 		c.Fatalf("unexpected operation %#v", o)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 		return
 	}
 }
@@ -210,9 +210,13 @@ func (s *CommonProvisionerSuite) checkStopInstances(c *C, instances ...instance.
 }
 
 func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func() bool) {
+	// TODO(jam): We need to grow a new method on NotifyWatcherC
+	// that calls StartSync while waiting for changes, then
+	// waitMachine and waitHardwareCharacteristics can use that
+	// instead
 	w := m.Watch()
 	defer stop(c, w)
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(coretesting.LongWait)
 	resync := time.After(0)
 	for {
 		select {
@@ -221,7 +225,7 @@ func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func(
 				return
 			}
 		case <-resync:
-			resync = time.After(50 * time.Millisecond)
+			resync = time.After(coretesting.ShortWait)
 			s.State.StartSync()
 		case <-timeout:
 			c.Fatalf("machine %v wait timed out", m)
@@ -232,7 +236,7 @@ func (s *CommonProvisionerSuite) waitMachine(c *C, m *state.Machine, check func(
 func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Machine, check func() bool) {
 	w := m.WatchHardwareCharacteristics()
 	defer stop(c, w)
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(coretesting.LongWait)
 	resync := time.After(0)
 	for {
 		select {
@@ -241,7 +245,7 @@ func (s *CommonProvisionerSuite) waitHardwareCharacteristics(c *C, m *state.Mach
 				return
 			}
 		case <-resync:
-			resync = time.After(50 * time.Millisecond)
+			resync = time.After(coretesting.ShortWait)
 			s.State.StartSync()
 		case <-timeout:
 			c.Fatalf("hardware characteristics for machine %v wait timed out", m)
@@ -335,11 +339,19 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	c.Assert(err, IsNil)
 	s.checkNoOperations(c)
 
-	// And check the machine status is set to error.
-	status, info, err := m.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusError)
-	c.Assert(info, Equals, brokenMsg)
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, err := m.Status()
+		c.Assert(err, IsNil)
+		if status == params.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, Equals, params.StatusError)
+		c.Assert(info, Equals, brokenMsg)
+		break
+	}
 
 	// Unbreak the environ config.
 	err = s.fixEnvironment()
@@ -563,7 +575,7 @@ func (s *ProvisionerSuite) TestProvisioningRecoversAfterInvalidEnvironmentPublis
 	// wait for the PA to load the new configuration
 	select {
 	case <-cfgObserver:
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("PA did not action config change")
 	}
 

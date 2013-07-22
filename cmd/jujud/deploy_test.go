@@ -4,14 +4,17 @@
 package main
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/juju-core/worker/deployer"
 	"reflect"
 	"sort"
 	"sync"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/juju-core/worker/deployer"
 )
 
 // fakeManager allows us to test deployments without actually deploying units
@@ -52,7 +55,7 @@ func (ctx *fakeContext) DeployedUnits() ([]string, error) {
 
 func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 	sort.Strings(want)
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(testing.LongWait)
 	select {
 	case <-timeout:
 		c.Fatalf("manager never initialized")
@@ -64,7 +67,7 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 				got, err := ctx.DeployedUnits()
 				c.Assert(err, IsNil)
 				c.Fatalf("unexpected units: %#v", got)
-			case <-time.After(50 * time.Millisecond):
+			case <-time.After(testing.ShortWait):
 				got, err := ctx.DeployedUnits()
 				c.Assert(err, IsNil)
 				if reflect.DeepEqual(got, want) {

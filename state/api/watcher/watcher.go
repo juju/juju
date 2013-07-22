@@ -143,26 +143,21 @@ func (w *NotifyWatcher) loop() error {
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// The initial API call to set up the Watch should consume and
-	// "transmit" the initial event. For NotifyWatchers, there is no actual
-	// state transmitted, so we just set the event.
-	out := w.out
 	for {
 		select {
-		case _, ok := <-w.in:
-			if !ok {
-				// The tomb is already killed with the correct
-				// error at this point, so just return.
-				return nil
-			}
-			// We have received changes, so send them out.
-			out = w.out
-		case out <- struct{}{}:
-			// Wait until we have new changes to send.
-			out = nil
+		// Since for a NotifyWatcher there are no changes to send, we
+		// just set the event (initial first, then after each change).
+		case w.out <- struct{}{}:
+		case <-w.tomb.Dying():
+			return nil
+		}
+		if _, ok := <-w.in; !ok {
+			// The tomb is already killed with the correct
+			// error at this point, so just return.
+			return nil
 		}
 	}
-	panic("unreachable")
+	return nil
 }
 
 // Changes returns a channel that receives a value when a given entity
@@ -203,26 +198,23 @@ func (w *StringsWatcher) loop(initialChanges []string) error {
 	w.commonWatcher.init()
 	go w.commonLoop()
 
-	// The first watch call returns the initial result value which we
-	// try to send immediately.
-	out := w.out
 	for {
 		select {
-		case data, ok := <-w.in:
-			if !ok {
-				// The tomb is already killed with the correct error
-				// at this point, so just return.
-				return nil
-			}
-			// We have received changes, so send them out.
-			changes = data.(*params.StringsWatchResult).Changes
-			out = w.out
-		case out <- changes:
-			// Wait until we have new changes to send.
-			out = nil
+		// Send the initial event or subsequent change.
+		case w.out <- changes:
+		case <-w.tomb.Dying():
+			return nil
 		}
+		// Read the next change.
+		data, ok := <-w.in
+		if !ok {
+			// The tomb is already killed with the correct error
+			// at this point, so just return.
+			return nil
+		}
+		changes = data.(*params.StringsWatchResult).Changes
 	}
-	panic("unreachable")
+	return nil
 }
 
 // Changes returns a channel that receives a list of strings of watched

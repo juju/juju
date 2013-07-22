@@ -46,11 +46,13 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
 
 	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAs(c, s.machine.Tag(), "test-password")
+	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
 	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the needed services and relate them.
@@ -126,7 +128,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	wc := statetesting.NewStringsWatcherC(c, s.BackingState, w)
 
 	// Initial event.
-	wc.AssertOneChange("mysql/0", "logging/0")
+	wc.AssertChange("mysql/0", "logging/0")
+	wc.AssertNoChange()
 
 	// Change something other than the lifecycle and make sure it's
 	// not detected.
@@ -137,7 +140,8 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 	// Make the subordinate dead and check it's detected.
 	err = s.subordinate.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	wc.AssertOneChange("logging/0")
+	wc.AssertChange("logging/0")
+	wc.AssertNoChange()
 
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()

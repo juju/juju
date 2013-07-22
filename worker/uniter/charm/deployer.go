@@ -5,10 +5,10 @@ package charm
 
 import (
 	"fmt"
+	"io/ioutil"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"os"
-	"path"
 	"path/filepath"
 	"time"
 )
@@ -189,16 +189,5 @@ func (d *Deployer) collectOrphans() {
 // assumes that the deployer will not need to create more than 10
 // directories in any given second.
 func (d *Deployer) newDir(prefix string) (string, error) {
-	prefix = prefix + time.Now().Format("-%Y%m%d-%H%M%S")
-	var err error
-	var prefixPath string
-	for i := 0; i < 10; i++ {
-		prefixPath = path.Join(d.path, fmt.Sprintf("%s-%d", prefix, i))
-		if err = os.Mkdir(prefixPath, 0755); err == nil {
-			return prefixPath, nil
-		} else if !os.IsExist(err) {
-			break
-		}
-	}
-	return "", fmt.Errorf("failed to create %q: %v", prefixPath, err)
+	return ioutil.TempDir(d.path, prefix+time.Now().Format("-20060102-150405"))
 }

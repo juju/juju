@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	stdtesting "testing"
@@ -34,8 +35,11 @@ func (s *machinerSuite) SetUpTest(c *C) {
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
 	err = s.machine.SetPassword("password")
-	s.st = s.OpenAPIAs(c, s.machine.Tag(), "password")
+	c.Assert(err, IsNil)
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
 }
 
 func (s *machinerSuite) TearDownTest(c *C) {
@@ -114,4 +118,32 @@ func (s *machinerSuite) TestRefresh(c *C) {
 	err = machine.Refresh()
 	c.Assert(err, IsNil)
 	c.Assert(machine.Life(), Equals, params.Dead)
+}
+
+func (s *machinerSuite) TestWatch(c *C) {
+	machine, err := s.st.Machiner().Machine("machine-0")
+	c.Assert(err, IsNil)
+	c.Assert(machine.Life(), Equals, params.Alive)
+
+	w, err := machine.Watch()
+	c.Assert(err, IsNil)
+	defer statetesting.AssertStop(c, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.BackingState, w)
+
+	// Initial event.
+	wc.AssertOneChange()
+
+	// Change something other than the lifecycle and make sure it's
+	// not detected.
+	err = machine.SetStatus(params.StatusStarted, "not really")
+	c.Assert(err, IsNil)
+	wc.AssertNoChange()
+
+	// Make the machine dead and check it's detected.
+	err = machine.EnsureDead()
+	c.Assert(err, IsNil)
+	wc.AssertOneChange()
+
+	statetesting.AssertStop(c, w)
+	wc.AssertClosed()
 }
