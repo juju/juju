@@ -6,19 +6,22 @@ package openstack
 import (
 	"bytes"
 	"fmt"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/loggo"
 	"os"
 	"strings"
 	"time"
+
+	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/testing"
 )
 
 type ConfigSuite struct {
 	savedVars   map[string]string
-	oldJujuHome string
+	oldJujuHome *testing.FakeHome
 }
 
 // Ensure any environment variables a user may have set locally are reset.
@@ -176,7 +179,7 @@ func (t configTest) check(c *gc.C) {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
-	s.oldJujuHome = config.SetJujuHome(c.MkDir())
+	s.oldJujuHome = testing.MakeEmptyFakeHome(c)
 	s.savedVars = make(map[string]string)
 	for v, val := range envVars {
 		s.savedVars[v] = os.Getenv(v)
@@ -188,7 +191,7 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	for k, v := range s.savedVars {
 		os.Setenv(k, v)
 	}
-	config.SetJujuHome(s.oldJujuHome)
+	s.oldJujuHome.Restore()
 }
 
 var configTests = []configTest{
@@ -448,7 +451,7 @@ func (s *ConfigSuite) setupEnvCredentials() {
 }
 
 type ConfigDeprecationSuite struct {
-	oldJujuHome string
+	oldJujuHome *testing.FakeHome
 	writer      *testWriter
 	oldWriter   loggo.Writer
 	oldLevel    loggo.Level
@@ -457,7 +460,7 @@ type ConfigDeprecationSuite struct {
 var _ = gc.Suite(&ConfigDeprecationSuite{})
 
 func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
-	s.oldJujuHome = config.SetJujuHome(c.MkDir())
+	s.oldJujuHome = testing.MakeEmptyFakeHome(c)
 	var err error
 	s.writer = &testWriter{}
 	s.oldWriter, s.oldLevel, err = loggo.RemoveWriter("default")
@@ -471,7 +474,7 @@ func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
 	c.Assert(err, gc.IsNil)
-	config.SetJujuHome(s.oldJujuHome)
+	s.oldJujuHome.Restore()
 }
 
 type testWriter struct {
