@@ -40,28 +40,56 @@ func is42(i int) bool {
 	return i == 42
 }
 
+var satisfiesTests = []struct {
+	f      interface{}
+	arg    interface{}
+	result bool
+	msg    string
+}{{
+	f:      is42,
+	arg:    42,
+	result: true,
+}, {
+	f:   is42,
+	arg: 41,
+}, {
+	f:   is42,
+	arg: "",
+	msg: "wrong argument type string for func(int) bool",
+}, {
+	f:   os.IsNotExist,
+	arg: errors.New("foo"),
+}, {
+	f:      os.IsNotExist,
+	arg:    os.ErrNotExist,
+	result: true,
+}, {
+	f: os.IsNotExist,
+}, {
+	f:      func(chan int) bool { return true },
+	result: true,
+}, {
+	f:      func(func()) bool { return true },
+	result: true,
+}, {
+	f:      func(interface{}) bool { return true },
+	result: true,
+}, {
+	f:      func(map[string]bool) bool { return true },
+	result: true,
+}, {
+	f:      func(*int) bool { return true },
+	result: true,
+}, {
+	f:      func([]string) bool { return true },
+	result: true,
+}}
+
 func (s *BoolSuite) TestSatisfies(c *C) {
-	result, msg := Satisfies.Check([]interface{}{42, is42}, nil)
-	c.Assert(result, Equals, true)
-	c.Assert(msg, Equals, "")
-
-	result, msg = Satisfies.Check([]interface{}{41, is42}, nil)
-	c.Assert(result, Equals, false)
-	c.Assert(msg, Equals, "")
-
-	result, msg = Satisfies.Check([]interface{}{"", is42}, nil)
-	c.Assert(result, Equals, false)
-	c.Assert(msg, Equals, "expected func(string) bool, got func(int) bool")
-
-	result, msg = Satisfies.Check([]interface{}{"", is42}, nil)
-	c.Assert(result, Equals, false)
-	c.Assert(msg, Equals, "expected func(string) bool, got func(int) bool")
-
-	result, msg = Satisfies.Check([]interface{}{errors.New("foo"), os.IsNotExist}, nil)
-	c.Assert(result, Equals, false)
-	c.Assert(msg, Equals, "")
-
-	result, msg = Satisfies.Check([]interface{}{os.ErrNotExist, os.IsNotExist}, nil)
-	c.Assert(result, Equals, true)
-	c.Assert(msg, Equals, "")
+	for i, test := range satisfiesTests {
+		c.Logf("test %d. %T %T", i, test.f, test.arg)
+		result, msg := Satisfies.Check([]interface{}{test.arg, test.f}, nil)
+		c.Check(result, Equals, test.result)
+		c.Check(msg, Equals, test.msg)
+	}
 }
