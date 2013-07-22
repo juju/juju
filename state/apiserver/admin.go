@@ -6,7 +6,6 @@ package apiserver
 import (
 	stderrors "errors"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -100,7 +99,9 @@ type machinePinger struct {
 // Stop implements Pinger.Stop() as Pinger.Kill(), needed at
 // connection closing time to properly stop the wrapped pinger.
 func (p *machinePinger) Stop() error {
-	log.Infof("Stopping pinger %#v", p)
+	if err := p.Pinger.Stop(); err != nil {
+		return err
+	}
 	return p.Pinger.Kill()
 }
 

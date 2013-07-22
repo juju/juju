@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver"
 	coretesting "launchpad.net/juju-core/testing"
 	stdtesting "testing"
+	"time"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -146,7 +147,12 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *C) {
 
 	// Now make sure it stops when connection is closed.
 	c.Assert(st.Close(), IsNil)
+
+	// Sync, then wait for a bit to make sure the state is updated.
 	s.State.Sync()
+	<-time.After(coretesting.ShortWait)
+	s.State.Sync()
+
 	c.Assert(err, IsNil)
 	alive, err = stm.AgentAlive()
 	c.Assert(err, IsNil)
