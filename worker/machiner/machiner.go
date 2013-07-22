@@ -45,7 +45,6 @@ func (mr *Machiner) SetUp() (api.NotifyWatcher, error) {
 	if isNotFoundOrUnauthorized(err) {
 		return nil, worker.ErrTerminateAgent
 	} else if err != nil {
-		logger.Errorf("error while starting %q: %v", mr, err)
 		return nil, err
 	}
 	mr.machine = m
@@ -64,7 +63,6 @@ func (mr *Machiner) Handle() error {
 	if err := mr.machine.Refresh(); isNotFoundOrUnauthorized(err) {
 		return worker.ErrTerminateAgent
 	} else if err != nil {
-		logger.Errorf("%s falied to refresh: %v", mr, err)
 		return err
 	}
 	if mr.machine.Life() == params.Alive {
@@ -82,7 +80,6 @@ func (mr *Machiner) Handle() error {
 		logger.Errorf("%s falied to set machine to dead: %v", mr, err)
 		return err
 	}
-	logger.Infof("%q shutting down", mr.tag)
 	return worker.ErrTerminateAgent
 }
 

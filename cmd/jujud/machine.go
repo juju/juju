@@ -167,7 +167,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		ensureStateWorker()
 	}
 	runner := worker.NewRunner(allFatal, moreImportant)
-	// Only the machiner currently connect to the API.
+	// Only the machiner currently connects to the API.
 	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
