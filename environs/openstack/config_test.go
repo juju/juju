@@ -4,11 +4,16 @@
 package openstack
 
 import (
-	. "launchpad.net/gocheck"
+	"bytes"
+	"fmt"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/loggo"
 	"os"
+	"strings"
+	"time"
 )
 
 type ConfigSuite struct {
@@ -34,7 +39,7 @@ var envVars = map[string]string{
 	"OS_USERNAME":           "",
 }
 
-var _ = Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 // configTest specifies a config parsing test, checking that env when
 // parsed as the openstack section of a config file matches
@@ -70,7 +75,7 @@ func restoreEnvVars(envVars map[string]string) {
 	}
 }
 
-func (t configTest) check(c *C) {
+func (t configTest) check(c *gc.C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
@@ -87,10 +92,10 @@ func (t configTest) check(c *C) {
 		testenv["control-bucket"] = "x"
 	}
 	data, err := goyaml.Marshal(envs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	// Set environment variables if any.
 	savedVars := make(map[string]string)
@@ -104,14 +109,14 @@ func (t configTest) check(c *C) {
 
 	e, err := es.Open("testenv")
 	if t.change != nil {
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		osenv := e.(*environ)
 		old = osenv.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(changed, old)
@@ -120,57 +125,57 @@ func (t configTest) check(c *C) {
 		}
 	}
 	if t.err != "" {
-		c.Check(err, ErrorMatches, t.err)
+		c.Check(err, gc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.Name(), Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), Equals, "x")
+	c.Assert(ecfg.Name(), gc.Equals, "testenv")
+	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
-		c.Assert(ecfg.region(), Equals, t.region)
+		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
 	if t.authMode != "" {
-		c.Assert(ecfg.authMode(), Equals, t.authMode)
+		c.Assert(ecfg.authMode(), gc.Equals, t.authMode)
 	}
 	if t.accessKey != "" {
-		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
+		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
 	}
 	if t.secretKey != "" {
-		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
+		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
 	}
 	if t.username != "" {
-		c.Assert(ecfg.username(), Equals, t.username)
-		c.Assert(ecfg.password(), Equals, t.password)
-		c.Assert(ecfg.tenantName(), Equals, t.tenantName)
-		c.Assert(ecfg.authURL(), Equals, t.authURL)
+		c.Assert(ecfg.username(), gc.Equals, t.username)
+		c.Assert(ecfg.password(), gc.Equals, t.password)
+		c.Assert(ecfg.tenantName(), gc.Equals, t.tenantName)
+		c.Assert(ecfg.authURL(), gc.Equals, t.authURL)
 		expected := map[string]interface{}{
 			"username":    t.username,
 			"password":    t.password,
 			"tenant-name": t.tenantName,
 		}
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
-		c.Assert(err, IsNil)
-		c.Assert(expected, DeepEquals, actual)
+		c.Assert(err, gc.IsNil)
+		c.Assert(expected, gc.DeepEquals, actual)
 	}
 	if t.pbucketURL != "" {
-		c.Assert(ecfg.publicBucketURL(), Equals, t.pbucketURL)
-		c.Assert(ecfg.publicBucket(), Equals, t.publicBucket)
+		c.Assert(ecfg.publicBucketURL(), gc.Equals, t.pbucketURL)
+		c.Assert(ecfg.publicBucket(), gc.Equals, t.publicBucket)
 	}
 	if t.firewallMode != "" {
-		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
+		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
-	c.Assert(ecfg.useFloatingIP(), Equals, t.useFloatingIP)
+	c.Assert(ecfg.useFloatingIP(), gc.Equals, t.useFloatingIP)
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, Equals, true)
-		c.Check(actual, Equals, expect)
+		c.Check(found, gc.Equals, true)
+		c.Check(actual, gc.Equals, expect)
 	}
 }
 
-func (s *ConfigSuite) SetUpTest(c *C) {
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.savedVars = make(map[string]string)
 	for v, val := range envVars {
@@ -179,7 +184,7 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 	}
 }
 
-func (s *ConfigSuite) TearDownTest(c *C) {
+func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	for k, v := range s.savedVars {
 		os.Setenv(k, v)
 	}
@@ -426,7 +431,7 @@ var configTests = []configTest{
 	},
 }
 
-func (s *ConfigSuite) TestConfig(c *C) {
+func (s *ConfigSuite) TestConfig(c *gc.C) {
 	s.setupEnvCredentials()
 	for i, t := range configTests {
 		c.Logf("test %d: %s (%v)", i, t.summary, t.config)
@@ -440,4 +445,75 @@ func (s *ConfigSuite) setupEnvCredentials() {
 	os.Setenv("OS_AUTH_URL", "http://auth")
 	os.Setenv("OS_TENANT_NAME", "sometenant")
 	os.Setenv("OS_REGION_NAME", "region")
+}
+
+type ConfigDeprecationSuite struct {
+	oldJujuHome string
+	writer      *testWriter
+	oldWriter   loggo.Writer
+	oldLevel    loggo.Level
+}
+
+var _ = gc.Suite(&ConfigDeprecationSuite{})
+
+func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
+	s.oldJujuHome = config.SetJujuHome(c.MkDir())
+	var err error
+	s.writer = &testWriter{}
+	s.oldWriter, s.oldLevel, err = loggo.RemoveWriter("default")
+	c.Assert(err, gc.IsNil)
+	err = loggo.RegisterWriter("test", s.writer, loggo.TRACE)
+	c.Assert(err, gc.IsNil)
+}
+
+func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
+	_, _, err := loggo.RemoveWriter("test")
+	c.Assert(err, gc.IsNil)
+	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
+	c.Assert(err, gc.IsNil)
+	config.SetJujuHome(s.oldJujuHome)
+}
+
+type testWriter struct {
+	bytes.Buffer
+}
+
+func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
+	t.Buffer.WriteString(fmt.Sprintf("%s %s %s", level, module, message))
+}
+
+func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) *environ {
+	envs := attrs{
+		"environments": attrs{
+			"testenv": attrs{
+				"type":            "openstack",
+				"control-bucket":  "x",
+				"authorized-keys": "fakekey",
+			},
+		},
+	}
+	testenv := envs["environments"].(attrs)["testenv"].(attrs)
+	testenv[deprecatedKey] = value
+	data, err := goyaml.Marshal(envs)
+	c.Assert(err, gc.IsNil)
+
+	es, err := environs.ReadEnvironsBytes(data)
+	c.Check(err, gc.IsNil)
+
+	e, err := es.Open("testenv")
+	return e.(*environ)
+}
+
+func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
+	for attr, value := range map[string]string{
+		"default-image-id":      "foo",
+		"default-instance-type": "bar",
+	} {
+		osenv := s.setupEnv(c, attr, value)
+		_, err := providerInstance.Validate(osenv.ecfg().Config, nil)
+		c.Assert(err, gc.IsNil)
+		stripped := strings.Replace(s.writer.String(), "\n", "", -1)
+		expected := fmt.Sprintf(`.*WARNING juju Config attribute "%s" \(%s\) is deprecated and ignored.*`, attr, value)
+		c.Assert(stripped, gc.Matches, expected)
+	}
 }
