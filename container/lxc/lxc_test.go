@@ -14,10 +14,10 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"

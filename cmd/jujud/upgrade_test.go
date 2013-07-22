@@ -11,7 +11,6 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -155,17 +154,17 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			}
 
 			ug := waitDeath(c, u)
-			tools := uploaded[test.upgrade]
-			c.Check(ug.NewTools, DeepEquals, tools)
+			newTools := uploaded[test.upgrade]
+			c.Check(ug.NewTools, DeepEquals, newTools)
 			c.Check(ug.OldTools.Binary, Equals, version.Current)
 			c.Check(ug.DataDir, Equals, s.DataDir())
 			c.Check(ug.AgentName, Equals, "testagent")
 
 			// Check that the upgraded version was really downloaded.
-			path := tools.SharedToolsDir(s.DataDir(), tools.Binary)
+			path := tools.SharedToolsDir(s.DataDir(), newTools.Binary)
 			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
 			c.Check(err, IsNil)
-			c.Check(string(data), Equals, "jujud contents "+tools.Binary.String())
+			c.Check(string(data), Equals, "jujud contents "+newTools.Binary.String())
 		}()
 	}
 }

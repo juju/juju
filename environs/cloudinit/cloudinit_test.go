@@ -5,8 +5,13 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
+	"regexp"
+	"strings"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/agent/tools"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -16,8 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"regexp"
-	"strings"
 )
 
 // Use local suite since this file lives in the ec2 package

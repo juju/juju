@@ -8,6 +8,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"

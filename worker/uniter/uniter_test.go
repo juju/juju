@@ -23,7 +23,6 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"

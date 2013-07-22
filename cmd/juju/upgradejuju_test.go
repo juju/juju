@@ -5,12 +5,13 @@ package main
 
 import (
 	"io/ioutil"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )

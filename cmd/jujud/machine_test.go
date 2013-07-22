@@ -12,6 +12,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"

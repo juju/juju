@@ -11,7 +11,6 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/uniter"

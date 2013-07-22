@@ -7,8 +7,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
+	"time"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -20,8 +25,6 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"time"
 )
 
 func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {

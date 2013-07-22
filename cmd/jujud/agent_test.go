@@ -120,10 +120,10 @@ type agentSuite struct {
 // for an agent with the given entity name.
 // It returns the agent's configuration and the current tools.
 func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *tools.Tools) {
-	tools := s.primeTools(c, version.Current)
+	agentTools := s.primeTools(c, version.Current)
 	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, IsNil)
-	c.Assert(tools1, DeepEquals, tools)
+	c.Assert(tools1, DeepEquals, agentTools)
 
 	conf := &agent.Conf{
 		DataDir:   s.DataDir(),
@@ -136,7 +136,7 @@ func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *tools
 	conf.APIInfo.Password = password
 	err = conf.Write()
 	c.Assert(err, IsNil)
-	return conf, tools
+	return conf, agentTools
 }
 
 // initAgent initialises the given agent command with additional
@@ -176,13 +176,13 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *tools.Tools {
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, IsNil)
 	version.Current = vers
-	tools := s.uploadTools(c, vers)
-	resp, err := http.Get(tools.URL)
+	agentTools := s.uploadTools(c, vers)
+	resp, err := http.Get(agentTools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-	err = tools.UnpackTools(s.DataDir(), tools, resp.Body)
+	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
 	c.Assert(err, IsNil)
-	return tools
+	return agentTools
 }
 
 func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
