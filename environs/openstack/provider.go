@@ -1029,7 +1029,14 @@ var zeroGroup nova.SecurityGroup
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := e.nova()
-	group, err := novaClient.CreateSecurityGroup(name, "juju group")
+	// First attempt to lookup an existing group by name.
+	group, err := novaClient.SecurityGroupByName(name)
+	if err == nil {
+		// Group exists, so assume it is correctly set up and return it.
+		return *group, nil
+	}
+	// Doesn't exist, so try and create it.
+	group, err = novaClient.CreateSecurityGroup(name, "juju group")
 	if err != nil {
 		if !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
@@ -1039,15 +1046,18 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			if err != nil {
 				return zeroGroup, err
 			}
+			return *group, nil
 		}
 	}
-	// The group is created so now add the rules.
-	for _, rule := range rules {
+	// The new group is created so now add the rules.
+	group.Rules = make([]nova.SecurityGroupRule, len(rules))
+	for i, rule := range rules {
 		rule.ParentGroupId = group.Id
-		_, err := novaClient.CreateSecurityGroupRule(rule)
+		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
+		group.Rules[i] = *groupRule
 	}
 	return *group, nil
 }
