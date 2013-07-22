@@ -90,7 +90,7 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
-	currentTools, err := agent.ReadTools(u.dataDir, version.Current)
+	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
@@ -191,7 +191,7 @@ func (u *Upgrader) run() error {
 				Series: version.Current.Series,
 				Arch:   version.Current.Arch,
 			}
-			if tools, err := agent.ReadTools(u.dataDir, required); err == nil {
+			if tools, err := tools.ReadTools(u.dataDir, required); err == nil {
 				// The exact tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
