@@ -50,38 +50,49 @@ var satisfiesTests = []struct {
 	arg:    42,
 	result: true,
 }, {
-	f:   is42,
-	arg: 41,
+	f:      is42,
+	arg:    41,
+	result: false,
 }, {
-	f:   is42,
-	arg: "",
-	msg: "wrong argument type string for func(int) bool",
+	f:      is42,
+	arg:    "",
+	result: false,
+	msg:    "wrong argument type string for func(int) bool",
 }, {
-	f:   os.IsNotExist,
-	arg: errors.New("foo"),
+	f:      os.IsNotExist,
+	arg:    errors.New("foo"),
+	result: false,
 }, {
 	f:      os.IsNotExist,
 	arg:    os.ErrNotExist,
 	result: true,
 }, {
-	f: os.IsNotExist,
+	f:      os.IsNotExist,
+	arg:    nil,
+	result: false,
 }, {
 	f:      func(chan int) bool { return true },
+	arg:    nil,
 	result: true,
 }, {
 	f:      func(func()) bool { return true },
+	arg:    nil,
 	result: true,
 }, {
 	f:      func(interface{}) bool { return true },
+	arg:    nil,
 	result: true,
 }, {
 	f:      func(map[string]bool) bool { return true },
+	arg:    nil,
 	result: true,
 }, {
 	f:      func(*int) bool { return true },
+	arg:    nil,
 	result: true,
 }, {
 	f:      func([]string) bool { return true },
+	arg:    nil,
 	result: true,
 }}
 
