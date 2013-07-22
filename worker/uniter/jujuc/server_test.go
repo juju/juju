@@ -7,17 +7,19 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/gnuflag"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"net/rpc"
 	"os"
 	"path/filepath"
 	"sync"
 	"time"
+
+	"launchpad.net/gnuflag"
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 type RpcCommand struct {
@@ -48,7 +50,7 @@ func (c *RpcCommand) Run(ctx *cmd.Context) error {
 		return errors.New("blam")
 	}
 	if c.Slow {
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(testing.ShortWait)
 		return nil
 	}
 	ctx.Stdout.Write([]byte("eye of newt\n"))

@@ -107,7 +107,9 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	if err == worker.ErrTerminateAgent || isUpgraded(err) {
+	isTerminate := err == worker.ErrTerminateAgent
+	notProvisioned := params.ErrCode(err) == params.CodeNotProvisioned
+	if isTerminate || notProvisioned || isUpgraded(err) {
 		return true
 	}
 	_, ok := err.(*fatalError)

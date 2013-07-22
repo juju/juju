@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
@@ -297,7 +298,7 @@ func assertNothingHappens(c *C, u *Upgrader) {
 	select {
 	case got := <-done:
 		c.Fatalf("expected nothing to happen, got %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
@@ -305,7 +306,7 @@ func assertEvent(c *C, event <-chan string, want string) {
 	select {
 	case got := <-event:
 		c.Assert(got, Equals, want)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no event received; expected %q", want)
 	}
 }
@@ -318,7 +319,7 @@ func (s *UpgraderSuite) startUpgrader(c *C, expectTools *tools.Tools) *Upgrader 
 	select {
 	case tools := <-as:
 		c.Assert(tools, DeepEquals, expectTools)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("upgrader did not set agent tools")
 	}
 	return u
@@ -333,7 +334,7 @@ func waitDeath(c *C, u *Upgrader) *UpgradeReadyError {
 	case err := <-done:
 		c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
 		return err.(*UpgradeReadyError)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("upgrader did not die as expected")
 	}
 	panic("unreachable")

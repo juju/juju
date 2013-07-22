@@ -19,6 +19,7 @@ var (
 	ErrUnknownPinger  = stderrors.New("unknown pinger id")
 	ErrStoppedWatcher = stderrors.New("watcher has been stopped")
 	ErrBadRequest     = stderrors.New("invalid request")
+	ErrNotProvisioned = stderrors.New("not provisioned")
 )
 
 var singletonErrorCodes = map[error]string{
@@ -32,6 +33,7 @@ var singletonErrorCodes = map[error]string{
 	ErrNotLoggedIn:               params.CodeUnauthorized,
 	ErrUnknownWatcher:            params.CodeNotFound,
 	ErrStoppedWatcher:            params.CodeStopped,
+	ErrNotProvisioned:            params.CodeNotProvisioned,
 }
 
 // ServerError returns an error suitable for returning to an API

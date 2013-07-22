@@ -44,6 +44,11 @@ const (
 	// actually seem to resolve; instead, the service name is used as the
 	// DNS name, with ".cloudapp.net" appended.
 	deploymentSlot = "Production"
+
+	// Address space of the virtual network used by the nodes in this
+	// environement, in CIDR notation. This is the network used for
+	// machine-to-machine communication.
+	networkDefinition = "10.0.0.0/8"
 )
 
 type azureEnviron struct {
@@ -133,8 +138,6 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or anything in Azure.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	mcfg.StateServer = true
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics after the
@@ -147,26 +150,112 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	if err != nil {
 		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
 	}
-	mcfg.StateInfoURL = stateFileURL
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	return inst, nil
 }
 
+// getAffinityGroupName returns the name of the affinity group used by all
+// the Services in this environment.
+func (env *azureEnviron) getAffinityGroupName() string {
+	return env.getEnvPrefix() + "-ag"
+}
+
+func (env *azureEnviron) createAffinityGroup() error {
+	affinityGroupName := env.getAffinityGroupName()
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, serviceLocation)
+	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
+		CreateAffinityGroup: cag})
+}
+
+func (env *azureEnviron) deleteAffinityGroup() error {
+	affinityGroupName := env.getAffinityGroupName()
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	return azure.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
+		Name: affinityGroupName})
+}
+
+// getVirtualNetworkName returns the name of the virtual network used by all
+// the VMs in this environment.
+func (env *azureEnviron) getVirtualNetworkName() string {
+	return env.getEnvPrefix() + "-vnet"
+}
+
+func (env *azureEnviron) createVirtualNetwork() error {
+	vnetName := env.getVirtualNetworkName()
+	affinityGroupName := env.getAffinityGroupName()
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	virtualNetwork := gwacl.VirtualNetworkSite{
+		Name:          vnetName,
+		AffinityGroup: affinityGroupName,
+		AddressSpacePrefixes: []string{
+			networkDefinition,
+		},
+	}
+	return azure.AddVirtualNetworkSite(&virtualNetwork)
+}
+
+func (env *azureEnviron) deleteVirtualNetwork() error {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return nil
+	}
+	defer env.releaseManagementAPI(azure)
+	vnetName := env.getVirtualNetworkName()
+	return azure.RemoveVirtualNetworkSite(vnetName)
+}
+
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
-func (env *azureEnviron) Bootstrap(cons constraints.Value) error {
+func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
 		return err
 	}
+
+	// TODO(bug 1199847). The creation of the affinity group and the
+	// virtual network is specific to the Azure provider.
+	err = env.createAffinityGroup()
+	if err != nil {
+		return err
+	}
+	// If we fail after this point, clean up the affinity group.
+	defer func() {
+		if err != nil {
+			env.deleteAffinityGroup()
+		}
+	}()
+	err = env.createVirtualNetwork()
+	if err != nil {
+		return err
+	}
+	// If we fail after this point, clean up the virtual network.
+	defer func() {
+		if err != nil {
+			env.deleteVirtualNetwork()
+		}
+	}()
 
 	inst, err := env.startBootstrapInstance(cons)
 	if err != nil {
@@ -228,9 +317,10 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
 	name := gwacl.MakeRandomHostedServiceName(prefix)
 	req := gwacl.NewCreateHostedServiceWithLocation(name, name, serviceLocation)
+	req.AffinityGroup = affinityGroupName
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
 	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
@@ -248,11 +338,11 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.Cre
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix)
+		svc, err = attemptCreateService(azure, prefix, affinityGroupName)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -268,8 +358,10 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string) (*gwacl.CreateH
 // the EC2/OpenStack/MAAS/Azure providers.
 // The instance will be set up for the same series for which you pass tools.
 // All tools in possibleTools must be for the same series.
+// machineConfig will be filled out with further details, but should contain
+// MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
@@ -278,18 +370,18 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 
-	err = environs.FinishMachineConfig(mcfg, env.Config(), cons)
+	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
 	if err != nil {
 		return nil, err
 	}
 
 	// Pick tools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	mcfg.Tools = possibleTools[0]
-	logger.Infof("picked tools %q", mcfg.Tools)
+	machineConfig.Tools = possibleTools[0]
+	logger.Infof("picked tools %q", machineConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(mcfg)
+	userData, err := makeCustomData(machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("custom data: %v", err)
 	}
@@ -300,7 +392,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix())
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName())
 	if err != nil {
 		return nil, err
 	}
@@ -321,10 +413,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// In the meantime we use a temporary Saucy image containing a
 	// cloud-init package which supports Azure.
 	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
-	// TODO: virtualNetworkName is the virtual network to which the
-	// deployment will belong. We'll want to build this out later to
-	// support private communication between instances.
-	virtualNetworkName := ""
+
+	// virtualNetworkName is the virtual network to which all the
+	// deployments in this environment belong.
+	virtualNetworkName := env.getVirtualNetworkName()
 
 	// 1. Create an OS Disk.
 	vhd := env.newOSDisk(sourceImageName)
@@ -461,9 +553,9 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well.
-	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	return inst, nil, err
 }
 

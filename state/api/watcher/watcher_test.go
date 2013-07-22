@@ -22,10 +22,6 @@ func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-// shortWait is a reasonable amount of time to be sure a call is in a blocking
-// state (won't return without other prompting)
-const shortWait = 50 * time.Millisecond
-
 type watcherSuite struct {
 	testing.JujuConnSuite
 
@@ -45,11 +41,13 @@ func (s *watcherSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
+	err = s.rawMachine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
 
 	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
+	s.stateAPI = s.OpenAPIAsMachine(c, s.rawMachine.Tag(), "test-password", "fake_nonce")
 	c.Assert(s.stateAPI, gc.NotNil)
 }
 
@@ -83,7 +81,7 @@ func (s *watcherSuite) TestWatchInitialEventConsumed(c *gc.C) {
 	select {
 	case err := <-done:
 		c.Errorf("Call(Next) did not block immediately after Watch(): err %v", err)
-	case <-time.After(shortWait):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 

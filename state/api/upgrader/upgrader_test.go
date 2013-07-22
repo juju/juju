@@ -49,11 +49,13 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	var err error
 	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
+	err = s.rawMachine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
 	err = s.rawMachine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
 	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
+	s.stateAPI = s.OpenAPIAsMachine(c, s.rawMachine.Tag(), "test-password", "fake_nonce")
 	c.Assert(s.stateAPI, NotNil)
 
 	// Create the upgrader facade.

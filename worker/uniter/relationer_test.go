@@ -4,24 +4,27 @@
 package uniter_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/charm/hooks"
-	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing/checkers"
-	"launchpad.net/juju-core/worker/uniter"
-	"launchpad.net/juju-core/worker/uniter/hook"
-	"launchpad.net/juju-core/worker/uniter/relation"
 	"os"
 	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/charm/hooks"
+	"launchpad.net/juju-core/errors"
+	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/uniter/hook"
+	"launchpad.net/juju-core/worker/uniter/relation"
 )
 
 type RelationerSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 	hooks   chan hook.Info
 	svc     *state.Service
 	rel     *state.Relation
@@ -85,18 +88,19 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 		_, found := ch.Changed["u/0"]
 		c.Assert(found, Equals, true)
 		c.Assert(ch.Departed, HasLen, 0)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for presence detection")
 	}
 
 	// re-Join is no-op.
 	err = r.Join()
 	c.Assert(err, IsNil)
+	// TODO(jam): This would be a great to replace with statetesting.NotifyWatcherC
 	s.State.StartSync()
 	select {
 	case ch, ok := <-w.Changes():
 		c.Fatalf("got unexpected change: %#v, %#v", ch, ok)
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	}
 
 	// u/0 leaves scope; u/1 observes it.
@@ -351,7 +355,7 @@ func (s *RelationerSuite) assertNoHook(c *C) {
 	select {
 	case hi, ok := <-s.hooks:
 		c.Fatalf("got unexpected hook info %#v (%t)", hi, ok)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
@@ -365,7 +369,7 @@ func (s *RelationerSuite) assertHook(c *C, expect hook.Info) {
 		expect.ChangeVersion = hi.ChangeVersion
 		c.Assert(hi, DeepEquals, expect)
 		c.Assert(s.dir.Write(hi), Equals, nil)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for %#v", expect)
 	}
 }
@@ -383,7 +387,7 @@ func stopHooks(c *C, r *uniter.Relationer) {
 }
 
 type RelationerImplicitSuite struct {
-	testing.JujuConnSuite
+	jujutesting.JujuConnSuite
 }
 
 var _ = Suite(&RelationerImplicitSuite{})
@@ -430,7 +434,7 @@ func (s *RelationerImplicitSuite) TestImplicitRelationer(c *C) {
 	c.Assert(err, IsNil)
 	s.State.StartSync()
 	select {
-	case <-time.After(50 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	case <-hooks:
 		c.Fatalf("unexpected hook generated")
 	}

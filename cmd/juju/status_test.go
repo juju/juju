@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
-	"time"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -911,7 +910,7 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 	pinger, err := m.SetAgentAlive()
 	c.Assert(err, IsNil)
 	ctx.st.StartSync()
-	err = m.WaitAgentAlive(200 * time.Millisecond)
+	err = m.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 	agentAlive, err := m.AgentAlive()
 	c.Assert(err, IsNil)
@@ -1006,7 +1005,7 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 	pinger, err := u.SetAgentAlive()
 	c.Assert(err, IsNil)
 	ctx.st.StartSync()
-	err = u.WaitAgentAlive(200 * time.Millisecond)
+	err = u.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 	agentAlive, err := u.AgentAlive()
 	c.Assert(err, IsNil)
@@ -1031,7 +1030,7 @@ func (sua setUnitsAlive) step(c *C, ctx *context) {
 		pinger, err := u.SetAgentAlive()
 		c.Assert(err, IsNil)
 		ctx.st.StartSync()
-		err = u.WaitAgentAlive(200 * time.Millisecond)
+		err = u.WaitAgentAlive(coretesting.LongWait)
 		c.Assert(err, IsNil)
 		agentAlive, err := u.AgentAlive()
 		c.Assert(err, IsNil)

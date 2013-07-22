@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"strconv"
-	"time"
 
 	. "launchpad.net/gocheck"
 
@@ -15,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 )
 
@@ -645,19 +645,18 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 }
 
 func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
-	timeout := 200 * time.Millisecond
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	err = s.unit.WaitAgentAlive(timeout)
+	err = s.unit.WaitAgentAlive(coretesting.ShortWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
 
 	s.State.StartSync()
-	err = s.unit.WaitAgentAlive(timeout)
+	err = s.unit.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 
 	alive, err = s.unit.AgentAlive()

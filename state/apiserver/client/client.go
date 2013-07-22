@@ -172,12 +172,12 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		return err
 	}
 	_, err = conn.DeployService(juju.DeployServiceParams{
-		ServiceName:      args.ServiceName,
-		Charm:            ch,
-		NumUnits:         args.NumUnits,
-		ConfigSettings:   settings,
-		Constraints:      args.Constraints,
-		ForceMachineSpec: args.ForceMachineSpec,
+		ServiceName:    args.ServiceName,
+		Charm:          ch,
+		NumUnits:       args.NumUnits,
+		ConfigSettings: settings,
+		Constraints:    args.Constraints,
+		ToMachineSpec:  args.ToMachineSpec,
 	})
 	return err
 }
