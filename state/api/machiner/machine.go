@@ -3,13 +3,18 @@
 
 package machiner
 
-import "launchpad.net/juju-core/state/api/params"
+import (
+	"fmt"
+
+	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
+)
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag    string
-	life   params.Life
-	mstate *State
+	tag  string
+	life params.Life
+	st   *State
 }
 
 // Tag returns the machine's tag.
@@ -24,7 +29,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.mstate.machineLife(m.tag)
+	life, err := m.st.machineLife(m.tag)
 	if err != nil {
 		return err
 	}
@@ -40,9 +45,12 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 			{Tag: m.tag, Status: status, Info: info},
 		},
 	}
-	err := m.mstate.caller.Call("Machiner", "", "SetStatus", args, &result)
+	err := m.st.caller.Call("Machiner", "", "SetStatus", args, &result)
 	if err != nil {
 		return err
+	}
+	if len(result.Errors) != 1 {
+		return fmt.Errorf("expected one result, got %d", len(result.Errors))
 	}
 	return result.Errors[0]
 }
@@ -54,9 +62,33 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.mstate.caller.Call("Machiner", "", "EnsureDead", args, &result)
+	err := m.st.caller.Call("Machiner", "", "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
+	if len(result.Errors) != 1 {
+		return fmt.Errorf("expected one result, got %d", len(result.Errors))
+	}
 	return result.Errors[0]
+}
+
+// Watch returns a watcher for observing changes to the machine.
+func (m *Machine) Watch() (*watcher.NotifyWatcher, error) {
+	var results params.NotifyWatchResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: m.tag}},
+	}
+	err := m.st.caller.Call("Machiner", "", "Watch", args, &results)
+	if err != nil {
+		return nil, err
+	}
+	if len(results.Results) != 1 {
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if result.Error != nil {
+		return nil, result.Error
+	}
+	w := watcher.NewNotifyWatcher(m.st.caller, result)
+	return w, nil
 }

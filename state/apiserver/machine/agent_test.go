@@ -1,7 +1,7 @@
 package machine_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/machine"
@@ -13,32 +13,29 @@ type agentSuite struct {
 	agent *machine.AgentAPI
 }
 
-var _ = Suite(&agentSuite{})
+var _ = gc.Suite(&agentSuite{})
 
-func (s *agentSuite) SetUpTest(c *C) {
+func (s *agentSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
 	// Create a machiner API for machine 1.
-	api, err := machine.NewAgentAPI(
-		s.State,
-		s.authorizer,
-	)
-	c.Assert(err, IsNil)
+	api, err := machine.NewAgentAPI(s.State, s.authorizer)
+	c.Assert(err, gc.IsNil)
 	s.agent = api
 }
 
-func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *C) {
+func (s *agentSuite) TestAgentFailsWithNonMachineAgentUser(c *gc.C) {
 	auth := s.authorizer
 	auth.MachineAgent = false
 	api, err := machine.NewAgentAPI(s.State, auth)
-	c.Assert(err, NotNil)
-	c.Assert(api, IsNil)
-	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(err, gc.NotNil)
+	c.Assert(api, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *agentSuite) TestGetMachines(c *C) {
+func (s *agentSuite) TestGetMachines(c *gc.C) {
 	err := s.machine1.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	results := s.agent.GetMachines(params.Entities{
 		Entities: []params.Entity{
 			{Tag: "machine-1"},
@@ -46,7 +43,7 @@ func (s *agentSuite) TestGetMachines(c *C) {
 			{Tag: "machine-42"},
 		},
 	})
-	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
+	c.Assert(results, gc.DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{
 			{
 				Life: "dying",
@@ -58,18 +55,18 @@ func (s *agentSuite) TestGetMachines(c *C) {
 	})
 }
 
-func (s *agentSuite) TestGetNotFoundMachine(c *C) {
+func (s *agentSuite) TestGetNotFoundMachine(c *gc.C) {
 	err := s.machine1.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine1.EnsureDead()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine1.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	results := s.agent.GetMachines(params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	})
-	c.Assert(err, IsNil)
-	c.Assert(results, DeepEquals, params.MachineAgentGetMachinesResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.MachineAgentGetMachinesResults{
 		Machines: []params.MachineAgentGetMachinesResult{{
 			Error: &params.Error{
 				Code:    params.CodeNotFound,
@@ -79,7 +76,7 @@ func (s *agentSuite) TestGetNotFoundMachine(c *C) {
 	})
 }
 
-func (s *agentSuite) TestSetPasswords(c *C) {
+func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	results, err := s.agent.SetPasswords(params.PasswordChanges{
 		Changes: []params.PasswordChange{
 			{Tag: "machine-0", Password: "xxx"},
@@ -87,8 +84,8 @@ func (s *agentSuite) TestSetPasswords(c *C) {
 			{Tag: "machine-42", Password: "zzz"},
 		},
 	})
-	c.Assert(err, IsNil)
-	c.Assert(results, DeepEquals, params.ErrorResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.ErrorResults{
 		Errors: []*params.Error{
 			apiservertesting.ErrUnauthorized,
 			nil,
@@ -96,7 +93,7 @@ func (s *agentSuite) TestSetPasswords(c *C) {
 		},
 	})
 	err = s.machine1.Refresh()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	changed := s.machine1.PasswordValid("yyy")
-	c.Assert(changed, Equals, true)
+	c.Assert(changed, gc.Equals, true)
 }
