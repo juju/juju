@@ -455,10 +455,10 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 		return fmt.Errorf("No bootstrap tools found")
 	}
 	// unpack the first tools into the agent dir.
-	tools := toolList[0]
-	logger.Debugf("tools: %#v", tools)
+	agentTools := toolList[0]
+	logger.Debugf("tools: %#v", agentTools)
 	// brutally abuse our knowledge of storage to directly open the file
-	toolsUrl, err := url.Parse(tools.URL)
+	toolsUrl, err := url.Parse(agentTools.URL)
 	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
 	logger.Infof("tools location: %v", toolsLocation)
 	toolsFile, err := os.Open(toolsLocation)
@@ -470,12 +470,12 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
-	tools.Binary.Series = version.CurrentSeries()
-	err = tools.UnpackTools(dataDir, tools, toolsFile)
+	agentTools.Binary.Series = version.CurrentSeries()
+	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
 	tag := state.MachineTag(machineId)
-	toolsDir := tools.SharedToolsDir(dataDir, tools.Binary)
+	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Binary)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	agent := upstart.MachineAgentUpstartService(

@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -210,24 +210,24 @@ func (u *Upgrader) run() error {
 			downloadTools = tools
 			downloadDone = download.Done()
 		case status := <-downloadDone:
-			tools := downloadTools
+			newTools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Errorf("upgrader download of %v failed: %v", tools.Binary, status.Err)
+				log.Errorf("upgrader download of %v failed: %v", newTools.Binary, status.Err)
 				noDelay()
 				break
 			}
-			err := tools.UnpackTools(u.dataDir, tools, status.File)
+			err := tools.UnpackTools(u.dataDir, newTools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
 				log.Warningf("upgrader cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
-				log.Errorf("upgrader cannot unpack %v tools: %v", tools.Binary, err)
+				log.Errorf("upgrader cannot unpack %v tools: %v", newTools.Binary, err)
 				noDelay()
 				break
 			}
-			return u.upgradeReady(currentTools, tools)
+			return u.upgradeReady(currentTools, newTools)
 		case <-tomb.Dying():
 			if download != nil {
 				return fmt.Errorf("upgrader aborted download of %q", downloadTools.URL)

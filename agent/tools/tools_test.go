@@ -32,7 +32,7 @@ func (t *ToolsSuite) SetUpTest(c *gc.C) {
 func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 	c.Assert(testing.FindJujuCoreImports(c, "launchpad.net/juju-core/agent/tools"),
 		gc.DeepEquals,
-		[]string{"version"})
+		[]string{"utils/set", "version"})
 }
 
 const urlFile = "downloaded-url.txt"

@@ -14,7 +14,6 @@ import (
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"

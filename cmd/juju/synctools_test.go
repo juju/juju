@@ -9,11 +9,11 @@ import (
 	"path/filepath"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )

@@ -9,6 +9,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
