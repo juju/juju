@@ -6,7 +6,7 @@ package agent_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -21,15 +21,15 @@ type ToolsCompatSuite struct {
 }
 
 func (s *ToolsCompatSuite) TestToolsMatchStateTools(c *gc.C) {
-	testtools := agent.Tools{}
+	testtools := tools.Tools{}
 	statetools := state.Tools(testtools)
-	testtools2 := agent.Tools(statetools)
+	testtools2 := tools.Tools(statetools)
 	c.Assert(testtools, gc.Equals, testtools2)
 }
 
 func (s *ToolsCompatSuite) TestToolPointers(c *gc.C) {
-	testtools := &agent.Tools{}
+	testtools := &tools.Tools{}
 	statetools := (*state.Tools)(testtools)
-	testtools2 := (*agent.Tools)(statetools)
+	testtools2 := (*tools.Tools)(statetools)
 	c.Assert(testtools, gc.Equals, testtools2)
 }

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -82,7 +83,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	// Link the current tools for use by the new agent.
 	tag := state.UnitTag(unitName)
 	_, err = agent.ChangeAgentTools(ctx.dataDir, tag, version.Current)
-	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
+	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
 	// Retrieve addresses from state.
@@ -189,7 +190,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 			logger.Warningf("installer: cannot restart syslog daemon: %v", err)
 		}
 	}()
-	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
+	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
 }
 

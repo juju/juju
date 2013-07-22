@@ -12,6 +12,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/uniter"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -25,10 +26,10 @@ var _ = Suite(&ToolsSuite{})
 
 func (s *ToolsSuite) SetUpTest(c *C) {
 	s.dataDir = c.MkDir()
-	s.toolsDir = agent.SharedToolsDir(s.dataDir, version.Current)
+	s.toolsDir = tools.SharedToolsDir(s.dataDir, version.Current)
 	err := os.MkdirAll(s.toolsDir, 0755)
 	c.Assert(err, IsNil)
-	err = os.Symlink(s.toolsDir, agent.ToolsDir(s.dataDir, "unit-u-123"))
+	err = os.Symlink(s.toolsDir, tools.ToolsDir(s.dataDir, "unit-u-123"))
 	c.Assert(err, IsNil)
 }
 
