@@ -250,8 +250,8 @@ start jujud-machine-2-lxc-1
 	},
 }
 
-func newSimpleTools(vers string) *state.Tools {
-	return &state.Tools{
+func newSimpleTools(vers string) *tools.Tools {
+	return &tools.Tools{
 		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
 		Binary: version.MustParseBinary(vers),
 	}
@@ -503,7 +503,7 @@ var verifyTests = []struct {
 		cfg.Tools = nil
 	}},
 	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
-		cfg.Tools = &state.Tools{}
+		cfg.Tools = &tools.Tools{}
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false

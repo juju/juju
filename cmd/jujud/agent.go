@@ -86,7 +86,7 @@ type Agent interface {
 // that represent running agents.
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
-	SetAgentTools(tools *state.Tools) error
+	SetAgentTools(tools *tools.Tools) error
 	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life

@@ -176,7 +176,7 @@ func (p *Provisioner) getBroker() (Broker, error) {
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getAgentTools() (*state.Tools, error) {
+func (p *Provisioner) getAgentTools() (*tools.Tools, error) {
 	tools, err := tools.ReadTools(p.dataDir, version.Current)
 	if err != nil {
 		logger.Errorf("cannot read agent tools from %q", p.dataDir)

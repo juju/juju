@@ -123,7 +123,7 @@ func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
 
 func (s *upgraderSuite) TestTools(c *C) {
 	cur := version.Current
-	curTools := &state.Tools{Binary: cur, URL: ""}
+	curTools := &tools.Tools{Binary: cur, URL: ""}
 	if curTools.Minor > 0 {
 		curTools.Minor -= 1
 	}

@@ -557,8 +557,8 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 
 // fakeToolsForSeries fakes a Tools object with just enough information for
 // testing the handling its OS series.
-func fakeToolsForSeries(series string) *state.Tools {
-	return &state.Tools{Binary: version.Binary{Series: series}}
+func fakeToolsForSeries(series string) *tools.Tools {
+	return &tools.Tools{Binary: version.Binary{Series: series}}
 }
 
 // fakeToolsList fakes a tools.List containing Tools objects for the given

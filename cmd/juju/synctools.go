@@ -72,7 +72,7 @@ func (c *SyncToolsCommand) Init(args []string) error {
 }
 
 func copyOne(
-	tool *state.Tools, source environs.StorageReader,
+	tool *tools.Tools, source environs.StorageReader,
 	target environs.Storage, ctx *cmd.Context,
 ) error {
 	toolsName := tools.StorageName(tool.Binary)
@@ -99,7 +99,7 @@ func copyOne(
 }
 
 func copyTools(
-	tools []*state.Tools, source environs.StorageReader,
+	tools []*tools.Tools, source environs.StorageReader,
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {

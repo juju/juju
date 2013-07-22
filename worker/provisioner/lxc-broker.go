@@ -18,7 +18,7 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
 var _ Broker = (*lxcBroker)(nil)
 
-func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
+func NewLxcBroker(config *config.Config, tools *tools.Tools) Broker {
 	return &lxcBroker{
 		manager: lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
 		config:  config,
@@ -29,7 +29,7 @@ func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
 type lxcBroker struct {
 	manager lxc.ContainerManager
 	config  *config.Config
-	tools   *state.Tools
+	tools   *tools.Tools
 }
 
 func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {

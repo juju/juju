@@ -45,7 +45,7 @@ type ContainerManager interface {
 	// StartContainer creates and starts a new lxc container for the specified machine.
 	StartContainer(
 		machineId, series, nonce string,
-		tools *state.Tools,
+		tools *tools.Tools,
 		environConfig *config.Config,
 		stateInfo *state.Info,
 		apiInfo *api.Info) (instance.Instance, error)
@@ -74,7 +74,7 @@ func NewContainerManager(conf ManagerConfig) ContainerManager {
 
 func (manager *containerManager) StartContainer(
 	machineId, series, nonce string,
-	tools *state.Tools,
+	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info) (instance.Instance, error) {
@@ -243,7 +243,7 @@ func writeLxcConfig(directory, logdir string) (string, error) {
 
 func writeUserData(
 	directory, machineId, nonce string,
-	tools *state.Tools,
+	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info,
@@ -263,7 +263,7 @@ func writeUserData(
 
 func cloudInitUserData(
 	machineId, nonce string,
-	tools *state.Tools,
+	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info,

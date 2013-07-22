@@ -70,7 +70,7 @@ func (s *lxcSuite) TearDownTest(c *C) {
 
 func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &state.Tools{
+	tools := &tools.Tools{
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}

@@ -52,7 +52,7 @@ type MachineAgentGetMachinesResult struct {
 }
 
 // AgentTools describes the tools for a given Agent. This is mostly a flattened
-// state.Tools description, plus an agent Tag field.
+// tools.Tools description, plus an agent Tag field.
 type AgentTools struct {
 	Tag    string
 	Major  int

@@ -46,8 +46,8 @@ func (*toolSuite) TestErrorImportance(c *C) {
 	}
 }
 
-func mkTools(s string) *state.Tools {
-	return &state.Tools{
+func mkTools(s string) *tools.Tools {
+	return &tools.Tools{
 		Binary: version.MustParseBinary(s + "-foo-bar"),
 	}
 }
@@ -119,7 +119,7 @@ type agentSuite struct {
 // primeAgent writes the configuration file and tools
 // for an agent with the given entity name.
 // It returns the agent's configuration and the current tools.
-func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state.Tools) {
+func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *tools.Tools) {
 	tools := s.primeTools(c, version.Current)
 	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, IsNil)
@@ -158,7 +158,7 @@ func (s *agentSuite) proposeVersion(c *C, vers version.Number) {
 	c.Assert(err, IsNil)
 }
 
-func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
+func (s *agentSuite) uploadTools(c *C, vers version.Binary) *tools.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
@@ -167,12 +167,12 @@ func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	c.Assert(err, IsNil)
 	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
 	c.Assert(err, IsNil)
-	return &state.Tools{URL: url, Binary: vers}
+	return &tools.Tools{URL: url, Binary: vers}
 }
 
 // primeTools sets up the current version of the tools to vers and
 // makes sure that they're available JujuConnSuite's DataDir.
-func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
+func (s *agentSuite) primeTools(c *C, vers version.Binary) *tools.Tools {
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, IsNil)
 	version.Current = vers
@@ -248,7 +248,7 @@ func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
 	assertOpen(conf)
 }
 
-func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) {
+func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *tools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
 	newTools := s.uploadTools(c, newVers)

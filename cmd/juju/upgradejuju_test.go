@@ -282,7 +282,7 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor environs/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*state.Tools, error) {
+func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*tools.Tools, error) {
 	storage := putter.(environs.Storage)
 	vers := version.Current
 	if forceVersion != nil {

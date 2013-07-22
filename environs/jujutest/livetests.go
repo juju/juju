@@ -546,7 +546,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 
 type tooler interface {
 	Life() state.Life
-	AgentTools() (*state.Tools, error)
+	AgentTools() (*tools.Tools, error)
 	Refresh() error
 	String() string
 }
@@ -557,7 +557,7 @@ type watcher interface {
 }
 
 type toolsWaiter struct {
-	lastTools *state.Tools
+	lastTools *tools.Tools
 	// changes is a chan of struct{} so that it can
 	// be used with different kinds of entity watcher.
 	changes chan struct{}
@@ -603,7 +603,7 @@ func (w *toolsWaiter) Stop() error {
 
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
-func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
+func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
 	for _ = range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
@@ -632,7 +632,7 @@ func (w *toolsWaiter) NextTools(c *C) (*state.Tools, error) {
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *state.Tools {
+func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
 	c.Assert(err, IsNil)

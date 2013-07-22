@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*state.Tools, error) {
+func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*tools.Tools, error) {
 	data := vers.String()
 	name := tools.StorageName(vers)
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
@@ -27,19 +27,19 @@ func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*sta
 	if err != nil {
 		return nil, err
 	}
-	return &state.Tools{Binary: vers, URL: url}, nil
+	return &tools.Tools{Binary: vers, URL: url}, nil
 }
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *state.Tools {
+func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *tools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	c.Assert(err, IsNil)
 	return t
 }
 
 // MustUploadFakeToolsVersion acts as UploadFakeToolsVersion, but panics on failure.
-func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *state.Tools {
+func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *tools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	if err != nil {
 		panic(err)

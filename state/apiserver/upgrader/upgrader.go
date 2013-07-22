@@ -149,7 +149,7 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsR
 			//       interface that cmd/jujud/agent.go had.
 			machine, err := u.st.Machine(state.MachineIdFromTag(tools.Tag))
 			if err == nil {
-				stTools := state.Tools{
+				stTools := tools.Tools{
 					Binary: version.Binary{
 						Number: version.Number{
 							Major: tools.Major,

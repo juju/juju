@@ -319,7 +319,7 @@ type lifer interface {
 type stateAgent interface {
 	lifer
 	AgentAlive() (bool, error)
-	AgentTools() (*state.Tools, error)
+	AgentTools() (*tools.Tools, error)
 	Status() (params.Status, string, error)
 }
 

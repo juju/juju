@@ -38,8 +38,8 @@ type Upgrader struct {
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools  *state.Tools
-	NewTools  *state.Tools
+	OldTools  *tools.Tools
+	NewTools  *tools.Tools
 	DataDir   string
 }
 
@@ -96,7 +96,7 @@ func (u *Upgrader) run() error {
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
 		log.Warningf("upgrader cannot read current tools: %v", err)
-		currentTools = &state.Tools{
+		currentTools = &tools.Tools{
 			Binary: version.Current,
 		}
 	}
@@ -120,7 +120,7 @@ func (u *Upgrader) run() error {
 	// TODO(rog) retry downloads when they fail.
 	var (
 		download      *downloader.Download
-		downloadTools *state.Tools
+		downloadTools *tools.Tools
 		downloadDone  <-chan downloader.Status
 	)
 	// If we're killed early on (probably as a result of some other
@@ -238,7 +238,7 @@ func (u *Upgrader) run() error {
 	panic("not reached")
 }
 
-func (u *Upgrader) upgradeReady(old, new *state.Tools) *UpgradeReadyError {
+func (u *Upgrader) upgradeReady(old, new *tools.Tools) *UpgradeReadyError {
 	return &UpgradeReadyError{
 		AgentName: u.agentState.Tag(),
 		OldTools:  old,
