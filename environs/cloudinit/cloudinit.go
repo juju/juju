@@ -70,7 +70,7 @@ type MachineConfig struct {
 	MachineNonce string
 
 	// Tools is juju tools to be used on the new machine.
-	Tools *state.Tools
+	Tools *tools.Tools
 
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.

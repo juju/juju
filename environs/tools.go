@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"

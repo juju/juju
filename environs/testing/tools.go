@@ -4,14 +4,16 @@
 package testing
 
 import (
+	"strings"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
-	"strings"
 )
 
 func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*state.Tools, error) {
