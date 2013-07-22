@@ -5,14 +5,16 @@ package main
 
 import (
 	"bytes"
+	"strings"
+
 	"launchpad.net/goamz/aws"
 	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"strings"
 )
 
 type ValidateMetadataSuite struct {
