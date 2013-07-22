@@ -82,7 +82,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Link the current tools for use by the new agent.
 	tag := state.UnitTag(unitName)
-	_, err = agent.ChangeAgentTools(ctx.dataDir, tag, version.Current)
+	_, err = tools.ChangeAgentTools(ctx.dataDir, tag, version.Current)
 	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 

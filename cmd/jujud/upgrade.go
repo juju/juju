@@ -49,7 +49,7 @@ func (e *UpgradeReadyError) Error() string {
 
 // ChangeAgentTools does the actual agent upgrade.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := agent.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
+	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
 	if err != nil {
 		return err
 	}

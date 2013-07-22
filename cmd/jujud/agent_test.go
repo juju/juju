@@ -121,7 +121,7 @@ type agentSuite struct {
 // It returns the agent's configuration and the current tools.
 func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state.Tools) {
 	tools := s.primeTools(c, version.Current)
-	tools1, err := agent.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, IsNil)
 	c.Assert(tools1, DeepEquals, tools)
 
