@@ -34,10 +34,29 @@ func makeConfigMap(configMap map[string]interface{}) map[string]interface{} {
 	return conf
 }
 
+var testCert = `
+-----BEGIN PRIVATE KEY-----
+MIIBCgIBADANBgkqhkiG9w0BAQEFAASB9TCB8gIBAAIxAKQGQxP1i0VfCWn4KmMP
+taUFn8sMBKjP/9vHnUYdZRvvmoJCA1C6arBUDp8s2DNX+QIDAQABAjBLRqhwN4dU
+LfqHDKJ/Vg1aD8u3Buv4gYRBxdFR5PveyqHSt5eJ4g/x/4ndsvr2OqUCGQDNfNlD
+zxHCiEAwZZAPaAkn8jDkFupTljcCGQDMWCujiVZ1NNuBD/N32Yt8P9JDiNzZa08C
+GBW7VXLxbExpgnhb1V97vjQmTfthXQjYAwIYSTEjoFXm4+Bk5xuBh2IidgSeGZaC
+FFY9AhkAsteo31cyQw2xJ80SWrmsIw+ps7Cvt5W9
+-----END PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+MIIBDzCByqADAgECAgkAgIBb3+lSwzEwDQYJKoZIhvcNAQEFBQAwFTETMBEGA1UE
+AxQKQEhvc3ROYW1lQDAeFw0xMzA3MTkxNjA1NTRaFw0yMzA3MTcxNjA1NTRaMBUx
+EzARBgNVBAMUCkBIb3N0TmFtZUAwTDANBgkqhkiG9w0BAQEFAAM7ADA4AjEApAZD
+E/WLRV8JafgqYw+1pQWfywwEqM//28edRh1lG++agkIDULpqsFQOnyzYM1f5AgMB
+AAGjDTALMAkGA1UdEwQCMAAwDQYJKoZIhvcNAQEFBQADMQABKfn08tKfzzqMMD2w
+PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
+-----END CERTIFICATE-----
+`
+
 func makeAzureConfigMap(c *C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
 		"management-subscription-id":    "subscription-id",
-		"management-certificate":        "cert",
+		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
 		"storage-account-key":           "account-key",
 		"storage-container-name":        "container-name",
