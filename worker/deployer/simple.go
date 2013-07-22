@@ -177,7 +177,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		return err
 	}
 	tag := state.UnitTag(unitName)
-	agentDir := agent.Dir(ctx.dataDir, tag)
+	agentDir := tools.Dir(ctx.dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
