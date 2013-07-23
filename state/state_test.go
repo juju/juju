@@ -13,6 +13,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -1013,7 +1014,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *C) {
 	wc.AssertOneChange()
 
 	// Alter the machine: not reported.
-	tools := &state.Tools{
+	tools := &tools.Tools{
 		Binary: version.Binary{
 			Number: version.MustParse("1.2.3"),
 			Series: "gutsy",

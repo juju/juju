@@ -6,7 +6,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -16,7 +20,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils/set"
-	"strings"
 )
 
 type StatusCommand struct {
@@ -319,7 +322,7 @@ type lifer interface {
 type stateAgent interface {
 	lifer
 	AgentAlive() (bool, error)
-	AgentTools() (*state.Tools, error)
+	AgentTools() (*tools.Tools, error)
 	Status() (params.Status, string, error)
 }
 

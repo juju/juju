@@ -8,6 +8,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -125,7 +126,7 @@ func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
 
 func (s *upgraderSuite) TestTools(c *C) {
 	cur := version.Current
-	curTools := &state.Tools{Binary: cur, URL: ""}
+	curTools := &tools.Tools{Binary: cur, URL: ""}
 	if curTools.Minor > 0 {
 		curTools.Minor -= 1
 	}

@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent_test
+package tools_test
 
 import (
 	"bytes"
@@ -10,10 +10,9 @@ import (
 	"path/filepath"
 	"sort"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -23,11 +22,21 @@ type ToolsSuite struct {
 	dataDir string
 }
 
-var _ = Suite(&ToolsSuite{})
+var _ = gc.Suite(&ToolsSuite{})
 
-func (t *ToolsSuite) SetUpTest(c *C) {
+func (t *ToolsSuite) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.dataDir = c.MkDir()
+}
+
+func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
+	// This test is to ensure we don't bring in dependencies on state, environ
+	// or any of the other bigger packages that'll drag in yet more dependencies.
+	// Only imports that start with "launchpad.net/juju-core" are checked, and the
+	// resulting slice has that prefix removed to keep the output short.
+	c.Assert(testing.FindJujuCoreImports(c, "launchpad.net/juju-core/agent/tools"),
+		gc.DeepEquals,
+		[]string{"utils/set", "version"})
 }
 
 const urlFile = "downloaded-url.txt"
@@ -68,15 +77,15 @@ var unpackToolsBadDataTests = []struct {
 	},
 }
 
-func (t *ToolsSuite) TestUnpackToolsBadData(c *C) {
+func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 	for i, test := range unpackToolsBadDataTests {
 		c.Logf("test %d", i)
-		tools := &state.Tools{
+		testTools := &tools.Tools{
 			URL:    "http://foo/bar",
 			Binary: version.MustParseBinary("1.2.3-foo-bar"),
 		}
-		err := agent.UnpackTools(t.dataDir, tools, bytes.NewReader(test.data))
-		c.Assert(err, ErrorMatches, test.err)
+		err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
+		c.Assert(err, gc.ErrorMatches, test.err)
 		assertDirNames(c, t.toolsDir(), []string{})
 	}
 }
@@ -85,24 +94,24 @@ func (t *ToolsSuite) toolsDir() string {
 	return filepath.Join(t.dataDir, "tools")
 }
 
-func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
+func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	files := []*testing.TarFile{
 		testing.NewTarFile("bar", 0755, "bar contents"),
 		testing.NewTarFile("foo", 0755, "foo contents"),
 	}
-	tools := &state.Tools{
+	testTools := &tools.Tools{
 		URL:    "http://foo/bar",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 
-	err := agent.UnpackTools(t.dataDir, tools, bytes.NewReader(testing.TarGz(files...)))
-	c.Assert(err, IsNil)
+	err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
+	c.Assert(err, gc.IsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
-	t.assertToolsContents(c, tools, files)
+	t.assertToolsContents(c, testTools, files)
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
-	tools2 := &state.Tools{
+	tools2 := &tools.Tools{
 		URL:    "http://arble",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
@@ -110,114 +119,114 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *C) {
 		testing.NewTarFile("bar", 0755, "bar2 contents"),
 		testing.NewTarFile("x", 0755, "x contents"),
 	}
-	err = agent.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
-	c.Assert(err, IsNil)
+	err = tools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
+	c.Assert(err, gc.IsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
-	t.assertToolsContents(c, tools, files)
+	t.assertToolsContents(c, testTools, files)
 }
 
-func (t *ToolsSuite) TestReadToolsErrors(c *C) {
+func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	tools, err := agent.ReadTools(t.dataDir, vers)
-	c.Assert(tools, IsNil)
-	c.Assert(err, ErrorMatches, "cannot read URL in tools directory: .*")
+	testTools, err := tools.ReadTools(t.dataDir, vers)
+	c.Assert(testTools, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot read URL in tools directory: .*")
 
-	dir := agent.SharedToolsDir(t.dataDir, vers)
+	dir := tools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, 0755)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	tools, err = agent.ReadTools(t.dataDir, vers)
-	c.Assert(tools, IsNil)
-	c.Assert(err, ErrorMatches, "empty URL in tools directory.*")
+	testTools, err = tools.ReadTools(t.dataDir, vers)
+	c.Assert(testTools, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "empty URL in tools directory.*")
 }
 
-func (t *ToolsSuite) TestChangeAgentTools(c *C) {
+func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 	files := []*testing.TarFile{
 		testing.NewTarFile("jujuc", 0755, "juju executable"),
 		testing.NewTarFile("jujud", 0755, "jujuc executable"),
 	}
-	tools := &state.Tools{
+	testTools := &tools.Tools{
 		URL:    "http://foo/bar1",
 		Binary: version.MustParseBinary("1.2.3-foo-bar"),
 	}
-	err := agent.UnpackTools(t.dataDir, tools, bytes.NewReader(testing.TarGz(files...)))
-	c.Assert(err, IsNil)
+	err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
+	c.Assert(err, gc.IsNil)
 
-	gotTools, err := agent.ChangeAgentTools(t.dataDir, "testagent", tools.Binary)
-	c.Assert(err, IsNil)
-	c.Assert(*gotTools, Equals, *tools)
+	gotTools, err := tools.ChangeAgentTools(t.dataDir, "testagent", testTools.Binary)
+	c.Assert(err, gc.IsNil)
+	c.Assert(*gotTools, gc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
-	assertDirNames(c, agent.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
+	assertDirNames(c, tools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
 		testing.NewTarFile("foo", 0755, "foo content"),
 		testing.NewTarFile("bar", 0755, "bar content"),
 	}
-	tools2 := &state.Tools{
+	tools2 := &tools.Tools{
 		URL:    "http://foo/bar2",
 		Binary: version.MustParseBinary("1.2.4-foo-bar"),
 	}
-	err = agent.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
-	c.Assert(err, IsNil)
+	err = tools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
+	c.Assert(err, gc.IsNil)
 
-	gotTools, err = agent.ChangeAgentTools(t.dataDir, "testagent", tools2.Binary)
-	c.Assert(err, IsNil)
-	c.Assert(*gotTools, Equals, *tools2)
+	gotTools, err = tools.ChangeAgentTools(t.dataDir, "testagent", tools2.Binary)
+	c.Assert(err, gc.IsNil)
+	c.Assert(*gotTools, gc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, agent.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
+	assertDirNames(c, tools.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
 }
 
-func (t *ToolsSuite) TestSharedToolsDir(c *C) {
-	dir := agent.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64"))
-	c.Assert(dir, Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
+func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
+	dir := tools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64"))
+	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func (t *ToolsSuite) assertToolsContents(c *C, tools *state.Tools, files []*testing.TarFile) {
+func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *tools.Tools, files []*testing.TarFile) {
 	var wantNames []string
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := agent.SharedToolsDir(t.dataDir, tools.Binary)
+	dir := tools.SharedToolsDir(t.dataDir, testTools.Binary)
 	assertDirNames(c, dir, wantNames)
-	assertFileContents(c, dir, urlFile, tools.URL, 0200)
+	assertFileContents(c, dir, urlFile, testTools.URL, 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
-	gotTools, err := agent.ReadTools(t.dataDir, tools.Binary)
-	c.Assert(err, IsNil)
-	c.Assert(*gotTools, Equals, *tools)
+	gotTools, err := tools.ReadTools(t.dataDir, testTools.Binary)
+	c.Assert(err, gc.IsNil)
+	c.Assert(*gotTools, gc.Equals, *testTools)
 }
 
 // assertFileContents asserts that the given file in the
 // given directory has the given contents.
-func assertFileContents(c *C, dir, file, contents string, mode os.FileMode) {
+func assertFileContents(c *gc.C, dir, file, contents string, mode os.FileMode) {
 	file = filepath.Join(dir, file)
 	info, err := os.Stat(file)
-	c.Assert(err, IsNil)
-	c.Assert(info.Mode()&(os.ModeType|mode), Equals, mode)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Mode()&(os.ModeType|mode), gc.Equals, mode)
 	data, err := ioutil.ReadFile(file)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, contents)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, contents)
 }
 
 // assertDirNames asserts that the given directory
 // holds the given file or directory names.
-func assertDirNames(c *C, dir string, names []string) {
+func assertDirNames(c *gc.C, dir string, names []string) {
 	f, err := os.Open(dir)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer f.Close()
 	dnames, err := f.Readdirnames(0)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	sort.Strings(dnames)
 	sort.Strings(names)
-	c.Assert(dnames, DeepEquals, names)
+	c.Assert(dnames, gc.DeepEquals, names)
 }

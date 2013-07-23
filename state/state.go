@@ -30,43 +30,10 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/juju-core/version"
 )
 
 // TODO(niemeyer): This must not be exported.
 type D []bson.DocElem
-
-// Tools describes a particular set of juju tools and where to find them.
-type Tools struct {
-	version.Binary
-	URL string
-}
-
-type toolsDoc struct {
-	Version version.Binary
-	URL     string
-}
-
-func (t *Tools) GetBSON() (interface{}, error) {
-	if t == nil {
-		return nil, nil
-	}
-	return &toolsDoc{t.Binary, t.URL}, nil
-}
-
-func (t *Tools) SetBSON(raw bson.Raw) error {
-	if raw.Kind == 10 {
-		// Preserve the nil value in that case.
-		return bson.SetZero
-	}
-	var doc toolsDoc
-	if err := raw.Unmarshal(&doc); err != nil {
-		return err
-	}
-	t.Binary = doc.Version
-	t.URL = doc.URL
-	return nil
-}
 
 const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
 const numberSnippet = "(0|[1-9][0-9]*)"

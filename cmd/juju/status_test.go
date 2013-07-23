@@ -12,6 +12,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -233,7 +234,7 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", &state.Tools{
+		setTools{"0", &tools.Tools{
 			Binary: version.Binary{
 				Number: version.MustParse("1.2.3"),
 				Series: "gutsy",
@@ -924,7 +925,7 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 
 type setTools struct {
 	machineId string
-	tools     *state.Tools
+	tools     *tools.Tools
 }
 
 func (st setTools) step(c *C, ctx *context) {
