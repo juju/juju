@@ -4,7 +4,6 @@
 package openstack
 
 import (
-	"bytes"
 	"fmt"
 	"os"
 	"strings"
@@ -451,16 +450,23 @@ func (s *ConfigSuite) setupEnvCredentials() {
 }
 
 type ConfigDeprecationSuite struct {
-	oldJujuHome *testing.FakeHome
-	writer      *testWriter
-	oldWriter   loggo.Writer
-	oldLevel    loggo.Level
+	ConfigSuite
+	writer    *testWriter
+	oldWriter loggo.Writer
+	oldLevel  loggo.Level
 }
 
 var _ = gc.Suite(&ConfigDeprecationSuite{})
 
 func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
-	s.oldJujuHome = testing.MakeEmptyFakeHome(c)
+	s.ConfigSuite.SetUpTest(c)
+}
+
+func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
+	s.ConfigSuite.TearDownTest(c)
+}
+
+func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) {
 	var err error
 	s.writer = &testWriter{}
 	s.oldWriter, s.oldLevel, err = loggo.RemoveWriter("default")
@@ -469,42 +475,32 @@ func (s *ConfigDeprecationSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
+func (s *ConfigDeprecationSuite) resetLogger(c *gc.C) {
 	_, _, err := loggo.RemoveWriter("test")
 	c.Assert(err, gc.IsNil)
 	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
 	c.Assert(err, gc.IsNil)
-	s.oldJujuHome.Restore()
 }
 
 type testWriter struct {
-	bytes.Buffer
+	messages []string
 }
 
 func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
-	t.Buffer.WriteString(fmt.Sprintf("%s %s %s", level, module, message))
+	t.messages = append(t.messages, message)
 }
 
-func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) *environ {
-	envs := attrs{
-		"environments": attrs{
-			"testenv": attrs{
-				"type":            "openstack",
-				"control-bucket":  "x",
-				"authorized-keys": "fakekey",
-			},
-		},
+func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
+	s.setupEnvCredentials()
+	attrs := map[string]interface{}{
+		"name":            "testenv",
+		"type":            "openstack",
+		"control-bucket":  "x",
+		"authorized-keys": "fakekey",
+		deprecatedKey:     value,
 	}
-	testenv := envs["environments"].(attrs)["testenv"].(attrs)
-	testenv[deprecatedKey] = value
-	data, err := goyaml.Marshal(envs)
+	_, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-
-	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, gc.IsNil)
-
-	e, err := es.Open("testenv")
-	return e.(*environ)
 }
 
 func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
@@ -512,11 +508,11 @@ func (s *ConfigDeprecationSuite) TestDeprecationWarnings(c *gc.C) {
 		"default-image-id":      "foo",
 		"default-instance-type": "bar",
 	} {
-		osenv := s.setupEnv(c, attr, value)
-		_, err := providerInstance.Validate(osenv.ecfg().Config, nil)
-		c.Assert(err, gc.IsNil)
-		stripped := strings.Replace(s.writer.String(), "\n", "", -1)
-		expected := fmt.Sprintf(`.*WARNING juju Config attribute "%s" \(%s\) is deprecated and ignored.*`, attr, value)
+		s.setupLogger(c)
+		s.setupEnv(c, attr, value)
+		s.resetLogger(c)
+		stripped := strings.Replace(s.writer.messages[0], "\n", "", -1)
+		expected := fmt.Sprintf(`.*Config attribute "%s" \(%s\) is deprecated and ignored.*`, attr, value)
 		c.Assert(stripped, gc.Matches, expected)
 	}
 }

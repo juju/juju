@@ -139,7 +139,7 @@ func (p environProvider) Validate(cfg, old *config.Config) (valid *config.Config
 	if defaultInstanceType := cfg.AllAttrs()["default-instance-type"]; defaultInstanceType != nil && defaultInstanceType.(string) != "" {
 		msg := fmt.Sprintf(
 			"Config attribute %q (%v) is deprecated and ignored.\n"+
-				"The correct instance flavor is now determined using constraints, globally specified\n"+
+				"The correct instance flavor is determined using constraints, globally specified\n"+
 				"when an environment is bootstrapped, or individually when a charm is deployed.\n"+
 				"See 'juju help bootstrap' or 'juju help deploy'.",
 			"default-instance-type", defaultInstanceType)
