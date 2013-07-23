@@ -443,7 +443,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig, e.ecfg().useFloatingIP())
+	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -570,7 +570,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	}
 
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return e.internalStartInstance(cons, possibleTools, machineConfig, e.ecfg().useFloatingIP())
+	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -625,12 +625,10 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
-// Setting withPublicIP to true causes a floating IP to be assigned to the
-// server after starting.
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig, withPublicIP bool) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -660,7 +658,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
-
+	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
