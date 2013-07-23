@@ -152,7 +152,7 @@ func (s *fslockSuite) TestLockBlocks(c *C) {
 	select {
 	case <-acquired:
 		// all good
-	case <-time.After(coretesting.ShortWait):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("Expected lock acquisition")
 	}
 
