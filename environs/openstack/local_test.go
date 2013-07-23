@@ -480,6 +480,8 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	c.Assert(err, NotNil)
 }
 
+// TestEnsureGroup checks that when creating a duplicate security group, the existing group is
+// returned and the existing rules have been left as is.
 func (s *localServerSuite) TestEnsureGroup(c *C) {
 	rule := []nova.RuleInfo{
 		{
@@ -490,10 +492,10 @@ func (s *localServerSuite) TestEnsureGroup(c *C) {
 	}
 
 	assertRule := func(group nova.SecurityGroup) {
-		c.Assert(len(group.Rules), Equals, 1)
-		c.Assert(*group.Rules[0].IPProtocol, Equals, "tcp")
-		c.Assert(*group.Rules[0].FromPort, Equals, 22)
-		c.Assert(*group.Rules[0].ToPort, Equals, 22)
+		c.Check(len(group.Rules), Equals, 1)
+		c.Check(*group.Rules[0].IPProtocol, Equals, "tcp")
+		c.Check(*group.Rules[0].FromPort, Equals, 22)
+		c.Check(*group.Rules[0].ToPort, Equals, 22)
 	}
 
 	group, err := openstack.EnsureGroup(s.env, "test group", rule)
@@ -511,7 +513,7 @@ func (s *localServerSuite) TestEnsureGroup(c *C) {
 	}
 	group, err = openstack.EnsureGroup(s.env, "test group", anotherRule)
 	c.Assert(err, IsNil)
-	c.Assert(group.Id, Equals, id)
+	c.Check(group.Id, Equals, id)
 	c.Assert(group.Name, Equals, "test group")
 	assertRule(group)
 }

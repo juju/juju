@@ -1029,7 +1029,7 @@ var zeroGroup nova.SecurityGroup
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := e.nova()
-	// First attempt to lookup an existing group by name.
+	// First attempt to look up an existing group by name.
 	group, err := novaClient.SecurityGroupByName(name)
 	if err == nil {
 		// Group exists, so assume it is correctly set up and return it.
