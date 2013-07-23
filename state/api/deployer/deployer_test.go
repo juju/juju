@@ -34,7 +34,7 @@ type deployerSuite struct {
 	principal   *state.Unit
 	subordinate *state.Unit
 
-	deployer *deployer.Deployer
+	st *deployer.State
 }
 
 var _ = gc.Suite(&deployerSuite{})
@@ -78,9 +78,9 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create the deployer facade.
-	s.deployer, err = s.stateAPI.Deployer()
+	s.st, err = s.stateAPI.Deployer()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.deployer, gc.NotNil)
+	c.Assert(s.st, gc.NotNil)
 }
 
 func (s *deployerSuite) TearDownTest(c *gc.C) {
@@ -94,7 +94,7 @@ func (s *deployerSuite) TearDownTest(c *gc.C) {
 // Note: This is really meant as a unit-test, this isn't a test that
 // should need all of the setup we have for this test suite
 func (s *deployerSuite) TestNew(c *gc.C) {
-	deployer := deployer.New(s.stateAPI)
+	deployer := deployer.NewState(s.stateAPI)
 	c.Assert(deployer, gc.NotNil)
 }
 
@@ -105,14 +105,14 @@ func (s *deployerSuite) assertUnauthorized(c *gc.C, err error) {
 
 func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
 	// Try with a non-existent machine tag.
-	machine, err := s.deployer.Machine("machine-42")
+	machine, err := s.st.Machine("machine-42")
 	c.Assert(err, gc.IsNil)
 	w, err := machine.WatchUnits()
 	s.assertUnauthorized(c, err)
 	c.Assert(w, gc.IsNil)
 
 	// Try it with an invalid tag format.
-	machine, err = s.deployer.Machine("foo")
+	machine, err = s.st.Machine("foo")
 	c.Assert(err, gc.IsNil)
 	w, err = machine.WatchUnits()
 	s.assertUnauthorized(c, err)
@@ -120,7 +120,7 @@ func (s *deployerSuite) TestWatchUnitsWrongMachine(c *gc.C) {
 }
 
 func (s *deployerSuite) TestWatchUnits(c *gc.C) {
-	machine, err := s.deployer.Machine(s.machine.Tag())
+	machine, err := s.st.Machine(s.machine.Tag())
 	c.Assert(err, gc.IsNil)
 	w, err := machine.WatchUnits()
 	c.Assert(err, gc.IsNil)
@@ -149,10 +149,10 @@ func (s *deployerSuite) TestWatchUnits(c *gc.C) {
 
 func (s *deployerSuite) TestUnit(c *gc.C) {
 	// Try getting a missing unit and an invalid tag.
-	unit, err := s.deployer.Unit("unit-foo-42")
+	unit, err := s.st.Unit("unit-foo-42")
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
-	unit, err = s.deployer.Unit("42")
+	unit, err = s.st.Unit("42")
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 
@@ -164,21 +164,21 @@ func (s *deployerSuite) TestUnit(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = principal1.AssignToMachine(machine)
 	c.Assert(err, gc.IsNil)
-	unit, err = s.deployer.Unit(principal1.Tag())
+	unit, err = s.st.Unit(principal1.Tag())
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 
 	// Get the principal and subordinate we're responsible for.
-	unit, err = s.deployer.Unit(s.principal.Tag())
+	unit, err = s.st.Unit(s.principal.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.Name(), gc.Equals, "mysql/0")
-	unit, err = s.deployer.Unit(s.subordinate.Tag())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 	c.Assert(unit.Name(), gc.Equals, "logging/0")
 }
 
 func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
-	unit, err := s.deployer.Unit(s.subordinate.Tag())
+	unit, err := s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(unit.Life(), gc.Equals, params.Alive)
@@ -196,7 +196,7 @@ func (s *deployerSuite) TestUnitLifeRefresh(c *gc.C) {
 }
 
 func (s *deployerSuite) TestUnitRemove(c *gc.C) {
-	unit, err := s.deployer.Unit(s.principal.Tag())
+	unit, err := s.st.Unit(s.principal.Tag())
 	c.Assert(err, gc.IsNil)
 
 	// It fails because the entity is still alive.
@@ -206,7 +206,7 @@ func (s *deployerSuite) TestUnitRemove(c *gc.C) {
 	c.Assert(params.ErrCode(err), gc.Equals, "")
 
 	// With the subordinate it also fails due to it being alive.
-	unit, err = s.deployer.Unit(s.subordinate.Tag())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 	err = unit.Remove()
 	c.Assert(err, gc.ErrorMatches, `cannot remove entity "unit-logging-0": still alive`)
@@ -221,13 +221,13 @@ func (s *deployerSuite) TestUnitRemove(c *gc.C) {
 	// Verify it's gone.
 	err = unit.Refresh()
 	s.assertUnauthorized(c, err)
-	unit, err = s.deployer.Unit(s.subordinate.Tag())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	s.assertUnauthorized(c, err)
 	c.Assert(unit, gc.IsNil)
 }
 
 func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
-	unit, err := s.deployer.Unit(s.principal.Tag())
+	unit, err := s.st.Unit(s.principal.Tag())
 	c.Assert(err, gc.IsNil)
 
 	// Change the principal's password and verify.
@@ -238,7 +238,7 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(s.principal.PasswordValid("foobar"), gc.Equals, true)
 
 	// Then the subordinate.
-	unit, err = s.deployer.Unit(s.subordinate.Tag())
+	unit, err = s.st.Unit(s.subordinate.Tag())
 	c.Assert(err, gc.IsNil)
 	err = unit.SetPassword("phony")
 	c.Assert(err, gc.IsNil)

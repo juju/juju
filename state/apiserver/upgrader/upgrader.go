@@ -78,10 +78,9 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 		Series: existingTools.Series,
 		Arch:   existingTools.Arch,
 	}
-	// Note: (jam) We shouldn't have to search the provider
-	//       for every machine that wants to upgrade. The
-	//       information could just be cached in state, or
-	//       even in the API servers
+	// TODO(jam): Avoid searching the provider for every machine
+	// that wants to upgrade. The information could just be cached
+	// in state, or even in the API servers
 	tools, err := environs.FindExactTools(env, requested)
 	if err != nil {
 		return nilTools, err
@@ -98,7 +97,7 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	}, nil
 }
 
-// Find the Tools necessary for the given agents
+// Tools finds the Tools necessary for the given agents.
 func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, error) {
 	tools := make([]params.AgentToolsResult, len(args.Entities))
 	result := params.AgentToolsResults{Tools: tools}

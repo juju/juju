@@ -11,9 +11,9 @@ import (
 
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
-	tag    string
-	life   params.Life
-	dstate *Deployer
+	tag  string
+	life params.Life
+	st   *State
 }
 
 // Tag returns the unit's tag.
@@ -42,7 +42,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.dstate.unitLife(u.tag)
+	life, err := u.st.unitLife(u.tag)
 	if err != nil {
 		return err
 	}
@@ -57,7 +57,7 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.dstate.caller.Call("Deployer", "", "Remove", args, &result)
+	err := u.st.caller.Call("Deployer", "", "Remove", args, &result)
 	if err != nil {
 		return err
 	}
@@ -74,7 +74,7 @@ func (u *Unit) SetPassword(password string) error {
 			{Tag: u.tag, Password: password},
 		},
 	}
-	err := u.dstate.caller.Call("Deployer", "", "SetPasswords", args, &result)
+	err := u.st.caller.Call("Deployer", "", "SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
