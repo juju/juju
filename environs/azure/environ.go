@@ -417,6 +417,16 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// cloud-init package which supports Azure.
 	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
 
+	// In Azure, the image determines the size of the OS disk, but the
+	// instance type also limits it.  Prevent instance-type selection from
+	// picking the Extra Small type, because it doesn't support the 30GB
+	// of OS disk that's on the hard-coded image.
+	// TODO: Is this all correct?  If so, generalize it as a constraint.
+	if cons.Mem == nil || *cons.Mem <= 30*gwacl.GB {
+		minimum := gwacl.RoleNameMap["ExtraSmall"].Mem + 1
+		cons.Mem = &minimum
+	}
+
 	// virtualNetworkName is the virtual network to which all the
 	// deployments in this environment belong.
 	virtualNetworkName := env.getVirtualNetworkName()
