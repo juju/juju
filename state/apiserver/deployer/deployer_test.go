@@ -302,7 +302,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) TestAssignedMachineTag(c *gc.C) {
+func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	// Create a new, unassigned unit for the test.
 	_, err := s.service0.AddUnit()
 	c.Assert(err, gc.IsNil)
@@ -314,13 +314,13 @@ func (s *deployerSuite) TestAssignedMachineTag(c *gc.C) {
 		{Tag: "unit-mysql-2"},   // unassigned
 		{Tag: "unit-fake-42"},   // not found
 	}}
-	result, err := s.deployer.AssignedMachineTag(args)
+	result, err := s.deployer.CanDeploy(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.EntityResults{
-		Results: []params.EntityResult{
-			{Tag: "machine-1"},
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: true},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Tag: "machine-1"},
+			{Result: true},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 		},

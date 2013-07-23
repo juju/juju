@@ -13,16 +13,16 @@ type Entities struct {
 	Entities []Entity
 }
 
-// EntityResult holds the result of a single operation returning an
-// entity's tag, or an error.
-type EntityResult struct {
-	Tag   string
-	Error *Error
+// BoolResult holds the result of a single operation returning a
+// boolean value or an error.
+type BoolResult struct {
+	Result bool
+	Error  *Error
 }
 
-// EntityResults holds the tags or error results of multiple entities.
-type EntityResults struct {
-	Results []EntityResult
+// BoolResults holds the boolean or error results of multiple entities.
+type BoolResults struct {
+	Results []BoolResult
 }
 
 // LifeResult holds the life status of a single entity, or an error
