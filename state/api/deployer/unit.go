@@ -86,7 +86,7 @@ func (u *Unit) SetPassword(password string) error {
 	return nil
 }
 
-// CanDeploy returns is the currently authenticated entity (a machine
+// CanDeploy reports whether the currently authenticated entity (a machine
 // agent) can deploy the unit.
 func (u *Unit) CanDeploy() (bool, error) {
 	var result params.BoolResults
