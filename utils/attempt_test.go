@@ -6,6 +6,36 @@ import (
 	"time"
 )
 
+func doSomething() (int, error) { return 0, nil }
+
+func shouldRetry(error) bool { return false }
+
+func doSomethingWith(int) {}
+
+func ExampleAttempt_HasNext() {
+	// This example shows how Attempt.HasNext can be used to help
+	// structure an attempt loop. If the godoc example code allowed
+	// us to make the example return an error, we would uncomment
+	// the commented return statements.
+	attempts := utils.AttemptStrategy{
+		Total: 1 * time.Second,
+		Delay: 250 * time.Millisecond,
+	}
+	for attempt := attempts.Start(); attempt.Next(); {
+		x, err := doSomething()
+		if shouldRetry(err) && attempt.HasNext() {
+			continue
+		}
+		if err != nil {
+			// return err
+			return
+		}
+		doSomethingWith(x)
+	}
+	// return ErrTimedOut
+	return
+}
+
 func (utilsSuite) TestAttemptTiming(c *C) {
 	testAttempt := utils.AttemptStrategy{
 		Total: 0.25e9,
