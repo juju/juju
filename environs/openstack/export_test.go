@@ -252,3 +252,7 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
 }
+
+func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+	return e.(*environ).ensureGroup(name, rules)
+}
