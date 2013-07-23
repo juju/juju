@@ -255,6 +255,9 @@ func (context *statusContext) processUnits(units map[string]*state.Unit) map[str
 
 func (context *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
+	for _, port := range unit.OpenedPorts() {
+		status.OpenedPorts = append(status.OpenedPorts, port.String())
+	}
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
 	}
@@ -439,6 +442,7 @@ type unitStatus struct {
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts    []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }
