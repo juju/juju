@@ -428,6 +428,13 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
+	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
+	// An authenticated client is needed for the URL() call below.
+	err = e.client.Authenticate()
+	if err != nil {
+		return err
+	}
 	stateFileURL, err := e.Storage().URL(environs.StateFile)
 	if err != nil {
 		return fmt.Errorf("cannot create bootstrap state file: %v", err)
