@@ -20,12 +20,13 @@ const (
 	streamsDir           = "streams/v1"
 )
 
+// Boilerplate generates some basic simplestreams metadata using the specified cloud and image details.
 func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
 	return MakeBoilerplate(name, series, im, cloudSpec, true)
 }
 
-// MakeBoilerplate exists so it can be called by tests. If provides an option to retain the streams directories
-// when writing the generated metadata files.
+// MakeBoilerplate exists so it can be called by tests. See Boilerplate above. If provides an option to retain
+// the streams directories when writing the generated metadata files.
 func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec, flattenPath bool) ([]string, error) {
 	indexFileName := defaultIndexFileName
 	imageFileName := defaultImageFileName
@@ -53,8 +54,7 @@ func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpe
 
 	if !flattenPath {
 		streamsPath := config.JujuHomePath(streamsDir)
-		err = os.MkdirAll(streamsPath, 0700)
-		if err != nil {
+		if err = os.MkdirAll(streamsPath, 0700); err != nil {
 			return nil, err
 		}
 		indexFileName = filepath.Join(streamsDir, indexFileName)
@@ -102,24 +102,24 @@ var indexBoilerplate = `
 {
  "index": {
    "com.ubuntu.cloud:custom": {
-    "updated": "{{.Updated}}",
-    "clouds": [
-     {
-       "region": "{{.Region}}",
-       "endpoint": "{{.URL}}"
-     }
-    ],
-    "cloudname": "custom",
-    "datatype": "image-ids",
-    "format": "products:1.0",
-    "products": [
-      "com.ubuntu.cloud:server:{{.Version}}:{{.Arch}}"
-    ],
-    "path": "{{.Path}}/{{.ImageFileName}}"
+     "updated": "{{.Updated}}",
+     "clouds": [
+       {
+         "region": "{{.Region}}",
+         "endpoint": "{{.URL}}"
+       }
+     ],
+     "cloudname": "custom",
+     "datatype": "image-ids",
+     "format": "products:1.0",
+     "products": [
+       "com.ubuntu.cloud:server:{{.Version}}:{{.Arch}}"
+     ],
+     "path": "{{.Path}}/{{.ImageFileName}}"
    }
-  },
-  "updated": "{{.Updated}}",
-  "format": "index:1.0"
+ },
+ "updated": "{{.Updated}}",
+ "format": "index:1.0"
 }
 `
 

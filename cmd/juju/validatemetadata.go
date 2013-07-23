@@ -123,16 +123,19 @@ func (c *ValidateMetadataCommand) Run(context *cmd.Context) error {
 		}
 	}
 
-	if validator, ok := prov.(environs.ImageMetadataValidator); ok {
-		region, image_ids, err := validator.ValidateImageMetadata(cfg, c.series, c.region, c.endpoint, c.metadataDir)
-		if err == nil {
-			if len(image_ids) > 0 {
-				fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", region, strings.Join(image_ids, "\n"))
-			} else {
-				return fmt.Errorf("no matching image ids for region %s\n", region)
-			}
-		}
+	var validator environs.ImageMetadataValidator
+	var ok bool
+	if validator, ok = prov.(environs.ImageMetadataValidator); !ok {
+		return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
+	}
+	region, image_ids, err := validator.ValidateImageMetadata(cfg, c.series, c.region, c.endpoint, c.metadataDir)
+	if err != nil {
 		return err
 	}
-	return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
+	if len(image_ids) > 0 {
+		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", region, strings.Join(image_ids, "\n"))
+	} else {
+		return fmt.Errorf("no matching image ids for region %s\n", region)
+	}
+	return nil
 }
