@@ -31,11 +31,6 @@ var (
 	LXC ProvisionerType = "lxc"
 )
 
-// While I'm debugging.
-func init() {
-	logger.SetLogLevel(loggo.TRACE)
-}
-
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
 	pt        ProvisionerType
