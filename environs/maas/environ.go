@@ -7,7 +7,6 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
@@ -76,14 +75,9 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	// Create an empty bootstrap state file so we can get its URL.
 	// If will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
-	reader := strings.NewReader("")
-	err := env.Storage().Put(environs.StateFile, reader, int64(0))
+	stateFileURL, err := environs.CreateStateFile(env.Storage())
 	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
-	}
-	stateFileURL, err := env.Storage().URL(environs.StateFile)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return nil, err
 	}
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
