@@ -35,7 +35,7 @@ TAG=$1
 WORK=$(mktemp -d)
 
 # populate top level dirs
-mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} $WORK/src/github.com/andelf
+mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.com/p/go.{net,crypto} 
 
 # checkout juju (manually, because we're redefining $WORK later on
 bzr-checkout lp:juju-core $TAG launchpad.net/juju-core
@@ -57,15 +57,13 @@ bzr-checkout lp:~gophers/goamz/trunk -1 launchpad.net/goamz
 bzr-checkout lp:gocheck -1 launchpad.net/gocheck
 bzr-checkout lp:golxc -1 launchpad.net/golxc
 bzr-checkout lp:gomaasapi -1 launchpad.net/gomaasapi
-bzr-checkout lp:goose -1 launchpad.net/goose
+bzr-checkout lp:goose $TAG launchpad.net/goose
 bzr-checkout lp:goyaml -1 launchpad.net/goyaml
 bzr-checkout lp:gwacl -1 launchpad.net/gwacl
 bzr-checkout lp:loggo -1 launchpad.net/loggo
 bzr-checkout lp:lpad -1 launchpad.net/lpad
 bzr-checkout lp:mgo/v2 -1 labix.org/v2/mgo
 bzr-checkout lp:tomb -1 launchpad.net/tomb
-
-git-checkout https://github.com/andelf/go-curl github.com/andelf/go-curl
 
 # smoke test
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
