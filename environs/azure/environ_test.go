@@ -384,6 +384,7 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
+	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -391,7 +392,7 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, prefix, affinityGroup)
+	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
@@ -399,6 +400,7 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+	c.Check(service.Location, Equals, location)
 
 	label, err := base64.StdEncoding.DecodeString(service.Label)
 	c.Assert(err, IsNil)
@@ -414,7 +416,7 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -437,7 +439,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -450,7 +452,7 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure, "service", "affinity-group")
+	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
@@ -458,6 +460,7 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
+	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
@@ -465,7 +468,7 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, prefix, affinityGroup)
+	service, err := newHostedService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
@@ -473,6 +476,7 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+	c.Check(service.Location, Equals, location)
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
@@ -488,7 +492,7 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, "service", "affinity-group")
+	service, err := newHostedService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -522,7 +526,7 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure, "service", "affinity-group")
+	_, err = newHostedService(azure, "service", "affinity-group", "location")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
@@ -842,7 +846,9 @@ func (*EnvironSuite) TestCreateAffinityGroup(c *C) {
 	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, IsNil)
 	c.Check(body.Name, Equals, env.getAffinityGroupName())
-	c.Check(body.Location, Equals, serviceLocation)
+	// FIXME: This is a testing antipattern, the expected data comes from
+	// config defaults.
+	c.Check(body.Location, Equals, "location")
 }
 
 func (*EnvironSuite) TestDestroyAffinityGroup(c *C) {
