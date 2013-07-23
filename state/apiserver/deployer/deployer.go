@@ -128,8 +128,10 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if err != nil {
-			// Do not leak information unnecessarily.
-			// This means we got some other error from state.
+			// This means the unit wasn't assigned to the machine
+			// agent or it wasn't found. In both cases we just return
+			// false so as not to leak information about the existence
+			// of a unit to a potentially rogue machine agent.
 			continue
 		}
 		// Finally, check if we're allowed to access this unit.
