@@ -11,6 +11,7 @@ import (
 )
 
 var configFields = schema.Fields{
+	"location":                      schema.String(),
 	"management-subscription-id":    schema.String(),
 	"management-certificate-path":   schema.String(),
 	"management-certificate":        schema.String(),
@@ -21,6 +22,7 @@ var configFields = schema.Fields{
 	"public-storage-container-name": schema.String(),
 }
 var configDefaults = schema.Defaults{
+	"location":                      "",
 	"management-certificate":        "",
 	"management-certificate-path":   "",
 	"storage-container-name":        "",
@@ -31,6 +33,10 @@ var configDefaults = schema.Defaults{
 type azureEnvironConfig struct {
 	*config.Config
 	attrs map[string]interface{}
+}
+
+func (cfg *azureEnvironConfig) Location() string {
+	return cfg.attrs["location"].(string)
 }
 
 func (cfg *azureEnvironConfig) ManagementSubscriptionId() string {
@@ -99,6 +105,9 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 		envCfg.attrs["management-certificate"] = string(pemData)
 	}
 	delete(envCfg.attrs, "management-certificate-path")
+	if envCfg.Location() == "" {
+		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
+	}
 	if envCfg.StorageContainerName() == "" {
 		return nil, fmt.Errorf("environment has no storage-container-name; auto-creation of storage containers is not yet supported")
 	}
@@ -117,6 +126,8 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 
 const boilerplateYAML = `azure:
   type: azure
+  # Location for instances, e.g. West US, North Europe.
+  location: West US
   # http://msdn.microsoft.com/en-us/library/windowsazure
   # Windows Azure Management info.
   management-subscription-id: 886413e1-3b8a-5382-9b90-0c9aee199e5d

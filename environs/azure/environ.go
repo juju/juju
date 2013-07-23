@@ -28,12 +28,6 @@ const (
 	// hostname (instance==service).
 	roleHostname = "default"
 
-	// Initially, this is the only location where Azure supports Linux.
-	// TODO: This is to become a configuration item.
-	// We currently use "North Europe" because the temporary Saucy image is
-	// only supported there.
-	serviceLocation = "North Europe"
-
 	// deploymentSlot says in which slot to deploy instances.  Azure
 	// supports 'Production' or 'Staging'.
 	// This provider always deploys to Production.  Think twice about
@@ -177,7 +171,9 @@ func (env *azureEnviron) createAffinityGroup() error {
 		return nil
 	}
 	defer env.releaseManagementAPI(azure)
-	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, serviceLocation)
+	snap := env.getSnapshot()
+	location := snap.ecfg.Location()
+	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, location)
 	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
 		CreateAffinityGroup: cag})
 }
@@ -317,9 +313,9 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
 	name := gwacl.MakeRandomHostedServiceName(prefix)
-	req := gwacl.NewCreateHostedServiceWithLocation(name, name, serviceLocation)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
 	req.AffinityGroup = affinityGroupName
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
@@ -338,11 +334,11 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix, affinityGroupName)
+		svc, err = attemptCreateService(azure, prefix, affinityGroupName, location)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -392,7 +388,9 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName())
+	snap := env.getSnapshot()
+	location := snap.ecfg.Location()
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
 	}
