@@ -128,7 +128,7 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 			result.Results[i].Error = common.ServerError(err)
 			continue
 		} else if err != nil {
-			// Do not leak information unnecessary.
+			// Do not leak information unnecessarily.
 			// This means we got some other error from state.
 			continue
 		}

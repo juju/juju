@@ -53,7 +53,7 @@ func (st *State) Unit(tag string) (*Unit, error) {
 	}, nil
 }
 
-// Machine returns the machine with the given tag.	
+// Machine returns the machine with the given tag.
 func (st *State) Machine(tag string) (*Machine, error) {
 	return &Machine{
 		tag: tag,
