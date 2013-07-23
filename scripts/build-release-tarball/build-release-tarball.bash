@@ -3,6 +3,8 @@
 # if someone invokes this with bash 
 set -e
 
+unset GOPATH
+
 # build release tarball from a bzr branch 
 
 usage() {
@@ -39,7 +41,7 @@ mkdir -p $WORK/src/launchpad.net $WORK/src/labix.org/v2 $WORK/src/code.google.co
 bzr-checkout lp:juju-core $TAG launchpad.net/juju-core
 
 # fetch the version
-VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' ${GOPATH}/src/launchpad.net/juju-core/version/version.go)
+VERSION=$(sed -n 's/^const version = "\(.*\)"/\1/p' $WORK/src/launchpad.net/juju-core/version/version.go)
 
 # fixup paths for tarball
 mkdir $WORK/juju-core_${VERSION}
