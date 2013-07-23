@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"launchpad.net/juju-core/utils"
 	"time"
 )
 
@@ -18,3 +19,8 @@ const ShortWait = 1 * time.Microsecond
 // so that we don't have spurious failures without actually slowing down the
 // test suite
 const LongWait = 10 * time.Second
+
+var LongAttempt = &utils.AttemptStrategy{
+	Total: LongWait,
+	Delay: ShortWait,
+}
