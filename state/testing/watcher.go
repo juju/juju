@@ -164,18 +164,27 @@ func (c StringsWatcherC) AssertChange(expect ...string) {
 	} else {
 		c.State.StartSync()
 	}
-	select {
-	case actual, ok := <-c.Watcher.Changes():
-		c.Assert(ok, Equals, true)
-		if len(expect) == 0 {
-			c.Assert(actual, HasLen, 0)
-		} else {
-			sort.Strings(expect)
-			sort.Strings(actual)
-			c.Assert(actual, DeepEquals, expect)
+	timeout := time.After(testing.LongWait)
+	var actual []string
+loop:
+	for {
+		select {
+		case changes, ok := <-c.Watcher.Changes():
+			c.Assert(ok, Equals, true)
+			actual = append(actual, changes...)
+			if len(actual) >= len(expect) {
+				break loop
+			}
+		case <-timeout:
+			c.Fatalf("watcher did not send change")
 		}
-	case <-time.After(testing.LongWait):
-		c.Fatalf("watcher did not send change")
+	}
+	if len(expect) == 0 {
+		c.Assert(actual, HasLen, 0)
+	} else {
+		sort.Strings(expect)
+		sort.Strings(actual)
+		c.Assert(actual, DeepEquals, expect)
 	}
 }
 

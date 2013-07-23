@@ -46,11 +46,13 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
 
 	// Login as the machine agent of the created machine.
-	s.stateAPI = s.OpenAPIAs(c, s.machine.Tag(), "test-password")
+	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
 	c.Assert(s.stateAPI, gc.NotNil)
 
 	// Create the needed services and relate them.

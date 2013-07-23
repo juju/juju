@@ -12,9 +12,10 @@ import (
 )
 
 type AgentAPI struct {
+	*common.PasswordChanger
+
 	st   *state.State
 	auth common.Authorizer
-	*common.PasswordChanger
 }
 
 // NewAgentAPI returns an object implementing the machine agent API
@@ -30,9 +31,9 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 		}, nil
 	}
 	return &AgentAPI{
+		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
 		st:              st,
 		auth:            auth,
-		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
 	}, nil
 }
 

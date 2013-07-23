@@ -339,11 +339,19 @@ func (s *ProvisionerSuite) TestProvisionerSetsErrorStatusWhenStartInstanceFailed
 	c.Assert(err, IsNil)
 	s.checkNoOperations(c)
 
-	// And check the machine status is set to error.
-	status, info, err := m.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusError)
-	c.Assert(info, Equals, brokenMsg)
+	t0 := time.Now()
+	for time.Since(t0) < coretesting.LongWait {
+		// And check the machine status is set to error.
+		status, info, err := m.Status()
+		c.Assert(err, IsNil)
+		if status == params.StatusPending {
+			time.Sleep(coretesting.ShortWait)
+			continue
+		}
+		c.Assert(status, Equals, params.StatusError)
+		c.Assert(info, Equals, brokenMsg)
+		break
+	}
 
 	// Unbreak the environ config.
 	err = s.fixEnvironment()

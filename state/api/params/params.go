@@ -134,6 +134,7 @@ type ServiceDestroy struct {
 type Creds struct {
 	AuthTag  string
 	Password string
+	Nonce    string
 }
 
 // GetAnnotationsResults holds annotations associated with an entity.

@@ -384,14 +384,15 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
+	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, prefix, affinityGroup)
+	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
@@ -399,6 +400,7 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+	c.Check(service.Location, Equals, location)
 
 	label, err := base64.StdEncoding.DecodeString(service.Label)
 	c.Assert(err, IsNil)
@@ -411,10 +413,10 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -434,10 +436,10 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -447,10 +449,10 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure, "service", "affinity-group")
+	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
@@ -458,14 +460,15 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
+	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, prefix, affinityGroup)
+	service, err := newHostedService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
@@ -473,6 +476,7 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+	c.Check(service.Location, Equals, location)
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
@@ -485,10 +489,10 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, "service", "affinity-group")
+	service, err := newHostedService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -519,10 +523,10 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil))
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure, "service", "affinity-group")
+	_, err = newHostedService(azure, "service", "affinity-group", "location")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
@@ -706,7 +710,7 @@ func (*EnvironSuite) TestNewRole(c *C) {
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
-	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.CustomData, Equals, userData)
 	c.Check(linuxConfig.Hostname, Equals, hostname)
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
@@ -842,7 +846,9 @@ func (*EnvironSuite) TestCreateAffinityGroup(c *C) {
 	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, IsNil)
 	c.Check(body.Name, Equals, env.getAffinityGroupName())
-	c.Check(body.Location, Equals, serviceLocation)
+	// This is a testing antipattern, the expected data comes from
+	// config defaults.  Fix it sometime.
+	c.Check(body.Location, Equals, "location")
 }
 
 func (*EnvironSuite) TestDestroyAffinityGroup(c *C) {

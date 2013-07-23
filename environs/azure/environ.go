@@ -28,12 +28,6 @@ const (
 	// hostname (instance==service).
 	roleHostname = "default"
 
-	// Initially, this is the only location where Azure supports Linux.
-	// TODO: This is to become a configuration item.
-	// We currently use "North Europe" because the temporary Saucy image is
-	// only supported there.
-	serviceLocation = "North Europe"
-
 	// deploymentSlot says in which slot to deploy instances.  Azure
 	// supports 'Production' or 'Staging'.
 	// This provider always deploys to Production.  Think twice about
@@ -138,8 +132,6 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or anything in Azure.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	mcfg.StateServer = true
 
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics after the
@@ -152,14 +144,14 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	if err != nil {
 		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
 	}
-	mcfg.StateInfoURL = stateFileURL
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -179,7 +171,9 @@ func (env *azureEnviron) createAffinityGroup() error {
 		return nil
 	}
 	defer env.releaseManagementAPI(azure)
-	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, serviceLocation)
+	snap := env.getSnapshot()
+	location := snap.ecfg.Location()
+	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, location)
 	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
 		CreateAffinityGroup: cag})
 }
@@ -319,9 +313,9 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
 	name := gwacl.MakeRandomHostedServiceName(prefix)
-	req := gwacl.NewCreateHostedServiceWithLocation(name, name, serviceLocation)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
 	req.AffinityGroup = affinityGroupName
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
@@ -340,11 +334,11 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix, affinityGroupName)
+		svc, err = attemptCreateService(azure, prefix, affinityGroupName, location)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -360,8 +354,10 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 // the EC2/OpenStack/MAAS/Azure providers.
 // The instance will be set up for the same series for which you pass tools.
 // All tools in possibleTools must be for the same series.
+// machineConfig will be filled out with further details, but should contain
+// MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
@@ -370,18 +366,18 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
 
-	err = environs.FinishMachineConfig(mcfg, env.Config(), cons)
+	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
 	if err != nil {
 		return nil, err
 	}
 
 	// Pick tools.  Needed for the custom data (which is what we normally
 	// call userdata).
-	mcfg.Tools = possibleTools[0]
-	logger.Infof("picked tools %q", mcfg.Tools)
+	machineConfig.Tools = possibleTools[0]
+	logger.Infof("picked tools %q", machineConfig.Tools)
 
 	// Compose userdata.
-	userData, err := makeCustomData(mcfg)
+	userData, err := makeCustomData(machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("custom data: %v", err)
 	}
@@ -392,7 +388,9 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName())
+	snap := env.getSnapshot()
+	location := snap.ecfg.Location()
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
 	}
@@ -553,9 +551,9 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well.
-	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
+	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	return inst, nil, err
 }
 

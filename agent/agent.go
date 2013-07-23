@@ -211,6 +211,7 @@ func (c *Conf) WriteCommands() ([]string, error) {
 // set the entity's password accordingly.
 func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
 	info := *c.APIInfo
+	info.Nonce = c.MachineNonce
 	if info.Password != "" {
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {
