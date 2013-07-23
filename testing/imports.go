@@ -21,11 +21,10 @@ func FindJujuCoreImports(c *gc.C, packageName string) []string {
 	for _, root := range build.Default.SrcDirs() {
 		fullpath := filepath.Join(root, packageName)
 		pkg, err := build.ImportDir(fullpath, 0)
-		if err != nil {
-			continue
+		if err == nil {
+			imports = pkg.Imports
+			break
 		}
-		imports = pkg.Imports
-		break
 	}
 	if imports == nil {
 		c.Logf(packageName + " not found")
