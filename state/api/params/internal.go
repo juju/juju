@@ -13,6 +13,18 @@ type Entities struct {
 	Entities []Entity
 }
 
+// BoolResult holds the result of a single operation returning a
+// boolean value or an error.
+type BoolResult struct {
+	Result bool
+	Error  *Error
+}
+
+// BoolResults holds the boolean or error results of multiple entities.
+type BoolResults struct {
+	Results []BoolResult
+}
+
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {

@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/presence"
 	"sync"
 )
 
@@ -79,26 +80,50 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	}
 	// We have authenticated the user; now choose an appropriate API
 	// to serve to them.
-	newRoot, err := a.apiRootForEntity(entity)
+	newRoot, err := a.apiRootForEntity(entity, c)
 	if err != nil {
 		return err
 	}
 
-	// Finally, if this is a machine agent connecting, we need to
-	// check the nonce matches, otherwise the wrong agent might be
-	// trying to connect.
-	if m, ok := entity.(*state.Machine); ok && !m.CheckProvisioned(c.Nonce) {
-		return common.ErrNotProvisioned
-	}
-
-	// All good, start serving the new root.
 	if err := a.root.rpcConn.Serve(newRoot, serverError); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator) (interface{}, error) {
+// machinePinger wraps a presence.Pinger.
+type machinePinger struct {
+	*presence.Pinger
+}
+
+// Stop implements Pinger.Stop() as Pinger.Kill(), needed at
+// connection closing time to properly stop the wrapped pinger.
+func (p *machinePinger) Stop() error {
+	if err := p.Pinger.Stop(); err != nil {
+		return err
+	}
+	return p.Pinger.Kill()
+}
+
+func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.Creds) (interface{}, error) {
 	// TODO(rog) choose appropriate object to serve.
-	return newSrvRoot(a.root.srv, entity), nil
+	newRoot := newSrvRoot(a.root.srv, entity)
+
+	// If this is a machine agent connecting, we need to check the
+	// nonce matches, otherwise the wrong agent might be trying to
+	// connect.
+	machine, ok := entity.(*state.Machine)
+	if ok {
+		if !machine.CheckProvisioned(c.Nonce) {
+			return nil, common.ErrNotProvisioned
+		}
+		// The machine agent has connected, so start a pinger to announce
+		// it's now alive.
+		pinger, err := machine.SetAgentAlive()
+		if err != nil {
+			return nil, err
+		}
+		newRoot.resources.Register(&machinePinger{pinger})
+	}
+	return newRoot, nil
 }

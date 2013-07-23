@@ -7,22 +7,32 @@ import (
 	"time"
 )
 
+// The Attempt and AttemptStrategy types are copied from those in launchpad.net/goamz/aws.
+
 // AttemptStrategy represents a strategy for waiting for an action
 // to complete successfully.
 type AttemptStrategy struct {
 	Total time.Duration // total duration of attempt.
 	Delay time.Duration // interval between each try in the burst.
+	Min   int           // minimum number of retries; overrides Total
 }
 
 type Attempt struct {
 	strategy AttemptStrategy
+	last     time.Time
 	end      time.Time
+	force    bool
+	count    int
 }
 
 // Start begins a new sequence of attempts for the given strategy.
-func (a AttemptStrategy) Start() *Attempt {
+func (s AttemptStrategy) Start() *Attempt {
+	now := time.Now()
 	return &Attempt{
-		strategy: a,
+		strategy: s,
+		last:     now,
+		end:      now.Add(s.Total),
+		force:    true,
 	}
 }
 
@@ -30,15 +40,39 @@ func (a AttemptStrategy) Start() *Attempt {
 // false if it is time to stop trying.
 func (a *Attempt) Next() bool {
 	now := time.Now()
-	// we always make at least one attempt.
-	if a.end.IsZero() {
-		a.end = now.Add(a.strategy.Total)
-		return true
-	}
-
-	if !now.Add(a.strategy.Delay).Before(a.end) {
+	sleep := a.nextSleep(now)
+	if !a.force && !now.Add(sleep).Before(a.end) && a.strategy.Min <= a.count {
 		return false
 	}
-	time.Sleep(a.strategy.Delay)
+	a.force = false
+	if sleep > 0 && a.count > 0 {
+		time.Sleep(sleep)
+		now = time.Now()
+	}
+	a.count++
+	a.last = now
 	return true
+}
+
+func (a *Attempt) nextSleep(now time.Time) time.Duration {
+	sleep := a.strategy.Delay - now.Sub(a.last)
+	if sleep < 0 {
+		return 0
+	}
+	return sleep
+}
+
+// HasNext returns whether another attempt will be made if the current
+// one fails. If it returns true, the following call to Next is
+// guaranteed to return true.
+func (a *Attempt) HasNext() bool {
+	if a.force || a.strategy.Min > a.count {
+		return true
+	}
+	now := time.Now()
+	if now.Add(a.nextSleep(now)).Before(a.end) {
+		a.force = true
+		return true
+	}
+	return false
 }
