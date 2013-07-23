@@ -406,6 +406,11 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
+	instanceType, err := selectMachineType(gwacl.RoleSizes, cons)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
 	// In the meantime we use a temporary Saucy image containing a
@@ -420,7 +425,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	vhd := env.newOSDisk(sourceImageName)
 
 	// 2. Create a Role for a Linux machine.
-	role := env.newRole(vhd, userData, roleHostname)
+	role := env.newRole(instanceType.Name, vhd, userData, roleHostname)
 
 	// 3. Create the Deployment object.
 	deployment := env.newDeployment(role, serviceName, serviceName, virtualNetworkName)
@@ -485,15 +490,16 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
+//
 // The VM will have:
 // - an 'ubuntu' user defined with an unguessable (randomly generated) password
 // - its ssh port (TCP 22) open
 // - its state port (TCP mongoDB) port open
 // - its API port (TCP) open
-func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
-	// TODO: Derive the role size from the constraints.
-	// ExtraSmall|Small|Medium|Large|ExtraLarge
-	roleSize := "Small"
+//
+// roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
+// Large, A6 etc.
+func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
 	hostname := roleHostname
