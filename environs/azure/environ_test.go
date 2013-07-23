@@ -846,8 +846,8 @@ func (*EnvironSuite) TestCreateAffinityGroup(c *C) {
 	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, IsNil)
 	c.Check(body.Name, Equals, env.getAffinityGroupName())
-	// TODO: This is a testing antipattern, the expected data comes from
-	// config defaults.
+	// This is a testing antipattern, the expected data comes from
+	// config defaults.  Fix it sometime.
 	c.Check(body.Location, Equals, "location")
 }
 
