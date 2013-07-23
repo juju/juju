@@ -269,4 +269,8 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	unit, err = s.st.Unit(newUnit.Tag())
 	s.assertUnauthorized(c, err)
+
+	// Try it with a non-existent unit - also fails.
+	_, err = s.st.Unit("unit-foo-42")
+	s.assertUnauthorized(c, err)
 }

@@ -6,6 +6,7 @@ package deployer
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -113,22 +114,27 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 	for i, entity := range args.Entities {
 		unitName := state.UnitNameFromTag(entity.Tag)
 		unit, err := d.st.Unit(unitName)
-		if err == nil {
-			machineId, err := unit.AssignedMachineId()
-			if err == nil {
-				if machineId != "" {
-					machineTag := state.MachineTag(machineId)
-					if d.authorizer.AuthOwner(machineTag) {
-						result.Results[i].Result = true
-					}
-				}
-			}
+		if errors.IsNotFoundError(err) {
+			// Unit not found, so no need to continue.
+			continue
+		} else if err != nil {
+			// Any other error get reported back.
+			result.Results[i].Error = common.ServerError(err)
+			continue
 		}
-		if !result.Results[i].Result {
-			// If unassigned, not assigned to the deployer's
-			// machine, or on any other error, deny access.
-			result.Results[i].Error = common.ServerError(common.ErrPerm)
+		machineId, err := unit.AssignedMachineId()
+		if err != nil && !state.IsNotAssigned(err) && !errors.IsNotFoundError(err) {
+			// Any other errors get reported back.
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if err != nil {
+			// Do not leak information unnecessary.
+			// This means we got some other error from state.
+			continue
 		}
+		// Finally, check if we're allowed to access this unit.
+		// When assigned machineId == "" it will fail.
+		result.Results[i].Result = d.authorizer.AuthOwner(state.MachineTag(machineId))
 	}
 	return result, nil
 }

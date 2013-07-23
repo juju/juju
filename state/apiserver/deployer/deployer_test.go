@@ -319,10 +319,10 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.BoolResults{
 		Results: []params.BoolResult{
 			{Result: true},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Result: false},
 			{Result: true},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
+			{Result: false},
+			{Result: false},
 		},
 	})
 }
