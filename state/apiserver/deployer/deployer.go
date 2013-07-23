@@ -103,3 +103,35 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 	}
 	return result, nil
 }
+
+// AssignedMachineTag returns the tag of the machines where each
+// passed unit is assigned to, or an empty string if not assigned.
+func (d *DeployerAPI) AssignedMachineTag(args params.Entities) (params.EntityResults, error) {
+	result := params.EntityResults{
+		Results: make([]params.EntityResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		var unit *state.Unit
+		unitName := state.UnitNameFromTag(entity.Tag)
+		unit, err = d.st.Unit(unitName)
+		if err == nil {
+			machineId, err := unit.AssignedMachineId()
+			if err == nil {
+				if machineId != "" {
+					machineTag := state.MachineTag(machineId)
+					if d.authorizer.AuthOwner(machineTag) {
+						result.Results[i].Tag = machineTag
+					}
+				}
+			}
+		}
+		if result.Results[i].Tag == "" {
+			// If unassigned, not assigned to the deployer's
+			// machine, or on any other error, deny access.
+			err = common.ErrPerm
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}

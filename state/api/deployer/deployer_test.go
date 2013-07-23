@@ -246,3 +246,27 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.subordinate.PasswordValid("phony"), gc.Equals, true)
 }
+
+func (s *deployerSuite) TestAssignedMachineTag(c *gc.C) {
+	// Try with a principal.
+	unit, err := s.st.Unit(s.principal.Tag())
+	c.Assert(err, gc.IsNil)
+
+	machineTag, err := unit.AssignedMachineTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineTag, gc.Equals, s.machine.Tag())
+
+	// Try with a subordinate.
+	unit, err = s.st.Unit(s.subordinate.Tag())
+	c.Assert(err, gc.IsNil)
+
+	machineTag, err = unit.AssignedMachineTag()
+	c.Assert(err, gc.IsNil)
+	c.Assert(machineTag, gc.Equals, s.machine.Tag())
+
+	// Try with a new, unassigned unit - should fail.
+	newUnit, err := s.service0.AddUnit()
+	c.Assert(err, gc.IsNil)
+	unit, err = s.st.Unit(newUnit.Tag())
+	s.assertUnauthorized(c, err)
+}

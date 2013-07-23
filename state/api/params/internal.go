@@ -13,6 +13,18 @@ type Entities struct {
 	Entities []Entity
 }
 
+// EntityResult holds the result of a single operation returning an
+// entity's tag, or an error.
+type EntityResult struct {
+	Tag   string
+	Error *Error
+}
+
+// EntityResults holds the tags or error results of multiple entities.
+type EntityResults struct {
+	Results []EntityResult
+}
+
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {

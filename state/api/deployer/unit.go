@@ -67,6 +67,7 @@ func (u *Unit) Remove() error {
 	return nil
 }
 
+// SetPassword changes the unit's password.
 func (u *Unit) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.PasswordChanges{
@@ -82,4 +83,21 @@ func (u *Unit) SetPassword(password string) error {
 		return result.Errors[0]
 	}
 	return nil
+}
+
+// AssignedMachineTag returns the tag of the machine this unit is
+// assigned to.
+func (u *Unit) AssignedMachineTag() (string, error) {
+	var result params.EntityResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag}},
+	}
+	err := u.st.caller.Call("Deployer", "", "AssignedMachineTag", args, &result)
+	if err != nil {
+		return "", err
+	}
+	if len(result.Results) > 0 && result.Results[0].Error != nil {
+		return "", result.Results[0].Error
+	}
+	return result.Results[0].Tag, nil
 }
