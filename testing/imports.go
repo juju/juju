@@ -27,8 +27,7 @@ func FindJujuCoreImports(c *gc.C, packageName string) []string {
 		}
 	}
 	if imports == nil {
-		c.Logf(packageName + " not found")
-		c.Fail()
+		c.Fatalf(packageName + " not found")
 	}
 
 	var result []string
