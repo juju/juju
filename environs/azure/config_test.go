@@ -55,6 +55,7 @@ PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
 
 func makeAzureConfigMap(c *C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
+		"location":                      "location",
 		"management-subscription-id":    "subscription-id",
 		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
@@ -125,6 +126,7 @@ func (*ConfigSuite) TestValidateChecksConfigChanges(c *C) {
 }
 
 func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
+	location := "location"
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
 	storageAccountName := "account-name"
@@ -134,6 +136,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	publicStorageContainerName := "public-container-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
+		"location":                      location,
 		"management-subscription-id":    managementSubscriptionId,
 		"management-certificate":        certificate,
 		"storage-account-name":          storageAccountName,
@@ -150,6 +153,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	azConfig, err := provider.newConfig(config)
 	c.Assert(err, IsNil)
 	c.Check(azConfig.Name(), Equals, attrs["name"])
+	c.Check(azConfig.Location(), Equals, location)
 	c.Check(azConfig.ManagementSubscriptionId(), Equals, managementSubscriptionId)
 	c.Check(azConfig.ManagementCertificate(), Equals, certificate)
 	c.Check(azConfig.StorageAccountName(), Equals, storageAccountName)
@@ -204,6 +208,16 @@ func (*ConfigSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *
 	c.Assert(err, IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, ErrorMatches, ".*both or none of them.*")
+}
+
+func (*ConfigSuite) TestChecksLocationIsRequired(c *C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["location"] = ""
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, nil)
+	c.Check(err, ErrorMatches, ".*environment has no location.*")
 }
 
 func (*ConfigSuite) TestBoilerplateConfigReturnsAzureConfig(c *C) {
