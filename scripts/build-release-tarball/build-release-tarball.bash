@@ -71,8 +71,8 @@ git-checkout https://github.com/andelf/go-curl github.com/andelf/go-curl
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
 
 # tar it up
-TARFILE=$WORK/juju-core_${VERSION}.tar.gz
+TARFILE=`pwd`/juju-core_${VERSION}.tar.gz
 cd $WORK/..
-tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr .
+tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr juju-core_${VERSION}
 
 echo "release tarball: ${TARFILE}"
