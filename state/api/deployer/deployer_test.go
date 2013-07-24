@@ -275,11 +275,11 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	s.assertUnauthorized(c, err)
 }
 
-func (s *deployerSuite) TestAddresses(c *gc.C) {
+func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
 
-	addresses, err := s.st.Addresses()
+	addresses, err := s.st.StateAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(addresses, gc.DeepEquals, stateAddresses)
 }

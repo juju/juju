@@ -61,10 +61,10 @@ func (st *State) Machine(tag string) (*Machine, error) {
 	}, nil
 }
 
-// Addresses returns the list of addresses used to connect to the state.
-func (st *State) Addresses() ([]string, error) {
+// StateAddresses returns the list of addresses used to connect to the state.
+func (st *State) StateAddresses() ([]string, error) {
 	var result params.StringsResult
-	err := st.caller.Call("Deployer", "", "Addresses", nil, &result)
+	err := st.caller.Call("Deployer", "", "StateAddresses", nil, &result)
 	if err != nil {
 		return nil, err
 	}

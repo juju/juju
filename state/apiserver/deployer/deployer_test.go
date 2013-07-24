@@ -327,11 +327,11 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) TestAddresses(c *gc.C) {
+func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 	addresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
 
-	result, err := s.deployer.Addresses()
+	result, err := s.deployer.StateAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
 		Result: addresses,

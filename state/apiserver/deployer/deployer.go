@@ -141,8 +141,8 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 	return result, nil
 }
 
-// Addresses returns the list of addresses used to connect to the state.
-func (d *DeployerAPI) Addresses() (params.StringsResult, error) {
+// StateAddresses returns the list of addresses used to connect to the state.
+func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
 	addresses, err := d.st.Addresses()
 	if err != nil {
 		return params.StringsResult{}, err
