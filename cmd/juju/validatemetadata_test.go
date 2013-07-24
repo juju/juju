@@ -34,11 +34,14 @@ var validateInitErrorTests = []struct {
 	err  string
 }{
 	{
-		args: []string{"-p", "ec2", "-r", "region"},
+		args: []string{"-p", "ec2", "-r", "region", "-d", "dir"},
 		err:  `series required if provider type is specified`,
 	}, {
-		args: []string{"-p", "ec2", "-s", "series"},
+		args: []string{"-p", "ec2", "-s", "series", "-d", "dir"},
 		err:  `region required if provider type is specified`,
+	}, {
+		args: []string{"-p", "ec2", "-s", "series", "-r", "region"},
+		err:  `metadata directory required if provider type is specified`,
 	},
 }
 

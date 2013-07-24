@@ -198,10 +198,3 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 }
-
-// An ImageMetadataValidator knows how to validate simplestreams image metadata.
-type ImageMetadataValidator interface {
-	// ValidateImageMetadata attempts to load image metadata for the specified cloud attributes and returns the region
-	// and any image ids found, or an error if the metadata could not be loaded.
-	ValidateImageMetadata(cfg *config.Config, series, region, endpoint, metadataDir string) (string, []string, error)
-}

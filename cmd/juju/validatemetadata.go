@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 )
 
@@ -74,7 +73,7 @@ func (c *ValidateMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
-	f.StringVar(&c.endpoint, "u", "", "the clound endpoint URL for which to validate (overrides env config endpoint)")
+	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 }
 
 func (c *ValidateMetadataCommand) Init(args []string) error {
@@ -85,57 +84,76 @@ func (c *ValidateMetadataCommand) Init(args []string) error {
 		if c.region == "" {
 			return fmt.Errorf("region required if provider type is specified")
 		}
+		if c.metadataDir == "" {
+			return fmt.Errorf("metadata directory required if provider type is specified")
+		}
 	}
 	return cmd.CheckEmpty(args)
 }
 
 func (c *ValidateMetadataCommand) Run(context *cmd.Context) error {
+	var params *imagemetadata.ValidateMetadataLookupParams
+
+	if c.providerType == "" {
+		environ, err := environs.NewFromName(c.EnvName)
+		if err != nil {
+			return err
+		}
+		mdLookup, ok := environ.(imagemetadata.ImageMetadataValidator)
+		if !ok {
+			return fmt.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
+		}
+		params, err = mdLookup.ValidateMetadataLookupParams(c.region)
+		if err != nil {
+			return err
+		}
+	} else {
+		prov, err := environs.Provider(c.providerType)
+		if err != nil {
+			return err
+		}
+		mdLookup, ok := prov.(imagemetadata.ImageMetadataValidator)
+		if !ok {
+			return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
+		}
+		params, err = mdLookup.ValidateMetadataLookupParams(c.region)
+		if err != nil {
+			return err
+		}
+	}
+
+	if c.series != "" {
+		params.Series = c.series
+	}
+	if c.region != "" {
+		params.Region = c.region
+	}
+	if c.endpoint != "" {
+		params.Endpoint = c.endpoint
+	}
 	// If the metadata files are to be loaded from a directory, we need to register
 	// a file http transport.
 	if c.metadataDir != "" {
 		if _, err := os.Stat(c.metadataDir); err != nil {
 			return err
 		}
+
+		params.BaseURLs = []string{"file://" + c.metadataDir}
 		t := &http.Transport{}
 		t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 		c := &http.Client{Transport: t}
 		imagemetadata.SetHttpClient(c)
 	}
 
-	var prov environs.EnvironProvider
-	var cfg *config.Config
-	if c.providerType == "" {
-		environ, err := environs.NewFromName(c.EnvName)
-		if err != nil {
-			return err
-		}
-		cfg = environ.Config()
-		if c.series == "" {
-			c.series = cfg.DefaultSeries()
-		}
-		prov = environ.Provider()
-		c.providerType = cfg.Type()
-	} else {
-		var err error
-		prov, err = environs.Provider(c.providerType)
-		if err != nil {
-			return err
-		}
-	}
-
-	var validator environs.ImageMetadataValidator
-	var ok bool
-	if validator, ok = prov.(environs.ImageMetadataValidator); !ok {
-		return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
-	}
-	region, image_ids, err := validator.ValidateImageMetadata(cfg, c.series, c.region, c.endpoint, c.metadataDir)
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	if err != nil {
 		return err
 	}
+
 	if len(image_ids) > 0 {
-		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", region, strings.Join(image_ids, "\n"))
+		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
 	} else {
-		return fmt.Errorf("no matching image ids for region %s\n", region)
+		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(params.BaseURLs, "\n"))
 	}
 	return nil
 }

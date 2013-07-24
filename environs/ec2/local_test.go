@@ -320,9 +320,12 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *C) {
-	region, image_ids, err := ec2.ValidateImageMetadata(t.env, "precise", "test")
+	params, err := ec2.ValidateMetadataLookupParams(t.env, "test")
 	c.Assert(err, IsNil)
-	c.Assert(region, Equals, "test")
+	params.Series = "precise"
+	params.Endpoint = "https://ec2.endpoint.com"
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	c.Assert(err, IsNil)
 	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000035", "ami-00000034"})
 }
 

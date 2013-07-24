@@ -121,32 +121,16 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-// See ImageMetadataValidator.ValidateImageMetadata
-func (p environProvider) ValidateImageMetadata(cfg *config.Config, series, region, endpoint, metadataDir string) (string, []string, error) {
-	var baseURLs []string
-	if cfg != nil {
-		e, err := p.Open(cfg)
-		if err != nil {
-			return "", nil, err
-		}
-		environ := e.(*environ)
-		baseURLs, err = environ.getImageBaseURLs()
-		if err != nil {
-			return "", nil, err
-		}
-		if region == "" {
-			region = environ.ecfg().region()
-		}
-		if endpoint == "" {
-			endpoint = environ.ecfg().authURL()
-		}
+// ValidateMetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p environProvider) ValidateMetadataLookupParams(region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
+	if region == "" {
+		return nil, fmt.Errorf("region must be specified")
 	}
-	if metadataDir != "" {
-		baseURLs = []string{"file://" + metadataDir}
-	}
-	arches := []string{"amd64", "arm"}
-	ids, err := instances.ValidateImageMetadata(series, region, endpoint, arches, baseURLs)
-	return region, ids, err
+	return &imagemetadata.ValidateMetadataLookupParams{
+		Region:        region,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
 }
 
 func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
@@ -1112,4 +1096,23 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		}
 	}
 	return firstErr
+}
+
+// ValidateMetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (e *environ) ValidateMetadataLookupParams(region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
+	baseURLs, err := e.getImageBaseURLs()
+	if err != nil {
+		return nil, err
+	}
+	if region == "" {
+		region = e.ecfg().region()
+	}
+	return &imagemetadata.ValidateMetadataLookupParams{
+		Series:        e.ecfg().DefaultSeries(),
+		Region:        region,
+		Endpoint:      e.ecfg().authURL(),
+		BaseURLs:      baseURLs,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
 }
