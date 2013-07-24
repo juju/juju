@@ -541,13 +541,13 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 		actual, err := environs.FindExactTools(s.env, test.seek)
 		if test.err == nil {
 			c.Check(err, IsNil)
-			c.Check(actual.Binary, Equals, test.seek)
+			c.Check(actual.Version, Equals, test.seek)
 			source := private
 			if len(source) == 0 {
 				// We only use the public bucket if the private one has *no* tools.
 				source = public
 			}
-			c.Check(actual.URL, DeepEquals, source[actual.Binary])
+			c.Check(actual.URL, DeepEquals, source[actual.Version])
 		} else {
 			c.Check(err, DeepEquals, &errors.NotFoundError{test.err, ""})
 		}
@@ -557,7 +557,7 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 // fakeToolsForSeries fakes a Tools object with just enough information for
 // testing the handling its OS series.
 func fakeToolsForSeries(series string) *tools.Tools {
-	return &tools.Tools{Binary: version.Binary{Series: series}}
+	return &tools.Tools{Version: version.Binary{Series: series}}
 }
 
 // fakeToolsList fakes a tools.List containing Tools objects for the given

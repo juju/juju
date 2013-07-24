@@ -58,11 +58,11 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 		}
 		var t Tools
 		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
-		if t.Binary, err = version.ParseBinary(vers); err != nil {
+		if t.Version, err = version.ParseBinary(vers); err != nil {
 			continue
 		}
 		foundAnyTools = true
-		if t.Major != majorVersion {
+		if t.Version.Major != majorVersion {
 			continue
 		}
 		logger.Debugf("found %s", vers)

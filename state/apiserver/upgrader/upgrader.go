@@ -76,8 +76,8 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	}
 	requested := version.Binary{
 		Number: agentVersion,
-		Series: existingTools.Series,
-		Arch:   existingTools.Arch,
+		Series: existingTools.Version.Series,
+		Arch:   existingTools.Version.Arch,
 	}
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
@@ -88,13 +88,13 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	}
 	return params.AgentTools{
 		Tag:    entity.Tag,
-		Arch:   tools.Arch,
-		Series: tools.Series,
+		Arch:   tools.Version.Arch,
+		Series: tools.Version.Series,
 		URL:    tools.URL,
-		Major:  tools.Major,
-		Minor:  tools.Minor,
-		Patch:  tools.Patch,
-		Build:  tools.Build,
+		Major:  tools.Version.Major,
+		Minor:  tools.Version.Minor,
+		Patch:  tools.Version.Patch,
+		Build:  tools.Version.Build,
 	}, nil
 }
 
@@ -150,7 +150,7 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsR
 			machine, err := u.st.Machine(state.MachineIdFromTag(agentTools.Tag))
 			if err == nil {
 				stTools := tools.Tools{
-					Binary: version.Binary{
+					Version: version.Binary{
 						Number: version.Number{
 							Major: agentTools.Major,
 							Minor: agentTools.Minor,

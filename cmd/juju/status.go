@@ -334,7 +334,7 @@ type stateAgent interface {
 func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
 	life = processLife(entity)
 	if t, err := entity.AgentTools(); err == nil {
-		version = t.Binary.Number.String()
+		version = t.Version.Number.String()
 	}
 	status, info, err = entity.Status()
 	if err != nil {

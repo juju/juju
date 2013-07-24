@@ -84,7 +84,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			return err
 		}
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": tools.Number.String(),
+			"agent-version": tools.Version.Number.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)
