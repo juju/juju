@@ -18,7 +18,7 @@ type State struct {
 // NewState creates a new State instance that makes API calls
 // through the given caller.
 func NewState(caller common.Caller) *State {
-	return &State{caller}
+	return &State{caller: caller}
 }
 
 // unitLife returns the lifecycle state of the given unit.
@@ -40,6 +40,14 @@ func (st *State) unitLife(tag string) (params.Life, error) {
 	return result.Results[0].Life, nil
 }
 
+// serverInfo returns the state and API addresses, as well as the CA
+// certificate.
+func (st *State) serverInfo() (params.ServerInfoResult, error) {
+	var result params.ServerInfoResult
+	err := st.caller.Call("Deployer", "", "ServerInfo", nil, &result)
+	return result, err
+}
+
 // Unit returns the unit with the given tag.
 func (st *State) Unit(tag string) (*Unit, error) {
 	life, err := st.unitLife(tag)
@@ -59,4 +67,31 @@ func (st *State) Machine(tag string) (*Machine, error) {
 		tag: tag,
 		st:  st,
 	}, nil
+}
+
+// Addresses returns the list of addresses used to connect to the state.
+func (st *State) Addresses() ([]string, error) {
+	result, err := st.serverInfo()
+	if err != nil {
+		return nil, err
+	}
+	return result.Addresses, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	result, err := st.serverInfo()
+	if err != nil {
+		return nil, err
+	}
+	return result.APIAddresses, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (st *State) CACert() ([]byte, error) {
+	result, err := st.serverInfo()
+	if err != nil {
+		return nil, err
+	}
+	return result.CACert, nil
 }
