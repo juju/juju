@@ -277,8 +277,13 @@ func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Addr
 			if address.Version == 6 {
 				addrtype = instance.Ipv6Address
 			}
-			machineAddr := instance.Address{address.Address,
-				addrtype, network, networkscope}
+			// TODO(gz): Use NewAddress... with sanity checking
+			machineAddr := instance.Address{
+				Value:        address.Address,
+				Type:         addrtype,
+				NetworkName:  network,
+				NetworkScope: networkscope,
+			}
 			machineAddresses = append(machineAddresses, machineAddr)
 		}
 	}
