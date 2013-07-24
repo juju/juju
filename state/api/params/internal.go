@@ -2,6 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package params
+
 import (
 	"launchpad.net/juju-core/agent/tools"
 )
@@ -81,7 +82,7 @@ type MachineAgentGetMachinesResult struct {
 // AgentToolsResult holds the tools and possibly error for a given Agent request
 type AgentToolsResult struct {
 	Tools *tools.Tools
-	Error      *Error
+	Error *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
@@ -92,7 +93,7 @@ type AgentToolsResults struct {
 // SetAgent tools specifies tools to be set for an agent with the
 // given tag.
 type SetAgentTools struct {
-	Tag string
+	Tag   string
 	Tools *tools.Tools
 }
 

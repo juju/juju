@@ -27,7 +27,7 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 	var results params.ErrorResults
 	args := params.SetAgentsTools{
 		AgentTools: []params.SetAgentTools{{
-			Tag: tag,
+			Tag:   tag,
 			Tools: tools,
 		}},
 	}

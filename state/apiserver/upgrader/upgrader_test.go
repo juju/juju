@@ -179,13 +179,13 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 	c.Check(err, IsNil)
 	args := params.SetAgentsTools{
 		AgentTools: []params.SetAgentTools{{
-			Tag:    s.rawMachine.Tag(),
+			Tag: s.rawMachine.Tag(),
 			Tools: &tools.Tools{
 				Version: version.Current,
 			},
 		}},
 	}
-	
+
 	results, err := anUpgrader.SetTools(args)
 	c.Assert(results.Results, HasLen, 1)
 	c.Assert(results.Results[0].Error, DeepEquals, apiservertesting.ErrUnauthorized)

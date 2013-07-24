@@ -6,7 +6,6 @@ package upgrader
 import (
 	"errors"
 
-
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
