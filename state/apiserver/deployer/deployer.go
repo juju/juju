@@ -6,6 +6,7 @@ package deployer
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -100,6 +101,42 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// CanDeploy returns if the currently authenticated entity (a machine
+// agent) can deploy each passed unit entity.
+func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error) {
+	result := params.BoolResults{
+		Results: make([]params.BoolResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		unitName := state.UnitNameFromTag(entity.Tag)
+		unit, err := d.st.Unit(unitName)
+		if errors.IsNotFoundError(err) {
+			// Unit not found, so no need to continue.
+			continue
+		} else if err != nil {
+			// Any other error get reported back.
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		}
+		machineId, err := unit.AssignedMachineId()
+		if err != nil && !state.IsNotAssigned(err) && !errors.IsNotFoundError(err) {
+			// Any other errors get reported back.
+			result.Results[i].Error = common.ServerError(err)
+			continue
+		} else if err != nil {
+			// This means the unit wasn't assigned to the machine
+			// agent or it wasn't found. In both cases we just return
+			// false so as not to leak information about the existence
+			// of a unit to a potentially rogue machine agent.
+			continue
+		}
+		// Finally, check if we're allowed to access this unit.
+		// When assigned machineId == "" it will fail.
+		result.Results[i].Result = d.authorizer.AuthOwner(state.MachineTag(machineId))
 	}
 	return result, nil
 }

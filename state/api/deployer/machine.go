@@ -12,8 +12,8 @@ import (
 
 // Machine represents a juju machine as seen by the deployer worker.
 type Machine struct {
-	tag    string
-	dstate *Deployer
+	tag string
+	st  *State
 }
 
 // WatchUnits starts a StringsWatcher to watch all units deployed to
@@ -24,7 +24,7 @@ func (m *Machine) WatchUnits() (*watcher.StringsWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.dstate.caller.Call("Deployer", "", "WatchUnits", args, &results)
+	err := m.st.caller.Call("Deployer", "", "WatchUnits", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -35,6 +35,6 @@ func (m *Machine) WatchUnits() (*watcher.StringsWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewStringsWatcher(m.dstate.caller, result)
+	w := watcher.NewStringsWatcher(m.st.caller, result)
 	return w, nil
 }

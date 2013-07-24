@@ -5,16 +5,17 @@ package state_test
 
 import (
 	"sort"
-	"time"
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -272,20 +273,19 @@ func (s *MachineSuite) TestSetPassword(c *C) {
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
-	timeout := 200 * time.Millisecond
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 
 	alive, err = s.machine.AgentAlive()
@@ -425,7 +425,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	err = m0.SetAgentTools(&state.Tools{
+	err = m0.SetAgentTools(&tools.Tools{
 		URL:    "foo",
 		Binary: version.MustParseBinary("0.0.3-series-arch"),
 	})
@@ -588,7 +588,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentTools(&state.Tools{
+	err = machine.SetAgentTools(&tools.Tools{
 		URL:    "foo",
 		Binary: version.MustParseBinary("0.0.3-series-arch"),
 	})
@@ -616,7 +616,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Change machine, and create a unit independently; no change.
 	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
@@ -633,7 +634,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = mysql0.AssignToMachine(machine)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/0")
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
 
 	// Change the unit; no change.
 	err = mysql0.SetStatus(params.StatusStarted, "")
@@ -647,7 +649,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = mysql0.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/0", "mysql/1")
+	wc.AssertChange("mysql/0", "mysql/1")
+	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; no change.
 	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
@@ -672,7 +675,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Make the Dying unit Dead; change detected.
 	err = mysql0.EnsureDead()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/0")
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
 
 	// Stop watcher; check Changes chan closed.
 	testing.AssertStop(c, w)
@@ -682,7 +686,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	w = s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
 	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange("mysql/0", "mysql/1")
+	wc.AssertChange("mysql/0", "mysql/1")
+	wc.AssertNoChange()
 
 	// Remove the Dead unit; no change.
 	err = mysql0.Remove()
@@ -697,7 +702,8 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Unassign the unit; check change.
 	err = mysql1.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/1")
+	wc.AssertChange("mysql/1")
+	wc.AssertNoChange()
 }
 
 func (s *MachineSuite) TestWatchUnits(c *C) {
@@ -705,7 +711,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Change machine; no change.
 	err := s.machine.SetProvisioned("cheese", "fake_nonce", nil)
@@ -721,7 +728,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = mysql0.AssignToMachine(machine)
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/0")
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
 
 	// Change the unit; no change.
 	err = mysql0.SetStatus(params.StatusStarted, "")
@@ -735,7 +743,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	c.Assert(err, IsNil)
 	err = mysql0.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/0", "mysql/1")
+	wc.AssertChange("mysql/0", "mysql/1")
+	wc.AssertNoChange()
 
 	// Add a subordinate to the Alive unit; change detected.
 	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
@@ -750,7 +759,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	c.Assert(err, IsNil)
 	logging0, err := logging.Unit("logging/0")
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("logging/0")
+	wc.AssertChange("logging/0")
+	wc.AssertNoChange()
 
 	// Change the subordinate; no change.
 	err = logging0.SetStatus(params.StatusStarted, "")
@@ -760,7 +770,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Make the Dying unit Dead; change detected.
 	err = mysql0.EnsureDead()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/0")
+	wc.AssertChange("mysql/0")
+	wc.AssertNoChange()
 
 	// Stop watcher; check Changes chan closed.
 	testing.AssertStop(c, w)
@@ -770,7 +781,8 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
 	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange("mysql/0", "mysql/1", "logging/0")
+	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
+	wc.AssertNoChange()
 
 	// Remove the Dead unit; no change.
 	err = mysql0.Remove()
@@ -780,12 +792,14 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Destroy the subordinate; change detected.
 	err = logging0.Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("logging/0")
+	wc.AssertChange("logging/0")
+	wc.AssertNoChange()
 
 	// Unassign the principal; check subordinate departure also reported.
 	err = mysql1.UnassignFromMachine()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange("mysql/1", "logging/0")
+	wc.AssertChange("mysql/1", "logging/0")
+	wc.AssertNoChange()
 }
 
 func (s *MachineSuite) TestAnnotatorForMachine(c *C) {

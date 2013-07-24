@@ -6,6 +6,7 @@
 package version
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -21,7 +22,7 @@ import (
 // The presence and format of this constant is very important.
 // The debian/rules build recipe uses this value for the version
 // number of the release package.
-const version = "1.11.3"
+const version = "1.11.5"
 
 // CurrentNumber returns the version number.
 func CurrentNumber() Number {
@@ -101,6 +102,23 @@ func (vp *Binary) SetBSON(raw bson.Raw) error {
 	var s string
 	err := raw.Unmarshal(&s)
 	if err != nil {
+		return err
+	}
+	v, err := ParseBinary(s)
+	if err != nil {
+		return err
+	}
+	*vp = v
+	return nil
+}
+
+func (v Binary) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.String())
+}
+
+func (vp *Binary) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
 	v, err := ParseBinary(s)
@@ -218,6 +236,23 @@ func (vp *Number) SetBSON(raw bson.Raw) error {
 	var s string
 	err := raw.Unmarshal(&s)
 	if err != nil {
+		return err
+	}
+	v, err := Parse(s)
+	if err != nil {
+		return err
+	}
+	*vp = v
+	return nil
+}
+
+func (v Number) MarshalJSON() ([]byte, error) {
+	return json.Marshal(v.String())
+}
+
+func (vp *Number) UnmarshalJSON(data []byte) error {
+	var s string
+	if err := json.Unmarshal(data, &s); err != nil {
 		return err
 	}
 	v, err := Parse(s)

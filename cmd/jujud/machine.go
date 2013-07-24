@@ -167,8 +167,11 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		ensureStateWorker()
 	}
 	runner := worker.NewRunner(allFatal, moreImportant)
-	// No agents currently connect to the API, so just
-	// return the runner running nothing.
+	// Only the machiner currently connects to the API.
+	// Add other workers here as they are ready.
+	runner.StartWorker("machiner", func() (worker.Worker, error) {
+		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
+	})
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -193,9 +196,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
 		return NewUpgrader(st, m, dataDir), nil
-	})
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st, m.Id()), nil
 	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC

@@ -226,12 +226,12 @@ func (s *DeployerSuite) waitFor(c *C, t func(c *C) bool) {
 	if t(c) {
 		return
 	}
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(coretesting.LongWait)
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("timeout")
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			if t(c) {
 				return
 			}

@@ -159,17 +159,28 @@ func (s *JujuConnSuite) APIInfo(c *C) *api.Info {
 	return apiInfo
 }
 
-// OpenAPIAs opens the API using the given identity tag
-// and password for authentication.
-func (s *JujuConnSuite) OpenAPIAs(c *C, tag, password string) *api.State {
+func (s *JujuConnSuite) openAPIAs(c *C, tag, password, nonce string) *api.State {
 	_, info, err := s.APIConn.Environ.StateInfo()
 	c.Assert(err, IsNil)
 	info.Tag = tag
 	info.Password = password
+	info.Nonce = nonce
 	st, err := api.Open(info, api.DialOpts{})
 	c.Assert(err, IsNil)
 	c.Assert(st, NotNil)
 	return st
+}
+
+// OpenAPIAs opens the API using the given identity tag
+// and password for authentication.
+func (s *JujuConnSuite) OpenAPIAs(c *C, tag, password string) *api.State {
+	return s.openAPIAs(c, tag, password, "")
+}
+
+// OpenAPIAsMachine opens the API using the given machine tag,
+// password and nonce for authentication.
+func (s *JujuConnSuite) OpenAPIAsMachine(c *C, tag, password, nonce string) *api.State {
+	return s.openAPIAs(c, tag, password, nonce)
 }
 
 func (s *JujuConnSuite) setUpConn(c *C) {

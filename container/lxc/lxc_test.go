@@ -14,10 +14,10 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -62,7 +62,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 
 	series := "series"
 	nonce := "fake-nonce"
-	tools := &state.Tools{
+	tools := &tools.Tools{
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
@@ -122,8 +122,6 @@ func (s *LxcSuite) TestStopContainer(c *gc.C) {
 	c.Assert(filepath.Join(s.ContainerDir, name), jc.DoesNotExist)
 	// but instead, in the removed container dir
 	c.Assert(filepath.Join(s.RemovedDir, name), jc.IsDirectory)
-	// Check that the restart link has been removed.
-	c.Assert(filepath.Join(s.RestartDir, name+".conf"), jc.DoesNotExist)
 }
 
 func (s *LxcSuite) TestStopContainerNameClash(c *gc.C) {

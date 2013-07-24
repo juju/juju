@@ -5,8 +5,13 @@ package cloudinit_test
 
 import (
 	"encoding/base64"
+	"regexp"
+	"strings"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/agent/tools"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -16,8 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"regexp"
-	"strings"
 )
 
 // Use local suite since this file lives in the ec2 package
@@ -250,8 +253,8 @@ start jujud-machine-2-lxc-1
 	},
 }
 
-func newSimpleTools(vers string) *state.Tools {
-	return &state.Tools{
+func newSimpleTools(vers string) *tools.Tools {
+	return &tools.Tools{
 		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
 		Binary: version.MustParseBinary(vers),
 	}
@@ -503,7 +506,7 @@ var verifyTests = []struct {
 		cfg.Tools = nil
 	}},
 	{"missing tools URL", func(cfg *cloudinit.MachineConfig) {
-		cfg.Tools = &state.Tools{}
+		cfg.Tools = &tools.Tools{}
 	}},
 	{"entity tag must match started machine", func(cfg *cloudinit.MachineConfig) {
 		cfg.StateServer = false

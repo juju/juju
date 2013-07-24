@@ -5,12 +5,13 @@ package main
 
 import (
 	"io/ioutil"
+
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -280,9 +281,9 @@ var upgradeJujuTests = []struct {
 
 // mockUploadTools simulates the effect of tools.Upload, but skips the time-
 // consuming build from source.
-// TODO(fwereade) better factor environs/tools such that build logic is
+// TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*state.Tools, error) {
+func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*tools.Tools, error) {
 	storage := putter.(environs.Storage)
 	vers := version.Current
 	if forceVersion != nil {

@@ -24,7 +24,7 @@ type Port struct {
 }
 
 func (p Port) String() string {
-	return fmt.Sprintf("%s:%d", p.Protocol, p.Number)
+	return fmt.Sprintf("%d/%s", p.Number, p.Protocol)
 }
 
 // Instance represents the the realization of a machine in state.

@@ -15,8 +15,8 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/machineagent"
@@ -46,8 +46,8 @@ func (*toolSuite) TestErrorImportance(c *C) {
 	}
 }
 
-func mkTools(s string) *state.Tools {
-	return &state.Tools{
+func mkTools(s string) *tools.Tools {
+	return &tools.Tools{
 		Binary: version.MustParseBinary(s + "-foo-bar"),
 	}
 }
@@ -119,11 +119,11 @@ type agentSuite struct {
 // primeAgent writes the configuration file and tools
 // for an agent with the given entity name.
 // It returns the agent's configuration and the current tools.
-func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state.Tools) {
-	tools := s.primeTools(c, version.Current)
-	tools1, err := agent.ChangeAgentTools(s.DataDir(), tag, version.Current)
+func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *tools.Tools) {
+	agentTools := s.primeTools(c, version.Current)
+	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, IsNil)
-	c.Assert(tools1, DeepEquals, tools)
+	c.Assert(tools1, DeepEquals, agentTools)
 
 	conf := &agent.Conf{
 		DataDir:   s.DataDir(),
@@ -136,7 +136,7 @@ func (s *agentSuite) primeAgent(c *C, tag, password string) (*agent.Conf, *state
 	conf.APIInfo.Password = password
 	err = conf.Write()
 	c.Assert(err, IsNil)
-	return conf, tools
+	return conf, agentTools
 }
 
 // initAgent initialises the given agent command with additional
@@ -158,7 +158,7 @@ func (s *agentSuite) proposeVersion(c *C, vers version.Number) {
 	c.Assert(err, IsNil)
 }
 
-func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
+func (s *agentSuite) uploadTools(c *C, vers version.Binary) *tools.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
@@ -167,22 +167,22 @@ func (s *agentSuite) uploadTools(c *C, vers version.Binary) *state.Tools {
 	c.Assert(err, IsNil)
 	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
 	c.Assert(err, IsNil)
-	return &state.Tools{URL: url, Binary: vers}
+	return &tools.Tools{URL: url, Binary: vers}
 }
 
 // primeTools sets up the current version of the tools to vers and
 // makes sure that they're available JujuConnSuite's DataDir.
-func (s *agentSuite) primeTools(c *C, vers version.Binary) *state.Tools {
+func (s *agentSuite) primeTools(c *C, vers version.Binary) *tools.Tools {
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, IsNil)
 	version.Current = vers
-	tools := s.uploadTools(c, vers)
-	resp, err := http.Get(tools.URL)
+	agentTools := s.uploadTools(c, vers)
+	resp, err := http.Get(agentTools.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-	err = agent.UnpackTools(s.DataDir(), tools, resp.Body)
+	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
 	c.Assert(err, IsNil)
-	return tools
+	return agentTools
 }
 
 func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
@@ -248,7 +248,7 @@ func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
 	assertOpen(conf)
 }
 
-func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *state.Tools) {
+func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *tools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
 	newTools := s.uploadTools(c, newVers)

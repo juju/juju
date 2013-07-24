@@ -53,6 +53,9 @@ var errorTransformTests = []struct {
 	err:  common.ErrNotLoggedIn,
 	code: params.CodeUnauthorized,
 }, {
+	err:  common.ErrNotProvisioned,
+	code: params.CodeNotProvisioned,
+}, {
 	err:  common.ErrUnknownWatcher,
 	code: params.CodeNotFound,
 }, {

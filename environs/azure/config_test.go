@@ -34,10 +34,30 @@ func makeConfigMap(configMap map[string]interface{}) map[string]interface{} {
 	return conf
 }
 
+var testCert = `
+-----BEGIN PRIVATE KEY-----
+MIIBCgIBADANBgkqhkiG9w0BAQEFAASB9TCB8gIBAAIxAKQGQxP1i0VfCWn4KmMP
+taUFn8sMBKjP/9vHnUYdZRvvmoJCA1C6arBUDp8s2DNX+QIDAQABAjBLRqhwN4dU
+LfqHDKJ/Vg1aD8u3Buv4gYRBxdFR5PveyqHSt5eJ4g/x/4ndsvr2OqUCGQDNfNlD
+zxHCiEAwZZAPaAkn8jDkFupTljcCGQDMWCujiVZ1NNuBD/N32Yt8P9JDiNzZa08C
+GBW7VXLxbExpgnhb1V97vjQmTfthXQjYAwIYSTEjoFXm4+Bk5xuBh2IidgSeGZaC
+FFY9AhkAsteo31cyQw2xJ80SWrmsIw+ps7Cvt5W9
+-----END PRIVATE KEY-----
+-----BEGIN CERTIFICATE-----
+MIIBDzCByqADAgECAgkAgIBb3+lSwzEwDQYJKoZIhvcNAQEFBQAwFTETMBEGA1UE
+AxQKQEhvc3ROYW1lQDAeFw0xMzA3MTkxNjA1NTRaFw0yMzA3MTcxNjA1NTRaMBUx
+EzARBgNVBAMUCkBIb3N0TmFtZUAwTDANBgkqhkiG9w0BAQEFAAM7ADA4AjEApAZD
+E/WLRV8JafgqYw+1pQWfywwEqM//28edRh1lG++agkIDULpqsFQOnyzYM1f5AgMB
+AAGjDTALMAkGA1UdEwQCMAAwDQYJKoZIhvcNAQEFBQADMQABKfn08tKfzzqMMD2w
+PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
+-----END CERTIFICATE-----
+`
+
 func makeAzureConfigMap(c *C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
+		"location":                      "location",
 		"management-subscription-id":    "subscription-id",
-		"management-certificate":        "cert",
+		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
 		"storage-account-key":           "account-key",
 		"storage-container-name":        "container-name",
@@ -106,6 +126,7 @@ func (*ConfigSuite) TestValidateChecksConfigChanges(c *C) {
 }
 
 func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
+	location := "location"
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
 	storageAccountName := "account-name"
@@ -113,8 +134,10 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	storageContainerName := "container-name"
 	publicStorageAccountName := "public-account-name"
 	publicStorageContainerName := "public-container-name"
+	forceImageName := "force-image-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
+		"location":                      location,
 		"management-subscription-id":    managementSubscriptionId,
 		"management-certificate":        certificate,
 		"storage-account-name":          storageAccountName,
@@ -122,6 +145,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 		"storage-container-name":        storageContainerName,
 		"public-storage-account-name":   publicStorageAccountName,
 		"public-storage-container-name": publicStorageContainerName,
+		"force-image-name":              forceImageName,
 		"unknown-future-setting":        unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
@@ -131,6 +155,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	azConfig, err := provider.newConfig(config)
 	c.Assert(err, IsNil)
 	c.Check(azConfig.Name(), Equals, attrs["name"])
+	c.Check(azConfig.Location(), Equals, location)
 	c.Check(azConfig.ManagementSubscriptionId(), Equals, managementSubscriptionId)
 	c.Check(azConfig.ManagementCertificate(), Equals, certificate)
 	c.Check(azConfig.StorageAccountName(), Equals, storageAccountName)
@@ -138,6 +163,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)
 	c.Check(azConfig.PublicStorageAccountName(), Equals, publicStorageAccountName)
 	c.Check(azConfig.PublicStorageContainerName(), Equals, publicStorageContainerName)
+	c.Check(azConfig.ForceImageName(), Equals, forceImageName)
 	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], Equals, unknownFutureSetting)
 }
 
@@ -185,6 +211,16 @@ func (*ConfigSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *
 	c.Assert(err, IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, ErrorMatches, ".*both or none of them.*")
+}
+
+func (*ConfigSuite) TestChecksLocationIsRequired(c *C) {
+	attrs := makeAzureConfigMap(c)
+	attrs["location"] = ""
+	provider := azureEnvironProvider{}
+	newConfig, err := config.New(attrs)
+	c.Assert(err, IsNil)
+	_, err = provider.Validate(newConfig, nil)
+	c.Check(err, ErrorMatches, ".*environment has no location.*")
 }
 
 func (*ConfigSuite) TestBoilerplateConfigReturnsAzureConfig(c *C) {
