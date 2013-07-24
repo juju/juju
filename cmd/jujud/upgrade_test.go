@@ -11,10 +11,9 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -39,7 +38,7 @@ func (s *UpgraderSuite) TearDownTest(c *C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderStop(c *C) {
-	u := s.startUpgrader(c, &state.Tools{Binary: version.Current})
+	u := s.startUpgrader(c, &tools.Tools{Binary: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
 }
@@ -138,7 +137,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		// ...but it also puts tools in storage we don't need, which is why we
 		// don't clean up garbage from earlier runs first.
 		envtesting.RemoveAllTools(c, s.Conn.Environ)
-		uploaded := make(map[version.Binary]*state.Tools)
+		uploaded := make(map[version.Binary]*tools.Tools)
 		for _, vers := range test.available {
 			tools := s.uploadTools(c, vers)
 			uploaded[vers] = tools
@@ -156,17 +155,17 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			}
 
 			ug := waitDeath(c, u)
-			tools := uploaded[test.upgrade]
-			c.Check(ug.NewTools, DeepEquals, tools)
+			newTools := uploaded[test.upgrade]
+			c.Check(ug.NewTools, DeepEquals, newTools)
 			c.Check(ug.OldTools.Binary, Equals, version.Current)
 			c.Check(ug.DataDir, Equals, s.DataDir())
 			c.Check(ug.AgentName, Equals, "testagent")
 
 			// Check that the upgraded version was really downloaded.
-			path := agent.SharedToolsDir(s.DataDir(), tools.Binary)
+			path := tools.SharedToolsDir(s.DataDir(), newTools.Binary)
 			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
 			c.Check(err, IsNil)
-			c.Check(string(data), Equals, "jujud contents "+tools.Binary.String())
+			c.Check(string(data), Equals, "jujud contents "+newTools.Binary.String())
 		}()
 	}
 }
@@ -280,13 +279,13 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	currentTools := s.primeTools(c, version.MustParseBinary("2.0.2-foo-bar"))
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
-		OldTools:  &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
+		OldTools:  &tools.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
 		NewTools:  currentTools,
 		DataDir:   s.DataDir(),
 	}
 	err := ug.ChangeAgentTools()
 	c.Assert(err, IsNil)
-	d := agent.ToolsDir(s.DataDir(), "foo")
+	d := tools.ToolsDir(s.DataDir(), "foo")
 	data, err := ioutil.ReadFile(filepath.Join(d, "jujud"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")
@@ -314,8 +313,8 @@ func assertEvent(c *C, event <-chan string, want string) {
 
 // startUpgrader starts the upgrader using the given machine,
 // expecting to see it set the given agent tools.
-func (s *UpgraderSuite) startUpgrader(c *C, expectTools *state.Tools) *Upgrader {
-	as := testAgentState(make(chan *state.Tools))
+func (s *UpgraderSuite) startUpgrader(c *C, expectTools *tools.Tools) *Upgrader {
+	as := testAgentState(make(chan *tools.Tools))
 	u := NewUpgrader(s.State, as, s.DataDir())
 	select {
 	case tools := <-as:
@@ -341,9 +340,9 @@ func waitDeath(c *C, u *Upgrader) *UpgradeReadyError {
 	panic("unreachable")
 }
 
-type testAgentState chan *state.Tools
+type testAgentState chan *tools.Tools
 
-func (as testAgentState) SetAgentTools(tools *state.Tools) error {
+func (as testAgentState) SetAgentTools(tools *tools.Tools) error {
 	t := *tools
 	as <- &t
 	return nil

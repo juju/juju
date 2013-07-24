@@ -6,16 +6,15 @@ package azure
 import (
 	"fmt"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
 	"launchpad.net/gwacl"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -27,12 +26,6 @@ const (
 	// service, deployment and role in Azure.  The role always gets this
 	// hostname (instance==service).
 	roleHostname = "default"
-
-	// Initially, this is the only location where Azure supports Linux.
-	// TODO: This is to become a configuration item.
-	// We currently use "North Europe" because the temporary Saucy image is
-	// only supported there.
-	serviceLocation = "North Europe"
 
 	// deploymentSlot says in which slot to deploy instances.  Azure
 	// supports 'Production' or 'Staging'.
@@ -140,15 +133,11 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	const machineID = "0"
 
 	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics after the
-	// bootstrap instance is started.
-	err := env.Storage().Put(environs.StateFile, strings.NewReader(""), 0)
+	// It will be updated with the instance id and hardware characteristics
+	// after the bootstrap instance is started.
+	stateFileURL, err := environs.CreateStateFile(env.Storage())
 	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
-	}
-	stateFileURL, err := env.Storage().URL(environs.StateFile)
-	if err != nil {
-		return nil, fmt.Errorf("cannot get URL for bootstrap state file: %v", err)
+		return nil, err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
@@ -177,7 +166,9 @@ func (env *azureEnviron) createAffinityGroup() error {
 		return nil
 	}
 	defer env.releaseManagementAPI(azure)
-	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, serviceLocation)
+	snap := env.getSnapshot()
+	location := snap.ecfg.Location()
+	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, location)
 	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
 		CreateAffinityGroup: cag})
 }
@@ -317,9 +308,9 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // name it chooses (based on the given prefix), but recognizes that the name
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
-func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
 	name := gwacl.MakeRandomHostedServiceName(prefix)
-	req := gwacl.NewCreateHostedServiceWithLocation(name, name, serviceLocation)
+	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
 	req.AffinityGroup = affinityGroupName
 	err := azure.AddHostedService(req)
 	azErr, isAzureError := err.(*gwacl.AzureError)
@@ -338,11 +329,11 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
-func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string) (*gwacl.CreateHostedService, error) {
+func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		svc, err = attemptCreateService(azure, prefix, affinityGroupName)
+		svc, err = attemptCreateService(azure, prefix, affinityGroupName, location)
 	}
 	if err != nil {
 		return nil, fmt.Errorf("could not create hosted service: %v", err)
@@ -392,7 +383,9 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	}
 	defer env.releaseManagementAPI(azure)
 
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName())
+	snap := env.getSnapshot()
+	location := snap.ecfg.Location()
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
 	}
@@ -408,11 +401,17 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
+	instanceType, err := selectMachineType(gwacl.RoleSizes, cons)
+	if err != nil {
+		return nil, err
+	}
+
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
 	// In the meantime we use a temporary Saucy image containing a
-	// cloud-init package which supports Azure.
-	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
+	// cloud-init package which supports Azure, see the boilerplate config
+	// for its exact name.
+	sourceImageName := snap.ecfg.ForceImageName()
 
 	// virtualNetworkName is the virtual network to which all the
 	// deployments in this environment belong.
@@ -422,7 +421,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	vhd := env.newOSDisk(sourceImageName)
 
 	// 2. Create a Role for a Linux machine.
-	role := env.newRole(vhd, userData, roleHostname)
+	role := env.newRole(instanceType.Name, vhd, userData, roleHostname)
 
 	// 3. Create the Deployment object.
 	deployment := env.newDeployment(role, serviceName, serviceName, virtualNetworkName)
@@ -487,15 +486,16 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
+//
 // The VM will have:
 // - an 'ubuntu' user defined with an unguessable (randomly generated) password
 // - its ssh port (TCP 22) open
 // - its state port (TCP mongoDB) port open
 // - its API port (TCP) open
-func (env *azureEnviron) newRole(vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
-	// TODO: Derive the role size from the constraints.
-	// ExtraSmall|Small|Medium|Large|ExtraLarge
-	roleSize := "Small"
+//
+// roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
+// Large, A6 etc.
+func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
 	// Create a Linux Configuration with the username and the password
 	// empty and disable SSH with password authentication.
 	hostname := roleHostname
@@ -694,7 +694,21 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 			found[id] = true
 		}
 	}
-	return env.StopInstances(insts)
+	err = env.StopInstances(insts)
+	if err != nil {
+		return fmt.Errorf("cannot stop instances: %v", err)
+	}
+
+	// Delete vnet and affinity group.
+	err = env.deleteVirtualNetwork()
+	if err != nil {
+		return fmt.Errorf("cannot delete the environment's virtual network: %v", err)
+	}
+	err = env.deleteAffinityGroup()
+	if err != nil {
+		return fmt.Errorf("cannot delete the environment's affinity group: %v", err)
+	}
+	return nil
 }
 
 // OpenPorts is specified in the Environ interface.

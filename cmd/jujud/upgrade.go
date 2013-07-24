@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -38,8 +38,8 @@ type Upgrader struct {
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools  *state.Tools
-	NewTools  *state.Tools
+	OldTools  *tools.Tools
+	NewTools  *tools.Tools
 	DataDir   string
 }
 
@@ -49,7 +49,7 @@ func (e *UpgradeReadyError) Error() string {
 
 // ChangeAgentTools does the actual agent upgrade.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := agent.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
+	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
 	if err != nil {
 		return err
 	}
@@ -90,13 +90,13 @@ func (u *Upgrader) Wait() error {
 
 func (u *Upgrader) run() error {
 	// Let the state know the version that is currently running.
-	currentTools, err := agent.ReadTools(u.dataDir, version.Current)
+	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
 		log.Warningf("upgrader cannot read current tools: %v", err)
-		currentTools = &state.Tools{
+		currentTools = &tools.Tools{
 			Binary: version.Current,
 		}
 	}
@@ -120,7 +120,7 @@ func (u *Upgrader) run() error {
 	// TODO(rog) retry downloads when they fail.
 	var (
 		download      *downloader.Download
-		downloadTools *state.Tools
+		downloadTools *tools.Tools
 		downloadDone  <-chan downloader.Status
 	)
 	// If we're killed early on (probably as a result of some other
@@ -191,7 +191,7 @@ func (u *Upgrader) run() error {
 				Series: version.Current.Series,
 				Arch:   version.Current.Arch,
 			}
-			if tools, err := agent.ReadTools(u.dataDir, required); err == nil {
+			if tools, err := tools.ReadTools(u.dataDir, required); err == nil {
 				// The exact tools have already been downloaded, so use them.
 				return u.upgradeReady(currentTools, tools)
 			}
@@ -210,24 +210,24 @@ func (u *Upgrader) run() error {
 			downloadTools = tools
 			downloadDone = download.Done()
 		case status := <-downloadDone:
-			tools := downloadTools
+			newTools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Errorf("upgrader download of %v failed: %v", tools.Binary, status.Err)
+				log.Errorf("upgrader download of %v failed: %v", newTools.Binary, status.Err)
 				noDelay()
 				break
 			}
-			err := agent.UnpackTools(u.dataDir, tools, status.File)
+			err := tools.UnpackTools(u.dataDir, newTools, status.File)
 			status.File.Close()
 			if err := os.Remove(status.File.Name()); err != nil {
 				log.Warningf("upgrader cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
-				log.Errorf("upgrader cannot unpack %v tools: %v", tools.Binary, err)
+				log.Errorf("upgrader cannot unpack %v tools: %v", newTools.Binary, err)
 				noDelay()
 				break
 			}
-			return u.upgradeReady(currentTools, tools)
+			return u.upgradeReady(currentTools, newTools)
 		case <-tomb.Dying():
 			if download != nil {
 				return fmt.Errorf("upgrader aborted download of %q", downloadTools.URL)
@@ -238,7 +238,7 @@ func (u *Upgrader) run() error {
 	panic("not reached")
 }
 
-func (u *Upgrader) upgradeReady(old, new *state.Tools) *UpgradeReadyError {
+func (u *Upgrader) upgradeReady(old, new *tools.Tools) *UpgradeReadyError {
 	return &UpgradeReadyError{
 		AgentName: u.agentState.Tag(),
 		OldTools:  old,

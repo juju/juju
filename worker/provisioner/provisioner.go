@@ -10,7 +10,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -30,11 +30,6 @@ var (
 	// LXC provisioners create lxc containers on their parent machine
 	LXC ProvisionerType = "lxc"
 )
-
-// While I'm debugging.
-func init() {
-	logger.SetLogLevel(loggo.TRACE)
-}
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
@@ -176,8 +171,8 @@ func (p *Provisioner) getBroker() (Broker, error) {
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getAgentTools() (*state.Tools, error) {
-	tools, err := agent.ReadTools(p.dataDir, version.Current)
+func (p *Provisioner) getAgentTools() (*tools.Tools, error) {
+	tools, err := tools.ReadTools(p.dataDir, version.Current)
 	if err != nil {
 		logger.Errorf("cannot read agent tools from %q", p.dataDir)
 		return nil, err

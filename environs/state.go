@@ -38,13 +38,29 @@ type BootstrapState struct {
 	Characteristics []instance.HardwareCharacteristics `yaml:"characteristics,omitempty"`
 }
 
+// putState writes the given data to the state file on the given storage.
+// The file's name is as defined in StateFile.
+func putState(storage StorageWriter, data []byte) error {
+	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
+}
+
+// CreateStateFile creates an empty state file on the given storage, and
+// returns its URL.
+func CreateStateFile(storage Storage) (string, error) {
+	err := putState(storage, []byte{})
+	if err != nil {
+		return "", fmt.Errorf("cannot create initial state file: %v", err)
+	}
+	return storage.URL(StateFile)
+}
+
 // SaveState writes the given state to the given storage.
 func SaveState(storage StorageWriter, state *BootstrapState) error {
 	data, err := goyaml.Marshal(state)
 	if err != nil {
 		return err
 	}
-	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
+	return putState(storage, data)
 }
 
 // LoadStateFromURL reads state from the given URL.

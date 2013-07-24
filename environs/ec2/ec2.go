@@ -9,13 +9,13 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -250,9 +250,9 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	stateFileURL, err := environs.CreateStateFile(e.Storage())
 	if err != nil {
-		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return err
 	}
 
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)

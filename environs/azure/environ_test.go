@@ -384,14 +384,15 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
+	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, prefix, affinityGroup)
+	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
@@ -399,6 +400,7 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+	c.Check(service.Location, Equals, location)
 
 	label, err := base64.StdEncoding.DecodeString(service.Label)
 	c.Assert(err, IsNil)
@@ -411,10 +413,10 @@ func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -434,10 +436,10 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := attemptCreateService(azure, "service", "affinity-group")
+	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 	c.Check(service, IsNil)
 }
@@ -447,10 +449,10 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	_, err = attemptCreateService(azure, "service", "affinity-group")
+	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, ".*Not Found.*")
 }
@@ -458,14 +460,15 @@ func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
+	location := "location"
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, prefix, affinityGroup)
+	service, err := newHostedService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
 	c.Assert(*requests, HasLen, 1)
@@ -473,6 +476,7 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
+	c.Check(service.Location, Equals, location)
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
@@ -485,10 +489,10 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	service, err := newHostedService(azure, "service", "affinity-group")
+	service, err := newHostedService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 
 	c.Assert(*requests, HasLen, 3)
@@ -519,10 +523,10 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil))
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "certfile.pem")
+	azure, err := gwacl.NewManagementAPI("subscription", "")
 	c.Assert(err, IsNil)
 
-	_, err = newHostedService(azure, "service", "affinity-group")
+	_, err = newHostedService(azure, "service", "affinity-group", "location")
 	c.Assert(err, NotNil)
 	c.Check(err, ErrorMatches, "could not come up with a unique hosted service name.*")
 }
@@ -588,12 +592,35 @@ func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	c.Check((*requests)[3].Method, Equals, "DELETE")
 }
 
+// getVnetAndAffinityGroupCleanupResponses returns the responses
+// (gwacl.DispatcherResponse) that a fake http server should return
+// when gwacl's RemoveVirtualNetworkSite() and DeleteAffinityGroup()
+// are called.
+func getVnetAndAffinityGroupCleanupResponses(c *C) []gwacl.DispatcherResponse {
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS:               gwacl.XMLNS_NC,
+		VirtualNetworkSites: nil,
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, IsNil)
+	cleanupResponses := []gwacl.DispatcherResponse{
+		// Return empty net configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+		// Accept deletion of affinity group.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	return cleanupResponses
+}
+
 func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	services := []gwacl.HostedServiceDescriptor{}
-	patchWithServiceListResponse(c, services)
+	responses := getAzureServiceListResponse(c, services)
+	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
+	responses = append(responses, cleanupResponses...)
+	gwacl.PatchManagementAPIResponses(responses)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
 
 	err := env.Destroy(instances)
@@ -602,6 +629,52 @@ func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	files, err := env.Storage().List("")
 	c.Assert(err, IsNil)
 	c.Check(files, HasLen, 0)
+}
+
+func (*EnvironSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	services := []gwacl.HostedServiceDescriptor{}
+	responses := getAzureServiceListResponse(c, services)
+	// Prepare a configuration with a single virtual network.
+	existingConfig := &gwacl.NetworkConfiguration{
+		XMLNS: gwacl.XMLNS_NC,
+		VirtualNetworkSites: &[]gwacl.VirtualNetworkSite{
+			{Name: env.getVirtualNetworkName()},
+		},
+	}
+	body, err := existingConfig.Serialize()
+	c.Assert(err, IsNil)
+	cleanupResponses := []gwacl.DispatcherResponse{
+		// Return existing configuration.
+		gwacl.NewDispatcherResponse([]byte(body), http.StatusOK, nil),
+		// Accept upload of new configuration.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+		// Accept deletion of affinity group.
+		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
+	}
+	responses = append(responses, cleanupResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
+
+	err = env.Destroy(instances)
+	c.Check(err, IsNil)
+
+	c.Assert(*requests, HasLen, 4)
+	// One request to get the network configuration.
+	getRequest := (*requests)[1]
+	c.Check(getRequest.Method, Equals, "GET")
+	c.Check(strings.HasSuffix(getRequest.URL, "services/networking/media"), Equals, true)
+	// One request to upload the new version of the network configuration.
+	putRequest := (*requests)[2]
+	c.Check(putRequest.Method, Equals, "PUT")
+	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), Equals, true)
+	// One request to delete the Affinity Group.
+	agRequest := (*requests)[3]
+	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(agRequest.Method, Equals, "DELETE")
+
 }
 
 var emptyListResponse = `
@@ -631,6 +704,8 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	listInstancesResponses := getAzureServiceListResponse(c, []gwacl.HostedServiceDescriptor{*service1Desc})
 	destroyResponses := buildDestroyAzureServiceResponses(c, services)
 	responses := append(listInstancesResponses, destroyResponses...)
+	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
+	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	// Call Destroy with service1 and service2.
@@ -640,8 +715,9 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 
 	// One request to get the list of all the environment's instances.
 	// Then two requests per destroyed machine (one to fetch the
-	// service's information, one to delete it).
-	c.Check((*requests), HasLen, 1+len(services)*2)
+	// service's information, one to delete it) and two requests to delete
+	// the Virtual Network and the Affinity Group.
+	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
 	c.Check((*requests)[1].Method, Equals, "GET")
 	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
@@ -697,20 +773,22 @@ func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwac
 
 func (*EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
+	size := "Large"
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
 	hostname := "hostname"
 
-	role := env.newRole(vhd, userData, hostname)
+	role := env.newRole(size, vhd, userData, hostname)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
 	networkConfig := configs[1]
-	c.Check(linuxConfig.UserData, Equals, userData)
+	c.Check(linuxConfig.CustomData, Equals, userData)
 	c.Check(linuxConfig.Hostname, Equals, hostname)
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
+	c.Check(role.RoleSize, Equals, size)
 	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
 
 	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
@@ -742,7 +820,7 @@ func (*EnvironSuite) TestNewDeployment(c *C) {
 	deploymentLabel := "deployment-label"
 	virtualNetworkName := "virtual-network-name"
 	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole(vhd, "user-data", "hostname")
+	role := env.newRole("Small", vhd, "user-data", "hostname")
 
 	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
 
@@ -842,7 +920,9 @@ func (*EnvironSuite) TestCreateAffinityGroup(c *C) {
 	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, IsNil)
 	c.Check(body.Name, Equals, env.getAffinityGroupName())
-	c.Check(body.Location, Equals, serviceLocation)
+	// This is a testing antipattern, the expected data comes from
+	// config defaults.  Fix it sometime.
+	c.Check(body.Location, Equals, "location")
 }
 
 func (*EnvironSuite) TestDestroyAffinityGroup(c *C) {

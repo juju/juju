@@ -12,9 +12,9 @@ import (
 
 // Machine represents a juju machine as seen by a machiner worker.
 type Machine struct {
-	tag    string
-	life   params.Life
-	mstate *State
+	tag  string
+	life params.Life
+	st   *State
 }
 
 // Tag returns the machine's tag.
@@ -29,7 +29,7 @@ func (m *Machine) Life() params.Life {
 
 // Refresh updates the cached local copy of the machine's data.
 func (m *Machine) Refresh() error {
-	life, err := m.mstate.machineLife(m.tag)
+	life, err := m.st.machineLife(m.tag)
 	if err != nil {
 		return err
 	}
@@ -45,14 +45,17 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 			{Tag: m.tag, Status: status, Info: info},
 		},
 	}
-	err := m.mstate.caller.Call("Machiner", "", "SetStatus", args, &result)
+	err := m.st.caller.Call("Machiner", "", "SetStatus", args, &result)
 	if err != nil {
 		return err
 	}
 	if len(result.Errors) != 1 {
 		return fmt.Errorf("expected one result, got %d", len(result.Errors))
 	}
-	return result.Errors[0]
+	if result.Errors[0] != nil {
+		return result.Errors[0]
+	}
+	return nil
 }
 
 // EnsureDead sets the machine lifecycle to Dead if it is Alive or
@@ -62,14 +65,17 @@ func (m *Machine) EnsureDead() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.mstate.caller.Call("Machiner", "", "EnsureDead", args, &result)
+	err := m.st.caller.Call("Machiner", "", "EnsureDead", args, &result)
 	if err != nil {
 		return err
 	}
 	if len(result.Errors) != 1 {
 		return fmt.Errorf("expected one result, got %d", len(result.Errors))
 	}
-	return result.Errors[0]
+	if result.Errors[0] != nil {
+		return result.Errors[0]
+	}
+	return nil
 }
 
 // Watch returns a watcher for observing changes to the machine.
@@ -78,7 +84,7 @@ func (m *Machine) Watch() (*watcher.NotifyWatcher, error) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
 	}
-	err := m.mstate.caller.Call("Machiner", "", "Watch", args, &results)
+	err := m.st.caller.Call("Machiner", "", "Watch", args, &results)
 	if err != nil {
 		return nil, err
 	}
@@ -89,6 +95,6 @@ func (m *Machine) Watch() (*watcher.NotifyWatcher, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	w := watcher.NewNotifyWatcher(m.mstate.caller, result)
+	w := watcher.NewNotifyWatcher(m.st.caller, result)
 	return w, nil
 }

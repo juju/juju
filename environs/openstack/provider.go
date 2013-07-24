@@ -14,13 +14,13 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -428,15 +428,22 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
+	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
+	// An authenticated client is needed for the URL() call below.
+	err = e.client.Authenticate()
 	if err != nil {
-		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return err
+	}
+	stateFileURL, err := environs.CreateStateFile(e.Storage())
+	if err != nil {
+		return err
 	}
 
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig, e.ecfg().useFloatingIP())
+	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -563,7 +570,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	}
 
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return e.internalStartInstance(cons, possibleTools, machineConfig, e.ecfg().useFloatingIP())
+	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -618,12 +625,10 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
-// Setting withPublicIP to true causes a floating IP to be assigned to the
-// server after starting.
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig, withPublicIP bool) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -653,7 +658,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
-
+	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
@@ -1029,7 +1034,14 @@ var zeroGroup nova.SecurityGroup
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := e.nova()
-	group, err := novaClient.CreateSecurityGroup(name, "juju group")
+	// First attempt to look up an existing group by name.
+	group, err := novaClient.SecurityGroupByName(name)
+	if err == nil {
+		// Group exists, so assume it is correctly set up and return it.
+		return *group, nil
+	}
+	// Doesn't exist, so try and create it.
+	group, err = novaClient.CreateSecurityGroup(name, "juju group")
 	if err != nil {
 		if !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
@@ -1039,15 +1051,18 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			if err != nil {
 				return zeroGroup, err
 			}
+			return *group, nil
 		}
 	}
-	// The group is created so now add the rules.
-	for _, rule := range rules {
+	// The new group is created so now add the rules.
+	group.Rules = make([]nova.SecurityGroupRule, len(rules))
+	for i, rule := range rules {
 		rule.ParentGroupId = group.Id
-		_, err := novaClient.CreateSecurityGroupRule(rule)
+		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
+		group.Rules[i] = *groupRule
 	}
 	return *group, nil
 }
