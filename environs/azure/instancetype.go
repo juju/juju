@@ -84,7 +84,7 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 	types := newPreferredTypes(availableTypes)
 
 	if !types.isValidArch(constraint.Arch) {
-		return nil, fmt.Errorf("unsupported architecture requested: %q", *constraint.Arch)
+		return nil, fmt.Errorf("requested unsupported architecture %q", *constraint.Arch)
 	}
 	if constraint.Container != nil {
 		return nil, fmt.Errorf("container type requested, but not supported in Azure: %v", *constraint.Container)
@@ -95,5 +95,5 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 			return machineType, nil
 		}
 	}
-	return nil, fmt.Errorf("no machine type matches constraints: %v", constraint)
+	return nil, fmt.Errorf("no machine type matches constraints %v", constraint)
 }

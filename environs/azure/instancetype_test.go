@@ -179,14 +179,14 @@ func (*InstanceTypeSuite) TestSelectMachineTypeChecksArch(c *gc.C) {
 	constraint := constraints.Value{Arch: &unsupportedArch}
 	_, err := selectMachineType(nil, constraint)
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, `unsupported architecture requested: "amd32k"`)
+	c.Check(err, gc.ErrorMatches, `requested unsupported architecture "amd32k"`)
 }
 
 func (*InstanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
 	var lots uint64 = 1000000000000
 	_, err := selectMachineType(nil, constraints.Value{Mem: &lots})
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "no machine type matches constraints: mem=100000*[MGT]")
+	c.Check(err, gc.ErrorMatches, "no machine type matches constraints mem=100000*[MGT]")
 }
 
 func (*InstanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
