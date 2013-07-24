@@ -9,7 +9,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
@@ -22,8 +22,8 @@ import (
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools  *state.Tools
-	NewTools  *state.Tools
+	OldTools  *tools.Tools
+	NewTools  *tools.Tools
 	DataDir   string
 }
 
@@ -55,28 +55,28 @@ func NewUpgrader(st *upgrader.State, dataDir, tag string) *Upgrader {
 }
 
 // Kill implements worker.Worker.Kill.
-func (u *UpgradeWorker) Kill() {
+func (u *Upgrader) Kill() {
 	u.tomb.Kill(nil)
 }
 
 // Wait implements worker.Worker.Wait.
-func (u *UpgradeWorker) Wait() error {
+func (u *Upgrader) Wait() error {
 	return u.tomb.Wait()
 }
 
-func (u *UpgradeWorker) Stop() error {
-	u.Kill(nil)
+func (u *Upgrader) Stop() error {
+	u.Kill()
 	return u.Wait()
 }
 
-func (u *UpgradeWorker) loop() error {
-	currentTools, err := agent.ReadTools(u.dataDir, version.Current)
+func (u *Upgrader) loop() error {
+	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
-		log.Warningf("upgrader cannot read current tools: %v", err)
-		currentTools = &state.Tools{
+		logger.Warningf("cannot read current tools: %v", err)
+		currentTools = &tools.Tools{
 			Binary: version.Current,
 		}
 	}
@@ -92,7 +92,7 @@ func (u *UpgradeWorker) loop() error {
 	if _, ok := <-changes; !ok {
 		return watcher.MustErr(versionWatcher)
 	}
-	wantTools, err := st.Tools(u.tag)
+	wantTools, err := u.st.Tools(u.tag)
 	if err != nil {
 		return err
 	}
