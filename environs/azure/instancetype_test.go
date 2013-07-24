@@ -199,7 +199,7 @@ func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C)
 
 func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C) {
 	const high = 100 * gwacl.MB
-	var value uint64= high
+	var value uint64 = high
 	c.Check(
 		defaultToBaselineSpec(constraints.Value{Mem: &value}).Mem,
 		gc.Equals,
