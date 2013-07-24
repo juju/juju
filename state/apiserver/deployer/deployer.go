@@ -141,22 +141,31 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 	return result, nil
 }
 
-// ServerInfo returns the addresses to connect to state, the API
-// server and the public TLS certificate.
-func (d *DeployerAPI) ServerInfo() (params.ServerInfoResult, error) {
-	// Get state addresses, API addresses and CACert.
+// Addresses returns the list of addresses used to connect to the state.
+func (d *DeployerAPI) Addresses() (params.StringsResult, error) {
 	addresses, err := d.st.Addresses()
 	if err != nil {
-		return params.ServerInfoResult{}, err
+		return params.StringsResult{}, err
 	}
-	apiAddresses, err := d.st.APIAddresses()
-	if err != nil {
-		return params.ServerInfoResult{}, err
-	}
-	caCert := d.st.CACert()
-	return params.ServerInfoResult{
-		Addresses:    addresses,
-		APIAddresses: apiAddresses,
-		CACert:       caCert,
+	return params.StringsResult{
+		Result: addresses,
 	}, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
+	addresses, err := d.st.APIAddresses()
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	return params.StringsResult{
+		Result: addresses,
+	}, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (d *DeployerAPI) CACert() params.BytesResult {
+	return params.BytesResult{
+		Result: d.st.CACert(),
+	}
 }

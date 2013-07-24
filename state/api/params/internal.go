@@ -25,11 +25,16 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
-// ServerInfoResult holds the result of a ServerInfo deployer facade call.
-type ServerInfoResult struct {
-	Addresses    []string
-	APIAddresses []string
-	CACert       []byte
+// StringsResult holds the result of an API call that returns a slice
+// of strings.
+type StringsResult struct {
+	Result []string
+}
+
+// BytesResult holds the result of an API call that returns a slice
+// of bytes.
+type BytesResult struct {
+	Result []byte
 }
 
 // LifeResult holds the life status of a single entity, or an error

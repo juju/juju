@@ -327,17 +327,31 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	})
 }
 
-func (s *deployerSuite) TestServerInfo(c *gc.C) {
+func (s *deployerSuite) TestAddresses(c *gc.C) {
 	addresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
+
+	result, err := s.deployer.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
 	apiAddresses, err := s.State.APIAddresses()
 	c.Assert(err, gc.IsNil)
 
-	result, err := s.deployer.ServerInfo()
+	result, err := s.deployer.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ServerInfoResult{
-		Addresses:    addresses,
-		APIAddresses: apiAddresses,
-		CACert:       s.State.CACert(),
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiAddresses,
+	})
+}
+
+func (s *deployerSuite) TestCACert(c *gc.C) {
+	result := s.deployer.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
 	})
 }
