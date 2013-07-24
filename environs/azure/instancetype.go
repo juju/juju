@@ -39,16 +39,16 @@ func (types *preferredTypes) Len() int {
 }
 
 // Less is specified in sort.Interface.
-func (types *preferredTypes) Less(first, second int) bool {
+func (types *preferredTypes) Less(i, j int) bool {
 	// All we care about for now is cost.  If at some point Azure offers
 	// different tradeoffs for the same price, we may need a tie-breaker.
-	return (*types)[first].Cost < (*types)[second].Cost
+	return (*types)[i].Cost < (*types)[j].Cost
 }
 
 // Swap is specified in sort.Interface.
-func (types *preferredTypes) Swap(first, second int) {
-	firstPtr := &(*types)[first]
-	secondPtr := &(*types)[second]
+func (types *preferredTypes) Swap(i, j int) {
+	firstPtr := &(*types)[i]
+	secondPtr := &(*types)[j]
 	*secondPtr, *firstPtr = *firstPtr, *secondPtr
 }
 
@@ -74,8 +74,8 @@ func (types *preferredTypes) satisfies(machineType *gwacl.RoleSize, constraint c
 	// gwacl does not model CPU power yet, although Azure does have the
 	// option of a shared core (for ExtraSmall instances).  For now we
 	// just pretend that's a full-fledged core.
-	return (types.suffices(machineType.CpuCores, constraint.CpuCores) &&
-		types.suffices(machineType.Mem, constraint.Mem))
+	return types.suffices(machineType.CpuCores, constraint.CpuCores) &&
+		types.suffices(machineType.Mem, constraint.Mem)
 }
 
 // selectMachineType returns the Azure machine type that best matches the
