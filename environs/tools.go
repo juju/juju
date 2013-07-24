@@ -6,11 +6,10 @@ package environs
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
@@ -120,7 +119,7 @@ func FindInstanceTools(environ Environ, series string, cons constraints.Value) (
 // TODO(fwereade) this should not exist: it's used by cmd/jujud/Upgrader,
 // which needs to run on every agent and must absolutely *not* in general
 // have access to an Environ.
-func FindExactTools(environ Environ, vers version.Binary) (t *state.Tools, err error) {
+func FindExactTools(environ Environ, vers version.Binary) (t *tools.Tools, err error) {
 	defer convertToolsError(&err)
 	list, err := FindAvailableTools(environ, vers.Major)
 	if err != nil {

@@ -11,6 +11,9 @@ import (
 	"strings"
 
 	"launchpad.net/golxc"
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -18,7 +21,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -28,6 +30,7 @@ var (
 	containerDir        = "/var/lib/juju/containers"
 	removedContainerDir = "/var/lib/juju/removed-containers"
 	lxcContainerDir     = "/var/lib/lxc"
+	lxcRestartDir       = "/etc/lxc/auto"
 	lxcObjectFactory    = golxc.Factory()
 )
 
@@ -44,7 +47,7 @@ type ContainerManager interface {
 	// StartContainer creates and starts a new lxc container for the specified machine.
 	StartContainer(
 		machineId, series, nonce string,
-		tools *state.Tools,
+		tools *tools.Tools,
 		environConfig *config.Config,
 		stateInfo *state.Info,
 		apiInfo *api.Info) (instance.Instance, error)
@@ -73,7 +76,7 @@ func NewContainerManager(conf ManagerConfig) ContainerManager {
 
 func (manager *containerManager) StartContainer(
 	machineId, series, nonce string,
-	tools *state.Tools,
+	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info) (instance.Instance, error) {
@@ -125,6 +128,12 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("lxc container created")
+	// Now symlink the config file into the restart directory.
+	containerConfigFile := filepath.Join(lxcContainerDir, name, "config")
+	if err := os.Symlink(containerConfigFile, restartSymlink(name)); err != nil {
+		return nil, err
+	}
+	logger.Tracef("auto-restart link created")
 
 	// Start the lxc container with the appropriate settings for grabbing the
 	// console output and a log file.
@@ -150,10 +159,12 @@ func (manager *containerManager) StopContainer(instance instance.Instance) error
 		logger.Errorf("failed to stop lxc container: %v", err)
 		return err
 	}
+	// Destroy removes the restart symlink for us.
 	if err := container.Destroy(); err != nil {
 		logger.Errorf("failed to destroy lxc container: %v", err)
 		return err
 	}
+
 	// Move the directory.
 	logger.Tracef("create old container dir: %s", removedContainerDir)
 	if err := os.MkdirAll(removedContainerDir, 0755); err != nil {
@@ -206,6 +217,10 @@ func internalLogDir(containerName string) string {
 	return fmt.Sprintf(internalLogDirTemplate, lxcContainerDir, containerName)
 }
 
+func restartSymlink(name string) string {
+	return filepath.Join(lxcRestartDir, name+".conf")
+}
+
 const localConfig = `
 lxc.network.type = veth
 lxc.network.link = lxcbr0
@@ -226,7 +241,7 @@ func writeLxcConfig(directory, logdir string) (string, error) {
 
 func writeUserData(
 	directory, machineId, nonce string,
-	tools *state.Tools,
+	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info,
@@ -246,7 +261,7 @@ func writeUserData(
 
 func cloudInitUserData(
 	machineId, nonce string,
-	tools *state.Tools,
+	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
 	apiInfo *api.Info,

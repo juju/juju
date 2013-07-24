@@ -32,6 +32,24 @@ func makeDummyStorage(c *C) (environs.Storage, func()) {
 	return storage, cleanup
 }
 
+func (*StateSuite) TestCreateStateFileWritesEmptyStateFile(c *C) {
+	storage, cleanup := makeDummyStorage(c)
+	defer cleanup()
+
+	url, err := environs.CreateStateFile(storage)
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(environs.StateFile)
+	c.Assert(err, IsNil)
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(string(data), Equals, "")
+	c.Assert(url, NotNil)
+	expectedURL, err := storage.URL(environs.StateFile)
+	c.Assert(err, IsNil)
+	c.Check(url, Equals, expectedURL)
+}
+
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
@@ -52,7 +70,7 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 	c.Check(content, DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) setupSavedState(c *C, storage environs.Storage) environs.BootstrapState {
+func (suite *StateSuite) setUpSavedState(c *C, storage environs.Storage) environs.BootstrapState {
 	arch := "amd64"
 	state := environs.BootstrapState{
 		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
@@ -67,7 +85,7 @@ func (suite *StateSuite) setupSavedState(c *C, storage environs.Storage) environ
 func (suite *StateSuite) TestLoadStateReadsStateFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := suite.setupSavedState(c, storage)
+	state := suite.setUpSavedState(c, storage)
 	storedState, err := environs.LoadState(storage)
 	c.Assert(err, IsNil)
 	c.Check(*storedState, DeepEquals, state)
@@ -76,7 +94,7 @@ func (suite *StateSuite) TestLoadStateReadsStateFile(c *C) {
 func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := suite.setupSavedState(c, storage)
+	state := suite.setUpSavedState(c, storage)
 	url, err := storage.URL(environs.StateFile)
 	c.Assert(err, IsNil)
 	storedState, err := environs.LoadStateFromURL(url)

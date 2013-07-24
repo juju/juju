@@ -12,7 +12,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
@@ -20,14 +20,14 @@ import (
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	. "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
 type lxcSuite struct {
-	testing.LoggingSuite
+	coretesting.LoggingSuite
 	lxc.TestSuite
 	events chan mock.Event
 }
@@ -69,11 +69,11 @@ func (s *lxcSuite) TearDownTest(c *C) {
 
 func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &state.Tools{
+	tools := &tools.Tools{
 		Binary: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	s.broker = provisioner.NewLxcBroker(testing.EnvironConfig(c), tools)
+	s.broker = provisioner.NewLxcBroker(coretesting.EnvironConfig(c), tools)
 }
 
 func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance {
@@ -126,7 +126,7 @@ func (s *lxcBrokerSuite) TestAllInstances(c *C) {
 func (s *lxcBrokerSuite) assertInstances(c *C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
 	c.Assert(err, IsNil)
-	testing.MatchInstances(c, results, inst...)
+	coretesting.MatchInstances(c, results, inst...)
 }
 
 func (s *lxcBrokerSuite) lxcContainerDir(inst instance.Instance) string {
@@ -160,7 +160,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
 	// Write the tools file.
-	toolsDir := agent.SharedToolsDir(s.DataDir(), version.Current)
+	toolsDir := tools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
 	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
@@ -195,7 +195,7 @@ func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
 	select {
 	case event := <-s.events:
 		c.Fatalf("unexpected event %#v", event)
-	case <-time.After(200 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 		return
 	}
 }

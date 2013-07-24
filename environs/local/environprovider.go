@@ -97,6 +97,7 @@ func (environProvider) BoilerplateConfig() string {
 ## https://juju.ubuntu.com/get-started/local/
 local:
   type: local
+  admin-secret: {{rand}}
   # Override the directory that is used for the storage files and database.
   # The default location is $JUJU_HOME/<ENV>.
   # $JUJU_HOME defaults to ~/.juju

@@ -7,21 +7,21 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
-	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
+
+	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/dummy"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 )
 
 type StorageSuite struct {
@@ -170,7 +170,7 @@ func (s *StorageSuite) TestUploadBadBuild(c *C) {
 
 // downloadTools downloads the supplied tools and extracts them into a
 // new directory.
-func downloadTools(c *C, t *state.Tools) string {
+func downloadTools(c *C, t *tools.Tools) string {
 	resp, err := http.Get(t.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
@@ -183,17 +183,14 @@ func downloadTools(c *C, t *state.Tools) string {
 }
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
-func downloadToolsRaw(c *C, t *state.Tools) []byte {
-	log.Infof("dtr1")
+func downloadToolsRaw(c *C, t *tools.Tools) []byte {
 	resp, err := http.Get(t.URL)
 	c.Assert(err, IsNil)
 	defer resp.Body.Close()
-	log.Infof("dtr5")
 	c.Assert(resp.StatusCode, Equals, http.StatusOK)
 	var buf bytes.Buffer
 	_, err = io.Copy(&buf, resp.Body)
 	c.Assert(err, IsNil)
-	log.Infof("dtr9")
 	return buf.Bytes()
 }
 

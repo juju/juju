@@ -14,12 +14,13 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -422,6 +423,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) Bootstrap(cons constraints.Value) error {
+	// The bootstrap instance gets machine id "0".  This is not related
+	// to instance ids.  Juju assigns the machine ID.
+	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
 	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
@@ -432,20 +436,26 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
 	if err != nil {
-		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return err
 	}
-	inst, characteristics, err := e.internalStartInstance(&startInstanceParams{
-		machineId:     "0",
-		machineNonce:  state.BootstrapNonce,
-		series:        e.Config().DefaultSeries(),
-		constraints:   cons,
-		possibleTools: possibleTools,
-		stateServer:   true,
-		withPublicIP:  e.ecfg().useFloatingIP(),
-		stateInfoURL:  stateFileURL,
-	})
+	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
+	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
+	// An authenticated client is needed for the URL() call below.
+	err = e.client.Authenticate()
+	if err != nil {
+		return err
+	}
+	stateFileURL, err := environs.CreateStateFile(e.Storage())
+	if err != nil {
+		return err
+	}
+
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
+
+	// TODO(wallyworld) - save bootstrap machine metadata
+	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -561,37 +571,18 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.internalStartInstance(&startInstanceParams{
-		machineId:     machineId,
-		machineNonce:  machineNonce,
-		series:        series,
-		constraints:   cons,
-		info:          info,
-		apiInfo:       apiInfo,
-		possibleTools: possibleTools,
-		withPublicIP:  e.ecfg().useFloatingIP(),
-	})
-}
+	err = environs.CheckToolsSeries(possibleTools, series)
+	if err != nil {
+		return nil, nil, err
+	}
 
-type startInstanceParams struct {
-	machineId     string
-	machineNonce  string
-	series        string
-	constraints   constraints.Value
-	info          *state.Info
-	apiInfo       *api.Info
-	possibleTools tools.List
-	stateServer   bool
-	stateInfoURL  string
-
-	// withPublicIP, if true, causes a floating IP to be
-	// assigned to the server after starting
-	withPublicIP bool
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -646,43 +637,42 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
+// machineConfig will be filled out with further details, but should contain
+// MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
-	if err != nil {
-		return nil, nil, err
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	series := possibleTools.Series()
+	if len(series) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
-	arches := scfg.possibleTools.Arches()
+	arches := possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      scfg.series,
+		Series:      series[0],
 		Arches:      arches,
-		Constraints: scfg.constraints,
+		Constraints: cons,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
 
-	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
-	mcfg.StateServer = scfg.stateServer
-	mcfg.StateInfoURL = scfg.stateInfoURL
-	mcfg.Tools = tools[0]
+	machineConfig.Tools = tools[0]
 
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
+	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
 		return nil, nil, err
 	}
-	userData, err := environs.ComposeUserData(mcfg)
+	userData, err := environs.ComposeUserData(machineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
-
+	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
-	if scfg.withPublicIP {
+	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
 			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
@@ -691,7 +681,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		}
 	}
 	config := e.Config()
-	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
+	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -703,7 +693,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               e.machineFullName(scfg.machineId),
+			Name:               e.machineFullName(machineConfig.MachineId),
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
@@ -727,7 +717,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		instType:     &spec.InstanceType,
 	}
 	log.Infof("environs/openstack: started instance %q", inst.Id())
-	if scfg.withPublicIP {
+	if withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
@@ -1056,7 +1046,14 @@ var zeroGroup nova.SecurityGroup
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := e.nova()
-	group, err := novaClient.CreateSecurityGroup(name, "juju group")
+	// First attempt to look up an existing group by name.
+	group, err := novaClient.SecurityGroupByName(name)
+	if err == nil {
+		// Group exists, so assume it is correctly set up and return it.
+		return *group, nil
+	}
+	// Doesn't exist, so try and create it.
+	group, err = novaClient.CreateSecurityGroup(name, "juju group")
 	if err != nil {
 		if !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
@@ -1066,15 +1063,18 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			if err != nil {
 				return zeroGroup, err
 			}
+			return *group, nil
 		}
 	}
-	// The group is created so now add the rules.
-	for _, rule := range rules {
+	// The new group is created so now add the rules.
+	group.Rules = make([]nova.SecurityGroupRule, len(rules))
+	for i, rule := range rules {
 		rule.ParentGroupId = group.Id
-		_, err := novaClient.CreateSecurityGroupRule(rule)
+		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
+		group.Rules[i] = *groupRule
 	}
 	return *group, nil
 }

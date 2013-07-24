@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/state"
@@ -27,7 +28,7 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		MachineId:    machineID,
 		MachineNonce: "gxshasqlnng",
 		DataDir:      dir,
-		Tools:        &state.Tools{URL: "file://" + dir},
+		Tools:        &tools.Tools{URL: "file://" + dir},
 		StateInfo: &state.Info{
 			CACert: []byte(testing.CACert),
 			Addrs:  []string{"127.0.0.1:123"},

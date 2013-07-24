@@ -11,11 +11,11 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
@@ -38,7 +38,7 @@ func (s *UpgraderSuite) TearDownTest(c *C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderStop(c *C) {
-	u := s.startUpgrader(c, &state.Tools{Binary: version.Current})
+	u := s.startUpgrader(c, &tools.Tools{Binary: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
 }
@@ -137,7 +137,7 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 		// ...but it also puts tools in storage we don't need, which is why we
 		// don't clean up garbage from earlier runs first.
 		envtesting.RemoveAllTools(c, s.Conn.Environ)
-		uploaded := make(map[version.Binary]*state.Tools)
+		uploaded := make(map[version.Binary]*tools.Tools)
 		for _, vers := range test.available {
 			tools := s.uploadTools(c, vers)
 			uploaded[vers] = tools
@@ -155,17 +155,17 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			}
 
 			ug := waitDeath(c, u)
-			tools := uploaded[test.upgrade]
-			c.Check(ug.NewTools, DeepEquals, tools)
+			newTools := uploaded[test.upgrade]
+			c.Check(ug.NewTools, DeepEquals, newTools)
 			c.Check(ug.OldTools.Binary, Equals, version.Current)
 			c.Check(ug.DataDir, Equals, s.DataDir())
 			c.Check(ug.AgentName, Equals, "testagent")
 
 			// Check that the upgraded version was really downloaded.
-			path := agent.SharedToolsDir(s.DataDir(), tools.Binary)
+			path := tools.SharedToolsDir(s.DataDir(), newTools.Binary)
 			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
 			c.Check(err, IsNil)
-			c.Check(string(data), Equals, "jujud contents "+tools.Binary.String())
+			c.Check(string(data), Equals, "jujud contents "+newTools.Binary.String())
 		}()
 	}
 }
@@ -279,13 +279,13 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	currentTools := s.primeTools(c, version.MustParseBinary("2.0.2-foo-bar"))
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
-		OldTools:  &state.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
+		OldTools:  &tools.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
 		NewTools:  currentTools,
 		DataDir:   s.DataDir(),
 	}
 	err := ug.ChangeAgentTools()
 	c.Assert(err, IsNil)
-	d := agent.ToolsDir(s.DataDir(), "foo")
+	d := tools.ToolsDir(s.DataDir(), "foo")
 	data, err := ioutil.ReadFile(filepath.Join(d, "jujud"))
 	c.Assert(err, IsNil)
 	c.Assert(string(data), Equals, "jujud contents 2.0.2-foo-bar")
@@ -298,7 +298,7 @@ func assertNothingHappens(c *C, u *Upgrader) {
 	select {
 	case got := <-done:
 		c.Fatalf("expected nothing to happen, got %#v", got)
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(coretesting.ShortWait):
 	}
 }
 
@@ -306,20 +306,20 @@ func assertEvent(c *C, event <-chan string, want string) {
 	select {
 	case got := <-event:
 		c.Assert(got, Equals, want)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("no event received; expected %q", want)
 	}
 }
 
 // startUpgrader starts the upgrader using the given machine,
 // expecting to see it set the given agent tools.
-func (s *UpgraderSuite) startUpgrader(c *C, expectTools *state.Tools) *Upgrader {
-	as := testAgentState(make(chan *state.Tools))
+func (s *UpgraderSuite) startUpgrader(c *C, expectTools *tools.Tools) *Upgrader {
+	as := testAgentState(make(chan *tools.Tools))
 	u := NewUpgrader(s.State, as, s.DataDir())
 	select {
 	case tools := <-as:
 		c.Assert(tools, DeepEquals, expectTools)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("upgrader did not set agent tools")
 	}
 	return u
@@ -334,15 +334,15 @@ func waitDeath(c *C, u *Upgrader) *UpgradeReadyError {
 	case err := <-done:
 		c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
 		return err.(*UpgradeReadyError)
-	case <-time.After(500 * time.Millisecond):
+	case <-time.After(coretesting.LongWait):
 		c.Fatalf("upgrader did not die as expected")
 	}
 	panic("unreachable")
 }
 
-type testAgentState chan *state.Tools
+type testAgentState chan *tools.Tools
 
-func (as testAgentState) SetAgentTools(tools *state.Tools) error {
+func (as testAgentState) SetAgentTools(tools *tools.Tools) error {
 	t := *tools
 	as <- &t
 	return nil
