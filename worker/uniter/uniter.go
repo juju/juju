@@ -14,7 +14,7 @@ import (
 
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
@@ -141,7 +141,7 @@ func (u *Uniter) init(name string) (err error) {
 		return err
 	}
 	ename := u.unit.Tag()
-	u.toolsDir = agent.ToolsDir(u.dataDir, ename)
+	u.toolsDir = tools.ToolsDir(u.dataDir, ename)
 	if err := EnsureJujucSymlinks(u.toolsDir); err != nil {
 		return err
 	}

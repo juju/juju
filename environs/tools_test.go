@@ -6,13 +6,12 @@ package environs_test
 import (
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -557,8 +556,8 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 
 // fakeToolsForSeries fakes a Tools object with just enough information for
 // testing the handling its OS series.
-func fakeToolsForSeries(series string) *state.Tools {
-	return &state.Tools{Binary: version.Binary{Series: series}}
+func fakeToolsForSeries(series string) *tools.Tools {
+	return &tools.Tools{Binary: version.Binary{Series: series}}
 }
 
 // fakeToolsList fakes a tools.List containing Tools objects for the given

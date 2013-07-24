@@ -14,12 +14,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"launchpad.net/loggo"
-
 	"launchpad.net/juju-core/version"
 )
-
-var logger = loggo.GetLogger("juju.environs.tools")
 
 // archive writes the executable files found in the given directory in
 // gzipped tar format to w.  An error is returned if an entry inside dir

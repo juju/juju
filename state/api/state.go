@@ -12,12 +12,14 @@ import (
 )
 
 // Login authenticates as the entity with the given name and password.
-// Subsequent requests on the state will act as that entity.
-// This method is usually called automatically by Open.
-func (st *State) Login(tag, password string) error {
+// Subsequent requests on the state will act as that entity.  This
+// method is usually called automatically by Open. The machine nonce
+// should be empty unless logging in as a machine agent.
+func (st *State) Login(tag, password, nonce string) error {
 	return st.Call("Admin", "", "Login", &params.Creds{
 		AuthTag:  tag,
 		Password: password,
+		Nonce:    nonce,
 	}, nil)
 }
 
@@ -40,11 +42,11 @@ func (st *State) MachineAgent() *machineagent.State {
 }
 
 // Upgrader returns access to the Upgrader API
-func (st *State) Upgrader() *upgrader.Upgrader {
-	return upgrader.New(st)
+func (st *State) Upgrader() *upgrader.State {
+	return upgrader.NewState(st)
 }
 
 // Deployer returns access to the Deployer API
-func (st *State) Deployer() (*deployer.Deployer, error) {
-	return deployer.New(st), nil
+func (st *State) Deployer() (*deployer.State, error) {
+	return deployer.NewState(st), nil
 }

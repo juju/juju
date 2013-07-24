@@ -9,12 +9,12 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/tools"
 	"net/http"
 	"strings"
 	"text/template"
@@ -251,4 +251,8 @@ func GetSwiftURL(e environs.Environ) (string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
+}
+
+func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+	return e.(*environ).ensureGroup(name, rules)
 }

@@ -6,6 +6,7 @@ package upgrader_test
 import (
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -149,7 +150,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
 	// having to pass it in again
-	err := s.rawMachine.SetAgentTools(&state.Tools{
+	err := s.rawMachine.SetAgentTools(&tools.Tools{
 		URL:    "",
 		Binary: version.Current,
 	})

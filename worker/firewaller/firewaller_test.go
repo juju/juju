@@ -5,6 +5,10 @@ package firewaller_test
 
 import (
 	. "launchpad.net/gocheck"
+	"reflect"
+	stdtesting "testing"
+	"time"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
@@ -13,9 +17,6 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/firewaller"
-	"reflect"
-	stdtesting "testing"
-	"time"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -47,11 +48,11 @@ func (s *FirewallerSuite) assertPorts(c *C, inst instance.Instance, machineId st
 			c.Succeed()
 			return
 		}
-		if time.Since(start) > 5*time.Second {
+		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(coretesting.ShortWait)
 	}
 	panic("unreachable")
 }
@@ -73,11 +74,11 @@ func (s *FirewallerSuite) assertEnvironPorts(c *C, expected []instance.Port) {
 			c.Succeed()
 			return
 		}
-		if time.Since(start) > 5*time.Second {
+		if time.Since(start) > coretesting.LongWait {
 			c.Fatalf("timed out: expected %q; got %q", expected, got)
 			return
 		}
-		time.Sleep(50 * time.Millisecond)
+		time.Sleep(coretesting.ShortWait)
 	}
 	panic("unreachable")
 }

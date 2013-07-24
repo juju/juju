@@ -35,9 +35,11 @@ func (s *suite) SetUpTest(c *C) {
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
 	err = s.machine.SetPassword("password")
 	c.Assert(err, IsNil)
-	s.st = s.OpenAPIAs(c, s.machine.Tag(), "password")
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
 }
 
 func (s *suite) TearDownTest(c *C) {

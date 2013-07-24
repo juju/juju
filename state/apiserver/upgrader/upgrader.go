@@ -4,6 +4,7 @@
 package upgrader
 
 import (
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -78,10 +79,9 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 		Series: existingTools.Series,
 		Arch:   existingTools.Arch,
 	}
-	// Note: (jam) We shouldn't have to search the provider
-	//       for every machine that wants to upgrade. The
-	//       information could just be cached in state, or
-	//       even in the API servers
+	// TODO(jam): Avoid searching the provider for every machine
+	// that wants to upgrade. The information could just be cached
+	// in state, or even in the API servers
 	tools, err := environs.FindExactTools(env, requested)
 	if err != nil {
 		return nilTools, err
@@ -137,30 +137,30 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsR
 	results := params.SetAgentToolsResults{
 		Results: make([]params.SetAgentToolsResult, len(args.AgentTools)),
 	}
-	for i, tools := range args.AgentTools {
+	for i, agentTools := range args.AgentTools {
 		var err error
-		results.Results[i].Tag = tools.Tag
-		if !u.authorizer.AuthOwner(tools.Tag) {
+		results.Results[i].Tag = agentTools.Tag
+		if !u.authorizer.AuthOwner(agentTools.Tag) {
 			err = common.ErrPerm
 		} else {
 			// TODO: When we get there, we should support setting
 			//       Unit agent tools as well as Machine tools. We
 			//       can use something like the "AgentState"
 			//       interface that cmd/jujud/agent.go had.
-			machine, err := u.st.Machine(state.MachineIdFromTag(tools.Tag))
+			machine, err := u.st.Machine(state.MachineIdFromTag(agentTools.Tag))
 			if err == nil {
-				stTools := state.Tools{
+				stTools := tools.Tools{
 					Binary: version.Binary{
 						Number: version.Number{
-							Major: tools.Major,
-							Minor: tools.Minor,
-							Patch: tools.Patch,
-							Build: tools.Build,
+							Major: agentTools.Major,
+							Minor: agentTools.Minor,
+							Patch: agentTools.Patch,
+							Build: agentTools.Build,
 						},
-						Arch:   tools.Arch,
-						Series: tools.Series,
+						Arch:   agentTools.Arch,
+						Series: agentTools.Series,
 					},
-					URL: tools.URL,
+					URL: agentTools.URL,
 				}
 				err = machine.SetAgentTools(&stTools)
 			}

@@ -5,16 +5,17 @@ package state_test
 
 import (
 	"sort"
-	"time"
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
@@ -272,20 +273,19 @@ func (s *MachineSuite) TestSetPassword(c *C) {
 }
 
 func (s *MachineSuite) TestMachineWaitAgentAlive(c *C) {
-	timeout := 200 * time.Millisecond
 	alive, err := s.machine.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(coretesting.ShortWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of machine 0: still not alive after timeout`)
 
 	pinger, err := s.machine.SetAgentAlive()
 	c.Assert(err, IsNil)
 
 	s.State.StartSync()
-	err = s.machine.WaitAgentAlive(timeout)
+	err = s.machine.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 
 	alive, err = s.machine.AgentAlive()
@@ -425,7 +425,7 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	err = m0.SetAgentTools(&state.Tools{
+	err = m0.SetAgentTools(&tools.Tools{
 		URL:    "foo",
 		Binary: version.MustParseBinary("0.0.3-series-arch"),
 	})
@@ -588,7 +588,7 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentTools(&state.Tools{
+	err = machine.SetAgentTools(&tools.Tools{
 		URL:    "foo",
 		Binary: version.MustParseBinary("0.0.3-series-arch"),
 	})
