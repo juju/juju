@@ -118,11 +118,11 @@ func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, err
 // SetTools updates the recorded tools version for the agents.
 func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults, error) {
 	results := params.ErrorResults{
-		Errors: make([]*params.Error, len(args.AgentTools)),
+		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}
 	for i, agentTools := range args.AgentTools {
 		err := u.setOneAgentTools(agentTools.Tag, agentTools.Tools)
-		results.Errors[i] = common.ServerError(err)
+		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
 }

@@ -169,7 +169,7 @@ func (s *upgraderSuite) TestSetToolsNothing(c *C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.SetTools(params.SetAgentsTools{})
 	c.Assert(err, IsNil)
-	c.Check(results.Errors, HasLen, 0)
+	c.Check(results.Results, HasLen, 0)
 }
 
 func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {

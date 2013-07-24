@@ -36,13 +36,7 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 		// TODO: Not directly tested
 		return err
 	}
-	if len(results.Errors) != 1 {
-		return fmt.Errorf("expected one result, got %d", len(results.Errors))
-	}
-	if err := results.Errors[0]; err != nil {
-		return err
-	}
-	return nil
+	return results.OneError()
 }
 
 func (st *State) Tools(tag string) (*tools.Tools, error) {
