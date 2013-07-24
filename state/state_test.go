@@ -1015,7 +1015,7 @@ func (s *StateSuite) TestWatchMachineHardwareCharacteristics(c *gc.C) {
 
 	// Alter the machine: not reported.
 	tools := &tools.Tools{
-		Binary: version.Binary{
+		Version: version.Binary{
 			Number: version.MustParse("1.2.3"),
 			Series: "gutsy",
 			Arch:   "ppc",

@@ -48,7 +48,7 @@ func (*toolSuite) TestErrorImportance(c *C) {
 
 func mkTools(s string) *tools.Tools {
 	return &tools.Tools{
-		Binary: version.MustParseBinary(s + "-foo-bar"),
+		Version: version.MustParseBinary(s + "-foo-bar"),
 	}
 }
 
@@ -167,7 +167,7 @@ func (s *agentSuite) uploadTools(c *C, vers version.Binary) *tools.Tools {
 	c.Assert(err, IsNil)
 	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
 	c.Assert(err, IsNil)
-	return &tools.Tools{URL: url, Binary: vers}
+	return &tools.Tools{URL: url, Version: vers}
 }
 
 // primeTools sets up the current version of the tools to vers and

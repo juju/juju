@@ -38,7 +38,7 @@ func (s *UpgraderSuite) TearDownTest(c *C) {
 }
 
 func (s *UpgraderSuite) TestUpgraderStop(c *C) {
-	u := s.startUpgrader(c, &tools.Tools{Binary: version.Current})
+	u := s.startUpgrader(c, &tools.Tools{Version: version.Current})
 	err := u.Stop()
 	c.Assert(err, IsNil)
 }
@@ -157,15 +157,15 @@ func (s *UpgraderSuite) TestUpgrader(c *C) {
 			ug := waitDeath(c, u)
 			newTools := uploaded[test.upgrade]
 			c.Check(ug.NewTools, DeepEquals, newTools)
-			c.Check(ug.OldTools.Binary, Equals, version.Current)
+			c.Check(ug.OldTools.Version, Equals, version.Current)
 			c.Check(ug.DataDir, Equals, s.DataDir())
 			c.Check(ug.AgentName, Equals, "testagent")
 
 			// Check that the upgraded version was really downloaded.
-			path := tools.SharedToolsDir(s.DataDir(), newTools.Binary)
+			path := tools.SharedToolsDir(s.DataDir(), newTools.Version)
 			data, err := ioutil.ReadFile(filepath.Join(path, "jujud"))
 			c.Check(err, IsNil)
-			c.Check(string(data), Equals, "jujud contents "+newTools.Binary.String())
+			c.Check(string(data), Equals, "jujud contents "+newTools.Version.String())
 		}()
 	}
 }
@@ -279,7 +279,7 @@ func (s *UpgraderSuite) TestUpgraderReadyErrorUpgrade(c *C) {
 	currentTools := s.primeTools(c, version.MustParseBinary("2.0.2-foo-bar"))
 	ug := &UpgradeReadyError{
 		AgentName: "foo",
-		OldTools:  &tools.Tools{Binary: version.MustParseBinary("2.0.0-foo-bar")},
+		OldTools:  &tools.Tools{Version: version.MustParseBinary("2.0.0-foo-bar")},
 		NewTools:  currentTools,
 		DataDir:   s.DataDir(),
 	}

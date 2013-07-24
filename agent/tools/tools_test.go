@@ -81,8 +81,8 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 	for i, test := range unpackToolsBadDataTests {
 		c.Logf("test %d", i)
 		testTools := &tools.Tools{
-			URL:    "http://foo/bar",
-			Binary: version.MustParseBinary("1.2.3-foo-bar"),
+			URL:     "http://foo/bar",
+			Version: version.MustParseBinary("1.2.3-foo-bar"),
 		}
 		err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
 		c.Assert(err, gc.ErrorMatches, test.err)
@@ -100,8 +100,8 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		testing.NewTarFile("foo", 0755, "foo contents"),
 	}
 	testTools := &tools.Tools{
-		URL:    "http://foo/bar",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		URL:     "http://foo/bar",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 
 	err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
@@ -112,8 +112,8 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
 	tools2 := &tools.Tools{
-		URL:    "http://arble",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		URL:     "http://arble",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 	files2 := []*testing.TarFile{
 		testing.NewTarFile("bar", 0755, "bar2 contents"),
@@ -149,13 +149,13 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("jujud", 0755, "jujuc executable"),
 	}
 	testTools := &tools.Tools{
-		URL:    "http://foo/bar1",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		URL:     "http://foo/bar1",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 	err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
 	c.Assert(err, gc.IsNil)
 
-	gotTools, err := tools.ChangeAgentTools(t.dataDir, "testagent", testTools.Binary)
+	gotTools, err := tools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
@@ -168,13 +168,13 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("bar", 0755, "bar content"),
 	}
 	tools2 := &tools.Tools{
-		URL:    "http://foo/bar2",
-		Binary: version.MustParseBinary("1.2.4-foo-bar"),
+		URL:     "http://foo/bar2",
+		Version: version.MustParseBinary("1.2.4-foo-bar"),
 	}
 	err = tools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
 	c.Assert(err, gc.IsNil)
 
-	gotTools, err = tools.ChangeAgentTools(t.dataDir, "testagent", tools2.Binary)
+	gotTools, err = tools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
@@ -195,13 +195,13 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *tools.Tools, files 
 		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := tools.SharedToolsDir(t.dataDir, testTools.Binary)
+	dir := tools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, testTools.URL, 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
-	gotTools, err := tools.ReadTools(t.dataDir, testTools.Binary)
+	gotTools, err := tools.ReadTools(t.dataDir, testTools.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 }

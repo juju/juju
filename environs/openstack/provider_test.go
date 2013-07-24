@@ -9,7 +9,6 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/juju-core/environs/openstack"
-	"launchpad.net/juju-core/instance"
 	"testing"
 )
 
@@ -44,35 +43,30 @@ var addressTests = []struct {
 	{
 		summary:  "missing",
 		expected: "",
-		failure:  instance.ErrNoDNSName,
 	},
 	{
 		summary:  "empty",
 		private:  []nova.IPAddress{},
 		networks: []string{"private"},
 		expected: "",
-		failure:  instance.ErrNoDNSName,
 	},
 	{
 		summary:  "private only",
 		private:  []nova.IPAddress{{4, "127.0.0.4"}},
 		networks: []string{"private"},
 		expected: "127.0.0.4",
-		failure:  nil,
 	},
 	{
 		summary:  "private plus (HP cloud)",
 		private:  []nova.IPAddress{{4, "127.0.0.4"}, {4, "8.8.4.4"}},
 		networks: []string{"private"},
 		expected: "8.8.4.4",
-		failure:  nil,
 	},
 	{
 		summary:  "public only",
 		public:   []nova.IPAddress{{4, "8.8.8.8"}},
 		networks: []string{"", "public"},
 		expected: "8.8.8.8",
-		failure:  nil,
 	},
 	{
 		summary:  "public and private",
@@ -80,7 +74,6 @@ var addressTests = []struct {
 		public:   []nova.IPAddress{{4, "8.8.4.4"}},
 		networks: []string{"private", "public"},
 		expected: "8.8.4.4",
-		failure:  nil,
 	},
 	{
 		summary:  "public private plus",
@@ -88,14 +81,12 @@ var addressTests = []struct {
 		public:   []nova.IPAddress{{4, "8.8.8.8"}},
 		networks: []string{"private", "public"},
 		expected: "8.8.8.8",
-		failure:  nil,
 	},
 	{
 		summary:  "custom only",
 		private:  []nova.IPAddress{{4, "127.0.0.2"}},
 		networks: []string{"special"},
 		expected: "127.0.0.2",
-		failure:  nil,
 	},
 	{
 		summary:  "custom and public",
@@ -103,14 +94,12 @@ var addressTests = []struct {
 		public:   []nova.IPAddress{{4, "8.8.8.8"}},
 		networks: []string{"special", "public"},
 		expected: "8.8.8.8",
-		failure:  nil,
 	},
 	{
 		summary:  "non-IPv4",
 		private:  []nova.IPAddress{{6, "::dead:beef:f00d"}},
 		networks: []string{"private"},
 		expected: "",
-		failure:  instance.ErrNoDNSName,
 	},
 }
 
@@ -132,8 +121,7 @@ func (t *localTests) TestGetServerAddresses(c *C) {
 				addresses[t.networks[1]] = t.public
 			}
 		}
-		addr, err := openstack.InstanceAddress(addresses)
-		c.Assert(err, Equals, t.failure)
+		addr := openstack.InstanceAddress(addresses)
 		c.Assert(addr, Equals, t.expected)
 	}
 }

@@ -32,8 +32,8 @@ type ToolsSuite struct {
 
 func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
-		Binary: version.MustParseBinary(vers),
-		URL:    url,
+		Version: version.MustParseBinary(vers),
+		URL:     url,
 	}
 }
 

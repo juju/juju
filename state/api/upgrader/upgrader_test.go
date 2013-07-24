@@ -114,7 +114,7 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 	tools, err = s.rawMachine.AgentTools()
 	c.Assert(err, IsNil)
 	c.Assert(tools, NotNil)
-	c.Check(tools.Binary, Equals, cur)
+	c.Check(tools.Version, Equals, cur)
 }
 
 func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
@@ -126,9 +126,9 @@ func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
 
 func (s *upgraderSuite) TestTools(c *C) {
 	cur := version.Current
-	curTools := &tools.Tools{Binary: cur, URL: ""}
-	if curTools.Minor > 0 {
-		curTools.Minor -= 1
+	curTools := &tools.Tools{Version: cur, URL: ""}
+	if curTools.Version.Minor > 0 {
+		curTools.Version.Minor -= 1
 	}
 	s.rawMachine.SetAgentTools(curTools)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently

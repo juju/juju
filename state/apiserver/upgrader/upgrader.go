@@ -77,8 +77,8 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	}
 	requested := version.Binary{
 		Number: agentVersion,
-		Series: existingTools.Series,
-		Arch:   existingTools.Arch,
+		Series: existingTools.Version.Series,
+		Arch:   existingTools.Version.Arch,
 	}
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
