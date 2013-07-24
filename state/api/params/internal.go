@@ -25,6 +25,18 @@ type BoolResults struct {
 	Results []BoolResult
 }
 
+// StringsResult holds the result of an API call that returns a slice
+// of strings.
+type StringsResult struct {
+	Result []string
+}
+
+// BytesResult holds the result of an API call that returns a slice
+// of bytes.
+type BytesResult struct {
+	Result []byte
+}
+
 // LifeResult holds the life status of a single entity, or an error
 // indicating why it is not available.
 type LifeResult struct {

@@ -60,3 +60,33 @@ func (st *State) Machine(tag string) (*Machine, error) {
 		st:  st,
 	}, nil
 }
+
+// StateAddresses returns the list of addresses used to connect to the state.
+func (st *State) StateAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Deployer", "", "StateAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (st *State) APIAddresses() ([]string, error) {
+	var result params.StringsResult
+	err := st.caller.Call("Deployer", "", "APIAddresses", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (st *State) CACert() ([]byte, error) {
+	var result params.BytesResult
+	err := st.caller.Call("Deployer", "", "CACert", nil, &result)
+	if err != nil {
+		return nil, err
+	}
+	return result.Result, nil
+}
