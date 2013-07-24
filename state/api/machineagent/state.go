@@ -83,8 +83,5 @@ func (m *Machine) SetPassword(password string) error {
 	if err != nil {
 		return err
 	}
-	if len(results.Errors) > 0 && results.Errors[0] != nil {
-		return results.Errors[0]
-	}
-	return nil
+	return results.OneError()
 }
