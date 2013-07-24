@@ -4,7 +4,6 @@
 package sync_test
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -69,12 +68,14 @@ environments:
 		putBinary(c, s.localStorage, vers)
 	}
 
-	s.origLocation = sync.SetDefaultToolsLocation(s.storage.Location())
+	// Switch tools location.
+	s.origLocation = sync.DefaultToolsLocation
+	sync.DefaultToolsLocation = s.storage.Location()
 }
 
 func (s *syncSuite) TearDownTest(c *gc.C) {
 	c.Assert(s.storage.Stop(), gc.IsNil)
-	sync.SetDefaultToolsLocation(s.origLocation)
+	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
 	s.home.Restore()
 	version.Current = s.origVersion
@@ -85,8 +86,6 @@ func (s *syncSuite) TestCopyNewestFromFilesystem(c *gc.C) {
 	ctx := &sync.SyncContext{
 		EnvName: "test-target",
 		Source:  s.localStorage,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.IsNil)
@@ -103,8 +102,6 @@ func (s *syncSuite) TestCopyNewestFromFilesystem(c *gc.C) {
 func (s *syncSuite) TestCopyNewestFromDummy(c *gc.C) {
 	ctx := &sync.SyncContext{
 		EnvName: "test-target",
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.IsNil)
@@ -122,8 +119,6 @@ func (s *syncSuite) TestCopyNewestDevFromDummy(c *gc.C) {
 	ctx := &sync.SyncContext{
 		EnvName: "test-target",
 		Dev:     true,
-		Stdout:  &bytes.Buffer{},
-		Stderr:  &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.IsNil)
@@ -141,8 +136,6 @@ func (s *syncSuite) TestCopyAllFromDummy(c *gc.C) {
 	ctx := &sync.SyncContext{
 		EnvName:     "test-target",
 		AllVersions: true,
-		Stdout:      &bytes.Buffer{},
-		Stderr:      &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.IsNil)
@@ -161,8 +154,6 @@ func (s *syncSuite) TestCopyAllDevFromDummy(c *gc.C) {
 		EnvName:     "test-target",
 		AllVersions: true,
 		Dev:         true,
-		Stdout:      &bytes.Buffer{},
-		Stderr:      &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.IsNil)
@@ -180,8 +171,6 @@ func (s *syncSuite) TestCopyToDummyPublic(c *gc.C) {
 	ctx := &sync.SyncContext{
 		EnvName:      "test-target",
 		PublicBucket: true,
-		Stdout:       &bytes.Buffer{},
-		Stderr:       &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.IsNil)
@@ -200,8 +189,6 @@ func (s *syncSuite) TestCopyToDummyPublicBlockedByPrivate(c *gc.C) {
 	ctx := &sync.SyncContext{
 		EnvName:      "test-target",
 		PublicBucket: true,
-		Stdout:       &bytes.Buffer{},
-		Stderr:       &bytes.Buffer{},
 	}
 	err := sync.SyncTools(ctx)
 	c.Assert(err, gc.ErrorMatches, "private tools present: public tools would be ignored")
