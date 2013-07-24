@@ -404,8 +404,9 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
 	// In the meantime we use a temporary Saucy image containing a
-	// cloud-init package which supports Azure.
-	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
+	// cloud-init package which supports Azure, see the boilerplate config
+	// for its exact name.
+	sourceImageName := snap.ecfg.ForceImageName()
 
 	// virtualNetworkName is the virtual network to which all the
 	// deployments in this environment belong.
