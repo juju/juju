@@ -49,11 +49,11 @@ func (e *UpgradeReadyError) Error() string {
 
 // ChangeAgentTools does the actual agent upgrade.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Binary)
+	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
 	if err != nil {
 		return err
 	}
-	log.Infof("upgrader upgraded from %v to %v (%q)", e.OldTools.Binary, tools.Binary, tools.URL)
+	log.Infof("upgrader upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
 	return nil
 }
 
@@ -97,7 +97,7 @@ func (u *Upgrader) run() error {
 		// download some more tools and upgrade.
 		log.Warningf("upgrader cannot read current tools: %v", err)
 		currentTools = &tools.Tools{
-			Binary: version.Current,
+			Version: version.Current,
 		}
 	}
 	err = u.agentState.SetAgentTools(currentTools)
@@ -168,7 +168,7 @@ func (u *Upgrader) run() error {
 			}
 			if download != nil {
 				// There's a download in progress, stop it if we need to.
-				if downloadTools.Number == proposed {
+				if downloadTools.Version.Number == proposed {
 					// We are already downloading the requested tools.
 					break
 				}
@@ -213,7 +213,7 @@ func (u *Upgrader) run() error {
 			newTools := downloadTools
 			download, downloadTools, downloadDone = nil, nil, nil
 			if status.Err != nil {
-				log.Errorf("upgrader download of %v failed: %v", newTools.Binary, status.Err)
+				log.Errorf("upgrader download of %v failed: %v", newTools.Version, status.Err)
 				noDelay()
 				break
 			}
@@ -223,7 +223,7 @@ func (u *Upgrader) run() error {
 				log.Warningf("upgrader cannot remove temporary download file: %v", err)
 			}
 			if err != nil {
-				log.Errorf("upgrader cannot unpack %v tools: %v", newTools.Binary, err)
+				log.Errorf("upgrader cannot unpack %v tools: %v", newTools.Version, err)
 				noDelay()
 				break
 			}

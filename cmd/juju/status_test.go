@@ -235,7 +235,7 @@ var statusTests = []testCase{
 		},
 
 		setTools{"0", &tools.Tools{
-			Binary: version.Binary{
+			Version: version.Binary{
 				Number: version.MustParse("1.2.3"),
 				Series: "gutsy",
 				Arch:   "ppc",

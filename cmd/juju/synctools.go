@@ -74,7 +74,7 @@ func copyOne(
 	tool *tools.Tools, source environs.StorageReader,
 	target environs.Storage, ctx *cmd.Context,
 ) error {
-	toolsName := tools.StorageName(tool.Binary)
+	toolsName := tools.StorageName(tool.Version)
 	fmt.Fprintf(ctx.Stderr, "copying %v", toolsName)
 	srcFile, err := source.Get(toolsName)
 	if err != nil {
@@ -102,7 +102,7 @@ func copyTools(
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
-		log.Infof("copying %s from %s", tool.Binary, tool.URL)
+		log.Infof("copying %s from %s", tool.Version, tool.URL)
 		if dryRun {
 			continue
 		}

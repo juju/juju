@@ -18,7 +18,7 @@ type List []*Tools
 func (src List) String() string {
 	names := make([]string, len(src))
 	for i, tools := range src {
-		names[i] = tools.Binary.String()
+		names[i] = tools.Version.String()
 	}
 	return strings.Join(names, ";")
 }
@@ -26,14 +26,14 @@ func (src List) String() string {
 // Series returns all series for which some tools in src were built.
 func (src List) Series() []string {
 	return src.collect(func(tools *Tools) string {
-		return tools.Series
+		return tools.Version.Series
 	})
 }
 
 // Arches returns all architectures for which some tools in src were built.
 func (src List) Arches() []string {
 	return src.collect(func(tools *Tools) string {
-		return tools.Arch
+		return tools.Version.Arch
 	})
 }
 
@@ -51,7 +51,7 @@ func (src List) collect(f func(*Tools) string) []string {
 func (src List) URLs() map[version.Binary]string {
 	result := map[version.Binary]string{}
 	for _, tools := range src {
-		result[tools.Binary] = tools.URL
+		result[tools.Version] = tools.URL
 	}
 	return result
 }
@@ -61,11 +61,11 @@ func (src List) Newest() (version.Number, List) {
 	var result List
 	var best version.Number
 	for _, tools := range src {
-		if best.Less(tools.Number) {
+		if best.Less(tools.Version.Number) {
 			// Found new best number; reset result list.
-			best = tools.Number
+			best = tools.Version.Number
 			result = append(result[:0], tools)
-		} else if tools.Number == best {
+		} else if tools.Version.Number == best {
 			result = append(result, tools)
 		}
 	}
@@ -76,11 +76,11 @@ func (src List) Newest() (version.Number, List) {
 func (src List) Exclude(excluded List) List {
 	ignore := make(map[version.Binary]bool, len(excluded))
 	for _, tool := range excluded {
-		ignore[tool.Binary] = true
+		ignore[tool.Version] = true
 	}
 	var result List
 	for _, tool := range src {
-		if !ignore[tool.Binary] {
+		if !ignore[tool.Version] {
 			result = append(result, tool)
 		}
 	}
@@ -125,16 +125,16 @@ type Filter struct {
 
 // match returns true if the supplied tools match f.
 func (f Filter) match(tools *Tools) bool {
-	if f.Released && tools.IsDev() {
+	if f.Released && tools.Version.IsDev() {
 		return false
 	}
-	if f.Number != version.Zero && tools.Number != f.Number {
+	if f.Number != version.Zero && tools.Version.Number != f.Number {
 		return false
 	}
-	if f.Series != "" && tools.Series != f.Series {
+	if f.Series != "" && tools.Version.Series != f.Series {
 		return false
 	}
-	if f.Arch != "" && tools.Arch != f.Arch {
+	if f.Arch != "" && tools.Version.Arch != f.Arch {
 		return false
 	}
 	return true
