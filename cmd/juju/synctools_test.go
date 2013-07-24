@@ -4,6 +4,9 @@
 package main
 
 import (
+	"errors"
+	"time"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -62,74 +65,69 @@ func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
 	return coretesting.RunCommand(c, &SyncToolsCommand{}, args)
 }
 
+func wait(signal chan struct{}) error {
+	select {
+	case <-signal:
+		return nil
+	case <-time.After(25 * time.Millisecond):
+		return errors.New("timeout")
+	}
+	panic("unreachable")
+}
+
 func (s *syncToolsSuite) TestEnvironmentOnly(c *gc.C) {
-	syncToolsCalled := false
+	called := make(chan struct{}, 1)
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.EnvName, gc.Equals, "test-target")
-		c.Assert(sctx.AllVersions, gc.Equals, false)
-		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.PublicBucket, gc.Equals, false)
-		c.Assert(sctx.Dev, gc.Equals, false)
-		c.Assert(sctx.Source, gc.Equals, "")
-		syncToolsCalled = true
+		called <- struct{}{}
 		return nil
 	}
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
-	c.Assert(syncToolsCalled, gc.Equals, true)
+	c.Assert(wait(called), gc.IsNil)
 }
 
 func (s *syncToolsSuite) TestWithSource(c *gc.C) {
-	syncToolsCalled := false
+	called := make(chan struct{}, 1)
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.EnvName, gc.Equals, "test-target")
-		c.Assert(sctx.AllVersions, gc.Equals, false)
-		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.PublicBucket, gc.Equals, false)
-		c.Assert(sctx.Dev, gc.Equals, false)
 		c.Assert(sctx.Source, gc.Equals, "/foo/bar")
-		syncToolsCalled = true
+		called <- struct{}{}
 		return nil
 	}
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--source", "/foo/bar")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
-	c.Assert(syncToolsCalled, gc.Equals, true)
+	c.Assert(wait(called), gc.IsNil)
 }
 
 func (s *syncToolsSuite) TestWithAllAndDev(c *gc.C) {
-	syncToolsCalled := false
+	called := make(chan struct{}, 1)
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.EnvName, gc.Equals, "test-target")
 		c.Assert(sctx.AllVersions, gc.Equals, true)
-		c.Assert(sctx.DryRun, gc.Equals, false)
-		c.Assert(sctx.PublicBucket, gc.Equals, false)
 		c.Assert(sctx.Dev, gc.Equals, true)
-		c.Assert(sctx.Source, gc.Equals, "")
-		syncToolsCalled = true
+		called <- struct{}{}
 		return nil
 	}
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--all", "--dev")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
-	c.Assert(syncToolsCalled, gc.Equals, true)
+	c.Assert(wait(called), gc.IsNil)
 }
 
 func (s *syncToolsSuite) TestWithPublicAndDry(c *gc.C) {
-	syncToolsCalled := false
+	called := make(chan struct{}, 1)
 	syncTools = func(sctx *sync.SyncContext) error {
 		c.Assert(sctx.EnvName, gc.Equals, "test-target")
-		c.Assert(sctx.AllVersions, gc.Equals, false)
 		c.Assert(sctx.DryRun, gc.Equals, true)
 		c.Assert(sctx.PublicBucket, gc.Equals, true)
-		c.Assert(sctx.Dev, gc.Equals, false)
-		c.Assert(sctx.Source, gc.Equals, "")
-		syncToolsCalled = true
+		called <- struct{}{}
 		return nil
 	}
 	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--public", "--dry-run")
 	c.Assert(err, gc.IsNil)
 	c.Assert(ctx, gc.NotNil)
-	c.Assert(syncToolsCalled, gc.Equals, true)
+	c.Assert(wait(called), gc.IsNil)
 }

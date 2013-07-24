@@ -30,16 +30,21 @@ var DefaultToolsLocation = "https://juju-dist.s3.amazonaws.com/"
 type SyncContext struct {
 	// EnvName names the target environment for synchronization.
 	EnvName string
+
 	// AllVersions controls the copy of all versions, not only the latest.
 	AllVersions bool
+
 	// DryRun controls that nothing is copied. Instead it's logged
 	// what would be coppied.
 	DryRun bool
+
 	// PublicBucket controls the copy into the public pucket of the
 	// account instead of the private of the environment.
 	PublicBucket bool
+
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
+
 	// Source allows to chose a location on the file system as source.
 	Source string
 
@@ -48,7 +53,7 @@ type SyncContext struct {
 }
 
 // SyncTools copies the Juju tools tarball from the official bucket
-// or a specified source directory into the users environment.
+// or a specified source directory into the user's environment.
 func SyncTools(ctx *SyncContext) error {
 	var err error
 	ctx.sourceStorage, err = selectSourceStorage(ctx)
@@ -60,7 +65,7 @@ func SyncTools(ctx *SyncContext) error {
 		return fmt.Errorf("unable to read %q from environment", ctx.EnvName)
 	}
 
-	logger.Infof("listing the source bucket\n")
+	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
 	sourceTools, err := tools.ReadList(ctx.sourceStorage, majorVersion)
 	if err != nil {
@@ -73,17 +78,17 @@ func SyncTools(ctx *SyncContext) error {
 			return err
 		}
 	}
-	logger.Infof("found %d tools\n", len(sourceTools))
+	logger.Infof("found %d tools", len(sourceTools))
 	if !ctx.AllVersions {
 		var latest version.Number
 		latest, sourceTools = sourceTools.Newest()
-		logger.Infof("found %d recent tools (version %s)\n", len(sourceTools), latest)
+		logger.Infof("found %d recent tools (version %s)", len(sourceTools), latest)
 	}
 	for _, tool := range sourceTools {
 		logger.Debugf("found source tool: %s", tool)
 	}
 
-	logger.Infof("listing target bucket\n")
+	logger.Infof("listing target bucket")
 	ctx.targetStorage = targetEnv.Storage()
 	if ctx.PublicBucket {
 		switch _, err := tools.ReadList(ctx.targetStorage, majorVersion); err {
@@ -109,12 +114,12 @@ func SyncTools(ctx *SyncContext) error {
 	}
 
 	missing := sourceTools.Exclude(targetTools)
-	logger.Infof("found %d tools in target; %d tools to be copied\n", len(targetTools), len(missing))
+	logger.Infof("found %d tools in target; %d tools to be copied", len(targetTools), len(missing))
 	err = copyTools(missing, ctx)
 	if err != nil {
 		return err
 	}
-	logger.Infof("copied %d tools\n", len(missing))
+	logger.Infof("copied %d tools", len(missing))
 	return nil
 }
 
@@ -133,15 +138,15 @@ func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
 		if ctx.DryRun {
 			continue
 		}
-		if err := copyOneTool(tool, ctx); err != nil {
+		if err := copyOneToolsPackage(tool, ctx); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-// copyOneTool copies one tool from the source to the target.
-func copyOneTool(tool *tools.Tools, ctx *SyncContext) error {
+// copyOneToolsPackage copies one tool from the source to the target.
+func copyOneToolsPackage(tool *tools.Tools, ctx *SyncContext) error {
 	toolsName := tools.StorageName(tool.Binary)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := ctx.sourceStorage.Get(toolsName)
@@ -157,7 +162,7 @@ func copyOneTool(tool *tools.Tools, ctx *SyncContext) error {
 		return err
 	}
 	logger.Infof("downloaded %v (%dkB), uploading", toolsName, (nBytes+512)/1024)
-	logger.Infof(", download %dkB, uploading\n", (nBytes+512)/1024)
+	logger.Infof("download %dkB, uploading", (nBytes+512)/1024)
 
 	if err := ctx.targetStorage.Put(toolsName, buf, nBytes); err != nil {
 		return err
@@ -165,12 +170,13 @@ func copyOneTool(tool *tools.Tools, ctx *SyncContext) error {
 	return nil
 }
 
-// fileStorageReader implements StorageReader backed by the local filesystem.
+// fileStorageReader implements StorageReader backed
+// by the local filesystem.
 type fileStorageReader struct {
 	path string
 }
 
-// newFileStorageReader return a new storage reader for
+// newFileStorageReader returns a new storage reader for
 // a directory inside the local file system.
 func newFileStorageReader(path string) (environs.StorageReader, error) {
 	p := filepath.Clean(path)
@@ -240,7 +246,7 @@ type syncLogWriter struct {
 	err io.Writer
 }
 
-// Write implements loggos Writer interface.
+// Write implements loggo's Writer interface.
 func (s *syncLogWriter) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
 	if name == "juju.environs.sync" {
 		if level <= loggo.INFO {

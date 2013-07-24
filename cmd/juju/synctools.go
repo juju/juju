@@ -4,9 +4,9 @@
 package main
 
 import (
+	"launchpad.net/gnuflag"
 	"launchpad.net/loggo"
 
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/sync"
 )
