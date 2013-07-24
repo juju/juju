@@ -773,11 +773,12 @@ func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwac
 
 func (*EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
+	size := "Large"
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
 	hostname := "hostname"
 
-	role := env.newRole(vhd, userData, hostname)
+	role := env.newRole(size, vhd, userData, hostname)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
@@ -787,6 +788,7 @@ func (*EnvironSuite) TestNewRole(c *C) {
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
+	c.Check(role.RoleSize, Equals, size)
 	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
 
 	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
@@ -818,7 +820,7 @@ func (*EnvironSuite) TestNewDeployment(c *C) {
 	deploymentLabel := "deployment-label"
 	virtualNetworkName := "virtual-network-name"
 	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole(vhd, "user-data", "hostname")
+	role := env.newRole("Small", vhd, "user-data", "hostname")
 
 	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
 
