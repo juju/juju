@@ -59,6 +59,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
+	network := &lxc.NetworkConfig{Type: lxc.HostNetwork}
 
 	series := "series"
 	nonce := "fake-nonce"
@@ -67,7 +68,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 
-	inst, err := manager.StartContainer(machineId, series, nonce, tools, config, stateInfo, apiInfo)
+	inst, err := manager.StartContainer(machineId, series, nonce, network, tools, config, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 	return inst
 }

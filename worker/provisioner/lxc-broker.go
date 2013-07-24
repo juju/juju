@@ -36,7 +36,10 @@ type lxcBroker struct {
 func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
-	inst, err := broker.manager.StartContainer(machineId, series, machineNonce, broker.tools, broker.config, info, apiInfo)
+	// Default to using the host network until we can configure.
+	network := &lxc.NetworkConfig{Type: lxc.HostNetwork}
+
+	inst, err := broker.manager.StartContainer(machineId, series, machineNonce, network, broker.tools, broker.config, info, apiInfo)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err

@@ -34,6 +34,21 @@ var (
 	lxcObjectFactory    = golxc.Factory()
 )
 
+const (
+	// HostNetwork means the container to use the host's network directly.
+	HostNetwork = "host"
+	// BridgeNetwork will have the container use the lxc bridge.
+	BridgeNetwork = "bridge"
+	// PhyscialNetwork will have the container use a specified network device.
+	PhysicalNetwork = "physical"
+)
+
+// NetworkConfig defines how the container network will be configured.
+type NetworkConfig struct {
+	Type   string
+	Device string
+}
+
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 type ManagerConfig struct {
 	Name   string
@@ -47,6 +62,7 @@ type ContainerManager interface {
 	// StartContainer creates and starts a new lxc container for the specified machine.
 	StartContainer(
 		machineId, series, nonce string,
+		network *NetworkConfig,
 		tools *tools.Tools,
 		environConfig *config.Config,
 		stateInfo *state.Info,
@@ -76,6 +92,7 @@ func NewContainerManager(conf ManagerConfig) ContainerManager {
 
 func (manager *containerManager) StartContainer(
 	machineId, series, nonce string,
+	network *NetworkConfig,
 	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
@@ -104,7 +121,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(directory, manager.logdir)
+	configFile, err := writeLxcConfig(network, directory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, err
@@ -221,18 +238,39 @@ func restartSymlink(name string) string {
 	return filepath.Join(lxcRestartDir, name+".conf")
 }
 
-const localConfig = `
-lxc.network.type = veth
-lxc.network.link = lxcbr0
-lxc.network.flags = up
-
+const localConfig = `%s
 lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
 `
 
-func writeLxcConfig(directory, logdir string) (string, error) {
-	// TODO(thumper): support different network settings.
+const networkTemplate = `
+lxc.network.type = %s
+lxc.network.link = %s
+lxc.network.flags = up
+`
+
+func networkConfigTemplate(networkType, networkLink string) string {
+	return fmt.Sprintf(networkTemplate, networkType, networkLink)
+}
+
+func generateNetworkConfig(network *NetworkConfig) string {
+	switch network.Type {
+	case HostNetwork:
+		return ""
+	case PhysicalNetwork:
+		return networkConfigTemplate("phys", network.Device)
+	default:
+		logger.Warningf("Unknown network config type %q: using bridge", network.Type)
+		fallthrough
+	case BridgeNetwork:
+		return networkConfigTemplate("veth", "lxcbr0")
+	}
+	panic("unreachable")
+}
+
+func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, error) {
+	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
-	configContent := fmt.Sprintf(localConfig, logdir)
+	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
 	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
 		return "", err
 	}
