@@ -162,7 +162,7 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	c.Assert(results.Results[0].Error, IsNil)
 	agentTools := results.Results[0].Tools
 	c.Check(agentTools.URL, Not(Equals), "")
-	c.Check(agentTools.Binary, DeepEquals, cur)
+	c.Check(agentTools.Version, DeepEquals, cur)
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *C) {
@@ -177,21 +177,17 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, IsNil)
-	cur := version.Current
-	tools := params.AgentTools{
-		Tag:    s.rawMachine.Tag(),
-		Arch:   cur.Arch,
-		Series: cur.Series,
-		Major:  cur.Major,
-		Minor:  cur.Minor,
-		Patch:  cur.Patch,
-		Build:  cur.Build,
-		URL:    "",
+	args := params.SetAgentsTools{
+		AgentTools: []params.SetAgentTools{{
+			Tag:    s.rawMachine.Tag(),
+			Tools: &tools.Tools{
+				Version: version.Current,
+			},
+		}},
 	}
-	args := params.SetAgentTools{AgentTools: []params.AgentTools{tools}}
+	
 	results, err := anUpgrader.SetTools(args)
 	c.Assert(results.Results, HasLen, 1)
-	c.Assert(results.Results[0].Tag, Equals, s.rawMachine.Tag())
 	c.Assert(results.Results[0].Error, DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
@@ -199,21 +195,17 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 	cur := version.Current
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
-	tools := params.AgentTools{
-		Tag:    s.rawMachine.Tag(),
-		Arch:   cur.Arch,
-		Series: cur.Series,
-		Major:  cur.Major,
-		Minor:  cur.Minor,
-		Patch:  cur.Patch,
-		Build:  cur.Build,
-		URL:    "",
+	args := params.SetAgentsTools{
+		AgentTools: []params.SetAgentTools{{
+			Tag: s.rawMachine.Tag(),
+			Tools: &tools.Tools{
+				Version: cur,
+			}},
+		},
 	}
-	args := params.SetAgentTools{AgentTools: []params.AgentTools{tools}}
 	results, err := s.upgrader.SetTools(args)
 	c.Assert(err, IsNil)
 	c.Assert(results.Results, HasLen, 1)
-	c.Assert(results.Results[0].Tag, Equals, s.rawMachine.Tag())
 	c.Assert(results.Results[0].Error, IsNil)
 	// Check that the new value actually got set, we must Refresh because
 	// it was set on a different Machine object
