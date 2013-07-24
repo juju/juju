@@ -20,6 +20,7 @@ var configFields = schema.Fields{
 	"storage-container-name":        schema.String(),
 	"public-storage-account-name":   schema.String(),
 	"public-storage-container-name": schema.String(),
+	"force-image-name":              schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"location":                      "",
@@ -28,6 +29,7 @@ var configDefaults = schema.Defaults{
 	"storage-container-name":        "",
 	"public-storage-account-name":   "",
 	"public-storage-container-name": "",
+	"force-image-name":              "",
 }
 
 type azureEnvironConfig struct {
@@ -65,6 +67,10 @@ func (cfg *azureEnvironConfig) PublicStorageContainerName() string {
 
 func (cfg *azureEnvironConfig) PublicStorageAccountName() string {
 	return cfg.attrs["public-storage-account-name"].(string)
+}
+
+func (cfg *azureEnvironConfig) ForceImageName() string {
+	return cfg.attrs["force-image-name"].(string)
 }
 
 func (prov azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironConfig, error) {
@@ -140,6 +146,9 @@ const boilerplateYAML = `azure:
   # container holding the juju tools.
   # public-storage-account-name: public-storage-account
   # public-storage-container-name: public-storage-container-name
+  # Override OS image selection with a fixed image for all deployments.
+  # Most useful for developers.
+  # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {
