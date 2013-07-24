@@ -394,7 +394,7 @@ var statusTests = []testCase{
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"open-ports": L{
-									"tcp:2", "tcp:3", "udp:2", "udp:10",
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
 							},
 						},
@@ -463,7 +463,7 @@ var statusTests = []testCase{
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
 								"open-ports": L{
-									"tcp:2", "tcp:3", "udp:2", "udp:10",
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
 								},
 							},
 						},
