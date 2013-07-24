@@ -2,6 +2,9 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package params
+import (
+	"launchpad.net/juju-core/agent/tools"
+)
 
 // Entity identifies a single entity.
 type Entity struct {
@@ -63,44 +66,28 @@ type MachineAgentGetMachinesResult struct {
 	Error *Error
 }
 
-// AgentTools describes the tools for a given Agent. This is mostly a flattened
-// tools.Tools description, plus an agent Tag field.
-type AgentTools struct {
-	Tag    string
-	Major  int
-	Minor  int
-	Patch  int
-	Build  int
-	Arch   string
-	Series string
-	URL    string
-}
-
 // AgentToolsResult holds the tools and possibly error for a given Agent request
 type AgentToolsResult struct {
-	AgentTools AgentTools
+	Tools *tools.Tools
 	Error      *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
 type AgentToolsResults struct {
-	Tools []AgentToolsResult
+	Results []AgentToolsResult
 }
 
-// Set what tools are being run for multiple agents
+// SetAgent tools specifies tools to be set for an agent with the
+// given tag.
 type SetAgentTools struct {
-	AgentTools []AgentTools
+	Tag string
+	Tools *tools.Tools
 }
 
-// The result of setting the tools for one agent
-type SetAgentToolsResult struct {
-	Tag   string
-	Error *Error
-}
-
-// The result of setting the tools for many agents
-type SetAgentToolsResults struct {
-	Results []SetAgentToolsResult
+// SetAgentsTools specifies what tools are being run for
+// multiple agents.
+type SetAgentsTools struct {
+	AgentTools []SetAgentTools
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

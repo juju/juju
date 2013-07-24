@@ -123,7 +123,7 @@ func (s *upgraderSuite) TestToolsNothing(c *C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.Tools(params.Entities{})
 	c.Assert(err, IsNil)
-	c.Check(results.Tools, HasLen, 0)
+	c.Check(results.Results, HasLen, 0)
 }
 
 func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
@@ -137,9 +137,8 @@ func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
 	c.Assert(err, IsNil)
-	c.Check(results.Tools, HasLen, 1)
-	toolResult := results.Tools[0]
-	c.Check(toolResult.AgentTools.Tag, Equals, s.rawMachine.Tag())
+	c.Check(results.Results, HasLen, 1)
+	toolResult := results.Results[0]
 	c.Assert(toolResult.Error, DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
@@ -159,17 +158,11 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
 	c.Assert(err, IsNil)
-	c.Check(results.Tools, HasLen, 1)
-	agentTools := results.Tools[0].AgentTools
-	c.Assert(results.Tools[0].Error, IsNil)
-	c.Check(agentTools.Tag, Equals, s.rawMachine.Tag())
-	c.Check(agentTools.Major, Equals, cur.Major)
-	c.Check(agentTools.Minor, Equals, cur.Minor)
-	c.Check(agentTools.Patch, Equals, cur.Patch)
-	c.Check(agentTools.Build, Equals, cur.Build)
-	c.Check(agentTools.Arch, Equals, cur.Arch)
-	c.Check(agentTools.Series, Equals, cur.Series)
+	c.Check(results.Results, HasLen, 1)
+	c.Assert(results.Results[0].Error, IsNil)
+	agentTools := results.Results[0].Tools
 	c.Check(agentTools.URL, Not(Equals), "")
+	c.Check(agentTools.Binary, DeepEquals, cur)
 }
 
 func (s *upgraderSuite) TestSetToolsNothing(c *C) {
