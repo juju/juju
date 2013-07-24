@@ -326,3 +326,18 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 		},
 	})
 }
+
+func (s *deployerSuite) TestServerInfo(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.deployer.ServerInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ServerInfoResult{
+		Addresses:    addresses,
+		APIAddresses: apiAddresses,
+		CACert:       s.State.CACert(),
+	})
+}

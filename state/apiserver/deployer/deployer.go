@@ -140,3 +140,23 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 	}
 	return result, nil
 }
+
+// ServerInfo returns the addresses to connect to state, the API
+// server and the public TLS certificate.
+func (d *DeployerAPI) ServerInfo() (params.ServerInfoResult, error) {
+	// Get state addresses, API addresses and CACert.
+	addresses, err := d.st.Addresses()
+	if err != nil {
+		return params.ServerInfoResult{}, err
+	}
+	apiAddresses, err := d.st.APIAddresses()
+	if err != nil {
+		return params.ServerInfoResult{}, err
+	}
+	caCert := d.st.CACert()
+	return params.ServerInfoResult{
+		Addresses:    addresses,
+		APIAddresses: apiAddresses,
+		CACert:       caCert,
+	}, nil
+}
