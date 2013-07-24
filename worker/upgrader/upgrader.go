@@ -132,11 +132,11 @@ func fetchTools(tools *agent.Tools) error {
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close(0
+	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("bad http response: %v", resp.Status)
 	}
-	err := agent.UnpackTools(u.dataDir, tools, resp.Body)
+	err = agent.UnpackTools(u.dataDir, tools, resp.Body)
 	if err != nil {
 		return nil, fmt.Errorf("cannot unpack tools: %v", err)
 	}
