@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/instance"
 	"net/http"
 	"strings"
 	"text/template"
@@ -82,8 +83,9 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 	}
 	return writablePublicStorage
 }
-func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	return instanceAddress(addresses)
+
+func InstanceAddress(addresses map[string][]nova.IPAddress) string {
+	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
 }
 
 var publicBucketIndexData = `
