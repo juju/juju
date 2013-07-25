@@ -4,6 +4,7 @@
 package cmd_test
 
 import (
+	"bytes"
 	"fmt"
 
 	. "launchpad.net/gocheck"
@@ -101,6 +102,35 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 	jc.Doc = ""
 	info = jc.Info()
 	c.Assert(info.Doc, Matches, commandsDoc+helpText)
+}
+
+func (s *SuperCommandSuite) TestVersionFlag(c *C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
+		Name:    "jujutest",
+		Purpose: "to be purposeful",
+		Doc:     "doc\nblah\ndoc",
+	})
+	jc.Register(&cmd.VersionCommand{})
+
+	var stdout, stderr bytes.Buffer
+	ctx := &cmd.Context{
+		Stdout: &stdout,
+		Stderr: &stderr,
+	}
+
+	// baseline: juju version
+	code := cmd.Main(jc, ctx, []string{"version"})
+	c.Check(code, Equals, 0)
+	baselineStderr := stderr.String()
+	baselineStdout := stdout.String()
+	stderr.Reset()
+	stdout.Reset()
+
+	// juju --version output should match that of juju version.
+	code = cmd.Main(jc, ctx, []string{"--version"})
+	c.Check(code, Equals, 0)
+	c.Assert(stderr.String(), Equals, baselineStderr)
+	c.Assert(stdout.String(), Equals, baselineStdout)
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
