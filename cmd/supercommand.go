@@ -192,6 +192,9 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
+	// setCommonFlags creates a new "commonflags" flagset, whose
+	// flags are shared with f; this enables us to add non-global
+	// flags to f, which do not carry into subcommands.
 	c.setCommonFlags(f)
 	f.BoolVar(&c.showVersion, "version", false, "Show the version of juju")
 	c.flags = f
