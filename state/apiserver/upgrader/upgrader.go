@@ -4,6 +4,8 @@
 package upgrader
 
 import (
+	"errors"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
@@ -59,20 +61,18 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 	return result, nil
 }
 
-var nilTools params.AgentTools
-
-func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.Number, env environs.Environ) (params.AgentTools, error) {
+func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.Number, env environs.Environ) (*tools.Tools, error) {
 	if !u.authorizer.AuthOwner(entity.Tag) {
-		return nilTools, common.ErrPerm
+		return nil, common.ErrPerm
 	}
 	machine, err := u.st.Machine(state.MachineIdFromTag(entity.Tag))
 	if err != nil {
-		return nilTools, err
+		return nil, err
 	}
 	// TODO: Support Unit as well as Machine
 	existingTools, err := machine.AgentTools()
 	if err != nil {
-		return nilTools, err
+		return nil, err
 	}
 	requested := version.Binary{
 		Number: agentVersion,
@@ -82,90 +82,61 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
 	// in state, or even in the API servers
-	tools, err := environs.FindExactTools(env, requested)
-	if err != nil {
-		return nilTools, err
-	}
-	return params.AgentTools{
-		Tag:    entity.Tag,
-		Arch:   tools.Version.Arch,
-		Series: tools.Version.Series,
-		URL:    tools.URL,
-		Major:  tools.Version.Major,
-		Minor:  tools.Version.Minor,
-		Patch:  tools.Version.Patch,
-		Build:  tools.Version.Build,
-	}, nil
+	return environs.FindExactTools(env, requested)
 }
 
 // Tools finds the Tools necessary for the given agents.
 func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, error) {
-	tools := make([]params.AgentToolsResult, len(args.Entities))
-	result := params.AgentToolsResults{Tools: tools}
+	results := make([]params.AgentToolsResult, len(args.Entities))
 	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	for i, entity := range args.Entities {
-		tools[i].AgentTools.Tag = entity.Tag
+		return params.AgentToolsResults{}, nil
 	}
 	// For now, all agents get the same proposed version
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
-		return result, err
+		return params.AgentToolsResults{}, err
 	}
 	agentVersion, ok := cfg.AgentVersion()
 	if !ok {
-		// TODO: What error do we give here?
-		return result, common.ErrBadRequest
+		return params.AgentToolsResults{}, errors.New("agent version not set in environment config")
 	}
 	env, err := environs.New(cfg)
 	if err != nil {
-		return result, err
+		return params.AgentToolsResults{}, err
 	}
 	for i, entity := range args.Entities {
 		agentTools, err := u.oneAgentTools(entity, agentVersion, env)
 		if err == nil {
-			tools[i].AgentTools = agentTools
+			results[i].Tools = agentTools
 		}
-		tools[i].Error = common.ServerError(err)
+		results[i].Error = common.ServerError(err)
 	}
-	return result, nil
+	return params.AgentToolsResults{results}, nil
 }
 
 // SetTools updates the recorded tools version for the agents.
-func (u *UpgraderAPI) SetTools(args params.SetAgentTools) (params.SetAgentToolsResults, error) {
-	results := params.SetAgentToolsResults{
-		Results: make([]params.SetAgentToolsResult, len(args.AgentTools)),
+func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults, error) {
+	results := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}
 	for i, agentTools := range args.AgentTools {
-		var err error
-		results.Results[i].Tag = agentTools.Tag
-		if !u.authorizer.AuthOwner(agentTools.Tag) {
-			err = common.ErrPerm
-		} else {
-			// TODO: When we get there, we should support setting
-			//       Unit agent tools as well as Machine tools. We
-			//       can use something like the "AgentState"
-			//       interface that cmd/jujud/agent.go had.
-			machine, err := u.st.Machine(state.MachineIdFromTag(agentTools.Tag))
-			if err == nil {
-				stTools := tools.Tools{
-					Version: version.Binary{
-						Number: version.Number{
-							Major: agentTools.Major,
-							Minor: agentTools.Minor,
-							Patch: agentTools.Patch,
-							Build: agentTools.Build,
-						},
-						Arch:   agentTools.Arch,
-						Series: agentTools.Series,
-					},
-					URL: agentTools.URL,
-				}
-				err = machine.SetAgentTools(&stTools)
-			}
-		}
+		err := u.setOneAgentTools(agentTools.Tag, agentTools.Tools)
 		results.Results[i].Error = common.ServerError(err)
 	}
 	return results, nil
+}
+
+func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
+	if !u.authorizer.AuthOwner(tag) {
+		return common.ErrPerm
+	}
+	// We assume that any entity that we can upgrade will
+	// have a Life, which is certainly true now, but is
+	// an assumption that may need revisiting at some point.
+	entity0, err := u.st.Lifer(tag)
+	if err != nil {
+		return err
+	}
+	entity := entity0.(state.SetAgentTooler)
+	return entity.SetAgentTools(tools)
 }

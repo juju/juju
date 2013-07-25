@@ -174,6 +174,39 @@ func (*InstanceTypeSuite) TestIsValidArch(c *gc.C) {
 	}
 }
 
+func (*InstanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
+	c.Check(
+		*defaultToBaselineSpec(constraints.Value{}).Mem,
+		gc.Equals,
+		uint64(defaultMem))
+}
+
+func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesOriginalIntact(c *gc.C) {
+	original := constraints.Value{}
+	defaultToBaselineSpec(original)
+	c.Check(original.Mem, gc.IsNil)
+}
+
+func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C) {
+	const low = 100 * gwacl.MB
+	var value uint64 = low
+	c.Check(
+		defaultToBaselineSpec(constraints.Value{Mem: &value}).Mem,
+		gc.Equals,
+		&value)
+	c.Check(value, gc.Equals, uint64(low))
+}
+
+func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C) {
+	const high = 100 * gwacl.MB
+	var value uint64 = high
+	c.Check(
+		defaultToBaselineSpec(constraints.Value{Mem: &value}).Mem,
+		gc.Equals,
+		&value)
+	c.Check(value, gc.Equals, uint64(high))
+}
+
 func (*InstanceTypeSuite) TestSelectMachineTypeChecksArch(c *gc.C) {
 	unsupportedArch := "amd32k"
 	constraint := constraints.Value{Arch: &unsupportedArch}
