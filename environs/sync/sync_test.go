@@ -36,13 +36,13 @@ type syncSuite struct {
 
 var _ = gc.Suite(&syncSuite{})
 
-func (s *syncSuite) SetUpTest(c *gc.C) {
+func (s *syncSuite) setUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.origVersion = version.Current
 	// It's important that this be v1 to match the test data.
 	version.Current.Number = version.MustParse("1.2.3")
 
-	// Create a target environments.yaml and make sure its environment is empty.
+	// Create a target environments.yaml and make sure its environment is emptyPublic.
 	s.home = coretesting.MakeFakeHome(c, `
 environments:
     test-target:
@@ -73,7 +73,7 @@ environments:
 	sync.DefaultToolsLocation = s.storage.Location()
 }
 
-func (s *syncSuite) TearDownTest(c *gc.C) {
+func (s *syncSuite) tearDownTest(c *gc.C) {
 	c.Assert(s.storage.Stop(), gc.IsNil)
 	sync.DefaultToolsLocation = s.origLocation
 	dummy.Reset()
@@ -82,109 +82,102 @@ func (s *syncSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *syncSuite) TestCopyNewestFromFilesystem(c *gc.C) {
-	ctx := &sync.SyncContext{
-		EnvName: "test-target",
-		Source:  s.localStorage,
-	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.IsNil)
-
-	// Newest released v1 tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, gc.IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
+var tests = []struct {
+	description string
+	ctx         *sync.SyncContext
+	source      bool
+	tools       []version.Binary
+	emptyPublic bool
+}{
+	{
+		description: "copy newest from the filesystem",
+		ctx: &sync.SyncContext{
+			EnvName: "test-target",
+		},
+		source:      true,
+		tools:       v100all,
+		emptyPublic: true,
+	},
+	{
+		description: "copy newest from the dummy environment",
+		ctx: &sync.SyncContext{
+			EnvName: "test-target",
+		},
+		tools:       v100all,
+		emptyPublic: true,
+	},
+	{
+		description: "copy newest dev from the dummy environment",
+		ctx: &sync.SyncContext{
+			EnvName: "test-target",
+			Dev:     true,
+		},
+		tools:       v190all,
+		emptyPublic: true,
+	},
+	{
+		description: "copy all from the dummy environment",
+		ctx: &sync.SyncContext{
+			EnvName:     "test-target",
+			AllVersions: true,
+		},
+		tools:       v100all,
+		emptyPublic: true,
+	},
+	{
+		description: "copy all and dev from the dummy environment",
+		ctx: &sync.SyncContext{
+			EnvName:     "test-target",
+			AllVersions: true,
+			Dev:         true,
+		},
+		tools:       v1all,
+		emptyPublic: true,
+	},
+	{
+		description: "copy to the dummy environment public storage",
+		ctx: &sync.SyncContext{
+			EnvName:      "test-target",
+			PublicBucket: true,
+		},
+		tools:       v100all,
+		emptyPublic: false,
+	},
 }
 
-func (s *syncSuite) TestCopyNewestFromDummy(c *gc.C) {
-	ctx := &sync.SyncContext{
-		EnvName: "test-target",
+func (s *syncSuite) TestSyncing(c *gc.C) {
+	for _, test := range tests {
+		// Perform all tests in a "clean" environment.
+		func() {
+			s.setUpTest(c)
+			defer s.tearDownTest(c)
+
+			c.Log(test.description)
+
+			if test.source {
+				test.ctx.Source = s.localStorage
+			}
+
+			err := sync.SyncTools(test.ctx)
+			c.Assert(err, gc.IsNil)
+
+			targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
+			c.Assert(err, gc.IsNil)
+			assertToolsList(c, targetTools, test.tools)
+
+			if test.emptyPublic {
+				assertEmpty(c, s.targetEnv.PublicStorage())
+			} else {
+				assertEmpty(c, s.targetEnv.Storage())
+			}
+		}()
 	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.IsNil)
-
-	// Newest released v1 tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, gc.IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncSuite) TestCopyNewestDevFromDummy(c *gc.C) {
-	ctx := &sync.SyncContext{
-		EnvName: "test-target",
-		Dev:     true,
-	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.IsNil)
-
-	// Newest v1 dev tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, gc.IsNil)
-	assertToolsList(c, targetTools, v190all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncSuite) TestCopyAllFromDummy(c *gc.C) {
-	ctx := &sync.SyncContext{
-		EnvName:     "test-target",
-		AllVersions: true,
-	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.IsNil)
-
-	// All released v1 tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, gc.IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncSuite) TestCopyAllDevFromDummy(c *gc.C) {
-	ctx := &sync.SyncContext{
-		EnvName:     "test-target",
-		AllVersions: true,
-		Dev:         true,
-	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.IsNil)
-
-	// All v1 tools, dev and release, made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, gc.IsNil)
-	assertToolsList(c, targetTools, v1all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncSuite) TestCopyToDummyPublic(c *gc.C) {
-	ctx := &sync.SyncContext{
-		EnvName:      "test-target",
-		PublicBucket: true,
-	}
-	err := sync.SyncTools(ctx)
-	c.Assert(err, gc.IsNil)
-
-	// Newest released tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, gc.IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Private bucket was not touched.
-	assertEmpty(c, s.targetEnv.Storage())
 }
 
 func (s *syncSuite) TestCopyToDummyPublicBlockedByPrivate(c *gc.C) {
+	s.setUpTest(c)
+	defer s.tearDownTest(c)
+
 	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
 	ctx := &sync.SyncContext{
 		EnvName:      "test-target",
