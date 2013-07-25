@@ -126,10 +126,6 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults,
 	return results, nil
 }
 
-type setAgentTooler interface {
-	SetAgentTools(*tools.Tools) error
-}
-
 func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
 	if !u.authorizer.AuthOwner(tag) {
 		return common.ErrPerm
@@ -141,6 +137,6 @@ func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
 	if err != nil {
 		return err
 	}
-	entity := entity0.(setAgentTooler)
+	entity := entity0.(state.SetAgentTooler)
 	return entity.SetAgentTools(tools)
 }
