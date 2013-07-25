@@ -22,6 +22,11 @@ func (inst *localInstance) Id() instance.Id {
 	return inst.id
 }
 
+func (inst *localInstance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("localInstance.Addresses not implemented")
+	return nil, nil
+}
+
 // DNSName implements instance.Instance.DNSName.
 func (inst *localInstance) DNSName() (string, error) {
 	if string(inst.id) == "localhost" {

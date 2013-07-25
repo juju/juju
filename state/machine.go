@@ -203,7 +203,7 @@ func (m *Machine) AgentTools() (*tools.Tools, error) {
 // SetAgentTools sets the tools that the agent is currently running.
 func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
-	if t.Series == "" || t.Arch == "" {
+	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
 	ops := []txn.Op{{

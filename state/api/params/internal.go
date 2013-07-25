@@ -3,6 +3,10 @@
 
 package params
 
+import (
+	"launchpad.net/juju-core/agent/tools"
+)
+
 // Entity identifies a single entity.
 type Entity struct {
 	Tag string
@@ -23,6 +27,18 @@ type BoolResult struct {
 // BoolResults holds the boolean or error results of multiple entities.
 type BoolResults struct {
 	Results []BoolResult
+}
+
+// StringsResult holds the result of an API call that returns a slice
+// of strings.
+type StringsResult struct {
+	Result []string
+}
+
+// BytesResult holds the result of an API call that returns a slice
+// of bytes.
+type BytesResult struct {
+	Result []byte
 }
 
 // LifeResult holds the life status of a single entity, or an error
@@ -63,44 +79,28 @@ type MachineAgentGetMachinesResult struct {
 	Error *Error
 }
 
-// AgentTools describes the tools for a given Agent. This is mostly a flattened
-// tools.Tools description, plus an agent Tag field.
-type AgentTools struct {
-	Tag    string
-	Major  int
-	Minor  int
-	Patch  int
-	Build  int
-	Arch   string
-	Series string
-	URL    string
-}
-
 // AgentToolsResult holds the tools and possibly error for a given Agent request
 type AgentToolsResult struct {
-	AgentTools AgentTools
-	Error      *Error
+	Tools *tools.Tools
+	Error *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
 type AgentToolsResults struct {
-	Tools []AgentToolsResult
+	Results []AgentToolsResult
 }
 
-// Set what tools are being run for multiple agents
+// SetAgent specifies tools to be set for an agent with the
+// given tag.
 type SetAgentTools struct {
-	AgentTools []AgentTools
-}
-
-// The result of setting the tools for one agent
-type SetAgentToolsResult struct {
 	Tag   string
-	Error *Error
+	Tools *tools.Tools
 }
 
-// The result of setting the tools for many agents
-type SetAgentToolsResults struct {
-	Results []SetAgentToolsResult
+// SetAgentsTools specifies what tools are being run for
+// multiple agents.
+type SetAgentsTools struct {
+	AgentTools []SetAgentTools
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

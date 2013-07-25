@@ -380,7 +380,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	// Create a new service and deploy a unit of it.
 	c.Logf("deploying service")
 	repoDir := c.MkDir()
-	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Series, "dummy")
+	url := coretesting.Charms.ClonedURL(repoDir, mtools0.Version.Series, "dummy")
 	sch, err := conn.PutCharm(url, &charm.LocalRepository{repoDir}, false)
 
 	c.Assert(err, IsNil)
@@ -398,7 +398,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	c.Assert(err, IsNil)
 	mw1 := newMachineToolWaiter(m1)
 	defer mw1.Stop()
-	waitAgentTools(c, mw1, mtools0.Binary)
+	waitAgentTools(c, mw1, mtools0.Version)
 
 	err = m1.Refresh()
 	c.Assert(err, IsNil)
@@ -409,7 +409,7 @@ func (t *LiveTests) TestBootstrapAndDeploy(c *C) {
 	utools := waitAgentTools(c, uw, expectedVersion)
 
 	// Check that we can upgrade the environment.
-	newVersion := utools.Binary
+	newVersion := utools.Version
 	newVersion.Patch++
 	t.checkUpgrade(c, conn, newVersion, mw0, mw1, uw)
 
@@ -636,7 +636,7 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
 	c.Assert(err, IsNil)
-	c.Check(tools.Binary, Equals, expect)
+	c.Check(tools.Version, Equals, expect)
 	return tools
 }
 
@@ -649,10 +649,10 @@ func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binar
 	// tools.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
-	upgradeTools.Series = newVersion.Series
+	upgradeTools.Version.Series = newVersion.Series
 
 	// Check that the put version really is the version we expect.
-	c.Assert(upgradeTools.Binary, Equals, newVersion)
+	c.Assert(upgradeTools.Version, Equals, newVersion)
 	err = statetesting.SetAgentVersion(conn.State, newVersion.Number)
 	c.Assert(err, IsNil)
 

@@ -56,6 +56,7 @@ func (inst *dnsNameFakeInstance) WaitDNSName() (string, error) {
 	return environs.WaitDNSName(inst)
 }
 
+func (*dnsNameFakeInstance) Addresses() ([]instance.Address, error)   { return nil, nil }
 func (*dnsNameFakeInstance) Id() instance.Id                          { return "" }
 func (*dnsNameFakeInstance) OpenPorts(string, []instance.Port) error  { return nil }
 func (*dnsNameFakeInstance) ClosePorts(string, []instance.Port) error { return nil }

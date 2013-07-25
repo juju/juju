@@ -86,12 +86,12 @@ func UnpackTools(dataDir string, tools *Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Binary))
+	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Version))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
 	if err != nil {
-		if _, err := ReadTools(dataDir, tools.Binary); err == nil {
+		if _, err := ReadTools(dataDir, tools.Version); err == nil {
 			return nil
 		}
 	}
@@ -131,8 +131,8 @@ func ReadTools(dataDir string, vers version.Binary) (*Tools, error) {
 	// TODO(rog): do more verification here too, such as checking
 	// for the existence of certain files.
 	return &Tools{
-		URL:    url,
-		Binary: vers,
+		URL:     url,
+		Version: vers,
 	}, nil
 }
 
@@ -145,7 +145,7 @@ func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*T
 		return nil, err
 	}
 	tmpName := ToolsDir(dataDir, "tmplink-"+agentName)
-	err = os.Symlink(tools.Binary.String(), tmpName)
+	err = os.Symlink(tools.Version.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
 	}

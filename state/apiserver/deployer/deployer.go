@@ -140,3 +140,32 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 	}
 	return result, nil
 }
+
+// StateAddresses returns the list of addresses used to connect to the state.
+func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
+	addresses, err := d.st.Addresses()
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	return params.StringsResult{
+		Result: addresses,
+	}, nil
+}
+
+// APIAddresses returns the list of addresses used to connect to the API.
+func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
+	addresses, err := d.st.APIAddresses()
+	if err != nil {
+		return params.StringsResult{}, err
+	}
+	return params.StringsResult{
+		Result: addresses,
+	}, nil
+}
+
+// CACert returns the certificate used to validate the state connection.
+func (d *DeployerAPI) CACert() params.BytesResult {
+	return params.BytesResult{
+		Result: d.st.CACert(),
+	}
+}

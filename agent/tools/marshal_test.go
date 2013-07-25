@@ -18,8 +18,8 @@ type marshalSuite struct {
 
 func newTools(vers, url string) *tools.Tools {
 	return &tools.Tools{
-		Binary: version.MustParseBinary(vers),
-		URL:    url,
+		Version: version.MustParseBinary(vers),
+		URL:     url,
 	}
 }
 
@@ -30,7 +30,7 @@ func (s *marshalSuite) TestMarshalUnmarshal(c *gc.C) {
 
 	// Check the exact document.
 	want := bson.M{
-		"version": testTools.Binary.String(),
+		"version": testTools.Version.String(),
 		"url":     testTools.URL,
 	}
 	got := bson.M{}
