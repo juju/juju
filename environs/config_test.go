@@ -11,13 +11,17 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
 type suite struct{}
 
 var _ = Suite(suite{})
+
+func (suite) TearDownTest(c *C) {
+	dummy.Reset()
+}
 
 var invalidConfigTests = []struct {
 	env string
