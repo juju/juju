@@ -33,7 +33,7 @@ type UpgraderSuite struct {
 	jujutesting.JujuConnSuite
 	//SimpleToolsFixture
 
-	rawMachine *state.Machine
+	machine *state.Machine
 	apiState   *api.State
 }
 
@@ -44,13 +44,13 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
+	err = s.machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
 
 	//s.SimpleToolsFixture.SetUp(c, s.DataDir())
-	s.apiState = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
+	s.apiState = s.OpenAPIAs(c, s.machine.Tag(), "test-password")
 }
 
 func (s *UpgraderSuite) TearDownTest(c *gc.C) {
@@ -60,26 +60,20 @@ func (s *UpgraderSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *UpgraderSuite) TestString(c *gc.C) {
-	upg := upgrader.NewUpgrader(s.APIState, "machine-tag", upgrader.NilToolsManager{})
-	c.Assert(fmt.Sprint(upg), gc.Equals, `upgrader for "machine-tag"`)
-	c.Assert(upg.Stop(), gc.ErrorMatches, "permission denied")
-}
-
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
-	_, err := s.rawMachine.AgentTools()
+	_, err := s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	upg := upgrader.NewUpgrader(s.apiState, s.rawMachine.Tag(), upgrader.NilToolsManager{})
+	upg := upgrader.NewUpgrader(s.apiState, s.machine.Tag(), upgrader.NilToolsManager{})
 	c.Assert(upg.Stop(), gc.IsNil)
-	s.rawMachine.Refresh()
-	ver, err := s.rawMachine.AgentTools()
+	s.machine.Refresh()
+	ver, err := s.machine.AgentTools()
 	c.Assert(err, gc.IsNil)
 	c.Assert(ver.Binary, gc.Equals, version.Current)
 }
 
 type UpgradeHandlerSuite struct {
 	jujutesting.JujuConnSuite
-	rawMachine *state.Machine
+	machine *state.Machine
 	apiState   *api.State
 }
 
@@ -88,23 +82,23 @@ func (s *UpgradeHandlerSuite) SetUpTest(c *gc.C) {
 
 	// Create a machine to work with
 	var err error
-	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
+	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	err = s.rawMachine.SetPassword("test-password")
+	err = s.machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
 
 	//s.SimpleToolsFixture.SetUp(c, s.DataDir())
-	s.apiState = s.OpenAPIAs(c, s.rawMachine.Tag(), "test-password")
+	s.apiState = s.OpenAPIAs(c, s.machine.Tag(), "test-password")
 }
 
 func (s *UpgradeHandlerSuite) TestUpgraderDoesNothingIfAgentVersionMatches(c *gc.C) {
-	handler := upgrader.NewUpgradeHandler(s.apiState, s.rawMachine.Tag())
+	handler := upgrader.NewUpgradeHandler(s.apiState, s.machine.Tag())
 	handler.Handle()
 	c.Assert(handler.DownloadChannel(), gc.IsNil)
 }
 
 func (s *UpgradeHandlerSuite) TestUpgraderGrabsNewTools(c *gc.C) {
-	handler := upgrader.NewUpgradeHandler(s.apiState, s.rawMachine.Tag())
+	handler := upgrader.NewUpgradeHandler(s.apiState, s.machine.Tag())
 	handler.Handle()
 }
 
