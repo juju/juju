@@ -56,7 +56,6 @@ func (s *MinuniterSuite) TestMinUniter(c *C) {
 	c.Assert(err, IsNil)
 
 	timeout := time.After(500 * time.Millisecond)
-loop:
 	for {
 		s.State.StartSync()
 		select {
@@ -66,7 +65,7 @@ loop:
 			mysqlUnits, err := mysql.AllUnits()
 			c.Assert(err, IsNil)
 			if len(wordpressUnits) == 3 && len(mysqlUnits) == 2 {
-				break loop
+				return
 			}
 		case <-timeout:
 			c.Fatalf("timed out waiting for minunit events")
