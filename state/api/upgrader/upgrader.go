@@ -23,6 +23,10 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
+// SetTools sets the tools associated with the entity
+// with the given tag, which must be the tag
+// of the entity that the upgrader is running
+// on behalf of.
 func (st *State) SetTools(tag string, tools *tools.Tools) error {
 	var results params.ErrorResults
 	args := params.SetAgentsTools{

@@ -90,7 +90,7 @@ type AgentToolsResults struct {
 	Results []AgentToolsResult
 }
 
-// SetAgent tools specifies tools to be set for an agent with the
+// SetAgent specifies tools to be set for an agent with the
 // given tag.
 type SetAgentTools struct {
 	Tag   string
