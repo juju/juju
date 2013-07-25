@@ -6,8 +6,10 @@ package deployer
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
@@ -141,25 +143,54 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 	return result, nil
 }
 
+// getEnvironStateInfo returns the state and API connection
+// information from the state and the environment.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG,FIXME: This is temporary, until the Addresser worker lands and we can
+// take the addresses of all machines with JobManageState.
+func (d *DeployerAPI) getEnvironStateInfo() (*state.Info, *api.Info, error) {
+	cfg, err := d.st.EnvironConfig()
+	if err != nil {
+		return nil, nil, err
+	}
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, nil, err
+	}
+	return env.StateInfo()
+}
+
 // StateAddresses returns the list of addresses used to connect to the state.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG,FIXME: This is temporary, until the Addresser worker lands and we can
+// take the addresses of all machines with JobManageState.
 func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
-	addresses, err := d.st.Addresses()
+	stateInfo, _, err := d.getEnvironStateInfo()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
 	return params.StringsResult{
-		Result: addresses,
+		Result: stateInfo.Addrs,
 	}, nil
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG,FIXME: This is temporary, until the Addresser worker lands and we can
+// take the addresses of all machines with JobManageState.
 func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
-	addresses, err := d.st.APIAddresses()
+	_, apiInfo, err := d.getEnvironStateInfo()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
 	return params.StringsResult{
-		Result: addresses,
+		Result: apiInfo.Addrs,
 	}, nil
 }
 

@@ -284,12 +284,11 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	apiAddresses, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	apiInfo := s.APIInfo(c)
 
 	addresses, err := s.st.APIAddresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addresses, gc.DeepEquals, apiAddresses)
+	c.Assert(addresses, gc.DeepEquals, apiInfo.Addrs)
 }
 
 func (s *deployerSuite) TestCACert(c *gc.C) {

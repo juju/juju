@@ -337,13 +337,12 @@ func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 }
 
 func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
-	apiAddresses, err := s.State.APIAddresses()
-	c.Assert(err, gc.IsNil)
+	apiInfo := s.APIInfo(c)
 
 	result, err := s.deployer.APIAddresses()
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: apiAddresses,
+		Result: apiInfo.Addrs,
 	})
 }
 
