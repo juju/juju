@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package minuniter_test
+package minunitsworker_test
 
 import (
 	stdtesting "testing"
@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/juju-core/worker/minuniter"
+	"launchpad.net/juju-core/worker/minunitsworker"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -25,10 +25,10 @@ type MinuniterSuite struct {
 
 var _ = Suite(&MinuniterSuite{})
 
-var _ worker.Worker = (*minuniter.MinUniter)(nil)
+var _ worker.Worker = (*minunitsworker.MinUnitsWorker)(nil)
 
-func (s *MinuniterSuite) TestMinUniter(c *C) {
-	mu := minuniter.NewMinUniter(s.State)
+func (s *MinuniterSuite) TestMinUnitsWorker(c *C) {
+	mu := minunitsworker.NewMinUnitsWorker(s.State)
 	defer func() { c.Assert(mu.Stop(), IsNil) }()
 
 	// Set up services and units for later use.
@@ -68,7 +68,7 @@ func (s *MinuniterSuite) TestMinUniter(c *C) {
 				return
 			}
 		case <-timeout:
-			c.Fatalf("timed out waiting for minunit events")
+			c.Fatalf("timed out waiting for minunits events")
 		}
 	}
 }
