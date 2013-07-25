@@ -537,7 +537,6 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 		// Name is the last part of the URL from the GET requests that check
 		// availability.
 		_, name := path.Split(strings.TrimRight(request.URL, "/"))
-		//name := parseCreateServiceRequest(c, request).ServiceName
 		attemptedNames[name] += 1
 	}
 	// The three attempts we just made all had different service names.
