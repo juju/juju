@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -34,7 +35,7 @@ func (s *UnitSuite) TearDownTest(c *C) {
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
-func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
+func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *tools.Tools) {
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()

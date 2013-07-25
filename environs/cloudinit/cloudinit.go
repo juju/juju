@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -69,7 +70,7 @@ type MachineConfig struct {
 	MachineNonce string
 
 	// Tools is juju tools to be used on the new machine.
-	Tools *state.Tools
+	Tools *tools.Tools
 
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
@@ -285,9 +286,9 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := agent.ToolsDir(cfg.DataDir, tag)
+	toolsDir := tools.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
+	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
 	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.ProviderType)
@@ -328,7 +329,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return agent.SharedToolsDir(cfg.DataDir, cfg.Tools.Binary)
+	return tools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
@@ -354,7 +355,7 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 }
 
 func (cfg *MachineConfig) NeedMongoPPA() bool {
-	series := cfg.Tools.Series
+	series := cfg.Tools.Version.Series
 	// 11.10 and earlier are not supported.
 	// 13.04 and later ship a compatible version in the archive.
 	return series == "precise" || series == "quantal"

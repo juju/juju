@@ -4,6 +4,7 @@
 package deployer
 
 import (
+	"fmt"
 	"strings"
 
 	"launchpad.net/juju-core/state/api/params"
@@ -11,9 +12,9 @@ import (
 
 // Unit represents a juju unit as seen by the deployer worker.
 type Unit struct {
-	tag    string
-	life   params.Life
-	dstate *Deployer
+	tag  string
+	life params.Life
+	st   *State
 }
 
 // Tag returns the unit's tag.
@@ -42,7 +43,7 @@ func (u *Unit) Life() params.Life {
 
 // Refresh updates the cached local copy of the unit's data.
 func (u *Unit) Refresh() error {
-	life, err := u.dstate.unitLife(u.tag)
+	life, err := u.st.unitLife(u.tag)
 	if err != nil {
 		return err
 	}
@@ -57,16 +58,14 @@ func (u *Unit) Remove() error {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	err := u.dstate.caller.Call("Deployer", "", "Remove", args, &result)
+	err := u.st.caller.Call("Deployer", "", "Remove", args, &result)
 	if err != nil {
 		return err
 	}
-	if len(result.Errors) > 0 && result.Errors[0] != nil {
-		return result.Errors[0]
-	}
-	return nil
+	return result.OneError()
 }
 
+// SetPassword sets the unit's password.
 func (u *Unit) SetPassword(password string) error {
 	var result params.ErrorResults
 	args := params.PasswordChanges{
@@ -74,12 +73,29 @@ func (u *Unit) SetPassword(password string) error {
 			{Tag: u.tag, Password: password},
 		},
 	}
-	err := u.dstate.caller.Call("Deployer", "", "SetPasswords", args, &result)
+	err := u.st.caller.Call("Deployer", "", "SetPasswords", args, &result)
 	if err != nil {
 		return err
 	}
-	if len(result.Errors) > 0 && result.Errors[0] != nil {
-		return result.Errors[0]
+	return result.OneError()
+}
+
+// CanDeploy reports whether the currently authenticated entity (a machine
+// agent) can deploy the unit.
+func (u *Unit) CanDeploy() (bool, error) {
+	var result params.BoolResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: u.tag}},
 	}
-	return nil
+	err := u.st.caller.Call("Deployer", "", "CanDeploy", args, &result)
+	if err != nil {
+		return false, err
+	}
+	if len(result.Results) != 1 {
+		return false, fmt.Errorf("expected one result, got %d", len(result.Results))
+	}
+	if err := result.Results[0].Error; err != nil {
+		return false, err
+	}
+	return result.Results[0].Result, nil
 }

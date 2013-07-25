@@ -4,25 +4,20 @@
 package tools_test
 
 import (
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
-	"testing"
-)
+	gc "launchpad.net/gocheck"
 
-func TestPackage(t *testing.T) {
-	TestingT(t)
-}
+	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/version"
+)
 
 type ListSuite struct{}
 
-var _ = Suite(&ListSuite{})
+var _ = gc.Suite(&ListSuite{})
 
-func mustParseTools(name string) *state.Tools {
-	return &state.Tools{
-		Binary: version.MustParseBinary(name),
-		URL:    "http://testing.invalid/" + name,
+func mustParseTools(name string) *tools.Tools {
+	return &tools.Tools{
+		Version: version.MustParseBinary(name),
+		URL:     "http://testing.invalid/" + name,
 	}
 }
 
@@ -73,10 +68,10 @@ var seriesTests = []stringsTest{{
 	expect: []string{"precise", "quantal"},
 }}
 
-func (s *ListSuite) TestSeries(c *C) {
+func (s *ListSuite) TestSeries(c *gc.C) {
 	for i, test := range seriesTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.Series(), DeepEquals, test.expect)
+		c.Check(test.src.Series(), gc.DeepEquals, test.expect)
 	}
 }
 
@@ -91,22 +86,22 @@ var archesTests = []stringsTest{{
 	expect: []string{"amd64", "i386"},
 }}
 
-func (s *ListSuite) TestArches(c *C) {
+func (s *ListSuite) TestArches(c *gc.C) {
 	for i, test := range archesTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.Arches(), DeepEquals, test.expect)
+		c.Check(test.src.Arches(), gc.DeepEquals, test.expect)
 	}
 }
 
-func (s *ListSuite) TestURLs(c *C) {
+func (s *ListSuite) TestURLs(c *gc.C) {
 	empty := tools.List{}
-	c.Check(empty.URLs(), DeepEquals, map[version.Binary]string{})
+	c.Check(empty.URLs(), gc.DeepEquals, map[version.Binary]string{})
 
 	full := tools.List{t100precise, t190quantal, t2001precise}
-	c.Check(full.URLs(), DeepEquals, map[version.Binary]string{
-		t100precise.Binary:  t100precise.URL,
-		t190quantal.Binary:  t190quantal.URL,
-		t2001precise.Binary: t2001precise.URL,
+	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary]string{
+		t100precise.Version:  t100precise.URL,
+		t190quantal.Version:  t190quantal.URL,
+		t2001precise.Version: t2001precise.URL,
 	})
 }
 
@@ -136,12 +131,12 @@ var newestTests = []struct {
 	number: version.MustParse("2.0.0.1"),
 }}
 
-func (s *ListSuite) TestNewest(c *C) {
+func (s *ListSuite) TestNewest(c *gc.C) {
 	for i, test := range newestTests {
 		c.Logf("test %d", i)
 		number, actual := test.src.Newest()
-		c.Check(number, DeepEquals, test.number)
-		c.Check(actual, DeepEquals, test.expect)
+		c.Check(number, gc.DeepEquals, test.number)
+		c.Check(actual, gc.DeepEquals, test.expect)
 	}
 }
 
@@ -179,10 +174,10 @@ var excludeTests = []struct {
 	t100all,
 }}
 
-func (s *ListSuite) TestExclude(c *C) {
+func (s *ListSuite) TestExclude(c *gc.C) {
 	for i, test := range excludeTests {
 		c.Logf("test %d", i)
-		c.Check(test.src.Exclude(test.arg), DeepEquals, test.expect)
+		c.Check(test.src.Exclude(test.arg), gc.DeepEquals, test.expect)
 	}
 }
 
@@ -241,15 +236,15 @@ var matchTests = []struct {
 	tools.List{t200quantal32},
 }}
 
-func (s *ListSuite) TestMatch(c *C) {
+func (s *ListSuite) TestMatch(c *gc.C) {
 	for i, test := range matchTests {
 		c.Logf("test %d", i)
 		actual, err := test.src.Match(test.filter)
-		c.Check(actual, DeepEquals, test.expect)
+		c.Check(actual, gc.DeepEquals, test.expect)
 		if len(test.expect) > 0 {
-			c.Check(err, IsNil)
+			c.Check(err, gc.IsNil)
 		} else {
-			c.Check(err, Equals, tools.ErrNoMatches)
+			c.Check(err, gc.Equals, tools.ErrNoMatches)
 		}
 	}
 }

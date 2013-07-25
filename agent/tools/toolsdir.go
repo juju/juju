@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent
+package tools
 
 import (
 	"archive/tar"
@@ -9,12 +9,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/version"
 	"os"
 	"path"
 	"strings"
+
+	"launchpad.net/juju-core/version"
 )
 
 const urlFile = "downloaded-url.txt"
@@ -42,7 +41,7 @@ func Dir(dataDir, agentName string) string {
 // format and unpacks them into the appropriate tools directory
 // within dataDir. If a valid tools directory already exists,
 // UnpackTools returns without error.
-func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
+func UnpackTools(dataDir string, tools *Tools, r io.Reader) (err error) {
 	zr, err := gzip.NewReader(r)
 	if err != nil {
 		return err
@@ -87,12 +86,12 @@ func UnpackTools(dataDir string, tools *state.Tools, r io.Reader) (err error) {
 		return err
 	}
 
-	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Binary))
+	err = os.Rename(dir, SharedToolsDir(dataDir, tools.Version))
 	// If we've failed to rename the directory, it may be because
 	// the directory already exists - if ReadTools succeeds, we
 	// assume all's ok.
 	if err != nil {
-		if _, err := ReadTools(dataDir, tools.Binary); err == nil {
+		if _, err := ReadTools(dataDir, tools.Version); err == nil {
 			return nil
 		}
 	}
@@ -104,7 +103,7 @@ func removeAll(dir string) {
 	if err == nil || os.IsNotExist(err) {
 		return
 	}
-	log.Warningf("environs: cannot remove %q: %v", dir, err)
+	logger.Warningf("cannot remove %q: %v", dir, err)
 }
 
 func writeFile(name string, mode os.FileMode, r io.Reader) error {
@@ -119,7 +118,7 @@ func writeFile(name string, mode os.FileMode, r io.Reader) error {
 
 // ReadTools checks that the tools for the given version exist
 // in the dataDir directory, and returns a Tools instance describing them.
-func ReadTools(dataDir string, vers version.Binary) (*state.Tools, error) {
+func ReadTools(dataDir string, vers version.Binary) (*Tools, error) {
 	dir := SharedToolsDir(dataDir, vers)
 	urlData, err := ioutil.ReadFile(path.Join(dir, urlFile))
 	if err != nil {
@@ -131,22 +130,22 @@ func ReadTools(dataDir string, vers version.Binary) (*state.Tools, error) {
 	}
 	// TODO(rog): do more verification here too, such as checking
 	// for the existence of certain files.
-	return &state.Tools{
-		URL:    url,
-		Binary: vers,
+	return &Tools{
+		URL:     url,
+		Version: vers,
 	}, nil
 }
 
 // ChangeAgentTools atomically replaces the agent-specific symlink
 // under dataDir so it points to the previously unpacked
 // version vers. It returns the new tools read.
-func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*state.Tools, error) {
+func ChangeAgentTools(dataDir string, agentName string, vers version.Binary) (*Tools, error) {
 	tools, err := ReadTools(dataDir, vers)
 	if err != nil {
 		return nil, err
 	}
 	tmpName := ToolsDir(dataDir, "tmplink-"+agentName)
-	err = os.Symlink(tools.Binary.String(), tmpName)
+	err = os.Symlink(tools.Version.String(), tmpName)
 	if err != nil {
 		return nil, fmt.Errorf("cannot create tools symlink: %v", err)
 	}

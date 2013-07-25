@@ -14,6 +14,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -76,7 +77,7 @@ type unitDoc struct {
 	PrivateAddress string
 	MachineId      string
 	Resolved       ResolvedMode
-	Tools          *Tools `bson:",omitempty"`
+	Tools          *tools.Tools `bson:",omitempty"`
 	Ports          []instance.Port
 	Life           Life
 	TxnRevno       int64 `bson:"txn-revno"`
@@ -168,7 +169,7 @@ func (u *Unit) Life() Life {
 
 // AgentTools returns the tools that the agent is currently running.
 // It an error that satisfies IsNotFound if the tools have not yet been set.
-func (u *Unit) AgentTools() (*Tools, error) {
+func (u *Unit) AgentTools() (*tools.Tools, error) {
 	if u.doc.Tools == nil {
 		return nil, errors.NotFoundf("agent tools for unit %q", u)
 	}
@@ -177,9 +178,9 @@ func (u *Unit) AgentTools() (*Tools, error) {
 }
 
 // SetAgentTools sets the tools that the agent is currently running.
-func (u *Unit) SetAgentTools(t *Tools) (err error) {
+func (u *Unit) SetAgentTools(t *tools.Tools) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set agent tools for unit %q", u)
-	if t.Series == "" || t.Arch == "" {
+	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
 	ops := []txn.Op{{

@@ -54,11 +54,11 @@ func (*passwordSuite) TestSetPasswords(c *C) {
 	})
 	c.Assert(err, IsNil)
 	c.Assert(results, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			apiservertesting.ErrUnauthorized,
-			nil,
-			{Message: "x2 error"},
-			nil,
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{&params.Error{Message: "x2 error"}},
+			{nil},
 		},
 	})
 	c.Assert(st.entities["x0"].(*fakeAuthenticator).pass, Equals, "")
@@ -92,7 +92,7 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *C) {
 	pc := common.NewPasswordChanger(&fakeAuthState{}, getCanChange)
 	result, err := pc.SetPasswords(params.PasswordChanges{})
 	c.Assert(err, IsNil)
-	c.Assert(result.Errors, HasLen, 0)
+	c.Assert(result.Results, HasLen, 0)
 }
 
 type fakeAuthState struct {

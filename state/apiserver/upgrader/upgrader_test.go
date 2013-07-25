@@ -6,6 +6,7 @@ package upgrader_test
 import (
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -149,9 +150,9 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 	// The machine must have its existing tools set before we query for the
 	// next tools. This is so that we can grab Arch and Series without
 	// having to pass it in again
-	err := s.rawMachine.SetAgentTools(&state.Tools{
-		URL:    "",
-		Binary: version.Current,
+	err := s.rawMachine.SetAgentTools(&tools.Tools{
+		URL:     "",
+		Version: version.Current,
 	})
 	c.Assert(err, IsNil)
 
@@ -227,11 +228,11 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 	c.Assert(err, IsNil)
 	realTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, IsNil)
-	c.Check(realTools.Arch, Equals, cur.Arch)
-	c.Check(realTools.Series, Equals, cur.Series)
-	c.Check(realTools.Major, Equals, cur.Major)
-	c.Check(realTools.Minor, Equals, cur.Minor)
-	c.Check(realTools.Patch, Equals, cur.Patch)
-	c.Check(realTools.Build, Equals, cur.Build)
+	c.Check(realTools.Version.Arch, Equals, cur.Arch)
+	c.Check(realTools.Version.Series, Equals, cur.Series)
+	c.Check(realTools.Version.Major, Equals, cur.Major)
+	c.Check(realTools.Version.Minor, Equals, cur.Minor)
+	c.Check(realTools.Version.Patch, Equals, cur.Patch)
+	c.Check(realTools.Version.Build, Equals, cur.Build)
 	c.Check(realTools.URL, Equals, "")
 }

@@ -13,12 +13,11 @@ import (
 	"sort"
 
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
@@ -48,8 +47,8 @@ your environment. This is generally done when you want Juju to be able
 to run without having to access Amazon. Alternatively you can specify
 a local directory as source.
 
-Sometimes this is because the environment does not have public access, 
-and sometimes you just want to avoid having to access data outside of 
+Sometimes this is because the environment does not have public access,
+and sometimes you just want to avoid having to access data outside of
 the local cloud.
 `,
 	}
@@ -72,10 +71,10 @@ func (c *SyncToolsCommand) Init(args []string) error {
 }
 
 func copyOne(
-	tool *state.Tools, source environs.StorageReader,
+	tool *tools.Tools, source environs.StorageReader,
 	target environs.Storage, ctx *cmd.Context,
 ) error {
-	toolsName := tools.StorageName(tool.Binary)
+	toolsName := tools.StorageName(tool.Version)
 	fmt.Fprintf(ctx.Stderr, "copying %v", toolsName)
 	srcFile, err := source.Get(toolsName)
 	if err != nil {
@@ -99,11 +98,11 @@ func copyOne(
 }
 
 func copyTools(
-	tools []*state.Tools, source environs.StorageReader,
+	tools []*tools.Tools, source environs.StorageReader,
 	target environs.Storage, dryRun bool, ctx *cmd.Context,
 ) error {
 	for _, tool := range tools {
-		log.Infof("copying %s from %s", tool.Binary, tool.URL)
+		log.Infof("copying %s from %s", tool.Version, tool.URL)
 		if dryRun {
 			continue
 		}

@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -60,7 +61,7 @@ type Conf struct {
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (*Conf, error) {
-	dir := Dir(dataDir, tag)
+	dir := tools.Dir(dataDir, tag)
 	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
 	if err != nil {
 		return nil, err
@@ -106,7 +107,7 @@ func (c *Conf) Tag() string {
 
 // Dir returns the agent's directory.
 func (c *Conf) Dir() string {
-	return Dir(c.DataDir, c.Tag())
+	return tools.Dir(c.DataDir, c.Tag())
 }
 
 // Check checks that the configuration has all the required elements.
@@ -211,6 +212,7 @@ func (c *Conf) WriteCommands() ([]string, error) {
 // set the entity's password accordingly.
 func (c *Conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
 	info := *c.APIInfo
+	info.Nonce = c.MachineNonce
 	if info.Password != "" {
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {

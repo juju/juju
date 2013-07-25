@@ -12,7 +12,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
@@ -69,9 +69,9 @@ func (s *lxcSuite) TearDownTest(c *C) {
 
 func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &state.Tools{
-		Binary: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+	tools := &tools.Tools{
+		Version: version.MustParseBinary("2.3.4-foo-bar"),
+		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 	s.broker = provisioner.NewLxcBroker(coretesting.EnvironConfig(c), tools)
 }
@@ -160,7 +160,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
 	// Write the tools file.
-	toolsDir := agent.SharedToolsDir(s.DataDir(), version.Current)
+	toolsDir := tools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
 	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)

@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -100,9 +101,9 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *C) {
 func (*CloudInitSuite) TestUserData(c *C) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
-	tools := &state.Tools{
-		URL:    "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
-		Binary: version.MustParseBinary("1.2.3-linux-amd64"),
+	tools := &tools.Tools{
+		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
 	envConfig, err := config.New(map[string]interface{}{
 		"type":            "maas",

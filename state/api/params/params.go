@@ -13,11 +13,28 @@ import (
 )
 
 // ErrorResults holds the results of calling a bulk operation which
-// mutates multiple entites, like Machiner.SetStatus. The order and
-// number of elements matches the entities specified in the request.
+// returns no data, only an error result. The order and
+// number of elements matches the operations specified in the request.
 type ErrorResults struct {
-	// Errors contains errors occured while performing each operation (if any).
-	Errors []*Error
+	// Results contains the error results from each operation.
+	Results []ErrorResult
+}
+
+// OneError returns the error from the result
+// of a bulk operation on a single value.
+func (result ErrorResults) OneError() error {
+	if n := len(result.Results); n != 1 {
+		return fmt.Errorf("expected one result, got %d", n)
+	}
+	if err := result.Results[0].Error; err != nil {
+		return err
+	}
+	return nil
+}
+
+// ErrorResult holds the error status of a single operation.
+type ErrorResult struct {
+	Error *Error
 }
 
 // AddRelation holds the parameters for making the AddRelation call.
@@ -134,6 +151,7 @@ type ServiceDestroy struct {
 type Creds struct {
 	AuthTag  string
 	Password string
+	Nonce    string
 }
 
 // GetAnnotationsResults holds annotations associated with an entity.
