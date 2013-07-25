@@ -338,7 +338,6 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-		fmt.Printf("**** ATTEMPT %v\n", tries)
 		svc, err = attemptCreateService(azure, prefix, affinityGroupName, location)
 	}
 	if err != nil {
