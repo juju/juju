@@ -194,7 +194,8 @@ var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
 var httpClient *http.Client = http.DefaultClient
 
-// SetHttpClient replaces the default http.Client used to fetch the metadata.
+// SetHttpClient replaces the default http.Client used to fetch the metadata
+// and returns the old one.
 func SetHttpClient(c *http.Client) *http.Client {
 	old := httpClient
 	httpClient = c

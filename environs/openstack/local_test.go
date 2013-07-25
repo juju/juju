@@ -438,7 +438,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *C) {
-	params, err := openstack.ValidateMetadataLookupParams(s.Env, "some-region")
+	params, err := s.Env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

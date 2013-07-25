@@ -135,9 +135,9 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-// ValidateMetadataLookupParams returns parameters which are used to query image metadata to
+// MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (p environProvider) ValidateMetadataLookupParams(region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
+func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
 	if region == "" {
 		fmt.Errorf("region must be specified")
 	}
@@ -145,7 +145,7 @@ func (p environProvider) ValidateMetadataLookupParams(region string) (*imagemeta
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
-	return &imagemetadata.ValidateMetadataLookupParams{
+	return &imagemetadata.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
 		Architectures: []string{"amd64", "i386", "arm"},
@@ -307,9 +307,9 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
-// ValidateMetadataLookupParams returns parameters which are used to query image metadata to
+// MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (e *environ) ValidateMetadataLookupParams(region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
+func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
@@ -321,7 +321,7 @@ func (e *environ) ValidateMetadataLookupParams(region string) (*imagemetadata.Va
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
-	return &imagemetadata.ValidateMetadataLookupParams{
+	return &imagemetadata.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,

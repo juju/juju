@@ -122,13 +122,13 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
-// ValidateMetadataLookupParams returns parameters which are used to query image metadata to
+// MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (p environProvider) ValidateMetadataLookupParams(region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
+func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
 	if region == "" {
 		return nil, fmt.Errorf("region must be specified")
 	}
-	return &imagemetadata.ValidateMetadataLookupParams{
+	return &imagemetadata.MetadataLookupParams{
 		Region:        region,
 		Architectures: []string{"amd64", "arm"},
 	}, nil
@@ -1098,9 +1098,9 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 	return firstErr
 }
 
-// ValidateMetadataLookupParams returns parameters which are used to query image metadata to
+// MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (e *environ) ValidateMetadataLookupParams(region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
+func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
@@ -1108,7 +1108,7 @@ func (e *environ) ValidateMetadataLookupParams(region string) (*imagemetadata.Va
 	if region == "" {
 		region = e.ecfg().region()
 	}
-	return &imagemetadata.ValidateMetadataLookupParams{
+	return &imagemetadata.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),

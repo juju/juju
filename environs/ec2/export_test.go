@@ -48,11 +48,6 @@ func GetImageURLs(e environs.Environ) ([]string, error) {
 	return e.(*environ).getImageBaseURLs()
 }
 
-func ValidateMetadataLookupParams(e environs.Environ, region string) (*imagemetadata.ValidateMetadataLookupParams, error) {
-	env := e.(*environ)
-	return env.ValidateMetadataLookupParams(region)
-}
-
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {

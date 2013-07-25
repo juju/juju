@@ -21,11 +21,12 @@ const (
 )
 
 // Boilerplate generates some basic simplestreams metadata using the specified cloud and image details.
+// If name is non-empty, it will be used as a prefix for the names of the generated index and image files.
 func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
 	return MakeBoilerplate(name, series, im, cloudSpec, true)
 }
 
-// MakeBoilerplate exists so it can be called by tests. See Boilerplate above. If provides an option to retain
+// MakeBoilerplate exists so it can be called by tests. See Boilerplate above. It provides an option to retain
 // the streams directories when writing the generated metadata files.
 func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec, flattenPath bool) ([]string, error) {
 	indexFileName := defaultIndexFileName
@@ -54,7 +55,7 @@ func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpe
 
 	if !flattenPath {
 		streamsPath := config.JujuHomePath(streamsDir)
-		if err = os.MkdirAll(streamsPath, 0700); err != nil {
+		if err = os.MkdirAll(streamsPath, 0755); err != nil {
 			return nil, err
 		}
 		indexFileName = filepath.Join(streamsDir, indexFileName)

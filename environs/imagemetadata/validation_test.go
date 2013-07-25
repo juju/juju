@@ -12,7 +12,8 @@ import (
 )
 
 type ValidateSuite struct {
-	home *coretesting.FakeHome
+	home      *coretesting.FakeHome
+	oldClient *http.Client
 }
 
 var _ = gc.Suite(&ValidateSuite{})
@@ -33,7 +34,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 
 	t := &http.Transport{}
 	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	SetHttpClient(&http.Client{Transport: t})
+	s.oldClient = SetHttpClient(&http.Client{Transport: t})
 	return nil
 }
 
@@ -43,12 +44,15 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 
 func (s *ValidateSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	if s.oldClient != nil {
+		SetHttpClient(s.oldClient)
+	}
 }
 
 func (s *ValidateSuite) TestMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
-	params := &ValidateMetadataLookupParams{
+	params := &MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "raring",
 		Architectures: []string{"amd64"},
@@ -63,7 +67,7 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
-	params := &ValidateMetadataLookupParams{
+	params := &MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "precise",
 		Architectures: []string{"amd64"},

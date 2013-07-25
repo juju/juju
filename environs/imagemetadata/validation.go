@@ -12,10 +12,10 @@ import (
 // then the implementation may use its own default region if it has one,
 // or else returns an error.
 type ImageMetadataValidator interface {
-	ValidateMetadataLookupParams(region string) (*ValidateMetadataLookupParams, error)
+	MetadataLookupParams(region string) (*MetadataLookupParams, error)
 }
 
-type ValidateMetadataLookupParams struct {
+type MetadataLookupParams struct {
 	Region        string
 	Series        string
 	Architectures []string
@@ -25,7 +25,7 @@ type ValidateMetadataLookupParams struct {
 
 // ValidateImageMetadata attempts to load image metadata for the specified cloud attributes and returns
 // any image ids found, or an error if the metadata could not be loaded.
-func ValidateImageMetadata(params *ValidateMetadataLookupParams) ([]string, error) {
+func ValidateImageMetadata(params *MetadataLookupParams) ([]string, error) {
 	if params.Series == "" {
 		return nil, fmt.Errorf("required parameter series not specified")
 	}

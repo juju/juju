@@ -92,7 +92,7 @@ func (c *ValidateMetadataCommand) Init(args []string) error {
 }
 
 func (c *ValidateMetadataCommand) Run(context *cmd.Context) error {
-	var params *imagemetadata.ValidateMetadataLookupParams
+	var params *imagemetadata.MetadataLookupParams
 
 	if c.providerType == "" {
 		environ, err := environs.NewFromName(c.EnvName)
@@ -103,7 +103,7 @@ func (c *ValidateMetadataCommand) Run(context *cmd.Context) error {
 		if !ok {
 			return fmt.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
 		}
-		params, err = mdLookup.ValidateMetadataLookupParams(c.region)
+		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
 			return err
 		}
@@ -116,7 +116,7 @@ func (c *ValidateMetadataCommand) Run(context *cmd.Context) error {
 		if !ok {
 			return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
 		}
-		params, err = mdLookup.ValidateMetadataLookupParams(c.region)
+		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
 			return err
 		}
