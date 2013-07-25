@@ -62,10 +62,7 @@ func (u *Unit) Remove() error {
 	if err != nil {
 		return err
 	}
-	if len(result.Errors) > 0 && result.Errors[0] != nil {
-		return result.Errors[0]
-	}
-	return nil
+	return result.OneError()
 }
 
 // SetPassword sets the unit's password.
@@ -80,10 +77,7 @@ func (u *Unit) SetPassword(password string) error {
 	if err != nil {
 		return err
 	}
-	if len(result.Errors) > 0 && result.Errors[0] != nil {
-		return result.Errors[0]
-	}
-	return nil
+	return result.OneError()
 }
 
 // CanDeploy reports whether the currently authenticated entity (a machine

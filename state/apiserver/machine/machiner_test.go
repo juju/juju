@@ -64,10 +64,10 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 	result, err := s.machiner.SetStatus(args)
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			nil,
-			apiservertesting.ErrUnauthorized,
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -118,10 +118,10 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	result, err := s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			nil,
-			apiservertesting.ErrUnauthorized,
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -139,7 +139,7 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	result, err = s.machiner.EnsureDead(args)
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{nil},
+		Results: []params.ErrorResult{{nil}},
 	})
 
 	// Verify Life is unchanged.
