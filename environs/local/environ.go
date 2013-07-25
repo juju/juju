@@ -470,12 +470,12 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
-	agentTools.Binary.Series = version.CurrentSeries()
+	agentTools.Version.Series = version.CurrentSeries()
 	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
 	tag := state.MachineTag(machineId)
-	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Binary)
+	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	agent := upstart.MachineAgentUpstartService(

@@ -274,3 +274,27 @@ func (s *deployerSuite) TestCanDeploy(c *gc.C) {
 	_, err = s.st.Unit("unit-foo-42")
 	s.assertUnauthorized(c, err)
 }
+
+func (s *deployerSuite) TestStateAddresses(c *gc.C) {
+	stateAddresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	addresses, err := s.st.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.DeepEquals, stateAddresses)
+}
+
+func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	addresses, err := s.st.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addresses, gc.DeepEquals, apiAddresses)
+}
+
+func (s *deployerSuite) TestCACert(c *gc.C) {
+	caCert, err := s.st.CACert()
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCert, gc.DeepEquals, s.State.CACert())
+}

@@ -107,7 +107,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 func (s *StorageSuite) TestUpload(c *gc.C) {
 	t, err := tools.Upload(s.env.Storage(), nil)
 	c.Assert(err, gc.IsNil)
-	c.Assert(t.Binary, gc.Equals, version.Current)
+	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
 	dir := downloadTools(c, t)
 	out, err := exec.Command(filepath.Join(dir, "jujud"), "version").CombinedOutput()
@@ -118,7 +118,7 @@ func (s *StorageSuite) TestUpload(c *gc.C) {
 func (s *StorageSuite) TestUploadFakeSeries(c *gc.C) {
 	t, err := tools.Upload(s.env.Storage(), nil, "sham", "fake")
 	c.Assert(err, gc.IsNil)
-	c.Assert(t.Binary, gc.Equals, version.Current)
+	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
 
 	list, err := tools.ReadList(s.env.Storage(), version.Current.Major)
@@ -129,7 +129,7 @@ func (s *StorageSuite) TestUploadFakeSeries(c *gc.C) {
 	c.Assert(list.Series(), gc.DeepEquals, expectSeries)
 	for _, t := range list {
 		c.Logf("checking %s", t.URL)
-		c.Assert(t.Number, gc.Equals, version.CurrentNumber())
+		c.Assert(t.Version.Number, gc.Equals, version.CurrentNumber())
 		actualRaw := downloadToolsRaw(c, t)
 		c.Assert(string(actualRaw), gc.Equals, string(expectRaw))
 	}
@@ -144,7 +144,7 @@ func (s *StorageSuite) TestUploadAndForceVersion(c *gc.C) {
 	vers.Patch++
 	t, err := tools.Upload(s.env.Storage(), &vers.Number)
 	c.Assert(err, gc.IsNil)
-	c.Assert(t.Binary, gc.Equals, vers)
+	c.Assert(t.Version, gc.Equals, vers)
 }
 
 // Test that the upload procedure fails correctly

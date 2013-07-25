@@ -212,7 +212,6 @@ type openstackInstance struct {
 	e        *environ
 	instType *instances.InstanceType
 	arch     *string
-	address  string
 }
 
 func (inst *openstackInstance) String() string {
@@ -235,59 +234,73 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 	return hc
 }
 
-// instanceAddress processes a map of networks to lists of IP
-// addresses, as returned by Nova.GetServer(), extracting the proper
-// public (or private, if public is not available) IPv4 address, and
-// returning it, or an error.
-func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	var private, public, privateNet string
+// getAddress returns the existing server information on addresses,
+// but fetches the details over the api again if no addresses exist.
+func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
+	addrs := inst.ServerDetail.Addresses
+	if len(addrs) == 0 {
+		server, err := inst.e.nova().GetServer(string(inst.Id()))
+		if err != nil {
+			return nil, err
+		}
+		addrs = server.Addresses
+	}
+	return addrs, nil
+}
+
+// Addresses implements instance.Addresses() returning generic address
+// details for the instances, and calling the openstack api if needed.
+func (inst *openstackInstance) Addresses() ([]instance.Address, error) {
+	addresses, err := inst.getAddresses()
+	if err != nil {
+		return nil, err
+	}
+	return convertNovaAddresses(addresses), nil
+}
+
+// convertNovaAddresses returns nova addresses in generic format
+func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Address {
+	// TODO(gz) Network ordering may be significant but is not preserved by
+	// the map, see lp:1188126 for example. That could potentially be fixed
+	// in goose, or left to be derived by other means.
+	var machineAddresses []instance.Address
 	for network, ips := range addresses {
+		networkscope := instance.NetworkUnknown
+		// For canonistack and hpcloud, public floating addresses may
+		// be put in networks named something other than public. Rely
+		// on address sanity logic to catch and mark them corectly.
+		if network == "public" {
+			networkscope = instance.NetworkPublic
+		}
 		for _, address := range ips {
-			if address.Version == 4 {
-				if network == "public" {
-					public = address.Address
-				} else {
-					privateNet = network
-					// Some setups use custom network name, treat as "private"
-					private = address.Address
-				}
-				break
+			// Assume ipv4 unless specified otherwise
+			addrtype := instance.Ipv4Address
+			if address.Version == 6 {
+				addrtype = instance.Ipv6Address
 			}
+			// TODO(gz): Use NewAddress... with sanity checking
+			machineAddr := instance.Address{
+				Value:        address.Address,
+				Type:         addrtype,
+				NetworkName:  network,
+				NetworkScope: networkscope,
+			}
+			machineAddresses = append(machineAddresses, machineAddr)
 		}
 	}
-	// HP cloud/canonistack specific: public address is 2nd in the private network
-	if prv, ok := addresses[privateNet]; public == "" && ok {
-		if len(prv) > 1 && prv[1].Version == 4 {
-			public = prv[1].Address
-		}
-	}
-	// Juju assumes it always needs a public address and loops waiting for one.
-	// In fact a private address is generally fine provided it can be sshed to.
-	// (ported from py-juju/providers/openstack)
-	if public == "" && private != "" {
-		public = private
-	}
-	if public == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return public, nil
+	return machineAddresses
 }
 
 func (inst *openstackInstance) DNSName() (string, error) {
-	if inst.address != "" {
-		return inst.address, nil
-	}
-	// Fetch the instance information again, in case
-	// the addresses have become available.
-	server, err := inst.e.nova().GetServer(string(inst.Id()))
+	addresses, err := inst.Addresses()
 	if err != nil {
 		return "", err
 	}
-	inst.address, err = instanceAddress(server.Addresses)
-	if err != nil {
-		return "", err
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
+		return "", instance.ErrNoDNSName
 	}
-	return inst.address, nil
+	return addr, nil
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {

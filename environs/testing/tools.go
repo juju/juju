@@ -26,7 +26,7 @@ func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*too
 	if err != nil {
 		return nil, err
 	}
-	return &tools.Tools{Binary: vers, URL: url}, nil
+	return &tools.Tools{Version: vers, URL: url}, nil
 }
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the

@@ -288,7 +288,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// the upstart script.
 	toolsDir := tools.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
+	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
 	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.ProviderType)
@@ -329,7 +329,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return tools.SharedToolsDir(cfg.DataDir, cfg.Tools.Binary)
+	return tools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
@@ -355,7 +355,7 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 }
 
 func (cfg *MachineConfig) NeedMongoPPA() bool {
-	series := cfg.Tools.Series
+	series := cfg.Tools.Version.Series
 	// 11.10 and earlier are not supported.
 	// 13.04 and later ship a compatible version in the archive.
 	return series == "precise" || series == "quantal"

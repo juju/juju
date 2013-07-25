@@ -42,8 +42,8 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 		coretesting.NewTarFile("foo", 0755, "foo contents"),
 	}
 	t1 := &tools.Tools{
-		URL:    "http://foo/bar",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		URL:     "http://foo/bar",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 
 	err := s.manager.UnpackTools(t1, bytes.NewReader(coretesting.TarGz(files...)))
@@ -54,8 +54,8 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
 	t2 := &tools.Tools{
-		URL:    "http://arble",
-		Binary: version.MustParseBinary("1.2.3-foo-bar"),
+		URL:     "http://arble",
+		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 	files2 := []*coretesting.TarFile{
 		coretesting.NewTarFile("bar", 0755, "bar2 contents"),
@@ -81,13 +81,13 @@ func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *tools.Tools, files []
 		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := s.manager.(*tools.DiskManager).SharedToolsDir(t.Binary)
+	dir := s.manager.(*tools.DiskManager).SharedToolsDir(t.Version)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, t.URL, 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
-	gotTools, err := s.manager.ReadTools(t.Binary)
+	gotTools, err := s.manager.ReadTools(t.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *t)
 }

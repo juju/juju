@@ -737,6 +737,11 @@ func (inst *dummyInstance) DNSName() (string, error) {
 	return string(inst.id) + ".dns", nil
 }
 
+func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
+	log.Errorf("environs/dummy: Addresses not implemented")
+	return nil, nil
+}
+
 func (inst *dummyInstance) WaitDNSName() (string, error) {
 	return environs.WaitDNSName(inst)
 }
