@@ -64,3 +64,19 @@ func (e *UnauthorizedError) Error() string {
 func Unauthorizedf(format string, args ...interface{}) error {
 	return &UnauthorizedError{nil, fmt.Sprintf(format, args...)}
 }
+
+// NotAssignedError indicates that a unit is not assigned to a machine
+// (and, in the case of subordinate units, that the unit's principal
+// is not assigned).
+type NotAssignedError struct {
+	UnitTag string
+}
+
+func (e *NotAssignedError) Error() string {
+	return fmt.Sprintf("%q is not assigned to a machine", e.UnitTag)
+}
+
+func IsNotAssigned(err error) bool {
+	_, ok := err.(*NotAssignedError)
+	return ok
+}

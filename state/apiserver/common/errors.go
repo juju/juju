@@ -50,7 +50,7 @@ func ServerError(err error) *params.Error {
 		code = params.CodeUnauthorized
 	case errors.IsNotFoundError(err):
 		code = params.CodeNotFound
-	case state.IsNotAssigned(err):
+	case errors.IsNotAssigned(err):
 		code = params.CodeNotAssigned
 	case state.IsHasAssignedUnitsError(err):
 		code = params.CodeHasAssignedUnits

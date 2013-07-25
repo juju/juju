@@ -5,6 +5,7 @@ package deployer
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"launchpad.net/juju-core/state/api/params"
@@ -23,6 +24,21 @@ func (u *Unit) Tag() string {
 }
 
 const unitTagPrefix = "unit-"
+const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+const numberSnippet = "(0|[1-9][0-9]*)"
+
+var validUnit = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
+
+// UnitTag returns the tag for the
+// unit with the given name.
+func UnitTag(unitName string) string {
+	return unitTagPrefix + strings.Replace(unitName, "/", "-", -1)
+}
+
+// IsUnitName returns whether name is a valid unit name.
+func IsUnitName(name string) bool {
+	return validUnit.MatchString(name)
+}
 
 // Name returns the unit's name.
 func (u *Unit) Name() string {

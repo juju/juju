@@ -123,7 +123,7 @@ func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error
 			continue
 		}
 		machineId, err := unit.AssignedMachineId()
-		if err != nil && !state.IsNotAssigned(err) && !errors.IsNotFoundError(err) {
+		if err != nil && !errors.IsNotAssigned(err) && !errors.IsNotFoundError(err) {
 			// Any other errors get reported back.
 			result.Results[i].Error = common.ServerError(err)
 			continue

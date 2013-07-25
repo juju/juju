@@ -78,8 +78,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Create the deployer facade.
-	s.st, err = s.stateAPI.Deployer()
-	c.Assert(err, gc.IsNil)
+	s.st = s.stateAPI.Deployer()
 	c.Assert(s.st, gc.NotNil)
 }
 

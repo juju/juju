@@ -12,6 +12,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
+	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker/deployer"
@@ -79,22 +80,24 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 	panic("unreachable")
 }
 
-func patchDeployContext(c *C, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
+func patchDeployContext(c *C, st *state.State, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
 	ctx := &fakeContext{
 		inited: make(chan struct{}),
 	}
 	e0 := *expectInfo
 	expectInfo = &e0
 	orig := newDeployContext
-	newDeployContext = func(st *state.State, dataDir string) deployer.Context {
-		stateAddrs, err := st.Addresses()
+	newDeployContext = func(dst *apideployer.State, dataDir string) (deployer.Context, error) {
+		caCert, err := dst.CACert()
+		c.Check(err, IsNil)
+		stateAddrs, err := dst.StateAddresses()
 		c.Check(err, IsNil)
 		c.Check(stateAddrs, DeepEquals, expectInfo.Addrs)
-		c.Check(st.CACert(), DeepEquals, expectInfo.CACert)
+		c.Check(caCert, DeepEquals, expectInfo.CACert)
 		c.Check(dataDir, Equals, expectDataDir)
 		ctx.st = st
 		close(ctx.inited)
-		return ctx
+		return ctx, nil
 	}
 	return ctx, func() { newDeployContext = orig }
 }
