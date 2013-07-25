@@ -15,6 +15,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing/checkers"
@@ -143,7 +144,7 @@ func (fix *SimpleToolsFixture) SetUp(c *C, dataDir string) {
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
 	fix.syslogConfigDir = c.MkDir()
-	toolsDir := agent.SharedToolsDir(fix.dataDir, version.Current)
+	toolsDir := tools.SharedToolsDir(fix.dataDir, version.Current)
 	err := os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, IsNil)
 	jujudPath := filepath.Join(toolsDir, "jujud")
@@ -185,8 +186,8 @@ func (fix *SimpleToolsFixture) getContext(c *C) *deployer.SimpleContext {
 func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = agent.Dir(fix.dataDir, tag)
-	toolsDir = agent.ToolsDir(fix.dataDir, tag)
+	agentDir = tools.Dir(fix.dataDir, tag)
+	toolsDir = tools.ToolsDir(fix.dataDir, tag)
 	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
 }

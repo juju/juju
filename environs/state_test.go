@@ -32,10 +32,31 @@ func makeDummyStorage(c *C) (environs.Storage, func()) {
 	return storage, cleanup
 }
 
+func (*StateSuite) TestCreateStateFileWritesEmptyStateFile(c *C) {
+	storage, cleanup := makeDummyStorage(c)
+	defer cleanup()
+
+	url, err := environs.CreateStateFile(storage)
+	c.Assert(err, IsNil)
+
+	reader, err := storage.Get(environs.StateFile)
+	c.Assert(err, IsNil)
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, IsNil)
+	c.Check(string(data), Equals, "")
+	c.Assert(url, NotNil)
+	expectedURL, err := storage.URL(environs.StateFile)
+	c.Assert(err, IsNil)
+	c.Check(url, Equals, expectedURL)
+}
+
 func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := environs.BootstrapState{StateInstances: []instance.Id{"an-instance-id"}}
+	arch := "amd64"
+	state := environs.BootstrapState{
+		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
+		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	marshaledState, err := goyaml.Marshal(state)
 	c.Assert(err, IsNil)
 
@@ -49,18 +70,35 @@ func (suite *StateSuite) TestSaveStateWritesStateFile(c *C) {
 	c.Check(content, DeepEquals, marshaledState)
 }
 
-func (suite *StateSuite) TestLoadStateReadsStateFile(c *C) {
-	storage, cleanup := makeDummyStorage(c)
-	defer cleanup()
-	state := environs.BootstrapState{StateInstances: []instance.Id{"id-goes-here"}}
+func (suite *StateSuite) setUpSavedState(c *C, storage environs.Storage) environs.BootstrapState {
+	arch := "amd64"
+	state := environs.BootstrapState{
+		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
+		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	content, err := goyaml.Marshal(state)
 	c.Assert(err, IsNil)
 	err = storage.Put(environs.StateFile, ioutil.NopCloser(bytes.NewReader(content)), int64(len(content)))
 	c.Assert(err, IsNil)
+	return state
+}
 
+func (suite *StateSuite) TestLoadStateReadsStateFile(c *C) {
+	storage, cleanup := makeDummyStorage(c)
+	defer cleanup()
+	state := suite.setUpSavedState(c, storage)
 	storedState, err := environs.LoadState(storage)
 	c.Assert(err, IsNil)
+	c.Check(*storedState, DeepEquals, state)
+}
 
+func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *C) {
+	storage, cleanup := makeDummyStorage(c)
+	defer cleanup()
+	state := suite.setUpSavedState(c, storage)
+	url, err := storage.URL(environs.StateFile)
+	c.Assert(err, IsNil)
+	storedState, err := environs.LoadStateFromURL(url)
+	c.Assert(err, IsNil)
 	c.Check(*storedState, DeepEquals, state)
 }
 
@@ -76,8 +114,10 @@ func (suite *StateSuite) TestLoadStateReturnsNotFoundErrorForMissingFile(c *C) {
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
-	state := environs.BootstrapState{StateInstances: []instance.Id{"un-instant-s'il-vous-plait"}}
-
+	arch := "amd64"
+	state := environs.BootstrapState{
+		StateInstances:  []instance.Id{instance.Id("an-instance-id")},
+		Characteristics: []instance.HardwareCharacteristics{{Arch: &arch}}}
 	err := environs.SaveState(storage, &state)
 	c.Assert(err, IsNil)
 	storedState, err := environs.LoadState(storage)

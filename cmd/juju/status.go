@@ -6,7 +6,11 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -16,7 +20,6 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils/set"
-	"strings"
 )
 
 type StatusCommand struct {
@@ -255,6 +258,9 @@ func (context *statusContext) processUnits(units map[string]*state.Unit) map[str
 
 func (context *statusContext) processUnit(unit *state.Unit) (status unitStatus) {
 	status.PublicAddress, _ = unit.PublicAddress()
+	for _, port := range unit.OpenedPorts() {
+		status.OpenedPorts = append(status.OpenedPorts, port.String())
+	}
 	if unit.IsPrincipal() {
 		status.Machine, _ = unit.AssignedMachineId()
 	}
@@ -319,7 +325,7 @@ type lifer interface {
 type stateAgent interface {
 	lifer
 	AgentAlive() (bool, error)
-	AgentTools() (*state.Tools, error)
+	AgentTools() (*tools.Tools, error)
 	Status() (params.Status, string, error)
 }
 
@@ -328,7 +334,7 @@ type stateAgent interface {
 func processAgent(entity stateAgent) (life string, version string, status params.Status, info string, err error) {
 	life = processLife(entity)
 	if t, err := entity.AgentTools(); err == nil {
-		version = t.Binary.Number.String()
+		version = t.Version.Number.String()
 	}
 	status, info, err = entity.Status()
 	if err != nil {
@@ -439,6 +445,7 @@ type unitStatus struct {
 	AgentVersion   string                `json:"agent-version,omitempty" yaml:"agent-version,omitempty"`
 	Life           string                `json:"life,omitempty" yaml:"life,omitempty"`
 	Machine        string                `json:"machine,omitempty" yaml:"machine,omitempty"`
+	OpenedPorts    []string              `json:"open-ports,omitempty" yaml:"open-ports,omitempty"`
 	PublicAddress  string                `json:"public-address,omitempty" yaml:"public-address,omitempty"`
 	Subordinates   map[string]unitStatus `json:"subordinates,omitempty" yaml:"subordinates,omitempty"`
 }

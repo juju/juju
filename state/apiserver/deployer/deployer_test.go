@@ -159,11 +159,11 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	results, err := s.deployer.SetPasswords(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			nil,
-			apiservertesting.ErrUnauthorized,
-			nil,
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 	err = s.principal0.Refresh()
@@ -190,8 +190,8 @@ func (s *deployerSuite) TestSetPasswords(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -258,11 +258,11 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err := s.deployer.Remove(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			{Message: `cannot remove entity "unit-mysql-0": still alive`},
-			apiservertesting.ErrUnauthorized,
-			{Message: `cannot remove entity "unit-logging-0": still alive`},
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{&params.Error{Message: `cannot remove entity "unit-mysql-0": still alive`}},
+			{apiservertesting.ErrUnauthorized},
+			{&params.Error{Message: `cannot remove entity "unit-logging-0": still alive`}},
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 
@@ -286,7 +286,7 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err = s.deployer.Remove(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{nil},
+		Results: []params.ErrorResult{{nil}},
 	})
 
 	err = s.subordinate0.Refresh()
@@ -296,8 +296,60 @@ func (s *deployerSuite) TestRemove(c *gc.C) {
 	result, err = s.deployer.Remove(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{{apiservertesting.ErrUnauthorized}},
+	})
+}
+
+func (s *deployerSuite) TestCanDeploy(c *gc.C) {
+	// Create a new, unassigned unit for the test.
+	_, err := s.service0.AddUnit()
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},   // machine-1
+		{Tag: "unit-mysql-1"},   // machine-0
+		{Tag: "unit-logging-0"}, // machine-1
+		{Tag: "unit-mysql-2"},   // unassigned
+		{Tag: "unit-fake-42"},   // not found
+	}}
+	result, err := s.deployer.CanDeploy(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.BoolResults{
+		Results: []params.BoolResult{
+			{Result: true},
+			{Result: false},
+			{Result: true},
+			{Result: false},
+			{Result: false},
 		},
+	})
+}
+
+func (s *deployerSuite) TestStateAddresses(c *gc.C) {
+	addresses, err := s.State.Addresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.deployer.StateAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: addresses,
+	})
+}
+
+func (s *deployerSuite) TestAPIAddresses(c *gc.C) {
+	apiAddresses, err := s.State.APIAddresses()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.deployer.APIAddresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: apiAddresses,
+	})
+}
+
+func (s *deployerSuite) TestCACert(c *gc.C) {
+	result := s.deployer.CACert()
+	c.Assert(result, gc.DeepEquals, params.BytesResult{
+		Result: s.State.CACert(),
 	})
 }

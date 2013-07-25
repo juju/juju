@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"strconv"
-	"time"
 
 	. "launchpad.net/gocheck"
 
@@ -15,6 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/testing"
+	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 )
 
@@ -35,12 +35,19 @@ func (s *UnitSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	s.unit, err = s.service.AddUnit()
 	c.Assert(err, IsNil)
+	c.Assert(s.unit.Series(), Equals, "series")
 }
 
 func (s *UnitSuite) TestUnitNotFound(c *C) {
 	_, err := s.State.Unit("subway/0")
 	c.Assert(err, ErrorMatches, `unit "subway/0" not found`)
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *UnitSuite) TestUnitNameFromTag(c *C) {
+	// Try both valid and invalid tag formats.
+	c.Assert(state.UnitNameFromTag("unit-wordpress-0"), Equals, "wordpress/0")
+	c.Assert(state.UnitNameFromTag("foo"), Equals, "")
 }
 
 func (s *UnitSuite) TestService(c *C) {
@@ -638,19 +645,18 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *C) {
 }
 
 func (s *UnitSuite) TestUnitWaitAgentAlive(c *C) {
-	timeout := 200 * time.Millisecond
 	alive, err := s.unit.AgentAlive()
 	c.Assert(err, IsNil)
 	c.Assert(alive, Equals, false)
 
-	err = s.unit.WaitAgentAlive(timeout)
+	err = s.unit.WaitAgentAlive(coretesting.ShortWait)
 	c.Assert(err, ErrorMatches, `waiting for agent of unit "wordpress/0": still not alive after timeout`)
 
 	pinger, err := s.unit.SetAgentAlive()
 	c.Assert(err, IsNil)
 
 	s.State.StartSync()
-	err = s.unit.WaitAgentAlive(timeout)
+	err = s.unit.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 
 	alive, err = s.unit.AgentAlive()
@@ -959,7 +965,8 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange()
+	wc.AssertChange()
+	wc.AssertNoChange()
 
 	// Add a couple of subordinates, check change.
 	subCharm := s.AddTestingCharm(c, "logging")
@@ -984,12 +991,14 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 		c.Assert(units, HasLen, 1)
 		subUnits = append(subUnits, units[0])
 	}
-	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertNoChange()
 
 	// Set one to Dying, check change.
 	err := subUnits[0].Destroy()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(subUnits[0].Name())
+	wc.AssertChange(subUnits[0].Name())
+	wc.AssertNoChange()
 
 	// Set both to Dead, and remove one; check change.
 	err = subUnits[0].EnsureDead()
@@ -998,7 +1007,8 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	err = subUnits[1].Remove()
 	c.Assert(err, IsNil)
-	wc.AssertOneChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertChange(subUnits[0].Name(), subUnits[1].Name())
+	wc.AssertNoChange()
 
 	// Stop watcher, check closed.
 	testing.AssertStop(c, w)
@@ -1008,7 +1018,8 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w = s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
 	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
-	wc.AssertOneChange(subUnits[0].Name())
+	wc.AssertChange(subUnits[0].Name())
+	wc.AssertNoChange()
 
 	// Remove the leftover, check no change.
 	err = subUnits[0].Remove()

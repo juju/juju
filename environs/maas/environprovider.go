@@ -4,11 +4,14 @@
 package maas
 
 import (
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 )
+
+// Logger for the MAAS provider.
+var logger = loggo.GetLogger("juju.environs.maas")
 
 type maasEnvironProvider struct{}
 
@@ -21,7 +24,7 @@ func init() {
 }
 
 func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Debugf("environs/maas: opening environment %q.", cfg.Name())
+	logger.Debugf("opening environment %q.", cfg.Name())
 	env, err := NewEnviron(cfg)
 	if err != nil {
 		return nil, err
@@ -40,6 +43,7 @@ const boilerplateYAML = `maas:
   authorized-keys-path: ~/.ssh/authorized_keys # or any file you want.
   # Or:
   # authorized-keys: ssh-rsa keymaterialhere
+
 `
 
 // BoilerplateConfig is specified in the EnvironProvider interface.
@@ -75,14 +79,4 @@ func (prov maasEnvironProvider) PublicAddress() (string, error) {
 // PrivateAddress is specified in the EnvironProvider interface.
 func (prov maasEnvironProvider) PrivateAddress() (string, error) {
 	return prov.hostname()
-}
-
-// InstanceId is specified in the EnvironProvider interface.
-func (maasEnvironProvider) InstanceId() (instance.Id, error) {
-	info := machineInfo{}
-	err := info.load()
-	if err != nil {
-		return "", err
-	}
-	return instance.Id(info.InstanceId), nil
 }

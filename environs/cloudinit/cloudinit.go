@@ -11,6 +11,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -21,6 +22,12 @@ import (
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
+
+// BootstrapStateURLFile is used to communicate to the first bootstrap node
+// the URL from which to obtain important state information (instance id and
+// hardware characteristics). It is a transient file, only used as the node
+// is bootstrapping.
+const BootstrapStateURLFile = "/tmp/provider-state-url"
 
 // MachineConfig represents initialization information for a new juju machine.
 type MachineConfig struct {
@@ -63,7 +70,7 @@ type MachineConfig struct {
 	MachineNonce string
 
 	// Tools is juju tools to be used on the new machine.
-	Tools *state.Tools
+	Tools *tools.Tools
 
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
@@ -84,11 +91,17 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
+	// ProviderType refers to the type of the provider that created the machine.
+	ProviderType string
+
 	// Config holds the initial environment configuration.
 	Config *config.Config
 
 	// Constraints holds the initial environment constraints.
 	Constraints constraints.Value
+
+	// StateInfoURL is the URL of a file which contains information about the state server machines.
+	StateInfoURL string
 }
 
 func addScripts(c *cloudinit.Config, scripts ...string) {
@@ -178,6 +191,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 			return nil, err
 		}
 		addScripts(c,
+			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
 				" --env-config "+shquote(base64yaml(cfg.Config))+
@@ -272,12 +286,12 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := agent.ToolsDir(cfg.DataDir, tag)
+	toolsDir := tools.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Binary, shquote(toolsDir)))
+	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.ProviderType)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
@@ -315,7 +329,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return agent.SharedToolsDir(cfg.DataDir, cfg.Tools.Binary)
+	return tools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
@@ -334,14 +348,14 @@ func (cfg *MachineConfig) apiHostAddrs() []string {
 	if cfg.StateServer {
 		hosts = append(hosts, fmt.Sprintf("localhost:%d", cfg.APIPort))
 	}
-	if cfg.StateInfo != nil {
+	if cfg.APIInfo != nil {
 		hosts = append(hosts, cfg.APIInfo.Addrs...)
 	}
 	return hosts
 }
 
 func (cfg *MachineConfig) NeedMongoPPA() bool {
-	series := cfg.Tools.Series
+	series := cfg.Tools.Version.Series
 	// 11.10 and earlier are not supported.
 	// 13.04 and later ship a compatible version in the archive.
 	return series == "precise" || series == "quantal"
@@ -382,6 +396,9 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")
+	}
+	if cfg.ProviderType == "" {
+		return fmt.Errorf("missing provider type")
 	}
 	if cfg.StateServer {
 		if cfg.Config == nil {

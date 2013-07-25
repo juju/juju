@@ -9,12 +9,13 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/instance"
 	"net/http"
 	"strings"
 	"text/template"
@@ -31,24 +32,18 @@ func init() {
 
 var origMetadataHost = metadataHost
 
-var metadataContent = `{"uuid": "d8e02d56-2648-49a3-bf97-6be8f1204f38",` +
-	`"availability_zone": "nova", "hostname": "test.novalocal", ` +
+var metadataContent = `"availability_zone": "nova", "hostname": "test.novalocal", ` +
 	`"launch_index": 0, "meta": {"priority": "low", "role": "webserver"}, ` +
 	`"public_keys": {"mykey": "ssh-rsa fake-key\n"}, "name": "test"}`
 
 // A group of canned responses for the "metadata server". These match
 // reasonably well with the results of making those requests on a Folsom+
 // Openstack service
-var MetadataTestingBase = []jujutest.FileContent{
-	{"/latest/meta-data/instance-id", "i-000abc"},
+var MetadataTesting = []jujutest.FileContent{
 	{"/latest/meta-data/local-ipv4", "10.1.1.2"},
 	{"/latest/meta-data/public-ipv4", "203.1.1.2"},
 	{"/openstack/2012-08-10/meta_data.json", metadataContent},
 }
-
-// This is the same as MetadataTestingBase, but it doesn't have the openstack
-// 2012-08-08 API. This matches what is available in HP Cloud.
-var MetadataHP = MetadataTestingBase[:len(MetadataTestingBase)-1]
 
 // Set Metadata requests to be served by the filecontent supplied.
 func UseTestMetadata(metadata []jujutest.FileContent) {
@@ -88,8 +83,9 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 	}
 	return writablePublicStorage
 }
-func InstanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	return instanceAddress(addresses)
+
+func InstanceAddress(addresses map[string][]nova.IPAddress) string {
+	return instance.SelectPublicAddress(convertNovaAddresses(addresses))
 }
 
 var publicBucketIndexData = `
@@ -257,4 +253,8 @@ func GetSwiftURL(e environs.Environ) (string, error) {
 func SetUseFloatingIP(e environs.Environ, val bool) {
 	env := e.(*environ)
 	env.ecfg().attrs["use-floating-ip"] = val
+}
+
+func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
+	return e.(*environ).ensureGroup(name, rules)
 }

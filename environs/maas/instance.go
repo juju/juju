@@ -5,9 +5,9 @@ package maas
 
 import (
 	"launchpad.net/gomaasapi"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 )
 
 type maasInstance struct {
@@ -34,6 +34,11 @@ func (mi *maasInstance) refreshInstance() error {
 	return nil
 }
 
+func (mi *maasInstance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("maasInstance.Address not implemented")
+	return nil, nil
+}
+
 func (mi *maasInstance) DNSName() (string, error) {
 	// A MAAS instance has its DNS name immediately.
 	hostname, err := (*mi.maasObject).GetField("hostname")
@@ -49,16 +54,16 @@ func (mi *maasInstance) WaitDNSName() (string, error) {
 
 // MAAS does not do firewalling so these port methods do nothing.
 func (mi *maasInstance) OpenPorts(machineId string, ports []instance.Port) error {
-	log.Debugf("environs/maas: unimplemented OpenPorts() called")
+	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
 func (mi *maasInstance) ClosePorts(machineId string, ports []instance.Port) error {
-	log.Debugf("environs/maas: unimplemented ClosePorts() called")
+	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
 func (mi *maasInstance) Ports(machineId string) ([]instance.Port, error) {
-	log.Debugf("environs/maas: unimplemented Ports() called")
+	logger.Debugf("unimplemented Ports() called")
 	return []instance.Port{}, nil
 }

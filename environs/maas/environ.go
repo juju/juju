@@ -11,13 +11,13 @@ import (
 	"time"
 
 	"launchpad.net/gomaasapi"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -71,10 +71,16 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or MAAS system ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	mcfg := environs.NewMachineConfig(machineID, state.BootstrapNonce, nil, nil)
-	mcfg.StateServer = true
 
-	log.Debugf("environs/maas: bootstrapping environment %q", env.Name())
+	// Create an empty bootstrap state file so we can get its URL.
+	// If will be updated with the instance id and hardware characteristics
+	// after the bootstrap instance is started.
+	stateFileURL, err := environs.CreateStateFile(env.Storage())
+	if err != nil {
+		return nil, err
+	}
+
+	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := environs.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
@@ -83,7 +89,9 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	inst, err := env.internalStartInstance(cons, possibleTools, mcfg)
+
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
+	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -102,6 +110,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	// TODO(wallyworld) add hardware characteristics to BootstrapState
 	err = environs.SaveState(
 		env.Storage(),
 		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
@@ -110,7 +119,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 		if err2 != nil {
 			// Failure upon failure.  Log it, but return the
 			// original error.
-			log.Errorf("environs/maas: cannot release failed bootstrap instance: %v", err2)
+			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
 		}
 		return fmt.Errorf("cannot save state: %v", err)
 	}
@@ -196,13 +205,13 @@ func convertConstraints(cons constraints.Value) url.Values {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
 	if cons.CpuPower != nil {
-		log.Warningf("environs/maas: ignoring unsupported constraint 'cpu-power'")
+		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
 	}
 	return params
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
@@ -222,7 +231,7 @@ func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools to
 		return gomaasapi.MAASObject{}, nil, msg
 	}
 	tools := possibleTools[0]
-	log.Warningf("environs/maas: picked arbitrary tools %q", tools)
+	logger.Warningf("picked arbitrary tools %q", tools)
 	return node, tools, nil
 }
 
@@ -247,8 +256,10 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // node.
 // The instance will be set up for the same series for which you pass tools.
 // All tools in possibleTools must be for the same series.
+// machineConfig will be filled out with further details, but should contain
+// MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, mcfg *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -258,12 +269,12 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 		return nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
 		instance = &maasInstance{&node, environ}
-		mcfg.Tools = tools
+		machineConfig.Tools = tools
 	}
 	defer func() {
 		if err != nil {
 			if err := environ.releaseInstance(instance); err != nil {
-				log.Errorf("environs/maas: error releasing failed instance: %v", err)
+				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
 	}()
@@ -272,23 +283,25 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err != nil {
 		return nil, err
 	}
-	info := machineInfo{string(instance.Id()), hostname}
+	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
 		return nil, err
 	}
-	if err := environs.FinishMachineConfig(mcfg, environ.Config(), cons); err != nil {
+	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
 		return nil, err
 	}
-	userdata, err := userData(mcfg, runCmd)
+	userdata, err := environs.ComposeUserData(machineConfig, runCmd)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
 	}
+	logger.Debugf("maas user data; %d bytes", len(userdata))
+
 	if err := environ.startNode(*instance.maasObject, series[0], userdata); err != nil {
 		return nil, err
 	}
-	log.Debugf("environs/maas: started instance %q", instance.Id())
+	logger.Debugf("started instance %q", instance.Id())
 	return instance, nil
 }
 
@@ -304,9 +317,9 @@ func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series
 	if err != nil {
 		return nil, nil, err
 	}
-	mcfg := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.internalStartInstance(cons, possibleTools, mcfg)
+	inst, err := environ.internalStartInstance(cons, possibleTools, machineConfig)
 	return inst, nil, err
 }
 
@@ -335,7 +348,7 @@ func (environ *maasEnviron) releaseInstance(inst instance.Instance) error {
 	maasObj := maasInst.maasObject
 	_, err := maasObj.CallPost("release", nil)
 	if err != nil {
-		log.Debugf("environs/maas: error releasing instance %v", maasInst)
+		logger.Debugf("error releasing instance %v", maasInst)
 	}
 	return err
 }
@@ -411,7 +424,7 @@ func (env *maasEnviron) PublicStorage() environs.StorageReader {
 }
 
 func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
-	log.Debugf("environs/maas: destroying environment %q", environ.name)
+	logger.Debugf("destroying environment %q", environ.name)
 	insts, err := environ.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -440,17 +453,17 @@ func (environ *maasEnviron) Destroy(ensureInsts []instance.Instance) error {
 
 // MAAS does not do firewalling so these port methods do nothing.
 func (*maasEnviron) OpenPorts([]instance.Port) error {
-	log.Debugf("environs/maas: unimplemented OpenPorts() called")
+	logger.Debugf("unimplemented OpenPorts() called")
 	return nil
 }
 
 func (*maasEnviron) ClosePorts([]instance.Port) error {
-	log.Debugf("environs/maas: unimplemented ClosePorts() called")
+	logger.Debugf("unimplemented ClosePorts() called")
 	return nil
 }
 
 func (*maasEnviron) Ports() ([]instance.Port, error) {
-	log.Debugf("environs/maas: unimplemented Ports() called")
+	logger.Debugf("unimplemented Ports() called")
 	return []instance.Port{}, nil
 }
 

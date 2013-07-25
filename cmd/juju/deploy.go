@@ -17,14 +17,13 @@ import (
 
 type DeployCommand struct {
 	EnvCommandBase
-	CharmName      string
-	ServiceName    string
-	Config         cmd.FileVar
-	Constraints    constraints.Value
-	NumUnits       int // defaults to 1
-	BumpRevision   bool
-	RepoPath       string // defaults to JUJU_REPOSITORY
-	ForceMachineId string
+	UnitCommandBase
+	CharmName    string
+	ServiceName  string
+	Config       cmd.FileVar
+	Constraints  constraints.Value
+	BumpRevision bool
+	RepoPath     string // defaults to JUJU_REPOSITORY
 }
 
 const deployDoc = `
@@ -46,6 +45,12 @@ In all cases, a versioned charm URL will be expanded as expected (for example,
 mysql-33 becomes cs:precise/mysql-33).
 
 <service name>, if omitted, will be derived from <charm name>.
+
+Charms can be deployed to a specific machine using the --to argument.
+Examples:
+ juju deploy mysql --to 23       (Deploy to machine 23)
+ juju deploy mysql --to 24/lxc/3 (Deploy to lxc container 3 on host machine 24)
+ juju deploy mysql --to lxc:25   (Deploy to a new lxc container on host machine 25)
 `
 
 func (c *DeployCommand) Info() *cmd.Info {
@@ -59,9 +64,8 @@ func (c *DeployCommand) Info() *cmd.Info {
 
 func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
+	c.UnitCommandBase.SetFlags(f)
 	f.IntVar(&c.NumUnits, "n", 1, "number of service units to deploy for principal charms")
-	f.IntVar(&c.NumUnits, "num-units", 1, "")
-	f.StringVar(&c.ForceMachineId, "force-machine", "", "Machine to deploy initial unit, bypasses constraints")
 	f.BoolVar(&c.BumpRevision, "u", false, "increment local charm directory revision")
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
@@ -70,7 +74,6 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DeployCommand) Init(args []string) error {
-	// TODO --constraints
 	switch len(args) {
 	case 2:
 		if !state.IsServiceName(args[1]) {
@@ -88,18 +91,7 @@ func (c *DeployCommand) Init(args []string) error {
 	default:
 		return cmd.CheckEmpty(args[2:])
 	}
-	if c.NumUnits < 1 {
-		return errors.New("--num-units must be a positive integer")
-	}
-	if c.ForceMachineId != "" {
-		if c.NumUnits > 1 {
-			return errors.New("cannot use --num-units with --force-machine")
-		}
-		if !state.IsMachineId(c.ForceMachineId) {
-			return fmt.Errorf("invalid machine id %q", c.ForceMachineId)
-		}
-	}
-	return nil
+	return c.UnitCommandBase.Init(args)
 }
 
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
@@ -135,10 +127,10 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		if c.Constraints != empty {
 			return errors.New("cannot use --constraints with subordinate service")
 		}
-		if numUnits == 1 && c.ForceMachineId == "" {
+		if numUnits == 1 && c.ToMachineSpec == "" {
 			numUnits = 0
 		} else {
-			return errors.New("cannot use --num-units or --force-machine with subordinate service")
+			return errors.New("cannot use --num-units or --to with subordinate service")
 		}
 	}
 	serviceName := c.ServiceName
@@ -162,7 +154,7 @@ func (c *DeployCommand) Run(ctx *cmd.Context) error {
 		NumUnits:       numUnits,
 		ConfigSettings: settings,
 		Constraints:    c.Constraints,
-		ForceMachineId: c.ForceMachineId,
+		ToMachineSpec:  c.ToMachineSpec,
 	})
 	return err
 }

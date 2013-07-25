@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -34,7 +35,7 @@ func (s *UnitSuite) TearDownTest(c *C) {
 
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
-func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *state.Tools) {
+func (s *UnitSuite) primeAgent(c *C) (*state.Unit, *agent.Conf, *tools.Tools) {
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	unit, err := svc.AddUnit()
@@ -85,19 +86,14 @@ func (s *UnitSuite) TestParseUnknown(c *C) {
 	c.Assert(err, ErrorMatches, `unrecognized args: \["thundering typhoons"\]`)
 }
 
-func (s *UnitSuite) TestRunStop(c *C) {
-	unit, _, _ := s.primeAgent(c)
-	a := s.newAgent(c, unit)
-	go func() { c.Check(a.Run(nil), IsNil) }()
-	defer func() { c.Check(a.Stop(), IsNil) }()
+func waitForUnitStarted(stateConn *state.State, unit *state.Unit, c *C) {
 	timeout := time.After(5 * time.Second)
 
-waitStarted:
 	for {
 		select {
 		case <-timeout:
 			c.Fatalf("no activity detected")
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(testing.ShortWait):
 			err := unit.Refresh()
 			c.Assert(err, IsNil)
 			st, info, err := unit.Status()
@@ -108,15 +104,23 @@ waitStarted:
 				continue
 			case params.StatusStarted:
 				c.Logf("started!")
-				break waitStarted
+				return
 			case params.StatusDown:
-				s.State.StartSync()
+				stateConn.StartSync()
 				c.Logf("unit is still down")
 			default:
 				c.Fatalf("unexpected status %s %s", st, info)
 			}
 		}
 	}
+}
+
+func (s *UnitSuite) TestRunStop(c *C) {
+	unit, _, _ := s.primeAgent(c)
+	a := s.newAgent(c, unit)
+	go func() { c.Check(a.Run(nil), IsNil) }()
+	defer func() { c.Check(a.Stop(), IsNil) }()
+	waitForUnitStarted(s.State, unit, c)
 }
 
 func (s *UnitSuite) TestUpgrade(c *C) {

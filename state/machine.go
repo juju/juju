@@ -11,6 +11,7 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -60,8 +61,8 @@ type machineDoc struct {
 	ContainerType string
 	Principals    []string
 	Life          Life
-	Tools         *Tools `bson:",omitempty"`
-	TxnRevno      int64  `bson:"txn-revno"`
+	Tools         *tools.Tools `bson:",omitempty"`
+	TxnRevno      int64        `bson:"txn-revno"`
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
@@ -116,7 +117,7 @@ type instanceData struct {
 	InstanceId instance.Id `bson:"instanceid"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
-	CpuCores   *uint64     `bson:"cpucpores,omitempty"`
+	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
 }
@@ -160,6 +161,11 @@ func MachineTag(id string) string {
 
 // MachineIdFromTag returns the machine id that was used to create the tag.
 func MachineIdFromTag(tag string) string {
+	// TODO(dimitern): Possibly change this to return (string, error),
+	// so the case below can be reported.
+	if !strings.HasPrefix(tag, machineTagPrefix) {
+		return ""
+	}
 	// Strip off the "machine-" prefix.
 	id := tag[len(machineTagPrefix):]
 	// Put the slashes back.
@@ -186,7 +192,7 @@ func (m *Machine) Jobs() []MachineJob {
 
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies IsNotFound if the tools have not yet been set.
-func (m *Machine) AgentTools() (*Tools, error) {
+func (m *Machine) AgentTools() (*tools.Tools, error) {
 	if m.doc.Tools == nil {
 		return nil, errors.NotFoundf("agent tools for machine %v", m)
 	}
@@ -195,9 +201,9 @@ func (m *Machine) AgentTools() (*Tools, error) {
 }
 
 // SetAgentTools sets the tools that the agent is currently running.
-func (m *Machine) SetAgentTools(t *Tools) (err error) {
+func (m *Machine) SetAgentTools(t *tools.Tools) (err error) {
 	defer utils.ErrorContextf(&err, "cannot set agent tools for machine %v", m)
-	if t.Series == "" || t.Arch == "" {
+	if t.Version.Series == "" || t.Version.Arch == "" {
 		return fmt.Errorf("empty series or arch")
 	}
 	ops := []txn.Op{{

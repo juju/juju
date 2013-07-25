@@ -1,12 +1,11 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package agent
+package tools
 
 import (
 	"io"
 
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
@@ -23,12 +22,11 @@ func NewDiskManager(dataDir string) *DiskManager {
 }
 
 func (d *DiskManager) ReadTools(vers version.Binary) (*Tools, error) {
-	stTools, err := ReadTools(d.dataDir, vers)
-	return (*Tools)(stTools), err
+	return ReadTools(d.dataDir, vers)
 }
 
 func (d *DiskManager) UnpackTools(tools *Tools, r io.Reader) error {
-	return UnpackTools(d.dataDir, (*state.Tools)(tools), r)
+	return UnpackTools(d.dataDir, tools, r)
 }
 
 func (d *DiskManager) SharedToolsDir(vers version.Binary) string {

@@ -7,8 +7,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"net/url"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -20,8 +24,6 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"net/url"
-	"time"
 )
 
 func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
@@ -232,8 +234,8 @@ var statusTests = []testCase{
 			},
 		},
 
-		setTools{"0", &state.Tools{
-			Binary: version.Binary{
+		setTools{"0", &tools.Tools{
+			Version: version.Binary{
 				Number: version.MustParse("1.2.3"),
 				Series: "gutsy",
 				Arch:   "ppc",
@@ -367,6 +369,12 @@ var statusTests = []testCase{
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
 		setUnitStatus{"exposed-service/0", params.StatusError, "You Require More Vespene Gas"},
+		// Open multiple ports with different protocols,
+		// ensure they're sorted on protocol, then number.
+		openUnitPort{"exposed-service/0", "udp", 10},
+		openUnitPort{"exposed-service/0", "udp", 2},
+		openUnitPort{"exposed-service/0", "tcp", 3},
+		openUnitPort{"exposed-service/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
 		setUnitStatus{"dummy-service/0", params.StatusStarted, ""},
 		expect{
@@ -386,6 +394,9 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
 							},
 						},
 					},
@@ -452,6 +463,9 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
 							},
 						},
 					},
@@ -908,7 +922,7 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 	pinger, err := m.SetAgentAlive()
 	c.Assert(err, IsNil)
 	ctx.st.StartSync()
-	err = m.WaitAgentAlive(200 * time.Millisecond)
+	err = m.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 	agentAlive, err := m.AgentAlive()
 	c.Assert(err, IsNil)
@@ -923,7 +937,7 @@ func (sam startAliveMachine) step(c *C, ctx *context) {
 
 type setTools struct {
 	machineId string
-	tools     *state.Tools
+	tools     *tools.Tools
 }
 
 func (st setTools) step(c *C, ctx *context) {
@@ -1003,7 +1017,7 @@ func (aau addAliveUnit) step(c *C, ctx *context) {
 	pinger, err := u.SetAgentAlive()
 	c.Assert(err, IsNil)
 	ctx.st.StartSync()
-	err = u.WaitAgentAlive(200 * time.Millisecond)
+	err = u.WaitAgentAlive(coretesting.LongWait)
 	c.Assert(err, IsNil)
 	agentAlive, err := u.AgentAlive()
 	c.Assert(err, IsNil)
@@ -1028,7 +1042,7 @@ func (sua setUnitsAlive) step(c *C, ctx *context) {
 		pinger, err := u.SetAgentAlive()
 		c.Assert(err, IsNil)
 		ctx.st.StartSync()
-		err = u.WaitAgentAlive(200 * time.Millisecond)
+		err = u.WaitAgentAlive(coretesting.LongWait)
 		c.Assert(err, IsNil)
 		agentAlive, err := u.AgentAlive()
 		c.Assert(err, IsNil)
@@ -1047,6 +1061,19 @@ func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo)
+	c.Assert(err, IsNil)
+}
+
+type openUnitPort struct {
+	unitName string
+	protocol string
+	number   int
+}
+
+func (oup openUnitPort) step(c *C, ctx *context) {
+	u, err := ctx.st.Unit(oup.unitName)
+	c.Assert(err, IsNil)
+	err = u.OpenPort(oup.protocol, oup.number)
 	c.Assert(err, IsNil)
 }
 

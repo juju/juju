@@ -4,7 +4,10 @@
 package azure
 
 import (
+	"fmt"
+
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
@@ -24,18 +27,20 @@ func (azInstance *azureInstance) Id() instance.Id {
 
 var AZURE_DOMAIN_NAME = "cloudapp.net"
 
+func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("azureInstance.Addresses not implemented")
+	return nil, nil
+}
+
 // DNSName is specified in the Instance interface.
 func (azInstance *azureInstance) DNSName() (string, error) {
-	// The hostname is stored in the hosted service's label.
-	label, err := azInstance.GetLabel()
-	if err != nil {
-		return "", err
-	}
-	if isProvisionalServiceLabel(label) {
-		// DNS name has not been registered yet.  Come back later.
-		return "", instance.ErrNoDNSName
-	}
-	return label, nil
+	// For deployments in the Production slot, the instance's DNS name
+	// is its service name, in the cloudapp.net domain.
+	// (For Staging deployments it's all much weirder: they get random
+	// names assigned, which somehow don't seem to resolve from the
+	// outside.)
+	name := fmt.Sprintf("%s.%s", azInstance.ServiceName, AZURE_DOMAIN_NAME)
+	return name, nil
 }
 
 // WaitDNSName is specified in the Instance interface.

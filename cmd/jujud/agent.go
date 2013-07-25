@@ -11,6 +11,7 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
@@ -86,7 +87,7 @@ type Agent interface {
 // that represent running agents.
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
-	SetAgentTools(tools *state.Tools) error
+	SetAgentTools(tools *tools.Tools) error
 	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
@@ -106,7 +107,9 @@ func (e *fatalError) Error() string {
 }
 
 func isFatal(err error) bool {
-	if err == worker.ErrTerminateAgent || isUpgraded(err) {
+	isTerminate := err == worker.ErrTerminateAgent
+	notProvisioned := params.ErrCode(err) == params.CodeNotProvisioned
+	if isTerminate || notProvisioned || isUpgraded(err) {
 		return true
 	}
 	_, ok := err.(*fatalError)

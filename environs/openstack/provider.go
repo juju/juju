@@ -6,7 +6,6 @@
 package openstack
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io/ioutil"
@@ -15,20 +14,19 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
 	"net/http"
-	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -149,14 +147,6 @@ func (p environProvider) PrivateAddress() (string, error) {
 	return fetchMetadata("local-ipv4")
 }
 
-func (p environProvider) InstanceId() (instance.Id, error) {
-	str, err := fetchInstanceUUID()
-	if err != nil {
-		str, err = fetchLegacyId()
-	}
-	return instance.Id(str), err
-}
-
 // metadataHost holds the address of the instance metadata service.
 // It is a variable so that tests can change it to refer to a local
 // server when needed.
@@ -172,50 +162,6 @@ func fetchMetadata(name string) (value string, err error) {
 		return "", err
 	}
 	return strings.TrimSpace(string(data)), nil
-}
-
-// fetchInstanceUUID fetches the openstack instance UUID, which is not at all
-// the same thing as the "instance-id" in the ec2-style metadata. This only
-// works on openstack Folsom or later.
-func fetchInstanceUUID() (string, error) {
-	uri := fmt.Sprintf("%s/openstack/2012-08-10/meta_data.json", metadataHost)
-	data, err := retryGet(uri)
-	if err != nil {
-		return "", err
-	}
-	var uuid struct {
-		Uuid string
-	}
-	if err := json.Unmarshal(data, &uuid); err != nil {
-		return "", err
-	}
-	if uuid.Uuid == "" {
-		return "", fmt.Errorf("no instance UUID found")
-	}
-	return uuid.Uuid, nil
-}
-
-// fetchLegacyId fetches the openstack numeric instance Id, which is derived
-// from the "instance-id" in the ec2-style metadata. The ec2 id contains
-// the numeric instance id encoded as hex with a "i-" prefix.
-// This numeric id is required for older versions of Openstack which do
-// not yet support providing UUID's via the metadata. HP Cloud is one such case.
-// Even though using the numeric id is deprecated in favour of using UUID, where
-// UUID is not yet supported, we need to revert to numeric id.
-func fetchLegacyId() (string, error) {
-	instId, err := fetchMetadata("instance-id")
-	if err != nil {
-		return "", err
-	}
-	if strings.Index(instId, "i-") >= 0 {
-		hex := strings.SplitAfter(instId, "i-")[1]
-		id, err := strconv.ParseInt("0x"+hex, 0, 32)
-		if err != nil {
-			return "", err
-		}
-		instId = fmt.Sprintf("%d", id)
-	}
-	return instId, nil
 }
 
 func retryGet(uri string) (data []byte, err error) {
@@ -266,7 +212,6 @@ type openstackInstance struct {
 	e        *environ
 	instType *instances.InstanceType
 	arch     *string
-	address  string
 }
 
 func (inst *openstackInstance) String() string {
@@ -289,59 +234,73 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 	return hc
 }
 
-// instanceAddress processes a map of networks to lists of IP
-// addresses, as returned by Nova.GetServer(), extracting the proper
-// public (or private, if public is not available) IPv4 address, and
-// returning it, or an error.
-func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	var private, public, privateNet string
+// getAddress returns the existing server information on addresses,
+// but fetches the details over the api again if no addresses exist.
+func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
+	addrs := inst.ServerDetail.Addresses
+	if len(addrs) == 0 {
+		server, err := inst.e.nova().GetServer(string(inst.Id()))
+		if err != nil {
+			return nil, err
+		}
+		addrs = server.Addresses
+	}
+	return addrs, nil
+}
+
+// Addresses implements instance.Addresses() returning generic address
+// details for the instances, and calling the openstack api if needed.
+func (inst *openstackInstance) Addresses() ([]instance.Address, error) {
+	addresses, err := inst.getAddresses()
+	if err != nil {
+		return nil, err
+	}
+	return convertNovaAddresses(addresses), nil
+}
+
+// convertNovaAddresses returns nova addresses in generic format
+func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Address {
+	// TODO(gz) Network ordering may be significant but is not preserved by
+	// the map, see lp:1188126 for example. That could potentially be fixed
+	// in goose, or left to be derived by other means.
+	var machineAddresses []instance.Address
 	for network, ips := range addresses {
+		networkscope := instance.NetworkUnknown
+		// For canonistack and hpcloud, public floating addresses may
+		// be put in networks named something other than public. Rely
+		// on address sanity logic to catch and mark them corectly.
+		if network == "public" {
+			networkscope = instance.NetworkPublic
+		}
 		for _, address := range ips {
-			if address.Version == 4 {
-				if network == "public" {
-					public = address.Address
-				} else {
-					privateNet = network
-					// Some setups use custom network name, treat as "private"
-					private = address.Address
-				}
-				break
+			// Assume ipv4 unless specified otherwise
+			addrtype := instance.Ipv4Address
+			if address.Version == 6 {
+				addrtype = instance.Ipv6Address
 			}
+			// TODO(gz): Use NewAddress... with sanity checking
+			machineAddr := instance.Address{
+				Value:        address.Address,
+				Type:         addrtype,
+				NetworkName:  network,
+				NetworkScope: networkscope,
+			}
+			machineAddresses = append(machineAddresses, machineAddr)
 		}
 	}
-	// HP cloud/canonistack specific: public address is 2nd in the private network
-	if prv, ok := addresses[privateNet]; public == "" && ok {
-		if len(prv) > 1 && prv[1].Version == 4 {
-			public = prv[1].Address
-		}
-	}
-	// Juju assumes it always needs a public address and loops waiting for one.
-	// In fact a private address is generally fine provided it can be sshed to.
-	// (ported from py-juju/providers/openstack)
-	if public == "" && private != "" {
-		public = private
-	}
-	if public == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return public, nil
+	return machineAddresses
 }
 
 func (inst *openstackInstance) DNSName() (string, error) {
-	if inst.address != "" {
-		return inst.address, nil
-	}
-	// Fetch the instance information again, in case
-	// the addresses have become available.
-	server, err := inst.e.nova().GetServer(string(inst.Id()))
+	addresses, err := inst.Addresses()
 	if err != nil {
 		return "", err
 	}
-	inst.address, err = instanceAddress(server.Addresses)
-	if err != nil {
-		return "", err
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
+		return "", instance.ErrNoDNSName
 	}
-	return inst.address, nil
+	return addr, nil
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
@@ -465,6 +424,9 @@ func (e *environ) PublicStorage() environs.StorageReader {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) Bootstrap(cons constraints.Value) error {
+	// The bootstrap instance gets machine id "0".  This is not related
+	// to instance ids.  Juju assigns the machine ID.
+	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
 	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
@@ -475,21 +437,32 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
+	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	if err != nil {
+		return err
+	}
+	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
+	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
+	// An authenticated client is needed for the URL() call below.
+	err = e.client.Authenticate()
+	if err != nil {
+		return err
+	}
+	stateFileURL, err := environs.CreateStateFile(e.Storage())
+	if err != nil {
+		return err
+	}
+
+	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
+
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, _, err := e.internalStartInstance(&startInstanceParams{
-		machineId:     "0",
-		machineNonce:  state.BootstrapNonce,
-		series:        e.Config().DefaultSeries(),
-		constraints:   cons,
-		possibleTools: possibleTools,
-		stateServer:   true,
-		withPublicIP:  e.ecfg().useFloatingIP(),
-	})
+	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
 	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances: []instance.Id{inst.Id()},
+		StateInstances:  []instance.Id{inst.Id()},
+		Characteristics: []instance.HardwareCharacteristics{*characteristics},
 	})
 	if err != nil {
 		// ignore error on StopInstance because the previous error is
@@ -599,58 +572,18 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	possibleTools, err := environs.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	return e.internalStartInstance(&startInstanceParams{
-		machineId:     machineId,
-		machineNonce:  machineNonce,
-		series:        series,
-		constraints:   cons,
-		info:          info,
-		apiInfo:       apiInfo,
-		possibleTools: possibleTools,
-		withPublicIP:  e.ecfg().useFloatingIP(),
-	})
-}
-
-type startInstanceParams struct {
-	machineId     string
-	machineNonce  string
-	series        string
-	constraints   constraints.Value
-	info          *state.Info
-	apiInfo       *api.Info
-	possibleTools tools.List
-	stateServer   bool
-
-	// withPublicIP, if true, causes a floating IP to be
-	// assigned to the server after starting
-	withPublicIP bool
-}
-
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) userData(scfg *startInstanceParams, tools *state.Tools) ([]byte, error) {
-	mcfg := environs.NewMachineConfig(scfg.machineId, scfg.machineNonce, scfg.info, scfg.apiInfo)
-	mcfg.StateServer = scfg.stateServer
-	mcfg.Tools = tools
-
-	if err := environs.FinishMachineConfig(mcfg, e.Config(), scfg.constraints); err != nil {
-		return nil, err
-	}
-	cloudcfg, err := cloudinit.New(mcfg)
+	err = environs.CheckToolsSeries(possibleTools, series)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	data, err := cloudcfg.Render()
-	if err != nil {
-		return nil, err
-	}
-	cdata := utils.Gzip(data)
-	log.Debugf("environs/openstack: openstack user data; %d bytes", len(cdata))
-	return cdata, nil
+
+	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
+	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -705,32 +638,42 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
+// machineConfig will be filled out with further details, but should contain
+// MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	err := environs.CheckToolsSeries(scfg.possibleTools, scfg.series)
-	if err != nil {
-		return nil, nil, err
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+	series := possibleTools.Series()
+	if len(series) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
 	}
-	arches := scfg.possibleTools.Arches()
+	arches := possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      scfg.series,
+		Series:      series[0],
 		Arches:      arches,
-		Constraints: scfg.constraints,
+		Constraints: cons,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := scfg.possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
-	userData, err := e.userData(scfg, tools[0])
+
+	machineConfig.Tools = tools[0]
+
+	if err := environs.FinishMachineConfig(machineConfig, e.Config(), cons); err != nil {
+		return nil, nil, err
+	}
+	userData, err := environs.ComposeUserData(machineConfig)
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
+	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
+	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
-	if scfg.withPublicIP {
+	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {
 			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
@@ -739,7 +682,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		}
 	}
 	config := e.Config()
-	groups, err := e.setUpGroups(scfg.machineId, config.StatePort(), config.APIPort())
+	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -751,7 +694,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 	var server *nova.Entity
 	for a := shortAttempt.Start(); a.Next(); {
 		server, err = e.nova().RunServer(nova.RunServerOpts{
-			Name:               e.machineFullName(scfg.machineId),
+			Name:               e.machineFullName(machineConfig.MachineId),
 			FlavorId:           spec.InstanceType.Id,
 			ImageId:            spec.Image.Id,
 			UserData:           userData,
@@ -775,7 +718,7 @@ func (e *environ) internalStartInstance(scfg *startInstanceParams) (instance.Ins
 		instType:     &spec.InstanceType,
 	}
 	log.Infof("environs/openstack: started instance %q", inst.Id())
-	if scfg.withPublicIP {
+	if withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
@@ -1104,7 +1047,14 @@ var zeroGroup nova.SecurityGroup
 // If it exists, its permissions are set to perms.
 func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	novaClient := e.nova()
-	group, err := novaClient.CreateSecurityGroup(name, "juju group")
+	// First attempt to look up an existing group by name.
+	group, err := novaClient.SecurityGroupByName(name)
+	if err == nil {
+		// Group exists, so assume it is correctly set up and return it.
+		return *group, nil
+	}
+	// Doesn't exist, so try and create it.
+	group, err = novaClient.CreateSecurityGroup(name, "juju group")
 	if err != nil {
 		if !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
@@ -1114,15 +1064,18 @@ func (e *environ) ensureGroup(name string, rules []nova.RuleInfo) (nova.Security
 			if err != nil {
 				return zeroGroup, err
 			}
+			return *group, nil
 		}
 	}
-	// The group is created so now add the rules.
-	for _, rule := range rules {
+	// The new group is created so now add the rules.
+	group.Rules = make([]nova.SecurityGroupRule, len(rules))
+	for i, rule := range rules {
 		rule.ParentGroupId = group.Id
-		_, err := novaClient.CreateSecurityGroupRule(rule)
+		groupRule, err := novaClient.CreateSecurityGroupRule(rule)
 		if err != nil && !gooseerrors.IsDuplicateValue(err) {
 			return zeroGroup, err
 		}
+		group.Rules[i] = *groupRule
 	}
 	return *group, nil
 }

@@ -5,9 +5,17 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
+	"time"
+
 	"launchpad.net/gnuflag"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
+	localstorage "launchpad.net/juju-core/environs/local/storage"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -21,10 +29,9 @@ import (
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
-	"launchpad.net/tomb"
-	"path/filepath"
-	"time"
 )
+
+const bootstrapMachineId = "0"
 
 var retryDelay = 3 * time.Second
 
@@ -80,7 +87,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	if err := EnsureWeHaveLXC(a.Conf.DataDir); err != nil {
+	if err := EnsureWeHaveLXC(a.Conf.DataDir, a.Tag()); err != nil {
 		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
 		return err
 	}
@@ -100,7 +107,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 			return a.StateWorker()
 		})
 	}
-	if a.MachineId == "0" {
+	if a.MachineId == bootstrapMachineId {
 		// If we're bootstrapping, we don't have an API
 		// server to connect to, so start the state worker regardless.
 
@@ -109,6 +116,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		// instances of the API server have been started, we
 		// should follow the normal course of things and ignore
 		// the fact that this was once the bootstrap machine.
+		log.Infof("Starting StateWorker for machine-0")
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
@@ -137,6 +145,17 @@ var stateJobs = map[params.MachineJob]bool{
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
 	st, entity, err := openAPIState(a.Conf.Conf, a)
 	if err != nil {
+		// There was an error connecting to the API,
+		// https://launchpad.net/bugs/1199915 means that we may just
+		// not have an API password set. So force a state connection at
+		// this point.
+		// TODO(jam): Once we can reliably trust that we have API
+		//            passwords set, and we no longer need state
+		//            connections (and possibly agents will be blocked
+		//            from connecting directly to state) we can remove
+		//            this. Currently needed because 1.10 does not set
+		//            the API password and 1.11 requires it
+		ensureStateWorker()
 		return nil, err
 	}
 	m := entity.(*machineagent.Machine)
@@ -148,8 +167,11 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		ensureStateWorker()
 	}
 	runner := worker.NewRunner(allFatal, moreImportant)
-	// No agents currently connect to the API, so just
-	// return the runner running nothing.
+	// Only the machiner currently connects to the API.
+	// Add other workers here as they are ready.
+	runner.StartWorker("machiner", func() (worker.Worker, error) {
+		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
+	})
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -159,6 +181,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
+	}
+	// If this fails, other bits will fail, so we just log the error, and
+	// let the other failures actually restart runners
+	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
+		log.Warningf("failed to EnsureAPIInfo: %v", err)
 	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
@@ -170,9 +197,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
 		return NewUpgrader(st, m, dataDir), nil
 	})
-	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st, m.Id()), nil
-	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
@@ -181,10 +205,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	if m.ContainerType() != instance.LXC {
+	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
 			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
+		})
+	}
+	// Take advantage of special knowledge here in that we will only ever want
+	// the storage provider on one machine, and that is the "bootstrap" node.
+	if providerType == provider.Local && m.Id() == bootstrapMachineId {
+		runner.StartWorker("local-storage", func() (worker.Worker, error) {
+			return localstorage.NewWorker(), nil
 		})
 	}
 	for _, job := range m.Jobs() {

@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
+	"launchpad.net/goose/nova"
 	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
 	"launchpad.net/juju-core/constraints"
@@ -41,7 +42,7 @@ func (s *ProviderSuite) TearDownTest(c *C) {
 }
 
 func (s *ProviderSuite) TestMetadata(c *C) {
-	openstack.UseTestMetadata(openstack.MetadataTestingBase)
+	openstack.UseTestMetadata(openstack.MetadataTesting)
 	defer openstack.UseTestMetadata(nil)
 
 	p, err := environs.Provider("openstack")
@@ -54,10 +55,6 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 	addr, err = p.PrivateAddress()
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "10.1.1.2")
-
-	id, err := p.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instance.Id("d8e02d56-2648-49a3-bf97-6be8f1204f38"))
 }
 
 func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
@@ -80,18 +77,6 @@ func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
 	addr, err = p.PublicAddress()
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "10.1.1.2")
-}
-
-func (s *ProviderSuite) TestLegacyInstanceId(c *C) {
-	openstack.UseTestMetadata(openstack.MetadataHP)
-	defer openstack.UseTestMetadata(nil)
-
-	p, err := environs.Provider("openstack")
-	c.Assert(err, IsNil)
-
-	id, err := p.InstanceId()
-	c.Assert(err, IsNil)
-	c.Assert(id, Equals, instance.Id("2748"))
 }
 
 // Register tests to run against a test Openstack instance (service doubles).
@@ -394,10 +379,12 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(stateData.StateInstances, HasLen, 1)
 
-	insts, err := s.env.Instances(stateData.StateInstances)
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 mem=512M")
+	insts, err := s.env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
 	c.Check(insts[0].Id(), Equals, stateData.StateInstances[0])
+	c.Check(expectedHardware, DeepEquals, stateData.Characteristics[0])
 
 	info, apiInfo, err := s.env.StateInfo()
 	c.Assert(err, IsNil)
@@ -491,6 +478,44 @@ func (s *localServerSuite) TestDeleteMoreThan100(c *C) {
 	c.Assert(err, IsNil)
 	_, err = storage.Get("ab")
 	c.Assert(err, NotNil)
+}
+
+// TestEnsureGroup checks that when creating a duplicate security group, the existing group is
+// returned and the existing rules have been left as is.
+func (s *localServerSuite) TestEnsureGroup(c *C) {
+	rule := []nova.RuleInfo{
+		{
+			IPProtocol: "tcp",
+			FromPort:   22,
+			ToPort:     22,
+		},
+	}
+
+	assertRule := func(group nova.SecurityGroup) {
+		c.Check(len(group.Rules), Equals, 1)
+		c.Check(*group.Rules[0].IPProtocol, Equals, "tcp")
+		c.Check(*group.Rules[0].FromPort, Equals, 22)
+		c.Check(*group.Rules[0].ToPort, Equals, 22)
+	}
+
+	group, err := openstack.EnsureGroup(s.env, "test group", rule)
+	c.Assert(err, IsNil)
+	c.Assert(group.Name, Equals, "test group")
+	assertRule(group)
+	id := group.Id
+	// Do it again and check that the existing group is returned.
+	anotherRule := []nova.RuleInfo{
+		{
+			IPProtocol: "tcp",
+			FromPort:   1,
+			ToPort:     65535,
+		},
+	}
+	group, err = openstack.EnsureGroup(s.env, "test group", anotherRule)
+	c.Assert(err, IsNil)
+	c.Check(group.Id, Equals, id)
+	c.Assert(group.Name, Equals, "test group")
+	assertRule(group)
 }
 
 // publicBucketSuite contains tests to ensure the public bucket is correctly set up.

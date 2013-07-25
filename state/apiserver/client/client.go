@@ -177,7 +177,7 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 		NumUnits:       args.NumUnits,
 		ConfigSettings: settings,
 		Constraints:    args.Constraints,
-		ForceMachineId: args.ForceMachineId,
+		ToMachineSpec:  args.ToMachineSpec,
 	})
 	return err
 }

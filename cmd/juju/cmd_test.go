@@ -171,10 +171,10 @@ var deployTests = []struct {
 		&DeployCommand{BumpRevision: true},
 	}, {
 		[]string{"--num-units", "33", "charm-name"},
-		&DeployCommand{NumUnits: 33},
+		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 33}},
 	}, {
 		[]string{"-n", "104", "charm-name"},
-		&DeployCommand{NumUnits: 104},
+		&DeployCommand{UnitCommandBase: UnitCommandBase{NumUnits: 104}},
 	},
 }
 

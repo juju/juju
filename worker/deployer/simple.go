@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -81,8 +82,8 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Link the current tools for use by the new agent.
 	tag := state.UnitTag(unitName)
-	_, err = agent.ChangeAgentTools(ctx.dataDir, tag, version.Current)
-	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
+	_, err = tools.ChangeAgentTools(ctx.dataDir, tag, version.Current)
+	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
 	// Retrieve addresses from state.
@@ -142,6 +143,10 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
 		Out:     logPath,
+		// Propagate the provider type enviroment variable.
+		Env: map[string]string{
+			"JUJU_PROVIDER_TYPE": os.Getenv("JUJU_PROVIDER_TYPE"),
+		},
 	}
 	return uconf.Install()
 }
@@ -172,7 +177,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		return err
 	}
 	tag := state.UnitTag(unitName)
-	agentDir := agent.Dir(ctx.dataDir, tag)
+	agentDir := tools.Dir(ctx.dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
@@ -185,7 +190,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 			logger.Warningf("installer: cannot restart syslog daemon: %v", err)
 		}
 	}()
-	toolsDir := agent.ToolsDir(ctx.dataDir, tag)
+	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
 	return os.Remove(toolsDir)
 }
 

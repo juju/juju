@@ -6,6 +6,7 @@ package provisioner
 import (
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/config"
@@ -18,9 +19,9 @@ var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
 var _ Broker = (*lxcBroker)(nil)
 
-func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
+func NewLxcBroker(config *config.Config, tools *tools.Tools) Broker {
 	return &lxcBroker{
-		manager: lxc.NewContainerManager("juju"),
+		manager: lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
 		config:  config,
 		tools:   tools,
 	}
@@ -29,7 +30,7 @@ func NewLxcBroker(config *config.Config, tools *state.Tools) Broker {
 type lxcBroker struct {
 	manager lxc.ContainerManager
 	config  *config.Config
-	tools   *state.Tools
+	tools   *tools.Tools
 }
 
 func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {

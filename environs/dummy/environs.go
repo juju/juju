@@ -395,10 +395,6 @@ func (*environProvider) PrivateAddress() (string, error) {
 	return "private.dummy.address.example.com", nil
 }
 
-func (*environProvider) InstanceId() (instance.Id, error) {
-	return instance.Id("dummy.instance.id"), nil
-}
-
 func (*environProvider) BoilerplateConfig() string {
 	return `
 ## Fake configuration for dummy provider.
@@ -739,6 +735,11 @@ func (inst *dummyInstance) Id() instance.Id {
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
 	return string(inst.id) + ".dns", nil
+}
+
+func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
+	log.Errorf("environs/dummy: Addresses not implemented")
+	return nil, nil
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
