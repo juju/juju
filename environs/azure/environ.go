@@ -309,12 +309,12 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
 func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
-    var err error
+	var err error
 	name := gwacl.MakeRandomHostedServiceName(prefix)
-    err = azure.CheckHostedServiceNameAvailability(name)
-    if err != nil {
-        return nil, nil
-    }
+	err = azure.CheckHostedServiceNameAvailability(name)
+	if err != nil {
+		return nil, nil
+	}
 	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
 	req.AffinityGroup = affinityGroupName
 	err = azure.AddHostedService(req)
@@ -338,7 +338,7 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 	var err error
 	var svc *gwacl.CreateHostedService
 	for tries := 10; tries > 0 && err == nil && svc == nil; tries-- {
-        fmt.Printf("**** ATTEMPT %v\n", tries)
+		fmt.Printf("**** ATTEMPT %v\n", tries)
 		svc, err = attemptCreateService(azure, prefix, affinityGroupName, location)
 	}
 	if err != nil {

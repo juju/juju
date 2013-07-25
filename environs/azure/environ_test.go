@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-    "path"
+	"path"
 	"strings"
 	"sync"
 
@@ -385,20 +385,20 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 // makeNonAvailabilityResponse simulates a reply to the
 // CheckHostedServiceNameAvailability call saying that a name is not available.
 func makeNonAvailabilityResponse(c *C) []byte {
-    errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
-        Result: "false",
-        Reason:   "he's a very naughty boy"})
-    c.Assert(err, IsNil)
-    return errorBody
+	errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
+		Result: "false",
+		Reason: "he's a very naughty boy"})
+	c.Assert(err, IsNil)
+	return errorBody
 }
 
 // makeAvailabilityResponse simulates a reply to the
 // CheckHostedServiceNameAvailability call saying that a name is available.
 func makeAvailabilityResponse(c *C) []byte {
-    errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
-        Result: "true"})
-    c.Assert(err, IsNil)
-    return errorBody
+	errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
+		Result: "true"})
+	c.Assert(err, IsNil)
+	return errorBody
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
@@ -406,7 +406,7 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	affinityGroup := "affinity-group"
 	location := "location"
 	responses := []gwacl.DispatcherResponse{
-        gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -431,7 +431,7 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 	errorBody := makeServiceNameAlreadyTakenError(c)
 	responses := []gwacl.DispatcherResponse{
-        gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
@@ -455,7 +455,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 	})
 	c.Assert(err, IsNil)
 	responses := []gwacl.DispatcherResponse{
-        gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
@@ -469,7 +469,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 
 func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	responses := []gwacl.DispatcherResponse{
-        gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
@@ -486,7 +486,7 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	affinityGroup := "affinity-group"
 	location := "location"
 	responses := []gwacl.DispatcherResponse{
-        gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -506,13 +506,13 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	errorBody := makeNonAvailabilityResponse(c)
-    okBody := makeAvailabilityResponse(c)
+	okBody := makeAvailabilityResponse(c)
 	// In this scenario, the first two names that we try are already
 	// taken.  The third one is unique though, so we succeed.
 	responses := []gwacl.DispatcherResponse{
-        gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
-        gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
-        gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -529,14 +529,14 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	// randomizer with some fixed seed that doens't produce the problem.
 	attemptedNames := make(map[string]int)
 	for _, request := range *requests {
-        // Exit the loop if we hit the request to create the service, it comes
-        // after the check calls.
-        if request.Method == "POST" {
-            break
-        }
-        // Name is the last part of the URL from the GET requests that check
-        // availability.
-        _, name := path.Split(strings.TrimRight(request.URL, "/"))
+		// Exit the loop if we hit the request to create the service, it comes
+		// after the check calls.
+		if request.Method == "POST" {
+			break
+		}
+		// Name is the last part of the URL from the GET requests that check
+		// availability.
+		_, name := path.Split(strings.TrimRight(request.URL, "/"))
 		//name := parseCreateServiceRequest(c, request).ServiceName
 		attemptedNames[name] += 1
 	}
@@ -555,7 +555,7 @@ func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 	errorBody := makeNonAvailabilityResponse(c)
 	responses := []gwacl.DispatcherResponse{}
 	for counter := 0; counter < 100; counter++ {
-        responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil))
+		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil))
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "")
