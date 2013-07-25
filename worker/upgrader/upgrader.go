@@ -5,18 +5,21 @@ package upgrader
 
 import (
 	"fmt"
+	"net/http"
+	"time"
 
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker"
 )
+
+// RetryDelay specifies how long the upgrader
+// will wait to try again after a failed tools download.
+var RetryDelay = 5 * time.Second
 
 // UpgradeReadyError is returned by an Upgrader to report that
 // an upgrade is ready to be performed and a restart is due.
@@ -25,6 +28,10 @@ type UpgradeReadyError struct {
 	OldTools  *tools.Tools
 	NewTools  *tools.Tools
 	DataDir   string
+}
+
+func (e *UpgradeReadyError) Error() string {
+	return "must restart: an agent upgrade is available"
 }
 
 var logger = loggo.GetLogger("juju.upgrader")
@@ -77,10 +84,10 @@ func (u *Upgrader) loop() error {
 		// download some more tools and upgrade.
 		logger.Warningf("cannot read current tools: %v", err)
 		currentTools = &tools.Tools{
-			Binary: version.Current,
+			Version: version.Current,
 		}
 	}
-	err = u.st.SetTools(currentTools)
+	err = u.st.SetTools(u.tag, currentTools)
 	if err != nil {
 		return err
 	}
@@ -98,13 +105,13 @@ func (u *Upgrader) loop() error {
 	}
 	var retry <-chan time.Time
 	for {
-		if wantTools.Number != currentTools.Number {
+		if wantTools.Version.Number != currentTools.Version.Number {
 			// The worker cannot be stopped while we're downloading
 			// the tools - this means that even if the API is going down
 			// repeatedly (causing the agent to be stopped), as long
 			// as we have got as far as this, we will still be able to
 			// upgrade the agent.
-			err := fetchTools(wantTools)
+			err := u.fetchTools(wantTools)
 			if err != nil {
 				if err, ok := err.(*UpgradeReadyError); ok {
 					// fill in information that fetchTools doesn't have.
@@ -114,7 +121,7 @@ func (u *Upgrader) loop() error {
 					return err
 				}
 				logger.Errorf("failed to fetch tools: %v", err)
-				retry = time.After(retryDelay)
+				retry = time.After(RetryDelay)
 				continue
 			}
 		}
@@ -127,20 +134,20 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func fetchTools(tools *agent.Tools) error {
-	resp, err := http.Get(url)
+func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
+	resp, err := http.Get(agentTools.URL)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("bad http response: %v", resp.Status)
+		return fmt.Errorf("bad http response: %v", resp.Status)
 	}
-	err = agent.UnpackTools(u.dataDir, tools, resp.Body)
+	err = tools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("cannot unpack tools: %v", err)
+		return fmt.Errorf("cannot unpack tools: %v", err)
 	}
 	return &UpgradeReadyError{
-		NewTools: tools,
+		NewTools: agentTools,
 	}
 }
