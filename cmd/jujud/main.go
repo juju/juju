@@ -96,7 +96,6 @@ func jujuDMain(args []string) (code int, err error) {
 		Log:  &cmd.Log{},
 	})
 	jujud.Register(&BootstrapCommand{})
-	jujud.Register(&HelpToolCommand{})
 	jujud.Register(&MachineAgent{})
 	jujud.Register(&UnitAgent{})
 	jujud.Register(&cmd.VersionCommand{})

@@ -17,34 +17,34 @@ import (
 // as expected by jujuc.NewCommand.
 type dummyHookContext struct{}
 
-func (_ dummyHookContext) UnitName() string {
+func (dummyHookContext) UnitName() string {
 	return ""
 }
-func (_ dummyHookContext) PublicAddress() (string, bool) {
+func (dummyHookContext) PublicAddress() (string, bool) {
 	return "", false
 }
-func (_ dummyHookContext) PrivateAddress() (string, bool) {
+func (dummyHookContext) PrivateAddress() (string, bool) {
 	return "", false
 }
-func (_ dummyHookContext) OpenPort(protocol string, port int) error {
+func (dummyHookContext) OpenPort(protocol string, port int) error {
 	return nil
 }
-func (_ dummyHookContext) ClosePort(protocol string, port int) error {
+func (dummyHookContext) ClosePort(protocol string, port int) error {
 	return nil
 }
-func (_ dummyHookContext) ConfigSettings() (charm.Settings, error) {
+func (dummyHookContext) ConfigSettings() (charm.Settings, error) {
 	return charm.NewConfig().DefaultSettings(), nil
 }
-func (_ dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
+func (dummyHookContext) HookRelation() (jujuc.ContextRelation, bool) {
 	return nil, false
 }
-func (_ dummyHookContext) RemoteUnitName() (string, bool) {
+func (dummyHookContext) RemoteUnitName() (string, bool) {
 	return "", false
 }
-func (_ dummyHookContext) Relation(id int) (jujuc.ContextRelation, bool) {
+func (dummyHookContext) Relation(id int) (jujuc.ContextRelation, bool) {
 	return nil, false
 }
-func (_ dummyHookContext) RelationIds() []int {
+func (dummyHookContext) RelationIds() []int {
 	return []int{}
 }
 
@@ -76,24 +76,19 @@ func (c *HelpToolCommand) Run(ctx *cmd.Context) error {
 		// with "help commands", but then the implicit "help" command
 		// shows up.
 		names := jujuc.CommandNames()
-		cmds := make([]cmd.Command, len(names))
+		cmds := make([]cmd.Command, 0, len(names))
 		longest := 0
-		for i, name := range names {
+		for _, name := range names {
 			if c, err := jujuc.NewCommand(hookctx, name); err == nil {
 				if len(name) > longest {
 					longest = len(name)
 				}
-				cmds[i] = c
+				cmds = append(cmds, c)
 			}
 		}
-		const lineFormat = "%-*s  %s\n"
-		const outputFormat = "%s"
-		for i, name := range names {
-			var purpose string
-			if cmds[i] != nil {
-				purpose = cmds[i].Info().Purpose
-			}
-			fmt.Fprintf(ctx.Stdout, lineFormat, longest, name, purpose)
+		for _, c := range cmds {
+			info := c.Info()
+			fmt.Fprintf(ctx.Stdout, "%-*s  %s\n", longest, info.Name, info.Purpose)
 		}
 	} else {
 		c, err := jujuc.NewCommand(hookctx, c.tool)
