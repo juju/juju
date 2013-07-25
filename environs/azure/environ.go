@@ -401,7 +401,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	instanceType, err := selectMachineType(gwacl.RoleSizes, cons)
+	instanceType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
 	if err != nil {
 		return nil, err
 	}
