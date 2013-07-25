@@ -5,7 +5,6 @@ package azure
 
 import (
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
@@ -313,19 +312,12 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	name := gwacl.MakeRandomHostedServiceName(prefix)
 	err = azure.CheckHostedServiceNameAvailability(name)
 	if err != nil {
+		// The calling function should retry.
 		return nil, nil
 	}
 	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
 	req.AffinityGroup = affinityGroupName
 	err = azure.AddHostedService(req)
-	azErr, isAzureError := err.(*gwacl.AzureError)
-	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
-		// Conflict.  As far as we can see, this only happens if the
-		// name was already in use.  It's still dangerous to assume
-		// that we know it can't be anything else, but there's nothing
-		// else in the error that we can use for closer identifcation.
-		return nil, nil
-	}
 	if err != nil {
 		return nil, err
 	}

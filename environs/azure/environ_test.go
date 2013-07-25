@@ -429,34 +429,8 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
-	errorBody := makeServiceNameAlreadyTakenError(c)
 	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
-	}
-	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
-	c.Assert(err, IsNil)
-
-	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
-	c.Check(err, IsNil)
-	c.Check(service, IsNil)
-}
-
-func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C) {
-	// Even if Azure or gwacl makes slight changes to the error they
-	// return (e.g. to translate output), attemptCreateService can still
-	// recognize the error that means "this service name is not unique."
-	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("broken HTTP request"),
-		HTTPStatus: http.StatusConflict,
-		Code:       "ServiceNameTaken",
-		Message:    "De aangevraagde naam is al in gebruik.",
-	})
-	c.Assert(err, IsNil)
-	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
-		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+		gwacl.NewDispatcherResponse(makeNonAvailabilityResponse(c), http.StatusOK, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "")
