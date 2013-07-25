@@ -6,11 +6,14 @@ package minunitsworker
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/log"
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/tomb"
 )
+
+var logger = loggo.GetLogger("juju.worker.minunitsworker")
 
 // MinUnitsWorker ensures the minimum number of units for services is respected.
 type MinUnitsWorker struct {
@@ -55,6 +58,15 @@ func (mu *MinUnitsWorker) handle(serviceName string) error {
 	return service.EnsureMinUnits()
 }
 
+func (mu *MinUnitsWorker) process(serviceNames []string) {
+	for _, name := range serviceNames {
+		logger.Infof("processing service %q", name)
+		if err := mu.handle(name); err != nil {
+			logger.Errorf("failed to process service %q: %v", name, err)
+		}
+	}
+}
+
 func (mu *MinUnitsWorker) loop() error {
 	w := mu.st.WatchMinUnits()
 	defer watcher.Stop(w, &mu.tomb)
@@ -66,12 +78,7 @@ func (mu *MinUnitsWorker) loop() error {
 			if !ok {
 				return watcher.MustErr(w)
 			}
-			for _, name := range serviceNames {
-				log.Infof("worker/minunitsworker: processing service %v", name)
-				if err := mu.handle(name); err != nil {
-					log.Errorf("worker/minunitsworker: error: service %v: %v", name, err)
-				}
-			}
+			mu.process(serviceNames)
 		}
 	}
 	panic("unreachable")

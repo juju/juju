@@ -7,9 +7,10 @@ import (
 	stdtesting "testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/minunitsworker"
@@ -19,51 +20,51 @@ func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type MinuniterSuite struct {
+type minUnitsWorkerSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&MinuniterSuite{})
+var _ = gc.Suite(&minUnitsWorkerSuite{})
 
 var _ worker.Worker = (*minunitsworker.MinUnitsWorker)(nil)
 
-func (s *MinuniterSuite) TestMinUnitsWorker(c *C) {
+func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	mu := minunitsworker.NewMinUnitsWorker(s.State)
-	defer func() { c.Assert(mu.Stop(), IsNil) }()
+	defer statetesting.AssertStop(c, mu)
 
 	// Set up services and units for later use.
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	unit, err := wordpress.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = wordpress.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Observe minimum units with a watcher.
 	w := s.State.WatchMinUnits()
-	defer func() { c.Assert(w.Stop(), IsNil) }()
+	defer statetesting.AssertStop(c, w)
 
 	// Set up minimum units for services.
 	err = wordpress.SetMinUnits(3)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = mysql.SetMinUnits(2)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Remove a unit for a service.
 	err = unit.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	timeout := time.After(500 * time.Millisecond)
+	timeout := time.After(coretesting.LongWait)
 	for {
 		s.State.StartSync()
 		select {
-		case <-time.After(50 * time.Millisecond):
+		case <-time.After(coretesting.ShortWait):
 			wordpressUnits, err := wordpress.AllUnits()
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			mysqlUnits, err := mysql.AllUnits()
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			if len(wordpressUnits) == 3 && len(mysqlUnits) == 2 {
 				return
 			}
