@@ -5,6 +5,8 @@ package azure
 
 import (
 	"io"
+	"time"
+
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
@@ -77,7 +79,9 @@ func (storage *azureStorage) URL(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return context.GetFileURL(storage.getContainer(), name), nil
+	// 10 years should be good enough.
+	expires := time.Now().AddDate(10, 0, 0)
+	return context.GetAnonymousFileURL(storage.getContainer(), name, expires), nil
 }
 
 // Put is specified in the StorageWriter interface.

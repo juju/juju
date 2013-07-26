@@ -6,11 +6,13 @@ package azure
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/errors"
-	"net/http"
-	"strings"
 )
 
 type StorageSuite struct {
@@ -212,5 +214,12 @@ func (*StorageSuite) TestURL(c *C) {
 	azStorage, _ := makeAzureStorage(nil, container, account)
 	URL, err := azStorage.URL(filename)
 	c.Assert(err, IsNil)
-	c.Check(URL, Matches, fmt.Sprintf("http://%s.blob.core.windows.net/%s/%s", account, container, filename))
+	parsedURL, err := url.Parse(URL)
+	c.Assert(err, IsNil)
+	c.Check(parsedURL.Host, Matches, fmt.Sprintf("%s.blob.core.windows.net", account))
+	c.Check(parsedURL.Path, Matches, fmt.Sprintf("/%s/%s", container, filename))
+	values, err := url.ParseQuery(parsedURL.RawQuery)
+	c.Assert(err, IsNil)
+	// The query string contains a non-empty signature.
+	c.Check(values.Get("sig"), Not(HasLen), 0)
 }
