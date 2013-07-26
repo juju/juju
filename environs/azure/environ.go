@@ -156,7 +156,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
-	return env.getEnvPrefix() + "-ag"
+	return env.getEnvPrefix() + "ag"
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
@@ -187,7 +187,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 // getVirtualNetworkName returns the name of the virtual network used by all
 // the VMs in this environment.
 func (env *azureEnviron) getVirtualNetworkName() string {
-	return env.getEnvPrefix() + "-vnet"
+	return env.getEnvPrefix() + "vnet"
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
