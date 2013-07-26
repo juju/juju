@@ -694,13 +694,9 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	logger.Debugf("destroying environment %q", env.name)
 
 	// Delete storage.
-	err := env.Storage().RemoveAll()
+	err := env.deleteStorageContainer() // Also deletes blobs inside.
 	if err != nil {
 		return fmt.Errorf("cannot clean up storage: %v", err)
-	}
-	err = env.deleteStorageContainer()
-	if err != nil {
-		return fmt.Errorf("cannot clean up storage container: %v", err)
 	}
 
 	// Stop all instances.
