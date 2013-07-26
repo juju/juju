@@ -837,9 +837,10 @@ func (env *azureEnviron) getImageStream() string {
 	return ""
 }
 
-// getImageSigningRequired returns whether this environment requires OS
-// images from Simplestreams to be signed.
-func (env *azureEnviron) getImageSigningRequired() bool {
-	// Hard-coded to true for now.
+// getImageMetadataSigningRequired returns whether this environment requires
+// image metadata from Simplestreams to be signed.
+func (env *azureEnviron) getImageMetadataSigningRequired() bool {
+	// Hard-coded to true for now.  Once we support custom base URLs,
+	// this may have to change.
 	return true
 }

@@ -1002,8 +1002,9 @@ func (*EnvironSuite) TestGetImageStreamDefaultsToBlank(c *C) {
 	c.Check(env.getImageStream(), Equals, "")
 }
 
-func (*EnvironSuite) TestGetImageSigningRequiredDefaultsToTrue(c *C) {
+func (*EnvironSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *C) {
 	env := makeEnviron(c)
-	// Hard-coded to true for now.
-	c.Check(env.getImageSigningRequired(), Equals, true)
+	// Hard-coded to true for now.  Once we support other base URLs, this
+	// may have to become configurable.
+	c.Check(env.getImageMetadataSigningRequired(), Equals, true)
 }
