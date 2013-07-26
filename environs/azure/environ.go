@@ -163,7 +163,7 @@ func (env *azureEnviron) createAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	snap := env.getSnapshot()
@@ -195,7 +195,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
