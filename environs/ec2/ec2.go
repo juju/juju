@@ -31,8 +31,6 @@ import (
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
-	// Try at least once, even if we're running very slow.
-	Min: 1,
 }
 
 func init() {

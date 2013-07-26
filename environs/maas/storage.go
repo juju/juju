@@ -164,7 +164,7 @@ func (stor *maasStorage) URL(name string) (string, error) {
 func (stor *maasStorage) ConsistencyStrategy() utils.AttemptStrategy {
 	// This storage backend has immediate consistency, so there's no
 	// need to wait.  One attempt should do.
-	return utils.AttemptStrategy{Min: 1}
+	return utils.AttemptStrategy{}
 }
 
 // Put is specified in the StorageWriter interface.

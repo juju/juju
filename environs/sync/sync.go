@@ -235,7 +235,7 @@ func (f *fileStorageReader) URL(name string) (string, error) {
 
 // ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
 func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{Min: 1}
+	return utils.AttemptStrategy{}
 }
 
 // NewSyncLogWriter creates a loggo writer for registration

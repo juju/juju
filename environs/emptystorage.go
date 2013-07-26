@@ -39,7 +39,7 @@ func (s emptyStorage) URL(name string) (string, error) {
 
 // ConsistencyStrategy is specified in the StorageReader interface.
 func (s emptyStorage) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{Min: 1}
+	return utils.AttemptStrategy{}
 }
 
 func (s emptyStorage) List(prefix string) ([]string, error) {

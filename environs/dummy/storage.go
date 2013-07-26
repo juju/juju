@@ -95,7 +95,7 @@ func (s *storage) URL(name string) (string, error) {
 
 // ConsistencyStrategy is specified in the StorageReader interface.
 func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{Min: 1}
+	return utils.AttemptStrategy{}
 }
 
 func (s *storage) Put(name string, r io.Reader, length int64) error {

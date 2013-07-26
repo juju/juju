@@ -85,7 +85,7 @@ func (s *storage) URL(name string) (string, error) {
 
 // ConsistencyStrategy is specified in the StorageReader interface.
 func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{Min: 1}
+	return utils.AttemptStrategy{}
 }
 
 // Put reads from r and writes to the given storage file.
