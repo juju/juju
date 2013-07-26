@@ -93,7 +93,6 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-foo-bar")
 	err := statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
-
 	agentTools := s.primeTools(c, vers)
 
 	_, err = s.machine.AgentTools()
@@ -105,4 +104,23 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotTools, gc.DeepEquals, agentTools)
+}
+
+func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
+	vers := version.MustParseBinary("5.4.3-foo-bar")
+	err := statetesting.SetAgentVersion(s.State, vers.Number)
+	c.Assert(err, gc.IsNil)
+	s.primeTools(c, vers)
+	err = os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.machine.AgentTools()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+
+	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	c.Assert(u.Stop(), gc.IsNil)
+	s.machine.Refresh()
+	gotTools, err := s.machine.AgentTools()
+	c.Assert(err, gc.IsNil)
+	c.Assert(gotTools, gc.DeepEquals, &tools.Tools{Version: version.Current})
 }
