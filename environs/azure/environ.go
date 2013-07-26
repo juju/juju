@@ -816,7 +816,6 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 // database.  In other words, where it should look for information on the
 // available images.
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
-return nil, nil // Make test fail before satisfying it.
 	// Hard-coded to the central Simplestreams database for now.
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
