@@ -5,9 +5,12 @@ package azure
 
 import (
 	"io"
+
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 type azureStorage struct {
@@ -78,6 +81,13 @@ func (storage *azureStorage) URL(name string) (string, error) {
 		return "", err
 	}
 	return context.GetFileURL(storage.getContainer(), name), nil
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
+	// This storage backend has immediate consistency, so there's no
+	// need to wait.  One attempt should do.
+	return utils.AttemptStrategy{Min: 1}
 }
 
 // Put is specified in the StorageWriter interface.

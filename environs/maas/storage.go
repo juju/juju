@@ -9,12 +9,15 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/gomaasapi"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"net/url"
 	"sort"
 	"sync"
+
+	"launchpad.net/gomaasapi"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 type maasStorage struct {
@@ -155,6 +158,13 @@ func (stor *maasStorage) URL(name string) (string, error) {
 	}
 	fullURL := fileObj.URL().ResolveReference(partialURL)
 	return fullURL.String(), nil
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (stor *maasStorage) ConsistencyStrategy() utils.AttemptStrategy {
+	// This storage backend has immediate consistency, so there's no
+	// need to wait.  One attempt should do.
+	return utils.AttemptStrategy{Min: 1}
 }
 
 // Put is specified in the StorageWriter interface.

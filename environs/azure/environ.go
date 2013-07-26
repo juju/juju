@@ -6,7 +6,6 @@ package azure
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/agent/tools"
@@ -17,7 +16,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/utils"
 )
 
 const (
@@ -63,17 +61,6 @@ type azureEnviron struct {
 
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
-
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
-// TODO: These settings may still need Azure-specific tuning.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -220,7 +207,8 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+	err = environs.VerifyBootstrapInit(env)
+	if err != nil {
 		return err
 	}
 

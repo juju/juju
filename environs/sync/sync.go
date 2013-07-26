@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -230,6 +231,11 @@ func (f *fileStorageReader) List(prefix string) ([]string, error) {
 // URL implements environs.StorageReader.URL.
 func (f *fileStorageReader) URL(name string) (string, error) {
 	return path.Join(f.path, name), nil
+}
+
+// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
+func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{Min: 1}
 }
 
 // NewSyncLogWriter creates a loggo writer for registration

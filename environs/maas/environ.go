@@ -36,6 +36,8 @@ const (
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
+	// Try at least once, even if we're running very slow.
+	Min: 1,
 }
 
 type maasEnviron struct {
@@ -102,7 +104,8 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+	err := environs.VerifyBootstrapInit(env)
+	if err != nil {
 		return err
 	}
 

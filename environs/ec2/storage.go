@@ -17,6 +17,7 @@ import (
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 func NewStorage(bucket *s3.Bucket) environs.Storage {
@@ -33,7 +34,7 @@ type storage struct {
 
 // makeBucket makes the environent's control bucket, the
 // place where bootstrap information and deployed charms
-// are stored. To avoid two round trips on every PUT operation,
+// are stored. To avImageSioid two round trips on every PUT operation,
 // we do this only once for each environ.
 func (s *storage) makeBucket() error {
 	s.Lock()
@@ -64,7 +65,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 }
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
+	for a := s.ConsistencyStrategy().Start(); a.Next(); {
 		r, err = s.bucket.GetReader(file)
 		if s3ErrorStatusCode(err) != 404 {
 			break
@@ -76,6 +77,18 @@ func (s *storage) Get(file string) (r io.ReadCloser, err error) {
 func (s *storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
 	return s.bucket.SignedURL(name, time.Now().AddDate(10, 0, 0)), nil
+}
+
+var storageAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+	// Try at least once, even if we're running very slow.
+	Min: 1,
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+	return storageAttempt
 }
 
 // s3ErrorStatusCode returns the HTTP status of the S3 request error,
@@ -229,6 +242,11 @@ func (h *httpStorageReader) URL(name string) (string, error) {
 		return h.url + name, nil
 	}
 	return h.url + "/" + name, nil
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (s *httpStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
+	return storageAttempt
 }
 
 // getListBucketResult retrieves the index of the storage,

@@ -31,6 +31,8 @@ import (
 var shortAttempt = utils.AttemptStrategy{
 	Total: 5 * time.Second,
 	Delay: 200 * time.Millisecond,
+	// Try at least once, even if we're running very slow.
+	Min: 1,
 }
 
 func init() {
@@ -243,7 +245,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
-	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
+	err := environs.VerifyBootstrapInit(e)
+	if err != nil {
 		return err
 	}
 

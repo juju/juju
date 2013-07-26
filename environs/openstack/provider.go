@@ -39,9 +39,14 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 var providerInstance environProvider
 
 // Use shortAttempt to poll for short-term events.
+// TODO: This was kept to a long timeout because Nova needs more time than
+// EC2.  But storage delays are handled separately now, and perhaps other
+// polling attempts can time out faster.
 var shortAttempt = utils.AttemptStrategy{
-	Total: 10 * time.Second, // it seems Nova needs more time than EC2
+	Total: 10 * time.Second,
 	Delay: 200 * time.Millisecond,
+	// Try at least one, even if we're running very slow.
+	Min: 1,
 }
 
 func init() {
@@ -429,7 +434,8 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
-	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
+	err := environs.VerifyBootstrapInit(e)
+	if err != nil {
 		return err
 	}
 

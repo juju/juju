@@ -34,7 +34,7 @@ type ProviderSuite struct {
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 }
 
 func (s *ProviderSuite) TearDownTest(c *C) {
@@ -128,7 +128,7 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	c.Logf("Started service at: %v", s.Server.URL)
 	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 }
 
 func (s *localServer) stop() {

@@ -7,11 +7,13 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"net/http"
 	"sort"
 	"strings"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // storage implements the environs.Storage interface.
@@ -79,6 +81,11 @@ func (s *storage) List(prefix string) ([]string, error) {
 // URL returns an URL that can be used to access the given storage file.
 func (s *storage) URL(name string) (string, error) {
 	return s.baseURL + name, nil
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{Min: 1}
 }
 
 // Put reads from r and writes to the given storage file.

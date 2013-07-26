@@ -44,13 +44,13 @@ func Bootstrap(environ Environ, cons constraints.Value) error {
 // VerifyBootstrapInit does the common initial check inside bootstrap to
 // confirm that the environment isn't already running, and that the storage
 // works.
-func VerifyBootstrapInit(env Environ, shortAttempt utils.AttemptStrategy) error {
+func VerifyBootstrapInit(env Environ) error {
 	var err error
 
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
-	for a := shortAttempt.Start(); a.Next(); {
+	for a := env.Storage().ConsistencyStrategy().Start(); a.Next(); {
 		if _, err = LoadState(env.Storage()); err != nil {
 			break
 		}

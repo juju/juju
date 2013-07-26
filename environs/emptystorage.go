@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 // EmptyStorage holds a StorageReader object that contains no files and
@@ -34,6 +35,11 @@ func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
 
 func (s emptyStorage) URL(name string) (string, error) {
 	return "", fmt.Errorf("file %q not found", name)
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (s emptyStorage) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{Min: 1}
 }
 
 func (s emptyStorage) List(prefix string) ([]string, error) {

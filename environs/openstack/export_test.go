@@ -56,7 +56,10 @@ func UseTestMetadata(metadata []jujutest.FileContent) {
 	}
 }
 
-var ShortAttempt = &shortAttempt
+var (
+	ShortAttempt   = &shortAttempt
+	StorageAttempt = &storageAttempt
+)
 
 func SetFakeToolsStorage(useFake bool) {
 	if useFake {
