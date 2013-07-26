@@ -17,9 +17,12 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-// RetryDelay specifies how long the upgrader
-// will wait to try again after a failed tools download.
-var RetryDelay = 5 * time.Second
+// retryAfter returns a channel that receives a value
+// when a failed download should be retried.
+// It is a function 	
+var retryAfter = func() <-chan time.Time {
+	return time.After(5 * time.Second)
+}
 
 // UpgradeReadyError is returned by an Upgrader to report that
 // an upgrade is ready to be performed and a restart is due.
@@ -111,23 +114,27 @@ func (u *Upgrader) loop() error {
 			// repeatedly (causing the agent to be stopped), as long
 			// as we have got as far as this, we will still be able to
 			// upgrade the agent.
-			err := u.fetchTools(wantTools)
-			if err != nil {
+			if err := u.fetchTools(wantTools); err != nil {
 				if err, ok := err.(*UpgradeReadyError); ok {
-					// fill in information that fetchTools doesn't have.
+					// Fill in the information that fetchTools doesn't have.
 					err.OldTools = currentTools
 					err.AgentName = u.tag
 					err.DataDir = u.dataDir
 					return err
 				}
-				logger.Errorf("failed to fetch tools: %v", err)
-				retry = time.After(RetryDelay)
-				continue
+				logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
+				retry = retryAfter()
 			}
 		}
 		select {
 		case <-retry:
 		case <-changes:
+			logger.Infof("got version change")
+			wantTools, err = u.st.Tools(u.tag)
+			if err != nil {
+				return err
+			}
+			logger.Infof("new tools: %v", wantTools.Version)
 		case <-u.tomb.Dying():
 			return nil
 		}

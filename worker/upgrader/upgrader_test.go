@@ -5,10 +5,12 @@ package upgrader_test
 
 import (
 	"bytes"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
 	stdtesting "testing"
+	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -32,8 +34,9 @@ func TestPackage(t *stdtesting.T) {
 type UpgraderSuite struct {
 	jujutesting.JujuConnSuite
 
-	machine *state.Machine
-	state   *api.State
+	machine       *state.Machine
+	state         *api.State
+	oldRetryAfter func() <-chan time.Time
 }
 
 var _ = gc.Suite(&UpgraderSuite{})
@@ -51,9 +54,11 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.state = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	s.oldRetryAfter = *upgrader.RetryAfter
 }
 
 func (s *UpgraderSuite) TearDownTest(c *gc.C) {
+	*upgrader.RetryAfter = s.oldRetryAfter
 	if s.state != nil {
 		s.state.Close()
 	}
@@ -149,4 +154,53 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	foundTools, err := tools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(foundTools, gc.DeepEquals, newTools)
+}
+
+func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
+	oldTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
+	newTools := s.uploadTools(c, version.MustParseBinary("5.4.5-foo-bar"))
+
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	c.Assert(err, gc.IsNil)
+
+	retryc := make(chan time.Time)
+	*upgrader.RetryAfter = func() <-chan time.Time {
+		c.Logf("replacement retry after")
+		return retryc
+	}
+	dummy.Poison(s.Conn.Environ.Storage(), tools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
+	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	defer u.Stop()
+
+	for i := 0; i < 3; i++ {
+		select {
+		case retryc <- time.Now():
+		case <-time.After(coretesting.LongWait):
+			c.Fatalf("upgrader did not retry (attempt %d)", i)
+		}
+	}
+
+	// Make it upgrade to some newer tools that can be
+	// downloaded ok; it should stop retrying, download
+	// the newer tools and exit.
+	newerTools := s.uploadTools(c, version.MustParseBinary("5.4.6-foo-bar"))
+	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
+	c.Assert(err, gc.IsNil)
+
+	s.BackingState.Sync()
+	done := make(chan error)
+	go func() {
+		done <- u.Wait()
+	}()
+	select {
+	case err := <-done:
+		c.Assert(err, gc.DeepEquals, &upgrader.UpgradeReadyError{
+			AgentName: s.machine.Tag(),
+			OldTools:  oldTools,
+			NewTools:  newerTools,
+			DataDir:   s.DataDir(),
+		})
+	case <-time.After(coretesting.LongWait):
+		c.Fatalf("upgrader did not quit after upgrading")
+	}
 }
