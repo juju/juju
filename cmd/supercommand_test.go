@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 
+	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
@@ -104,13 +105,32 @@ func (s *SuperCommandSuite) TestInfo(c *C) {
 	c.Assert(info.Doc, Matches, commandsDoc+helpText)
 }
 
+type testVersionFlagCommand struct {
+	cmd.CommandBase
+	version string
+}
+
+func (c *testVersionFlagCommand) Info() *cmd.Info {
+	return &cmd.Info{Name: "test"}
+}
+
+func (c *testVersionFlagCommand) SetFlags(f *gnuflag.FlagSet) {
+	f.StringVar(&c.version, "version", "", "")
+}
+
+func (c *testVersionFlagCommand) Run(_ *cmd.Context) error {
+	return nil
+}
+
 func (s *SuperCommandSuite) TestVersionFlag(c *C) {
 	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:    "jujutest",
 		Purpose: "to be purposeful",
 		Doc:     "doc\nblah\ndoc",
 	})
+	testVersionFlagCommand := &testVersionFlagCommand{}
 	jc.Register(&cmd.VersionCommand{})
+	jc.Register(testVersionFlagCommand)
 
 	var stdout, stderr bytes.Buffer
 	ctx := &cmd.Context{
@@ -131,6 +151,17 @@ func (s *SuperCommandSuite) TestVersionFlag(c *C) {
 	c.Check(code, Equals, 0)
 	c.Assert(stderr.String(), Equals, baselineStderr)
 	c.Assert(stdout.String(), Equals, baselineStdout)
+	stderr.Reset()
+	stdout.Reset()
+
+	// juju test --version should update testVersionFlagCommand.version,
+	// and there should be no output. The --version flag on the 'test'
+	// subcommand has a different type to the "juju --version" flag.
+	code = cmd.Main(jc, ctx, []string{"test", "--version=abc.123"})
+	c.Check(code, Equals, 0)
+	c.Assert(stderr.String(), Equals, "")
+	c.Assert(stdout.String(), Equals, "")
+	c.Assert(testVersionFlagCommand.version, Equals, "abc.123")
 }
 
 func (s *SuperCommandSuite) TestLogging(c *C) {
