@@ -13,6 +13,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -108,14 +109,14 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 
 func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 	vers := version.MustParseBinary("5.4.3-foo-bar")
-	err := statetesting.SetAgentVersion(s.State, vers.Number)
-	c.Assert(err, gc.IsNil)
 	s.primeTools(c, vers)
-	err = os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
+	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, gc.IsNil)
 
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	err = statetesting.SetAgentVersion(s.State, vers.Number)
+	c.Assert(err, gc.IsNil)
 
 	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
 	c.Assert(u.Stop(), gc.IsNil)
@@ -123,4 +124,29 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, gc.IsNil)
 	c.Assert(gotTools, gc.DeepEquals, &tools.Tools{Version: version.Current})
+}
+
+func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
+	oldTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
+	newTools := s.uploadTools(c, version.MustParseBinary("5.4.5-foo-bar"))
+
+	err := statetesting.SetAgentVersion(s.State, newTools.Version.Number)
+	c.Assert(err, gc.IsNil)
+
+	// Make the download take a while so that we verify that
+	// the download happens before the upgrader checks if
+	// it's been stopped.
+	dummy.SetStorageDelay(coretesting.ShortWait)
+
+	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	err = u.Stop()
+	c.Assert(err, gc.DeepEquals, &upgrader.UpgradeReadyError{
+		AgentName: s.machine.Tag(),
+		OldTools:  oldTools,
+		NewTools:  newTools,
+		DataDir:   s.DataDir(),
+	})
+	foundTools, err := tools.ReadTools(s.DataDir(), newTools.Version)
+	c.Assert(err, gc.IsNil)
+	c.Assert(foundTools, gc.DeepEquals, newTools)
 }
