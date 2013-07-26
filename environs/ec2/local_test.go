@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"regexp"
+	"sort"
 )
 
 type ProviderSuite struct{}
@@ -326,7 +327,8 @@ func (t *localServerSuite) TestValidateImageMetadata(c *C) {
 	params.Endpoint = "https://ec2.endpoint.com"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, IsNil)
-	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000035", "ami-00000034"})
+	sort.Strings(image_ids)
+	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
 }
 
 // If match is true, CheckScripts checks that at least one script started

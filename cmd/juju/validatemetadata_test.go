@@ -54,12 +54,12 @@ func (s *ValidateMetadataSuite) TestInitErrors(c *gc.C) {
 }
 
 func (s *ValidateMetadataSuite) TestInvalidProviderError(c *gc.C) {
-	err := runValidateMetadata(c, "-p", "foo", "-s", "series", "-r", "region")
+	err := runValidateMetadata(c, "-p", "foo", "-s", "series", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
 }
 
 func (s *ValidateMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	err := runValidateMetadata(c, "-p", "local", "-s", "series", "-r", "region")
+	err := runValidateMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `local provider does not support image metadata validation`)
 }
 
@@ -84,6 +84,8 @@ environments:
     ec2:
         type: ec2
         control-bucket: foo
+        access-key: access
+        secret-key: secret
         default-series: precise
         region: us-east-1
 `
