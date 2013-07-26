@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
@@ -44,7 +45,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
-	f.StringVar(&c.Source, "source", "", "chose a location on the file system as source of the tools")
+	f.StringVar(&c.Source, "source", "", "set a location on the file system as source of the tools")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -68,6 +69,11 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			fmt.Fprintln(out, "then edit the file to configure your juju environment.")
 			fmt.Fprintln(out, "You can then re-run bootstrap.")
 		}
+		return err
+	}
+	// Ensure the availability of tools.
+	err = c.ensureToolsAvailability(environ, context)
+	if err != nil {
 		return err
 	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
@@ -99,9 +105,19 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			return fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
-	err = environs.Bootstrap(environ, c.Constraints)
+	return environs.Bootstrap(environ, c.Constraints)
+}
+
+// ensureToolsAvailability looks for the availibilty of tools. If it doesn't find
+// them it automatically synchronizes them.
+func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context) error {
+	// Register writer for output of possible syncing on screen.
+	loggo.RegisterWriter("bootstrap", sync.NewSyncLogWriter(ctx.Stdout, ctx.Stderr), loggo.INFO)
+	defer loggo.RemoveWriter("bootstrap")
+	// Try to find bootstrap tools.
+	_, err := environs.FindBootstrapTools(env, c.Constraints)
 	if errors.IsNotFoundError(err) {
-		// No tools available, so sync and retry.
+		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
 			EnvName: c.EnvName,
 			Source:  c.Source,
@@ -109,8 +125,11 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		if err = syncTools(sctx); err != nil {
 			return err
 		}
-		err = environs.Bootstrap(environ, c.Constraints)
+	} else if err != nil {
+		return err
 	}
+	// Try again.
+	_, err = environs.FindBootstrapTools(env, c.Constraints)
 	return err
 }
 

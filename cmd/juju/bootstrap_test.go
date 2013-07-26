@@ -216,7 +216,10 @@ var (
 	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
-	vAll    = []version.Binary{
+	v100All = []version.Binary{
+		v100d64, v100p64, v100q64, v100q32,
+	}
+	vAll = []version.Binary{
 		v100d64, v100p64, v100q64, v100q32,
 		v190q64, v190p32,
 		v200p64,
@@ -224,48 +227,96 @@ var (
 )
 
 func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
-	// Prepare a the storage for testing.
+	// Prepare a mock storage for testing and store the
+	// dummy tools in there.
 	storage, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
 	c.Assert(err, gc.IsNil)
 	for _, vers := range vAll {
 		storage.PutBinary(vers)
 	}
+
+	// Change the tools location to be the test location and also
+	// the version and ensure their later restoring.
 	origLocation := sync.DefaultToolsLocation
 	sync.DefaultToolsLocation = storage.Location()
-	defer func() { sync.DefaultToolsLocation = origLocation }()
+	origVersion := version.Current
+	version.Current.Number = version.MustParse("1.2.3")
+	defer func() {
+		sync.DefaultToolsLocation = origLocation
+		version.Current = origVersion
+	}()
 
-	// Create home with dummy provider without tools.
+	// Create home with dummy provider and remove all
+	// of its tools.
 	defer coretesting.MakeFakeHome(c, envConfig).Restore()
 	dummy.Reset()
 	env, err := environs.NewFromName("peckham")
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 
-	// Bootstrap environment.
+	// Bootstrap the environment now detects the missing
+	// tools and automatically synchronizes them from the
+	// storage above.
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
 	c.Check(code, gc.Equals, 0)
+
+	// Now check the available tools which are the 1.0.0 tools.
+	list, err := environs.FindAvailableTools(env, version.Current.Major)
+	c.Check(err, gc.IsNil)
+	c.Logf("found: " + list.String())
+	urls := list.URLs()
+	c.Check(urls, gc.HasLen, len(v100All))
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
-	// Prepare a the storage for testing.
-	storage, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	for _, vers := range vAll {
-		storage.PutBinary(vers)
-	}
-	origLocation := sync.DefaultToolsLocation
-	sync.DefaultToolsLocation = storage.Location()
-	defer func() { sync.DefaultToolsLocation = origLocation }()
+	// Prepare a tools directory for testing and store the
+	// dummy tools in there.
+	source := createToolsSource(c)
 
-	// Create home with dummy provider without tools.
+	// Change the version and ensure its later restoring.
+	origVersion := version.Current
+	version.Current.Number = version.MustParse("1.2.3")
+	defer func() {
+		version.Current = origVersion
+	}()
+
+	// Create home with dummy provider and remove all
+	// of its tools.
 	defer coretesting.MakeFakeHome(c, envConfig).Restore()
 	dummy.Reset()
 	env, err := environs.NewFromName("peckham")
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 
-	// Create and pupulate a local tools directory.
+	// Bootstrap the environment with an invalid source.
+	// The command returns with an error.
+	ctx := coretesting.Context(c)
+	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", c.MkDir()})
+	c.Check(code, gc.Equals, 1)
+
+	// Now check that there are no tools available.
+	_, err = environs.FindAvailableTools(env, version.Current.Major)
+	c.Assert(err, gc.ErrorMatches, "no tools available")
+
+	// Bootstrap the environment with the valid source. This time
+	// the bootstrapping has to show no error, because the tools
+	// are automatically synchronized.
+	ctx = coretesting.Context(c)
+	code = cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", source})
+	c.Check(code, gc.Equals, 0)
+
+	// Now check the available tools which are the 1.0.0 tools.
+	list, err := environs.FindAvailableTools(env, version.Current.Major)
+	c.Check(err, gc.IsNil)
+	c.Logf("found: " + list.String())
+	urls := list.URLs()
+	c.Check(urls, gc.HasLen, len(v100All))
+}
+
+// createToolsSource writes the mock tools into a temporary
+// derectory and returns it.
+func createToolsSource(c *gc.C) string {
 	source := c.MkDir()
 	for _, vers := range vAll {
 		data := vers.String()
@@ -277,14 +328,5 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 		err = ioutil.WriteFile(filename, []byte(data), 0666)
 		c.Assert(err, gc.IsNil)
 	}
-
-	// Bootstrap environment with invalid source.
-	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", c.MkDir()})
-	c.Check(code, gc.Equals, 1)
-
-	// Bootstrap environment with valid source.
-	ctx = coretesting.Context(c)
-	code = cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", source})
-	c.Check(code, gc.Equals, 0)
+	return source
 }
