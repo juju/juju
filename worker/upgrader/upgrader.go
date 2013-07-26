@@ -38,9 +38,9 @@ var logger = loggo.GetLogger("juju.upgrader")
 
 type Upgrader struct {
 	tomb    tomb.Tomb
-	st *upgrader.State
+	st      *upgrader.State
 	dataDir string
-	tag string
+	tag     string
 }
 
 // NewUpgrader returns a new upgrader worker. It watches changes to the
@@ -50,9 +50,9 @@ type Upgrader struct {
 // will have been downloaded and unpacked.
 func NewUpgrader(st *upgrader.State, dataDir, tag string) *Upgrader {
 	u := &Upgrader{
-		st: st,
+		st:      st,
 		dataDir: dataDir,
-		tag: tag,
+		tag:     tag,
 	}
 	go func() {
 		defer u.tomb.Done()

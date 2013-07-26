@@ -5,22 +5,22 @@ package upgrader_test
 
 import (
 	"bytes"
-	"fmt"
+	"net/http"
+	"os"
+	"path/filepath"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	apiupgrader "launchpad.net/juju-core/state/api/upgrader"
+	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/upgrader"
 )
 
@@ -32,7 +32,7 @@ type UpgraderSuite struct {
 	jujutesting.JujuConnSuite
 
 	machine *state.Machine
-	state  *apiupgrader.State
+	state   *api.State
 }
 
 var _ = gc.Suite(&UpgraderSuite{})
@@ -46,14 +46,15 @@ func (s *UpgraderSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword("test-password")
 	c.Assert(err, gc.IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, gc.IsNil)
 
-	st := s.OpenAPIAs(c, s.machine.Tag(), "test-password")
-	s.state = st.Upgrader()
+	s.state = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
 }
 
 func (s *UpgraderSuite) TearDownTest(c *gc.C) {
-	if s.apiState != nil {
-		s.apiState.Close()
+	if s.state != nil {
+		s.state.Close()
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
@@ -62,14 +63,14 @@ func (s *UpgraderSuite) TearDownTest(c *gc.C) {
 // makes sure that they're available JujuConnSuite's DataDir.
 func (s *UpgraderSuite) primeTools(c *gc.C, vers version.Binary) *tools.Tools {
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	version.Current = vers
 	agentTools := s.uploadTools(c, vers)
 	resp, err := http.Get(agentTools.URL)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return agentTools
 }
 
@@ -82,19 +83,23 @@ func (s *UpgraderSuite) uploadTools(c *gc.C, vers version.Binary) *tools.Tools {
 	)
 	storage := s.Conn.Environ.Storage()
 	err := storage.Put(tools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return &tools.Tools{URL: url, Version: vers}
 }
 
 func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
-	agentTools := s.primeTools(c, version.MustParseBinary("5.3.2-foo-bar"))
+	vers := version.MustParseBinary("5.4.3-foo-bar")
+	err := statetesting.SetAgentVersion(s.State, vers.Number)
+	c.Assert(err, gc.IsNil)
 
-	_, err := s.machine.AgentTools()
+	agentTools := s.primeTools(c, vers)
+
+	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	
-	u := upgrader.NewUpgrader(s.state, s.DataDir, s.machine.Tag())
+
+	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
 	c.Assert(u.Stop(), gc.IsNil)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
