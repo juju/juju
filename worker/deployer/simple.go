@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/log/syslog"
-	"launchpad.net/juju-core/state" // Only because of state.Info
+	"launchpad.net/juju-core/state" // Only because of state.Info and IsUnitName
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/upstart"
@@ -208,7 +208,7 @@ func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) 
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
 			unitName := groups[2] + "/" + groups[3]
-			if !apideployer.IsUnitName(unitName) {
+			if !state.IsUnitName(unitName) {
 				continue
 			}
 			installed[unitName] = groups[1]

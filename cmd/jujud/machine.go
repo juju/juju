@@ -182,10 +182,13 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
 				return deployerTask, nil
 			})
+		case params.JobManageEnviron:
+			// Not yet implemented with the API.
+		case params.JobManageState:
+			// Not yet implemented with the API.
 		default:
 			// TODO(dimitern): Once all workers moved over to using
-			// the API, report "unknown job type" here, except for the
-			// JobManageState.
+			// the API, report "unknown job type" here.
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.

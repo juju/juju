@@ -110,8 +110,9 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 //
 // TODO(dimitern): Remove this once we have a way to get state/API
 // public addresses from state.
-// BUG,FIXME: This is temporary, until the Addresser worker lands and we can
-// take the addresses of all machines with JobManageState.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
 func (d *DeployerAPI) getEnvironStateInfo() (*state.Info, *api.Info, error) {
 	cfg, err := d.st.EnvironConfig()
 	if err != nil {
@@ -128,8 +129,9 @@ func (d *DeployerAPI) getEnvironStateInfo() (*state.Info, *api.Info, error) {
 //
 // TODO(dimitern): Remove this once we have a way to get state/API
 // public addresses from state.
-// BUG,FIXME: This is temporary, until the Addresser worker lands and we can
-// take the addresses of all machines with JobManageState.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
 func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
 	stateInfo, _, err := d.getEnvironStateInfo()
 	if err != nil {
@@ -144,8 +146,9 @@ func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
 //
 // TODO(dimitern): Remove this once we have a way to get state/API
 // public addresses from state.
-// BUG,FIXME: This is temporary, until the Addresser worker lands and we can
-// take the addresses of all machines with JobManageState.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
 func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
 	_, apiInfo, err := d.getEnvironStateInfo()
 	if err != nil {

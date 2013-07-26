@@ -104,7 +104,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// removed from state.
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
-	s.waitFor(c, isRemoved(s.BackingState, u0.Name()))
+	s.waitFor(c, isRemoved(s.State, u0.Name()))
 	s.waitFor(c, isDeployed(ctx, u1.Name()))
 
 	// Remove the Dying unit from the machine, and check that it is recalled...
@@ -148,8 +148,8 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	ctx := s.getContext(c)
 	dep := deployer.NewDeployer(s.deployerState, ctx, s.machine.Tag())
 	defer stop(c, dep)
-	s.waitFor(c, isRemoved(s.BackingState, u0.Name()))
-	s.waitFor(c, isRemoved(s.BackingState, u1.Name()))
+	s.waitFor(c, isRemoved(s.State, u0.Name()))
+	s.waitFor(c, isRemoved(s.State, u1.Name()))
 	s.waitFor(c, isDeployed(ctx))
 }
 
