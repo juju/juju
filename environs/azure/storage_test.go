@@ -4,6 +4,7 @@
 package azure
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -220,6 +221,10 @@ func (*StorageSuite) TestURL(c *C) {
 	c.Check(parsedURL.Path, Matches, fmt.Sprintf("/%s/%s", container, filename))
 	values, err := url.ParseQuery(parsedURL.RawQuery)
 	c.Assert(err, IsNil)
+	signature := values.Get("sig")
 	// The query string contains a non-empty signature.
-	c.Check(values.Get("sig"), Not(HasLen), 0)
+	c.Check(signature, Not(HasLen), 0)
+	// The signature is base64-encoded.
+	_, err = base64.StdEncoding.DecodeString(signature)
+	c.Assert(err, IsNil)
 }
