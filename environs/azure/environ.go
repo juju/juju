@@ -833,7 +833,6 @@ func (env *azureEnviron) getEndpoint(region string) (string, error) {
 // this environment wants its images, e.g. "releases" or "daily", or the
 // blank string for the default.
 func (env *azureEnviron) getImageStream() string {
-return "daily" // Make test fail before satisfying it.
 	// Hard-coded to the default for now.
 	return ""
 }
@@ -841,7 +840,6 @@ return "daily" // Make test fail before satisfying it.
 // getImageSigningRequired returns whether this environment requires OS
 // images from Simplestreams to be signed.
 func (env *azureEnviron) getImageSigningRequired() bool {
-return false // Make test fail before satisfying it.
 	// Hard-coded to true for now.
 	return true
 }
