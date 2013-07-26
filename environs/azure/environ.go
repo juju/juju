@@ -826,7 +826,6 @@ func (env *azureEnviron) getEndpoint(region string) (string, error) {
 	// Hard-coded for now, but actually China has a different endpoint.
 	// TODO: Extract information from simplestreams, or hard-code the
 	// Chinese ones as well.
-return "", nil // Make test fail before satisfying it.
 	return "https://management.core.windows.net/", nil
 }
 
