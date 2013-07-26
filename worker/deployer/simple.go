@@ -102,13 +102,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Tag:    tag,
 		CACert: ctx.caCert,
 	}
-	logger.Debugf("state addresses: %v", stateAddrs)
+	logger.Debugf("state addresses: %q", stateAddrs)
 	apiInfo := api.Info{
 		Addrs:  apiAddrs,
 		Tag:    tag,
 		CACert: ctx.caCert,
 	}
-	logger.Debugf("API addresses: %v", apiAddrs)
+	logger.Debugf("API addresses: %q", apiAddrs)
 	// Prepare the agent's configuration data.
 	conf := &agent.Conf{
 		DataDir:     ctx.dataDir,

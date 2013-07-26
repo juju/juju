@@ -92,7 +92,6 @@ func (d *Deployer) changed(unitName string) error {
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life
-	responsible := false
 	unit, err := d.st.Unit(unitTag)
 	if isNotFoundOrUnauthorized(err) {
 		life = params.Dead
@@ -100,20 +99,11 @@ func (d *Deployer) changed(unitName string) error {
 		return err
 	} else {
 		life = unit.Life()
-		// We're only responsible for this unit's deployment when we're
-		// running inside the machine agent of the machine this unit
-		// is assigned to.
-		if responsible, err = unit.CanDeploy(); errors.IsNotAssigned(err) {
-			logger.Warningf("ignoring unit %q (not assigned)", unitName)
-			// Unit is not assigned, so we're not responsible for its deployment.
-		} else if err != nil {
-			return err
-		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
 	// is no longer responsible for them.
 	if d.deployed.Contains(unitName) {
-		if life == params.Dead || !responsible {
+		if life == params.Dead {
 			if err := d.recall(unitName); err != nil {
 				return err
 			}
@@ -123,7 +113,7 @@ func (d *Deployer) changed(unitName string) error {
 	// for and (2) are Alive -- if we're responsible for a Dying unit that is not
 	// yet deployed, we should remove it immediately rather than undergo the hassle
 	// of deploying a unit agent purely so it can set itself to Dead.
-	if responsible && !d.deployed.Contains(unitName) {
+	if !d.deployed.Contains(unitName) {
 		if life == params.Alive {
 			return d.deploy(unit)
 		} else if unit != nil {

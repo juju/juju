@@ -4,7 +4,6 @@
 package deployer
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 
@@ -94,24 +93,4 @@ func (u *Unit) SetPassword(password string) error {
 		return err
 	}
 	return result.OneError()
-}
-
-// CanDeploy reports whether the currently authenticated entity (a machine
-// agent) can deploy the unit.
-func (u *Unit) CanDeploy() (bool, error) {
-	var result params.BoolResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
-	}
-	err := u.st.caller.Call("Deployer", "", "CanDeploy", args, &result)
-	if err != nil {
-		return false, err
-	}
-	if len(result.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return false, err
-	}
-	return result.Results[0].Result, nil
 }

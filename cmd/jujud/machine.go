@@ -184,7 +184,8 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 			})
 		default:
 			// TODO(dimitern): Once all workers moved over to using
-			// the API, report "unknown job type" here.
+			// the API, report "unknown job type" here, except for the
+			// JobManageState.
 		}
 	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
@@ -237,7 +238,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
-			// Deployer moved into APIWorker now.
+			// Implemented in APIWorker.
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir), nil

@@ -64,7 +64,7 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithoutBeingAssigned(c *C) {
 
 	// Check that the unit has no machine assigned.
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `"unit-wordpress-0" is not assigned to a machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignUnitToMachineAgainFails(c *C) {
@@ -139,14 +139,14 @@ func (s *AssignSuite) TestUnassignUnitFromMachineWithChangingState(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `"unit-wordpress-0" is not assigned to a machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 
 	err = s.wordpress.Destroy()
 	c.Assert(err, IsNil)
 	err = unit.UnassignFromMachine()
 	c.Assert(err, ErrorMatches, `cannot unassign unit "wordpress/0" from machine: .*`)
 	_, err = unit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `"unit-wordpress-0" is not assigned to a machine`)
+	c.Assert(err, ErrorMatches, `unit "wordpress/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
@@ -178,7 +178,7 @@ func (s *AssignSuite) TestAssignSubordinatesToMachine(c *C) {
 	err = unit.UnassignFromMachine()
 	c.Assert(err, IsNil)
 	_, err = subUnit.AssignedMachineId()
-	c.Assert(err, ErrorMatches, `"unit-logging-0" is not assigned to a machine`)
+	c.Assert(err, ErrorMatches, `unit "logging/0" is not assigned to a machine`)
 }
 
 func (s *AssignSuite) TestDeployerTag(c *C) {

@@ -89,9 +89,13 @@ func patchDeployContext(c *C, st *state.State, expectInfo *state.Info, expectDat
 	orig := newDeployContext
 	newDeployContext = func(dst *apideployer.State, dataDir string) (deployer.Context, error) {
 		caCert, err := dst.CACert()
-		c.Check(err, IsNil)
+		if err != nil {
+			return nil, err
+		}
 		stateAddrs, err := dst.StateAddresses()
-		c.Check(err, IsNil)
+		if err != nil {
+			return nil, err
+		}
 		c.Check(stateAddrs, DeepEquals, expectInfo.Addrs)
 		c.Check(caCert, DeepEquals, expectInfo.CACert)
 		c.Check(dataDir, Equals, expectDataDir)

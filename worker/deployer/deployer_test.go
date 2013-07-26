@@ -49,7 +49,7 @@ func (s *DeployerSuite) SetUpTest(c *C) {
 	err = s.machine.SetPassword("test-password")
 	c.Assert(err, IsNil)
 
-	// Login as the machine agent of the created machine.
+	// Log in as the machine agent of the created machine.
 	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
 	c.Assert(s.stateAPI, NotNil)
 

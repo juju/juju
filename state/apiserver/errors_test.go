@@ -59,7 +59,7 @@ var errorTransformTests = []struct {
 	err:  common.ErrUnknownWatcher,
 	code: params.CodeNotFound,
 }, {
-	err:  &errors.NotAssignedError{"unit-mysql-0"},
+	err:  &state.NotAssignedError{&state.Unit{}}, // too sleazy?! nah..
 	code: params.CodeNotAssigned,
 }, {
 	err:  common.ErrStoppedWatcher,

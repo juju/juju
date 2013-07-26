@@ -246,34 +246,6 @@ func (s *deployerSuite) TestUnitSetPassword(c *gc.C) {
 	c.Assert(s.subordinate.PasswordValid("phony"), gc.Equals, true)
 }
 
-func (s *deployerSuite) TestCanDeploy(c *gc.C) {
-	// Try with a principal.
-	unit, err := s.st.Unit(s.principal.Tag())
-	c.Assert(err, gc.IsNil)
-
-	canDeploy, err := unit.CanDeploy()
-	c.Assert(err, gc.IsNil)
-	c.Assert(canDeploy, gc.Equals, true)
-
-	// Try with a subordinate.
-	unit, err = s.st.Unit(s.subordinate.Tag())
-	c.Assert(err, gc.IsNil)
-
-	canDeploy, err = unit.CanDeploy()
-	c.Assert(err, gc.IsNil)
-	c.Assert(canDeploy, gc.Equals, true)
-
-	// Try with a new, unassigned unit - should fail.
-	newUnit, err := s.service0.AddUnit()
-	c.Assert(err, gc.IsNil)
-	unit, err = s.st.Unit(newUnit.Tag())
-	s.assertUnauthorized(c, err)
-
-	// Try it with a non-existent unit - also fails.
-	_, err = s.st.Unit("unit-foo-42")
-	s.assertUnauthorized(c, err)
-}
-
 func (s *deployerSuite) TestStateAddresses(c *gc.C) {
 	stateAddresses, err := s.State.Addresses()
 	c.Assert(err, gc.IsNil)
