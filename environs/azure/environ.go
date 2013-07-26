@@ -225,12 +225,14 @@ func (env *azureEnviron) GetContainerName() string {
 
 func (env *azureEnviron) createStorageContainer() error {
 	containerName := env.GetContainerName()
-	return env.getStorageContext().CreateContainer(containerName)
+    context, _ := env.getStorageContext()
+	return context.CreateContainer(containerName)
 }
 
 func (env *azureEnviron) deleteStorageContainer() error {
 	containerName := env.GetContainerName()
-	return env.getStorageContext().DeleteContainer(containerName)
+    context, _ := env.getStorageContext()
+	return context.DeleteContainer(containerName)
 }
 
 // Bootstrap is specified in the Environ interface.

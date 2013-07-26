@@ -149,12 +149,12 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 
 func (suite *EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.GetEnvPrefix(), env.Name()), IsTrue)
 }
 
 func (suite *EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
-	prefix := env.getEnvPrefix()
+	prefix := env.GetEnvPrefix()
 	services := []gwacl.HostedServiceDescriptor{{ServiceName: "deployment-in-another-env"}, {ServiceName: prefix + "deployment-1"}, {ServiceName: prefix + "deployment-2"}}
 	requests := patchWithServiceListResponse(c, services)
 	instances, err := env.AllInstances()
@@ -211,7 +211,7 @@ func (*EnvironSuite) TestStorage(c *C) {
 	storage, ok := baseStorage.(*azureStorage)
 	c.Check(ok, Equals, true)
 	c.Assert(storage, NotNil)
-	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.StorageContainerName())
+	c.Check(storage.storageContext.getContainer(), Equals, env.GetContainerName())
 	context, err := storage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(context.Account, Equals, env.ecfg.StorageAccountName())
@@ -702,7 +702,7 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	defer cleanup()
 
 	// Simulate 2 instances corresponding to two Azure services.
-	prefix := env.getEnvPrefix()
+	prefix := env.GetEnvPrefix()
 	service1Name := prefix + "service1"
 	service2Name := prefix + "service2"
 	service1, service1Desc := makeAzureService(service1Name)
@@ -739,7 +739,7 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 
 func (*EnvironSuite) TestGetInstance(c *C) {
 	env := makeEnviron(c)
-	prefix := env.getEnvPrefix()
+	prefix := env.GetEnvPrefix()
 	serviceName := prefix + "instance-name"
 	serviceDesc := gwacl.HostedServiceDescriptor{ServiceName: serviceName}
 	service := gwacl.HostedService{HostedServiceDescriptor: serviceDesc}
