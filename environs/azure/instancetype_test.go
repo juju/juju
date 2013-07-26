@@ -8,7 +8,6 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs/imagemetadata"
 )
 
 type InstanceTypeSuite struct{}
@@ -243,53 +242,4 @@ func (*InstanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	// the cheapest; not the biggest; not the last; but the cheapest type
 	// of machine that meets requirements.
 	c.Check(choice.Name, gc.Equals, "Lambo")
-}
-
-func (*InstanceTypeSuite) TestGetImageBaseURLs(c *gc.C) {
-	env := makeEnviron(c)
-	urls, err := env.getImageBaseURLs()
-	c.Assert(err, gc.IsNil)
-	// At the moment this is not configurable.  It returns a fixed URL for
-	// the central simplestreams database.
-	c.Check(urls, gc.DeepEquals, []string{imagemetadata.DefaultBaseURL})
-}
-
-func (*InstanceTypeSuite) TestGetEndpointReturnsFixedEndpointForSupportedRegion(c *gc.C) {
-	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint("West US")
-	c.Assert(err, gc.IsNil)
-	c.Check(endpoint, gc.Equals, "https://management.core.windows.net/")
-}
-
-// TODO: Enable this test and satisfy it.
-/*
-func (*InstanceTypeSuite) TestGetEndpointReturnsChineseEndpointForChina(c *gc.C) {
-	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint("China East")
-	c.Assert(err, gc.IsNil)
-	c.Check(endpoint, gc.Equals, "https://management.core.chinacloudapi.cn/")
-}
-*/
-
-// TODO: Enable this test and satisfy it.
-/*
-func (*InstanceTypeSuite) TestGetEndpointRejectsUnknownRegion(c *gc.C) {
-	region := "Central South San Marino Highlands"
-	env := makeEnviron(c)
-	_, err := env.getEndpoint(region)
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, "unknown region: "+region)
-}
-*/
-
-func (*InstanceTypeSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to default for now.
-	c.Check(env.getImageStream(), gc.Equals, "")
-}
-
-func (*InstanceTypeSuite) TestGetImageSigningRequiredDefaultsToTrue(c *gc.C) {
-	env := makeEnviron(c)
-	// Hard-coded to true for now.
-	c.Check(env.getImageSigningRequired(), gc.Equals, true)
 }
