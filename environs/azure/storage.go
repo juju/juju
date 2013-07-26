@@ -30,7 +30,7 @@ type environStorageContext struct {
 var _ storageContext = (*environStorageContext)(nil)
 
 func (context *environStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.StorageContainerName()
+	return context.environ.GetEnvPrefix() + -"private"
 }
 
 func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext, error) {

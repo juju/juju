@@ -155,7 +155,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
-	return env.getEnvPrefix() + "-ag"
+	return env.GetEnvPrefix() + "-ag"
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
@@ -186,7 +186,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 // getVirtualNetworkName returns the name of the virtual network used by all
 // the VMs in this environment.
 func (env *azureEnviron) getVirtualNetworkName() string {
-	return env.getEnvPrefix() + "-vnet"
+	return env.GetEnvPrefix() + "-vnet"
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
@@ -382,7 +382,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	snap := env.getSnapshot()
 	location := snap.ecfg.Location()
-	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
+	service, err := newHostedService(azure.ManagementAPI, env.GetEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
 	}
@@ -628,7 +628,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 	defer env.releaseManagementAPI(context)
 
-	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
+	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.GetEnvPrefix()}
 	services, err := context.ListPrefixedHostedServices(request)
 	if err != nil {
 		return nil, err
@@ -636,9 +636,9 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	return convertToInstances(services), nil
 }
 
-// getEnvPrefix returns the prefix used to name the objects specific to this
+// GetEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
-func (env *azureEnviron) getEnvPrefix() string {
+func (env *azureEnviron) GetEnvPrefix() string {
 	return fmt.Sprintf("juju-%s", env.Name())
 }
 
