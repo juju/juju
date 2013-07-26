@@ -4,19 +4,13 @@
 package testing
 
 import (
-	"time"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/utils"
 )
 
 // impatientAttempt is an extremely short polling time suitable for tests.
 // It polls at least once, never delays, and times out very quickly.
-var impatientAttempt = utils.AttemptStrategy{
-	Total: 100 * time.Millisecond,
-	Delay: 0,
-	Min:   1,
-}
+var impatientAttempt = utils.AttemptStrategy{}
 
 // savedAttemptStrategy holds the state needed to restore an AttemptStrategy's
 // original setting.

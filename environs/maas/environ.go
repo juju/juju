@@ -102,8 +102,7 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
 
-	err := environs.VerifyBootstrapInit(env)
-	if err != nil {
+	if err := environs.VerifyBootstrapInit(env); err != nil {
 		return err
 	}
 

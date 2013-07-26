@@ -432,8 +432,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
-	err := environs.VerifyBootstrapInit(e)
-	if err != nil {
+	if err := environs.VerifyBootstrapInit(e); err != nil {
 		return err
 	}
 

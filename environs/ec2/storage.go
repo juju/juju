@@ -34,7 +34,7 @@ type storage struct {
 
 // makeBucket makes the environent's control bucket, the
 // place where bootstrap information and deployed charms
-// are stored. To avImageSioid two round trips on every PUT operation,
+// are stored. To avoid two round trips on every PUT operation,
 // we do this only once for each environ.
 func (s *storage) makeBucket() error {
 	s.Lock()

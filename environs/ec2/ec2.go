@@ -243,8 +243,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
-	err := environs.VerifyBootstrapInit(e)
-	if err != nil {
+	if err := environs.VerifyBootstrapInit(e); err != nil {
 		return err
 	}
 
