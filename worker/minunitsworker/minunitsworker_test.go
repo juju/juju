@@ -8,6 +8,7 @@ import (
 	"time"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/juju/testing"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -15,6 +16,8 @@ import (
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/minunitsworker"
 )
+
+var logger = loggo.GetLogger("juju.worker.minunitsworker_test")
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
@@ -42,10 +45,6 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	_, err = wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
 
-	// Observe minimum units with a watcher.
-	w := s.State.WatchMinUnits()
-	defer statetesting.AssertStop(c, w)
-
 	// Set up minimum units for services.
 	err = wordpress.SetMinUnits(3)
 	c.Assert(err, gc.IsNil)
@@ -65,9 +64,12 @@ func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			mysqlUnits, err := mysql.AllUnits()
 			c.Assert(err, gc.IsNil)
-			if len(wordpressUnits) == 3 && len(mysqlUnits) == 2 {
+			wordpressCount := len(wordpressUnits)
+			mysqlCount := len(mysqlUnits)
+			if wordpressCount == 3 && mysqlCount == 2 {
 				return
 			}
+			logger.Infof("wordpress units: %d; mysql units: %d", wordpressCount, mysqlCount)
 		case <-timeout:
 			c.Fatalf("timed out waiting for minunits events")
 		}
