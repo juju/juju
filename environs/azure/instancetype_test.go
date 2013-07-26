@@ -271,7 +271,7 @@ func (*InstanceTypeSuite) TestGetEndpointReturnsChineseEndpointForChina(c *gc.C)
 func (*InstanceTypeSuite) TestGetEndpointRejectsUnknownRegion(c *gc.C) {
 	region := "Central South San Marino Highlands"
 	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint(region)
+	_, err := env.getEndpoint(region)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "unknown region: "+region)
 }

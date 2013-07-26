@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -809,4 +810,40 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
+}
+
+// getImageBaseURLs returns the base URLs for this environment's simplestreams
+// database.  In other words, where it should look for information on the
+// available images.
+func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
+return nil, nil // Make test fail before satisfying it.
+	// Hard-coded to the central Simplestreams database for now.
+	return []string{imagemetadata.DefaultBaseURL}, nil
+}
+
+// getEndpoint returns the endpoint (as defined in Simplestreams) for the
+// given Azure region.
+func (env *azureEnviron) getEndpoint(region string) (string, error) {
+	// Hard-coded for now, but actually China has a different endpoint.
+	// TODO: Extract information from simplestreams, or hard-code the
+	// Chinese ones as well.
+return "", nil // Make test fail before satisfying it.
+	return "https://management.core.windows.net/", nil
+}
+
+// getImageStream returns the name of the simplestreams stream from which
+// this environment wants its images, e.g. "releases" or "daily", or the
+// blank string for the default.
+func (env *azureEnviron) getImageStream() string {
+return "daily" // Make test fail before satisfying it.
+	// Hard-coded to the default for now.
+	return ""
+}
+
+// getImageSigningRequired returns whether this environment requires OS
+// images from Simplestreams to be signed.
+func (env *azureEnviron) getImageSigningRequired() bool {
+return false // Make test fail before satisfying it.
+	// Hard-coded to true for now.
+	return true
 }
