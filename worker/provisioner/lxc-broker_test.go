@@ -70,8 +70,8 @@ func (s *lxcSuite) TearDownTest(c *C) {
 func (s *lxcBrokerSuite) SetUpTest(c *C) {
 	s.lxcSuite.SetUpTest(c)
 	tools := &tools.Tools{
-		Binary: version.MustParseBinary("2.3.4-foo-bar"),
-		URL:    "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
+		Version: version.MustParseBinary("2.3.4-foo-bar"),
+		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 	s.broker = provisioner.NewLxcBroker(coretesting.EnvironConfig(c), tools)
 }

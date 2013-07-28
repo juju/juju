@@ -102,8 +102,8 @@ func (*CloudInitSuite) TestUserData(c *C) {
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	tools := &tools.Tools{
-		URL:    "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
-		Binary: version.MustParseBinary("1.2.3-linux-amd64"),
+		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
+		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
 	envConfig, err := config.New(map[string]interface{}{
 		"type":            "maas",

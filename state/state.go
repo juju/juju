@@ -19,6 +19,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -505,6 +506,12 @@ type Tagger interface {
 type Lifer interface {
 	Tagger
 	Life() Life
+}
+
+// SetAgentTooler is implemented by entities
+// that have a SetAgentTools method.
+type SetAgentTooler interface {
+	SetAgentTools(*tools.Tools) error
 }
 
 // Remover represents entities with lifecycles, EnsureDead and Remove methods.

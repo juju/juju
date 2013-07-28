@@ -16,8 +16,8 @@ var _ = gc.Suite(&ListSuite{})
 
 func mustParseTools(name string) *tools.Tools {
 	return &tools.Tools{
-		Binary: version.MustParseBinary(name),
-		URL:    "http://testing.invalid/" + name,
+		Version: version.MustParseBinary(name),
+		URL:     "http://testing.invalid/" + name,
 	}
 }
 
@@ -99,9 +99,9 @@ func (s *ListSuite) TestURLs(c *gc.C) {
 
 	full := tools.List{t100precise, t190quantal, t2001precise}
 	c.Check(full.URLs(), gc.DeepEquals, map[version.Binary]string{
-		t100precise.Binary:  t100precise.URL,
-		t190quantal.Binary:  t190quantal.URL,
-		t2001precise.Binary: t2001precise.URL,
+		t100precise.Version:  t100precise.URL,
+		t190quantal.Version:  t190quantal.URL,
+		t2001precise.Version: t2001precise.URL,
 	})
 }
 

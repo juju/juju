@@ -14,8 +14,8 @@ import (
 var logger = loggo.GetLogger("juju.agent.tools")
 
 type Tools struct {
-	version.Binary
-	URL string
+	Version version.Binary
+	URL     string
 }
 
 // ToolsManager keeps track of a pool of tools

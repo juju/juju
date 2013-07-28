@@ -4,7 +4,6 @@
 package deployer
 
 import (
-	"fmt"
 	"strings"
 
 	"launchpad.net/juju-core/state/api/params"
@@ -23,6 +22,12 @@ func (u *Unit) Tag() string {
 }
 
 const unitTagPrefix = "unit-"
+
+// UnitTag returns the tag for the
+// unit with the given name.
+func UnitTag(unitName string) string {
+	return unitTagPrefix + strings.Replace(unitName, "/", "-", -1)
+}
 
 // Name returns the unit's name.
 func (u *Unit) Name() string {
@@ -62,10 +67,7 @@ func (u *Unit) Remove() error {
 	if err != nil {
 		return err
 	}
-	if len(result.Errors) > 0 && result.Errors[0] != nil {
-		return result.Errors[0]
-	}
-	return nil
+	return result.OneError()
 }
 
 // SetPassword sets the unit's password.
@@ -80,28 +82,5 @@ func (u *Unit) SetPassword(password string) error {
 	if err != nil {
 		return err
 	}
-	if len(result.Errors) > 0 && result.Errors[0] != nil {
-		return result.Errors[0]
-	}
-	return nil
-}
-
-// CanDeploy reports whether the currently authenticated entity (a machine
-// agent) can deploy the unit.
-func (u *Unit) CanDeploy() (bool, error) {
-	var result params.BoolResults
-	args := params.Entities{
-		Entities: []params.Entity{{Tag: u.tag}},
-	}
-	err := u.st.caller.Call("Deployer", "", "CanDeploy", args, &result)
-	if err != nil {
-		return false, err
-	}
-	if len(result.Results) != 1 {
-		return false, fmt.Errorf("expected one result, got %d", len(result.Results))
-	}
-	if err := result.Results[0].Error; err != nil {
-		return false, err
-	}
-	return result.Results[0].Result, nil
+	return result.OneError()
 }

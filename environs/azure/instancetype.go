@@ -78,6 +78,21 @@ func (types *preferredTypes) satisfies(machineType *gwacl.RoleSize, constraint c
 		types.suffices(machineType.Mem, constraint.Mem)
 }
 
+const defaultMem = 1 * gwacl.GB
+
+// If you specify no constraints at all, you're going to get the smallest
+// instance type available.  In practice that one's a bit small.  So unless
+// the constraints are deliberately set lower, this gives you a set of
+// baseline constraints that are just slightly more ambitious than that.
+func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
+	result := constraint
+	if result.Mem == nil {
+		var value uint64 = defaultMem
+		result.Mem = &value
+	}
+	return result
+}
+
 // selectMachineType returns the Azure machine type that best matches the
 // supplied instanceContraint.
 func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.Value) (*gwacl.RoleSize, error) {

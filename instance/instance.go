@@ -32,6 +32,11 @@ type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
 	Id() Id
 
+	// Addresses returns a list of hostnames or ip addresses
+	// associated with the instance. This will supercede DNSName
+	// which can be implemented by selecting a preferred address.
+	Addresses() ([]Address, error)
+
 	// DNSName returns the DNS name for the instance.
 	// If the name is not yet allocated, it will return
 	// an ErrNoDNSName error.

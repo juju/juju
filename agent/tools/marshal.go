@@ -20,7 +20,7 @@ func (t *Tools) GetBSON() (interface{}, error) {
 	if t == nil {
 		return nil, nil
 	}
-	return &toolsDoc{t.Binary, t.URL}, nil
+	return &toolsDoc{t.Version, t.URL}, nil
 }
 
 // SetBSON updates the internal members with the data stored in the bson.Raw
@@ -34,7 +34,7 @@ func (t *Tools) SetBSON(raw bson.Raw) error {
 	if err := raw.Unmarshal(&doc); err != nil {
 		return err
 	}
-	t.Binary = doc.Version
+	t.Version = doc.Version
 	t.URL = doc.URL
 	return nil
 }

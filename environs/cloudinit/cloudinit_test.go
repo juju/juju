@@ -255,8 +255,8 @@ start jujud-machine-2-lxc-1
 
 func newSimpleTools(vers string) *tools.Tools {
 	return &tools.Tools{
-		URL:    "http://foo.com/tools/juju" + vers + ".tgz",
-		Binary: version.MustParseBinary(vers),
+		URL:     "http://foo.com/tools/juju" + vers + ".tgz",
+		Version: version.MustParseBinary(vers),
 	}
 }
 

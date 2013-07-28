@@ -5,7 +5,6 @@ package azure
 
 import (
 	"fmt"
-	"net/http"
 	"sync"
 	"time"
 
@@ -309,18 +308,16 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 // may not be available.  If the name is not available, it does not treat that
 // as an error but just returns nil.
 func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
+	var err error
 	name := gwacl.MakeRandomHostedServiceName(prefix)
-	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
-	req.AffinityGroup = affinityGroupName
-	err := azure.AddHostedService(req)
-	azErr, isAzureError := err.(*gwacl.AzureError)
-	if isAzureError && azErr.HTTPStatus == http.StatusConflict {
-		// Conflict.  As far as we can see, this only happens if the
-		// name was already in use.  It's still dangerous to assume
-		// that we know it can't be anything else, but there's nothing
-		// else in the error that we can use for closer identifcation.
+	err = azure.CheckHostedServiceNameAvailability(name)
+	if err != nil {
+		// The calling function should retry.
 		return nil, nil
 	}
+	req := gwacl.NewCreateHostedServiceWithLocation(name, name, location)
+	req.AffinityGroup = affinityGroupName
+	err = azure.AddHostedService(req)
 	if err != nil {
 		return nil, err
 	}
@@ -401,7 +398,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	instanceType, err := selectMachineType(gwacl.RoleSizes, cons)
+	instanceType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
 	if err != nil {
 		return nil, err
 	}
@@ -409,8 +406,9 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// TODO: use simplestreams to get the name of the image given
 	// the constraints provided by Juju.
 	// In the meantime we use a temporary Saucy image containing a
-	// cloud-init package which supports Azure.
-	sourceImageName := "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB"
+	// cloud-init package which supports Azure, see the boilerplate config
+	// for its exact name.
+	sourceImageName := snap.ecfg.ForceImageName()
 
 	// virtualNetworkName is the virtual network to which all the
 	// deployments in this environment belong.
