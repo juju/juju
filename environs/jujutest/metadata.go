@@ -13,42 +13,42 @@ import (
 // CannedRoundTripper can be used to provide canned "http" responses without
 // actually starting an HTTP server.
 //
-// Use this in conjunction with ProxyRoundTripper.  A ProxyRoundTripper is
+// Use this in conjunction with ProxyRoundTripper. A ProxyRoundTripper is
 // what gets registered as the default handler for a given protocol (such as
 // "test") and then tests can direct the ProxyRoundTripper to delegate to a
-// CannedRoundTripper.  The reason for this is that we can register a
+// CannedRoundTripper. The reason for this is that we can register a
 // roundtripper to handle a scheme, but there is no way to unregister it: you
 // may need to re-use the same ProxyRoundTripper but use different
 // CannedRoundTrippers to return different results.
 type CannedRoundTripper struct {
-	// files maps file names to their contents.  If the roundtripper
+	// files maps file names to their contents. If the roundtripper
 	// receives a request for any of these files, and none of the entries
 	// in errorURLs below matches, it will return the contents associated
 	// with that filename here.
-	// TODO: Do something more sensible here: either make files take
+	// TODO(jtv): Do something more sensible here: either make files take
 	// precedence over errors, or return the given error *with* the given
 	// contents, or just disallow overlap.
 	files map[string]string
 
 	// errorURLs are prefixes that should return specific HTTP status
-	// codes.  If a request's URL matches any of these prefixes, the
+	// codes. If a request's URL matches any of these prefixes, the
 	// associated error status is returned.
-	// There is no clever longest-prefix selection here.  If more than
+	// There is no clever longest-prefix selection here. If more than
 	// one prefix matches, any one of them may be used.
-	// TODO: Decide what to do about multiple matching prefixes.
+	// TODO(jtv): Decide what to do about multiple matching prefixes.
 	errorURLS map[string]int
 }
 
 var _ http.RoundTripper = (*CannedRoundTripper)(nil)
 
 // ProxyRoundTripper is a RoundTripper implementation that does nothing but
-// delegate to another RoundTripper.  This lets tests change how they handle
+// delegate to another RoundTripper. This lets tests change how they handle
 // requests for a given scheme, despite the fact that the standard library
 // does not support un-registration, or registration of a new roundtripper
 // with a URL scheme that's already handled.
 //
 // Use the RegisterForScheme method to install this as the standard handler
-// for a particular protocol.  For example, if you call
+// for a particular protocol. For example, if you call
 // prt.RegisterForScheme("test") then afterwards, any request to "test:///foo"
 // will be routed to prt.
 type ProxyRoundTripper struct {
@@ -62,7 +62,7 @@ var _ http.RoundTripper = (*ProxyRoundTripper)(nil)
 // RegisterForScheme registers a ProxyRoundTripper as the default roundtripper
 // for the given URL scheme.
 //
-// This cannot be undone, nor overwritten with a different roundtripper.  If
+// This cannot be undone, nor overwritten with a different roundtripper. If
 // you change your mind later about what the roundtripper should do, set its
 // "Sub" field to delegate to a different roundtripper (or to nil if you don't
 // want to handle its requests at all any more).
@@ -93,7 +93,7 @@ func newHTTPResponse(status string, statusCode int, body string) *http.Response 
 	}
 }
 
-// Return a canned error or body for the given request.
+// RoundTrip returns a canned error or body for the given request.
 func (v *CannedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	full := req.URL.String()
 	for urlPrefix, statusCode := range v.errorURLS {
@@ -108,6 +108,8 @@ func (v *CannedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error
 	return newHTTPResponse("404 Not Found", http.StatusNotFound, ""), nil
 }
 
+// NewCannedRoundTripper returns a CannedRoundTripper with the given canned
+// responses.
 func NewCannedRoundTripper(files map[string]string, errorURLs map[string]int) *CannedRoundTripper {
 	return &CannedRoundTripper{files, errorURLs}
 }
