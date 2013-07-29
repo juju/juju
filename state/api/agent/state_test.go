@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machineagent_test
+package agent_test
 
 import (
 	"fmt"
@@ -48,13 +48,13 @@ func (s *suite) TearDownTest(c *C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *suite) TestMachine(c *C) {
-	m, err := s.st.MachineAgent().Machine("42")
+func (s *suite) TestEntity(c *C) {
+	m, err := s.st.Agent().Entity("42")
 	c.Assert(err, ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
 	c.Assert(m, IsNil)
 
-	m, err = s.st.MachineAgent().Machine(s.machine.Tag())
+	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, IsNil)
 	c.Assert(m.Tag(), Equals, s.machine.Tag())
 	c.Assert(m.Life(), Equals, params.Alive)
@@ -65,17 +65,17 @@ func (s *suite) TestMachine(c *C) {
 	err = s.machine.Remove()
 	c.Assert(err, IsNil)
 
-	m, err = s.st.MachineAgent().Machine(s.machine.Tag())
+	m, err = s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
 	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
 	c.Assert(m, IsNil)
 }
 
-func (s *suite) TestMachineSetPassword(c *C) {
-	m, err := s.st.MachineAgent().Machine(s.machine.Tag())
+func (s *suite) TestEntitySetPassword(c *C) {
+	entity, err := s.st.Agent().Entity(s.machine.Tag())
 	c.Assert(err, IsNil)
 
-	err = m.SetPassword("foo")
+	err = entity.SetPassword("foo")
 	c.Assert(err, IsNil)
 
 	err = s.machine.Refresh()
@@ -85,7 +85,7 @@ func (s *suite) TestMachineSetPassword(c *C) {
 
 	// Check that we cannot log in to mongo with the wrong password.
 	info := s.StateInfo(c)
-	info.Tag = m.Tag()
+	info.Tag = entity.Tag()
 	info.Password = "bar"
 	err = tryOpenState(info)
 	c.Assert(err, checkers.Satisfies, errors.IsUnauthorizedError)

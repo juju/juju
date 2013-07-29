@@ -55,19 +55,35 @@ type MachinesSetStatus struct {
 
 // MachineAgentGetMachinesResults holds the results of a
 // machineagent.API.GetMachines call.
+// REMOVE(v1.14)
 type MachineAgentGetMachinesResults struct {
 	Machines []MachineAgentGetMachinesResult
 }
 
 // MachineAgentGetMachinesResult holds the results of a
 // machineagent.API.GetMachines call for a single machine.
+// REMOVE(v1.14)
 type MachineAgentGetMachinesResult struct {
 	Life  Life
 	Jobs  []MachineJob
 	Error *Error
 }
 
-// AgentToolsResult holds the tools and possibly error for a given Agent request
+// AgentGetEntitiesResults holds the results of a
+// agent.API.GetEntities call.
+type AgentGetEntitiesResults struct {
+	Entities []AgentGetEntitiesResult
+}
+
+// AgentGetEntitiesResult holds the results of a
+// machineagent.API.GetEntities call for a single entity.
+type AgentGetEntitiesResult struct {
+	Life  Life
+	Jobs  []MachineJob
+	Error *Error
+}
+
+// AgentToolsResult holds the tools and possibly error for a given AgentTools request
 type AgentToolsResult struct {
 	Tools *tools.Tools
 	Error *Error
