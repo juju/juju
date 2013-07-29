@@ -172,7 +172,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	}
 	dummy.Poison(s.Conn.Environ.Storage(), tools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
 	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
-	defer statetesting.AssertStop(c, u)
+	defer u.Stop()
 
 	for i := 0; i < 3; i++ {
 		select {
