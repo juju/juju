@@ -31,8 +31,8 @@ type CannedRoundTripper struct {
 	files map[string]string
 
 	// errorURLs are prefixes that should return specific HTTP status
-	// codes.  If a requested file's path matches any of these prefixes,
-	// the associated error is returned.
+	// codes.  If a request's URL matches any of these prefixes, the
+	// associated error status is returned.
 	// There is no clever longest-prefix selection here.  If more than
 	// one prefix matches, any one of them may be used.
 	// TODO: Decide what to do about multiple matching prefixes.
