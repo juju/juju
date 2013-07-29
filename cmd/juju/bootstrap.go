@@ -45,7 +45,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
-	f.StringVar(&c.Source, "source", "", "set a location on the file system as source of the tools")
+	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -71,7 +71,6 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		}
 		return err
 	}
-	// Ensure the availability of tools.
 	err = c.ensureToolsAvailability(environ, context)
 	if err != nil {
 		return err
@@ -108,12 +107,13 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 	return environs.Bootstrap(environ, c.Constraints)
 }
 
-// ensureToolsAvailability looks for the availibilty of tools. If it doesn't find
-// them it automatically synchronizes them.
+// ensureToolsAvailability verifies the tools are available. If no tools are
+// found, it will automatically synchronize them.
 func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context) error {
-	// Register writer for output of possible syncing on screen.
+	// Capture possible logging while syncing and write it on the screen.
 	loggo.RegisterWriter("bootstrap", sync.NewSyncLogWriter(ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("bootstrap")
+
 	// Try to find bootstrap tools.
 	_, err := environs.FindBootstrapTools(env, c.Constraints)
 	if errors.IsNotFoundError(err) {
@@ -125,11 +125,11 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		if err = syncTools(sctx); err != nil {
 			return err
 		}
+		// Synchronization done, try again.
+		_, err = environs.FindBootstrapTools(env, c.Constraints)
 	} else if err != nil {
 		return err
 	}
-	// Try again.
-	_, err = environs.FindBootstrapTools(env, c.Constraints)
 	return err
 }
 

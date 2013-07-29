@@ -248,11 +248,8 @@ func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 
 	// Create home with dummy provider and remove all
 	// of its tools.
-	defer coretesting.MakeFakeHome(c, envConfig).Restore()
-	dummy.Reset()
-	env, err := environs.NewFromName("peckham")
-	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, env)
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
 
 	// Bootstrap the environment now detects the missing
 	// tools and automatically synchronizes them from the
@@ -262,11 +259,7 @@ func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	// Now check the available tools which are the 1.0.0 tools.
-	list, err := environs.FindAvailableTools(env, version.Current.Major)
-	c.Check(err, gc.IsNil)
-	c.Logf("found: " + list.String())
-	urls := list.URLs()
-	c.Check(urls, gc.HasLen, len(v100All))
+	checkTools(c, env, v100All)
 }
 
 func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
@@ -283,11 +276,8 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 
 	// Create home with dummy provider and remove all
 	// of its tools.
-	defer coretesting.MakeFakeHome(c, envConfig).Restore()
-	dummy.Reset()
-	env, err := environs.NewFromName("peckham")
-	c.Assert(err, gc.IsNil)
-	envtesting.RemoveAllTools(c, env)
+	env, fake := makeEmptyFakeHome(c)
+	defer fake.Restore()
 
 	// Bootstrap the environment with an invalid source.
 	// The command returns with an error.
@@ -296,7 +286,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
-	_, err = environs.FindAvailableTools(env, version.Current.Major)
+	_, err := environs.FindAvailableTools(env, version.Current.Major)
 	c.Assert(err, gc.ErrorMatches, "no tools available")
 
 	// Bootstrap the environment with the valid source. This time
@@ -307,11 +297,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Check(code, gc.Equals, 0)
 
 	// Now check the available tools which are the 1.0.0 tools.
-	list, err := environs.FindAvailableTools(env, version.Current.Major)
-	c.Check(err, gc.IsNil)
-	c.Logf("found: " + list.String())
-	urls := list.URLs()
-	c.Check(urls, gc.HasLen, len(v100All))
+	checkTools(c, env, v100All)
 }
 
 // createToolsSource writes the mock tools into a temporary
@@ -329,4 +315,23 @@ func createToolsSource(c *gc.C) string {
 		c.Assert(err, gc.IsNil)
 	}
 	return source
+}
+
+// makeEmptyFakeHome creates a faked home without tools.
+func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
+	fake := coretesting.MakeFakeHome(c, envConfig)
+	dummy.Reset()
+	env, err := environs.NewFromName("peckham")
+	c.Assert(err, gc.IsNil)
+	envtesting.RemoveAllTools(c, env)
+	return env, fake
+}
+
+// checkTools check if the environment contains the passed tools.
+func checkTools(c *gc.C, env environs.Environ, tools []version.Binary) {
+	list, err := environs.FindAvailableTools(env, version.Current.Major)
+	c.Check(err, gc.IsNil)
+	c.Logf("found: " + list.String())
+	urls := list.URLs()
+	c.Check(urls, gc.HasLen, len(tools))
 }
