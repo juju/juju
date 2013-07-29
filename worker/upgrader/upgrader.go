@@ -37,8 +37,10 @@ func (e *UpgradeReadyError) Error() string {
 	return "must restart: an agent upgrade is available"
 }
 
-var logger = loggo.GetLogger("juju.upgrader")
+var logger = loggo.GetLogger("juju.worker.upgrader")
 
+// Upgrader represents a worker that watches the state for upgrade
+// requests.
 type Upgrader struct {
 	tomb    tomb.Tomb
 	st      *upgrader.State
@@ -74,6 +76,8 @@ func (u *Upgrader) Wait() error {
 	return u.tomb.Wait()
 }
 
+// Stop stops the upgrader and returns any
+// error it encountered when running.
 func (u *Upgrader) Stop() error {
 	u.Kill()
 	return u.Wait()
@@ -99,16 +103,32 @@ func (u *Upgrader) loop() error {
 		return err
 	}
 	changes := versionWatcher.Changes()
-	if _, ok := <-changes; !ok {
-		return watcher.MustErr(versionWatcher)
-	}
-	wantTools, err := u.st.Tools(u.tag)
-	if err != nil {
-		return err
-	}
+	defer watcher.Stop(versionWatcher, &u.tomb)
 	var retry <-chan time.Time
+	// We don't read on the dying channel until we have received the
+	// initial event from the API version watcher, thus ensuring
+	// that we attempt an upgrade even if other workers are dying
+	// all around us.
+	var dying <-chan struct{}
+	var wantTools *tools.Tools
 	for {
+		select {
+		case _, ok := <-changes:
+			if !ok {
+				return watcher.MustErr(versionWatcher)
+			}
+			wantTools, err = u.st.Tools(u.tag)
+			if err != nil {
+				return err
+			}
+			logger.Infof("required tools: %v", wantTools.Version)
+			dying = u.tomb.Dying()
+		case <-retry:
+		case <-dying:
+			return nil
+		}
 		if wantTools.Version.Number != currentTools.Version.Number {
+			logger.Infof("upgrade required from %v to %v", currentTools.Version, wantTools.Version)
 			// The worker cannot be stopped while we're downloading
 			// the tools - this means that even if the API is going down
 			// repeatedly (causing the agent to be stopped), as long
@@ -126,29 +146,18 @@ func (u *Upgrader) loop() error {
 				retry = retryAfter()
 			}
 		}
-		select {
-		case <-retry:
-		case <-changes:
-			logger.Infof("got version change")
-			wantTools, err = u.st.Tools(u.tag)
-			if err != nil {
-				return err
-			}
-			logger.Infof("new tools: %v", wantTools.Version)
-		case <-u.tomb.Dying():
-			return nil
-		}
 	}
 }
 
 func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
+	logger.Infof("fetching tools from %q", agentTools.URL)
 	resp, err := http.Get(agentTools.URL)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("bad http response: %v", resp.Status)
+		return fmt.Errorf("bad HTTP response: %v", resp.Status)
 	}
 	err = tools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {

@@ -84,6 +84,8 @@ func (s *UpgraderSuite) primeTools(c *gc.C, vers version.Binary) *tools.Tools {
 // to the dummy environment's storage and returns a tools
 // value describing them.
 func (s *UpgraderSuite) uploadTools(c *gc.C, vers version.Binary) *tools.Tools {
+	// TODO(rog) make UploadFakeToolsVersion in environs/testing
+	// sufficient for this use case.
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
