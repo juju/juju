@@ -6,6 +6,7 @@
 package machine
 
 import (
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -57,7 +58,11 @@ func (api *AgentAPI) getMachine(tag string) (result params.MachineAgentGetMachin
 		err = common.ErrPerm
 		return
 	}
-	machine, err := api.st.Machine(state.MachineIdFromTag(tag))
+	id, err := names.MachineIdFromTag(tag)
+	if err != nil {
+		return
+	}
+	machine, err := api.st.Machine(id)
 	if err != nil {
 		return
 	}

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log/syslog"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
@@ -167,7 +168,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 	// It would be cleaner to change bootstrap-state to
 	// be responsible for starting the machine agent itself,
 	// but this would not be backwardly compatible.
-	machineTag := state.MachineTag(cfg.MachineId)
+	machineTag := names.MachineTag(cfg.MachineId)
 	_, err := cfg.addAgentInfo(c, machineTag)
 	if err != nil {
 		return nil, err
@@ -216,10 +217,10 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	var configRenderer syslog.SyslogConfigRenderer
 	if cfg.StateServer {
 		configRenderer = syslog.NewAccumulateConfig(
-			state.MachineTag(cfg.MachineId))
+			names.MachineTag(cfg.MachineId))
 	} else {
 		configRenderer = syslog.NewForwardConfig(
-			state.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
+			names.MachineTag(cfg.MachineId), cfg.stateHostAddrs())
 	}
 	content, err := configRenderer.Render()
 	if err != nil {
@@ -373,7 +374,7 @@ func (e requiresError) Error() string {
 
 func verifyConfig(cfg *MachineConfig) (err error) {
 	defer utils.ErrorContextf(&err, "invalid machine configuration")
-	if !state.IsMachineId(cfg.MachineId) {
+	if !names.IsMachineId(cfg.MachineId) {
 		return fmt.Errorf("invalid machine id")
 	}
 	if cfg.DataDir == "" {
@@ -426,13 +427,13 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 		if len(cfg.StateInfo.Addrs) == 0 {
 			return fmt.Errorf("missing state hosts")
 		}
-		if cfg.StateInfo.Tag != state.MachineTag(cfg.MachineId) {
+		if cfg.StateInfo.Tag != names.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 		if len(cfg.APIInfo.Addrs) == 0 {
 			return fmt.Errorf("missing API hosts")
 		}
-		if cfg.APIInfo.Tag != state.MachineTag(cfg.MachineId) {
+		if cfg.APIInfo.Tag != names.MachineTag(cfg.MachineId) {
 			return fmt.Errorf("entity tag must match started machine")
 		}
 	}

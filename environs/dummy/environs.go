@@ -25,24 +25,26 @@ package dummy
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/schema"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/apiserver"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/utils"
 	"net"
 	"net/http"
 	"os"
 	"strings"
 	"sync"
 	"time"
+
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/schema"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils"
 )
 
 // stateInfo returns a *state.Info which allows clients to connect to the
@@ -566,10 +568,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if info.Tag != state.MachineTag(machineId) {
+	if info.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if apiInfo.Tag != state.MachineTag(machineId) {
+	if apiInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	i := &dummyInstance{

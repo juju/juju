@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -65,7 +66,11 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	if !u.authorizer.AuthOwner(entity.Tag) {
 		return nil, common.ErrPerm
 	}
-	machine, err := u.st.Machine(state.MachineIdFromTag(entity.Tag))
+	id, err := names.MachineIdFromTag(entity.Tag)
+	if err != nil {
+		return nil, err
+	}
+	machine, err := u.st.Machine(id)
 	if err != nil {
 		return nil, err
 	}

@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
@@ -474,7 +475,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
-	tag := state.MachineTag(machineId)
+	tag := names.MachineTag(machineId)
 	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
@@ -507,7 +508,7 @@ func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
 		logger.Errorf("failed to get state info to write bootstrap agent file: %v", err)
 		return err
 	}
-	tag := state.MachineTag("0")
+	tag := names.MachineTag("0")
 	info.Tag = tag
 	apiInfo.Tag = tag
 	conf := &agent.Conf{

@@ -4,6 +4,7 @@
 package machine
 
 import (
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -49,9 +50,13 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 		err := common.ErrPerm
 		if m.auth.AuthOwner(arg.Tag) {
 			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(arg.Tag))
+			var id string
+			id, err = names.MachineIdFromTag(arg.Tag)
 			if err == nil {
-				err = machine.SetStatus(arg.Status, arg.Info)
+				machine, err = m.st.Machine(id)
+				if err == nil {
+					err = machine.SetStatus(arg.Status, arg.Info)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -71,17 +76,21 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 		err := common.ErrPerm
 		if m.auth.AuthOwner(entity.Tag) {
 			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
+			var id string
+			id, err = names.MachineIdFromTag(entity.Tag)
 			if err == nil {
-				watch := machine.Watch()
-				// Consume the initial event. Technically, API
-				// calls to Watch 'transmit' the initial event
-				// in the Watch response. But NotifyWatchers
-				// have no state to transmit.
-				if _, ok := <-watch.Changes(); ok {
-					result.Results[i].NotifyWatcherId = m.resources.Register(watch)
-				} else {
-					err = watcher.MustErr(watch)
+				machine, err = m.st.Machine(id)
+				if err == nil {
+					watch := machine.Watch()
+					// Consume the initial event. Technically, API
+					// calls to Watch 'transmit' the initial event
+					// in the Watch response. But NotifyWatchers
+					// have no state to transmit.
+					if _, ok := <-watch.Changes(); ok {
+						result.Results[i].NotifyWatcherId = m.resources.Register(watch)
+					} else {
+						err = watcher.MustErr(watch)
+					}
 				}
 			}
 		}
@@ -103,9 +112,13 @@ func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, err
 		err := common.ErrPerm
 		if m.auth.AuthOwner(entity.Tag) {
 			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
+			var id string
+			id, err = names.MachineIdFromTag(entity.Tag)
 			if err == nil {
-				err = machine.EnsureDead()
+				machine, err = m.st.Machine(id)
+				if err == nil {
+					err = machine.EnsureDead()
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

@@ -21,6 +21,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -70,7 +71,7 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetPassword("machine-password")
 	c.Assert(err, IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
+	conf, tools := s.agentSuite.primeAgent(c, names.MachineTag(m.Id()), "machine-password")
 	conf.MachineNonce = state.BootstrapNonce
 	conf.APIInfo.Nonce = conf.MachineNonce
 	err = conf.Write()

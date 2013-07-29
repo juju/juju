@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -28,7 +29,11 @@ type DeployerAPI struct {
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	machine, err := st.Machine(state.MachineIdFromTag(machineTag))
+	id, err := names.MachineIdFromTag(machineTag)
+	if err != nil {
+		return nil, err
+	}
+	machine, err := st.Machine(id)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +65,7 @@ func NewDeployerAPI(
 		// Then we just check if the unit is already known.
 		return func(tag string) bool {
 			for _, unit := range units {
-				if state.UnitTag(unit) == tag {
+				if names.UnitTag(unit) == tag {
 					return true
 				}
 			}
@@ -88,15 +93,19 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 		err := common.ErrPerm
 		if d.authorizer.AuthOwner(entity.Tag) {
 			var machine *state.Machine
-			machine, err = d.st.Machine(state.MachineIdFromTag(entity.Tag))
+			var id string
+			id, err = names.MachineIdFromTag(entity.Tag)
 			if err == nil {
-				watch := machine.WatchUnits()
-				// Consume the initial event and forward it to the result.
-				if changes, ok := <-watch.Changes(); ok {
-					result.Results[i].StringsWatcherId = d.resources.Register(watch)
-					result.Results[i].Changes = changes
-				} else {
-					err = watcher.MustErr(watch)
+				machine, err = d.st.Machine(id)
+				if err == nil {
+					watch := machine.WatchUnits()
+					// Consume the initial event and forward it to the result.
+					if changes, ok := <-watch.Changes(); ok {
+						result.Results[i].StringsWatcherId = d.resources.Register(watch)
+						result.Results[i].Changes = changes
+					} else {
+						err = watcher.MustErr(watch)
+					}
 				}
 			}
 		}

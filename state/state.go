@@ -9,7 +9,6 @@ package state
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
@@ -36,41 +36,8 @@ import (
 // TODO(niemeyer): This must not be exported.
 type D []bson.DocElem
 
-const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
-const numberSnippet = "(0|[1-9][0-9]*)"
-const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
-const machineSnippet = numberSnippet + containerSnippet + "*"
-const containerSpecSnippet = "(([a-z])*:)?"
-
-var (
-	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
-	validUnit                  = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
-	validMachine               = regexp.MustCompile("^" + machineSnippet + "$")
-	validMachineOrNewContainer = regexp.MustCompile("^" + containerSpecSnippet + machineSnippet + "$")
-)
-
 // BootstrapNonce is used as a nonce for the state server machine.
 const BootstrapNonce = "user-admin:bootstrap"
-
-// IsServiceName returns whether name is a valid service name.
-func IsServiceName(name string) bool {
-	return validService.MatchString(name)
-}
-
-// IsUnitName returns whether name is a valid unit name.
-func IsUnitName(name string) bool {
-	return validUnit.MatchString(name)
-}
-
-// IsMachineId returns whether id is a valid machine id.
-func IsMachineId(id string) bool {
-	return validMachine.MatchString(id)
-}
-
-// IsMachineOrNewContainer returns whether spec is a valid machine id or new container definition.
-func IsMachineOrNewContainer(spec string) bool {
-	return validMachineOrNewContainer.MatchString(spec)
-}
 
 // State represents the state of an environment
 // managed by juju.
@@ -603,31 +570,35 @@ func (st *State) entity(tag string) (interface{}, error) {
 		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
 	prefix, id := tag[0:i], tag[i+1:]
+	prefix += "-"
 	switch prefix {
-	case "machine":
-		id = MachineIdFromTag(tag)
-		if !IsMachineId(id) {
+	case names.MachineTagPrefix:
+		id, err := names.MachineIdFromTag(tag)
+		if err != nil {
+			return nil, err
+		}
+		if !names.IsMachineId(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
-	case "unit":
+	case names.UnitTagPrefix:
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		name := id[:i] + "/" + id[i+1:]
-		if !IsUnitName(name) {
+		if !names.IsUnitName(name) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Unit(name)
-	case "user":
+	case names.UserTagPrefix:
 		return st.User(id)
-	case "service":
-		if !IsServiceName(id) {
+	case names.ServiceTagPrefix:
+		if !names.IsServiceName(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Service(id)
-	case "environment":
+	case names.EnvironTagPrefix:
 		conf, err := st.EnvironConfig()
 		if err != nil {
 			return nil, err
@@ -651,12 +622,13 @@ func (st *State) ParseTag(tag string) (string, string, error) {
 	}
 	id := parts[1]
 	var coll string
-	switch parts[0] {
-	case "machine":
+	tagPrefix := parts[0] + "-"
+	switch tagPrefix {
+	case names.MachineTagPrefix:
 		coll = st.machines.Name
-	case "service":
+	case names.ServiceTagPrefix:
 		coll = st.services.Name
-	case "unit":
+	case names.UnitTagPrefix:
 		coll = st.units.Name
 		// Handle replacements occurring when an entity name is created
 		// for a unit.
@@ -665,7 +637,7 @@ func (st *State) ParseTag(tag string) (string, string, error) {
 			return "", "", fmt.Errorf("invalid entity name %q", tag)
 		}
 		id = id[:idx] + "/" + id[idx+1:]
-	case "user":
+	case names.UserTagPrefix:
 		coll = st.users.Name
 	default:
 		return "", "", fmt.Errorf("invalid entity name %q", tag)
@@ -743,7 +715,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
-	if !IsServiceName(name) {
+	if !names.IsServiceName(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if ch == nil {
@@ -803,7 +775,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
-	if !IsServiceName(name) {
+	if !names.IsServiceName(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -1075,7 +1047,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
-	if !IsUnitName(name) {
+	if !names.IsUnitName(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}
@@ -1332,10 +1304,10 @@ func (st *State) ResumeTransactions() error {
 }
 
 var tagPrefix = map[byte]string{
-	'm': machineTagPrefix,
-	's': "service-",
-	'u': unitTagPrefix,
-	'e': "environment-",
+	'm': names.MachineTagPrefix,
+	's': names.ServiceTagPrefix,
+	'u': names.UnitTagPrefix,
+	'e': names.EnvironTagPrefix,
 }
 
 func tagForGlobalKey(key string) (string, bool) {

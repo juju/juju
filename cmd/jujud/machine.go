@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/machineagent"
@@ -59,7 +60,7 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
-	if !state.IsMachineId(a.MachineId) {
+	if !names.IsMachineId(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.Conf.checkArgs(args); err != nil {
@@ -304,7 +305,7 @@ func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
 }
 
 func (a *MachineAgent) Tag() string {
-	return state.MachineTag(a.MachineId)
+	return names.MachineTag(a.MachineId)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

@@ -6,13 +6,15 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
-	"os"
+	"launchpad.net/juju-core/names"
 )
 
 type DeployCommand struct {
@@ -76,7 +78,7 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *DeployCommand) Init(args []string) error {
 	switch len(args) {
 	case 2:
-		if !state.IsServiceName(args[1]) {
+		if !names.IsServiceName(args[1]) {
 			return fmt.Errorf("invalid service name %q", args[1])
 		}
 		c.ServiceName = args[1]

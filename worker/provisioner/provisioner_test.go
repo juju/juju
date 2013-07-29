@@ -11,12 +11,14 @@ import (
 
 	"labix.org/v2/mgo/bson"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
@@ -130,7 +132,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine
 				c.Assert(o.MachineId, Equals, m.Id())
 				nonceParts := strings.SplitN(o.MachineNonce, ":", 2)
 				c.Assert(nonceParts, HasLen, 2)
-				c.Assert(nonceParts[0], Equals, state.MachineTag("0"))
+				c.Assert(nonceParts[0], Equals, names.MachineTag("0"))
 				c.Assert(nonceParts[1], checkers.Satisfies, utils.IsValidUUIDString)
 				c.Assert(o.Secret, Equals, secret)
 				c.Assert(o.Constraints, DeepEquals, cons)
