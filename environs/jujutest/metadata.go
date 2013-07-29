@@ -10,17 +10,17 @@ import (
 	"strings"
 )
 
-// VirtualRoundTripper can be used to provide canned "http" responses without
+// CannedRoundTripper can be used to provide canned "http" responses without
 // actually starting an HTTP server.
 //
 // Use this in conjunction with ProxyRoundTripper.  A ProxyRoundTripper is
 // what gets registered as the default handler for a given protocol (such as
 // "test") and then tests can direct the ProxyRoundTripper to delegate to a
-// VirtualRoundTripper.  The reason for this is that we can register a
+// CannedRoundTripper.  The reason for this is that we can register a
 // roundtripper to handle a scheme, but there is no way to unregister it: you
 // may need to re-use the same ProxyRoundTripper but use different
-// VirtualRoundTrippers to return different results.
-type VirtualRoundTripper struct {
+// CannedRoundTrippers to return different results.
+type CannedRoundTripper struct {
 	// contents are file names and their contents.  If the roundtripper
 	// receives a request for any of these files, and none of the entries
 	// in errorURLs below matches, it will return the contents associated
@@ -40,7 +40,7 @@ type VirtualRoundTripper struct {
 	errorURLS map[string]int
 }
 
-var _ http.RoundTripper = (*VirtualRoundTripper)(nil)
+var _ http.RoundTripper = (*CannedRoundTripper)(nil)
 
 // ProxyRoundTripper is a RoundTripper implementation that does nothing but
 // delegate to another RoundTripper.  This lets tests change how they handle
@@ -79,7 +79,7 @@ func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	return prt.Sub.RoundTrip(req)
 }
 
-// A simple content structure to pass data into VirtualRoundTripper. When using
+// A simple content structure to pass data into CannedRoundTripper. When using
 // VRT, requests that match 'Name' will be served the value in 'Content'
 type FileContent struct {
 	Name    string
@@ -87,7 +87,7 @@ type FileContent struct {
 }
 
 // Map the Path into Content based on FileContent.Name
-func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
+func (v *CannedRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	res := &http.Response{Proto: "HTTP/1.0",
 		ProtoMajor: 1,
 		Header:     make(http.Header),
@@ -119,6 +119,6 @@ func (v *VirtualRoundTripper) RoundTrip(req *http.Request) (*http.Response, erro
 	return res, nil
 }
 
-func NewVirtualRoundTripper(contents []FileContent, errorURLs map[string]int) *VirtualRoundTripper {
-	return &VirtualRoundTripper{contents, errorURLs}
+func NewCannedRoundTripper(contents []FileContent, errorURLs map[string]int) *CannedRoundTripper {
+	return &CannedRoundTripper{contents, errorURLs}
 }

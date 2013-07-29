@@ -50,7 +50,7 @@ func (s *BootstrapSuite) SetUpSuite(c *C) {
 	}
 	stateData, err := goyaml.Marshal(stateInfo)
 	c.Assert(err, IsNil)
-	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper([]jujutest.FileContent{
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper([]jujutest.FileContent{
 		{"/" + environs.StateFile, string(stateData)},
 	}, nil)
 	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")

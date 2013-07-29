@@ -257,7 +257,7 @@ func (s *liveSimplestreamsSuite) TearDownSuite(c *C) {
 
 func (s *simplestreamsSuite) SetUpSuite(c *C) {
 	s.liveSimplestreamsSuite.SetUpSuite(c)
-	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
 		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
