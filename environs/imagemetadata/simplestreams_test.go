@@ -62,8 +62,8 @@ func Test(t *testing.T) {
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
 }
 
 var imageData = []jujutest.FileContent{

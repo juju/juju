@@ -38,8 +38,8 @@ var _ = Suite(&BootstrapSuite{})
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Prepare mock http transport for provider-state output in tests
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+	// Prepare mock http transport for provider-state output in tests.
+	testRoundTripper.RegisterForScheme("test")
 }
 
 func (s *BootstrapSuite) SetUpSuite(c *C) {

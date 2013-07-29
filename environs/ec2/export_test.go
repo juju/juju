@@ -51,8 +51,8 @@ func GetImageURLs(e environs.Environ) ([]string, error) {
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
 }
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.

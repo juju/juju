@@ -27,12 +27,20 @@ var _ http.RoundTripper = (*VirtualRoundTripper)(nil)
 
 // When using RegisterProtocol on http.Transport, you can't actually change the
 // registration. So we provide a RoundTripper that simply proxies to whatever
-// we want as the current content.
+// roundtripper we want for the current test.
 type ProxyRoundTripper struct {
 	Sub http.RoundTripper
 }
 
 var _ http.RoundTripper = (*ProxyRoundTripper)(nil)
+
+// RegisterForScheme registers a ProxyRoundTripper as the default roundtripper
+// for the given URL scheme.
+//
+// This cannot be undone, nor overwritten with a different roundtripper.
+func (prt *ProxyRoundTripper) RegisterForScheme(scheme string) {
+	http.DefaultTransport.(*http.Transport).RegisterProtocol(scheme, prt)
+}
 
 func (prt *ProxyRoundTripper) RoundTrip(req *http.Request) (*http.Response, error) {
 	if prt.Sub == nil {

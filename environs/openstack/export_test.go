@@ -27,7 +27,7 @@ import (
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+	testRoundTripper.RegisterForScheme("test")
 }
 
 var origMetadataHost = metadataHost
