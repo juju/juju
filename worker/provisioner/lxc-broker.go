@@ -4,6 +4,8 @@
 package provisioner
 
 import (
+	"os"
+
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent/tools"
@@ -37,7 +39,11 @@ func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series st
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
-	network := &lxc.NetworkConfig{Type: lxc.HostNetwork}
+	bridgeDevice := os.Getenv("JUJU_LXC_BRIDGE")
+	if bridgeDevice == "" {
+		bridgeDevice = lxc.DefaultLxcBridge
+	}
+	network := lxc.BridgeNetworkConfig(bridgeDevice)
 
 	inst, err := broker.manager.StartContainer(machineId, series, machineNonce, network, broker.tools, broker.config, info, apiInfo)
 	if err != nil {

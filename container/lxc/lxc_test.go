@@ -59,7 +59,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	network := &lxc.NetworkConfig{Type: lxc.HostNetwork}
+	network := lxc.DefaultNetworkConfig()
 
 	series := "series"
 	nonce := "fake-nonce"

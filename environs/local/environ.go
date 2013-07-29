@@ -282,7 +282,7 @@ func (env *localEnviron) StartInstance(
 	tools := possibleTools[0]
 	logger.Debugf("tools: %#v", tools)
 
-	network := &lxc.NetworkConfig{Type: lxc.BridgeNetwork}
+	network := lxc.DefaultNetworkConfig()
 	inst, err := env.containerManager.StartContainer(
 		machineId, series, machineNonce, network,
 		tools, env.config.Config,

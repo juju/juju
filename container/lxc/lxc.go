@@ -35,18 +35,36 @@ var (
 )
 
 const (
-	// HostNetwork means the container to use the host's network directly.
-	HostNetwork = "host"
 	// BridgeNetwork will have the container use the lxc bridge.
-	BridgeNetwork = "bridge"
+	bridgeNetwork = "bridge"
 	// PhyscialNetwork will have the container use a specified network device.
-	PhysicalNetwork = "physical"
+	physicalNetwork = "physical"
+	// DefaultLxcBridge is the package created container bridge
+	DefaultLxcBridge = "lxcbr0"
 )
 
 // NetworkConfig defines how the container network will be configured.
 type NetworkConfig struct {
-	Type   string
-	Device string
+	networkType string
+	device      string
+}
+
+// DefaultNetworkConfig returns a valid NetworkConfig to use the
+// defaultLxcBridge that is created by the lxc package.
+func DefaultNetworkConfig() *NetworkConfig {
+	return &NetworkConfig{bridgeNetwork, DefaultLxcBridge}
+}
+
+// BridgeNetworkConfig returns a valid NetworkConfig to use the specified
+// device as a network bridge for the container.
+func BridgeNetworkConfig(device string) *NetworkConfig {
+	return &NetworkConfig{bridgeNetwork, device}
+}
+
+// PhysicalNetworkConfig returns a valid NetworkConfig to use the specified
+// device as the network device for the container.
+func PhysicalNetworkConfig(device string) *NetworkConfig {
+	return &NetworkConfig{physicalNetwork, device}
 }
 
 // ManagerConfig contains the initialization parameters for the ContainerManager.
@@ -253,16 +271,18 @@ func networkConfigTemplate(networkType, networkLink string) string {
 }
 
 func generateNetworkConfig(network *NetworkConfig) string {
-	switch network.Type {
-	case HostNetwork:
-		return ""
-	case PhysicalNetwork:
-		return networkConfigTemplate("phys", network.Device)
+	if network == nil {
+		logger.Warningf("network unspecified, using default networking config")
+		network = DefaultNetworkConfig()
+	}
+	switch network.networkType {
+	case physicalNetwork:
+		return networkConfigTemplate("phys", network.device)
 	default:
-		logger.Warningf("Unknown network config type %q: using bridge", network.Type)
+		logger.Warningf("Unknown network config type %q: using bridge", network.networkType)
 		fallthrough
-	case BridgeNetwork:
-		return networkConfigTemplate("veth", "lxcbr0")
+	case bridgeNetwork:
+		return networkConfigTemplate("veth", network.device)
 	}
 	panic("unreachable")
 }
