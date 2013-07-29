@@ -12,7 +12,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
 )
@@ -103,10 +102,6 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 
 func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 	return st.Unit(a.UnitName)
-}
-
-func (a *UnitAgent) APIEntity(st *api.State) (AgentAPIState, error) {
-	return nil, fmt.Errorf("not implemented yet")
 }
 
 func (a *UnitAgent) Tag() string {
