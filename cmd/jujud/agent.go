@@ -21,7 +21,6 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
-	"launchpad.net/juju-core/worker/upgrader"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -75,7 +74,7 @@ func moreImportant(err0, err1 error) bool {
 }
 
 func isUpgraded(err error) bool {
-	_, ok := err.(*upgrader.UpgradeReadyError)
+	_, ok := err.(*UpgradeReadyError)
 	return ok
 }
 
@@ -195,7 +194,7 @@ func agentDone(err error) error {
 	if err == worker.ErrTerminateAgent {
 		err = nil
 	}
-	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
+	if ug, ok := err.(*UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
 			return err
