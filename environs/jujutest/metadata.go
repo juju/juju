@@ -10,25 +10,51 @@ import (
 	"strings"
 )
 
-// VirtualRoundTripper can be used to provide "http" responses without actually
-// starting an HTTP server. It is used by calling:
-// vfs := NewVirtualRoundTripper([]FileContent{<file contents>, <error urls>})
-// http.DefaultTransport.(*http.Transport).RegisterProtocol("test", vfs)
-// At which point requests to test:///foo will pull out the virtual content of
-// the file named 'foo' passed into the RoundTripper constructor.
-// If errorURLs are supplied, any URL which starts with the one of the map keys
-// causes a response with the corresponding status code to be returned.
+// VirtualRoundTripper can be used to provide canned "http" responses without
+// actually starting an HTTP server.
+//
+// Use this in conjunction with ProxyRoundTripper.  A ProxyRoundTripper is
+// what gets registered as the default handler for a given protocol (such as
+// "test") and then tests can direct the ProxyRoundTripper to delegate to a
+// VirtualRoundTripper.  The reason for this is that we can register a
+// roundtripper to handle a scheme, but there is no way to unregister it: you
+// may need to re-use the same ProxyRoundTripper but use different
+// VirtualRoundTrippers to return different results.
 type VirtualRoundTripper struct {
-	contents  []FileContent
+	// contents are file names and their contents.  If the roundtripper
+	// receives a request for any of these files, and none of the entries
+	// in errorURLs below matches, it will return the contents associated
+	// with that filename here.
+	// TODO: Do something more sensible here: either make files take
+	// precedence over errors, or return the given error *with* the given
+	// contents, or just disallow overlap.
+	// TODO: Any reason why this isn't a map!?
+	contents []FileContent
+
+	// errorURLs are prefixes that should return specific HTTP status
+	// codes.  If a requested file's path matches any of these prefixes,
+	// the associated error is returned.
+	// There is no clever longest-prefix selection here.  If more than
+	// one prefix matches, any one of them may be used.
+	// TODO: Decide what to do about multiple matching prefixes.
 	errorURLS map[string]int
 }
 
 var _ http.RoundTripper = (*VirtualRoundTripper)(nil)
 
-// When using RegisterProtocol on http.Transport, you can't actually change the
-// registration. So we provide a RoundTripper that simply proxies to whatever
-// roundtripper we want for the current test.
+// ProxyRoundTripper is a RoundTripper implementation that does nothing but
+// delegate to another RoundTripper.  This lets tests change how they handle
+// requests for a given scheme, despite the fact that the standard library
+// does not support un-registration, or registration of a new roundtripper
+// with a URL scheme that's already handled.
+//
+// Use the RegisterForScheme method to install this as the standard handler
+// for a particular protocol.  For example, if you call
+// prt.RegisterForScheme("test") then afterwards, any request to "test:///foo"
+// will be routed to prt.
 type ProxyRoundTripper struct {
+	// Sub is the roundtripper that this roundtripper delegates to, if any.
+	// If you leave this nil, this roundtripper is effectively disabled.
 	Sub http.RoundTripper
 }
 
@@ -37,7 +63,10 @@ var _ http.RoundTripper = (*ProxyRoundTripper)(nil)
 // RegisterForScheme registers a ProxyRoundTripper as the default roundtripper
 // for the given URL scheme.
 //
-// This cannot be undone, nor overwritten with a different roundtripper.
+// This cannot be undone, nor overwritten with a different roundtripper.  If
+// you change your mind later about what the roundtripper should do, set its
+// "Sub" field to delegate to a different roundtripper (or to nil if you don't
+// want to handle its requests at all any more).
 func (prt *ProxyRoundTripper) RegisterForScheme(scheme string) {
 	http.DefaultTransport.(*http.Transport).RegisterProtocol(scheme, prt)
 }
