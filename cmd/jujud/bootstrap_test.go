@@ -6,7 +6,6 @@ package main
 import (
 	"encoding/base64"
 	"io/ioutil"
-	"net/http"
 	"path/filepath"
 
 	. "launchpad.net/gocheck"
