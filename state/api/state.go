@@ -47,6 +47,6 @@ func (st *State) Upgrader() *upgrader.State {
 }
 
 // Deployer returns access to the Deployer API
-func (st *State) Deployer() (*deployer.State, error) {
-	return deployer.NewState(st), nil
+func (st *State) Deployer() *deployer.State {
+	return deployer.NewState(st)
 }

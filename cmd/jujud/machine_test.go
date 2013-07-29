@@ -174,7 +174,7 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 func (s *MachineSuite) TestHostUnits(c *C) {
 	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, s.BackingState, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
