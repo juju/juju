@@ -41,11 +41,11 @@ type CannedRoundTripper struct {
 
 var _ http.RoundTripper = (*CannedRoundTripper)(nil)
 
-// ProxyRoundTripper is a RoundTripper implementation that does nothing but
-// delegate to another RoundTripper. This lets tests change how they handle
-// requests for a given scheme, despite the fact that the standard library
-// does not support un-registration, or registration of a new roundtripper
-// with a URL scheme that's already handled.
+// ProxyRoundTripper is an http.RoundTripper implementation that does nothing
+// but delegate to another RoundTripper. This lets tests change how they handle
+// requests for a given scheme, despite the fact that the standard library does
+// not support un-registration, or registration of a new roundtripper with a
+// URL scheme that's already handled.
 //
 // Use the RegisterForScheme method to install this as the standard handler
 // for a particular protocol. For example, if you call
