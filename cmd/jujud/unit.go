@@ -93,7 +93,7 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return upgrader.New(st, unit.Tag, dataDir), nil
+		return NewUpgrader(st, unit, dataDir), nil
 	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st, unit.Name(), dataDir), nil
