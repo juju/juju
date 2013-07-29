@@ -214,9 +214,9 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	newTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
 	ugErr := &upgrader.UpgradeReadyError{
 		AgentName: "anAgent",
-		OldTools: oldTools,
-		NewTools: newTools,
-		DataDir: s.DataDir(),
+		OldTools:  oldTools,
+		NewTools:  newTools,
+		DataDir:   s.DataDir(),
 	}
 	err := ugErr.ChangeAgentTools()
 	c.Assert(err, gc.IsNil)
