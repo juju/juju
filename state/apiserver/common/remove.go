@@ -51,7 +51,7 @@ func (r *Remover) removeEntity(entity params.Entity) (err error) {
 // first, then Remove. It will fail if the entity is not present.
 func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Errors: make([]*params.Error, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
 		return result, nil
@@ -65,7 +65,7 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 		if canModify(entity.Tag) {
 			err = r.removeEntity(entity)
 		}
-		result.Errors[i] = ServerError(err)
+		result.Results[i].Error = ServerError(err)
 	}
 	return result, nil
 }

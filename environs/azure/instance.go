@@ -27,6 +27,11 @@ func (azInstance *azureInstance) Id() instance.Id {
 
 var AZURE_DOMAIN_NAME = "cloudapp.net"
 
+func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("azureInstance.Addresses not implemented")
+	return nil, nil
+}
+
 // DNSName is specified in the Instance interface.
 func (azInstance *azureInstance) DNSName() (string, error) {
 	// For deployments in the Production slot, the instance's DNS name

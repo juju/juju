@@ -59,8 +59,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(s.stateAPI, NotNil)
 
 	// Create the upgrader facade.
-	s.st, err = s.stateAPI.Upgrader()
-	c.Assert(err, IsNil)
+	s.st = s.stateAPI.Upgrader()
 	c.Assert(s.st, NotNil)
 }
 
@@ -80,15 +79,8 @@ func (s *upgraderSuite) TestNew(c *C) {
 }
 
 func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
-	cur := version.Current
-	err := s.st.SetTools(params.AgentTools{
-		Tag:    "42",
-		Arch:   cur.Arch,
-		Series: cur.Series,
-		Major:  cur.Major,
-		Minor:  cur.Minor,
-		Patch:  cur.Patch,
-		Build:  cur.Build,
+	err := s.st.SetTools("42", &tools.Tools{
+		Version: version.Current,
 	})
 	c.Assert(err, ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
@@ -96,25 +88,15 @@ func (s *upgraderSuite) TestSetToolsWrongMachine(c *C) {
 
 func (s *upgraderSuite) TestSetTools(c *C) {
 	cur := version.Current
-	tools, err := s.rawMachine.AgentTools()
+	agentTools, err := s.rawMachine.AgentTools()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
-	c.Assert(tools, IsNil)
-	err = s.st.SetTools(params.AgentTools{
-		Tag:    s.rawMachine.Tag(),
-		Arch:   cur.Arch,
-		Series: cur.Series,
-		URL:    "",
-		Major:  cur.Major,
-		Minor:  cur.Minor,
-		Patch:  cur.Patch,
-		Build:  cur.Build,
-	})
+	c.Assert(agentTools, IsNil)
+	err = s.st.SetTools(s.rawMachine.Tag(), &tools.Tools{Version: cur})
 	c.Assert(err, IsNil)
 	s.rawMachine.Refresh()
-	tools, err = s.rawMachine.AgentTools()
+	agentTools, err = s.rawMachine.AgentTools()
 	c.Assert(err, IsNil)
-	c.Assert(tools, NotNil)
-	c.Check(tools.Binary, Equals, cur)
+	c.Check(agentTools.Version, Equals, cur)
 }
 
 func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
@@ -126,24 +108,15 @@ func (s *upgraderSuite) TestToolsWrongMachine(c *C) {
 
 func (s *upgraderSuite) TestTools(c *C) {
 	cur := version.Current
-	curTools := &tools.Tools{Binary: cur, URL: ""}
-	if curTools.Minor > 0 {
-		curTools.Minor -= 1
-	}
+	curTools := &tools.Tools{Version: cur, URL: ""}
+	curTools.Version.Minor++
 	s.rawMachine.SetAgentTools(curTools)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
-	// running set. We want to upgraded to cur.Version
+	// running set. We want to be upgraded to cur.Version
 	tools, err := s.st.Tools(s.rawMachine.Tag())
 	c.Assert(err, IsNil)
-	c.Assert(tools, NotNil)
-	c.Check(tools.Tag, Equals, s.rawMachine.Tag())
-	c.Check(tools.Major, Equals, cur.Major)
-	c.Check(tools.Minor, Equals, cur.Minor)
-	c.Check(tools.Patch, Equals, cur.Patch)
-	c.Check(tools.Build, Equals, cur.Build)
-	c.Check(tools.Arch, Equals, cur.Arch)
-	c.Check(tools.Series, Equals, cur.Series)
-	c.Check(tools.URL, Not(Equals), "")
+	c.Assert(tools.Version, Equals, cur)
+	c.Assert(tools.URL, Not(Equals), "")
 }
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
