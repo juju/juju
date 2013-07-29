@@ -66,11 +66,12 @@ func Main(args []string) {
 	juju.Register(&StatusCommand{})
 	juju.Register(&SwitchCommand{})
 
-	// Error resolution commands.
+	// Error resolution and debugging commands.
 	juju.Register(&SCPCommand{})
 	juju.Register(&SSHCommand{})
 	juju.Register(&ResolvedCommand{})
 	juju.Register(&DebugLogCommand{sshCmd: &SSHCommand{}})
+	juju.Register(&DebugHooksCommand{})
 
 	// Configuration commands.
 	juju.Register(&InitCommand{})

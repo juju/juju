@@ -19,7 +19,7 @@ type SSHCommand struct {
 	SSHCommon
 }
 
-// SSHCommon provides common methods for SSHCommand and SCPCommand.
+// SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
 	EnvCommandBase
 	Target string

@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
@@ -148,31 +149,40 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-	ps.Env = ctx.hookVars(charmDir, toolsDir, socketPath)
-	ps.Dir = charmDir
-	outReader, outWriter, err := os.Pipe()
-	if err != nil {
-		return fmt.Errorf("cannot make logging pipe: %v", err)
-	}
-	ps.Stdout = outWriter
-	ps.Stderr = outWriter
-	logger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
-	}
-	go logger.run()
-	err = ps.Start()
-	outWriter.Close()
-	if err == nil {
-		err = ps.Wait()
-	}
-	logger.stop()
-	if ee, ok := err.(*exec.Error); ok && err != nil {
-		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
-			return nil
+	var err error
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	debugctx := unitdebug.NewDebugHooksContext(ctx.unit.Name())
+	if session, err := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+		log.Infof("worker/uniter: executing %s via debug-hooks", hookName)
+		err = session.RunHook(hookName, charmDir, env)
+	} else {
+		var outReader, outWriter *os.File
+		ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
+		ps.Env = env
+		ps.Dir = charmDir
+		outReader, outWriter, err = os.Pipe()
+		if err != nil {
+			return fmt.Errorf("cannot make logging pipe: %v", err)
+		}
+		ps.Stdout = outWriter
+		ps.Stderr = outWriter
+		logger := &hookLogger{
+			r:    outReader,
+			done: make(chan struct{}),
+		}
+		go logger.run()
+		err = ps.Start()
+		outWriter.Close()
+		if err == nil {
+			err = ps.Wait()
+		}
+		logger.stop()
+		if ee, ok := err.(*exec.Error); ok && err != nil {
+			if os.IsNotExist(ee.Err) {
+				// Missing hook is perfectly valid, but worth mentioning.
+				log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
+				return nil
+			}
 		}
 	}
 	write := err == nil
