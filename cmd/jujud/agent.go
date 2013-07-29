@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	apiagent"launchpad.net/juju-core/state/api/agent"
+	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"

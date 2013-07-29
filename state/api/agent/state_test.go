@@ -24,7 +24,7 @@ func TestAll(t *stdtesting.T) {
 type machineSuite struct {
 	testing.JujuConnSuite
 	machine *state.Machine
-	st *api.State
+	st      *api.State
 }
 
 var _ = gc.Suite(&machineSuite{})
@@ -103,7 +103,7 @@ var _ = gc.Suite(&machineSuite{})
 type unitSuite struct {
 	testing.JujuConnSuite
 	unit *state.Unit
-	st *api.State
+	st   *api.State
 }
 
 func (s *unitSuite) SetUpTest(c *gc.C) {
@@ -145,7 +145,6 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
-
 
 func tryOpenState(info *state.Info) error {
 	st, err := state.Open(info, state.DialOpts{})

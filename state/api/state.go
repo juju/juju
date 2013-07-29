@@ -4,8 +4,8 @@
 package api
 
 import (
-	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/agent"
+	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/upgrader"
