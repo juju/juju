@@ -55,14 +55,14 @@ type MachinesSetStatus struct {
 
 // MachineAgentGetMachinesResults holds the results of a
 // machineagent.API.GetMachines call.
-// REMOVE(v1.14)
+// DEPRECATE(v1.14)
 type MachineAgentGetMachinesResults struct {
 	Machines []MachineAgentGetMachinesResult
 }
 
 // MachineAgentGetMachinesResult holds the results of a
 // machineagent.API.GetMachines call for a single machine.
-// REMOVE(v1.14)
+// DEPRECATE(v1.14)
 type MachineAgentGetMachinesResult struct {
 	Life  Life
 	Jobs  []MachineJob
