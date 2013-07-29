@@ -7,7 +7,7 @@ import (
 	"fmt"
 	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -21,67 +21,68 @@ func TestAll(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-type suite struct {
+type machineSuite struct {
 	testing.JujuConnSuite
-	st      *api.State
 	machine *state.Machine
+	st *api.State
 }
 
-var _ = Suite(&suite{})
+var _ = gc.Suite(&machineSuite{})
 
-func (s *suite) SetUpTest(c *C) {
+func (s *machineSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	// Create a machine so we can log in as its agent.
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, IsNil)
-	err = s.machine.SetPassword("password")
-	c.Assert(err, IsNil)
-	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
+	c.Assert(err, gc.IsNil)
+	err = s.machine.SetPassword("machine-password")
+
+	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "machine-password", "fake_nonce")
 }
 
-func (s *suite) TearDownTest(c *C) {
-	err := s.st.Close()
-	c.Assert(err, IsNil)
+func (s *machineSuite) TearDownTest(c *gc.C) {
+	if s.st != nil {
+		c.Assert(s.st.Close(), gc.IsNil)
+	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *suite) TestEntity(c *C) {
+func (s *machineSuite) TestMachineEntity(c *gc.C) {
 	m, err := s.st.Agent().Entity("42")
-	c.Assert(err, ErrorMatches, "permission denied")
-	c.Assert(params.ErrCode(err), Equals, params.CodeUnauthorized)
-	c.Assert(m, IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(m, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
-	c.Assert(err, IsNil)
-	c.Assert(m.Tag(), Equals, s.machine.Tag())
-	c.Assert(m.Life(), Equals, params.Alive)
-	c.Assert(m.Jobs(), DeepEquals, []params.MachineJob{params.JobHostUnits})
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Tag(), gc.Equals, s.machine.Tag())
+	c.Assert(m.Life(), gc.Equals, params.Alive)
+	c.Assert(m.Jobs(), gc.DeepEquals, []params.MachineJob{params.JobHostUnits})
 
 	err = s.machine.EnsureDead()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.machine.Tag())
-	c.Assert(err, ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
-	c.Assert(params.ErrCode(err), Equals, params.CodeNotFound)
-	c.Assert(m, IsNil)
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("machine %s not found", s.machine.Id()))
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(m, gc.IsNil)
 }
 
-func (s *suite) TestEntitySetPassword(c *C) {
+func (s *machineSuite) TestEntitySetPassword(c *gc.C) {
 	entity, err := s.st.Agent().Entity(s.machine.Tag())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = entity.SetPassword("foo")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = s.machine.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(s.machine.PasswordValid("bar"), Equals, false)
-	c.Assert(s.machine.PasswordValid("foo"), Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine.PasswordValid("bar"), gc.Equals, false)
+	c.Assert(s.machine.PasswordValid("foo"), gc.Equals, true)
 
 	// Check that we cannot log in to mongo with the wrong password.
 	info := s.StateInfo(c)
@@ -93,9 +94,58 @@ func (s *suite) TestEntitySetPassword(c *C) {
 	// Check that we can log in with the correct password
 	info.Password = "foo"
 	st, err := state.Open(info, state.DialOpts{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	st.Close()
 }
+
+var _ = gc.Suite(&machineSuite{})
+
+type unitSuite struct {
+	testing.JujuConnSuite
+	unit *state.Unit
+	st *api.State
+}
+
+func (s *unitSuite) SetUpTest(c *gc.C) {
+	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	s.unit, err = svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.SetPassword("unit-password")
+
+	s.st = s.OpenAPIAs(c, s.unit.Tag(), "unit-password")
+}
+
+func (s *unitSuite) TearDownTest(c *gc.C) {
+	if s.st != nil {
+		c.Assert(s.st.Close(), gc.IsNil)
+	}
+	s.JujuConnSuite.TearDownTest(c)
+}
+
+func (s *unitSuite) TestUnitEntity(c *gc.C) {
+	m, err := s.st.Agent().Entity("wordpress/1")
+	c.Assert(err, gc.ErrorMatches, "permission denied")
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
+	c.Assert(m, gc.IsNil)
+
+	m, err = s.st.Agent().Entity(s.unit.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Tag(), gc.Equals, s.unit.Tag())
+	c.Assert(m.Life(), gc.Equals, params.Alive)
+	c.Assert(m.Jobs(), gc.HasLen, 0)
+
+	err = s.unit.EnsureDead()
+	c.Assert(err, gc.IsNil)
+	err = s.unit.Remove()
+	c.Assert(err, gc.IsNil)
+
+	m, err = s.st.Agent().Entity(s.unit.Tag())
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q noot found", s.unit.Name()))
+	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
+	c.Assert(m, gc.IsNil)
+}
+
 
 func tryOpenState(info *state.Info) error {
 	st, err := state.Open(info, state.DialOpts{})
