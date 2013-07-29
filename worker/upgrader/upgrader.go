@@ -134,17 +134,17 @@ func (u *Upgrader) loop() error {
 			// repeatedly (causing the agent to be stopped), as long
 			// as we have got as far as this, we will still be able to
 			// upgrade the agent.
-			if err := u.fetchTools(wantTools); err != nil {
-				if err, ok := err.(*UpgradeReadyError); ok {
-					// Fill in the information that fetchTools doesn't have.
-					err.OldTools = currentTools
-					err.AgentName = u.tag
-					err.DataDir = u.dataDir
-					return err
+			err := u.fetchTools(wantTools)
+			if err == nil {
+				return &UpgradeReadyError{
+					OldTools:  currentTools,
+					NewTools:  wantTools,
+					AgentName: u.tag,
+					DataDir:   u.dataDir,
 				}
-				logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
-				retry = retryAfter()
 			}
+			logger.Errorf("failed to fetch tools from %q: %v", wantTools.URL, err)
+			retry = retryAfter()
 		}
 	}
 }
@@ -163,7 +163,5 @@ func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}
-	return &UpgradeReadyError{
-		NewTools: agentTools,
-	}
+	return nil
 }

@@ -107,7 +107,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
-	c.Assert(u.Stop(), gc.IsNil)
+	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, gc.IsNil)
@@ -126,7 +126,7 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
-	c.Assert(u.Stop(), gc.IsNil)
+	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
 	c.Assert(err, gc.IsNil)
@@ -172,7 +172,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	}
 	dummy.Poison(s.Conn.Environ.Storage(), tools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
 	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
-	defer u.Stop()
+	defer statetesting.AssertStop(c, u)
 
 	for i := 0; i < 3; i++ {
 		select {
