@@ -6,9 +6,13 @@ package openstack
 import (
 	"bytes"
 	"fmt"
+	"strings"
+	"text/template"
+
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -16,9 +20,6 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/instance"
-	"net/http"
-	"strings"
-	"text/template"
 )
 
 // This provides the content for code accessing test:///... URLs. This allows
