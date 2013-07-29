@@ -388,6 +388,7 @@ var fields = schema.Fields{
 	"ssl-hostname-verification": schema.Bool(),
 	"state-port":                schema.ForceInt(),
 	"api-port":                  schema.ForceInt(),
+	"logging-config":            schema.String(),
 }
 
 var defaults = schema.Defaults{
@@ -405,6 +406,7 @@ var defaults = schema.Defaults{
 	"ssl-hostname-verification": true,
 	"state-port":                schema.Omit,
 	"api-port":                  schema.Omit,
+	"log-config":                schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
