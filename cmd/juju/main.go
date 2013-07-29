@@ -39,62 +39,62 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
-	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:            "juju",
 		Doc:             jujuDoc,
 		Log:             &cmd.Log{},
 		MissingCallback: RunPlugin,
 	})
-	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
-	juju.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
+	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
+	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	// Creation commands.
-	juju.Register(&BootstrapCommand{})
-	juju.Register(&AddMachineCommand{})
-	juju.Register(&DeployCommand{})
-	juju.Register(&AddRelationCommand{})
-	juju.Register(&AddUnitCommand{})
+	jujucmd.Register(&BootstrapCommand{})
+	jujucmd.Register(&AddMachineCommand{})
+	jujucmd.Register(&DeployCommand{})
+	jujucmd.Register(&AddRelationCommand{})
+	jujucmd.Register(&AddUnitCommand{})
 
 	// Destruction commands.
-	juju.Register(&DestroyMachineCommand{})
-	juju.Register(&DestroyRelationCommand{})
-	juju.Register(&DestroyServiceCommand{})
-	juju.Register(&DestroyUnitCommand{})
-	juju.Register(&DestroyEnvironmentCommand{})
+	jujucmd.Register(&DestroyMachineCommand{})
+	jujucmd.Register(&DestroyRelationCommand{})
+	jujucmd.Register(&DestroyServiceCommand{})
+	jujucmd.Register(&DestroyUnitCommand{})
+	jujucmd.Register(&DestroyEnvironmentCommand{})
 
 	// Reporting commands.
-	juju.Register(&StatusCommand{})
-	juju.Register(&SwitchCommand{})
+	jujucmd.Register(&StatusCommand{})
+	jujucmd.Register(&SwitchCommand{})
 
 	// Error resolution commands.
-	juju.Register(&SCPCommand{})
-	juju.Register(&SSHCommand{})
-	juju.Register(&ResolvedCommand{})
-	juju.Register(&DebugLogCommand{sshCmd: &SSHCommand{}})
+	jujucmd.Register(&SCPCommand{})
+	jujucmd.Register(&SSHCommand{})
+	jujucmd.Register(&ResolvedCommand{})
+	jujucmd.Register(&DebugLogCommand{sshCmd: &SSHCommand{}})
 
 	// Configuration commands.
-	juju.Register(&InitCommand{})
-	juju.Register(&ImageMetadataCommand{})
-	juju.Register(&GetCommand{})
-	juju.Register(&SetCommand{})
-	juju.Register(&GetConstraintsCommand{})
-	juju.Register(&SetConstraintsCommand{})
-	juju.Register(&GetEnvironmentCommand{})
-	juju.Register(&SetEnvironmentCommand{})
-	juju.Register(&ExposeCommand{})
-	juju.Register(&SyncToolsCommand{})
-	juju.Register(&UnexposeCommand{})
-	juju.Register(&UpgradeJujuCommand{})
-	juju.Register(&UpgradeCharmCommand{})
-	juju.Register(&ValidateMetadataCommand{})
+	jujucmd.Register(&InitCommand{})
+	jujucmd.Register(&ImageMetadataCommand{})
+	jujucmd.Register(&GetCommand{})
+	jujucmd.Register(&SetCommand{})
+	jujucmd.Register(&GetConstraintsCommand{})
+	jujucmd.Register(&SetConstraintsCommand{})
+	jujucmd.Register(&GetEnvironmentCommand{})
+	jujucmd.Register(&SetEnvironmentCommand{})
+	jujucmd.Register(&ExposeCommand{})
+	jujucmd.Register(&SyncToolsCommand{})
+	jujucmd.Register(&UnexposeCommand{})
+	jujucmd.Register(&UpgradeJujuCommand{})
+	jujucmd.Register(&UpgradeCharmCommand{})
+	jujucmd.Register(&ValidateImageMetadataCommand{})
 
 	// Charm publishing commands.
-	juju.Register(&PublishCommand{})
+	jujucmd.Register(&PublishCommand{})
 
 	// Common commands.
-	juju.Register(&cmd.VersionCommand{})
+	jujucmd.Register(&cmd.VersionCommand{})
 
-	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(jujucmd, cmd.DefaultContext(), args[1:]))
 }
 
 func main() {

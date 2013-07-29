@@ -16,8 +16,8 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 )
 
-// ValidateMetadataCommand
-type ValidateMetadataCommand struct {
+// ValidateImageMetadataCommand
+type ValidateImageMetadataCommand struct {
 	EnvCommandBase
 	providerType string
 	metadataDir  string
@@ -26,8 +26,8 @@ type ValidateMetadataCommand struct {
 	endpoint     string
 }
 
-var validateDoc = `
-validate-image-metadata loads simplestreams metadata and validates the contents by looking for images
+var validateImageMetadataDoc = `
+validate image-metadata loads simplestreams metadata and validates the contents by looking for images
 belonging to the specified cloud.
 
 The cloud specificaton comes from the current Juju environment, as specified in the usual way
@@ -39,10 +39,10 @@ may be peformed on arbitary metadata.
 
 Examples:
 
-- (validate using the current environment settings but with series raring
+- validate using the current environment settings but with series raring
  juju validate-image-metadata -s raring
 
-- validate using the current environment settings but with series raring and using metadata from local directory)
+- validate using the current environment settings but with series raring and using metadata from local directory
  juju validate-image-metadata -s raring -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to production.
@@ -59,15 +59,15 @@ RETVAL=$?
 [ $RETVAL -ne 0 ] && echo Failure
 `
 
-func (c *ValidateMetadataCommand) Info() *cmd.Info {
+func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "validate-image-metadata",
 		Purpose: "validate image metadata and ensure image(s) exist for an environment",
-		Doc:     validateDoc,
+		Doc:     validateImageMetadataDoc,
 	}
 }
 
-func (c *ValidateMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
@@ -76,7 +76,7 @@ func (c *ValidateMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
 }
 
-func (c *ValidateMetadataCommand) Init(args []string) error {
+func (c *ValidateImageMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
 		if c.series == "" {
 			return fmt.Errorf("series required if provider type is specified")
@@ -91,7 +91,7 @@ func (c *ValidateMetadataCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *ValidateMetadataCommand) Run(context *cmd.Context) error {
+func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 	var params *imagemetadata.MetadataLookupParams
 
 	if c.providerType == "" {
