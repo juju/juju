@@ -106,7 +106,7 @@ func (s *UpgraderSuite) TestUpgraderSetsTools(c *gc.C) {
 	_, err = s.machine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
-	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	u := upgrader.New(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -125,7 +125,7 @@ func (s *UpgraderSuite) TestUpgraderSetToolsEvenWithNoToolsToRead(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, vers.Number)
 	c.Assert(err, gc.IsNil)
 
-	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	u := upgrader.New(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
 	statetesting.AssertStop(c, u)
 	s.machine.Refresh()
 	gotTools, err := s.machine.AgentTools()
@@ -145,7 +145,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 	// it's been stopped.
 	dummy.SetStorageDelay(coretesting.ShortWait)
 
-	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	u := upgrader.New(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
 	err = u.Stop()
 	c.Assert(err, gc.DeepEquals, &upgrader.UpgradeReadyError{
 		AgentName: s.machine.Tag(),
@@ -171,7 +171,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		return retryc
 	}
 	dummy.Poison(s.Conn.Environ.Storage(), tools.StorageName(newTools.Version), fmt.Errorf("a non-fatal dose"))
-	u := upgrader.NewUpgrader(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
+	u := upgrader.New(s.state.Upgrader(), s.DataDir(), s.machine.Tag())
 	defer u.Stop()
 
 	for i := 0; i < 3; i++ {

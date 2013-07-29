@@ -48,12 +48,12 @@ type Upgrader struct {
 	tag     string
 }
 
-// NewUpgrader returns a new upgrader worker. It watches changes to the
+// New returns a new upgrader worker. It watches changes to the
 // current version and tries to download the tools for any new version.
 // If an upgrade is needed, the worker will exit with an
 // UpgradeReadyError holding details of the requested upgrade. The tools
 // will have been downloaded and unpacked.
-func NewUpgrader(st *upgrader.State, dataDir, tag string) *Upgrader {
+func New(st *upgrader.State, dataDir, tag string) *Upgrader {
 	u := &Upgrader{
 		st:      st,
 		dataDir: dataDir,
