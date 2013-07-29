@@ -16,9 +16,9 @@ var _ = Suite(&metadataSuite{})
 
 func (s *metadataSuite) TestCannedRoundTripper(c *C) {
 	aContent := "a-content"
-	vrt := NewCannedRoundTripper([]FileContent{
-		{"a", aContent},
-		{"b", "b-content"},
+	vrt := NewCannedRoundTripper(map[string]string{
+		"a": aContent,
+		"b": "b-content",
 	}, nil)
 	c.Assert(vrt, NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
@@ -33,9 +33,7 @@ func (s *metadataSuite) TestCannedRoundTripper(c *C) {
 }
 
 func (s *metadataSuite) TestCannedRoundTripperMissing(c *C) {
-	vrt := NewCannedRoundTripper([]FileContent{
-		{"a", "a-content"},
-	}, nil)
+	vrt := NewCannedRoundTripper(map[string]string{"a": "a-content"}, nil)
 	c.Assert(vrt, NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)

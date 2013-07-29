@@ -66,9 +66,8 @@ func init() {
 	testRoundTripper.RegisterForScheme("test")
 }
 
-var imageData = []jujutest.FileContent{
-	{
-		"/streams/v1/index.json", `
+var imageData = map[string]string{
+	"/streams/v1/index.json": `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released:precise": {
@@ -118,8 +117,8 @@ var imageData = []jujutest.FileContent{
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		 "format": "index:1.0"
 		}
-`}, {
-		"/streams/v1/image_metadata.json", `
+`,
+	"/streams/v1/image_metadata.json": `
 {
  "updated": "Wed, 01 May 2013 13:31:26 +0000",
  "content_id": "com.ubuntu.cloud:released:aws",
@@ -208,7 +207,7 @@ var imageData = []jujutest.FileContent{
  },
  "format": "products:1.0"
 }
-`},
+`,
 }
 
 func registerSimpleStreamsTests() {
