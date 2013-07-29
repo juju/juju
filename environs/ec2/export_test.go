@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"io"
-	"net/http"
 
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
