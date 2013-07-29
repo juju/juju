@@ -440,11 +440,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	err := environs.VerifyBootstrapInit(e)
-	if err != nil {
-		return err
-	}
-
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err

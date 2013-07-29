@@ -5,6 +5,7 @@ package environs
 
 import (
 	"fmt"
+	"time"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
@@ -15,6 +16,13 @@ import (
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
+
+// Use ShortAttempt to poll for short-term events.
+// TODO: This may need tuning for different providers (or even environments).
+var ShortAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
@@ -38,13 +46,20 @@ func Bootstrap(environ Environ, cons constraints.Value) error {
 	if _, hasCAKey := cfg.CAPrivateKey(); !hasCAKey {
 		return fmt.Errorf("environment configuration has no ca-private-key")
 	}
+	// If the state file exists, it might actually have just been
+	// removed by Destroy, and eventual consistency has not caught
+	// up yet, so we retry to verify if that is happening.
+	err := verifyBootstrapInit(environ)
+	if err != nil {
+		return err
+	}
 	return environ.Bootstrap(cons)
 }
 
-// VerifyBootstrapInit does the common initial check inside bootstrap to
+// verifyBootstrapInit does the common initial check before bootstrapping, to
 // confirm that the environment isn't already running, and that the storage
 // works.
-func VerifyBootstrapInit(env Environ) error {
+func verifyBootstrapInit(env Environ) error {
 	var err error
 
 	storage := env.Storage()

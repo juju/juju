@@ -106,11 +106,6 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
 
-	err := environs.VerifyBootstrapInit(env)
-	if err != nil {
-		return err
-	}
-
 	cert, key, err := env.setupLocalMongoService()
 	if err != nil {
 		return err
