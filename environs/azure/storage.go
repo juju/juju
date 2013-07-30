@@ -33,7 +33,7 @@ type environStorageContext struct {
 var _ storageContext = (*environStorageContext)(nil)
 
 func (context *environStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.StorageContainerName()
+	return context.environ.getContainerName()
 }
 
 func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
@@ -117,9 +117,7 @@ func (storage *azureStorage) RemoveAll() error {
 	if err != nil {
 		return err
 	}
-	return context.DeleteAllBlobs(&gwacl.DeleteAllBlobsRequest{
-		Container: storage.getContainer(),
-	})
+	return context.DeleteContainer(storage.getContainer())
 }
 
 // publicEnvironStorageContext is a storageContext which gets its information

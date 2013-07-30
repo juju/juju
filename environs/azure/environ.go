@@ -205,11 +205,46 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 	return azure.RemoveVirtualNetworkSite(vnetName)
 }
 
+// getContainerName returns the name of the private storage account container
+// that this environment is using.
+func (env *azureEnviron) getContainerName() string {
+	return env.getEnvPrefix() + "-private"
+}
+
+func (env *azureEnviron) createStorageContainer() error {
+	containerName := env.getContainerName()
+	context, err := env.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.CreateContainer(containerName)
+}
+
+func (env *azureEnviron) deleteStorageContainer() error {
+	containerName := env.getContainerName()
+	context, err := env.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.DeleteContainer(containerName)
+}
+
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	// TODO(bug 1199847). The creation of the affinity group and the
-	// virtual network is specific to the Azure provider.
+	// TODO(bug 1199847). The creation of the affinity group, the
+	// virtual network and the container is specific to the Azure provider.
+	err = env.createStorageContainer()
+	if err != nil {
+		return err
+	}
+	// If we fail after this point, clean up the container.
+	defer func() {
+		if err != nil {
+			env.deleteStorageContainer()
+		}
+	}()
+
 	err = env.createAffinityGroup()
 	if err != nil {
 		return err

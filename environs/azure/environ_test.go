@@ -212,7 +212,7 @@ func (*EnvironSuite) TestStorage(c *C) {
 	storage, ok := baseStorage.(*azureStorage)
 	c.Check(ok, Equals, true)
 	c.Assert(storage, NotNil)
-	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.StorageContainerName())
+	c.Check(storage.storageContext.getContainer(), Equals, env.getContainerName())
 	context, err := storage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(context.Account, Equals, env.ecfg.StorageAccountName())
