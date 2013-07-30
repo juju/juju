@@ -179,3 +179,7 @@ func MinUnitsRevno(st *State, serviceName string) (int, error) {
 	}
 	return doc.Revno, nil
 }
+
+func ParseTag(st *State, tag string) (string, string, error) {
+	return st.parseTag(tag)
+}

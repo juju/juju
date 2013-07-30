@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -232,6 +233,11 @@ func (f *fileStorageReader) URL(name string) (string, error) {
 	return path.Join(f.path, name), nil
 }
 
+// ConsistencyStrategy implements environs.StorageReader.ConsistencyStrategy.
+func (f *fileStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{}
+}
+
 // NewSyncLogWriter creates a loggo writer for registration
 // by the callers of Sync. This way the logged output can also
 // be displayed otherwise, e.g. on the screen.
@@ -250,9 +256,9 @@ type syncLogWriter struct {
 func (s *syncLogWriter) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
 	if name == "juju.environs.sync" {
 		if level <= loggo.INFO {
-			fmt.Fprintf(s.out, message)
+			fmt.Fprintf(s.out, "%s\n", message)
 		} else {
-			fmt.Fprintf(s.err, message)
+			fmt.Fprintf(s.err, "%s\n", message)
 		}
 	}
 }

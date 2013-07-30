@@ -230,6 +230,7 @@ var commandNames = []string{
 	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
+	"help-tool",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation

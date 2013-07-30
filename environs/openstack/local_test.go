@@ -34,7 +34,7 @@ type ProviderSuite struct {
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) SetUpTest(c *C) {
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 }
 
 func (s *ProviderSuite) TearDownTest(c *C) {
@@ -58,9 +58,9 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 }
 
 func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
-	openstack.UseTestMetadata([]jujutest.FileContent{
-		{"/latest/meta-data/public-ipv4", "203.1.1.2"},
-		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	openstack.UseTestMetadata(map[string]string{
+		"/latest/meta-data/public-ipv4": "203.1.1.2",
+		"/latest/meta-data/local-ipv4":  "10.1.1.2",
 	})
 	defer openstack.UseTestMetadata(nil)
 	p, err := environs.Provider("openstack")
@@ -70,9 +70,9 @@ func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "203.1.1.2")
 
-	openstack.UseTestMetadata([]jujutest.FileContent{
-		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
-		{"/latest/meta-data/public-ipv4", ""},
+	openstack.UseTestMetadata(map[string]string{
+		"/latest/meta-data/local-ipv4":  "10.1.1.2",
+		"/latest/meta-data/public-ipv4": "",
 	})
 	addr, err = p.PublicAddress()
 	c.Assert(err, IsNil)
@@ -128,7 +128,7 @@ func (s *localServer) start(c *C, cred *identity.Credentials) {
 	c.Logf("Started service at: %v", s.Server.URL)
 	s.Service = openstackservice.New(cred, identity.AuthUserPass)
 	s.Service.SetupHTTP(s.Mux)
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies(openstack.ShortAttempt, openstack.StorageAttempt)
 }
 
 func (s *localServer) stop() {

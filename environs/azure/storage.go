@@ -5,9 +5,12 @@ package azure
 
 import (
 	"io"
+	"time"
+
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 type azureStorage struct {
@@ -30,7 +33,7 @@ type environStorageContext struct {
 var _ storageContext = (*environStorageContext)(nil)
 
 func (context *environStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.StorageContainerName()
+	return context.environ.getContainerName()
 }
 
 func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
@@ -77,7 +80,16 @@ func (storage *azureStorage) URL(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	return context.GetFileURL(storage.getContainer(), name), nil
+	// 10 years should be good enough.
+	expires := time.Now().AddDate(10, 0, 0)
+	return context.GetAnonymousFileURL(storage.getContainer(), name, expires), nil
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
+	// This storage backend has immediate consistency, so there's no
+	// need to wait.  One attempt should do.
+	return utils.AttemptStrategy{}
 }
 
 // Put is specified in the StorageWriter interface.
@@ -105,9 +117,7 @@ func (storage *azureStorage) RemoveAll() error {
 	if err != nil {
 		return err
 	}
-	return context.DeleteAllBlobs(&gwacl.DeleteAllBlobsRequest{
-		Container: storage.getContainer(),
-	})
+	return context.DeleteContainer(storage.getContainer())
 }
 
 // publicEnvironStorageContext is a storageContext which gets its information

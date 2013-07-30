@@ -8,12 +8,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 	"net/http"
 	"sort"
 	"strings"
 	"time"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 func (e *environ) Storage() environs.Storage {
@@ -89,6 +91,11 @@ func (s *storage) dataWithDelay(path string) (data []byte, err error) {
 
 func (s *storage) URL(name string) (string, error) {
 	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{}
 }
 
 func (s *storage) Put(name string, r io.Reader, length int64) error {
