@@ -53,7 +53,7 @@ func (*StorageSuite) TestWaitDNSName(c *C) {
 }
 
 func (*StorageSuite) TestOpenPorts(c *C) {
-	service := makeHostedServiceDescriptor("host-name")
+	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
 		{
 			Name: "deployment-one",
@@ -69,11 +69,6 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 			},
 		},
 	}
-	hostedService := &gwacl.HostedService{
-		Deployments:             deployments,
-		HostedServiceDescriptor: *service,
-		XMLNS: gwacl.XMLNS,
-	}
 	serialize := func(object gwacl.AzureObject) []byte {
 		xml, err := object.Serialize()
 		c.Assert(err, IsNil)
@@ -82,7 +77,12 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 	// First, GetHostedServiceProperties
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(
-			serialize(hostedService), http.StatusOK, nil),
+			serialize(&gwacl.HostedService{
+				Deployments:             deployments,
+				HostedServiceDescriptor: *service,
+				XMLNS: gwacl.XMLNS,
+			}),
+			http.StatusOK, nil),
 	}
 	// Then, GetRole and UpdateRole for each role.
 	for _, deployment := range deployments {
@@ -101,12 +101,29 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		}
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	azInstance := azureInstance{*service, makeEnviron(c)}
+	env := makeEnviron(c)
+	azInstance := azureInstance{*service, env}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
 		{"finger", 79}, {"submission", 587}, {"gopher", 70},
 	})
 
 	c.Assert(err, IsNil)
-	c.Assert(*record, HasLen, 7)
+	expected := []struct {
+		method     string
+		urlpattern string
+	}{
+		{"GET", ".*/services/hostedservices/service-name[?].*"},   // GetHostedServiceProperties
+		{"GET", ".*/deployments/deployment-one/roles/role-one"},   // GetRole
+		{"PUT", ".*/deployments/deployment-one/roles/role-one"},   // UpdateRole
+		{"GET", ".*/deployments/deployment-one/roles/role-two"},   // GetRole
+		{"PUT", ".*/deployments/deployment-one/roles/role-two"},   // UpdateRole
+		{"GET", ".*/deployments/deployment-two/roles/role-three"}, // GetRole
+		{"PUT", ".*/deployments/deployment-two/roles/role-three"}, // UpdateRole
+	}
+	c.Assert(*record, HasLen, len(expected))
+	for index, request := range *record {
+		c.Check(request.Method, Equals, expected[index].method)
+		c.Check(request.URL, Matches, expected[index].urlpattern)
+	}
 }
