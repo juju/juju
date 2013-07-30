@@ -345,6 +345,14 @@ var configTests = []configTest{
 			"api-port": "illegal",
 		},
 		err: `api-port: expected number, got "illegal"`,
+	}, {
+		about: "Invalid logging configuration",
+		attrs: attrs{
+			"type":           "my-type",
+			"name":           "my-name",
+			"logging-config": "foo=bar",
+		},
+		err: `unknown severity level "bar"`,
 	},
 }
 
