@@ -57,7 +57,10 @@ func UseTestMetadata(metadata map[string]string) {
 	}
 }
 
-var ShortAttempt = &shortAttempt
+var (
+	ShortAttempt   = &shortAttempt
+	StorageAttempt = &storageAttempt
+)
 
 func SetFakeToolsStorage(useFake bool) {
 	if useFake {

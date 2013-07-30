@@ -103,7 +103,10 @@ func UseTestMetadata(files map[string]string) {
 	}
 }
 
-var ShortAttempt = &shortAttempt
+var (
+	ShortAttempt   = &shortAttempt
+	StorageAttempt = &storageAttempt
+)
 
 func EC2ErrCode(err error) string {
 	return ec2ErrCode(err)

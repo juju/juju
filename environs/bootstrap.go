@@ -62,11 +62,13 @@ func Bootstrap(environ Environ, cons constraints.Value) error {
 func verifyBootstrapInit(env Environ) error {
 	var err error
 
+	storage := env.Storage()
+
 	// If the state file exists, it might actually have just been
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
-	for a := ShortAttempt.Start(); a.Next(); {
-		if _, err = LoadState(env.Storage()); err != nil {
+	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
+		if _, err = LoadState(storage); err != nil {
 			break
 		}
 	}
@@ -77,7 +79,7 @@ func verifyBootstrapInit(env Environ) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	return VerifyStorage(env.Storage())
+	return VerifyStorage(storage)
 }
 
 // BootstrapUsers creates the initial admin user for the database, and sets

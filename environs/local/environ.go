@@ -42,16 +42,6 @@ const boostrapInstanceId = "localhost"
 // testing.
 var upstartScriptLocation = "/etc/init"
 
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 50 * time.Millisecond,
-}
-
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 

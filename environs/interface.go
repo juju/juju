@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 )
 
 // A EnvironProvider represents a computing and storage provider.
@@ -67,6 +68,13 @@ type StorageReader interface {
 
 	// URL returns a URL that can be used to access the given storage file.
 	URL(name string) (string, error)
+
+	// ConsistencyStrategy returns the appropriate polling for waiting
+	// for this storage to become consistent.
+	// If the storage implementation has immediate consistency, the
+	// strategy won't need to wait at all.  But for eventually-consistent
+	// storage backends a few seconds of polling may be needed.
+	ConsistencyStrategy() utils.AttemptStrategy
 }
 
 // A StorageWriter adds and removes files in a storage provider.
