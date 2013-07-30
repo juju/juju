@@ -33,7 +33,7 @@ type environStorageContext struct {
 var _ storageContext = (*environStorageContext)(nil)
 
 func (context *environStorageContext) getContainer() string {
-	return context.environ.GetContainerName()
+	return context.environ.getContainerName()
 }
 
 func (context *environStorageContext) getStorageContext() (*gwacl.StorageContext, error) {

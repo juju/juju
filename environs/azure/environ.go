@@ -143,7 +143,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
-	return env.GetEnvPrefix() + "-ag"
+	return env.getEnvPrefix() + "-ag"
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
@@ -174,7 +174,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 // getVirtualNetworkName returns the name of the virtual network used by all
 // the VMs in this environment.
 func (env *azureEnviron) getVirtualNetworkName() string {
-	return env.GetEnvPrefix() + "-vnet"
+	return env.getEnvPrefix() + "-vnet"
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
@@ -205,21 +205,27 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 	return azure.RemoveVirtualNetworkSite(vnetName)
 }
 
-// GetContainerName returns the name of the private storage account container
+// getContainerName returns the name of the private storage account container
 // that this environment is using.
-func (env *azureEnviron) GetContainerName() string {
-	return env.GetEnvPrefix() + "-private"
+func (env *azureEnviron) getContainerName() string {
+	return env.getEnvPrefix() + "-private"
 }
 
 func (env *azureEnviron) createStorageContainer() error {
-	containerName := env.GetContainerName()
-	context, _ := env.getStorageContext()
+	containerName := env.getContainerName()
+	context, err := env.getStorageContext()
+    if err != nil {
+        return err
+    }
 	return context.CreateContainer(containerName)
 }
 
 func (env *azureEnviron) deleteStorageContainer() error {
-	containerName := env.GetContainerName()
-	context, _ := env.getStorageContext()
+	containerName := env.getContainerName()
+	context, err := env.getStorageContext()
+    if err != nil {
+        return err
+    }
 	return context.DeleteContainer(containerName)
 }
 
@@ -395,7 +401,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	snap := env.getSnapshot()
 	location := snap.ecfg.Location()
-	service, err := newHostedService(azure.ManagementAPI, env.GetEnvPrefix(), env.getAffinityGroupName(), location)
+	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
 	}
@@ -641,7 +647,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	}
 	defer env.releaseManagementAPI(context)
 
-	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.GetEnvPrefix()}
+	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
 	services, err := context.ListPrefixedHostedServices(request)
 	if err != nil {
 		return nil, err
@@ -649,9 +655,9 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	return convertToInstances(services), nil
 }
 
-// GetEnvPrefix returns the prefix used to name the objects specific to this
+// getEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
-func (env *azureEnviron) GetEnvPrefix() string {
+func (env *azureEnviron) getEnvPrefix() string {
 	return fmt.Sprintf("juju-%s", env.Name())
 }
 
