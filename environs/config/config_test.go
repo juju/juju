@@ -680,12 +680,16 @@ func (*ConfigSuite) TestValidateChange(c *gc.C) {
 	}
 }
 
-func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
-	defer testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
+func makeFakeHome(c *gc.C) *testing.FakeHome {
+	return testing.MakeFakeHomeWithFiles(c, []testing.TestFile{
 		{".ssh/id_rsa.pub", "rsa\n"},
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
-	}).Restore()
+	})
+}
+
+func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
+	defer makeFakeHome(c).Restore()
 	cfg, err := config.New(map[string]interface{}{
 		"name":    "myenv",
 		"type":    "other",
@@ -735,6 +739,14 @@ func newTestConfig(c *gc.C, explicit attrs) *config.Config {
 	result, err := config.New(final)
 	c.Assert(err, gc.IsNil)
 	return result
+}
+
+func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+
+	logConfig := "<root>=WARNING;juju=DEBUG"
+	config := newTestConfig(c, attrs{"logging-config": logConfig})
+	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
 }
 
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
