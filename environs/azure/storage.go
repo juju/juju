@@ -105,9 +105,7 @@ func (storage *azureStorage) RemoveAll() error {
 	if err != nil {
 		return err
 	}
-	return context.DeleteAllBlobs(&gwacl.DeleteAllBlobsRequest{
-		Container: storage.getContainer(),
-	})
+	return context.DeleteContainer(storage.getContainer())
 }
 
 // publicEnvironStorageContext is a storageContext which gets its information
