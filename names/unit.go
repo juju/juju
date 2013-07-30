@@ -13,17 +13,16 @@ var validUnit = regexp.MustCompile("^" + ServiceSnippet + "/" + NumberSnippet + 
 
 // UnitTag returns the tag for the unit with the given name.
 func UnitTag(unitName string) string {
-	return UnitTagPrefix + strings.Replace(unitName, "/", "-", -1)
+	return makeTag(UnitTagKind, strings.Replace(unitName, "/", "-", -1))
 }
 
 // UnitFromTag returns the unit name that was used to create the tag,
 // or an error if the tag is not of a unit.
 func UnitFromTag(tag string) (string, error) {
-	if !strings.HasPrefix(tag, UnitTagPrefix) {
+	kind, name, err := splitTag(tag)
+	if kind != UnitTagKind || err != nil {
 		return "", fmt.Errorf("%q is not a valid unit tag", tag)
 	}
-	// Strip off the "unit-" prefix.
-	name := tag[len(UnitTagPrefix):]
 	// Put the slashes back.
 	name = strings.Replace(name, "-", "/", -1)
 	if !IsUnit(name) {

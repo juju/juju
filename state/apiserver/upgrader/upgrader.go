@@ -66,7 +66,7 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	if !u.authorizer.AuthOwner(entity.Tag) {
 		return nil, common.ErrPerm
 	}
-	id, err := names.MachineIdFromTag(entity.Tag)
+	id, err := names.MachineFromTag(entity.Tag)
 	if err != nil {
 		return nil, err
 	}

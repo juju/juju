@@ -77,7 +77,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
-	if names.IsMachineId(target) {
+	if names.IsMachine(target) {
 		log.Infof("looking up address for machine %s...", target)
 		// TODO(dfc) maybe we should have machine.PublicAddress() ?
 		return c.machinePublicAddress(target)

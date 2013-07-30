@@ -58,7 +58,7 @@ func (api *AgentAPI) getMachine(tag string) (result params.MachineAgentGetMachin
 		err = common.ErrPerm
 		return
 	}
-	id, err := names.MachineIdFromTag(tag)
+	id, err := names.MachineFromTag(tag)
 	if err != nil {
 		return
 	}

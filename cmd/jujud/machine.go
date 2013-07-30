@@ -60,7 +60,7 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
-	if !names.IsMachineId(a.MachineId) {
+	if !names.IsMachine(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.Conf.checkArgs(args); err != nil {

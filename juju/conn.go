@@ -339,7 +339,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 					mid = machineIdSpec
 				}
 			}
-			if !names.IsMachineId(mid) {
+			if !names.IsMachine(mid) {
 				return nil, fmt.Errorf("invalid force machine id %q", mid)
 			}
 

@@ -7,7 +7,10 @@ import (
 	"regexp"
 )
 
-const ServiceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+const (
+	ServiceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+	NumberSnippet  = "(0|[1-9][0-9]*)"
+)
 
 var validService = regexp.MustCompile("^" + ServiceSnippet + "$")
 
@@ -18,5 +21,5 @@ func IsService(name string) bool {
 
 // ServiceTag returns the tag for the service with the given name.
 func ServiceTag(serviceName string) string {
-	return ServiceTagPrefix + serviceName
+	return makeTag(ServiceTagKind, serviceName)
 }

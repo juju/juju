@@ -51,7 +51,7 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 		if m.auth.AuthOwner(arg.Tag) {
 			var machine *state.Machine
 			var id string
-			id, err = names.MachineIdFromTag(arg.Tag)
+			id, err = names.MachineFromTag(arg.Tag)
 			if err == nil {
 				machine, err = m.st.Machine(id)
 				if err == nil {
@@ -64,17 +64,17 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 	return result, nil
 }
 
-func (m *MachinerAPI) watchOneMachine(entity params.Entity) (*params.NotifyWatchResult, error) {
+func (m *MachinerAPI) watchOneMachine(entity params.Entity) (string, error) {
 	if !m.auth.AuthOwner(entity.Tag) {
-		return nil, common.ErrPerm
+		return "", common.ErrPerm
 	}
-	id, err := names.MachineIdFromTag(entity.Tag)
+	id, err := names.MachineFromTag(entity.Tag)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	machine, err := m.st.Machine(id)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	watch := machine.Watch()
 	// Consume the initial event. Technically, API
@@ -82,9 +82,7 @@ func (m *MachinerAPI) watchOneMachine(entity params.Entity) (*params.NotifyWatch
 	// in the Watch response. But NotifyWatchers
 	// have no state to transmit.
 	if _, ok := <-watch.Changes(); ok {
-		return &params.NotifyWatchResult{
-			NotifyWatcherId: m.resources.Register(watch),
-		}, nil
+		return m.resources.Register(watch), nil
 	}
 	return nil, watcher.MustErr(watch)
 }
@@ -98,10 +96,8 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 		return result, nil
 	}
 	for i, entity := range args.Entities {
-		entityResult, err := m.watchOneMachine(entity)
-		if err == nil {
-			result.Results[i] = *entityResult
-		}
+		watcherId, err := m.watchOneMachine(entity)
+		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -121,7 +117,7 @@ func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, err
 		if m.auth.AuthOwner(entity.Tag) {
 			var machine *state.Machine
 			var id string
-			id, err = names.MachineIdFromTag(entity.Tag)
+			id, err = names.MachineFromTag(entity.Tag)
 			if err == nil {
 				machine, err = m.st.Machine(id)
 				if err == nil {

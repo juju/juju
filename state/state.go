@@ -576,11 +576,11 @@ func (st *State) entity(tag string) (interface{}, error) {
 	}
 	switch tagKind {
 	case names.MachineTagKind:
-		id, err := names.MachineIdFromTag(tag)
+		id, err := names.MachineFromTag(tag)
 		if err != nil {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
-		if !names.IsMachineId(id) {
+		if !names.IsMachine(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
@@ -1310,10 +1310,10 @@ func (st *State) ResumeTransactions() error {
 }
 
 var tagPrefix = map[byte]string{
-	'm': names.MachineTagPrefix,
-	's': names.ServiceTagPrefix,
-	'u': names.UnitTagPrefix,
-	'e': names.EnvironTagPrefix,
+	'm': names.MachineTagKind + "-",
+	's': names.ServiceTagKind + "-",
+	'u': names.UnitTagKind + "-",
+	'e': names.EnvironTagKind + "-",
 }
 
 func tagForGlobalKey(key string) (string, bool) {

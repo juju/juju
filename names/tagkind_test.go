@@ -9,9 +9,9 @@ import (
 	"launchpad.net/juju-core/names"
 )
 
-type constantsSuite struct{}
+type tagKindSuite struct{}
 
-var _ = gc.Suite(&constantsSuite{})
+var _ = gc.Suite(&tagKindSuite{})
 
 var tagKindTests = []struct {
 	tag  string
@@ -27,7 +27,7 @@ var tagKindTests = []struct {
 	{tag: "unit", err: `"unit" is not a valid tag`},
 }
 
-func (s *constantsSuite) TestTagKind(c *gc.C) {
+func (s *tagKindSuite) TestTagKind(c *gc.C) {
 	for i, test := range tagKindTests {
 		c.Logf("%d. %q -> %q", i, test.tag, test.kind)
 		kind, err := names.TagKind(test.tag)

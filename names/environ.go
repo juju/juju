@@ -5,5 +5,5 @@ package names
 
 // EnvironTag returns the tag of an environment with the given name.
 func EnvironTag(name string) string {
-	return EnvironTagPrefix + name
+	return makeTag(EnvironTagKind, name)
 }

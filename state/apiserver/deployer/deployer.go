@@ -29,7 +29,7 @@ type DeployerAPI struct {
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	id, err := names.MachineIdFromTag(machineTag)
+	id, err := names.MachineFromTag(machineTag)
 	if err != nil {
 		return nil, err
 	}
@@ -82,27 +82,28 @@ func NewDeployerAPI(
 	}, nil
 }
 
-func (d *DeployerAPI) watchOneMachineUnits(entity params.Entity) (*params.StringsWatchResult, error) {
+func (d *DeployerAPI) watchOneMachineUnits(entity params.Entity) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
 	if !d.authorizer.AuthOwner(entity.Tag) {
-		return nil, common.ErrPerm
+		return nothing, common.ErrPerm
 	}
-	id, err := names.MachineIdFromTag(entity.Tag)
+	id, err := names.MachineFromTag(entity.Tag)
 	if err != nil {
-		return nil, err
+		return nothing, err
 	}
 	machine, err := d.st.Machine(id)
 	if err != nil {
-		return nil, err
+		return nothing, err
 	}
 	watch := machine.WatchUnits()
 	// Consume the initial event and forward it to the result.
 	if changes, ok := <-watch.Changes(); ok {
-		return &params.StringsWatchResult{
+		return params.StringsWatchResult{
 			StringsWatcherId: d.resources.Register(watch),
 			Changes:          changes,
 		}, nil
 	}
-	return nil, watcher.MustErr(watch)
+	return nothing, watcher.MustErr(watch)
 }
 
 // WatchUnits starts a StringsWatcher to watch all units deployed to
@@ -114,9 +115,7 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 	}
 	for i, entity := range args.Entities {
 		entityResult, err := d.watchOneMachineUnits(entity)
-		if err == nil {
-			result.Results[i] = *entityResult
-		}
+		result.Results[i] = entityResult
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

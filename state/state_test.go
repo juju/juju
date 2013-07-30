@@ -1080,7 +1080,7 @@ func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertService("foo-2", false)
 
 	assertMachine := func(s string, expect bool) {
-		c.Assert(names.IsMachineId(s), gc.Equals, expect)
+		c.Assert(names.IsMachine(s), gc.Equals, expect)
 	}
 	assertMachine("0", true)
 	assertMachine("00", false)
