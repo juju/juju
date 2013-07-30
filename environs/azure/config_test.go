@@ -59,7 +59,7 @@ func makeAzureConfigMap(c *C) map[string]interface{} {
 		"management-subscription-id":    "subscription-id",
 		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
-		"storage-account-key":           "account-key",
+		"storage-account-key":           "YWNjb3VudC1rZXkK",
 		"public-storage-account-name":   "public-account-name",
 		"public-storage-container-name": "public-container-name",
 	}
