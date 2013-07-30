@@ -3,8 +3,9 @@
 
 package deployer
 
-// Addresser implementations provide the capability to lookup a list of server addresses.
+// Addresser implementations provide the capability to lookup a list
+// of server addresses.
 type Addresser interface {
-	Addresses() ([]string, error)
+	StateAddresses() ([]string, error)
 	APIAddresses() ([]string, error)
 }

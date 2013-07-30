@@ -17,18 +17,6 @@ type Entities struct {
 	Entities []Entity
 }
 
-// BoolResult holds the result of a single operation returning a
-// boolean value or an error.
-type BoolResult struct {
-	Result bool
-	Error  *Error
-}
-
-// BoolResults holds the boolean or error results of multiple entities.
-type BoolResults struct {
-	Results []BoolResult
-}
-
 // StringsResult holds the result of an API call that returns a slice
 // of strings.
 type StringsResult struct {

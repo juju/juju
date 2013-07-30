@@ -56,7 +56,7 @@ func createContainerRefOp(st *State, params *containerRefParams) []txn.Op {
 			},
 		}
 	} else {
-		// The host machine exists so update it's containers record.
+		// The host machine exists so update its containers record.
 		ops = []txn.Op{
 			{
 				C:      st.containerRefs.Name,
@@ -120,7 +120,7 @@ func removeContainerRefOps(st *State, machineId string) []txn.Op {
 		Assert: txn.DocExists,
 		Remove: true,
 	}
-	// If the machine is a container, figure out it's parent host.
+	// If the machine is a container, figure out its parent host.
 	parentId := ParentId(machineId)
 	if parentId == "" {
 		return []txn.Op{removeRefOp}
