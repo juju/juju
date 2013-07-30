@@ -83,7 +83,7 @@ func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 		return c.machinePublicAddress(target)
 	}
 	// maybe the target is a unit ?
-	if names.IsUnitName(target) {
+	if names.IsUnit(target) {
 		log.Infof("looking up address for unit %q...", c.Target)
 		unit, err := c.State.Unit(target)
 		if err != nil {

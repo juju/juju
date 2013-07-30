@@ -570,9 +570,12 @@ func (st *State) entity(tag string) (interface{}, error) {
 		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
 	prefix, id := tag[0:i], tag[i+1:]
-	prefix += "-"
-	switch prefix {
-	case names.MachineTagPrefix:
+	tagKind, err := names.TagKind(prefix)
+	if err != nil {
+		return nil, fmt.Errorf("invalid entity tag %q", tag)
+	}
+	switch tagKind {
+	case names.MachineTagKind:
 		id, err := names.MachineIdFromTag(tag)
 		if err != nil {
 			return nil, err
@@ -581,24 +584,24 @@ func (st *State) entity(tag string) (interface{}, error) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
-	case names.UnitTagPrefix:
+	case names.UnitTagKind:
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		name := id[:i] + "/" + id[i+1:]
-		if !names.IsUnitName(name) {
+		if !names.IsUnit(name) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Unit(name)
-	case names.UserTagPrefix:
+	case names.UserTagKind:
 		return st.User(id)
-	case names.ServiceTagPrefix:
-		if !names.IsServiceName(id) {
+	case names.ServiceTagKind:
+		if !names.IsService(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Service(id)
-	case names.EnvironTagPrefix:
+	case names.EnvironTagKind:
 		conf, err := st.EnvironConfig()
 		if err != nil {
 			return nil, err
@@ -715,7 +718,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
-	if !names.IsServiceName(name) {
+	if !names.IsService(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if ch == nil {
@@ -775,7 +778,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
-	if !names.IsServiceName(name) {
+	if !names.IsService(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -1047,7 +1050,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
-	if !names.IsUnitName(name) {
+	if !names.IsUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}

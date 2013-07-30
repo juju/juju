@@ -64,6 +64,31 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 	return result, nil
 }
 
+func (m *MachinerAPI) watchOneMachine(entity params.Entity) (*params.NotifyWatchResult, error) {
+	if !m.auth.AuthOwner(entity.Tag) {
+		return nil, common.ErrPerm
+	}
+	id, err := names.MachineIdFromTag(entity.Tag)
+	if err != nil {
+		return nil, err
+	}
+	machine, err := m.st.Machine(id)
+	if err != nil {
+		return nil, err
+	}
+	watch := machine.Watch()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		return &params.NotifyWatchResult{
+			NotifyWatcherId: m.resources.Register(watch),
+		}, nil
+	}
+	return nil, watcher.MustErr(watch)
+}
+
 // Watch starts an NotifyWatcher for each given machine.
 func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, error) {
 	result := params.NotifyWatchResults{
@@ -73,26 +98,9 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 		return result, nil
 	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if m.auth.AuthOwner(entity.Tag) {
-			var machine *state.Machine
-			var id string
-			id, err = names.MachineIdFromTag(entity.Tag)
-			if err == nil {
-				machine, err = m.st.Machine(id)
-				if err == nil {
-					watch := machine.Watch()
-					// Consume the initial event. Technically, API
-					// calls to Watch 'transmit' the initial event
-					// in the Watch response. But NotifyWatchers
-					// have no state to transmit.
-					if _, ok := <-watch.Changes(); ok {
-						result.Results[i].NotifyWatcherId = m.resources.Register(watch)
-					} else {
-						err = watcher.MustErr(watch)
-					}
-				}
-			}
+		entityResult, err := m.watchOneMachine(entity)
+		if err == nil {
+			result.Results[i] = *entityResult
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

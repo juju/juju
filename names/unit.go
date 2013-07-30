@@ -16,19 +16,23 @@ func UnitTag(unitName string) string {
 	return UnitTagPrefix + strings.Replace(unitName, "/", "-", -1)
 }
 
-// UnitNameFromTag returns the unit name that was used to create the tag.
-func UnitNameFromTag(tag string) (string, error) {
+// UnitFromTag returns the unit name that was used to create the tag,
+// or an error if the tag is not of a unit.
+func UnitFromTag(tag string) (string, error) {
 	if !strings.HasPrefix(tag, UnitTagPrefix) {
-		return "", fmt.Errorf("invalid unit tag format: %v", tag)
+		return "", fmt.Errorf("%q is not a valid unit tag", tag)
 	}
 	// Strip off the "unit-" prefix.
 	name := tag[len(UnitTagPrefix):]
 	// Put the slashes back.
 	name = strings.Replace(name, "-", "/", -1)
+	if !IsUnit(name) {
+		return "", fmt.Errorf("%q is not a valid unit tag", tag)
+	}
 	return name, nil
 }
 
-// IsUnitName returns whether name is a valid unit name.
-func IsUnitName(name string) bool {
+// IsUnit returns whether name is a valid unit name.
+func IsUnit(name string) bool {
 	return validUnit.MatchString(name)
 }

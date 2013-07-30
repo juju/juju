@@ -7,10 +7,12 @@ import (
 	"regexp"
 )
 
+const ServiceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+
 var validService = regexp.MustCompile("^" + ServiceSnippet + "$")
 
-// IsServiceName returns whether name is a valid service name.
-func IsServiceName(name string) bool {
+// IsService returns whether name is a valid service name.
+func IsService(name string) bool {
 	return validService.MatchString(name)
 }
 

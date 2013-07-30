@@ -88,7 +88,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *UpgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
-		if !names.IsServiceName(args[0]) {
+		if !names.IsService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName = args[0]

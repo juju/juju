@@ -3,16 +3,42 @@
 
 package names
 
-const (
-	UnitTagPrefix    = "unit-"
-	MachineTagPrefix = "machine-"
-	ServiceTagPrefix = "service-"
-	EnvironTagPrefix = "environment-"
-	UserTagPrefix    = "user-"
-
-	ServiceSnippet       = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
-	NumberSnippet        = "(0|[1-9][0-9]*)"
-	ContainerSnippet     = "(/[a-z]+/" + NumberSnippet + ")"
-	MachineSnippet       = NumberSnippet + ContainerSnippet + "*"
-	ContainerSpecSnippet = "(([a-z])*:)?"
+import (
+	"fmt"
+	"strings"
 )
+
+const (
+	UnitTagKind    = "unit"
+	MachineTagKind = "machine"
+	ServiceTagKind = "service"
+	EnvironTagKind = "environment"
+	UserTagKind    = "user"
+
+	UnitTagPrefix    = UnitTagKind + "-"
+	MachineTagPrefix = MachineTagKind + "-"
+	ServiceTagPrefix = ServiceTagKind + "-"
+	EnvironTagPrefix = EnvironTagKind + "-"
+	UserTagPrefix    = UserTagKind + "-"
+
+	NumberSnippet = "(0|[1-9][0-9]*)"
+)
+
+// TagKind returns one of the *TagKind constants for the given tag, or
+// an error if none matches.
+func TagKind(tag string) (string, error) {
+	switch {
+	case strings.HasPrefix(tag, UnitTagPrefix):
+		return UnitTagKind, nil
+	case strings.HasPrefix(tag, MachineTagPrefix):
+		return MachineTagKind, nil
+	case strings.HasPrefix(tag, ServiceTagPrefix):
+		return ServiceTagKind, nil
+	case strings.HasPrefix(tag, EnvironTagPrefix):
+		return EnvironTagKind, nil
+	case strings.HasPrefix(tag, UserTagPrefix):
+		return UserTagKind, nil
+	default:
+		return "", fmt.Errorf("%q is not a valid tag", tag)
+	}
+}

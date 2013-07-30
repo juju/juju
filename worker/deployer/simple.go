@@ -208,7 +208,7 @@ func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) 
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
 			unitName := groups[2] + "/" + groups[3]
-			if !names.IsUnitName(unitName) {
+			if !names.IsUnit(unitName) {
 				continue
 			}
 			installed[unitName] = groups[1]

@@ -82,6 +82,29 @@ func NewDeployerAPI(
 	}, nil
 }
 
+func (d *DeployerAPI) watchOneMachineUnits(entity params.Entity) (*params.StringsWatchResult, error) {
+	if !d.authorizer.AuthOwner(entity.Tag) {
+		return nil, common.ErrPerm
+	}
+	id, err := names.MachineIdFromTag(entity.Tag)
+	if err != nil {
+		return nil, err
+	}
+	machine, err := d.st.Machine(id)
+	if err != nil {
+		return nil, err
+	}
+	watch := machine.WatchUnits()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return &params.StringsWatchResult{
+			StringsWatcherId: d.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nil, watcher.MustErr(watch)
+}
+
 // WatchUnits starts a StringsWatcher to watch all units deployed to
 // any machine passed in args, in order to track which ones should be
 // deployed or recalled.
@@ -90,24 +113,9 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if d.authorizer.AuthOwner(entity.Tag) {
-			var machine *state.Machine
-			var id string
-			id, err = names.MachineIdFromTag(entity.Tag)
-			if err == nil {
-				machine, err = d.st.Machine(id)
-				if err == nil {
-					watch := machine.WatchUnits()
-					// Consume the initial event and forward it to the result.
-					if changes, ok := <-watch.Changes(); ok {
-						result.Results[i].StringsWatcherId = d.resources.Register(watch)
-						result.Results[i].Changes = changes
-					} else {
-						err = watcher.MustErr(watch)
-					}
-				}
-			}
+		entityResult, err := d.watchOneMachineUnits(entity)
+		if err == nil {
+			result.Results[i] = *entityResult
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

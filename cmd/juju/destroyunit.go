@@ -35,7 +35,7 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 		return errors.New("no units specified")
 	}
 	for _, name := range c.UnitNames {
-		if !names.IsUnitName(name) {
+		if !names.IsUnit(name) {
 			return fmt.Errorf("invalid unit name %q", name)
 		}
 	}

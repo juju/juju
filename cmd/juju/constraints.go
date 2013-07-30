@@ -46,7 +46,7 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *GetConstraintsCommand) Init(args []string) error {
 	if len(args) > 0 {
-		if !names.IsServiceName(args[0]) {
+		if !names.IsService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName, args = args[0], args[1:]
@@ -100,7 +100,7 @@ func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SetConstraintsCommand) Init(args []string) (err error) {
-	if c.ServiceName != "" && !names.IsServiceName(c.ServiceName) {
+	if c.ServiceName != "" && !names.IsService(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}
 	c.Constraints, err = constraints.Parse(args...)

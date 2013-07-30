@@ -37,7 +37,7 @@ func (c *ResolvedCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *ResolvedCommand) Init(args []string) error {
 	if len(args) > 0 {
 		c.UnitName = args[0]
-		if !names.IsUnitName(c.UnitName) {
+		if !names.IsUnit(c.UnitName) {
 			return fmt.Errorf("invalid unit name %q", c.UnitName)
 		}
 		args = args[1:]
