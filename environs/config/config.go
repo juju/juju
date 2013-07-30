@@ -406,7 +406,7 @@ var defaults = schema.Defaults{
 	"ssl-hostname-verification": true,
 	"state-port":                schema.Omit,
 	"api-port":                  schema.Omit,
-	"log-config":                schema.Omit,
+	"logging-config":            schema.Omit,
 }
 
 var checker = schema.FieldMap(fields, defaults)
