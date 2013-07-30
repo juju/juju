@@ -59,8 +59,7 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 	c.Assert(s.stateAPI, NotNil)
 
 	// Create the upgrader facade.
-	s.st, err = s.stateAPI.Upgrader()
-	c.Assert(err, IsNil)
+	s.st = s.stateAPI.Upgrader()
 	c.Assert(s.st, NotNil)
 }
 

@@ -71,10 +71,6 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		}
 		return err
 	}
-	err = c.ensureToolsAvailability(environ, context)
-	if err != nil {
-		return err
-	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
 	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
 	if err != nil {
@@ -103,6 +99,10 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return fmt.Errorf("failed to update environment configuration: %v", err)
 		}
+	}
+	err = c.ensureToolsAvailability(environ, context)
+	if err != nil {
+		return err
 	}
 	return environs.Bootstrap(environ, c.Constraints)
 }
