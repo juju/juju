@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -38,6 +39,8 @@ func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 	env := newEnviron("bar", noKeysDefined)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
 	fixEnv := func(key string, value interface{}) {
 		cfg, err := env.Config().Apply(map[string]interface{}{
 			key: value,
@@ -64,6 +67,8 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
 	err := environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
@@ -72,6 +77,8 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 
 func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
 	err := environs.Bootstrap(env, cons)
 	c.Assert(err, gc.IsNil)
@@ -87,6 +94,7 @@ type bootstrapEnviron struct {
 	// The following fields are filled in when Bootstrap is called.
 	bootstrapCount int
 	constraints    constraints.Value
+	storage        environs.Storage
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
@@ -113,6 +121,17 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 	}
 }
 
+// setDummyStorage injects the local provider's fake storage implementation
+// into the given enviornment, so that tests can manipulate storage as if it
+// were real.
+// Returns a cleanup function that must be called when done with the storage.
+func setDummyStorage(c *gc.C, env *bootstrapEnviron) func() {
+	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
+	c.Assert(err, gc.IsNil)
+	env.storage = localstorage.Client(listener.Addr().String())
+	return func() { listener.Close() }
+}
+
 func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
@@ -130,4 +149,8 @@ func (e *bootstrapEnviron) Config() *config.Config {
 func (e *bootstrapEnviron) SetConfig(cfg *config.Config) error {
 	e.cfg = cfg
 	return nil
+}
+
+func (e *bootstrapEnviron) Storage() environs.Storage {
+	return e.storage
 }

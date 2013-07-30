@@ -220,10 +220,6 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
-		return err
-	}
-
 	// TODO(bug 1199847). The creation of the affinity group and the
 	// virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
