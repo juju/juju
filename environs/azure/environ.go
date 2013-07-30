@@ -143,14 +143,14 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
-	return env.getEnvPrefix() + "-ag"
+	return env.getEnvPrefix() + "ag"
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	snap := env.getSnapshot()
@@ -164,7 +164,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	return azure.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
@@ -174,7 +174,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 // getVirtualNetworkName returns the name of the virtual network used by all
 // the VMs in this environment.
 func (env *azureEnviron) getVirtualNetworkName() string {
-	return env.getEnvPrefix() + "-vnet"
+	return env.getEnvPrefix() + "vnet"
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
@@ -182,7 +182,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
@@ -198,7 +198,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 func (env *azureEnviron) deleteVirtualNetwork() error {
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	vnetName := env.getVirtualNetworkName()
@@ -623,7 +623,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 // getEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
 func (env *azureEnviron) getEnvPrefix() string {
-	return fmt.Sprintf("juju-%s", env.Name())
+	return fmt.Sprintf("juju-%s-", env.Name())
 }
 
 // convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
