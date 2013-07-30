@@ -357,7 +357,12 @@ func (c *Config) SSLHostnameVerification() bool {
 
 // LoggingConfig returns the configuration string for the loggers.
 func (c *Config) LoggingConfig() string {
-	return c.asString("logging-config")
+	value := c.asString("logging-config")
+	if value == "" {
+		// Nothing specified explicitly, so get what loggo has.
+		value = loggo.LoggerInfo()
+	}
+	return value
 }
 
 // UnknownAttrs returns a copy of the raw configuration attributes

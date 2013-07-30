@@ -55,11 +55,11 @@ func MachineAgentUpstartService(name, toolsDir, dataDir, logDir, tag, machineId,
 			" machine" +
 			" --log-file " + utils.ShQuote(logFile) +
 			" --data-dir " + utils.ShQuote(dataDir) +
-			" --machine-id " + machineId +
-			" " + logConfig,
+			" --machine-id " + machineId,
 		Out: logFile,
 		Env: map[string]string{
-			"JUJU_PROVIDER_TYPE": providerType,
+			"JUJU_PROVIDER_TYPE":  providerType,
+			"JUJU_LOGGING_CONFIG": logConfig,
 		},
 	}
 }

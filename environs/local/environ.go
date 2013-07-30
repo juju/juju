@@ -477,7 +477,7 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	tag := state.MachineTag(machineId)
 	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
-	logConfig := "--debug" // TODO(thumper): specify loggo config
+	logConfig := env.config.LoggingConfig()
 	agent := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
 		toolsDir, dataDir, logDir, tag, machineId, logConfig, env.config.Type())
