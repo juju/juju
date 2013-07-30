@@ -6,6 +6,7 @@ package upgrader
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
@@ -22,32 +23,27 @@ func NewState(caller common.Caller) *State {
 	return &State{caller}
 }
 
-func (st *State) SetTools(tools params.AgentTools) error {
-	var results params.SetAgentToolsResults
-	args := params.SetAgentTools{
-		AgentTools: []params.AgentTools{tools},
+// SetTools sets the tools associated with the entity
+// with the given tag, which must be the tag
+// of the entity that the upgrader is running
+// on behalf of.
+func (st *State) SetTools(tag string, tools *tools.Tools) error {
+	var results params.ErrorResults
+	args := params.SetAgentsTools{
+		AgentTools: []params.SetAgentTools{{
+			Tag:   tag,
+			Tools: tools,
+		}},
 	}
 	err := st.caller.Call("Upgrader", "", "SetTools", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
 		return err
 	}
-	if len(results.Results) != 1 {
-		return fmt.Errorf("expected one result, got %d", len(results.Results))
-	}
-	result := results.Results[0]
-	if result.Tag != tools.Tag {
-		// TODO: Not directly tested
-		return fmt.Errorf("server returned tag that did not match: got %q expected %q",
-			result.Tag, tools.Tag)
-	}
-	if err := result.Error; err != nil {
-		return err
-	}
-	return nil
+	return results.OneError()
 }
 
-func (st *State) Tools(tag string) (*params.AgentTools, error) {
+func (st *State) Tools(tag string) (*tools.Tools, error) {
 	var results params.AgentToolsResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -57,20 +53,15 @@ func (st *State) Tools(tag string) (*params.AgentTools, error) {
 		// TODO: Not directly tested
 		return nil, err
 	}
-	if len(results.Tools) != 1 {
+	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Tools))
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
-	tools := results.Tools[0]
-	if err := tools.Error; err != nil {
+	result := results.Results[0]
+	if err := result.Error; err != nil {
 		return nil, err
 	}
-	if tools.AgentTools.Tag != tag {
-		// TODO: Not directly tested
-		return nil, fmt.Errorf("server returned tag that did not match: got %q expected %q",
-			tools.AgentTools.Tag, tag)
-	}
-	return &tools.AgentTools, nil
+	return result.Tools, nil
 }
 
 func (st *State) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {

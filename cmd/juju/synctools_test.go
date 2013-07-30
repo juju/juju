@@ -4,38 +4,35 @@
 package main
 
 import (
-	"io/ioutil"
-	"os"
-	"path/filepath"
+	"errors"
+	"time"
 
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/agent/tools"
+	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type syncToolsSuite struct {
-	testing.LoggingSuite
-	home         *testing.FakeHome
+	coretesting.LoggingSuite
+	home         *coretesting.FakeHome
 	targetEnv    environs.Environ
-	origVersion  version.Binary
-	origLocation string
-	storage      *envtesting.EC2HTTPTestStorage
 	localStorage string
+
+	origSyncTools func(*sync.SyncContext) error
 }
 
-func (s *syncToolsSuite) SetUpTest(c *C) {
+var _ = gc.Suite(&syncToolsSuite{})
+
+func (s *syncToolsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	s.origVersion = version.Current
-	// It's important that this be v1 to match the test data.
-	version.Current.Number = version.MustParse("1.2.3")
 
 	// Create a target environments.yaml and make sure its environment is empty.
-	s.home = testing.MakeFakeHome(c, `
+	s.home = coretesting.MakeFakeHome(c, `
 environments:
     test-target:
         type: dummy
@@ -44,176 +41,96 @@ environments:
 `)
 	var err error
 	s.targetEnv, err = environs.NewFromName("test-target")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
-
-	// Create a source storage.
-	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
-	c.Assert(err, IsNil)
-
-	// Create a local tools directory.
-	s.localStorage = c.MkDir()
-
-	// Populate both with the public tools.
-	for _, vers := range vAll {
-		s.storage.PutBinary(vers)
-		putBinary(c, s.localStorage, vers)
-	}
-
-	s.origLocation = defaultToolsLocation
-	defaultToolsLocation = s.storage.Location()
+	s.origSyncTools = syncTools
 }
 
-func (s *syncToolsSuite) TearDownTest(c *C) {
-	c.Assert(s.storage.Stop(), IsNil)
-	defaultToolsLocation = s.origLocation
+func (s *syncToolsSuite) TearDownTest(c *gc.C) {
+	syncTools = s.origSyncTools
 	dummy.Reset()
 	s.home.Restore()
-	version.Current = s.origVersion
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var _ = Suite(&syncToolsSuite{})
-
-func runSyncToolsCommand(c *C, args ...string) (*cmd.Context, error) {
-	return testing.RunCommand(c, &SyncToolsCommand{}, args)
+func runSyncToolsCommand(c *gc.C, args ...string) (*cmd.Context, error) {
+	return coretesting.RunCommand(c, &SyncToolsCommand{}, args)
 }
 
-func (s *syncToolsSuite) TestHelp(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-h")
-	c.Assert(err, ErrorMatches, "flag: help requested")
-	c.Assert(ctx, IsNil)
-}
-
-func assertToolsList(c *C, list tools.List, expected []version.Binary) {
-	urls := list.URLs()
-	c.Check(urls, HasLen, len(expected))
-	for _, vers := range expected {
-		c.Assert(urls[vers], Not(Equals), "")
+func wait(signal chan struct{}) error {
+	select {
+	case <-signal:
+		return nil
+	case <-time.After(25 * time.Millisecond):
+		return errors.New("timeout")
 	}
+	panic("unreachable")
 }
 
-func assertEmpty(c *C, storage environs.StorageReader) {
-	list, err := tools.ReadList(storage, 1)
-	if len(list) > 0 {
-		c.Logf("got unexpected tools: %s", list)
+var tests = []struct {
+	description string
+	args        []string
+	sctx        *sync.SyncContext
+}{
+	{
+		description: "environment as only argument",
+		args:        []string{"-e", "test-target"},
+		sctx: &sync.SyncContext{
+			EnvName: "test-target",
+		},
+	},
+	{
+		description: "specifying also the synchronization source",
+		args:        []string{"-e", "test-target", "--source", "/foo/bar"},
+		sctx: &sync.SyncContext{
+			EnvName: "test-target",
+			Source:  "/foo/bar",
+		},
+	},
+	{
+		description: "synchronize all version including development",
+		args:        []string{"-e", "test-target", "--all", "--dev"},
+		sctx: &sync.SyncContext{
+			EnvName:     "test-target",
+			AllVersions: true,
+			Dev:         true,
+		},
+	},
+	{
+		description: "synchronize to public bucket",
+		args:        []string{"-e", "test-target", "--public"},
+		sctx: &sync.SyncContext{
+			EnvName:      "test-target",
+			PublicBucket: true,
+		},
+	},
+	{
+		description: "just make a dry run",
+		args:        []string{"-e", "test-target", "--dry-run"},
+		sctx: &sync.SyncContext{
+			EnvName: "test-target",
+			DryRun:  true,
+		},
+	},
+}
+
+func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
+	for _, test := range tests {
+		c.Log(test.description)
+		called := make(chan struct{}, 1)
+		syncTools = func(sctx *sync.SyncContext) error {
+			c.Assert(sctx.EnvName, gc.Equals, test.sctx.EnvName)
+			c.Assert(sctx.AllVersions, gc.Equals, test.sctx.AllVersions)
+			c.Assert(sctx.DryRun, gc.Equals, test.sctx.DryRun)
+			c.Assert(sctx.PublicBucket, gc.Equals, test.sctx.PublicBucket)
+			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
+			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
+			called <- struct{}{}
+			return nil
+		}
+		ctx, err := runSyncToolsCommand(c, test.args...)
+		c.Assert(err, gc.IsNil)
+		c.Assert(ctx, gc.NotNil)
+		c.Assert(wait(called), gc.IsNil)
 	}
-	c.Assert(err, Equals, tools.ErrNoTools)
-}
-
-func (s *syncToolsSuite) TestCopyNewestFromFilesystem(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--source", s.localStorage)
-	c.Assert(err, IsNil)
-	c.Assert(ctx, NotNil)
-
-	// Newest released v1 tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncToolsSuite) TestCopyNewestFromDummy(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target")
-	c.Assert(err, IsNil)
-	c.Assert(ctx, NotNil)
-
-	// Newest released v1 tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncToolsSuite) TestCopyNewestDevFromDummy(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--dev")
-	c.Assert(err, IsNil)
-	c.Assert(ctx, NotNil)
-
-	// Newest v1 dev tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, v190all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncToolsSuite) TestCopyAllFromDummy(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--all")
-	c.Assert(err, IsNil)
-	c.Assert(ctx, NotNil)
-
-	// All released v1 tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncToolsSuite) TestCopyAllDevFromDummy(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--all", "--dev")
-	c.Assert(err, IsNil)
-	c.Assert(ctx, NotNil)
-
-	// All v1 tools, dev and release, made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, v1all)
-
-	// Public bucket was not touched.
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-func (s *syncToolsSuite) TestCopyToDummyPublic(c *C) {
-	ctx, err := runSyncToolsCommand(c, "-e", "test-target", "--public")
-	c.Assert(err, IsNil)
-	c.Assert(ctx, NotNil)
-
-	// Newest released tools made available to target env.
-	targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
-	c.Assert(err, IsNil)
-	assertToolsList(c, targetTools, v100all)
-
-	// Private bucket was not touched.
-	assertEmpty(c, s.targetEnv.Storage())
-}
-
-func (s *syncToolsSuite) TestCopyToDummyPublicBlockedByPrivate(c *C) {
-	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
-
-	_, err := runSyncToolsCommand(c, "-e", "test-target", "--public")
-	c.Assert(err, ErrorMatches, "private tools present: public tools would be ignored")
-	assertEmpty(c, s.targetEnv.PublicStorage())
-}
-
-var (
-	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
-	v100all = []version.Binary{v100p64, v100q64, v100q32}
-	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
-	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
-	v190all = []version.Binary{v190q64, v190p32}
-	v1all   = append(v100all, v190all...)
-	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
-	vAll    = append(v1all, v200p64)
-)
-
-// putBinary stores a faked binary in the test directory.
-func putBinary(c *C, storagePath string, v version.Binary) {
-	data := v.String()
-	name := tools.StorageName(v)
-	filename := filepath.Join(storagePath, name)
-	dir := filepath.Dir(filename)
-	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, IsNil)
-	err = ioutil.WriteFile(filename, []byte(data), 0666)
-	c.Assert(err, IsNil)
 }

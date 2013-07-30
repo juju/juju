@@ -86,10 +86,10 @@ func (s *agentSuite) TestSetPasswords(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	c.Assert(results, gc.DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			apiservertesting.ErrUnauthorized,
-			nil,
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 	err = s.machine1.Refresh()

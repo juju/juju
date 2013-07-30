@@ -61,10 +61,6 @@ func (*preferredTypes) suffices(given uint64, required *uint64) bool {
 	return required == nil || given >= *required
 }
 
-func (*preferredTypes) isValidArch(arch *string) bool {
-	return arch == nil || *arch == "i386" || *arch == "amd64"
-}
-
 // satisfies returns whether the given machine type is enough to satisfy
 // the given constraints.  (It doesn't matter if it's overkill; all that
 // matters here is whether the machine type is good enough.)
@@ -78,18 +74,25 @@ func (types *preferredTypes) satisfies(machineType *gwacl.RoleSize, constraint c
 		types.suffices(machineType.Mem, constraint.Mem)
 }
 
+const defaultMem = 1 * gwacl.GB
+
+// If you specify no constraints at all, you're going to get the smallest
+// instance type available.  In practice that one's a bit small.  So unless
+// the constraints are deliberately set lower, this gives you a set of
+// baseline constraints that are just slightly more ambitious than that.
+func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
+	result := constraint
+	if result.Mem == nil {
+		var value uint64 = defaultMem
+		result.Mem = &value
+	}
+	return result
+}
+
 // selectMachineType returns the Azure machine type that best matches the
 // supplied instanceContraint.
 func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.Value) (*gwacl.RoleSize, error) {
 	types := newPreferredTypes(availableTypes)
-
-	if !types.isValidArch(constraint.Arch) {
-		return nil, fmt.Errorf("requested unsupported architecture %q", *constraint.Arch)
-	}
-	if constraint.Container != nil {
-		return nil, fmt.Errorf("container type requested, but not supported in Azure: %v", *constraint.Container)
-	}
-
 	for _, machineType := range types {
 		if types.satisfies(machineType, constraint) {
 			return machineType, nil

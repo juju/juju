@@ -6,12 +6,12 @@ package deployer
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/utils/set"
 )
 
 // DeployerAPI provides access to the Deployer API facade.
@@ -52,19 +52,19 @@ func NewDeployerAPI(
 	}
 	getAuthFunc := func() (common.AuthFunc, error) {
 		// Get all units of the machine and cache them.
-		knownUnits := set.NewStrings()
 		thisMachineTag := authorizer.GetAuthTag()
-		if units, err := getAllUnits(st, thisMachineTag); err != nil {
+		units, err := getAllUnits(st, thisMachineTag)
+		if err != nil {
 			return nil, err
-		} else {
-			for _, unit := range units {
-				knownUnits.Add(unit)
-			}
 		}
 		// Then we just check if the unit is already known.
 		return func(tag string) bool {
-			unitName := state.UnitNameFromTag(tag)
-			return knownUnits.Contains(unitName)
+			for _, unit := range units {
+				if state.UnitTag(unit) == tag {
+					return true
+				}
+			}
+			return false
 		}, nil
 	}
 	return &DeployerAPI{
@@ -105,61 +105,57 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 	return result, nil
 }
 
-// CanDeploy returns if the currently authenticated entity (a machine
-// agent) can deploy each passed unit entity.
-func (d *DeployerAPI) CanDeploy(args params.Entities) (params.BoolResults, error) {
-	result := params.BoolResults{
-		Results: make([]params.BoolResult, len(args.Entities)),
+// getEnvironStateInfo returns the state and API connection
+// information from the state and the environment.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
+func (d *DeployerAPI) getEnvironStateInfo() (*state.Info, *api.Info, error) {
+	cfg, err := d.st.EnvironConfig()
+	if err != nil {
+		return nil, nil, err
 	}
-	for i, entity := range args.Entities {
-		unitName := state.UnitNameFromTag(entity.Tag)
-		unit, err := d.st.Unit(unitName)
-		if errors.IsNotFoundError(err) {
-			// Unit not found, so no need to continue.
-			continue
-		} else if err != nil {
-			// Any other error get reported back.
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		}
-		machineId, err := unit.AssignedMachineId()
-		if err != nil && !state.IsNotAssigned(err) && !errors.IsNotFoundError(err) {
-			// Any other errors get reported back.
-			result.Results[i].Error = common.ServerError(err)
-			continue
-		} else if err != nil {
-			// This means the unit wasn't assigned to the machine
-			// agent or it wasn't found. In both cases we just return
-			// false so as not to leak information about the existence
-			// of a unit to a potentially rogue machine agent.
-			continue
-		}
-		// Finally, check if we're allowed to access this unit.
-		// When assigned machineId == "" it will fail.
-		result.Results[i].Result = d.authorizer.AuthOwner(state.MachineTag(machineId))
+	env, err := environs.New(cfg)
+	if err != nil {
+		return nil, nil, err
 	}
-	return result, nil
+	return env.StateInfo()
 }
 
 // StateAddresses returns the list of addresses used to connect to the state.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
 func (d *DeployerAPI) StateAddresses() (params.StringsResult, error) {
-	addresses, err := d.st.Addresses()
+	stateInfo, _, err := d.getEnvironStateInfo()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
 	return params.StringsResult{
-		Result: addresses,
+		Result: stateInfo.Addrs,
 	}, nil
 }
 
 // APIAddresses returns the list of addresses used to connect to the API.
+//
+// TODO(dimitern): Remove this once we have a way to get state/API
+// public addresses from state.
+// BUG(lp:1205371): This is temporary, until the Addresser worker
+// lands and we can take the addresses of all machines with
+// JobManageState.
 func (d *DeployerAPI) APIAddresses() (params.StringsResult, error) {
-	addresses, err := d.st.APIAddresses()
+	_, apiInfo, err := d.getEnvironStateInfo()
 	if err != nil {
 		return params.StringsResult{}, err
 	}
 	return params.StringsResult{
-		Result: addresses,
+		Result: apiInfo.Addrs,
 	}, nil
 }
 

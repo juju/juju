@@ -4,20 +4,13 @@
 package testing
 
 import (
-	"time"
-
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/utils"
 )
 
 // impatientAttempt is an extremely short polling time suitable for tests.
-// It's aimed to be just long enough that the AttemptStrategy implementation
-// will yield at least once, but short enough that the test suite won't spend
-// much of its time sleeping.
-var impatientAttempt = utils.AttemptStrategy{
-	Total: 100 * time.Millisecond,
-	Delay: 10 * time.Millisecond,
-}
+// It polls at least once, never delays, and times out very quickly.
+var impatientAttempt = utils.AttemptStrategy{}
 
 // savedAttemptStrategy holds the state needed to restore an AttemptStrategy's
 // original setting.
@@ -73,6 +66,6 @@ func PatchAttemptStrategies(strategies ...*utils.AttemptStrategy) func() {
 	// The one irregularity here is that LongAttempt goes on the list of
 	// strategies that need patching.  To keep testing simple, we treat
 	// the given attempts and LongAttempt as a single slice from here on.
-	combinedStrategies := append(strategies, &environs.LongAttempt)
+	combinedStrategies := append(strategies, &environs.LongAttempt, &environs.ShortAttempt)
 	return internalPatchAttemptStrategies(combinedStrategies)
 }
