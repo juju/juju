@@ -749,6 +749,15 @@ func (*ConfigSuite) TestLoggingConfig(c *gc.C) {
 	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
 }
 
+func (*ConfigSuite) TestLoggingConfigFromEnvironment(c *gc.C) {
+	defer makeFakeHome(c).Restore()
+	logConfig := "<root>=INFO"
+	testing.PatchEnvironment("JUJU_LOGGING_CONFIG", logConfig)
+
+	config := newTestConfig(c, nil)
+	c.Assert(config.LoggingConfig(), gc.Equals, logConfig)
+}
+
 func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 	// In order to test missing certs, it checks the JUJU_HOME dir, so we need
 	// a fake home.
