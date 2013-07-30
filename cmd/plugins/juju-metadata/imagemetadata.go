@@ -5,12 +5,14 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/goose/identity"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"strings"
 )
 
 // ImageMetadataCommand is used to write out a boilerplate environments.yaml file.

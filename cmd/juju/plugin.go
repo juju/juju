@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/cmd/plugins"
 )
 
 const JujuPluginPrefix = "juju-"
@@ -26,7 +27,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	flags := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
-	cmd.ParseArgs(plugin, flags, args)
+	flags.Parse(!plugins.IsBuiltIn(subcommand), args)
 	plugin.Init(flags.Args())
 	err := plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
@@ -132,8 +133,8 @@ func GetPluginDescriptions() []PluginDescription {
 			defer func() {
 				description <- result
 			}()
-			cmd := exec.Command(plugin, "--description")
-			output, err := cmd.CombinedOutput()
+			desccmd := exec.Command(plugin, "--description")
+			output, err := desccmd.CombinedOutput()
 
 			if err == nil {
 				// trim to only get the first line

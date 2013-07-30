@@ -6,14 +6,16 @@ package main
 import (
 	"flag"
 	"fmt"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/loggo"
 	"os"
 	"os/exec"
 	"strings"
 	"testing"
+
+	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/environs/config"
+	_ "launchpad.net/juju-core/environs/dummy"
 )
 
 func TestPackage(t *testing.T) {

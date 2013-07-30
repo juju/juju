@@ -5,10 +5,12 @@ package main
 
 import (
 	"fmt"
+	"os"
+
 	"launchpad.net/juju-core/cmd"
 	_ "launchpad.net/juju-core/environs/all"
 	"launchpad.net/juju-core/juju"
-	"os"
+	"launchpad.net/juju-core/cmd/plugins"
 )
 
 var metadataDoc = `
@@ -24,17 +26,17 @@ func Main(args []string) {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
 	}
-	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name:    "metadata",
-		Doc:     metadataDoc,
-		Purpose: "tools for generating and validating image and tools metadata",
-		Log:     &cmd.Log{},
-	})
+	metadatacmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+			Name:    "metadata",
+			Doc:     metadataDoc,
+			Purpose: "tools for generating and validating image and tools metadata",
+			Log:     &cmd.Log{}})
 
-	jujucmd.Register(&ValidateImageMetadataCommand{})
-	jujucmd.Register(&ImageMetadataCommand{})
+	metadatacmd.Register(&ValidateImageMetadataCommand{})
+	metadatacmd.Register(&ImageMetadataCommand{})
+	plugins.Register(metadatacmd.Name)
 
-	os.Exit(cmd.Main(jujucmd, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(metadatacmd, cmd.DefaultContext(), args[1:]))
 }
 
 func main() {

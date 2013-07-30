@@ -88,7 +88,7 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	return cmd.CheckEmpty(args)
+	return c.EnvCommandBase.Init(args)
 }
 
 func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {

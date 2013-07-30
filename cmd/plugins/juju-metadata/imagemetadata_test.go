@@ -8,11 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"strings"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/testing"
 )
 
 type ImageMetadataSuite struct {
