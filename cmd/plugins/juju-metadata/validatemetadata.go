@@ -26,8 +26,8 @@ type ValidateImageMetadataCommand struct {
 	endpoint     string
 }
 
-var validateImageMetadataDoc = `
-validate-image loads simplestreams metadata and validates the contents by looking for images
+var validateImagesMetadataDoc = `
+validate-images loads simplestreams metadata and validates the contents by looking for images
 belonging to the specified cloud.
 
 The cloud specificaton comes from the current Juju environment, as specified in the usual way
@@ -40,10 +40,10 @@ may be peformed on arbitary metadata.
 Examples:
 
 - validate using the current environment settings but with series raring
- juju metadata validate-image -s raring
+ juju metadata validate-images -s raring
 
 - validate using the current environment settings but with series raring and using metadata from local directory
- juju metadata validate-image -s raring -d <some directory>
+ juju metadata validate-images -s raring -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to production.
 In this case, the metadata is placed in a local directory, a cloud provider type is specified (ec2, openstack etc),
@@ -53,7 +53,7 @@ Example bash snippet:
 
 #!/bin/bash
 
-juju metadata validate-image -p ec2 -r us-east-1 -s precise -d <some directory>
+juju metadata validate-images -p ec2 -r us-east-1 -s precise -d <some directory>
 RETVAL=$?
 [ $RETVAL -eq 0 ] && echo Success
 [ $RETVAL -ne 0 ] && echo Failure
@@ -61,9 +61,9 @@ RETVAL=$?
 
 func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "validate-image",
+		Name:    "validate-images",
 		Purpose: "validate image metadata and ensure image(s) exist for an environment",
-		Doc:     validateImageMetadataDoc,
+		Doc:     validateImagesMetadataDoc,
 	}
 }
 

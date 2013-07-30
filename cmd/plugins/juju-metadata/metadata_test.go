@@ -56,7 +56,7 @@ func (s *MetadataSuite) TestTearDown(c *gc.C) {
 var commandNames = []string{
 	"generate-image",
 	"help",
-	"validate-image",
+	"validate-images",
 }
 
 func (s *MetadataSuite) TestHelpCommands(c *gc.C) {

@@ -80,7 +80,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesNoEnv(c *gc.C) {
 
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-a", "arch", "-e", "endpoint", "-s", "raring"})
+		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	s.assertCommandOutput(c, errOut, "raring", "arch", defaultIndexFileName, defaultImageFileName)
@@ -91,7 +91,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesWithName(c *gc.C) {
 
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-n", "foo", "-i", "1234", "-r", "region", "-a", "arch", "-e", "endpoint", "-s", "raring"})
+		&ImageMetadataCommand{}, ctx, []string{"-n", "foo", "-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	s.assertCommandOutput(c, errOut, "raring", "arch", "foo-"+defaultIndexFileName, "foo-"+defaultImageFileName)
@@ -102,7 +102,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultArch(c *gc.C) {
 
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-e", "endpoint", "-s", "raring"})
+		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-u", "endpoint", "-s", "raring"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	s.assertCommandOutput(c, errOut, "raring", "amd64", defaultIndexFileName, defaultImageFileName)
@@ -113,7 +113,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesDefaultSeries(c *gc.C) {
 
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-a", "arch", "-e", "endpoint"})
+		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-r", "region", "-a", "arch", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	s.assertCommandOutput(c, errOut, "precise", "arch", defaultIndexFileName, defaultImageFileName)
@@ -125,7 +125,7 @@ func (s *ImageMetadataSuite) TestImageMetadataFilesUsingEnvRegion(c *gc.C) {
 	os.Setenv("OS_REGION_NAME", "region")
 	ctx := testing.Context(c)
 	code := cmd.Main(
-		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-e", "endpoint"})
+		&ImageMetadataCommand{}, ctx, []string{"-i", "1234", "-u", "endpoint"})
 	c.Assert(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	s.assertCommandOutput(c, errOut, "precise", "amd64", defaultIndexFileName, defaultImageFileName)
@@ -150,15 +150,15 @@ type errTestParams struct {
 var errTests = []errTestParams{
 	{
 		// Missing image id
-		args: []string{"-r", "region", "-a", "arch", "-e", "endpoint", "-s", "precise"},
+		args: []string{"-r", "region", "-a", "arch", "-u", "endpoint", "-s", "precise"},
 	},
 	{
 		// Missing region
-		args: []string{"-i", "1234", "-a", "arch", "-e", "endpoint", "-s", "precise"},
+		args: []string{"-i", "1234", "-a", "arch", "-u", "endpoint", "-s", "precise"},
 	},
 	{
 		// Missing endpoint
-		args: []string{"-i", "1234", "-e", "endpoint", "-a", "arch", "-s", "precise"},
+		args: []string{"-i", "1234", "-u", "endpoint", "-a", "arch", "-s", "precise"},
 	},
 }
 

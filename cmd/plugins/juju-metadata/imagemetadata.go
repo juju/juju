@@ -39,7 +39,7 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Name, "n", "", "the cloud name, as a prefix for the generated file names")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
-	f.StringVar(&c.Endpoint, "e", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
+	f.StringVar(&c.Endpoint, "u", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {

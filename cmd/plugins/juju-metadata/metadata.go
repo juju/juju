@@ -8,7 +8,6 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/cmd/plugins"
 	_ "launchpad.net/juju-core/environs/all"
 	"launchpad.net/juju-core/juju"
 )
@@ -35,8 +34,6 @@ func Main(args []string) {
 
 	metadatacmd.Register(&ValidateImageMetadataCommand{})
 	metadatacmd.Register(&ImageMetadataCommand{})
-
-	plugins.Register(metadatacmd.Name)
 
 	os.Exit(cmd.Main(metadatacmd, cmd.DefaultContext(), args[1:]))
 }
