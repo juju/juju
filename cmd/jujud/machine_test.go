@@ -212,8 +212,17 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u1.Name())
-	err = u0.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+
+	// The deployer actually removes the unit just after
+	// removing its deployment, so we need to poll here
+	// until it actually happens.
+	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
+		err := u0.Refresh()
+		if err == nil && attempt.HasNext() {
+			continue
+		}
+		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
 	// and removed from state.

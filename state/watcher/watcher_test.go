@@ -491,8 +491,10 @@ func (s *FastPeriodSuite) TestWatchCollection(c *C) {
 	s.w.StartSync()
 
 	seen := map[chan<- watcher.Change][]watcher.Change{}
+	timeout := time.After(testing.LongWait)
+	n := 0
 Loop1:
-	for {
+	for n < 6 {
 		select {
 		case chg := <-chA1:
 			seen[chA1] = append(seen[chA1], chg)
@@ -502,15 +504,19 @@ Loop1:
 			seen[chA] = append(seen[chA], chg)
 		case chg := <-chB:
 			seen[chB] = append(seen[chB], chg)
-		case <-time.After(justLongEnough):
+		case <-timeout:
 			break Loop1
 		}
+		n++
 	}
 
-	c.Assert(seen[chA1], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
-	c.Assert(seen[chB1], DeepEquals, []watcher.Change{{"testB", 1, revno3}})
-	c.Assert(seen[chA], DeepEquals, []watcher.Change{{"testA", 1, revno1}, {"testA", 2, revno2}})
-	c.Assert(seen[chB], DeepEquals, []watcher.Change{{"testB", 1, revno3}, {"testB", 2, revno4}})
+	c.Check(seen[chA1], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Check(seen[chB1], DeepEquals, []watcher.Change{{"testB", 1, revno3}})
+	c.Check(seen[chA], DeepEquals, []watcher.Change{{"testA", 1, revno1}, {"testA", 2, revno2}})
+	c.Check(seen[chB], DeepEquals, []watcher.Change{{"testB", 1, revno3}, {"testB", 2, revno4}})
+	if c.Failed() {
+		return
+	}
 
 	s.w.UnwatchCollection("testB", chB)
 	s.w.Unwatch("testB", 1, chB1)
@@ -520,8 +526,34 @@ Loop1:
 
 	s.w.StartSync()
 
+	timeout = time.After(testing.LongWait)
 	seen = map[chan<- watcher.Change][]watcher.Change{}
+	n = 0
 Loop2:
+	for n < 2 {
+		select {
+		case chg := <-chA1:
+			seen[chA1] = append(seen[chA1], chg)
+		case chg := <-chB1:
+			seen[chB1] = append(seen[chB1], chg)
+		case chg := <-chA:
+			seen[chA] = append(seen[chA], chg)
+		case chg := <-chB:
+			seen[chB] = append(seen[chB], chg)
+		case <-timeout:
+			break Loop2
+		}
+		n++
+	}
+	c.Check(seen[chA1], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Check(seen[chB1], IsNil)
+	c.Check(seen[chA], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
+	c.Check(seen[chB], IsNil)
+
+	// Check that no extra events arrive.
+	seen = map[chan<- watcher.Change][]watcher.Change{}
+	timeout = time.After(testing.ShortWait)
+Loop3:
 	for {
 		select {
 		case chg := <-chA1:
@@ -532,15 +564,14 @@ Loop2:
 			seen[chA] = append(seen[chA], chg)
 		case chg := <-chB:
 			seen[chB] = append(seen[chB], chg)
-		case <-time.After(justLongEnough):
-			break Loop2
+		case <-timeout:
+			break Loop3
 		}
 	}
-
-	c.Assert(seen[chA1], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
-	c.Assert(seen[chB1], IsNil)
-	c.Assert(seen[chA], DeepEquals, []watcher.Change{{"testA", 1, revno1}})
-	c.Assert(seen[chB], IsNil)
+	c.Check(seen[chA1], IsNil)
+	c.Check(seen[chB1], IsNil)
+	c.Check(seen[chA], IsNil)
+	c.Check(seen[chB], IsNil)
 }
 
 func (s *FastPeriodSuite) TestUnwatchCollectionWithFilter(c *C) {
