@@ -71,13 +71,15 @@ func (*testingSuite) TestInternalPatchAttemptStrategiesReturnsCleanup(c *gc.C) {
 	c.Check(attempt, gc.DeepEquals, original)
 }
 
-func (*testingSuite) TestPatchAttemptStrategiesPatchesLongAttempt(c *gc.C) {
+func (*testingSuite) TestPatchAttemptStrategiesPatchesEnvironsStrategies(c *gc.C) {
 	c.Assert(environs.LongAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
+	c.Assert(environs.ShortAttempt, gc.Not(gc.DeepEquals), impatientAttempt)
 
 	cleanup := PatchAttemptStrategies()
 	defer cleanup()
 
 	c.Check(environs.LongAttempt, gc.DeepEquals, impatientAttempt)
+	c.Check(environs.ShortAttempt, gc.DeepEquals, impatientAttempt)
 }
 
 func (*testingSuite) TestPatchAttemptStrategiesPatchesGivenAttempts(c *gc.C) {

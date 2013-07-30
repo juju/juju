@@ -58,7 +58,7 @@ func (s *unitSuite) TestUnitEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	m, err = s.st.Agent().Entity(s.unit.Tag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q n	ot found", s.unit.Name()))
+	c.Assert(err, gc.ErrorMatches, fmt.Sprintf("unit %q not found", s.unit.Name()))
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeNotFound)
 	c.Assert(m, gc.IsNil)
 }
