@@ -172,6 +172,25 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
+	for _, job := range m.Jobs() {
+		switch job {
+		case params.JobHostUnits:
+			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.DataDir)
+			if err != nil {
+				return nil, err
+			}
+			runner.StartWorker("deployer", func() (worker.Worker, error) {
+				return deployerTask, nil
+			})
+		case params.JobManageEnviron:
+			// Not yet implemented with the API.
+		case params.JobManageState:
+			// Not yet implemented with the API.
+		default:
+			// TODO(dimitern): Once all workers moved over to using
+			// the API, report "unknown job type" here.
+		}
+	}
 	return newCloseWorker(runner, st), nil // Note: a worker.Runner is itself a worker.Worker.
 }
 
@@ -222,9 +241,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	for _, job := range m.Jobs() {
 		switch job {
 		case state.JobHostUnits:
-			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				return newDeployer(st, m.Id(), dataDir), nil
-			})
+			// Implemented in APIWorker.
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
 				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir), nil

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
@@ -233,11 +234,18 @@ func (c *closeWorker) Wait() error {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *state.State, dataDir string) deployer.Context {
-	return deployer.NewSimpleContext(dataDir, st.CACert(), st)
+var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Context, error) {
+	caCert, err := st.CACert()
+	if err != nil {
+		return nil, err
+	}
+	return deployer.NewSimpleContext(dataDir, caCert, st), nil
 }
 
-func newDeployer(st *state.State, machineId string, dataDir string) *deployer.Deployer {
-	ctx := newDeployContext(st, dataDir)
-	return deployer.NewDeployer(st, ctx, machineId)
+func newDeployer(st *apideployer.State, machineTag string, dataDir string) (*deployer.Deployer, error) {
+	ctx, err := newDeployContext(st, dataDir)
+	if err != nil {
+		return nil, err
+	}
+	return deployer.NewDeployer(st, ctx, machineTag), nil
 }
