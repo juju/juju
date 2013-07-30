@@ -61,7 +61,7 @@ func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Po
 	env.Lock()
 	defer env.Unlock()
 
-	deployments, err := context.ListDeployments(&gwacl.ListDeploymentsRequest{
+	deployments, err := context.ListAllDeployments(&gwacl.ListAllDeploymentsRequest{
 		ServiceName: azInstance.ServiceName,
 	})
 	if err != nil {
