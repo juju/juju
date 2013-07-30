@@ -166,7 +166,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 	azInstance := azureInstance{*service, env}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
-		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
 	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
@@ -201,7 +201,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 	azInstance := azureInstance{*service, env}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
-		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
 	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
@@ -243,7 +243,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 	azInstance := azureInstance{*service, env}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
-		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
 	c.Check(err, ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
