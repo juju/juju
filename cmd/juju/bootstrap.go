@@ -21,7 +21,7 @@ import (
 // BootstrapCommand is responsible for launching the first machine in a juju
 // environment, and setting up everything necessary to continue working.
 type BootstrapCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	Constraints constraints.Value
 	UploadTools bool
 	Series      []string

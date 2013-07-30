@@ -230,7 +230,6 @@ var commandNames = []string{
 	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
-	"image-metadata",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation
@@ -250,7 +249,6 @@ var commandNames = []string{
 	"unexpose",
 	"upgrade-charm",
 	"upgrade-juju",
-	"validate-image-metadata",
 	"version",
 }
 

@@ -18,7 +18,7 @@ import (
 
 // ValidateImageMetadataCommand
 type ValidateImageMetadataCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	providerType string
 	metadataDir  string
 	series       string
@@ -61,7 +61,7 @@ RETVAL=$?
 
 func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "validate-image-metadata",
+		Name:    "validate-image",
 		Purpose: "validate image metadata and ensure image(s) exist for an environment",
 		Doc:     validateImageMetadataDoc,
 	}

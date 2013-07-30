@@ -17,7 +17,7 @@ import (
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	// If specified, use this series, else use the environment default-series
 	Series string
 	// If specified, these constraints are merged with those already in the environment.

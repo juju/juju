@@ -74,7 +74,6 @@ func Main(args []string) {
 
 	// Configuration commands.
 	jujucmd.Register(&InitCommand{})
-	jujucmd.Register(&ImageMetadataCommand{})
 	jujucmd.Register(&GetCommand{})
 	jujucmd.Register(&SetCommand{})
 	jujucmd.Register(&GetConstraintsCommand{})
@@ -86,7 +85,6 @@ func Main(args []string) {
 	jujucmd.Register(&UnexposeCommand{})
 	jujucmd.Register(&UpgradeJujuCommand{})
 	jujucmd.Register(&UpgradeCharmCommand{})
-	jujucmd.Register(&ValidateImageMetadataCommand{})
 
 	// Charm publishing commands.
 	jujucmd.Register(&PublishCommand{})

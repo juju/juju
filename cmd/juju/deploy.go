@@ -16,7 +16,7 @@ import (
 )
 
 type DeployCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	UnitCommandBase
 	CharmName    string
 	ServiceName  string

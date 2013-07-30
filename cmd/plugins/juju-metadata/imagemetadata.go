@@ -26,7 +26,7 @@ type ImageMetadataCommand struct {
 
 func (c *ImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "image-metadata",
+		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
 	}
 }

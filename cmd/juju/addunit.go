@@ -43,7 +43,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	UnitCommandBase
 	ServiceName string
 }

@@ -13,12 +13,10 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
 type ValidateMetadataSuite struct {
-	testing.RepoSuite
 	home *coretesting.FakeHome
 }
 
@@ -91,13 +89,11 @@ environments:
 `
 
 func (s *ValidateMetadataSuite) SetUpTest(c *gc.C) {
-	s.RepoSuite.SetUpTest(c)
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
 }
 
 func (s *ValidateMetadataSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
-	s.RepoSuite.TearDownTest(c)
 }
 
 func (s *ValidateMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {

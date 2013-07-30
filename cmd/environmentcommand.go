@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package cmd
 
 import (
 	"fmt"
@@ -11,7 +11,6 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 )
 
@@ -20,7 +19,7 @@ const CurrentEnvironmentFilename = "current-environment"
 // The purpose of EnvCommandBase is to provide a default member and flag
 // setting for commands that deal across different environments.
 type EnvCommandBase struct {
-	cmd.CommandBase
+	CommandBase
 	EnvName string
 }
 
@@ -31,7 +30,7 @@ func getCurrentEnvironmentFilePath() string {
 // Read the file $JUJU_HOME/current-environment and return the value stored
 // there.  If the file doesn't exist, or there is a problem reading the file,
 // an empty string is returned.
-func readCurrentEnvironment() string {
+func ReadCurrentEnvironment() string {
 	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
 	// The file not being there, or not readable isn't really an error for us
 	// here.  We treat it as "can't tell, so you get the default".
@@ -42,7 +41,7 @@ func readCurrentEnvironment() string {
 }
 
 // Write the envName to the file $JUJU_HOME/current-environment file.
-func writeCurrentEnvironment(envName string) error {
+func WriteCurrentEnvironment(envName string) error {
 	path := getCurrentEnvironmentFilePath()
 	err := ioutil.WriteFile(path, []byte(envName+"\n"), 0644)
 	if err != nil {
@@ -59,7 +58,7 @@ func getDefaultEnvironment() string {
 	if defaultEnv != "" {
 		return defaultEnv
 	}
-	return readCurrentEnvironment()
+	return ReadCurrentEnvironment()
 }
 
 func (c *EnvCommandBase) SetFlags(f *gnuflag.FlagSet) {

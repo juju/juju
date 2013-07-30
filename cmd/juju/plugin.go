@@ -39,7 +39,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	name string
 	args []string
 }
