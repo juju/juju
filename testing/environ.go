@@ -67,9 +67,7 @@ type TestFile struct {
 }
 
 type FakeHome struct {
-	oldHomeEnv     string
-	oldJujuEnv     string
-	oldJujuHomeEnv string
+	oldEnvironment map[string]string
 	oldJujuHome    string
 	files          []TestFile
 }
@@ -124,19 +122,19 @@ func MakeEmptyFakeHome(c *C) *FakeHome {
 }
 
 func MakeEmptyFakeHomeWithoutJuju(c *C) *FakeHome {
-	oldHomeEnv := os.Getenv("HOME")
-	oldJujuHomeEnv := os.Getenv("JUJU_HOME")
-	oldJujuEnv := os.Getenv("JUJU_ENV")
+	oldEnvironment := make(map[string]string)
+	for _, name := range []string{"HOME", "JUJU_HOME", "JUJU_ENV", "JUJU_LOGGING_CONFIG"} {
+		oldEnvironment[name] = os.Getenv(name)
+	}
 	fakeHome := c.MkDir()
 	os.Setenv("HOME", fakeHome)
 	os.Setenv("JUJU_HOME", "")
 	os.Setenv("JUJU_ENV", "")
+	os.Setenv("JUJU_LOGGING_CONFIG", "")
 	jujuHome := filepath.Join(fakeHome, ".juju")
 	oldJujuHome := config.SetJujuHome(jujuHome)
 	return &FakeHome{
-		oldHomeEnv:     oldHomeEnv,
-		oldJujuEnv:     oldJujuEnv,
-		oldJujuHomeEnv: oldJujuHomeEnv,
+		oldEnvironment: oldEnvironment,
 		oldJujuHome:    oldJujuHome,
 		files:          []TestFile{},
 	}
@@ -149,9 +147,9 @@ func HomePath(names ...string) string {
 
 func (h *FakeHome) Restore() {
 	config.SetJujuHome(h.oldJujuHome)
-	os.Setenv("JUJU_ENV", h.oldJujuEnv)
-	os.Setenv("JUJU_HOME", h.oldJujuHomeEnv)
-	os.Setenv("HOME", h.oldHomeEnv)
+	for name, value := range h.oldEnvironment {
+		os.Setenv(name, value)
+	}
 }
 
 func (h *FakeHome) AddFiles(c *C, files []TestFile) {
