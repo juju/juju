@@ -19,8 +19,6 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/state/api/machineagent"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/worker"
@@ -158,9 +156,8 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		ensureStateWorker()
 		return nil, err
 	}
-	m := entity.(*machineagent.Machine)
 	needsStateWorker := false
-	for _, job := range m.Jobs() {
+	for _, job := range entity.Jobs() {
 		needsStateWorker = needsStateWorker || stateJobs[job]
 	}
 	if needsStateWorker {
@@ -172,7 +169,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
-	for _, job := range m.Jobs() {
+	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
 			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.DataDir)
@@ -290,16 +287,6 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 		log.Errorf("running machine %v agent on inappropriate instance", m)
 		return nil, worker.ErrTerminateAgent
 	}
-	return m, nil
-}
-
-func (a *MachineAgent) APIEntity(st *api.State) (AgentAPIState, error) {
-	m, err := st.MachineAgent().Machine(a.Tag())
-	if err != nil {
-		return nil, err
-	}
-	// TODO(rog) move the CheckProvisioned test into
-	// this method when it's implemented in the API
 	return m, nil
 }
 

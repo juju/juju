@@ -5,6 +5,7 @@ package apiserver
 
 import (
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/apiserver/agent"
 	"launchpad.net/juju-core/state/apiserver/client"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
@@ -75,11 +76,22 @@ func (r *srvRoot) Machiner(id string) (*machine.MachinerAPI, error) {
 // MachineAgent returns an object that provides access to the machine
 // agent API.  The id argument is reserved for future use and must currently
 // be empty.
+// DEPRECATED(v1.14)
 func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 	if id != "" {
 		return nil, common.ErrBadId
 	}
 	return machine.NewAgentAPI(r.srv.state, r)
+}
+
+// Agent returns an object that provides access to the
+// agent API.  The id argument is reserved for future use and must currently
+// be empty.
+func (r *srvRoot) Agent(id string) (*agent.API, error) {
+	if id != "" {
+		return nil, common.ErrBadId
+	}
+	return agent.NewAPI(r.srv.state, r)
 }
 
 // Deployer returns an object that provides access to the Deployer API facade.
