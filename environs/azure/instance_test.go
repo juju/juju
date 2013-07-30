@@ -158,8 +158,8 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 
 func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	// GetHostedServiceProperties breaks.
 	responses := []gwacl.DispatcherResponse{
+		// GetHostedServiceProperties breaks.
 		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
