@@ -5,7 +5,7 @@ package deployer
 
 type fakeAddresser struct{}
 
-func (*fakeAddresser) Addresses() ([]string, error) {
+func (*fakeAddresser) StateAddresses() ([]string, error) {
 	return []string{"s1:123", "s2:123"}, nil
 }
 

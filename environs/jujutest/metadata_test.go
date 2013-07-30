@@ -14,11 +14,11 @@ type metadataSuite struct{}
 
 var _ = Suite(&metadataSuite{})
 
-func (s *metadataSuite) TestVirtualRoundTripper(c *C) {
+func (s *metadataSuite) TestCannedRoundTripper(c *C) {
 	aContent := "a-content"
-	vrt := NewVirtualRoundTripper([]FileContent{
-		{"a", aContent},
-		{"b", "b-content"},
+	vrt := NewCannedRoundTripper(map[string]string{
+		"a": aContent,
+		"b": "b-content",
 	}, nil)
 	c.Assert(vrt, NotNil)
 	req := &http.Request{URL: &url.URL{Path: "a"}}
@@ -32,10 +32,8 @@ func (s *metadataSuite) TestVirtualRoundTripper(c *C) {
 	c.Assert(resp.Status, Equals, "200 OK")
 }
 
-func (s *metadataSuite) TestVirtualRoundTripperMissing(c *C) {
-	vrt := NewVirtualRoundTripper([]FileContent{
-		{"a", "a-content"},
-	}, nil)
+func (s *metadataSuite) TestCannedRoundTripperMissing(c *C) {
+	vrt := NewCannedRoundTripper(map[string]string{"a": "a-content"}, nil)
 	c.Assert(vrt, NotNil)
 	req := &http.Request{URL: &url.URL{Path: "no-such-file"}}
 	resp, err := vrt.RoundTrip(req)

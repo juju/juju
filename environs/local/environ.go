@@ -42,16 +42,6 @@ const boostrapInstanceId = "localhost"
 // testing.
 var upstartScriptLocation = "/etc/init"
 
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 50 * time.Millisecond,
-}
-
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
 
@@ -115,11 +105,6 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
-
-	var noRetry = utils.AttemptStrategy{}
-	if err := environs.VerifyBootstrapInit(env, noRetry); err != nil {
-		return err
-	}
 
 	cert, key, err := env.setupLocalMongoService()
 	if err != nil {
@@ -470,12 +455,12 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
-	agentTools.Binary.Series = version.CurrentSeries()
+	agentTools.Version.Series = version.CurrentSeries()
 	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
 	tag := state.MachineTag(machineId)
-	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Binary)
+	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	agent := upstart.MachineAgentUpstartService(

@@ -235,7 +235,7 @@ var statusTests = []testCase{
 		},
 
 		setTools{"0", &tools.Tools{
-			Binary: version.Binary{
+			Version: version.Binary{
 				Number: version.MustParse("1.2.3"),
 				Series: "gutsy",
 				Arch:   "ppc",
@@ -369,6 +369,12 @@ var statusTests = []testCase{
 		addUnit{"dummy-service", "1"},
 		addAliveUnit{"exposed-service", "2"},
 		setUnitStatus{"exposed-service/0", params.StatusError, "You Require More Vespene Gas"},
+		// Open multiple ports with different protocols,
+		// ensure they're sorted on protocol, then number.
+		openUnitPort{"exposed-service/0", "udp", 10},
+		openUnitPort{"exposed-service/0", "udp", 2},
+		openUnitPort{"exposed-service/0", "tcp", 3},
+		openUnitPort{"exposed-service/0", "tcp", 2},
 		// Simulate some status with no info, while the agent is down.
 		setUnitStatus{"dummy-service/0", params.StatusStarted, ""},
 		expect{
@@ -388,6 +394,9 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
 							},
 						},
 					},
@@ -454,6 +463,9 @@ var statusTests = []testCase{
 								"machine":          "2",
 								"agent-state":      "error",
 								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
 							},
 						},
 					},
@@ -1049,6 +1061,19 @@ func (sus setUnitStatus) step(c *C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
 	c.Assert(err, IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo)
+	c.Assert(err, IsNil)
+}
+
+type openUnitPort struct {
+	unitName string
+	protocol string
+	number   int
+}
+
+func (oup openUnitPort) step(c *C, ctx *context) {
+	u, err := ctx.st.Unit(oup.unitName)
+	c.Assert(err, IsNil)
+	err = u.OpenPort(oup.protocol, oup.number)
 	c.Assert(err, IsNil)
 }
 

@@ -134,6 +134,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	storageContainerName := "container-name"
 	publicStorageAccountName := "public-account-name"
 	publicStorageContainerName := "public-container-name"
+	forceImageName := "force-image-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
 		"location":                      location,
@@ -144,6 +145,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 		"storage-container-name":        storageContainerName,
 		"public-storage-account-name":   publicStorageAccountName,
 		"public-storage-container-name": publicStorageContainerName,
+		"force-image-name":              forceImageName,
 		"unknown-future-setting":        unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
@@ -161,6 +163,7 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)
 	c.Check(azConfig.PublicStorageAccountName(), Equals, publicStorageAccountName)
 	c.Check(azConfig.PublicStorageContainerName(), Equals, publicStorageContainerName)
+	c.Check(azConfig.ForceImageName(), Equals, forceImageName)
 	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], Equals, unknownFutureSetting)
 }
 

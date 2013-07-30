@@ -34,6 +34,11 @@ func (mi *maasInstance) refreshInstance() error {
 	return nil
 }
 
+func (mi *maasInstance) Addresses() ([]instance.Address, error) {
+	logger.Errorf("maasInstance.Address not implemented")
+	return nil, nil
+}
+
 func (mi *maasInstance) DNSName() (string, error) {
 	// A MAAS instance has its DNS name immediately.
 	hostname, err := (*mi.maasObject).GetField("hostname")
