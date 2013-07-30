@@ -16,9 +16,18 @@ import (
 )
 
 type LogSuite struct {
+	restore func()
 }
 
 var _ = Suite(&LogSuite{})
+
+func (s *LogSuite) SetUpTest(c *C) {
+	s.restore = testing.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
+}
+
+func (s *LogSuite) TearDownTest(c *C) {
+	s.restore()
+}
 
 func (s *LogSuite) TestAddFlags(c *C) {
 	l := &cmd.Log{}
