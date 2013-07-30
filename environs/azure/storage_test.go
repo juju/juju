@@ -187,7 +187,7 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	c.Check(transport.Request.Method, Equals, "DELETE")
 }
 
-func (*StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
+func (*StorageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
