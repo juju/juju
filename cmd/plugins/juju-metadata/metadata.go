@@ -12,9 +12,7 @@ import (
 )
 
 var metadataDoc = `
-juju metadata provides tools for generating and validating image and tools metadata.
-
-The metadata is used to find the correct image and tools when bootstrapping a Juju
+Juju metadata is used to find the correct image and tools when bootstrapping a Juju
 environment.
 `
 
@@ -27,9 +25,10 @@ func Main(args []string) {
 		os.Exit(2)
 	}
 	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-		Name: "metadata",
-		Doc:  metadataDoc,
-		Log:  &cmd.Log{},
+		Name:    "metadata",
+		Doc:     metadataDoc,
+		Purpose: "tools for generating and validating image and tools metadata",
+		Log:     &cmd.Log{},
 	})
 
 	jujucmd.Register(&ValidateImageMetadataCommand{})

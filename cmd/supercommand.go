@@ -68,6 +68,7 @@ type SuperCommand struct {
 	flags           *gnuflag.FlagSet
 	subcmd          Command
 	showHelp        bool
+	showDescription bool
 	missingCallback MissingCallback
 }
 
@@ -180,12 +181,20 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	}
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
+	// In the case where we are providing the basis for a plugin,
+	// plugins are required to support the --description argument.
+	// The Purpose attribute will be printed (if defined), allowing
+	// plugins to provide a sensible line of text for 'juju help plugins'.
+	f.BoolVar(&c.showDescription, "description", false, "")
 
 	c.flags = f
 }
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
+	if c.showDescription {
+		return CheckEmpty(args)
+	}
 	if len(args) == 0 {
 		c.subcmd = c.subcmds["help"]
 		return nil
@@ -222,6 +231,12 @@ func (c *SuperCommand) Init(args []string) error {
 
 // Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
+	if c.showDescription {
+		if c.Purpose != "" {
+			fmt.Fprintf(ctx.Stdout, "%s\n", c.Purpose)
+		}
+		return nil
+	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Init failed or not called")
 	}
