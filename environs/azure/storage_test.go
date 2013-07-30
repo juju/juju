@@ -4,13 +4,16 @@
 package azure
 
 import (
+	"encoding/base64"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/url"
+	"strings"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/errors"
-	"net/http"
-	"strings"
 )
 
 type StorageSuite struct {
@@ -171,18 +174,9 @@ func (*StorageSuite) TestRemoveErrors(c *C) {
 	c.Assert(err, NotNil)
 }
 
-var emptyBlobList = `
-	<?xml version="1.0" encoding="utf-8"?>
-	<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-	</EnumerationResults>
-	`
-
 func (*StorageSuite) TestRemoveAll(c *C) {
-	// When we ask gwacl to remove all blobs, first thing it does is
-	// list them.  If the list is empty, we're done.
-	// Testing for the case where there are files is harder, but not
-	// needed: the difference is internal to gwacl, and tested there.
-	response := makeResponse(emptyBlobList, http.StatusOK)
+	// When we ask gwacl to remove all blobs, it calls DeleteContainer.
+	response := makeResponse("", http.StatusAccepted)
 	storage, transport := makeAzureStorage(response, "cntnr", "account")
 
 	err := storage.RemoveAll()
@@ -191,12 +185,12 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	_, err = storage.getStorageContext()
 	c.Assert(err, IsNil)
 	// Without going too far into gwacl's innards, this is roughly what
-	// it needs to do in order to list the files.
+	// it needs to do in order to delete a container.
 	c.Check(transport.Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-	c.Check(transport.Request.Method, Equals, "GET")
+	c.Check(transport.Request.Method, Equals, "DELETE")
 }
 
-func (*StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
+func (*StorageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
@@ -212,5 +206,16 @@ func (*StorageSuite) TestURL(c *C) {
 	azStorage, _ := makeAzureStorage(nil, container, account)
 	URL, err := azStorage.URL(filename)
 	c.Assert(err, IsNil)
-	c.Check(URL, Matches, fmt.Sprintf("http://%s.blob.core.windows.net/%s/%s", account, container, filename))
+	parsedURL, err := url.Parse(URL)
+	c.Assert(err, IsNil)
+	c.Check(parsedURL.Host, Matches, fmt.Sprintf("%s.blob.core.windows.net", account))
+	c.Check(parsedURL.Path, Matches, fmt.Sprintf("/%s/%s", container, filename))
+	values, err := url.ParseQuery(parsedURL.RawQuery)
+	c.Assert(err, IsNil)
+	signature := values.Get("sig")
+	// The query string contains a non-empty signature.
+	c.Check(signature, Not(HasLen), 0)
+	// The signature is base64-encoded.
+	_, err = base64.StdEncoding.DecodeString(signature)
+	c.Assert(err, IsNil)
 }

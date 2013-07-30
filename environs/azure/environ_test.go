@@ -17,6 +17,7 @@ import (
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -211,7 +212,7 @@ func (*EnvironSuite) TestStorage(c *C) {
 	storage, ok := baseStorage.(*azureStorage)
 	c.Check(ok, Equals, true)
 	c.Assert(storage, NotNil)
-	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.StorageContainerName())
+	c.Check(storage.storageContext.getContainer(), Equals, env.getContainerName())
 	context, err := storage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(context.Account, Equals, env.ecfg.StorageAccountName())
@@ -956,4 +957,54 @@ func (*EnvironSuite) TestGetAffinityGroupName(c *C) {
 func (*EnvironSuite) TestGetAffinityGroupNameIsConstant(c *C) {
 	env := makeEnviron(c)
 	c.Check(env.getAffinityGroupName(), Equals, env.getAffinityGroupName())
+}
+
+func (*EnvironSuite) TestGetImageBaseURLs(c *C) {
+	env := makeEnviron(c)
+	urls, err := env.getImageBaseURLs()
+	c.Assert(err, IsNil)
+	// At the moment this is not configurable.  It returns a fixed URL for
+	// the central simplestreams database.
+	c.Check(urls, DeepEquals, []string{imagemetadata.DefaultBaseURL})
+}
+
+func (*EnvironSuite) TestGetEndpointReturnsFixedEndpointForSupportedRegion(c *C) {
+	env := makeEnviron(c)
+	endpoint, err := env.getEndpoint("West US")
+	c.Assert(err, IsNil)
+	c.Check(endpoint, Equals, "https://management.core.windows.net/")
+}
+
+// TODO: Enable this test and satisfy it.
+/*
+func (*EnvironSuite) TestGetEndpointReturnsChineseEndpointForChina(c *C) {
+	env := makeEnviron(c)
+	endpoint, err := env.getEndpoint("China East")
+	c.Assert(err, IsNil)
+	c.Check(endpoint, Equals, "https://management.core.chinacloudapi.cn/")
+}
+*/
+
+// TODO: Enable this test and satisfy it.
+/*
+func (*EnvironSuite) TestGetEndpointRejectsUnknownRegion(c *C) {
+	region := "Central South San Marino Highlands"
+	env := makeEnviron(c)
+	_, err := env.getEndpoint(region)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, "unknown region: "+region)
+}
+*/
+
+func (*EnvironSuite) TestGetImageStreamDefaultsToBlank(c *C) {
+	env := makeEnviron(c)
+	// Hard-coded to default for now.
+	c.Check(env.getImageStream(), Equals, "")
+}
+
+func (*EnvironSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *C) {
+	env := makeEnviron(c)
+	// Hard-coded to true for now.  Once we support other base URLs, this
+	// may have to become configurable.
+	c.Check(env.getImageMetadataSigningRequired(), Equals, true)
 }

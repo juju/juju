@@ -616,9 +616,9 @@ func (st *State) entity(tag string) (interface{}, error) {
 	return nil, fmt.Errorf("invalid entity tag %q", tag)
 }
 
-// ParseTag, given an entity tag, returns the collection name and id
+// parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) ParseTag(tag string) (string, string, error) {
+func (st *State) parseTag(tag string) (string, string, error) {
 	parts := strings.SplitN(tag, "-", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid entity name %q", tag)

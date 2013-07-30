@@ -53,11 +53,10 @@ var relationSetInitTests = []struct {
 	settings map[string]string
 }{
 	{
+	// compatibility: 0 args is valid.
+	}, {
 		ctxrelid: -1,
 		err:      `no relation id specified`,
-	}, {
-		ctxrelid: 1,
-		err:      `expected "key=value" parameters, got nothing`,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "one"},
@@ -84,28 +83,23 @@ var relationSetInitTests = []struct {
 		err:      `invalid value "ignored:2" for flag -r: unknown relation id`,
 	}, {
 		ctxrelid: -1,
-		args:     []string{"-r", "ignored:0"},
-		err:      `expected "key=value" parameters, got nothing`,
+		err:      `no relation id specified`,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "ignored:0"},
-		err:      `expected "key=value" parameters, got nothing`,
-	}, {
-		ctxrelid: -1,
-		args:     []string{"-r", "0"},
-		err:      `expected "key=value" parameters, got nothing`,
+		relid:    0,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"-r", "0"},
-		err:      `expected "key=value" parameters, got nothing`,
+		relid:    0,
 	}, {
 		ctxrelid: -1,
 		args:     []string{"-r", "1"},
-		err:      `expected "key=value" parameters, got nothing`,
+		relid:    1,
 	}, {
 		ctxrelid: 0,
 		args:     []string{"-r", "1"},
-		err:      `expected "key=value" parameters, got nothing`,
+		relid:    1,
 	}, {
 		ctxrelid: 1,
 		args:     []string{"haha"},
@@ -163,7 +157,11 @@ func (s *RelationSetSuite) TestInit(c *C) {
 			c.Assert(err, IsNil)
 			rset := com.(*jujuc.RelationSetCommand)
 			c.Assert(rset.RelationId, Equals, t.relid)
-			c.Assert(rset.Settings, DeepEquals, t.settings)
+			settings := t.settings
+			if settings == nil {
+				settings = map[string]string{}
+			}
+			c.Assert(rset.Settings, DeepEquals, settings)
 		} else {
 			c.Assert(err, ErrorMatches, t.err)
 		}
