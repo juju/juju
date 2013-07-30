@@ -225,13 +225,13 @@ func (env *azureEnviron) GetContainerName() string {
 
 func (env *azureEnviron) createStorageContainer() error {
 	containerName := env.GetContainerName()
-    context, _ := env.getStorageContext()
+	context, _ := env.getStorageContext()
 	return context.CreateContainer(containerName)
 }
 
 func (env *azureEnviron) deleteStorageContainer() error {
 	containerName := env.GetContainerName()
-    context, _ := env.getStorageContext()
+	context, _ := env.getStorageContext()
 	return context.DeleteContainer(containerName)
 }
 
