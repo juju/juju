@@ -50,3 +50,14 @@ const (
 	// detected.
 	StatusDown Status = "down"
 )
+
+// Valid returns true if status has a known value.
+func (status Status) Valid() bool {
+	switch status {
+	case StatusPending, StatusInstalled, StatusStarted:
+	case StatusStopped, StatusError, StatusDown:
+	default:
+		return false
+	}
+	return true
+}

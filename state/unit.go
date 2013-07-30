@@ -476,12 +476,12 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status params.Status, info string) error {
-	if status == params.StatusError && info == "" {
-		panic("unit error status with no info")
-	}
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+	}
+	if err := doc.validate(); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
