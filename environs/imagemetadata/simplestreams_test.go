@@ -62,13 +62,12 @@ func Test(t *testing.T) {
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
 }
 
-var imageData = []jujutest.FileContent{
-	{
-		"/streams/v1/index.json", `
+var imageData = map[string]string{
+	"/streams/v1/index.json": `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released:precise": {
@@ -118,8 +117,8 @@ var imageData = []jujutest.FileContent{
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		 "format": "index:1.0"
 		}
-`}, {
-		"/streams/v1/image_metadata.json", `
+`,
+	"/streams/v1/image_metadata.json": `
 {
  "updated": "Wed, 01 May 2013 13:31:26 +0000",
  "content_id": "com.ubuntu.cloud:released:aws",
@@ -208,7 +207,7 @@ var imageData = []jujutest.FileContent{
  },
  "format": "products:1.0"
 }
-`},
+`,
 }
 
 func registerSimpleStreamsTests() {
@@ -257,7 +256,7 @@ func (s *liveSimplestreamsSuite) TearDownSuite(c *C) {
 
 func (s *simplestreamsSuite) SetUpSuite(c *C) {
 	s.liveSimplestreamsSuite.SetUpSuite(c)
-	testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
 		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 

@@ -58,9 +58,9 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 }
 
 func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
-	openstack.UseTestMetadata([]jujutest.FileContent{
-		{"/latest/meta-data/public-ipv4", "203.1.1.2"},
-		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
+	openstack.UseTestMetadata(map[string]string{
+		"/latest/meta-data/public-ipv4": "203.1.1.2",
+		"/latest/meta-data/local-ipv4":  "10.1.1.2",
 	})
 	defer openstack.UseTestMetadata(nil)
 	p, err := environs.Provider("openstack")
@@ -70,9 +70,9 @@ func (s *ProviderSuite) TestPublicFallbackToPrivate(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(addr, Equals, "203.1.1.2")
 
-	openstack.UseTestMetadata([]jujutest.FileContent{
-		{"/latest/meta-data/local-ipv4", "10.1.1.2"},
-		{"/latest/meta-data/public-ipv4", ""},
+	openstack.UseTestMetadata(map[string]string{
+		"/latest/meta-data/local-ipv4":  "10.1.1.2",
+		"/latest/meta-data/public-ipv4": "",
 	})
 	addr, err = p.PublicAddress()
 	c.Assert(err, IsNil)
