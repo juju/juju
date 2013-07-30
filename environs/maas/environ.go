@@ -251,6 +251,23 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
+// createBridgeNetwork returns a string representing the upstart command to
+// create a bridged eth0.
+func createBridgeNetwork() string {
+	return `cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet manual
+
+auto br0
+iface br0 inet dhcp
+  bridge_ports eth0
+EOF
+`
+}
+
 // internalStartInstance allocates and starts a MAAS node.  It is used both
 // for the implementation of StartInstance, and to initialize the bootstrap
 // node.
@@ -291,7 +308,14 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(machineConfig, runCmd)
+	// Explicitly specify that the lxc containers use the network bridge defined above.
+	machineConfig.MachineEnvironment["JUJU_LXC_BRIDGE"] = "br0"
+	userdata, err := environs.ComposeUserData(
+		machineConfig,
+		runCmd,
+		createBridgeNetwork(),
+		"restart networking",
+	)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg
