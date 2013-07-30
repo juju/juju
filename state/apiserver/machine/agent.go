@@ -1,8 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The machine package implements the API interfaces
-// used by the machine agent.
 package machine
 
 import (
@@ -11,6 +9,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
+// DEPRECATED(v1.14)
 type AgentAPI struct {
 	*common.PasswordChanger
 
@@ -20,6 +19,7 @@ type AgentAPI struct {
 
 // NewAgentAPI returns an object implementing the machine agent API
 // with the given authorizer representing the currently logged in client.
+// DEPRECATED(v1.14)
 func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 	if !auth.AuthMachineAgent() {
 		return nil, common.ErrPerm

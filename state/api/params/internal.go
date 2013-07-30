@@ -17,18 +17,6 @@ type Entities struct {
 	Entities []Entity
 }
 
-// BoolResult holds the result of a single operation returning a
-// boolean value or an error.
-type BoolResult struct {
-	Result bool
-	Error  *Error
-}
-
-// BoolResults holds the boolean or error results of multiple entities.
-type BoolResults struct {
-	Results []BoolResult
-}
-
 // StringsResult holds the result of an API call that returns a slice
 // of strings.
 type StringsResult struct {
@@ -67,19 +55,35 @@ type MachinesSetStatus struct {
 
 // MachineAgentGetMachinesResults holds the results of a
 // machineagent.API.GetMachines call.
+// DEPRECATE(v1.14)
 type MachineAgentGetMachinesResults struct {
 	Machines []MachineAgentGetMachinesResult
 }
 
 // MachineAgentGetMachinesResult holds the results of a
 // machineagent.API.GetMachines call for a single machine.
+// DEPRECATE(v1.14)
 type MachineAgentGetMachinesResult struct {
 	Life  Life
 	Jobs  []MachineJob
 	Error *Error
 }
 
-// AgentToolsResult holds the tools and possibly error for a given Agent request
+// AgentGetEntitiesResults holds the results of a
+// agent.API.GetEntities call.
+type AgentGetEntitiesResults struct {
+	Entities []AgentGetEntitiesResult
+}
+
+// AgentGetEntitiesResult holds the results of a
+// machineagent.API.GetEntities call for a single entity.
+type AgentGetEntitiesResult struct {
+	Life  Life
+	Jobs  []MachineJob
+	Error *Error
+}
+
+// AgentToolsResult holds the tools and possibly error for a given AgentTools request
 type AgentToolsResult struct {
 	Tools *tools.Tools
 	Error *Error

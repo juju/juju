@@ -146,34 +146,6 @@ func (*InstanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
 	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestIsValidArch(c *gc.C) {
-	types := preferredTypes{}
-
-	// No architecture needs to be specified.
-	c.Check(types.isValidArch(nil), gc.Equals, true)
-
-	// Azure supports these architectures...
-	supported := []string{
-		"amd64",
-		"i386",
-	}
-	for _, arch := range supported {
-		c.Log("Checking that %q is supported.", arch)
-		c.Check(types.isValidArch(&arch), gc.Equals, true)
-	}
-
-	// ...But not these.
-	unsupported := []string{
-		"",
-		"axp",
-		"powerpc",
-	}
-	for _, arch := range unsupported {
-		c.Log("Checking that %q is not supported.", arch)
-		c.Check(types.isValidArch(&arch), gc.Equals, false)
-	}
-}
-
 func (*InstanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
 	c.Check(
 		*defaultToBaselineSpec(constraints.Value{}).Mem,
@@ -205,14 +177,6 @@ func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C
 		gc.Equals,
 		&value)
 	c.Check(value, gc.Equals, uint64(high))
-}
-
-func (*InstanceTypeSuite) TestSelectMachineTypeChecksArch(c *gc.C) {
-	unsupportedArch := "amd32k"
-	constraint := constraints.Value{Arch: &unsupportedArch}
-	_, err := selectMachineType(nil, constraint)
-	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.ErrorMatches, `requested unsupported architecture "amd32k"`)
 }
 
 func (*InstanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
