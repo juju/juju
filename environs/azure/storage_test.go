@@ -171,18 +171,9 @@ func (*StorageSuite) TestRemoveErrors(c *C) {
 	c.Assert(err, NotNil)
 }
 
-var emptyBlobList = `
-	<?xml version="1.0" encoding="utf-8"?>
-	<EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
-	</EnumerationResults>
-	`
-
 func (*StorageSuite) TestRemoveAll(c *C) {
-	// When we ask gwacl to remove all blobs, first thing it does is
-	// list them.  If the list is empty, we're done.
-	// Testing for the case where there are files is harder, but not
-	// needed: the difference is internal to gwacl, and tested there.
-	response := makeResponse(emptyBlobList, http.StatusOK)
+	// When we ask gwacl to remove all blobs, it calls DeleteContainer.
+	response := makeResponse("", http.StatusAccepted)
 	storage, transport := makeAzureStorage(response, "cntnr", "account")
 
 	err := storage.RemoveAll()
@@ -191,9 +182,9 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	_, err = storage.getStorageContext()
 	c.Assert(err, IsNil)
 	// Without going too far into gwacl's innards, this is roughly what
-	// it needs to do in order to list the files.
+	// it needs to do in order to delete a container.
 	c.Check(transport.Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-	c.Check(transport.Request.Method, Equals, "GET")
+	c.Check(transport.Request.Method, Equals, "DELETE")
 }
 
 func (*StorageSuite) TestRemoveNonExistantBlobSucceeds(c *C) {
