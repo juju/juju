@@ -1626,7 +1626,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	}
 	for _, name := range bad {
 		c.Logf(name)
-		coll, id, err := s.State.ParseTag(name)
+		coll, id, err := state.ParseTag(s.State, name)
 		c.Check(coll, gc.Equals, "")
 		c.Check(id, gc.Equals, "")
 		c.Assert(err, gc.ErrorMatches, `invalid entity name ".*"`)
@@ -1635,7 +1635,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a machine entity name.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	coll, id, err := s.State.ParseTag(m.Tag())
+	coll, id, err := state.ParseTag(s.State, m.Tag())
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, m.Id())
 	c.Assert(err, gc.IsNil)
@@ -1643,7 +1643,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a service entity name.
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
-	coll, id, err = s.State.ParseTag(svc.Tag())
+	coll, id, err = state.ParseTag(s.State, svc.Tag())
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
 	c.Assert(err, gc.IsNil)
@@ -1651,7 +1651,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a unit entity name.
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	coll, id, err = s.State.ParseTag(u.Tag())
+	coll, id, err = state.ParseTag(s.State, u.Tag())
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
 	c.Assert(err, gc.IsNil)
@@ -1659,7 +1659,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a user entity name.
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
-	coll, id, err = s.State.ParseTag(user.Tag())
+	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
 	c.Assert(err, gc.IsNil)
