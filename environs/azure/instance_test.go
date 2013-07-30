@@ -74,8 +74,8 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		c.Assert(err, IsNil)
 		return []byte(xml)
 	}
-	// First, GetHostedServiceProperties
 	responses := []gwacl.DispatcherResponse{
+		// First, GetHostedServiceProperties
 		gwacl.NewDispatcherResponse(
 			serialize(&gwacl.HostedService{
 				Deployments:             deployments,
@@ -84,7 +84,6 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 			}),
 			http.StatusOK, nil),
 	}
-	// Then, GetRole and UpdateRole for each role.
 	for _, deployment := range deployments {
 		for _, role := range deployment.RoleList {
 			// GetRole returns a PersistentVMRole.
@@ -126,4 +125,111 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		c.Check(request.Method, Equals, expected[index].method)
 		c.Check(request.URL, Matches, expected[index].urlpattern)
 	}
+
+	// TODO: Check that the UpdateRole requests contain the requested ports.
+}
+
+func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	// GetHostedServiceProperties breaks.
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
+	}
+	record := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	azInstance := azureInstance{*service, env}
+
+	err := azInstance.OpenPorts("machine-id", []instance.Port{
+		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+	})
+
+	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, HasLen, 1)
+}
+
+func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	deployments := []gwacl.Deployment{
+		{
+			Name: "deployment-one",
+			RoleList: []gwacl.Role{
+				{RoleName: "role-one"},
+			},
+		},
+	}
+	serialize := func(object gwacl.AzureObject) []byte {
+		xml, err := object.Serialize()
+		c.Assert(err, IsNil)
+		return []byte(xml)
+	}
+	responses := []gwacl.DispatcherResponse{
+		// First, GetHostedServiceProperties
+		gwacl.NewDispatcherResponse(
+			serialize(&gwacl.HostedService{
+				Deployments:             deployments,
+				HostedServiceDescriptor: *service,
+				XMLNS: gwacl.XMLNS,
+			}),
+			http.StatusOK, nil),
+		// Second, GetRole fails
+		gwacl.NewDispatcherResponse(
+			nil, http.StatusInternalServerError, nil),
+	}
+	record := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	azInstance := azureInstance{*service, env}
+
+	err := azInstance.OpenPorts("machine-id", []instance.Port{
+		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+	})
+
+	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, HasLen, 2)
+}
+
+func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	deployments := []gwacl.Deployment{
+		{
+			Name: "deployment-one",
+			RoleList: []gwacl.Role{
+				{RoleName: "role-one"},
+			},
+		},
+	}
+	serialize := func(object gwacl.AzureObject) []byte {
+		xml, err := object.Serialize()
+		c.Assert(err, IsNil)
+		return []byte(xml)
+	}
+	responses := []gwacl.DispatcherResponse{
+		// First, GetHostedServiceProperties
+		gwacl.NewDispatcherResponse(
+			serialize(&gwacl.HostedService{
+				Deployments:             deployments,
+				HostedServiceDescriptor: *service,
+				XMLNS: gwacl.XMLNS,
+			}),
+			http.StatusOK, nil),
+		// Seconds, GetRole
+		gwacl.NewDispatcherResponse(
+			serialize(&gwacl.PersistentVMRole{
+				XMLNS:    gwacl.XMLNS,
+				RoleName: "role-one",
+			}),
+			http.StatusOK, nil),
+		// Third, UpdateRole fails
+		gwacl.NewDispatcherResponse(
+			nil, http.StatusInternalServerError, nil),
+	}
+	record := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	azInstance := azureInstance{*service, env}
+
+	err := azInstance.OpenPorts("machine-id", []instance.Port{
+		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+	})
+
+	c.Check(err, ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, HasLen, 3)
 }
