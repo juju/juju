@@ -5,7 +5,6 @@ package ec2
 
 import (
 	"io"
-	"net/http"
 
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
@@ -51,8 +50,8 @@ func GetImageURLs(e environs.Environ) ([]string, error) {
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {
-	// Prepare mock http transport for overriding metadata and images output in tests
-	http.DefaultTransport.(*http.Transport).RegisterProtocol("test", testRoundTripper)
+	// Prepare mock http transport for overriding metadata and images output in tests.
+	testRoundTripper.RegisterForScheme("test")
 }
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
@@ -61,9 +60,9 @@ var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
-func UseTestImageData(content []jujutest.FileContent) {
-	if content != nil {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content, nil)
+func UseTestImageData(files map[string]string) {
+	if files != nil {
+		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
 		imagemetadata.DefaultBaseURL = "test:"
 		signedImageDataOnly = false
 	} else {
@@ -94,9 +93,9 @@ func UseTestInstanceTypeData(content instanceTypeCost) {
 
 var origMetadataHost = metadataHost
 
-func UseTestMetadata(content []jujutest.FileContent) {
-	if content != nil {
-		testRoundTripper.Sub = jujutest.NewVirtualRoundTripper(content, nil)
+func UseTestMetadata(files map[string]string) {
+	if files != nil {
+		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
 		metadataHost = "test:"
 	} else {
 		testRoundTripper.Sub = nil
@@ -150,9 +149,8 @@ func WritablePublicStorage(e environs.Environ) environs.Storage {
 	return e.PublicStorage().(environs.Storage)
 }
 
-var TestImagesData = []jujutest.FileContent{
-	{
-		"/streams/v1/index.json", `
+var TestImagesData = map[string]string{
+	"/streams/v1/index.json": `
 		{
 		 "index": {
 		  "com.ubuntu.cloud:released": {
@@ -179,8 +177,8 @@ var TestImagesData = []jujutest.FileContent{
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		 "format": "index:1.0"
 		}
-`}, {
-		"/streams/v1/com.ubuntu.cloud:released:aws.js", `
+`,
+	"/streams/v1/com.ubuntu.cloud:released:aws.js": `
 {
  "content_id": "com.ubuntu.cloud:released:aws",
  "products": {
@@ -348,7 +346,7 @@ var TestImagesData = []jujutest.FileContent{
  },
  "format": "products:1.0"
 }
-`},
+`,
 }
 
 var TestInstanceTypeCosts = instanceTypeCost{

@@ -29,9 +29,9 @@ type ProviderSuite struct{}
 var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) TestMetadata(c *C) {
-	metadataContent := []jujutest.FileContent{
-		{"/2011-01-01/meta-data/public-hostname", "public.dummy.address.invalid"},
-		{"/2011-01-01/meta-data/local-hostname", "private.dummy.address.invalid"},
+	metadataContent := map[string]string{
+		"/2011-01-01/meta-data/public-hostname": "public.dummy.address.invalid",
+		"/2011-01-01/meta-data/local-hostname":  "private.dummy.address.invalid",
 	}
 	ec2.UseTestMetadata(metadataContent)
 	defer ec2.UseTestMetadata(nil)
