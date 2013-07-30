@@ -90,6 +90,9 @@ func Main(args []string) {
 	// Charm publishing commands.
 	juju.Register(&PublishCommand{})
 
+	// Charm tool commands.
+	juju.Register(&HelpToolCommand{})
+
 	// Common commands.
 	juju.Register(&cmd.VersionCommand{})
 
