@@ -5,6 +5,7 @@ package cmd_test
 
 import (
 	"fmt"
+	"strings"
 
 	. "launchpad.net/gocheck"
 
@@ -125,6 +126,26 @@ func (s *SuperCommandSuite) TestDescription(c *C) {
 	code := cmd.Main(jc, ctx, []string{"blah", "--description"})
 	c.Assert(code, Equals, 0)
 	c.Assert(bufferString(ctx.Stdout), Equals, "blow up the death star\n")
+}
+
+func (s *SuperCommandSuite) TestHelp(c *C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := testing.Context(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--help"})
+	c.Assert(code, Equals, 0)
+	stripped := strings.Replace(bufferString(ctx.Stdout), "\n", "", -1)
+	c.Assert(stripped, Matches, ".*usage: jujutest blah.*blah-doc.*")
+}
+
+func (s *SuperCommandSuite) TestHelpWithPrefix(c *C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", UsagePrefix: "juju"})
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := testing.Context(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--help"})
+	c.Assert(code, Equals, 0)
+	stripped := strings.Replace(bufferString(ctx.Stdout), "\n", "", -1)
+	c.Assert(stripped, Matches, ".*usage: juju jujutest blah.*blah-doc.*")
 }
 
 func NewSuperWithCallback(callback func(*cmd.Context, string, []string) error) cmd.Command {

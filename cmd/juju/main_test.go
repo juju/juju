@@ -298,6 +298,7 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 
 var globalFlags = []string{
 	"--debug .*",
+	"--description .*",
 	"-h, --help .*",
 	"--log-config .*",
 	"--log-file .*",
