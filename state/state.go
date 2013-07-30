@@ -569,8 +569,8 @@ func (st *State) entity(tag string) (interface{}, error) {
 	if i <= 0 || i >= len(tag)-1 {
 		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
-	prefix, id := tag[0:i], tag[i+1:]
-	tagKind, err := names.TagKind(prefix)
+	id := tag[i+1:]
+	tagKind, err := names.TagKind(tag)
 	if err != nil {
 		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
@@ -578,7 +578,7 @@ func (st *State) entity(tag string) (interface{}, error) {
 	case names.MachineTagKind:
 		id, err := names.MachineIdFromTag(tag)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		if !names.IsMachineId(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
@@ -625,13 +625,16 @@ func (st *State) ParseTag(tag string) (string, string, error) {
 	}
 	id := parts[1]
 	var coll string
-	tagPrefix := parts[0] + "-"
-	switch tagPrefix {
-	case names.MachineTagPrefix:
+	tagKind, err := names.TagKind(tag)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid entity name %q", tag)
+	}
+	switch tagKind {
+	case names.MachineTagKind:
 		coll = st.machines.Name
-	case names.ServiceTagPrefix:
+	case names.ServiceTagKind:
 		coll = st.services.Name
-	case names.UnitTagPrefix:
+	case names.UnitTagKind:
 		coll = st.units.Name
 		// Handle replacements occurring when an entity name is created
 		// for a unit.
@@ -640,7 +643,7 @@ func (st *State) ParseTag(tag string) (string, string, error) {
 			return "", "", fmt.Errorf("invalid entity name %q", tag)
 		}
 		id = id[:idx] + "/" + id[idx+1:]
-	case names.UserTagPrefix:
+	case names.UserTagKind:
 		coll = st.users.Name
 	default:
 		return "", "", fmt.Errorf("invalid entity name %q", tag)
