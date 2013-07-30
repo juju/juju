@@ -85,10 +85,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	if err := EnsureWeHaveLXC(a.Conf.DataDir, a.Tag()); err != nil {
-		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
-		return err
-	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
 
 	// ensureStateWorker ensures that there is a worker that
@@ -197,11 +193,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
-	}
-	// If this fails, other bits will fail, so we just log the error, and
-	// let the other failures actually restart runners
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		log.Warningf("failed to EnsureAPIInfo: %v", err)
 	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
