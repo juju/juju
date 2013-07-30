@@ -79,9 +79,9 @@ func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Po
 				request.InputEndpoints = append(
 					request.InputEndpoints, gwacl.InputEndpoint{
 						LocalPort: port.Number,
-						Name:      port.String(),
+						Name:      fmt.Sprintf("%s%d", port.Protocol, port.Number),
 						Port:      port.Number,
-						Protocol:  "TCP",
+						Protocol:  port.Protocol,
 					})
 			}
 			err := context.AddRoleEndpoints(request)

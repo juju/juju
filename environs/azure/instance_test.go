@@ -9,6 +9,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
+	"fmt"
 	"launchpad.net/juju-core/instance"
 	"net/http"
 )
@@ -52,22 +53,36 @@ func (*StorageSuite) TestWaitDNSName(c *C) {
 	c.Check(dnsName, Equals, host+"."+AZURE_DOMAIN_NAME)
 }
 
+func makeRole(name string) gwacl.Role {
+	return gwacl.Role{
+		RoleName: name,
+		ConfigurationSets: []gwacl.ConfigurationSet{
+			{ConfigurationSetType: gwacl.CONFIG_SET_NETWORK},
+		},
+	}
+}
+
+func makeDeployment(name string, roles ...gwacl.Role) gwacl.Deployment {
+	return gwacl.Deployment{
+		Name:     name,
+		RoleList: roles,
+	}
+}
+
+func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
+	return gwacl.InputEndpoint{
+		LocalPort: port,
+		Name:      fmt.Sprintf("%s%d", protocol, port),
+		Port:      port,
+		Protocol:  protocol,
+	}
+}
+
 func (*StorageSuite) TestOpenPorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
-		{
-			Name: "deployment-one",
-			RoleList: []gwacl.Role{
-				{RoleName: "role-one"},
-				{RoleName: "role-two"},
-			},
-		},
-		{
-			Name: "deployment-two",
-			RoleList: []gwacl.Role{
-				{RoleName: "role-three"},
-			},
-		},
+		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
+		makeDeployment("deployment-two", makeRole("role-three")),
 	}
 	serialize := func(object gwacl.AzureObject) []byte {
 		xml, err := object.Serialize()
@@ -88,12 +103,12 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		for _, role := range deployment.RoleList {
 			// GetRole returns a PersistentVMRole.
 			persistentRole := &gwacl.PersistentVMRole{
-				XMLNS:    gwacl.XMLNS,
-				RoleName: role.RoleName,
+				XMLNS:             gwacl.XMLNS,
+				RoleName:          role.RoleName,
+				ConfigurationSets: role.ConfigurationSets,
 			}
-			response := gwacl.NewDispatcherResponse(
-				serialize(persistentRole), http.StatusOK, nil)
-			responses = append(responses, response)
+			responses = append(responses, gwacl.NewDispatcherResponse(
+				serialize(persistentRole), http.StatusOK, nil))
 			// UpdateRole expects a 200 response, that's all.
 			responses = append(responses,
 				gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))
@@ -104,7 +119,7 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 	azInstance := azureInstance{*service, env}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
-		{"finger", 79}, {"submission", 587}, {"gopher", 70},
+		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
 	c.Assert(err, IsNil)
@@ -126,7 +141,18 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		c.Check(request.URL, Matches, expected[index].urlpattern)
 	}
 
-	// TODO: Check that the UpdateRole requests contain the requested ports.
+	// A representative UpdateRole payload includes configuration for the
+	// ports requested.
+	role := &gwacl.PersistentVMRole{}
+	err = role.Deserialize((*record)[2].Payload)
+	c.Assert(err, IsNil)
+	c.Check(
+		*(role.ConfigurationSets[0].InputEndpoints),
+		DeepEquals, []gwacl.InputEndpoint{
+			makeInputEndpoint(79, "tcp"),
+			makeInputEndpoint(587, "tcp"),
+			makeInputEndpoint(9, "udp"),
+		})
 }
 
 func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
@@ -150,12 +176,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
-		{
-			Name: "deployment-one",
-			RoleList: []gwacl.Role{
-				{RoleName: "role-one"},
-			},
-		},
+		makeDeployment("deployment-one", makeRole("role-one")),
 	}
 	serialize := func(object gwacl.AzureObject) []byte {
 		xml, err := object.Serialize()
@@ -190,12 +211,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
-		{
-			Name: "deployment-one",
-			RoleList: []gwacl.Role{
-				{RoleName: "role-one"},
-			},
-		},
+		makeDeployment("deployment-one", makeRole("role-one")),
 	}
 	serialize := func(object gwacl.AzureObject) []byte {
 		xml, err := object.Serialize()
