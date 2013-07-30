@@ -10,6 +10,13 @@ import (
 // ClientScript returns a bash script suitable for executing
 // on the unit system to intercept hooks via tmux shell.
 func (c *DebugHooksContext) ClientScript(hooks []string) string {
+	// If any hook is "*", then the client is interested in all.
+	for _, hook := range hooks {
+		if hook == "*" {
+			hooks = nil
+			break
+		}
+	}
 	s := strings.Replace(debugHooksClientScript, "{unit_name}", c.Unit, -1)
 	s = strings.Replace(s, "{entry_flock}", c.ClientFileLock(), -1)
 	s = strings.Replace(s, "{exit_flock}", c.ClientExitFileLock(), -1)
