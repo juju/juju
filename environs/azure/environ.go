@@ -448,7 +448,7 @@ func (env *azureEnviron) getInstance(instanceName string) (instance.Instance, er
 	if err != nil {
 		return nil, fmt.Errorf("could not get instance %q: %v", instanceName, err)
 	}
-	instance := &azureInstance{service.HostedServiceDescriptor}
+	instance := &azureInstance{service.HostedServiceDescriptor, env}
 	return instance, nil
 }
 
@@ -592,7 +592,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		return nil, environs.ErrNoInstances
 	}
 
-	instances := convertToInstances(services)
+	instances := convertToInstances(services, env)
 
 	// Check if we got a partial result.
 	if len(ids) != len(instances) {
@@ -617,7 +617,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertToInstances(services), nil
+	return convertToInstances(services, env), nil
 }
 
 // getEnvPrefix returns the prefix used to name the objects specific to this
@@ -628,10 +628,10 @@ func (env *azureEnviron) getEnvPrefix() string {
 
 // convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
 // into a slice of instance.Instance objects.
-func convertToInstances(services []gwacl.HostedServiceDescriptor) []instance.Instance {
+func convertToInstances(services []gwacl.HostedServiceDescriptor, env *azureEnviron) []instance.Instance {
 	instances := make([]instance.Instance, len(services))
 	for i, service := range services {
-		instances[i] = &azureInstance{service}
+		instances[i] = &azureInstance{service, env}
 	}
 	return instances
 }

@@ -15,6 +15,7 @@ import (
 type azureInstance struct {
 	// An instance contains an Azure Service (instance==service).
 	gwacl.HostedServiceDescriptor
+	environ *azureEnviron
 }
 
 // azureInstance implements Instance.

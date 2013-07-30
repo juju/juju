@@ -26,7 +26,7 @@ func makeHostedServiceDescriptor(name string) *gwacl.HostedServiceDescriptor {
 func (*StorageSuite) TestId(c *C) {
 	serviceName := "test-name"
 	testService := makeHostedServiceDescriptor(serviceName)
-	azInstance := azureInstance{*testService}
+	azInstance := azureInstance{*testService, nil}
 	c.Check(azInstance.Id(), Equals, instance.Id(serviceName))
 }
 
@@ -34,7 +34,7 @@ func (*StorageSuite) TestDNSName(c *C) {
 	// An instance's DNS name is computed from its hosted-service name.
 	host := "hostname"
 	testService := makeHostedServiceDescriptor(host)
-	azInstance := azureInstance{*testService}
+	azInstance := azureInstance{*testService, nil}
 	dnsName, err := azInstance.DNSName()
 	c.Assert(err, IsNil)
 	c.Check(dnsName, Equals, host+"."+AZURE_DOMAIN_NAME)
@@ -45,7 +45,7 @@ func (*StorageSuite) TestWaitDNSName(c *C) {
 	// waiting involved.
 	host := "hostname"
 	testService := makeHostedServiceDescriptor(host)
-	azInstance := azureInstance{*testService}
+	azInstance := azureInstance{*testService, nil}
 	dnsName, err := azInstance.WaitDNSName()
 	c.Assert(err, IsNil)
 	c.Check(dnsName, Equals, host+"."+AZURE_DOMAIN_NAME)
