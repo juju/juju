@@ -8,9 +8,9 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/plugins"
 	_ "launchpad.net/juju-core/environs/all"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/cmd/plugins"
 )
 
 var metadataDoc = `
@@ -27,10 +27,10 @@ func Main(args []string) {
 		os.Exit(2)
 	}
 	metadatacmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
-			Name:    "metadata",
-			Doc:     metadataDoc,
-			Purpose: "tools for generating and validating image and tools metadata",
-			Log:     &cmd.Log{}})
+		Name:    "metadata",
+		Doc:     metadataDoc,
+		Purpose: "tools for generating and validating image and tools metadata",
+		Log:     &cmd.Log{}})
 
 	metadatacmd.Register(&ValidateImageMetadataCommand{})
 	metadatacmd.Register(&ImageMetadataCommand{})

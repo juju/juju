@@ -15,9 +15,9 @@ import (
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/cmd/plugins"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/cmd/plugins"
 )
 
 const JujuPluginPrefix = "juju-"
