@@ -1,7 +1,9 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package machine
+// The machine package implements the API interfaces
+// used by the machine agent.
+package agent
 
 import (
 	"launchpad.net/juju-core/state"
@@ -9,19 +11,19 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
-// DEPRECATED(v1.14)
-type AgentAPI struct {
+// API implements the API provided to an agent.
+type API struct {
 	*common.PasswordChanger
 
 	st   *state.State
 	auth common.Authorizer
 }
 
-// NewAgentAPI returns an object implementing the machine agent API
+// NewAPI returns an object implementing an agent API
 // with the given authorizer representing the currently logged in client.
-// DEPRECATED(v1.14)
-func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
-	if !auth.AuthMachineAgent() {
+func NewAPI(st *state.State, auth common.Authorizer) (*API, error) {
+	// Agents are defined to be any user that's not a client user.
+	if auth.AuthClient() {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
@@ -30,26 +32,26 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 			return auth.AuthOwner(tag)
 		}, nil
 	}
-	return &AgentAPI{
+	return &API{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
 		st:              st,
 		auth:            auth,
 	}, nil
 }
 
-func (api *AgentAPI) GetMachines(args params.Entities) params.MachineAgentGetMachinesResults {
-	results := params.MachineAgentGetMachinesResults{
-		Machines: make([]params.MachineAgentGetMachinesResult, len(args.Entities)),
+func (api *API) GetEntities(args params.Entities) params.AgentGetEntitiesResults {
+	results := params.AgentGetEntitiesResults{
+		Entities: make([]params.AgentGetEntitiesResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		result, err := api.getMachine(entity.Tag)
+		result, err := api.getEntity(entity.Tag)
 		result.Error = common.ServerError(err)
-		results.Machines[i] = result
+		results.Entities[i] = result
 	}
 	return results
 }
 
-func (api *AgentAPI) getMachine(tag string) (result params.MachineAgentGetMachinesResult, err error) {
+func (api *API) getEntity(tag string) (result params.AgentGetEntitiesResult, err error) {
 	// Allow only for the owner agent.
 	// Note: having a bulk API call for this is utter madness, given that
 	// this check means we can only ever return a single object.
@@ -57,12 +59,14 @@ func (api *AgentAPI) getMachine(tag string) (result params.MachineAgentGetMachin
 		err = common.ErrPerm
 		return
 	}
-	machine, err := api.st.Machine(state.MachineIdFromTag(tag))
+	entity, err := api.st.Lifer(tag)
 	if err != nil {
 		return
 	}
-	result.Life = params.Life(machine.Life().String())
-	result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
+	result.Life = params.Life(entity.Life().String())
+	if machine, ok := entity.(*state.Machine); ok {
+		result.Jobs = stateJobsToAPIParamsJobs(machine.Jobs())
+	}
 	return
 }
 

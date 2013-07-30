@@ -19,7 +19,7 @@ import (
 
 // retryAfter returns a channel that receives a value
 // when a failed download should be retried.
-// It is a function 	
+// It is a function
 var retryAfter = func() <-chan time.Time {
 	return time.After(5 * time.Second)
 }
@@ -35,6 +35,18 @@ type UpgradeReadyError struct {
 
 func (e *UpgradeReadyError) Error() string {
 	return "must restart: an agent upgrade is available"
+}
+
+// ChangeAgentTools does the actual agent upgrade.
+// It should be called just before an agent exits, so that
+// it will restart running the new tools.
+func (e *UpgradeReadyError) ChangeAgentTools() error {
+	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
+	if err != nil {
+		return err
+	}
+	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
+	return nil
 }
 
 var logger = loggo.GetLogger("juju.worker.upgrader")

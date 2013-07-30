@@ -27,7 +27,7 @@ var _ = Suite(&ProviderSuite{})
 func (s *ProviderSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.environ = &azureEnviron{}
-	s.restoreTimeouts = envtesting.PatchAttemptStrategies(&shortAttempt)
+	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 }
 
 func (s *ProviderSuite) TearDownSuite(c *C) {

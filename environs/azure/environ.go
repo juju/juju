@@ -6,7 +6,6 @@ package azure
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/agent/tools"
@@ -14,10 +13,10 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/utils"
 )
 
 const (
@@ -63,17 +62,6 @@ type azureEnviron struct {
 
 // azureEnviron implements Environ.
 var _ environs.Environ = (*azureEnviron)(nil)
-
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
-// TODO: These settings may still need Azure-specific tuning.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -155,14 +143,14 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
-	return env.getEnvPrefix() + "-ag"
+	return env.getEnvPrefix() + "ag"
 }
 
 func (env *azureEnviron) createAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	snap := env.getSnapshot()
@@ -176,7 +164,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	return azure.DeleteAffinityGroup(&gwacl.DeleteAffinityGroupRequest{
@@ -186,7 +174,7 @@ func (env *azureEnviron) deleteAffinityGroup() error {
 // getVirtualNetworkName returns the name of the virtual network used by all
 // the VMs in this environment.
 func (env *azureEnviron) getVirtualNetworkName() string {
-	return env.getEnvPrefix() + "-vnet"
+	return env.getEnvPrefix() + "vnet"
 }
 
 func (env *azureEnviron) createVirtualNetwork() error {
@@ -194,7 +182,7 @@ func (env *azureEnviron) createVirtualNetwork() error {
 	affinityGroupName := env.getAffinityGroupName()
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	virtualNetwork := gwacl.VirtualNetworkSite{
@@ -210,22 +198,53 @@ func (env *azureEnviron) createVirtualNetwork() error {
 func (env *azureEnviron) deleteVirtualNetwork() error {
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil
+		return err
 	}
 	defer env.releaseManagementAPI(azure)
 	vnetName := env.getVirtualNetworkName()
 	return azure.RemoveVirtualNetworkSite(vnetName)
 }
 
+// getContainerName returns the name of the private storage account container
+// that this environment is using.
+func (env *azureEnviron) getContainerName() string {
+	return env.getEnvPrefix() + "-private"
+}
+
+func (env *azureEnviron) createStorageContainer() error {
+	containerName := env.getContainerName()
+	context, err := env.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.CreateContainer(containerName)
+}
+
+func (env *azureEnviron) deleteStorageContainer() error {
+	containerName := env.getContainerName()
+	context, err := env.getStorageContext()
+	if err != nil {
+		return err
+	}
+	return context.DeleteContainer(containerName)
+}
+
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
+	// TODO(bug 1199847). The creation of the affinity group, the
+	// virtual network and the container is specific to the Azure provider.
+	err = env.createStorageContainer()
+	if err != nil {
 		return err
 	}
+	// If we fail after this point, clean up the container.
+	defer func() {
+		if err != nil {
+			env.deleteStorageContainer()
+		}
+	}()
 
-	// TODO(bug 1199847). The creation of the affinity group and the
-	// virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
 		return err
@@ -639,7 +658,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 // getEnvPrefix returns the prefix used to name the objects specific to this
 // environment.
 func (env *azureEnviron) getEnvPrefix() string {
-	return fmt.Sprintf("juju-%s", env.Name())
+	return fmt.Sprintf("juju-%s-", env.Name())
 }
 
 // convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
@@ -809,4 +828,37 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
+}
+
+// getImageBaseURLs returns the base URLs for this environment's simplestreams
+// database.  In other words, where it should look for information on the
+// available images.
+func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
+	// Hard-coded to the central Simplestreams database for now.
+	return []string{imagemetadata.DefaultBaseURL}, nil
+}
+
+// getEndpoint returns the endpoint (as defined in Simplestreams) for the
+// given Azure region.
+func (env *azureEnviron) getEndpoint(region string) (string, error) {
+	// Hard-coded for now, but actually China has a different endpoint.
+	// TODO: Extract information from simplestreams, or hard-code the
+	// Chinese ones as well.
+	return "https://management.core.windows.net/", nil
+}
+
+// getImageStream returns the name of the simplestreams stream from which
+// this environment wants its images, e.g. "releases" or "daily", or the
+// blank string for the default.
+func (env *azureEnviron) getImageStream() string {
+	// Hard-coded to the default for now.
+	return ""
+}
+
+// getImageMetadataSigningRequired returns whether this environment requires
+// image metadata from Simplestreams to be signed.
+func (env *azureEnviron) getImageMetadataSigningRequired() bool {
+	// Hard-coded to true for now.  Once we support custom base URLs,
+	// this may have to change.
+	return true
 }
