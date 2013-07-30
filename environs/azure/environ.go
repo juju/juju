@@ -694,7 +694,17 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 
 // OpenPorts is specified in the Environ interface.
 func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
-	// TODO: implement this.
+	instances, err := env.AllInstances()
+	if err != nil {
+		return err
+	}
+	for _, instance := range instances {
+		machineId := "" // FIXME: what should this be?
+		err := instance.OpenPorts(machineId, ports)
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
 
