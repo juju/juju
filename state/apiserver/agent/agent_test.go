@@ -1,8 +1,9 @@
 package agent_test
 
 import (
-	gc "launchpad.net/gocheck"
 	stdtesting "testing"
+
+	gc "launchpad.net/gocheck"
 
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -48,9 +49,8 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	}
 
 	// Create a machiner API for machine 1.
-	api, err := agent.NewAPI(s.State, s.authorizer)
+	s.agent, err = agent.NewAPI(s.State, s.authorizer)
 	c.Assert(err, gc.IsNil)
-	s.agent = api
 }
 
 func (s *agentSuite) TestAgentFailsWithClientUser(c *gc.C) {
