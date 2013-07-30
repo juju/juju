@@ -7,10 +7,10 @@ import (
 	stderrors "errors"
 	"fmt"
 	"launchpad.net/gnuflag"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
@@ -269,11 +269,11 @@ func (v *upgradeVersions) validate() (err error) {
 func uploadVersion(vers version.Number, existing tools.List) version.Number {
 	vers.Build++
 	for _, t := range existing {
-		if t.Major != vers.Major || t.Minor != vers.Minor || t.Patch != vers.Patch {
+		if t.Version.Major != vers.Major || t.Version.Minor != vers.Minor || t.Version.Patch != vers.Patch {
 			continue
 		}
-		if t.Build >= vers.Build {
-			vers.Build = t.Build + 1
+		if t.Version.Build >= vers.Build {
+			vers.Build = t.Version.Build + 1
 		}
 	}
 	return vers

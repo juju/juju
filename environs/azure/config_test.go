@@ -59,8 +59,7 @@ func makeAzureConfigMap(c *C) map[string]interface{} {
 		"management-subscription-id":    "subscription-id",
 		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
-		"storage-account-key":           "account-key",
-		"storage-container-name":        "container-name",
+		"storage-account-key":           "YWNjb3VudC1rZXkK",
 		"public-storage-account-name":   "public-account-name",
 		"public-storage-container-name": "public-container-name",
 	}
@@ -100,18 +99,6 @@ func (*ConfigSuite) TestValidateAcceptsUnchangedConfig(c *C) {
 	c.Check(result.Name(), Equals, attrs["name"])
 }
 
-func (*ConfigSuite) TestValidateRejectsChangingStorageContainer(c *C) {
-	attrs := makeAzureConfigMap(c)
-	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	provider := azureEnvironProvider{}
-	attrs["storage-container-name"] = "another name"
-	oldConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
-	_, err = provider.Validate(newConfig, oldConfig)
-	c.Check(err, ErrorMatches, ".*cannot change storage-container-name.*")
-}
-
 func (*ConfigSuite) TestValidateChecksConfigChanges(c *C) {
 	provider := azureEnvironProvider{}
 	oldAttrs := makeBaseConfigMap()
@@ -131,9 +118,9 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	certificate := "certificate content"
 	storageAccountName := "account-name"
 	storageAccountKey := "account-key"
-	storageContainerName := "container-name"
 	publicStorageAccountName := "public-account-name"
 	publicStorageContainerName := "public-container-name"
+	forceImageName := "force-image-name"
 	unknownFutureSetting := "preserved"
 	azureConfig := map[string]interface{}{
 		"location":                      location,
@@ -141,9 +128,9 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 		"management-certificate":        certificate,
 		"storage-account-name":          storageAccountName,
 		"storage-account-key":           storageAccountKey,
-		"storage-container-name":        storageContainerName,
 		"public-storage-account-name":   publicStorageAccountName,
 		"public-storage-container-name": publicStorageContainerName,
+		"force-image-name":              forceImageName,
 		"unknown-future-setting":        unknownFutureSetting,
 	}
 	attrs := makeConfigMap(azureConfig)
@@ -158,9 +145,9 @@ func (*ConfigSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.ManagementCertificate(), Equals, certificate)
 	c.Check(azConfig.StorageAccountName(), Equals, storageAccountName)
 	c.Check(azConfig.StorageAccountKey(), Equals, storageAccountKey)
-	c.Check(azConfig.StorageContainerName(), Equals, storageContainerName)
 	c.Check(azConfig.PublicStorageAccountName(), Equals, publicStorageAccountName)
 	c.Check(azConfig.PublicStorageContainerName(), Equals, publicStorageContainerName)
+	c.Check(azConfig.ForceImageName(), Equals, forceImageName)
 	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], Equals, unknownFutureSetting)
 }
 

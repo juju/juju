@@ -7,17 +7,16 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/url"
-	"strings"
 	"sync"
 	"time"
 
 	"launchpad.net/gomaasapi"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -76,14 +75,9 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	// Create an empty bootstrap state file so we can get its URL.
 	// If will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
-	reader := strings.NewReader("")
-	err := env.Storage().Put(environs.StateFile, reader, int64(0))
+	stateFileURL, err := environs.CreateStateFile(env.Storage())
 	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
-	}
-	stateFileURL, err := env.Storage().URL(environs.StateFile)
-	if err != nil {
-		return nil, fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return nil, err
 	}
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
@@ -107,11 +101,6 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
-
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
-		return err
-	}
-
 	inst, err := env.startBootstrapNode(cons)
 	if err != nil {
 		return err
@@ -217,7 +206,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *state.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error

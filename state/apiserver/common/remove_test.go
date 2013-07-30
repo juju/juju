@@ -46,14 +46,14 @@ func (*removeSuite) TestRemove(c *C) {
 	result, err := r.Remove(entities)
 	c.Assert(err, IsNil)
 	c.Assert(result, DeepEquals, params.ErrorResults{
-		Errors: []*params.Error{
-			{Message: "x0 EnsureDead fails"},
-			{Message: "x1 Remove fails"},
-			{Message: `cannot remove entity "x2": still alive`},
-			nil,
-			apiservertesting.ErrUnauthorized,
-			{Message: "x5 error"},
-			apiservertesting.ErrUnauthorized,
+		Results: []params.ErrorResult{
+			{&params.Error{Message: "x0 EnsureDead fails"}},
+			{&params.Error{Message: "x1 Remove fails"}},
+			{&params.Error{Message: `cannot remove entity "x2": still alive`}},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{&params.Error{Message: "x5 error"}},
+			{apiservertesting.ErrUnauthorized},
 		},
 	})
 }
@@ -74,7 +74,7 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *C) {
 	r := common.NewRemover(&fakeRemoverState{}, getCanModify)
 	result, err := r.Remove(params.Entities{})
 	c.Assert(err, IsNil)
-	c.Assert(result.Errors, HasLen, 0)
+	c.Assert(result.Results, HasLen, 0)
 }
 
 type fakeRemoverState struct {

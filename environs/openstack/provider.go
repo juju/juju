@@ -14,13 +14,13 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -39,8 +39,11 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 var providerInstance environProvider
 
 // Use shortAttempt to poll for short-term events.
+// TODO: This was kept to a long timeout because Nova needs more time than
+// EC2.  But storage delays are handled separately now, and perhaps other
+// polling attempts can time out faster.
 var shortAttempt = utils.AttemptStrategy{
-	Total: 10 * time.Second, // it seems Nova needs more time than EC2
+	Total: 10 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
@@ -212,7 +215,6 @@ type openstackInstance struct {
 	e        *environ
 	instType *instances.InstanceType
 	arch     *string
-	address  string
 }
 
 func (inst *openstackInstance) String() string {
@@ -235,59 +237,73 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 	return hc
 }
 
-// instanceAddress processes a map of networks to lists of IP
-// addresses, as returned by Nova.GetServer(), extracting the proper
-// public (or private, if public is not available) IPv4 address, and
-// returning it, or an error.
-func instanceAddress(addresses map[string][]nova.IPAddress) (string, error) {
-	var private, public, privateNet string
+// getAddress returns the existing server information on addresses,
+// but fetches the details over the api again if no addresses exist.
+func (inst *openstackInstance) getAddresses() (map[string][]nova.IPAddress, error) {
+	addrs := inst.ServerDetail.Addresses
+	if len(addrs) == 0 {
+		server, err := inst.e.nova().GetServer(string(inst.Id()))
+		if err != nil {
+			return nil, err
+		}
+		addrs = server.Addresses
+	}
+	return addrs, nil
+}
+
+// Addresses implements instance.Addresses() returning generic address
+// details for the instances, and calling the openstack api if needed.
+func (inst *openstackInstance) Addresses() ([]instance.Address, error) {
+	addresses, err := inst.getAddresses()
+	if err != nil {
+		return nil, err
+	}
+	return convertNovaAddresses(addresses), nil
+}
+
+// convertNovaAddresses returns nova addresses in generic format
+func convertNovaAddresses(addresses map[string][]nova.IPAddress) []instance.Address {
+	// TODO(gz) Network ordering may be significant but is not preserved by
+	// the map, see lp:1188126 for example. That could potentially be fixed
+	// in goose, or left to be derived by other means.
+	var machineAddresses []instance.Address
 	for network, ips := range addresses {
+		networkscope := instance.NetworkUnknown
+		// For canonistack and hpcloud, public floating addresses may
+		// be put in networks named something other than public. Rely
+		// on address sanity logic to catch and mark them corectly.
+		if network == "public" {
+			networkscope = instance.NetworkPublic
+		}
 		for _, address := range ips {
-			if address.Version == 4 {
-				if network == "public" {
-					public = address.Address
-				} else {
-					privateNet = network
-					// Some setups use custom network name, treat as "private"
-					private = address.Address
-				}
-				break
+			// Assume ipv4 unless specified otherwise
+			addrtype := instance.Ipv4Address
+			if address.Version == 6 {
+				addrtype = instance.Ipv6Address
 			}
+			// TODO(gz): Use NewAddress... with sanity checking
+			machineAddr := instance.Address{
+				Value:        address.Address,
+				Type:         addrtype,
+				NetworkName:  network,
+				NetworkScope: networkscope,
+			}
+			machineAddresses = append(machineAddresses, machineAddr)
 		}
 	}
-	// HP cloud/canonistack specific: public address is 2nd in the private network
-	if prv, ok := addresses[privateNet]; public == "" && ok {
-		if len(prv) > 1 && prv[1].Version == 4 {
-			public = prv[1].Address
-		}
-	}
-	// Juju assumes it always needs a public address and loops waiting for one.
-	// In fact a private address is generally fine provided it can be sshed to.
-	// (ported from py-juju/providers/openstack)
-	if public == "" && private != "" {
-		public = private
-	}
-	if public == "" {
-		return "", instance.ErrNoDNSName
-	}
-	return public, nil
+	return machineAddresses
 }
 
 func (inst *openstackInstance) DNSName() (string, error) {
-	if inst.address != "" {
-		return inst.address, nil
-	}
-	// Fetch the instance information again, in case
-	// the addresses have become available.
-	server, err := inst.e.nova().GetServer(string(inst.Id()))
+	addresses, err := inst.Addresses()
 	if err != nil {
 		return "", err
 	}
-	inst.address, err = instanceAddress(server.Addresses)
-	if err != nil {
-		return "", err
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
+		return "", instance.ErrNoDNSName
 	}
-	return inst.address, nil
+	return addr, nil
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
@@ -416,10 +432,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
-	if err := environs.VerifyBootstrapInit(e, shortAttempt); err != nil {
-		return err
-	}
-
 	possibleTools, err := environs.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
@@ -435,15 +447,15 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := e.Storage().URL(environs.StateFile)
+	stateFileURL, err := environs.CreateStateFile(e.Storage())
 	if err != nil {
-		return fmt.Errorf("cannot create bootstrap state file: %v", err)
+		return err
 	}
 
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig, e.ecfg().useFloatingIP())
+	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -570,7 +582,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	}
 
 	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return e.internalStartInstance(cons, possibleTools, machineConfig, e.ecfg().useFloatingIP())
+	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -625,12 +637,10 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
-// Setting withPublicIP to true causes a floating IP to be assigned to the
-// server after starting.
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig, withPublicIP bool) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -660,7 +670,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
-
+	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
 		if fip, err := e.allocatePublicIP(); err != nil {

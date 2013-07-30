@@ -5,17 +5,22 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+
 	"launchpad.net/gnuflag"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/provider"
+	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
-	"os"
-	"strings"
 )
 
 // BootstrapCommand is responsible for launching the first machine in a juju
@@ -25,6 +30,7 @@ type BootstrapCommand struct {
 	Constraints constraints.Value
 	UploadTools bool
 	Series      []string
+	Source      string
 }
 
 func (c *BootstrapCommand) Info() *cmd.Info {
@@ -39,6 +45,7 @@ func (c *BootstrapCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set environment constraints")
 	f.BoolVar(&c.UploadTools, "upload-tools", false, "upload local version of tools before bootstrapping")
 	f.Var(seriesVar{&c.Series}, "series", "upload tools for supplied comma-separated series list")
+	f.StringVar(&c.Source, "source", "", "local path to use as tools source")
 }
 
 func (c *BootstrapCommand) Init(args []string) error {
@@ -84,7 +91,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			return err
 		}
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": tools.Number.String(),
+			"agent-version": tools.Version.Number.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)
@@ -93,7 +100,37 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			return fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
+	err = c.ensureToolsAvailability(environ, context)
+	if err != nil {
+		return err
+	}
 	return environs.Bootstrap(environ, c.Constraints)
+}
+
+// ensureToolsAvailability verifies the tools are available. If no tools are
+// found, it will automatically synchronize them.
+func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cmd.Context) error {
+	// Capture possible logging while syncing and write it on the screen.
+	loggo.RegisterWriter("bootstrap", sync.NewSyncLogWriter(ctx.Stdout, ctx.Stderr), loggo.INFO)
+	defer loggo.RemoveWriter("bootstrap")
+
+	// Try to find bootstrap tools.
+	_, err := environs.FindBootstrapTools(env, c.Constraints)
+	if errors.IsNotFoundError(err) {
+		// Not tools available, so synchronize.
+		sctx := &sync.SyncContext{
+			EnvName: c.EnvName,
+			Source:  c.Source,
+		}
+		if err = syncTools(sctx); err != nil {
+			return err
+		}
+		// Synchronization done, try again.
+		_, err = environs.FindBootstrapTools(env, c.Constraints)
+	} else if err != nil {
+		return err
+	}
+	return err
 }
 
 type seriesVar struct {

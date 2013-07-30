@@ -5,26 +5,29 @@ package deployer
 
 import (
 	"fmt"
+
+	"launchpad.net/loggo"
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state"
+	apideployer "launchpad.net/juju-core/state/api/deployer"
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
-	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 )
 
-var logger = loggo.GetLogger("juju.deployer")
+var logger = loggo.GetLogger("juju.worker.deployer")
 
 // Deployer is responsible for deploying and recalling unit agents, according
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	tomb      tomb.Tomb
-	st        *state.State
-	ctx       Context
-	machineId string
-	deployed  set.Strings
+	tomb       tomb.Tomb
+	st         *apideployer.State
+	ctx        Context
+	machineTag string
+	deployed   set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -48,11 +51,11 @@ type Context interface {
 
 // NewDeployer returns a Deployer that deploys and recalls unit agents via
 // ctx, taking a machine id to operate on.
-func NewDeployer(st *state.State, ctx Context, machineId string) *Deployer {
+func NewDeployer(st *apideployer.State, ctx Context, machineTag string) *Deployer {
 	d := &Deployer{
-		st:        st,
-		ctx:       ctx,
-		machineId: machineId,
+		st:         st,
+		ctx:        ctx,
+		machineTag: machineTag,
 	}
 	go func() {
 		defer d.tomb.Done()
@@ -62,7 +65,7 @@ func NewDeployer(st *state.State, ctx Context, machineId string) *Deployer {
 }
 
 func (d *Deployer) String() string {
-	return "deployer for " + d.machineId
+	return "deployer for " + d.machineTag
 }
 
 func (d *Deployer) Kill() {
@@ -78,37 +81,29 @@ func (d *Deployer) Wait() error {
 	return d.tomb.Wait()
 }
 
+func isNotFoundOrUnauthorized(err error) bool {
+	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
+}
+
 // changed ensures that the named unit is deployed, recalled, or removed, as
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
+	unitTag := apideployer.UnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
-	var life state.Life
-	responsible := false
-	unit, err := d.st.Unit(unitName)
-	if errors.IsNotFoundError(err) {
-		life = state.Dead
+	var life params.Life
+	unit, err := d.st.Unit(unitTag)
+	if isNotFoundOrUnauthorized(err) {
+		life = params.Dead
 	} else if err != nil {
 		return err
 	} else {
 		life = unit.Life()
-		if machineId, err := unit.AssignedMachineId(); state.IsNotAssigned(err) {
-			logger.Warningf("ignoring unit %q (not assigned)", unitName)
-			// Unit is not assigned, so we're not responsible for its deployment.
-			responsible = false
-		} else if err != nil {
-			return err
-		} else {
-			// We're only responsible for this unit's deployment when we're
-			// running inside the machine agent of the machine this unit
-			// is assigned to.
-			responsible = (machineId == d.machineId)
-		}
 	}
 	// Deployed units must be removed if they're Dead, or if the deployer
 	// is no longer responsible for them.
 	if d.deployed.Contains(unitName) {
-		if life == state.Dead || !responsible {
+		if life == params.Dead {
 			if err := d.recall(unitName); err != nil {
 				return err
 			}
@@ -118,8 +113,8 @@ func (d *Deployer) changed(unitName string) error {
 	// for and (2) are Alive -- if we're responsible for a Dying unit that is not
 	// yet deployed, we should remove it immediately rather than undergo the hassle
 	// of deploying a unit agent purely so it can set itself to Dead.
-	if responsible && !d.deployed.Contains(unitName) {
-		if life == state.Alive {
+	if !d.deployed.Contains(unitName) {
+		if life == params.Alive {
 			return d.deploy(unit)
 		} else if unit != nil {
 			return d.remove(unit)
@@ -130,21 +125,18 @@ func (d *Deployer) changed(unitName string) error {
 
 // deploy will deploy the supplied unit with the deployer's manager. It will
 // panic if it observes inconsistent internal state.
-func (d *Deployer) deploy(unit *state.Unit) error {
+func (d *Deployer) deploy(unit *apideployer.Unit) error {
 	unitName := unit.Name()
 	if d.deployed.Contains(unit.Name()) {
 		panic("must not re-deploy a deployed unit")
 	}
-	logger.Infof("deploying unit %q", unit)
+	logger.Infof("deploying unit %q", unitName)
 	initialPassword, err := utils.RandomPassword()
 	if err != nil {
 		return err
 	}
 	if err := unit.SetPassword(initialPassword); err != nil {
-		return fmt.Errorf("cannot set password for unit %q: %v", unit, err)
-	}
-	if err := unit.SetMongoPassword(initialPassword); err != nil {
-		return fmt.Errorf("cannot set mongo password for unit %q: %v", unit, err)
+		return fmt.Errorf("cannot set password for unit %q: %v", unitName, err)
 	}
 	if err := d.ctx.DeployUnit(unitName, initialPassword); err != nil {
 		return err
@@ -169,25 +161,26 @@ func (d *Deployer) recall(unitName string) error {
 
 // remove will remove the supplied unit from state. It will panic if it
 // observes inconsistent internal state.
-func (d *Deployer) remove(unit *state.Unit) error {
-	if d.deployed.Contains(unit.Name()) {
+func (d *Deployer) remove(unit *apideployer.Unit) error {
+	unitName := unit.Name()
+	if d.deployed.Contains(unitName) {
 		panic("must not remove a deployed unit")
-	} else if unit.Life() == state.Alive {
+	} else if unit.Life() == params.Alive {
 		panic("must not remove an Alive unit")
 	}
-	logger.Infof("removing unit %q", unit)
-	if err := unit.EnsureDead(); err != nil {
-		return err
-	}
+	logger.Infof("removing unit %q", unitName)
 	return unit.Remove()
 }
 
 func (d *Deployer) loop() error {
-	machine, err := d.st.Machine(d.machineId)
+	machine, err := d.st.Machine(d.machineTag)
 	if err != nil {
 		return err
 	}
-	machineUnitsWatcher := machine.WatchUnits()
+	machineUnitsWatcher, err := machine.WatchUnits()
+	if err != nil {
+		return err
+	}
 	defer watcher.Stop(machineUnitsWatcher, &d.tomb)
 
 	deployed, err := d.ctx.DeployedUnits()

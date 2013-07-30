@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
+	"path"
 	"strings"
 	"sync"
 
@@ -16,6 +17,7 @@ import (
 	"launchpad.net/gwacl"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -210,7 +212,7 @@ func (*EnvironSuite) TestStorage(c *C) {
 	storage, ok := baseStorage.(*azureStorage)
 	c.Check(ok, Equals, true)
 	c.Assert(storage, NotNil)
-	c.Check(storage.storageContext.getContainer(), Equals, env.ecfg.StorageContainerName())
+	c.Check(storage.storageContext.getContainer(), Equals, env.getContainerName())
 	context, err := storage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(context.Account, Equals, env.ecfg.StorageAccountName())
@@ -381,11 +383,31 @@ func makeServiceNameAlreadyTakenError(c *C) []byte {
 	return errorBody
 }
 
+// makeNonAvailabilityResponse simulates a reply to the
+// CheckHostedServiceNameAvailability call saying that a name is not available.
+func makeNonAvailabilityResponse(c *C) []byte {
+	errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
+		Result: "false",
+		Reason: "he's a very naughty boy"})
+	c.Assert(err, IsNil)
+	return errorBody
+}
+
+// makeAvailabilityResponse simulates a reply to the
+// CheckHostedServiceNameAvailability call saying that a name is available.
+func makeAvailabilityResponse(c *C) []byte {
+	errorBody, err := xml.Marshal(gwacl.AvailabilityResponse{
+		Result: "true"})
+	c.Assert(err, IsNil)
+	return errorBody
+}
+
 func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	prefix := "myservice"
 	affinityGroup := "affinity-group"
 	location := "location"
 	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -395,8 +417,8 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
-	c.Assert(*requests, HasLen, 1)
-	body := parseCreateServiceRequest(c, (*requests)[0])
+	c.Assert(*requests, HasLen, 2)
+	body := parseCreateServiceRequest(c, (*requests)[1])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
@@ -408,32 +430,8 @@ func (*EnvironSuite) TestAttemptCreateServiceCreatesService(c *C) {
 }
 
 func (*EnvironSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
-	errorBody := makeServiceNameAlreadyTakenError(c)
 	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
-	}
-	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
-	c.Assert(err, IsNil)
-
-	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
-	c.Check(err, IsNil)
-	c.Check(service, IsNil)
-}
-
-func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C) {
-	// Even if Azure or gwacl makes slight changes to the error they
-	// return (e.g. to translate output), attemptCreateService can still
-	// recognize the error that means "this service name is not unique."
-	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("broken HTTP request"),
-		HTTPStatus: http.StatusConflict,
-		Code:       "ServiceNameTaken",
-		Message:    "De aangevraagde naam is al in gebruik.",
-	})
-	c.Assert(err, IsNil)
-	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+		gwacl.NewDispatcherResponse(makeNonAvailabilityResponse(c), http.StatusOK, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "")
@@ -446,6 +444,7 @@ func (*EnvironSuite) TestAttemptCreateServiceRecognizesChangedConflictError(c *C
 
 func (*EnvironSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
@@ -462,6 +461,7 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	affinityGroup := "affinity-group"
 	location := "location"
 	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(makeAvailabilityResponse(c), http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -471,8 +471,8 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 	service, err := newHostedService(azure, prefix, affinityGroup, location)
 	c.Assert(err, IsNil)
 
-	c.Assert(*requests, HasLen, 1)
-	body := parseCreateServiceRequest(c, (*requests)[0])
+	c.Assert(*requests, HasLen, 2)
+	body := parseCreateServiceRequest(c, (*requests)[1])
 	c.Check(body.ServiceName, Equals, service.ServiceName)
 	c.Check(body.AffinityGroup, Equals, affinityGroup)
 	c.Check(service.ServiceName, Matches, prefix+".*")
@@ -480,12 +480,14 @@ func (*EnvironSuite) TestNewHostedServiceCreatesService(c *C) {
 }
 
 func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
-	errorBody := makeServiceNameAlreadyTakenError(c)
+	errorBody := makeNonAvailabilityResponse(c)
+	okBody := makeAvailabilityResponse(c)
 	// In this scenario, the first two names that we try are already
 	// taken.  The third one is unique though, so we succeed.
 	responses := []gwacl.DispatcherResponse{
-		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
-		gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil),
+		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil),
+		gwacl.NewDispatcherResponse(okBody, http.StatusOK, nil),
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
@@ -495,14 +497,21 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	service, err := newHostedService(azure, "service", "affinity-group", "location")
 	c.Check(err, IsNil)
 
-	c.Assert(*requests, HasLen, 3)
+	c.Assert(*requests, HasLen, 4)
 	// How many names have been attempted, and how often?
 	// There is a minute chance that this tries the same name twice, and
 	// then this test will fail.  If that happens, try seeding the
 	// randomizer with some fixed seed that doens't produce the problem.
 	attemptedNames := make(map[string]int)
 	for _, request := range *requests {
-		name := parseCreateServiceRequest(c, request).ServiceName
+		// Exit the loop if we hit the request to create the service, it comes
+		// after the check calls.
+		if request.Method == "POST" {
+			break
+		}
+		// Name is the last part of the URL from the GET requests that check
+		// availability.
+		_, name := path.Split(strings.TrimRight(request.URL, "/"))
 		attemptedNames[name] += 1
 	}
 	// The three attempts we just made all had different service names.
@@ -513,14 +522,14 @@ func (*EnvironSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 	c.Check(
 		service.ServiceName,
 		Equals,
-		parseCreateServiceRequest(c, (*requests)[2]).ServiceName)
+		parseCreateServiceRequest(c, (*requests)[3]).ServiceName)
 }
 
 func (*EnvironSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
-	errorBody := makeServiceNameAlreadyTakenError(c)
+	errorBody := makeNonAvailabilityResponse(c)
 	responses := []gwacl.DispatcherResponse{}
 	for counter := 0; counter < 100; counter++ {
-		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusConflict, nil))
+		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil))
 	}
 	gwacl.PatchManagementAPIResponses(responses)
 	azure, err := gwacl.NewManagementAPI("subscription", "")
@@ -773,11 +782,12 @@ func mapInputEndpointsByPort(c *C, endpoints []gwacl.InputEndpoint) map[int]gwac
 
 func (*EnvironSuite) TestNewRole(c *C) {
 	env := makeEnviron(c)
+	size := "Large"
 	vhd := env.newOSDisk("source-image-name")
 	userData := "example-user-data"
 	hostname := "hostname"
 
-	role := env.newRole(vhd, userData, hostname)
+	role := env.newRole(size, vhd, userData, hostname)
 
 	configs := role.ConfigurationSets
 	linuxConfig := configs[0]
@@ -787,6 +797,7 @@ func (*EnvironSuite) TestNewRole(c *C) {
 	c.Check(linuxConfig.Username, Not(Equals), "")
 	c.Check(linuxConfig.Password, Not(Equals), "")
 	c.Check(linuxConfig.DisableSSHPasswordAuthentication, Equals, "true")
+	c.Check(role.RoleSize, Equals, size)
 	c.Check(role.OSVirtualHardDisk[0], Equals, *vhd)
 
 	endpoints := mapInputEndpointsByPort(c, *networkConfig.InputEndpoints)
@@ -818,7 +829,7 @@ func (*EnvironSuite) TestNewDeployment(c *C) {
 	deploymentLabel := "deployment-label"
 	virtualNetworkName := "virtual-network-name"
 	vhd := env.newOSDisk("source-image-name")
-	role := env.newRole(vhd, "user-data", "hostname")
+	role := env.newRole("Small", vhd, "user-data", "hostname")
 
 	deployment := env.newDeployment(role, deploymentName, deploymentLabel, virtualNetworkName)
 
@@ -946,4 +957,54 @@ func (*EnvironSuite) TestGetAffinityGroupName(c *C) {
 func (*EnvironSuite) TestGetAffinityGroupNameIsConstant(c *C) {
 	env := makeEnviron(c)
 	c.Check(env.getAffinityGroupName(), Equals, env.getAffinityGroupName())
+}
+
+func (*EnvironSuite) TestGetImageBaseURLs(c *C) {
+	env := makeEnviron(c)
+	urls, err := env.getImageBaseURLs()
+	c.Assert(err, IsNil)
+	// At the moment this is not configurable.  It returns a fixed URL for
+	// the central simplestreams database.
+	c.Check(urls, DeepEquals, []string{imagemetadata.DefaultBaseURL})
+}
+
+func (*EnvironSuite) TestGetEndpointReturnsFixedEndpointForSupportedRegion(c *C) {
+	env := makeEnviron(c)
+	endpoint, err := env.getEndpoint("West US")
+	c.Assert(err, IsNil)
+	c.Check(endpoint, Equals, "https://management.core.windows.net/")
+}
+
+// TODO: Enable this test and satisfy it.
+/*
+func (*EnvironSuite) TestGetEndpointReturnsChineseEndpointForChina(c *C) {
+	env := makeEnviron(c)
+	endpoint, err := env.getEndpoint("China East")
+	c.Assert(err, IsNil)
+	c.Check(endpoint, Equals, "https://management.core.chinacloudapi.cn/")
+}
+*/
+
+// TODO: Enable this test and satisfy it.
+/*
+func (*EnvironSuite) TestGetEndpointRejectsUnknownRegion(c *C) {
+	region := "Central South San Marino Highlands"
+	env := makeEnviron(c)
+	_, err := env.getEndpoint(region)
+	c.Assert(err, NotNil)
+	c.Check(err, ErrorMatches, "unknown region: "+region)
+}
+*/
+
+func (*EnvironSuite) TestGetImageStreamDefaultsToBlank(c *C) {
+	env := makeEnviron(c)
+	// Hard-coded to default for now.
+	c.Check(env.getImageStream(), Equals, "")
+}
+
+func (*EnvironSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *C) {
+	env := makeEnviron(c)
+	// Hard-coded to true for now.  Once we support other base URLs, this
+	// may have to become configurable.
+	c.Check(env.getImageMetadataSigningRequired(), Equals, true)
 }

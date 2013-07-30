@@ -1,6 +1,8 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
+// The machiner package implements the API interface
+// used by the machiner worker.
 package machine
 
 import (
@@ -40,7 +42,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 // SetStatus sets the status of each given machine.
 func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Errors: make([]*params.Error, len(args.Machines)),
+		Results: make([]params.ErrorResult, len(args.Machines)),
 	}
 	if len(args.Machines) == 0 {
 		return result, nil
@@ -54,7 +56,7 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 				err = machine.SetStatus(arg.Status, arg.Info)
 			}
 		}
-		result.Errors[i] = common.ServerError(err)
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
@@ -94,7 +96,7 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 // it's Alive or Dying. It does nothing otherwise.
 func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
-		Errors: make([]*params.Error, len(args.Entities)),
+		Results: make([]params.ErrorResult, len(args.Entities)),
 	}
 	if len(args.Entities) == 0 {
 		return result, nil
@@ -108,7 +110,7 @@ func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, err
 				err = machine.EnsureDead()
 			}
 		}
-		result.Errors[i] = common.ServerError(err)
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }

@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
@@ -40,16 +41,6 @@ const boostrapInstanceId = "localhost"
 // don't really want to be installing and starting scripts as root for
 // testing.
 var upstartScriptLocation = "/etc/init"
-
-// A request may fail to due "eventual consistency" semantics, which
-// should resolve fairly quickly.  A request may also fail due to a slow
-// state transition (for instance an instance taking a while to release
-// a security group after termination).  The former failure mode is
-// dealt with by shortAttempt, the latter by longAttempt.
-var shortAttempt = utils.AttemptStrategy{
-	Total: 1 * time.Second,
-	Delay: 50 * time.Millisecond,
-}
 
 // localEnviron implements Environ.
 var _ environs.Environ = (*localEnviron)(nil)
@@ -114,11 +105,6 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 		return err
 	}
 	// TODO(thumper): check that the constraints don't include "container=lxc" for now.
-
-	var noRetry = utils.AttemptStrategy{}
-	if err := environs.VerifyBootstrapInit(env, noRetry); err != nil {
-		return err
-	}
 
 	cert, key, err := env.setupLocalMongoService()
 	if err != nil {
@@ -454,10 +440,10 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 		return fmt.Errorf("No bootstrap tools found")
 	}
 	// unpack the first tools into the agent dir.
-	tools := toolList[0]
-	logger.Debugf("tools: %#v", tools)
+	agentTools := toolList[0]
+	logger.Debugf("tools: %#v", agentTools)
 	// brutally abuse our knowledge of storage to directly open the file
-	toolsUrl, err := url.Parse(tools.URL)
+	toolsUrl, err := url.Parse(agentTools.URL)
 	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
 	logger.Infof("tools location: %v", toolsLocation)
 	toolsFile, err := os.Open(toolsLocation)
@@ -469,12 +455,12 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
-	tools.Binary.Series = version.CurrentSeries()
-	err = agent.UnpackTools(dataDir, tools, toolsFile)
+	agentTools.Version.Series = version.CurrentSeries()
+	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
 	tag := state.MachineTag(machineId)
-	toolsDir := agent.SharedToolsDir(dataDir, tools.Binary)
+	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	agent := upstart.MachineAgentUpstartService(

@@ -11,7 +11,6 @@ import (
 	"os"
 	"strings"
 
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
 
@@ -57,13 +56,13 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
-		var t state.Tools
+		var t Tools
 		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
-		if t.Binary, err = version.ParseBinary(vers); err != nil {
+		if t.Version, err = version.ParseBinary(vers); err != nil {
 			continue
 		}
 		foundAnyTools = true
-		if t.Major != majorVersion {
+		if t.Version.Major != majorVersion {
 			continue
 		}
 		logger.Debugf("found %s", vers)
@@ -82,7 +81,7 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 }
 
 // URLPutter exposes to Upload the relevant capabilities of an
-// environs.Storage; it exists to foil an import cycle.
+// environs.Storage; it exists to avoid a dependency on environs.
 type URLPutter interface {
 	URL(name string) (string, error)
 	Put(name string, r io.Reader, length int64) error
@@ -95,7 +94,7 @@ type URLPutter interface {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...string) (*state.Tools, error) {
+func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...string) (*Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -147,5 +146,5 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 	if err != nil {
 		return nil, err
 	}
-	return &state.Tools{toolsVersion, url}, nil
+	return &Tools{toolsVersion, url}, nil
 }

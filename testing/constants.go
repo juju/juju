@@ -4,8 +4,9 @@
 package testing
 
 import (
-	"launchpad.net/juju-core/utils"
 	"time"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // ShortWait is a reasonable amount of time to block waiting for something that

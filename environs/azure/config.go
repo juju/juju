@@ -17,17 +17,17 @@ var configFields = schema.Fields{
 	"management-certificate":        schema.String(),
 	"storage-account-name":          schema.String(),
 	"storage-account-key":           schema.String(),
-	"storage-container-name":        schema.String(),
 	"public-storage-account-name":   schema.String(),
 	"public-storage-container-name": schema.String(),
+	"force-image-name":              schema.String(),
 }
 var configDefaults = schema.Defaults{
 	"location":                      "",
 	"management-certificate":        "",
 	"management-certificate-path":   "",
-	"storage-container-name":        "",
 	"public-storage-account-name":   "",
 	"public-storage-container-name": "",
+	"force-image-name":              "",
 }
 
 type azureEnvironConfig struct {
@@ -55,16 +55,16 @@ func (cfg *azureEnvironConfig) StorageAccountKey() string {
 	return cfg.attrs["storage-account-key"].(string)
 }
 
-func (cfg *azureEnvironConfig) StorageContainerName() string {
-	return cfg.attrs["storage-container-name"].(string)
-}
-
 func (cfg *azureEnvironConfig) PublicStorageContainerName() string {
 	return cfg.attrs["public-storage-container-name"].(string)
 }
 
 func (cfg *azureEnvironConfig) PublicStorageAccountName() string {
 	return cfg.attrs["public-storage-account-name"].(string)
+}
+
+func (cfg *azureEnvironConfig) ForceImageName() string {
+	return cfg.attrs["force-image-name"].(string)
 }
 
 func (prov azureEnvironProvider) newConfig(cfg *config.Config) (*azureEnvironConfig, error) {
@@ -108,17 +108,8 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	if envCfg.Location() == "" {
 		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
 	}
-	if envCfg.StorageContainerName() == "" {
-		return nil, fmt.Errorf("environment has no storage-container-name; auto-creation of storage containers is not yet supported")
-	}
 	if (envCfg.PublicStorageAccountName() == "") != (envCfg.PublicStorageContainerName() == "") {
 		return nil, fmt.Errorf("public-storage-account-name and public-storage-container-name must be specified both or none of them")
-	}
-	if oldCfg != nil {
-		attrs := oldCfg.UnknownAttrs()
-		if storageContainerName, _ := attrs["storage-container-name"].(string); envCfg.StorageContainerName() != storageContainerName {
-			return nil, fmt.Errorf("cannot change storage-container-name from %q to %q", storageContainerName, envCfg.StorageContainerName())
-		}
 	}
 
 	return cfg.Apply(envCfg.attrs)
@@ -135,11 +126,13 @@ const boilerplateYAML = `azure:
   # Windows Azure Storage info.
   storage-account-name: ghedlkjhw54e
   storage-account-key: fdjh4sfkg
-  storage-container-name: sdg50984jmsdf
   # Public Storage info (account name and container name) denoting a public
   # container holding the juju tools.
   # public-storage-account-name: public-storage-account
   # public-storage-container-name: public-storage-container-name
+  # Override OS image selection with a fixed image for all deployments.
+  # Most useful for developers.
+  # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {

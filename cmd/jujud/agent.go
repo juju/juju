@@ -11,11 +11,14 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apiagent "launchpad.net/juju-core/state/api/agent"
+	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
@@ -78,7 +81,6 @@ func isUpgraded(err error) bool {
 
 type Agent interface {
 	Entity(st *state.State) (AgentState, error)
-	APIEntity(st *api.State) (AgentAPIState, error)
 	Tag() string
 }
 
@@ -86,15 +88,10 @@ type Agent interface {
 // that represent running agents.
 type AgentState interface {
 	// SetAgentTools sets the tools that the agent is currently running.
-	SetAgentTools(tools *state.Tools) error
+	SetAgentTools(tools *tools.Tools) error
 	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
-}
-
-type AgentAPIState interface {
-	Life() params.Life
-	SetPassword(password string) error
 }
 
 type fatalError struct {
@@ -143,7 +140,7 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 	return st, entity, nil
 }
 
-func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
+func openAPIState(c *agent.Conf, a Agent) (*api.State, *apiagent.Entity, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
@@ -153,7 +150,7 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	entity, err := a.APIEntity(st)
+	entity, err := st.Agent().Entity(a.Tag())
 	if params.ErrCode(err) == params.CodeNotFound || err == nil && entity.Life() == params.Dead {
 		err = worker.ErrTerminateAgent
 	}
@@ -232,11 +229,18 @@ func (c *closeWorker) Wait() error {
 // running the tests and (2) get access to the *State used internally, so that
 // tests can be run without waiting for the 5s watcher refresh time to which we would
 // otherwise be restricted.
-var newDeployContext = func(st *state.State, dataDir string) deployer.Context {
-	return deployer.NewSimpleContext(dataDir, st.CACert(), st)
+var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Context, error) {
+	caCert, err := st.CACert()
+	if err != nil {
+		return nil, err
+	}
+	return deployer.NewSimpleContext(dataDir, caCert, st), nil
 }
 
-func newDeployer(st *state.State, machineId string, dataDir string) *deployer.Deployer {
-	ctx := newDeployContext(st, dataDir)
-	return deployer.NewDeployer(st, ctx, machineId)
+func newDeployer(st *apideployer.State, machineTag string, dataDir string) (*deployer.Deployer, error) {
+	ctx, err := newDeployContext(st, dataDir)
+	if err != nil {
+		return nil, err
+	}
+	return deployer.NewDeployer(st, ctx, machineTag), nil
 }

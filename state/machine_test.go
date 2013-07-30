@@ -8,6 +8,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -424,9 +425,9 @@ func (s *MachineSuite) TestMachineRefresh(c *C) {
 	oldTools, _ := m0.AgentTools()
 	m1, err := s.State.Machine(m0.Id())
 	c.Assert(err, IsNil)
-	err = m0.SetAgentTools(&state.Tools{
-		URL:    "foo",
-		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	err = m0.SetAgentTools(&tools.Tools{
+		URL:     "foo",
+		Version: version.MustParseBinary("0.0.3-series-arch"),
 	})
 	c.Assert(err, IsNil)
 	newTools, _ := m0.AgentTools()
@@ -587,9 +588,9 @@ func (s *MachineSuite) TestWatchMachine(c *C) {
 	wc.AssertOneChange()
 
 	// Make two changes, check one event.
-	err = machine.SetAgentTools(&state.Tools{
-		URL:    "foo",
-		Binary: version.MustParseBinary("0.0.3-series-arch"),
+	err = machine.SetAgentTools(&tools.Tools{
+		URL:     "foo",
+		Version: version.MustParseBinary("0.0.3-series-arch"),
 	})
 	c.Assert(err, IsNil)
 	err = machine.Destroy()

@@ -12,6 +12,7 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
+	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -62,7 +63,7 @@ func (s *MachineSuite) TearDownTest(c *C) {
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
-func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *state.Tools) {
+func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *tools.Tools) {
 	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", instance.HardwareCharacteristics{}, jobs...)
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
@@ -146,6 +147,7 @@ func (s *MachineSuite) TestWithDeadMachine(c *C) {
 }
 
 func (s *MachineSuite) TestDyingMachine(c *C) {
+	c.Skip("Disabled as breaks test isolation somehow, see lp:1206195")
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	done := make(chan error)
@@ -173,7 +175,7 @@ func (s *MachineSuite) TestDyingMachine(c *C) {
 func (s *MachineSuite) TestHostUnits(c *C) {
 	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	ctx, reset := patchDeployContext(c, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, s.BackingState, conf.StateInfo, conf.DataDir)
 	defer reset()
 	go func() { c.Check(a.Run(nil), IsNil) }()
 	defer func() { c.Check(a.Stop(), IsNil) }()
