@@ -88,7 +88,7 @@ var machineOrNewContainerTests = []struct {
 }{
 	{pattern: "42", valid: true},
 	{pattern: "0", valid: true},
-	{pattern: "042", valid: true},
+	{pattern: "042", valid: false},
 	{pattern: ":42", valid: false},
 	{pattern: "lxc:42", valid: true},
 	{pattern: "lxc:042", valid: false},

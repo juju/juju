@@ -84,7 +84,7 @@ func (m *MachinerAPI) watchOneMachine(entity params.Entity) (string, error) {
 	if _, ok := <-watch.Changes(); ok {
 		return m.resources.Register(watch), nil
 	}
-	return nil, watcher.MustErr(watch)
+	return "", watcher.MustErr(watch)
 }
 
 // Watch starts an NotifyWatcher for each given machine.
