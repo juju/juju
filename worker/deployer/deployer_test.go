@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
@@ -182,7 +183,7 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	ctx := s.getContext(c)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, IsNil)
-	dep := deployer.NewDeployer(s.deployerState, ctx, state.MachineTag(machineId))
+	dep := deployer.NewDeployer(s.deployerState, ctx, names.MachineTag(machineId))
 	defer stop(c, dep)
 
 	// Add a subordinate, and wait for it to be deployed.
@@ -235,7 +236,7 @@ func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
 	ctx := s.getContext(c)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, IsNil)
-	dep := deployer.NewDeployer(s.deployerState, ctx, state.MachineTag(machineId))
+	dep := deployer.NewDeployer(s.deployerState, ctx, names.MachineTag(machineId))
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, sub0.Name()))
 	s.waitFor(c, isRemoved(s.State, sub1.Name()))

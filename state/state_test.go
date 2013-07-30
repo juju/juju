@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -1047,15 +1048,15 @@ func (*StateSuite) TestSortPorts(c *gc.C) {
 
 func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertService := func(s string, expect bool) {
-		c.Assert(state.IsServiceName(s), gc.Equals, expect)
+		c.Assert(names.IsService(s), gc.Equals, expect)
 		// Check that anything that is considered a valid service name
 		// is also (in)valid if a(n) (in)valid unit designator is added
 		// to it.
-		c.Assert(state.IsUnitName(s+"/0"), gc.Equals, expect)
-		c.Assert(state.IsUnitName(s+"/99"), gc.Equals, expect)
-		c.Assert(state.IsUnitName(s+"/-1"), gc.Equals, false)
-		c.Assert(state.IsUnitName(s+"/blah"), gc.Equals, false)
-		c.Assert(state.IsUnitName(s+"/"), gc.Equals, false)
+		c.Assert(names.IsUnit(s+"/0"), gc.Equals, expect)
+		c.Assert(names.IsUnit(s+"/99"), gc.Equals, expect)
+		c.Assert(names.IsUnit(s+"/-1"), gc.Equals, false)
+		c.Assert(names.IsUnit(s+"/blah"), gc.Equals, false)
+		c.Assert(names.IsUnit(s+"/"), gc.Equals, false)
 	}
 	// Service names must be non-empty...
 	assertService("", false)
@@ -1079,7 +1080,7 @@ func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertService("foo-2", false)
 
 	assertMachine := func(s string, expect bool) {
-		c.Assert(state.IsMachineId(s), gc.Equals, expect)
+		c.Assert(names.IsMachine(s), gc.Equals, expect)
 	}
 	assertMachine("0", true)
 	assertMachine("00", false)
@@ -1104,7 +1105,7 @@ func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertMachine("0/lxc/1/embedded/2", true)
 
 	assertMachineOrNewContainer := func(s string, expect bool) {
-		c.Assert(state.IsMachineOrNewContainer(s), gc.Equals, expect)
+		c.Assert(names.IsMachineOrNewContainer(s), gc.Equals, expect)
 	}
 	assertMachineOrNewContainer("0", true)
 	assertMachineOrNewContainer("00", false)
@@ -1467,7 +1468,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 }
 
 func (s *StateSuite) testEntity(c *gc.C, getEntity func(string) (state.Tagger, error)) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-bad", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
 	for _, name := range bad {
 		c.Logf(name)
 		e, err := getEntity(name)

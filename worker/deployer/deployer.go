@@ -10,6 +10,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -88,7 +89,7 @@ func isNotFoundOrUnauthorized(err error) bool {
 // changed ensures that the named unit is deployed, recalled, or removed, as
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
-	unitTag := apideployer.UnitTag(unitName)
+	unitTag := names.UnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life
