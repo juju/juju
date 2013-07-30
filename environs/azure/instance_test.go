@@ -78,21 +78,22 @@ func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
 	}
 }
 
+func serialize(c *C, object gwacl.AzureObject) []byte {
+	xml, err := object.Serialize()
+	c.Assert(err, IsNil)
+	return []byte(xml)
+}
+
 func (*StorageSuite) TestOpenPorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
 		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
 		makeDeployment("deployment-two", makeRole("role-three")),
 	}
-	serialize := func(object gwacl.AzureObject) []byte {
-		xml, err := object.Serialize()
-		c.Assert(err, IsNil)
-		return []byte(xml)
-	}
 	responses := []gwacl.DispatcherResponse{
 		// First, GetHostedServiceProperties
 		gwacl.NewDispatcherResponse(
-			serialize(&gwacl.HostedService{
+			serialize(c, &gwacl.HostedService{
 				Deployments:             deployments,
 				HostedServiceDescriptor: *service,
 				XMLNS: gwacl.XMLNS,
@@ -108,7 +109,7 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 				ConfigurationSets: role.ConfigurationSets,
 			}
 			responses = append(responses, gwacl.NewDispatcherResponse(
-				serialize(persistentRole), http.StatusOK, nil))
+				serialize(c, persistentRole), http.StatusOK, nil))
 			// UpdateRole expects a 200 response, that's all.
 			responses = append(responses,
 				gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))
@@ -178,15 +179,10 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 	deployments := []gwacl.Deployment{
 		makeDeployment("deployment-one", makeRole("role-one")),
 	}
-	serialize := func(object gwacl.AzureObject) []byte {
-		xml, err := object.Serialize()
-		c.Assert(err, IsNil)
-		return []byte(xml)
-	}
 	responses := []gwacl.DispatcherResponse{
 		// First, GetHostedServiceProperties
 		gwacl.NewDispatcherResponse(
-			serialize(&gwacl.HostedService{
+			serialize(c, &gwacl.HostedService{
 				Deployments:             deployments,
 				HostedServiceDescriptor: *service,
 				XMLNS: gwacl.XMLNS,
@@ -213,15 +209,10 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 	deployments := []gwacl.Deployment{
 		makeDeployment("deployment-one", makeRole("role-one")),
 	}
-	serialize := func(object gwacl.AzureObject) []byte {
-		xml, err := object.Serialize()
-		c.Assert(err, IsNil)
-		return []byte(xml)
-	}
 	responses := []gwacl.DispatcherResponse{
 		// First, GetHostedServiceProperties
 		gwacl.NewDispatcherResponse(
-			serialize(&gwacl.HostedService{
+			serialize(c, &gwacl.HostedService{
 				Deployments:             deployments,
 				HostedServiceDescriptor: *service,
 				XMLNS: gwacl.XMLNS,
@@ -229,7 +220,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 			http.StatusOK, nil),
 		// Seconds, GetRole
 		gwacl.NewDispatcherResponse(
-			serialize(&gwacl.PersistentVMRole{
+			serialize(c, &gwacl.PersistentVMRole{
 				XMLNS:    gwacl.XMLNS,
 				RoleName: "role-one",
 			}),
