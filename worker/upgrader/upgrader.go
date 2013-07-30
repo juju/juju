@@ -45,7 +45,7 @@ func (e *UpgradeReadyError) ChangeAgentTools() error {
 	if err != nil {
 		return err
 	}
-	logger.Infof("upgrader upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
+	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
 	return nil
 }
 
