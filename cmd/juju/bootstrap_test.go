@@ -62,15 +62,9 @@ func (*BootstrapSuite) TestMissingEnvironment(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
-	storage, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	origLocation := sync.DefaultToolsLocation
-	sync.DefaultToolsLocation = storage.Location()
 	uploadTools = mockUploadTools
-	defer func() {
-		sync.DefaultToolsLocation = origLocation
-		uploadTools = tools.Upload
-	}()
+	defer func() { uploadTools = tools.Upload }()
+
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		test.run(c)
@@ -81,6 +75,7 @@ type bootstrapTest struct {
 	info string
 	// binary version string used to set version.Current
 	version string
+	sync    bool
 	args    []string
 	err     string
 	// binary version strings for expected tools; if set, no default tools
@@ -90,6 +85,10 @@ type bootstrapTest struct {
 }
 
 func (test bootstrapTest) run(c *gc.C) {
+	// Prepare a mock storage for testing.
+	restore := createToolsStore(c)
+	defer restore()
+
 	// Create home with dummy provider and remove all
 	// of its tools.
 	env, fake := makeEmptyFakeHome(c)
@@ -100,6 +99,7 @@ func (test bootstrapTest) run(c *gc.C) {
 		version.Current = version.MustParseBinary(test.version)
 		defer func() { version.Current = origVersion }()
 	}
+
 	uploadCount := len(test.uploads)
 	if uploadCount == 0 {
 		usefulVersion := version.Current
@@ -203,7 +203,7 @@ var bootstrapTests = []bootstrapTest{{
 		"1.2.3.1-ping-hostarch",
 		"1.2.3.1-pong-hostarch",
 	},
-	err: "no tools available",
+	err: "no matching tools available",
 }, {
 	info:    "--upload-tools always bumps build number",
 	version: "1.2.3.4-defaultseries-hostarch",
@@ -217,22 +217,14 @@ var bootstrapTests = []bootstrapTest{{
 func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	// Prepare a mock storage for testing and store the
 	// dummy tools in there.
-	storage, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
-	c.Assert(err, gc.IsNil)
-	for _, vers := range vAll {
-		storage.PutBinary(vers)
-	}
+	restore := createToolsStore(c)
+	defer restore()
 
 	// Change the tools location to be the test location and also
 	// the version and ensure their later restoring.
-	origLocation := sync.DefaultToolsLocation
-	sync.DefaultToolsLocation = storage.Location()
 	origVersion := version.Current
 	version.Current.Number = version.MustParse("1.2.3")
-	defer func() {
-		sync.DefaultToolsLocation = origLocation
-		version.Current = origVersion
-	}()
+	defer func() { version.Current = origVersion }()
 
 	// Create home with dummy provider and remove all
 	// of its tools.
@@ -288,6 +280,21 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	checkTools(c, env, v100All)
 }
 
+// createToolsStore creates the fake tools store.
+func createToolsStore(c *gc.C) func() {
+	storage, err := envtesting.NewEC2HTTPTestStorage("127.0.0.1")
+	c.Assert(err, gc.IsNil)
+	origLocation := sync.DefaultToolsLocation
+	sync.DefaultToolsLocation = storage.Location()
+	for _, vers := range vAll {
+		storage.PutBinary(vers)
+	}
+	restore := func() {
+		sync.DefaultToolsLocation = origLocation
+	}
+	return restore
+}
+
 // createToolsSource writes the mock tools into a temporary
 // derectory and returns it.
 func createToolsSource(c *gc.C) string {
@@ -327,17 +334,17 @@ func checkTools(c *gc.C, env environs.Environ, tools []version.Binary) {
 var (
 	v100d64 = version.MustParseBinary("1.0.0-defaultseries-amd64")
 	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
 	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
-	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
+	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
 	v190p32 = version.MustParseBinary("1.9.0-precise-i386")
+	v190q64 = version.MustParseBinary("1.9.0-quantal-amd64")
 	v200p64 = version.MustParseBinary("2.0.0-precise-amd64")
 	v100All = []version.Binary{
 		v100d64, v100p64, v100q64, v100q32,
 	}
 	vAll = []version.Binary{
-		v100d64, v100p64, v100q64, v100q32,
-		v190q64, v190p32,
+		v100d64, v100p64, v100q32, v100q64,
+		v190p32, v190q64,
 		v200p64,
 	}
 )
