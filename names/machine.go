@@ -9,7 +9,7 @@ import (
 const (
 	ContainerSnippet     = "(/[a-z]+/" + NumberSnippet + ")"
 	MachineSnippet       = NumberSnippet + ContainerSnippet + "*"
-	ContainerSpecSnippet = "(([a-z])+:)?"
+	ContainerSpecSnippet = "([a-z]+:)?"
 )
 
 var (
