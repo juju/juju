@@ -478,15 +478,18 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
+	machineEnvironment := map[string]string{
+		"USER":                     env.config.user,
+		"HOME":                     os.Getenv("HOME"),
+		"JUJU_PROVIDER_TYPE":       env.config.Type(),
+		"JUJU_STORAGE_DIR":         env.config.storageDir(),
+		"JUJU_STORAGE_ADDR":        env.config.storageAddr(),
+		"JUJU_SHARED_STORAGE_DIR":  env.config.sharedStorageDir(),
+		"JUJU_SHARED_STORAGE_ADDR": env.config.sharedStorageAddr(),
+	}
 	agent := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, logConfig, env.config.Type())
-	agent.Env["USER"] = env.config.user
-	agent.Env["HOME"] = os.Getenv("HOME")
-	agent.Env["JUJU_STORAGE_DIR"] = env.config.storageDir()
-	agent.Env["JUJU_STORAGE_ADDR"] = env.config.storageAddr()
-	agent.Env["JUJU_SHARED_STORAGE_DIR"] = env.config.sharedStorageDir()
-	agent.Env["JUJU_SHARED_STORAGE_ADDR"] = env.config.sharedStorageAddr()
+		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
 
 	agent.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
