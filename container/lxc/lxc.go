@@ -340,6 +340,9 @@ func cloudInitUserData(
 	if err != nil {
 		return nil, err
 	}
+	// Run ifconfig to get the addresses of the internal container at least
+	// logged in the host.
+	cloudConfig.AddRunCmd("ifconfig")
 	data, err := cloudConfig.Render()
 	if err != nil {
 		return nil, err
