@@ -22,6 +22,23 @@ type statusDoc struct {
 	StatusInfo string
 }
 
+// validateSet returns an error if the statusDoc does not represent a sane
+// SetStatus operation.
+func (doc statusDoc) validateSet() error {
+	if !doc.Status.Valid() {
+		return fmt.Errorf("cannot set invalid status %q", doc.Status)
+	}
+	switch doc.Status {
+	case params.StatusPending, params.StatusDown:
+		return fmt.Errorf("cannot set status %q", doc.Status)
+	case params.StatusError:
+		if doc.StatusInfo == "" {
+			return fmt.Errorf("cannot set status %q without info", doc.Status)
+		}
+	}
+	return nil
+}
+
 // getStatus retrieves the status document associated with the given
 // globalKey and copies it to outStatusDoc, which needs to be created
 // by the caller before.
