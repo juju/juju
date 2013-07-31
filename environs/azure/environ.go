@@ -365,7 +365,7 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 }
 
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
-// the Os image name for launching a virtual machine with the given parameters.
+// the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
 	sourceImageName := env.getSnapshot().ecfg.ForceImageName()
 	if sourceImageName != "" {
