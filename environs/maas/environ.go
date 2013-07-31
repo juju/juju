@@ -102,11 +102,6 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
-
-	if err := environs.VerifyBootstrapInit(env, shortAttempt); err != nil {
-		return err
-	}
-
 	inst, err := env.startBootstrapNode(cons)
 	if err != nil {
 		return err

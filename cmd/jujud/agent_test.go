@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api/machineagent"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
@@ -204,7 +203,7 @@ func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
 		c.Assert(err, IsNil)
 		c.Assert(st, NotNil)
 		st.Close()
-		c.Assert(gotEnt.(*machineagent.Machine).Tag(), Equals, ent.Tag())
+		c.Assert(gotEnt.Tag(), Equals, ent.Tag())
 	}
 	assertOpen(conf)
 

@@ -6,11 +6,14 @@ package openstack
 import (
 	"fmt"
 	"io"
-	gooseerrors "launchpad.net/goose/errors"
-	"launchpad.net/goose/swift"
-	coreerrors "launchpad.net/juju-core/errors"
 	"sync"
 	"time"
+
+	gooseerrors "launchpad.net/goose/errors"
+	"launchpad.net/goose/swift"
+
+	coreerrors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/utils"
 )
 
 // storage implements environs.Storage on an OpenStack container.
@@ -52,7 +55,7 @@ func (s *storage) Put(file string, r io.Reader, length int64) error {
 }
 
 func (s *storage) Get(file string) (r io.ReadCloser, err error) {
-	for a := shortAttempt.Start(); a.Next(); {
+	for a := s.ConsistencyStrategy().Start(); a.Next(); {
 		r, err = s.swift.GetReader(s.containerName, file)
 		if !gooseerrors.IsNotFound(err) {
 			break
@@ -69,6 +72,17 @@ func (s *storage) URL(name string) (string, error) {
 	// 10 years should be good enough.
 	expires := time.Now().AddDate(10, 0, 0)
 	return s.swift.SignedURL(s.containerName, name, expires)
+}
+
+var storageAttempt = utils.AttemptStrategy{
+	// It seems Nova needs more time than EC2.
+	Total: 10 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
+// ConsistencyStrategy is specified in the StorageReader interface.
+func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+	return storageAttempt
 }
 
 func (s *storage) Remove(file string) error {

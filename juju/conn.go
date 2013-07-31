@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 )
@@ -338,7 +339,7 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 					mid = machineIdSpec
 				}
 			}
-			if !state.IsMachineId(mid) {
+			if !names.IsMachine(mid) {
 				return nil, fmt.Errorf("invalid force machine id %q", mid)
 			}
 

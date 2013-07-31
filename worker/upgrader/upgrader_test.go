@@ -206,3 +206,21 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 		c.Fatalf("upgrader did not quit after upgrading")
 	}
 }
+
+func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
+	oldTools := &tools.Tools{
+		Version: version.MustParseBinary("1.2.3-arble-bletch"),
+	}
+	newTools := s.primeTools(c, version.MustParseBinary("5.4.3-foo-bar"))
+	ugErr := &upgrader.UpgradeReadyError{
+		AgentName: "anAgent",
+		OldTools:  oldTools,
+		NewTools:  newTools,
+		DataDir:   s.DataDir(),
+	}
+	err := ugErr.ChangeAgentTools()
+	c.Assert(err, gc.IsNil)
+	link, err := os.Readlink(tools.ToolsDir(s.DataDir(), "anAgent"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(link, gc.Equals, newTools.Version.String())
+}
