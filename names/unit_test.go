@@ -4,6 +4,8 @@
 package names_test
 
 import (
+	"fmt"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/names"
@@ -18,6 +20,10 @@ func (s *unitSuite) TestUnitFromTag(c *gc.C) {
 	tag, err := names.UnitFromTag("unit-wordpress-0")
 	c.Assert(err, gc.IsNil)
 	c.Assert(tag, gc.Equals, "wordpress/0")
+
+	tag, err = names.UnitFromTag("unit-rabbitmq-server-0")
+	c.Assert(err, gc.IsNil)
+	c.Assert(tag, gc.Equals, "rabbitmq-server/0")
 
 	tag, err = names.UnitFromTag("foo")
 	c.Assert(err, gc.ErrorMatches, `"foo" is not a valid unit tag`)
@@ -37,6 +43,7 @@ var unitNameTests = []struct {
 	valid   bool
 }{
 	{pattern: "wordpress/42", valid: true},
+	{pattern: "rabbitmq-server/123", valid: true},
 	{pattern: "foo", valid: false},
 	{pattern: "foo/", valid: false},
 	{pattern: "bar/foo", valid: false},
@@ -49,7 +56,18 @@ var unitNameTests = []struct {
 
 func (s *unitSuite) TestUnitNameFormats(c *gc.C) {
 	for i, test := range unitNameTests {
-		c.Logf("%d. %q", i, test.pattern)
+		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsUnit(test.pattern), gc.Equals, test.valid)
+	}
+}
+
+func (s *unitSuite) TestInvalidUnitTagFormats(c *gc.C) {
+	for i, test := range unitNameTests {
+		if !test.valid {
+			c.Logf("test %d: %q", i, test.pattern)
+			expect := fmt.Sprintf("%q is not a valid unit name", test.pattern)
+			testUnitTag := func() { names.UnitTag(test.pattern) }
+			c.Assert(testUnitTag, gc.PanicMatches, expect)
+		}
 	}
 }

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -66,7 +67,7 @@ func EnsureWeHaveLXC(dataDir, machineTag string) error {
 		return err
 	}
 	containerType := state.ContainerTypeFromId(id)
-	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	providerType := os.Getenv(osenv.JujuProviderType)
 	if providerType == provider.Local || containerType == instance.LXC {
 		return nil
 	}

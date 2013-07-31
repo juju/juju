@@ -4,10 +4,13 @@
 package azure
 
 import (
+	"fmt"
+
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/jujutest"
 )
 
 type InstanceTypeSuite struct{}
@@ -206,4 +209,134 @@ func (*InstanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	// the cheapest; not the biggest; not the last; but the cheapest type
 	// of machine that meets requirements.
 	c.Check(choice.Name, gc.Equals, "Lambo")
+}
+
+// fakeSimpleStreamsScheme is a fake protocol which tests can use for their
+// simplestreams base URLs.
+const fakeSimpleStreamsScheme = "azure-simplestreams-test"
+
+// testRoundTripper is a fake http-like transport for injecting fake
+// simplestream responses into these tests.
+var testRoundTripper = jujutest.ProxyRoundTripper{}
+
+func init() {
+	// Route any request for a URL on the fakeSimpleStreamsScheme protocol
+	// to testRoundTripper.
+	testRoundTripper.RegisterForScheme(fakeSimpleStreamsScheme)
+}
+
+// prepareSimpleStreamsResponse sets up a fake response for our query to
+// SimpleStreams.
+//
+// It returns a cleanup function, which you must call to reset things when
+// done.
+func prepareSimpleStreamsResponse(location, series, release, arch, json string) func() {
+	fakeURL := fakeSimpleStreamsScheme + "://"
+	originalURLs := baseURLs
+	baseURLs = []string{fakeURL}
+
+	originalSignedOnly := signedImageDataOnly
+	signedImageDataOnly = false
+
+	// Generate an index.  It will point to an Azure index with the
+	// caller's json.
+	index := fmt.Sprintf(`
+		{
+		 "index": {
+		  "com.ubuntu.cloud:released:%s": {
+		   "updated": "Tue, 30 Jul 2013 10:24:31 +0000",
+		   "clouds": [
+			{
+			 "region": %q,
+			 "endpoint": "https://management.core.windows.net/"
+			}
+		   ],
+		   "cloudname": "azure",
+		   "datatype": "image-ids",
+		   "format": "products:1.0",
+		   "products": [
+			"com.ubuntu.cloud:server:%s:%s"
+		   ],
+		   "path": "/v1/azure.json"
+		  }
+		 },
+		 "updated": "Tue, 30 Jul 2013 10:24:31 +0000",
+		 "format": "index:1.0"
+		}
+		`, series, location, release, arch)
+	files := map[string]string{
+		"/v1/index.json": index,
+		"/v1/azure.json": json,
+	}
+	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
+	return func() {
+		baseURLs = originalURLs
+		signedImageDataOnly = originalSignedOnly
+		testRoundTripper.Sub = nil
+	}
+}
+
+func (*InstanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
+	emptyResponse := `
+		{
+		 "format": "products:1.0"
+		}
+		`
+	cleanup := prepareSimpleStreamsResponse("West US", "precise", "12.04", "amd64", emptyResponse)
+	defer cleanup()
+
+	_, err := findMatchingImages("West US", "precise", []string{"amd64"})
+	c.Assert(err, gc.NotNil)
+
+	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
+}
+
+func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
+	// Real-world simplestreams index, pared down to a minimum:
+	response := `
+	{
+	 "updated": "Tue, 09 Jul 2013 22:35:10 +0000",
+	 "datatype": "image-ids",
+	 "content_id": "com.ubuntu.cloud:released:azure",
+	 "products": {
+	  "com.ubuntu.cloud:server:12.04:amd64": {
+	   "release": "precise",
+	   "version": "12.04",
+	   "arch": "amd64",
+	   "versions": {
+	    "20130603": {
+	     "items": {
+	      "euww1i3": {
+	       "virt": "Hyper-V",
+	       "crsn": "West Europe",
+	       "root_size": "30GB",
+	       "id": "MATCHING-IMAGE"
+	      }
+	     },
+	     "pub_name": "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130603-en-us-30GB",
+	     "pub_label": "Ubuntu Server 12.04.2 LTS",
+	     "label": "release"
+	    }
+	   }
+	  }
+	 },
+	 "format": "products:1.0",
+	 "_aliases": {
+	  "crsn": {
+	   "West Europe": {
+	    "region": "West Europe",
+	    "endpoint": "https://management.core.windows.net/"
+	   }
+	  }
+	 }
+	}
+	`
+	cleanup := prepareSimpleStreamsResponse("West Europe", "precise", "12.04", "amd64", response)
+	defer cleanup()
+
+	images, err := findMatchingImages("West Europe", "precise", []string{"amd64"})
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(images, gc.HasLen, 1)
+	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
 }

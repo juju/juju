@@ -8,7 +8,9 @@ import (
 	"os"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -51,13 +53,13 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *C) {
-	os.Setenv("JUJU_ENV", "magic")
+	os.Setenv(osenv.JujuEnv, "magic")
 	env := cmd.GetDefaultEnvironment()
 	c.Assert(env, Equals, "magic")
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *C) {
-	os.Setenv("JUJU_ENV", "magic")
+	os.Setenv(osenv.JujuEnv, "magic")
 	err := cmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, IsNil)
 	env := cmd.GetDefaultEnvironment()

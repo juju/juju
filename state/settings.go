@@ -6,11 +6,24 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
+)
+
+// See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
+// for why we're using those replacements.
+const (
+	fullWidthDot    = "\uff0e"
+	fullWidthDollar = "\uff04"
+)
+
+var (
+	escapeReplacer   = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
+	unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
 )
 
 const (
@@ -85,7 +98,7 @@ func (c *Settings) Get(key string) (value interface{}, found bool) {
 
 // Map returns all keys and values of the node.
 func (c *Settings) Map() map[string]interface{} {
-	return copyMap(c.core)
+	return copyMap(c.core, nil)
 }
 
 // Set sets key to value
@@ -103,15 +116,6 @@ func (c *Settings) Update(kv map[string]interface{}) {
 // Delete removes key.
 func (c *Settings) Delete(key string) {
 	delete(c.core, key)
-}
-
-// copyMap copies the keys and values of one map into a new one.
-func copyMap(in map[string]interface{}) (out map[string]interface{}) {
-	out = make(map[string]interface{})
-	for key, value := range in {
-		out[key] = value
-	}
-	return
 }
 
 // cacheKeys returns the keys of all caches as a key=>true map.
@@ -139,16 +143,17 @@ func (c *Settings) Write() ([]ItemChange, error) {
 			continue
 		}
 		var change ItemChange
+		escapedKey := escapeReplacer.Replace(key)
 		switch {
 		case incore && ondisk:
 			change = ItemChange{ItemModified, key, old, new}
-			updates[key] = new
+			updates[escapedKey] = new
 		case incore && !ondisk:
 			change = ItemChange{ItemAdded, key, nil, new}
-			updates[key] = new
+			updates[escapedKey] = new
 		case ondisk && !incore:
 			change = ItemChange{ItemDeleted, key, old, nil}
-			deletions[key] = 1
+			deletions[escapedKey] = 1
 		default:
 			panic("unreachable")
 		}
@@ -174,7 +179,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot write settings: %v", err)
 	}
-	c.disk = copyMap(c.core)
+	c.disk = copyMap(c.core, nil)
 	return changes, nil
 }
 
@@ -186,11 +191,38 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanSettingsMap cleans the map of version and _id fields.
+// cleanSettingsMap cleans the map of version and _id fields and also unescapes
+// keys coming out of MongoDB.
 func cleanSettingsMap(in map[string]interface{}) {
 	delete(in, "_id")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
+	replaceKeys(in, unescapeReplacer.Replace)
+}
+
+// replaceKeys will modify the provided map in place by replacing keys with
+// their replacement if they have been modified.
+func replaceKeys(m map[string]interface{}, replace func(string) string) {
+	for key, value := range m {
+		if newKey := replace(key); newKey != key {
+			delete(m, key)
+			m[newKey] = value
+		}
+	}
+	return
+}
+
+// copyMap copies the keys and values of one map into a new one.  If replace
+// is non-nil, for each old key k, the new key will be replace(k).
+func copyMap(in map[string]interface{}, replace func(string) string) (out map[string]interface{}) {
+	out = make(map[string]interface{})
+	for key, value := range in {
+		if replace != nil {
+			key = replace(key)
+		}
+		out[key] = value
+	}
+	return
 }
 
 // Read (re)reads the node data into c.
@@ -206,7 +238,7 @@ func (c *Settings) Read() error {
 	}
 	c.txnRevno = txnRevno
 	c.disk = config
-	c.core = copyMap(config)
+	c.core = copyMap(config, nil)
 	return nil
 }
 
@@ -235,18 +267,19 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
+	newValues := copyMap(values, escapeReplacer.Replace)
 	return txn.Op{
 		C:      st.settings.Name,
 		Id:     key,
 		Assert: txn.DocMissing,
-		Insert: values,
+		Insert: newValues,
 	}
 }
 
 // createSettings writes an initial config node.
 func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
 	s := newSettings(st, key)
-	s.core = copyMap(values)
+	s.core = copyMap(values, nil)
 	ops := []txn.Op{createSettingsOp(st, key, values)}
 	err := s.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -279,12 +312,13 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	deletes := map[string]int{}
 	for k := range s.disk {
 		if _, found := values[k]; !found {
-			deletes[k] = 1
+			deletes[escapeReplacer.Replace(k)] = 1
 		}
 	}
+	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
 	op.Update = D{
-		{"$set", values},
+		{"$set", newValues},
 		{"$unset", deletes},
 	}
 	assertFailed := func() (bool, error) {
