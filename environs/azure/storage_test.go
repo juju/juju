@@ -85,7 +85,7 @@ func makeFakeStorage(container, account string) (azureStorage, *MockingTransport
 	transport := &MockingTransport{}
 	client := &http.Client{Transport: transport}
 	storageContext := gwacl.NewTestStorageContext(client)
-	storageContext.Account = "account"
+	storageContext.Account = account
 	context := &testStorageContext{container: container, storageContext: storageContext}
 	azStorage := azureStorage{context}
 	return azStorage, transport
