@@ -208,7 +208,7 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 // getContainerName returns the name of the private storage account container
 // that this environment is using.
 func (env *azureEnviron) getContainerName() string {
-	return env.getEnvPrefix() + "-private"
+	return env.getEnvPrefix() + "private"
 }
 
 func (env *azureEnviron) createStorageContainer() error {
