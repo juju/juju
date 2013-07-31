@@ -15,7 +15,7 @@ import (
 )
 
 type azureStorage struct {
-	sync.Mutex
+	mutex            sync.Mutex
 	createdContainer bool
 	storageContext
 }
@@ -132,8 +132,8 @@ func (storage *azureStorage) RemoveAll() error {
 // if it does.  To avoid unnecessary HTTP requests, we do this only once for
 // every PUT operation by using a mutex lock and boolean flag.
 func (storage *azureStorage) createContainer(name string) error {
-	storage.Lock()
-	defer storage.Unlock()
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
 	if storage.createdContainer {
 		return nil
 	}
