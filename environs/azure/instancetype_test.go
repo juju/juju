@@ -345,24 +345,24 @@ func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 
 func (*InstanceTypeSuite) TestnewInstanceTypeConvertsRoleSize(c *gc.C) {
 	roleSize := gwacl.RoleSize{
-			Name: "Outrageous",
-			CpuCores: 128,
-			Mem: 4 * gwacl.TB,
-			OSDiskSpaceCloud: 48*gwacl.TB,
-			OSDiskSpaceVirt: 50 *gwacl.TB,
-			MaxDataDisks: 20,
-			Cost: 999999500,
+		Name:             "Outrageous",
+		CpuCores:         128,
+		Mem:              4 * gwacl.TB,
+		OSDiskSpaceCloud: 48 * gwacl.TB,
+		OSDiskSpaceVirt:  50 * gwacl.TB,
+		MaxDataDisks:     20,
+		Cost:             999999500,
 	}
 	vtype := "Hyper-V"
 	var cpupower uint64 = 100
 	expectation := instances.InstanceType{
-		Id: roleSize.Name,
-		Name: roleSize.Name,
-		Arches: []string{"amd64", "i386"},
+		Id:       roleSize.Name,
+		Name:     roleSize.Name,
+		Arches:   []string{"amd64", "i386"},
 		CpuCores: roleSize.CpuCores,
-		Mem: roleSize.Mem,
-		Cost: roleSize.Cost,
-		VType: &vtype,
+		Mem:      roleSize.Mem,
+		Cost:     roleSize.Cost,
+		VType:    &vtype,
 		CpuPower: &cpupower,
 	}
 	c.Check(newInstanceType(roleSize), gc.DeepEquals, expectation)
@@ -414,12 +414,12 @@ func (*InstanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 	// We have one OS image.
 	images := []*imagemetadata.ImageMetadata{
 		{
-			Id: "image-id",
-			VType: "Hyper-V",
-			Arch: "amd64",
+			Id:          "image-id",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
 			RegionAlias: "West US",
-			RegionName: "West US",
-			Endpoint: "http://localhost/",
+			RegionName:  "West US",
+			Endpoint:    "http://localhost/",
 		},
 	}
 	cleanup := patchFetchImageMetadata(images, nil)
@@ -434,7 +434,7 @@ func (*InstanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 		Arches: []string{"amd64"},
 		Constraints: constraints.Value{
 			CpuCores: &aim.CpuCores,
-			Mem: &aim.Mem,
+			Mem:      &aim.Mem,
 		},
 	}
 
@@ -451,12 +451,12 @@ func (*InstanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 func (*InstanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
 	images := []*imagemetadata.ImageMetadata{
 		{
-			Id: "image-id",
-			VType: "Hyper-V",
-			Arch: "amd64",
+			Id:          "image-id",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
 			RegionAlias: "West US",
-			RegionName: "West US",
-			Endpoint: "http://localhost/",
+			RegionName:  "West US",
+			Endpoint:    "http://localhost/",
 		},
 	}
 	cleanup := patchFetchImageMetadata(images, nil)

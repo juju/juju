@@ -93,7 +93,7 @@ func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
 }
 
 // selectMachineType returns the Azure machine type that best matches the
-// supplied instanceContraint.
+// supplied instanceConstraint.
 func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.Value) (*gwacl.RoleSize, error) {
 	types := newPreferredTypes(availableTypes)
 	for _, machineType := range types {
@@ -157,7 +157,6 @@ func findMatchingImages(location, series string, arches []string) ([]*imagemetad
 // newInstanceType creates an InstanceType based on a gwacl.RoleSize.
 func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 	vtype := "Hyper-V"
-	architectures := []string{"amd64", "i386"}
 	// Actually Azure has shared and dedicated CPUs, but gwacl doesn't
 	// model that distinction yet.
 	var cpuPower uint64 = 100
