@@ -4,7 +4,6 @@
 package openstack
 
 import (
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 )
@@ -45,7 +44,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	if err != nil {
 		return nil, err
 	}
-	images := environs.ImageMetadataToImages(matchingImages)
+	images := instances.ImageMetadataToImages(matchingImages)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err

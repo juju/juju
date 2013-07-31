@@ -6,7 +6,6 @@ package ec2
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/loggo"
@@ -57,7 +56,7 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
 	suitableImages := filterImages(matchingImages)
-	images := environs.ImageMetadataToImages(suitableImages)
+	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
 	regionCosts := allRegionCosts[ic.Region]
