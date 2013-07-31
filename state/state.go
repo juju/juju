@@ -552,7 +552,7 @@ func (st *State) AgentEntity(tag string) (AgentEntity, error) {
 	if e, ok := e.(AgentEntity); ok {
 		return e, nil
 	}
-	return nil, fmt.Errorf("entity %q is not an entity with an agent", tag)
+	return nil, fmt.Errorf("%q cannot have an agent", tag)
 }
 
 // Annotator attempts to return aa TaggedAnnotator with the given tag.
