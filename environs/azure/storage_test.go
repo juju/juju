@@ -283,3 +283,25 @@ func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
     c.Check(transport.Exchanges[1].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
     c.Check(transport.Exchanges[1].Request.Method, Equals, "PUT")
 }
+
+func (*StorageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
+    azStorage, transport := makeFakeStorage("", "account")
+    header := make(http.Header)
+    header.Add("Last-Modified", "last-modified")
+    header.Add("ETag", "etag")
+    header.Add("X-Ms-Lease-Status", "status")
+    header.Add("X-Ms-Lease-State", "state")
+    header.Add("X-Ms-Lease-Duration", "duration")
+    response := makeResponse("", http.StatusOK)
+    response.Header = header
+    transport.AddExchange(response, nil)
+
+    err := azStorage.CreateContainer("cntnr")
+
+    c.Assert(err, IsNil)
+    c.Assert(transport.ExchangeCount, Equals, 1)
+    // Without going too far into gwacl's innards, this is roughly what
+    // it needs to do in order to call GetContainerProperties.
+    c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+    c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
+}
