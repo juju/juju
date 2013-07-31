@@ -56,7 +56,7 @@ var unitNameTests = []struct {
 
 func (s *unitSuite) TestUnitNameFormats(c *gc.C) {
 	for i, test := range unitNameTests {
-		c.Logf("%d. %q", i, test.pattern)
+		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsUnit(test.pattern), gc.Equals, test.valid)
 	}
 }
@@ -64,11 +64,9 @@ func (s *unitSuite) TestUnitNameFormats(c *gc.C) {
 func (s *unitSuite) TestInvalidUnitTagFormats(c *gc.C) {
 	for i, test := range unitNameTests {
 		if !test.valid {
-			c.Logf("%d. %q", i, test.pattern)
+			c.Logf("test %d: %q", i, test.pattern)
 			expect := fmt.Sprintf("%q is not a valid unit name", test.pattern)
-			testUnitTag := func() string {
-				return names.UnitTag(test.pattern)
-			}
+			testUnitTag := func() { names.UnitTag(test.pattern) }
 			c.Assert(testUnitTag, gc.PanicMatches, expect)
 		}
 	}
