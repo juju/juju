@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -43,7 +44,7 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(mcfg, DeepEquals, &cloudinit.MachineConfig{
 		AuthorizedKeys:     "we-are-the-keys",
-		MachineEnvironment: map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 		StateInfo:          &state.Info{Tag: "not touched"},
 		APIInfo:            &api.Info{Tag: "not touched"},
 	})
@@ -133,7 +134,7 @@ func (*CloudInitSuite) TestUserData(c *C) {
 		StatePort:          envConfig.StatePort(),
 		APIPort:            envConfig.APIPort(),
 		StateServer:        true,
-		MachineEnvironment: map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 	}
 	script1 := "script1"
 	script2 := "script2"

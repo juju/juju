@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -72,7 +73,7 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 	if mcfg.MachineEnvironment == nil {
 		mcfg.MachineEnvironment = make(map[string]string)
 	}
-	mcfg.MachineEnvironment["JUJU_PROVIDER_TYPE"] = cfg.Type()
+	mcfg.MachineEnvironment[osenv.JujuProviderType] = cfg.Type()
 	if !mcfg.StateServer {
 		return nil
 	}

@@ -17,6 +17,7 @@ import (
 	localstorage "launchpad.net/juju-core/environs/local/storage"
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -224,7 +225,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	providerType := os.Getenv(osenv.JujuProviderType)
 	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
