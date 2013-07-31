@@ -17,12 +17,12 @@ import (
 // See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
 // for why we're using those replacements.
 const (
-	fullWidthDot = "\uff0e"
+	fullWidthDot    = "\uff0e"
 	fullWidthDollar = "\uff04"
 )
 
 var (
-	escapeReplacer = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
+	escapeReplacer   = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
 	unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
 )
 
@@ -202,7 +202,7 @@ func cleanSettingsMap(in map[string]interface{}) {
 
 // replaceKeys will modify the provided map in place by replacing keys with
 // their replacement if they have been modified.
-func replaceKeys(m map[string]interface{}, replace func(string)string) {
+func replaceKeys(m map[string]interface{}, replace func(string) string) {
 	for key, value := range m {
 		if newKey := replace(key); newKey != key {
 			delete(m, key)
