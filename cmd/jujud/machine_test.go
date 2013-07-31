@@ -430,8 +430,8 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *C) {
 		w := service.Watch()
 		defer w.Stop()
 
-		// Trigger a sync on the state used by the agent, and wait
-		// for the unit to be created.
+		// Trigger a sync on the state used by the agent, and wait for the unit
+		// to be created.
 		agentState.Sync()
 		timeout := time.After(testing.LongWait)
 		for {
