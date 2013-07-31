@@ -1551,22 +1551,22 @@ var (
 )
 
 func (s *StateSuite) TestAgentEntity(c *gc.C) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
 
-	e, err := s.State.AgentEntity(m.Tag())
+	entity, err := s.State.AgentEntity(machine.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(e.Tag(), gc.Equals, m.Tag())
+	c.Assert(entity.Tag(), gc.Equals, machine.Tag())
 
-	e, err = s.State.AgentEntity(user.Tag())
-	c.Assert(err, gc.ErrorMatches, `entity "user-arble" is not an entity with an agent`)
-	c.Assert(e, gc.IsNil)
+	entity, err = s.State.AgentEntity(user.Tag())
+	c.Assert(err, gc.ErrorMatches, `"user-arble" cannot have an agent`)
+	c.Assert(entity, gc.IsNil)
 
-	e, err = s.State.AgentEntity("machine-99")
+	entity, err = s.State.AgentEntity("machine-99")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-	c.Assert(e, gc.IsNil)
+	c.Assert(entity, gc.IsNil)
 }
 
 func (s *StateSuite) TestAnnotator(c *gc.C) {
