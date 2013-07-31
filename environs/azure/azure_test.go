@@ -18,7 +18,6 @@ func TestAzureProvider(t *stdtesting.T) {
 
 type ProviderSuite struct {
 	testing.LoggingSuite
-	environ         *azureEnviron
 	restoreTimeouts func()
 }
 
@@ -26,7 +25,6 @@ var _ = Suite(&ProviderSuite{})
 
 func (s *ProviderSuite) SetUpSuite(c *C) {
 	s.LoggingSuite.SetUpSuite(c)
-	s.environ = &azureEnviron{}
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 }
 

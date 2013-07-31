@@ -53,13 +53,22 @@ func (s *agentSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) TestAgentFailsWithClientUser(c *gc.C) {
+func (s *agentSuite) TestAgentFailsWithNonAgent(c *gc.C) {
 	auth := s.authorizer
-	auth.Client = true
+	auth.MachineAgent = false
+	auth.UnitAgent = false
 	api, err := agent.NewAPI(s.State, auth)
 	c.Assert(err, gc.NotNil)
 	c.Assert(api, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "permission denied")
+}
+
+func (s *agentSuite) TestAgentSucceedsWithUnitAgent(c *gc.C) {
+	auth := s.authorizer
+	auth.MachineAgent = false
+	auth.UnitAgent = true
+	_, err := agent.NewAPI(s.State, auth)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *agentSuite) TestGetEntities(c *gc.C) {

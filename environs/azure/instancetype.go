@@ -10,6 +10,8 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that
@@ -99,4 +101,61 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 		}
 	}
 	return nil, fmt.Errorf("no machine type matches constraints %v", constraint)
+}
+
+// baseURLs specifies where we look for simplestreams information.  It's just
+// the central database, but this may become more configurable.  This variable
+// is here as a placeholder, but also as an injection point for tests.
+var baseURLs = []string{imagemetadata.DefaultBaseURL}
+
+// getEndpoint returns the endpoint to use for the given Azure location
+// (e.g. West Europe or China North).
+func getEndpoint(location string) (string, error) {
+	// TODO: Get actual proper endpoint information from Simplestreams, or
+	// at the very least, support the separate endpoint for China.
+	return "https://management.core.windows.net/", nil
+}
+
+// As long as this code only supports the default simplestreams
+// database, which is always signed, there is no point in accepting
+// unsigned metadata.
+//
+// For tests, however, unsigned data is more convenient.  They can override
+// this setting.
+var signedImageDataOnly = true
+
+// findMatchingImages queries simplestreams for OS images that match the given
+// requirements.
+//
+// If it finds no matching images, that's an error.
+func findMatchingImages(location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
+	endpoint, err := getEndpoint(location)
+	if err != nil {
+		return nil, err
+	}
+	constraint := imagemetadata.ImageConstraint{
+		CloudSpec: imagemetadata.CloudSpec{location, endpoint},
+		Series:    series,
+		Arches:    arches,
+	}
+	indexPath := imagemetadata.DefaultIndexPath
+	images, err := imagemetadata.Fetch(baseURLs, indexPath, &constraint, signedImageDataOnly)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
+	}
+	return images, nil
+}
+
+// findInstanceSpec returns the InstanceSpec that best satisfies the supplied
+// InstanceConstraint.
+// TODO: Move the InstanceConstraint into the function, if that's easier.
+func findInstanceSpec(baseURLs []string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	// TODO: defaultToBaselineSpec()
+	// TODO: Get matching images.
+	// TODO: Define instances.InstanceConstraint.
+	// TODO: return instances.FindInstanceSpec(images, instanceConstraint, instanceTypes)
+	return nil, nil
 }

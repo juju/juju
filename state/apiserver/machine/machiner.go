@@ -6,6 +6,7 @@
 package machine
 
 import (
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -51,14 +52,41 @@ func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResu
 		err := common.ErrPerm
 		if m.auth.AuthOwner(arg.Tag) {
 			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(arg.Tag))
+			var id string
+			id, err = names.MachineFromTag(arg.Tag)
 			if err == nil {
-				err = machine.SetStatus(arg.Status, arg.Info)
+				machine, err = m.st.Machine(id)
+				if err == nil {
+					err = machine.SetStatus(arg.Status, arg.Info)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
+}
+
+func (m *MachinerAPI) watchOneMachine(entity params.Entity) (string, error) {
+	if !m.auth.AuthOwner(entity.Tag) {
+		return "", common.ErrPerm
+	}
+	id, err := names.MachineFromTag(entity.Tag)
+	if err != nil {
+		return "", err
+	}
+	machine, err := m.st.Machine(id)
+	if err != nil {
+		return "", err
+	}
+	watch := machine.Watch()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		return m.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
 }
 
 // Watch starts an NotifyWatcher for each given machine.
@@ -70,23 +98,8 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 		return result, nil
 	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if m.auth.AuthOwner(entity.Tag) {
-			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
-			if err == nil {
-				watch := machine.Watch()
-				// Consume the initial event. Technically, API
-				// calls to Watch 'transmit' the initial event
-				// in the Watch response. But NotifyWatchers
-				// have no state to transmit.
-				if _, ok := <-watch.Changes(); ok {
-					result.Results[i].NotifyWatcherId = m.resources.Register(watch)
-				} else {
-					err = watcher.MustErr(watch)
-				}
-			}
-		}
+		watcherId, err := m.watchOneMachine(entity)
+		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -105,9 +118,13 @@ func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, err
 		err := common.ErrPerm
 		if m.auth.AuthOwner(entity.Tag) {
 			var machine *state.Machine
-			machine, err = m.st.Machine(state.MachineIdFromTag(entity.Tag))
+			var id string
+			id, err = names.MachineFromTag(entity.Tag)
 			if err == nil {
-				err = machine.EnsureDead()
+				machine, err = m.st.Machine(id)
+				if err == nil {
+					err = machine.EnsureDead()
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

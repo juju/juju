@@ -11,6 +11,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
@@ -46,7 +47,7 @@ func (a *UnitAgent) Init(args []string) error {
 	if a.UnitName == "" {
 		return requiredError("unit-name")
 	}
-	if !state.IsUnitName(a.UnitName) {
+	if !names.IsUnit(a.UnitName) {
 		return fmt.Errorf(`--unit-name option expects "<service>/<n>" argument`)
 	}
 	if err := a.Conf.checkArgs(args); err != nil {
@@ -115,5 +116,5 @@ func (a *UnitAgent) Entity(st *state.State) (AgentState, error) {
 }
 
 func (a *UnitAgent) Tag() string {
-	return state.UnitTag(a.UnitName)
+	return names.UnitTag(a.UnitName)
 }

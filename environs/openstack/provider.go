@@ -9,11 +9,17 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
 	"launchpad.net/goose/client"
 	gooseerrors "launchpad.net/goose/errors"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -23,13 +29,10 @@ import (
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 )
 
 type environProvider struct{}
@@ -870,7 +873,7 @@ func (e *environ) jujuGroupName() string {
 }
 
 func (e *environ) machineFullName(machineId string) string {
-	return fmt.Sprintf("juju-%s-%s", e.Name(), state.MachineTag(machineId))
+	return fmt.Sprintf("juju-%s-%s", e.Name(), names.MachineTag(machineId))
 }
 
 // machinesFilter returns a nova.Filter matching all machines in the environment.

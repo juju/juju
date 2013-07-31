@@ -256,9 +256,9 @@ type syncLogWriter struct {
 func (s *syncLogWriter) Write(level loggo.Level, name, filename string, line int, timestamp time.Time, message string) {
 	if name == "juju.environs.sync" {
 		if level <= loggo.INFO {
-			fmt.Fprintf(s.out, message)
+			fmt.Fprintf(s.out, "%s\n", message)
 		} else {
-			fmt.Fprintf(s.err, message)
+			fmt.Fprintf(s.err, "%s\n", message)
 		}
 	}
 }

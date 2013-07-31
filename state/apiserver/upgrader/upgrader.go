@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -29,7 +28,7 @@ func NewUpgraderAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UpgraderAPI, error) {
-	if authorizer.AuthClient() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
@@ -65,15 +64,13 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	if !u.authorizer.AuthOwner(entity.Tag) {
 		return nil, common.ErrPerm
 	}
-	entity, err := u.st.Lifer(entity.Tag)
+	agentEntity, err := u.st.AgentEntity(entity.Tag)
 	if err != nil {
 		return nil, err
 	}
-	cast to agent entity
-	or something like that
 
 	// TODO: Support Unit as well as Machine
-	existingTools, err := machine.AgentTools()
+	existingTools, err := agentEntity.AgentTools()
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +87,6 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 
 // Tools finds the Tools necessary for the given agents.
 func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, error) {
-	log.Infof("in UpgraderAPI.Tools")
 	results := make([]params.AgentToolsResult, len(args.Entities))
 	if len(args.Entities) == 0 {
 		return params.AgentToolsResults{}, nil
@@ -120,7 +116,6 @@ func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, err
 
 // SetTools updates the recorded tools version for the agents.
 func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults, error) {
-	log.Infof("in UpgraderAPI.SetTools")
 	results := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.AgentTools)),
 	}
@@ -133,16 +128,14 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults,
 
 func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
 	if !u.authorizer.AuthOwner(tag) {
-		log.Infof("not authorized as owner of %q", tag)
 		return common.ErrPerm
 	}
 	// We assume that any entity that we can upgrade will
 	// have a Life, which is certainly true now, but is
 	// an assumption that may need revisiting at some point.
-	entity0, err := u.st.Lifer(tag)
+	entity, err := u.st.AgentEntity(tag)
 	if err != nil {
 		return err
 	}
-	entity := entity0.(state.SetAgentTooler)
 	return entity.SetAgentTools(tools)
 }

@@ -9,7 +9,6 @@ package state
 import (
 	"fmt"
 	"net/url"
-	"regexp"
 	"sort"
 	"strconv"
 	"strings"
@@ -26,6 +25,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
 	"launchpad.net/juju-core/state/presence"
@@ -36,41 +36,8 @@ import (
 // TODO(niemeyer): This must not be exported.
 type D []bson.DocElem
 
-const serviceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
-const numberSnippet = "(0|[1-9][0-9]*)"
-const containerSnippet = "(/[a-z]+/" + numberSnippet + ")"
-const machineSnippet = numberSnippet + containerSnippet + "*"
-const containerSpecSnippet = "(([a-z])*:)?"
-
-var (
-	validService               = regexp.MustCompile("^" + serviceSnippet + "$")
-	validUnit                  = regexp.MustCompile("^" + serviceSnippet + "/" + numberSnippet + "$")
-	validMachine               = regexp.MustCompile("^" + machineSnippet + "$")
-	validMachineOrNewContainer = regexp.MustCompile("^" + containerSpecSnippet + machineSnippet + "$")
-)
-
 // BootstrapNonce is used as a nonce for the state server machine.
 const BootstrapNonce = "user-admin:bootstrap"
-
-// IsServiceName returns whether name is a valid service name.
-func IsServiceName(name string) bool {
-	return validService.MatchString(name)
-}
-
-// IsUnitName returns whether name is a valid unit name.
-func IsUnitName(name string) bool {
-	return validUnit.MatchString(name)
-}
-
-// IsMachineId returns whether id is a valid machine id.
-func IsMachineId(id string) bool {
-	return validMachine.MatchString(id)
-}
-
-// IsMachineOrNewContainer returns whether spec is a valid machine id or new container definition.
-func IsMachineOrNewContainer(spec string) bool {
-	return validMachineOrNewContainer.MatchString(spec)
-}
 
 // State represents the state of an environment
 // managed by juju.
@@ -497,20 +464,31 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Tagger represents entities with a tag.
+// Tagger represents an entity with a tag.
 type Tagger interface {
 	Tag() string
 }
 
-// Lifer represents entities with a life.
+// AgentEntity represents an entity that can
+// have an agent responsible for it.
+type AgentEntity interface {
+	Lifer
+	Authenticator
+	MongoPassworder
+	AgentTooler
+	Annotator
+}
+
+// Lifer represents an entity with a life.
 type Lifer interface {
 	Tagger
 	Life() Life
 }
 
-// SetAgentTooler is implemented by entities
-// that have a SetAgentTools method.
-type SetAgentTooler interface {
+// AgentTooler is implemented by entities
+// that have associated agent tools.
+type AgentTooler interface {
+	AgentTools() (*tools.Tools, error)
 	SetAgentTools(*tools.Tools) error
 }
 
@@ -527,6 +505,12 @@ type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
+}
+
+// MongoPassworder represents an entity that can
+// have a mongo password set for it.
+type MongoPassworder interface {
+	SetMongoPassword(password string) error
 }
 
 // TaggedAuthenticator represents tagged entities capable of authentication.
@@ -558,6 +542,17 @@ func (st *State) Authenticator(tag string) (TaggedAuthenticator, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support authentication", tag)
+}
+
+func (st *State) AgentEntity(tag string) (AgentEntity, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(AgentEntity); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q is not an entity with an agent", tag)
 }
 
 // Annotator attempts to return aa TaggedAnnotator with the given tag.
@@ -602,32 +597,39 @@ func (st *State) entity(tag string) (interface{}, error) {
 	if i <= 0 || i >= len(tag)-1 {
 		return nil, fmt.Errorf("invalid entity tag %q", tag)
 	}
-	prefix, id := tag[0:i], tag[i+1:]
-	switch prefix {
-	case "machine":
-		id = MachineIdFromTag(tag)
-		if !IsMachineId(id) {
+	id := tag[i+1:]
+	tagKind, err := names.TagKind(tag)
+	if err != nil {
+		return nil, fmt.Errorf("invalid entity tag %q", tag)
+	}
+	switch tagKind {
+	case names.MachineTagKind:
+		id, err := names.MachineFromTag(tag)
+		if err != nil {
+			return nil, fmt.Errorf("invalid entity tag %q", tag)
+		}
+		if !names.IsMachine(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Machine(id)
-	case "unit":
+	case names.UnitTagKind:
 		i := strings.LastIndex(id, "-")
 		if i == -1 {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		name := id[:i] + "/" + id[i+1:]
-		if !IsUnitName(name) {
+		if !names.IsUnit(name) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Unit(name)
-	case "user":
+	case names.UserTagKind:
 		return st.User(id)
-	case "service":
-		if !IsServiceName(id) {
+	case names.ServiceTagKind:
+		if !names.IsService(id) {
 			return nil, fmt.Errorf("invalid entity tag %q", tag)
 		}
 		return st.Service(id)
-	case "environment":
+	case names.EnvironTagKind:
 		conf, err := st.EnvironConfig()
 		if err != nil {
 			return nil, err
@@ -642,21 +644,25 @@ func (st *State) entity(tag string) (interface{}, error) {
 	return nil, fmt.Errorf("invalid entity tag %q", tag)
 }
 
-// ParseTag, given an entity tag, returns the collection name and id
+// parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) ParseTag(tag string) (string, string, error) {
+func (st *State) parseTag(tag string) (string, string, error) {
 	parts := strings.SplitN(tag, "-", 2)
 	if len(parts) != 2 {
 		return "", "", fmt.Errorf("invalid entity name %q", tag)
 	}
 	id := parts[1]
 	var coll string
-	switch parts[0] {
-	case "machine":
+	tagKind, err := names.TagKind(tag)
+	if err != nil {
+		return "", "", fmt.Errorf("invalid entity name %q", tag)
+	}
+	switch tagKind {
+	case names.MachineTagKind:
 		coll = st.machines.Name
-	case "service":
+	case names.ServiceTagKind:
 		coll = st.services.Name
-	case "unit":
+	case names.UnitTagKind:
 		coll = st.units.Name
 		// Handle replacements occurring when an entity name is created
 		// for a unit.
@@ -665,7 +671,7 @@ func (st *State) ParseTag(tag string) (string, string, error) {
 			return "", "", fmt.Errorf("invalid entity name %q", tag)
 		}
 		id = id[:idx] + "/" + id[idx+1:]
-	case "user":
+	case names.UserTagKind:
 		coll = st.users.Name
 	default:
 		return "", "", fmt.Errorf("invalid entity name %q", tag)
@@ -743,7 +749,7 @@ func (st *State) addPeerRelationsOps(serviceName string, peers map[string]charm.
 func (st *State) AddService(name string, ch *Charm) (service *Service, err error) {
 	defer utils.ErrorContextf(&err, "cannot add service %q", name)
 	// Sanity checks.
-	if !IsServiceName(name) {
+	if !names.IsService(name) {
 		return nil, fmt.Errorf("invalid name")
 	}
 	if ch == nil {
@@ -803,7 +809,7 @@ func (st *State) AddService(name string, ch *Charm) (service *Service, err error
 
 // Service returns a service state by name.
 func (st *State) Service(name string) (service *Service, err error) {
-	if !IsServiceName(name) {
+	if !names.IsService(name) {
 		return nil, fmt.Errorf("%q is not a valid service name", name)
 	}
 	sdoc := &serviceDoc{}
@@ -1075,7 +1081,7 @@ func (st *State) Relation(id int) (*Relation, error) {
 
 // Unit returns a unit by name.
 func (st *State) Unit(name string) (*Unit, error) {
-	if !IsUnitName(name) {
+	if !names.IsUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	doc := unitDoc{}
@@ -1332,10 +1338,10 @@ func (st *State) ResumeTransactions() error {
 }
 
 var tagPrefix = map[byte]string{
-	'm': machineTagPrefix,
-	's': "service-",
-	'u': unitTagPrefix,
-	'e': "environment-",
+	'm': names.MachineTagKind + "-",
+	's': names.ServiceTagKind + "-",
+	'u': names.UnitTagKind + "-",
+	'e': names.EnvironTagKind + "-",
 }
 
 func tagForGlobalKey(key string) (string, bool) {

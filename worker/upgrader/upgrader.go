@@ -19,7 +19,6 @@ import (
 
 // retryAfter returns a channel that receives a value
 // when a failed download should be retried.
-// It is a function
 var retryAfter = func() <-chan time.Time {
 	return time.After(5 * time.Second)
 }

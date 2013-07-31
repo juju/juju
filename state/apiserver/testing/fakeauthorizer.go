@@ -9,6 +9,7 @@ type FakeAuthorizer struct {
 	LoggedIn     bool
 	Manager      bool
 	MachineAgent bool
+	UnitAgent bool
 	Client       bool
 }
 
@@ -22,6 +23,10 @@ func (fa FakeAuthorizer) AuthEnvironManager() bool {
 
 func (fa FakeAuthorizer) AuthMachineAgent() bool {
 	return fa.MachineAgent
+}
+
+func (fa FakeAuthorizer) AuthUnitAgent() bool {
+	return fa.UnitAgent
 }
 
 func (fa FakeAuthorizer) AuthClient() bool {
