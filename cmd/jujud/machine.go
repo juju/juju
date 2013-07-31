@@ -248,9 +248,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
 			})
-			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
-				return minunitsworker.NewMinUnitsWorker(st), nil
-			})
 		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {
 				// If the configuration does not have the required information,
@@ -272,6 +269,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		default:
 			log.Warningf("ignoring unknown job %q", job)
