@@ -69,7 +69,6 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 		return nil, err
 	}
 
-	// TODO: Support Unit as well as Machine
 	existingTools, err := agentEntity.AgentTools()
 	if err != nil {
 		return nil, err
