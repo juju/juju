@@ -452,35 +452,6 @@ var allWatcherChangedTests = []struct {
 			},
 		},
 	}, {
-		about: "settings are unescaped when updated from backing store in multiwatcher.Store",
-		add: []params.EntityInfo{&params.ServiceInfo{
-			Name:        "wordpress",
-			Exposed:     true,
-			CharmURL:    "local:series/series-wordpress-1",
-			Constraints: constraints.MustParse("mem=99M"),
-			Config:      charm.Settings{"key.dotted": "boring"},
-		}},
-		setUp: func(c *C, st *State) {
-			svc, err := st.AddService("wordpress",
-				AddCustomCharm(c, st, "wordpress", "config.yaml",
-					dottedConfig, "series", 1))
-			c.Assert(err, IsNil)
-			setServiceConfigAttr(c, svc, "key.dotted", "boring")
-		},
-		change: watcher.Change{
-			C:  "services",
-			Id: "wordpress",
-		},
-		expectContents: []params.EntityInfo{
-			&params.ServiceInfo{
-				Name:        "wordpress",
-				CharmURL:    "local:series/series-wordpress-1",
-				Life:        params.Life(Alive.String()),
-				Constraints: constraints.MustParse("mem=99M"),
-				Config:      charm.Settings{"key.dotted": "boring"},
-			},
-		},
-	}, {
 		about: "service re-reads config when charm URL changes",
 		add: []params.EntityInfo{&params.ServiceInfo{
 			Name: "wordpress",
@@ -809,6 +780,31 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
 				Config:   charm.Settings{"blog-title": "foo"},
+			},
+		},
+	}, {
+		about: "service config is unescaped when reading from the backing store",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:series/series-wordpress-3",
+			Config:   charm.Settings{"key.dotted": "bar"},
+		}},
+		setUp: func(c *C, st *State) {
+			svc, err := st.AddService("wordpress",
+				AddCustomCharm(c, st, "wordpress", "config.yaml",
+					dottedConfig, "series", 3))
+			c.Assert(err, IsNil)
+			setServiceConfigAttr(c, svc, "key.dotted", "foo")
+		},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#wordpress#local:series/series-wordpress-3",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				CharmURL: "local:series/series-wordpress-3",
+				Config:   charm.Settings{"key.dotted": "foo"},
 			},
 		},
 	}, {
