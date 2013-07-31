@@ -256,6 +256,8 @@ func (c *SuperCommand) Run(ctx *Context) error {
 	if c.showDescription {
 		if c.Purpose != "" {
 			fmt.Fprintf(ctx.Stdout, "%s\n", c.Purpose)
+		} else {
+			fmt.Fprintf(ctx.Stdout, "%s: no description available\n", c.Info().Name)
 		}
 		return nil
 	}
