@@ -97,7 +97,7 @@ func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
 
 // Put is specified in the StorageWriter interface.
 func (storage *azureStorage) Put(name string, r io.Reader, length int64) error {
-    err := storage.CreateContainer(storage.getContainer())
+    err := storage.createContainer(storage.getContainer())
     if err != nil {
         return err
     }
@@ -127,11 +127,11 @@ func (storage *azureStorage) RemoveAll() error {
 	return context.DeleteContainer(storage.getContainer())
 }
 
-// CreateContainer makes a private container in the storage account.
+// createContainer makes a private container in the storage account.
 // It can be called when the container already exists and returns with no error
 // if it does.  To avoid unnecessary HTTP requests, we do this only once for
 // every PUT operation by using a mutex lock and boolean flag.
-func (storage *azureStorage) CreateContainer(name string) error {
+func (storage *azureStorage) createContainer(name string) error {
     storage.Lock()
     defer storage.Unlock()
     if storage.createdContainer {
@@ -154,8 +154,8 @@ func (storage *azureStorage) CreateContainer(name string) error {
     return nil
 }
 
-// DeleteContainer deletes the named comtainer from the storage account.
-func (storage *azureStorage) DeleteContainer(name string) error {
+// deleteContainer deletes the named comtainer from the storage account.
+func (storage *azureStorage) deleteContainer(name string) error {
 	context, err := storage.getStorageContext()
 	if err != nil {
 		return err

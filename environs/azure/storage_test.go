@@ -261,7 +261,7 @@ func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
 	transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
 	transport.AddExchange(makeResponse("", http.StatusCreated), nil)
 
-	err := azStorage.CreateContainer("cntnr")
+	err := azStorage.createContainer("cntnr")
 
 	c.Assert(err, IsNil)
 	c.Assert(transport.ExchangeCount, Equals, 2)
@@ -288,7 +288,7 @@ func (*StorageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
 	response.Header = header
 	transport.AddExchange(response, nil)
 
-	err := azStorage.CreateContainer("cntnr")
+	err := azStorage.createContainer("cntnr")
 
 	c.Assert(err, IsNil)
 	c.Assert(transport.ExchangeCount, Equals, 1)
@@ -302,7 +302,7 @@ func (*StorageSuite) TestDeleteContainer(c *C) {
 	azStorage, transport := makeFakeStorage("", "account")
 	transport.AddExchange(makeResponse("", http.StatusAccepted), nil)
 
-	err := azStorage.DeleteContainer("cntnr")
+	err := azStorage.deleteContainer("cntnr")
 
 	c.Assert(err, IsNil)
 	c.Assert(transport.ExchangeCount, Equals, 1)
