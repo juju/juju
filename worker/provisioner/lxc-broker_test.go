@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/container/lxc/mock"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
@@ -94,6 +95,25 @@ func (s *lxcBrokerSuite) TestStartInstance(c *C) {
 	c.Assert(lxc.Id(), Equals, instance.Id("juju-machine-1-lxc-0"))
 	c.Assert(s.lxcContainerDir(lxc), IsDirectory)
 	s.assertInstances(c, lxc)
+	// Uses default network config
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	c.Assert(err, IsNil)
+	c.Assert(string(lxcConfContents), Contains, "lxc.network.type = veth")
+	c.Assert(string(lxcConfContents), Contains, "lxc.network.link = lxcbr0")
+}
+
+func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *C) {
+	defer coretesting.PatchEnvironment(osenv.JujuLxcBridge, "br0")()
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId)
+	c.Assert(lxc.Id(), Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), IsDirectory)
+	s.assertInstances(c, lxc)
+	// Uses default network config
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	c.Assert(err, IsNil)
+	c.Assert(string(lxcConfContents), Contains, "lxc.network.type = veth")
+	c.Assert(string(lxcConfContents), Contains, "lxc.network.link = br0")
 }
 
 func (s *lxcBrokerSuite) TestStopInstance(c *C) {
