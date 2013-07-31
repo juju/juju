@@ -176,8 +176,42 @@ type NetworkSuite struct {
 
 var _ = gc.Suite(&NetworkSuite{})
 
-func (*NetworkSuite) TestNilConfigUsesDefault(c *gc.C) {
-	config := lxc.GenerateNetworkConfig(nil)
-	c.Assert(config, gc.Matches, `(\n|.)*lxc.network.type = veth\n(\n|.)*`)
-	c.Assert(config, gc.Matches, `(\n|.)*lxc.network.link = lxcbr0\n(\n|.)*`)
+func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
+	for _, test := range []struct {
+		config *lxc.NetworkConfig
+		net    string
+		link   string
+	}{{
+		config: nil,
+		net:    "veth",
+		link:   "lxcbr0",
+	}, {
+		config: lxc.DefaultNetworkConfig(),
+		net:    "veth",
+		link:   "lxcbr0",
+	}, {
+		config: lxc.BridgeNetworkConfig("foo"),
+		net:    "veth",
+		link:   "foo",
+	}, {
+		config: lxc.PhysicalNetworkConfig("foo"),
+		net:    "phys",
+		link:   "foo",
+	}} {
+		config := lxc.GenerateNetworkConfig(test.config)
+		netRegex := fmt.Sprintf(`(\n|.)*lxc.network.type = %s\n(\n|.)*`, test.net)
+		c.Assert(config, gc.Matches, netRegex)
+		linkRegex := fmt.Sprintf(`(\n|.)*lxc.network.link = %s\n(\n|.)*`, test.link)
+		c.Assert(config, gc.Matches, linkRegex)
+	}
+}
+
+func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
+	config := lxc.NetworkConfigTemplate("foo", "bar")
+	expected := `
+lxc.network.type = foo
+lxc.network.link = bar
+lxc.network.flags = up
+`
+	c.Assert(config, gc.Equals, expected)
 }
