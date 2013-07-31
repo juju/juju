@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -283,6 +284,11 @@ func cloudInitUserData(
 	if err != nil {
 		return nil, err
 	}
+	mirror, err := lxcMirror()
+	if err != nil {
+		return nil, err
+	}
+	cloudConfig.SetAptMirror(mirror)
 	data, err := cloudConfig.Render()
 	if err != nil {
 		return nil, err
@@ -308,4 +314,41 @@ func uniqueDirectory(path, name string) (string, error) {
 		}
 	}
 	panic("unreachable")
+}
+
+// lxcMirror will source /etc/default/lxc to find out if a MIRROR variable is
+// set, for backwards compatibility with the default lxc templates, since we're
+// providing a custom userdata and that bypasses the ubuntu-cloud template
+// detection of the MIRROR variable.
+func lxcMirror() (string, error) {
+	var f *os.File
+	var err error
+	if f, err = ioutil.TempFile("", "lxc-mirror"); err != nil {
+		return "", err
+	}
+	f.Write([]byte(`#!/bin/bash
+set -e
+
+if [ -r /etc/default/lxc ]; then
+    . /etc/default/lxc
+fi
+
+if [ -z "$MIRROR" ]; then
+    MIRROR="http://archive.ubuntu.com/ubuntu"
+fi
+
+echo -n $MIRROR`))
+	defer os.Remove(f.Name())
+	defer f.Close()
+	err = f.Chmod(0700)
+	if err != nil {
+		return "", err
+	}
+	f.Close()
+	cmd := exec.Command(f.Name())
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	return string(out), nil
 }
