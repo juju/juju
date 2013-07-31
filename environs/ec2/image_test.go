@@ -5,7 +5,9 @@ package ec2
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/testing"
 )
@@ -170,4 +172,35 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 		})
 		c.Check(err, ErrorMatches, t.err)
 	}
+}
+
+func (*specSuite) TestFilterImagesAcceptsNil(c *C) {
+	c.Check(filterImages(nil), HasLen, 0)
+}
+
+func (*specSuite) TestFilterImagesAcceptsImageWithEBSStorage(c *C) {
+	input := []*imagemetadata.ImageMetadata{{Id: "yay", Storage: "ebs"}}
+	c.Check(filterImages(input), DeepEquals, input)
+}
+
+func (*specSuite) TestFilterImagesRejectsImageWithoutEBSStorage(c *C) {
+	input := []*imagemetadata.ImageMetadata{{Id: "boo", Storage: "ftp"}}
+	c.Check(filterImages(input), HasLen, 0)
+}
+
+func (*specSuite) TestFilterImagesReturnsSelectively(c *C) {
+	good := imagemetadata.ImageMetadata{Id: "good", Storage: "ebs"}
+	bad := imagemetadata.ImageMetadata{Id: "bad", Storage: "ftp"}
+	input := []*imagemetadata.ImageMetadata{&good, &bad}
+	expectation := []*imagemetadata.ImageMetadata{&good}
+	c.Check(filterImages(input), DeepEquals, expectation)
+}
+
+func (*specSuite) TestFilterImagesMaintainsOrdering(c *C) {
+	input := []*imagemetadata.ImageMetadata{
+		{Id: "one", Storage: "ebs"},
+		{Id: "two", Storage: "ebs"},
+		{Id: "three", Storage: "ebs"},
+	}
+	c.Check(filterImages(input), DeepEquals, input)
 }
