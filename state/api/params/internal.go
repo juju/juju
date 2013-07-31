@@ -3,6 +3,10 @@
 
 package params
 
+import (
+	"launchpad.net/juju-core/agent/tools"
+)
+
 // Entity identifies a single entity.
 type Entity struct {
 	Tag string
@@ -11,18 +15,6 @@ type Entity struct {
 // Entities identifies multiple entities.
 type Entities struct {
 	Entities []Entity
-}
-
-// BoolResult holds the result of a single operation returning a
-// boolean value or an error.
-type BoolResult struct {
-	Result bool
-	Error  *Error
-}
-
-// BoolResults holds the boolean or error results of multiple entities.
-type BoolResults struct {
-	Results []BoolResult
 }
 
 // StringsResult holds the result of an API call that returns a slice
@@ -63,56 +55,56 @@ type MachinesSetStatus struct {
 
 // MachineAgentGetMachinesResults holds the results of a
 // machineagent.API.GetMachines call.
+// DEPRECATE(v1.14)
 type MachineAgentGetMachinesResults struct {
 	Machines []MachineAgentGetMachinesResult
 }
 
 // MachineAgentGetMachinesResult holds the results of a
 // machineagent.API.GetMachines call for a single machine.
+// DEPRECATE(v1.14)
 type MachineAgentGetMachinesResult struct {
 	Life  Life
 	Jobs  []MachineJob
 	Error *Error
 }
 
-// AgentTools describes the tools for a given Agent. This is mostly a flattened
-// tools.Tools description, plus an agent Tag field.
-type AgentTools struct {
-	Tag    string
-	Major  int
-	Minor  int
-	Patch  int
-	Build  int
-	Arch   string
-	Series string
-	URL    string
+// AgentGetEntitiesResults holds the results of a
+// agent.API.GetEntities call.
+type AgentGetEntitiesResults struct {
+	Entities []AgentGetEntitiesResult
 }
 
-// AgentToolsResult holds the tools and possibly error for a given Agent request
+// AgentGetEntitiesResult holds the results of a
+// machineagent.API.GetEntities call for a single entity.
+type AgentGetEntitiesResult struct {
+	Life  Life
+	Jobs  []MachineJob
+	Error *Error
+}
+
+// AgentToolsResult holds the tools and possibly error for a given AgentTools request
 type AgentToolsResult struct {
-	AgentTools AgentTools
-	Error      *Error
+	Tools *tools.Tools
+	Error *Error
 }
 
 // AgentToolsResults is a list of tools for various requested agents.
 type AgentToolsResults struct {
-	Tools []AgentToolsResult
+	Results []AgentToolsResult
 }
 
-// Set what tools are being run for multiple agents
+// SetAgent specifies tools to be set for an agent with the
+// given tag.
 type SetAgentTools struct {
-	AgentTools []AgentTools
-}
-
-// The result of setting the tools for one agent
-type SetAgentToolsResult struct {
 	Tag   string
-	Error *Error
+	Tools *tools.Tools
 }
 
-// The result of setting the tools for many agents
-type SetAgentToolsResults struct {
-	Results []SetAgentToolsResult
+// SetAgentsTools specifies what tools are being run for
+// multiple agents.
+type SetAgentsTools struct {
+	AgentTools []SetAgentTools
 }
 
 // PasswordChanges holds the parameters for making a SetPasswords call.

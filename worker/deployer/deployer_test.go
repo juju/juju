@@ -10,9 +10,13 @@ import (
 	"time"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/state/api"
+	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/deployer"
@@ -25,6 +29,10 @@ func TestPackage(t *stdtesting.T) {
 type DeployerSuite struct {
 	jujutesting.JujuConnSuite
 	SimpleToolsFixture
+
+	machine       *state.Machine
+	stateAPI      *api.State
+	deployerState *apideployer.State
 }
 
 var _ = Suite(&DeployerSuite{})
@@ -32,9 +40,30 @@ var _ = Suite(&DeployerSuite{})
 func (s *DeployerSuite) SetUpTest(c *C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.SimpleToolsFixture.SetUp(c, s.DataDir())
+
+	// Create a machine to work with.
+	var err error
+	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
+	c.Assert(err, IsNil)
+	err = s.machine.SetPassword("test-password")
+	c.Assert(err, IsNil)
+
+	// Log in as the machine agent of the created machine.
+	s.stateAPI = s.OpenAPIAsMachine(c, s.machine.Tag(), "test-password", "fake_nonce")
+	c.Assert(s.stateAPI, NotNil)
+
+	// Create the deployer facade.
+	s.deployerState = s.stateAPI.Deployer()
+	c.Assert(s.deployerState, NotNil)
 }
 
 func (s *DeployerSuite) TearDownTest(c *C) {
+	if s.stateAPI != nil {
+		err := s.stateAPI.Close()
+		c.Check(err, IsNil)
+	}
 	s.SimpleToolsFixture.TearDown(c)
 	s.JujuConnSuite.TearDownTest(c)
 }
@@ -43,10 +72,6 @@ var _ = (*deployer.Deployer)(nil)
 
 func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
-	err = m.SetProvisioned("i-exist", "fake_nonce", nil)
-	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	u0, err := svc.AddUnit()
@@ -56,16 +81,16 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 
 	// Create a deployer acting on behalf of the machine.
 	ctx := s.getContext(c)
-	dep := deployer.NewDeployer(s.State, ctx, m.Id())
+	dep := deployer.NewDeployer(s.deployerState, ctx, s.machine.Tag())
 	defer stop(c, dep)
 
 	// Assign one unit, and wait for it to be deployed.
-	err = u0.AssignToMachine(m)
+	err = u0.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	s.waitFor(c, isDeployed(ctx, u0.Name()))
 
 	// Assign another unit, and wait for that to be deployed.
-	err = u1.AssignToMachine(m)
+	err = u1.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	s.waitFor(c, isDeployed(ctx, u0.Name(), u1.Name()))
 
@@ -96,9 +121,7 @@ func (s *DeployerSuite) TestDeployRecallRemovePrincipals(c *C) {
 }
 
 func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
-	// Create a machine, and a couple of units.
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	// Create a service, and a couple of units.
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	u0, err := svc.AddUnit()
@@ -107,11 +130,11 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	c.Assert(err, IsNil)
 
 	// Assign the units to the machine, and set them to Dying/Dead.
-	err = u0.AssignToMachine(m)
+	err = u0.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
-	err = u1.AssignToMachine(m)
+	err = u1.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	// note: this is not a sane state; for the unit to have a status it must
 	// have been deployed. But it's instructive to check that the right thing
@@ -124,7 +147,7 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 	// When the deployer is started, in each case (1) no unit agent is deployed
 	// and (2) the non-Alive unit is been removed from state.
 	ctx := s.getContext(c)
-	dep := deployer.NewDeployer(s.State, ctx, m.Id())
+	dep := deployer.NewDeployer(s.deployerState, ctx, s.machine.Tag())
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, u0.Name()))
 	s.waitFor(c, isRemoved(s.State, u1.Name()))
@@ -132,13 +155,11 @@ func (s *DeployerSuite) TestRemoveNonAlivePrincipals(c *C) {
 }
 
 func (s *DeployerSuite) prepareSubordinates(c *C) (*state.Unit, []*state.RelationUnit) {
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, IsNil)
 	u, err := svc.AddUnit()
 	c.Assert(err, IsNil)
-	err = u.AssignToMachine(m)
+	err = u.AssignToMachine(s.machine)
 	c.Assert(err, IsNil)
 	rus := []*state.RelationUnit{}
 	logging := s.AddTestingCharm(c, "logging")
@@ -162,7 +183,7 @@ func (s *DeployerSuite) TestDeployRecallRemoveSubordinates(c *C) {
 	ctx := s.getContext(c)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, IsNil)
-	dep := deployer.NewDeployer(s.State, ctx, machineId)
+	dep := deployer.NewDeployer(s.deployerState, ctx, names.MachineTag(machineId))
 	defer stop(c, dep)
 
 	// Add a subordinate, and wait for it to be deployed.
@@ -215,14 +236,14 @@ func (s *DeployerSuite) TestNonAliveSubordinates(c *C) {
 	ctx := s.getContext(c)
 	machineId, err := u.AssignedMachineId()
 	c.Assert(err, IsNil)
-	dep := deployer.NewDeployer(s.State, ctx, machineId)
+	dep := deployer.NewDeployer(s.deployerState, ctx, names.MachineTag(machineId))
 	defer stop(c, dep)
 	s.waitFor(c, isRemoved(s.State, sub0.Name()))
 	s.waitFor(c, isRemoved(s.State, sub1.Name()))
 }
 
 func (s *DeployerSuite) waitFor(c *C, t func(c *C) bool) {
-	s.State.StartSync()
+	s.BackingState.StartSync()
 	if t(c) {
 		return
 	}

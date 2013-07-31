@@ -6,12 +6,14 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os/exec"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
-	"os/exec"
 )
 
 // SSHCommand is responsible for launching a ssh shell on a given unit or machine.
@@ -85,13 +87,13 @@ func (c *SSHCommon) initConn() (*juju.Conn, error) {
 
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {
 	// is the target the id of a machine ?
-	if state.IsMachineId(target) {
+	if names.IsMachine(target) {
 		log.Infof("looking up address for machine %s...", target)
 		// TODO(dfc) maybe we should have machine.PublicAddress() ?
 		return c.machinePublicAddress(target)
 	}
 	// maybe the target is a unit ?
-	if state.IsUnitName(target) {
+	if names.IsUnit(target) {
 		log.Infof("looking up address for unit %q...", c.Target)
 		unit, err := c.State.Unit(target)
 		if err != nil {

@@ -16,6 +16,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing/checkers"
@@ -208,7 +209,7 @@ $InputRunFileMonitor
 `
 
 func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, password string) {
-	tag := state.UnitTag(name)
+	tag := names.UnitTag(name)
 	uconfPath, _, toolsDir, syslogConfPath := fix.paths(tag)
 	uconfData, err := ioutil.ReadFile(uconfPath)
 	c.Assert(err, IsNil)
@@ -268,7 +269,7 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *C, name, password string) {
 }
 
 func (fix *SimpleToolsFixture) checkUnitRemoved(c *C, name string) {
-	tag := state.UnitTag(name)
+	tag := names.UnitTag(name)
 	confPath, agentDir, toolsDir, syslogConfPath := fix.paths(tag)
 	for _, path := range []string{confPath, agentDir, toolsDir, syslogConfPath} {
 		_, err := ioutil.ReadFile(path)

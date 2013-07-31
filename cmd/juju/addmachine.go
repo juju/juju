@@ -5,14 +5,17 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
-	"strings"
 )
 
 // AddMachineCommand starts a new machine and registers it in the environment.
@@ -54,7 +57,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 	}
 	// container arg can either be 'type:machine' or 'type'
 	if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
-		if !state.IsMachineOrNewContainer(containerSpec) {
+		if !names.IsMachineOrNewContainer(containerSpec) {
 			return fmt.Errorf("malformed container argument %q", containerSpec)
 		}
 		sep := strings.Index(containerSpec, ":")

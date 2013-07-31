@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils/set"
 )
@@ -158,7 +159,7 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 // lifecycles of containers on a machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
 	members := D{{"parent", m.doc.Id}}
-	match := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, numberSnippet)
+	match := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, names.NumberSnippet)
 	child := regexp.MustCompile(match)
 	filter := func(key interface{}) bool {
 		return child.MatchString(key.(string))

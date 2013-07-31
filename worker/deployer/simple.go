@@ -14,7 +14,8 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/log/syslog"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state" // Only because of state.Info
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
@@ -81,13 +82,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 
 	// Link the current tools for use by the new agent.
-	tag := state.UnitTag(unitName)
+	tag := names.UnitTag(unitName)
 	_, err = tools.ChangeAgentTools(ctx.dataDir, tag, version.Current)
 	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
-	// Retrieve addresses from state.
-	stateAddrs, err := ctx.addresser.Addresses()
+	// Retrieve the state addresses.
+	stateAddrs, err := ctx.addresser.StateAddresses()
 	if err != nil {
 		return err
 	}
@@ -101,11 +102,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Tag:    tag,
 		CACert: ctx.caCert,
 	}
+	logger.Debugf("state addresses: %q", stateAddrs)
 	apiInfo := api.Info{
 		Addrs:  apiAddrs,
 		Tag:    tag,
 		CACert: ctx.caCert,
 	}
+	logger.Debugf("API addresses: %q", apiAddrs)
 	// Prepare the agent's configuration data.
 	conf := &agent.Conf{
 		DataDir:     ctx.dataDir,
@@ -176,7 +179,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if err := svc.Remove(); err != nil {
 		return err
 	}
-	tag := state.UnitTag(unitName)
+	tag := names.UnitTag(unitName)
 	agentDir := tools.Dir(ctx.dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
@@ -205,7 +208,7 @@ func (ctx *SimpleContext) deployedUnitsUpstartJobs() (map[string]string, error) 
 	for _, fi := range fis {
 		if groups := deployedRe.FindStringSubmatch(fi.Name()); len(groups) == 4 {
 			unitName := groups[2] + "/" + groups[3]
-			if !state.IsUnitName(unitName) {
+			if !names.IsUnit(unitName) {
 				continue
 			}
 			installed[unitName] = groups[1]
@@ -229,7 +232,7 @@ func (ctx *SimpleContext) DeployedUnits() ([]string, error) {
 // upstartService returns an upstart.Service corresponding to the specified
 // unit.
 func (ctx *SimpleContext) upstartService(unitName string) *upstart.Service {
-	tag := state.UnitTag(unitName)
+	tag := names.UnitTag(unitName)
 	svcName := "jujud-" + tag
 	svc := upstart.NewService(svcName)
 	svc.InitDir = ctx.initDir

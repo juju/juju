@@ -231,6 +231,7 @@ var commandNames = []string{
 	"get-env", // alias for get-environment
 	"get-environment",
 	"help",
+	"help-tool",
 	"image-metadata",
 	"init",
 	"publish",

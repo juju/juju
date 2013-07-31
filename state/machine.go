@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -148,36 +149,11 @@ func getInstanceData(st *State, id string) (instanceData, error) {
 	return instData, nil
 }
 
-const machineTagPrefix = "machine-"
-
-// MachineTag returns the tag for the
-// machine with the given id.
-func MachineTag(id string) string {
-	tag := fmt.Sprintf("%s%s", machineTagPrefix, id)
-	// Containers require "/" to be replaced by "-".
-	tag = strings.Replace(tag, "/", "-", -1)
-	return tag
-}
-
-// MachineIdFromTag returns the machine id that was used to create the tag.
-func MachineIdFromTag(tag string) string {
-	// TODO(dimitern): Possibly change this to return (string, error),
-	// so the case below can be reported.
-	if !strings.HasPrefix(tag, machineTagPrefix) {
-		return ""
-	}
-	// Strip off the "machine-" prefix.
-	id := tag[len(machineTagPrefix):]
-	// Put the slashes back.
-	id = strings.Replace(id, "-", "/", -1)
-	return id
-}
-
 // Tag returns a name identifying the machine that is safe to use
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (m *Machine) Tag() string {
-	return MachineTag(m.Id())
+	return names.MachineTag(m.Id())
 }
 
 // Life returns whether the machine is Alive, Dying or Dead.

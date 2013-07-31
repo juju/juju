@@ -6,7 +6,11 @@ package testing
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"path/filepath"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -14,12 +18,11 @@ import (
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"os"
-	"path/filepath"
 )
 
 // JujuConnSuite provides a freshly bootstrapped juju.Conn
@@ -60,7 +63,7 @@ type JujuConnSuite struct {
 func FakeStateInfo(machineId string) *state.Info {
 	return &state.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      state.MachineTag(machineId),
+		Tag:      names.MachineTag(machineId),
 		Password: "unimportant",
 		CACert:   []byte(testing.CACert),
 	}
@@ -72,7 +75,7 @@ func FakeStateInfo(machineId string) *state.Info {
 func FakeAPIInfo(machineId string) *api.Info {
 	return &api.Info{
 		Addrs:    []string{"0.1.2.3:1234"},
-		Tag:      state.MachineTag(machineId),
+		Tag:      names.MachineTag(machineId),
 		Password: "unimportant",
 		CACert:   []byte(testing.CACert),
 	}

@@ -6,12 +6,14 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
-	"os"
+	"launchpad.net/juju-core/names"
 )
 
 // UpgradeCharm is responsible for upgrading a service's charm.
@@ -86,7 +88,7 @@ func (c *UpgradeCharmCommand) SetFlags(f *gnuflag.FlagSet) {
 func (c *UpgradeCharmCommand) Init(args []string) error {
 	switch len(args) {
 	case 1:
-		if !state.IsServiceName(args[0]) {
+		if !names.IsService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName = args[0]
