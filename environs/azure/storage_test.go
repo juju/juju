@@ -30,6 +30,14 @@ func makeResponse(content string, status int) *http.Response {
 	}
 }
 
+// MockingTransportExchange is a recording of a request and a response over
+// HTTP.
+type MockingTransportExchange struct {
+	Request  *http.Request
+	Response *http.Response
+	Error    error
+}
+
 // MockingTransport is used as an http.Client.Transport for testing.  It
 // records the sequence of requests, and returns a predetermined sequence of
 // Responses and errors.
@@ -48,17 +56,9 @@ func (t *MockingTransport) AddExchange(response *http.Response, err error) {
 
 func (t *MockingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
 	exchange := t.Exchanges[t.ExchangeCount]
-	t.ExchangeCount += 1
+	t.ExchangeCount++
 	exchange.Request = req
 	return exchange.Response, exchange.Error
-}
-
-// MockingTransportExchange is a recording of a request and a response over
-// HTTP.
-type MockingTransportExchange struct {
-	Request  *http.Request
-	Response *http.Response
-	Error    error
 }
 
 // testStorageContext is a struct implementing the storageContext interface
