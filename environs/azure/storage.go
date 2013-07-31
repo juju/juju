@@ -124,26 +124,26 @@ func (storage *azureStorage) RemoveAll() error {
 // It can be called when the container already exists and returns with no error
 // if it does.
 func (storage *azureStorage) CreateContainer(name string) error {
-    context, err := storage.getStorageContext()
-    if err != nil {
-        return err
-    }
-    _, err = context.GetContainerProperties(name)
-    if err == nil {
-        // No error means it's already there, just return now.
-        return nil
-    }
-    return context.CreateContainer(name)
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
+	_, err = context.GetContainerProperties(name)
+	if err == nil {
+		// No error means it's already there, just return now.
+		return nil
+	}
+	return context.CreateContainer(name)
 }
 
 // DeleteContainer deletes the named comtainer from the storage account.
 func (storage *azureStorage) DeleteContainer(name string) error {
-    context, err := storage.getStorageContext()
-    if err != nil {
-        return err
-    }
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
 
-    return context.DeleteContainer(name)
+	return context.DeleteContainer(name)
 }
 
 // publicEnvironStorageContext is a storageContext which gets its information

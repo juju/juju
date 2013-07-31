@@ -34,31 +34,31 @@ func makeResponse(content string, status int) *http.Response {
 // records the sequence of requests, and returns a predetermined sequence of
 // Responses and errors.
 type MockingTransport struct {
-    Exchanges     []*MockingTransportExchange
-    ExchangeCount int
+	Exchanges     []*MockingTransportExchange
+	ExchangeCount int
 }
 
 // MockingTransport implements the http.RoundTripper interface.
 var _ http.RoundTripper = &MockingTransport{}
 
 func (t *MockingTransport) AddExchange(response *http.Response, err error) {
-    exchange := MockingTransportExchange{Response: response, Error: err}
-    t.Exchanges = append(t.Exchanges, &exchange)
+	exchange := MockingTransportExchange{Response: response, Error: err}
+	t.Exchanges = append(t.Exchanges, &exchange)
 }
 
 func (t *MockingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-    exchange := t.Exchanges[t.ExchangeCount]
-    t.ExchangeCount += 1
-    exchange.Request = req
-    return exchange.Response, exchange.Error
+	exchange := t.Exchanges[t.ExchangeCount]
+	t.ExchangeCount += 1
+	exchange.Request = req
+	return exchange.Response, exchange.Error
 }
 
 // MockingTransportExchange is a recording of a request and a response over
 // HTTP.
 type MockingTransportExchange struct {
-    Request  *http.Request
-    Response *http.Response
-    Error    error
+	Request  *http.Request
+	Response *http.Response
+	Error    error
 }
 
 // testStorageContext is a struct implementing the storageContext interface
@@ -82,13 +82,13 @@ func (context *testStorageContext) getStorageContext() (*gwacl.StorageContext, e
 // The MockingTransport object can be used to check that the expected query has
 // been issued to the test server.
 func makeFakeStorage(container, account string) (azureStorage, *MockingTransport) {
-    transport := &MockingTransport{}
-    client := &http.Client{Transport: transport}
-    storageContext := gwacl.NewTestStorageContext(client)
-    storageContext.Account = "account"
-    context := &testStorageContext{container: container, storageContext: storageContext}
-    azStorage := azureStorage{context}
-    return azStorage, transport
+	transport := &MockingTransport{}
+	client := &http.Client{Transport: transport}
+	storageContext := gwacl.NewTestStorageContext(client)
+	storageContext.Account = "account"
+	context := &testStorageContext{container: container, storageContext: storageContext}
+	azStorage := azureStorage{context}
+	return azStorage, transport
 }
 
 var blobListResponse = `
@@ -114,13 +114,13 @@ var blobListResponse = `
 func (*StorageSuite) TestList(c *C) {
 	container := "container"
 	response := makeResponse(blobListResponse, http.StatusOK)
-    azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
+	azStorage, transport := makeFakeStorage(container, "account")
+	transport.AddExchange(response, nil)
 
 	prefix := "prefix"
 	names, err := azStorage.List(prefix)
 	c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Assert(transport.ExchangeCount, Equals, 1)
 	// The prefix has been passed down as a query parameter.
 	c.Check(transport.Exchanges[0].Request.URL.Query()["prefix"], DeepEquals, []string{prefix})
 	// The container name is used in the requested URL.
@@ -134,7 +134,7 @@ func (*StorageSuite) TestGet(c *C) {
 	filename := "blobname"
 	response := makeResponse(blobContent, http.StatusOK)
 	azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 
 	reader, err := azStorage.Get(filename)
 	c.Assert(err, IsNil)
@@ -143,7 +143,7 @@ func (*StorageSuite) TestGet(c *C) {
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Assert(transport.ExchangeCount, Equals, 1)
 	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
@@ -155,7 +155,7 @@ func (*StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	filename := "blobname"
 	response := makeResponse("not found", http.StatusNotFound)
 	azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 	_, err := azStorage.Get(filename)
 	c.Assert(err, NotNil)
 	c.Check(errors.IsNotFoundError(err), Equals, true)
@@ -167,14 +167,14 @@ func (*StorageSuite) TestPut(c *C) {
 	filename := "blobname"
 	response := makeResponse("", http.StatusCreated)
 	azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 	err := azStorage.Put(filename, strings.NewReader(blobContent), int64(len(blobContent)))
 	c.Assert(err, IsNil)
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 2)
+	c.Assert(transport.ExchangeCount, Equals, 2)
 	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 }
 
@@ -183,13 +183,13 @@ func (*StorageSuite) TestRemove(c *C) {
 	filename := "blobname"
 	response := makeResponse("", http.StatusAccepted)
 	azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Assert(transport.ExchangeCount, Equals, 1)
 	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
@@ -199,7 +199,7 @@ func (*StorageSuite) TestRemoveErrors(c *C) {
 	filename := "blobname"
 	response := makeResponse("", http.StatusForbidden)
 	azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
 	c.Assert(err, NotNil)
 }
@@ -208,7 +208,7 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	// When we ask gwacl to remove all blobs, it calls DeleteContainer.
 	response := makeResponse("", http.StatusAccepted)
 	storage, transport := makeFakeStorage("cntnr", "account")
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 
 	err := storage.RemoveAll()
 	c.Assert(err, IsNil)
@@ -217,7 +217,7 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	c.Assert(err, IsNil)
 	// Without going too far into gwacl's innards, this is roughly what
 	// it needs to do in order to delete a container.
-    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Assert(transport.ExchangeCount, Equals, 1)
 	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
 	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
@@ -227,7 +227,7 @@ func (*StorageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
 	azStorage, transport := makeFakeStorage(container, "account")
-    transport.AddExchange(response, nil)
+	transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 }
@@ -254,58 +254,57 @@ func (*StorageSuite) TestURL(c *C) {
 }
 
 func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
-    azStorage, transport := makeFakeStorage("", "account")
-    transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
-    transport.AddExchange(makeResponse("", http.StatusCreated), nil)
+	azStorage, transport := makeFakeStorage("", "account")
+	transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
+	transport.AddExchange(makeResponse("", http.StatusCreated), nil)
 
-    err := azStorage.CreateContainer("cntnr")
+	err := azStorage.CreateContainer("cntnr")
 
-    c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 2)
-    // Without going too far into gwacl's innards, this is roughly what
-    // it needs to do in order to call GetContainerProperties.
-    c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-    c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
+	c.Assert(err, IsNil)
+	c.Assert(transport.ExchangeCount, Equals, 2)
+	// Without going too far into gwacl's innards, this is roughly what
+	// it needs to do in order to call GetContainerProperties.
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+	c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
 
-    // ... and for CreateContainer.
-    c.Check(transport.Exchanges[1].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-    c.Check(transport.Exchanges[1].Request.Method, Equals, "PUT")
+	// ... and for CreateContainer.
+	c.Check(transport.Exchanges[1].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+	c.Check(transport.Exchanges[1].Request.Method, Equals, "PUT")
 }
 
 func (*StorageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
-    container := ""
-    azStorage, transport := makeFakeStorage(container, "account")
-    header := make(http.Header)
-    header.Add("Last-Modified", "last-modified")
-    header.Add("ETag", "etag")
-    header.Add("X-Ms-Lease-Status", "status")
-    header.Add("X-Ms-Lease-State", "state")
-    header.Add("X-Ms-Lease-Duration", "duration")
-    response := makeResponse("", http.StatusOK)
-    response.Header = header
-    transport.AddExchange(response, nil)
+	container := ""
+	azStorage, transport := makeFakeStorage(container, "account")
+	header := make(http.Header)
+	header.Add("Last-Modified", "last-modified")
+	header.Add("ETag", "etag")
+	header.Add("X-Ms-Lease-Status", "status")
+	header.Add("X-Ms-Lease-State", "state")
+	header.Add("X-Ms-Lease-Duration", "duration")
+	response := makeResponse("", http.StatusOK)
+	response.Header = header
+	transport.AddExchange(response, nil)
 
-    err := azStorage.CreateContainer("cntnr")
+	err := azStorage.CreateContainer("cntnr")
 
-    c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 1)
-    // Without going too far into gwacl's innards, this is roughly what
-    // it needs to do in order to call GetContainerProperties.
-    c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-    c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
+	c.Assert(err, IsNil)
+	c.Assert(transport.ExchangeCount, Equals, 1)
+	// Without going too far into gwacl's innards, this is roughly what
+	// it needs to do in order to call GetContainerProperties.
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+	c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
 }
 
 func (*StorageSuite) TestDeleteContainer(c *C) {
-    azStorage, transport := makeFakeStorage("", "account")
-    transport.AddExchange(makeResponse("", http.StatusAccepted), nil)
+	azStorage, transport := makeFakeStorage("", "account")
+	transport.AddExchange(makeResponse("", http.StatusAccepted), nil)
 
-    err := azStorage.DeleteContainer("cntnr")
+	err := azStorage.DeleteContainer("cntnr")
 
-    c.Assert(err, IsNil)
-    c.Assert(transport.ExchangeCount, Equals, 1)
-    // Without going too far into gwacl's innards, this is roughly what
-    // it needs to do in order to call GetContainerProperties.
-    c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-    c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
+	c.Assert(err, IsNil)
+	c.Assert(transport.ExchangeCount, Equals, 1)
+	// Without going too far into gwacl's innards, this is roughly what
+	// it needs to do in order to call GetContainerProperties.
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
-
