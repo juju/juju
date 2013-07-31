@@ -202,10 +202,8 @@ func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
 		link:   "foo",
 	}} {
 		config := lxc.GenerateNetworkConfig(test.config)
-		netRegex := fmt.Sprintf(`(\n|.)*lxc.network.type = %s\n(\n|.)*`, test.net)
-		c.Assert(config, gc.Matches, netRegex)
-		linkRegex := fmt.Sprintf(`(\n|.)*lxc.network.link = %s\n(\n|.)*`, test.link)
-		c.Assert(config, gc.Matches, linkRegex)
+		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
+		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
 	}
 }
 
