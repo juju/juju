@@ -464,20 +464,31 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Tagger represents entities with a tag.
+// Tagger represents an entity with a tag.
 type Tagger interface {
 	Tag() string
 }
 
-// Lifer represents entities with a life.
+// AgentEntity represents an entity that can
+// have an agent responsible for it.
+type AgentEntity interface {
+	Lifer
+	Authenticator
+	MongoPassworder
+	AgentTooler
+	Annotator
+}
+
+// Lifer represents an entity with a life.
 type Lifer interface {
 	Tagger
 	Life() Life
 }
 
-// SetAgentTooler is implemented by entities
-// that have a SetAgentTools method.
-type SetAgentTooler interface {
+// AgentTooler is implemented by entities
+// that have associated agent tools.
+type AgentTooler interface {
+	AgentTools() (*tools.Tools, error) 
 	SetAgentTools(*tools.Tools) error
 }
 
@@ -494,6 +505,12 @@ type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
+}
+
+// MongoPassworder represents an entity that can
+// have a mongo password set for it.
+type MongoPassworder interface {
+	SetMongoPassword(password string) error
 }
 
 // TaggedAuthenticator represents tagged entities capable of authentication.
@@ -525,6 +542,17 @@ func (st *State) Authenticator(tag string) (TaggedAuthenticator, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support authentication", tag)
+}
+
+func (st *State) AgentEntity(tag string) (AgentEntity, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(AgentEntity); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q is not an entity with an agent", tag)
 }
 
 // Annotator attempts to return aa TaggedAnnotator with the given tag.

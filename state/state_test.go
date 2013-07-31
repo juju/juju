@@ -1545,6 +1545,30 @@ func (s *StateSuite) TestAuthenticator(c *gc.C) {
 	)
 }
 
+var (
+	_ state.AgentEntity = (*state.Machine)(nil)
+	_ state.AgentEntity = (*state.Unit)(nil)
+)
+
+func (s *StateSuite) TestAgentEntity(c *gc.C) {
+	m, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, gc.IsNil)
+
+	e, err := s.State.AgentEntity(m.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(e.Tag(), gc.Equals, m.Tag())
+
+	e, err = s.State.AgentEntity(user.Tag())
+	c.Assert(err, gc.ErrorMatches, `entity "user-arble" is not an entity with an agent`)
+	c.Assert(e, gc.IsNil)
+
+	e, err = s.State.AgentEntity("machine-99")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(e, gc.IsNil)
+}
+
 func (s *StateSuite) TestAnnotator(c *gc.C) {
 	getEntity := func(tag string) (state.Tagger, error) {
 		e, err := s.State.Annotator(tag)
