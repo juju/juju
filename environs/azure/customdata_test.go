@@ -40,7 +40,6 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 			Addrs:  []string{"127.0.0.1:123"},
 			Tag:    names.MachineTag(machineID),
 		},
-		ProviderType: "azure",
 	}
 }
 
