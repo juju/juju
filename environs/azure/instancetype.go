@@ -10,7 +10,6 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 )
@@ -191,7 +190,7 @@ func findInstanceSpec(baseURLs []string, constraint instances.InstanceConstraint
 	if err != nil {
 		return nil, err
 	}
-	images := environs.ImageMetadataToImages(imageData)
+	images := instances.ImageMetadataToImages(imageData)
 	instanceTypes := listInstanceTypes(gwacl.RoleSizes)
 	return instances.FindInstanceSpec(images, &constraint, instanceTypes)
 }
