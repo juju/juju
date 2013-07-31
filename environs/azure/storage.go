@@ -5,7 +5,7 @@ package azure
 
 import (
 	"io"
-    "sync"
+	"sync"
 	"time"
 
 	"launchpad.net/gwacl"
@@ -15,8 +15,8 @@ import (
 )
 
 type azureStorage struct {
-    sync.Mutex
-    createdContainer bool
+	sync.Mutex
+	createdContainer bool
 	storageContext
 }
 
@@ -97,10 +97,10 @@ func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
 
 // Put is specified in the StorageWriter interface.
 func (storage *azureStorage) Put(name string, r io.Reader, length int64) error {
-    err := storage.createContainer(storage.getContainer())
-    if err != nil {
-        return err
-    }
+	err := storage.createContainer(storage.getContainer())
+	if err != nil {
+		return err
+	}
 	limitedReader := io.LimitReader(r, length)
 	context, err := storage.getStorageContext()
 	if err != nil {
@@ -132,11 +132,11 @@ func (storage *azureStorage) RemoveAll() error {
 // if it does.  To avoid unnecessary HTTP requests, we do this only once for
 // every PUT operation by using a mutex lock and boolean flag.
 func (storage *azureStorage) createContainer(name string) error {
-    storage.Lock()
-    defer storage.Unlock()
-    if storage.createdContainer {
-        return nil
-    }
+	storage.Lock()
+	defer storage.Unlock()
+	if storage.createdContainer {
+		return nil
+	}
 	context, err := storage.getStorageContext()
 	if err != nil {
 		return err
@@ -147,11 +147,11 @@ func (storage *azureStorage) createContainer(name string) error {
 		return nil
 	}
 	err = context.CreateContainer(name)
-    if err != nil {
-        return err
-    }
-    storage.createdContainer = true
-    return nil
+	if err != nil {
+		return err
+	}
+	storage.createdContainer = true
+	return nil
 }
 
 // deleteContainer deletes the named comtainer from the storage account.

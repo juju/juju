@@ -166,7 +166,7 @@ func (*StorageSuite) TestPut(c *C) {
 	container := "container"
 	filename := "blobname"
 	azStorage, transport := makeFakeStorage(container, "account")
-    // The create container call makes two exchanges.
+	// The create container call makes two exchanges.
 	transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
 	transport.AddExchange(makeResponse("", http.StatusCreated), nil)
 	putResponse := makeResponse("", http.StatusCreated)
