@@ -136,6 +136,16 @@ func (storage *azureStorage) CreateContainer(name string) error {
     return context.CreateContainer(name)
 }
 
+// DeleteContainer deletes the named comtainer from the storage account.
+func (storage *azureStorage) DeleteContainer(name string) error {
+    context, err := storage.getStorageContext()
+    if err != nil {
+        return err
+    }
+
+    return context.DeleteContainer(name)
+}
+
 // publicEnvironStorageContext is a storageContext which gets its information
 // from an azureEnviron object to create a public storage.
 type publicEnvironStorageContext struct {
