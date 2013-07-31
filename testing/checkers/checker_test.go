@@ -25,3 +25,10 @@ func (s *CheckerSuite) TestHasSuffix(c *C) {
 	c.Assert("foo bar", HasSuffix, "bar")
 	c.Assert("foo bar", Not(HasSuffix), "omg")
 }
+
+func (s *CheckerSuite) TestContains(c *C) {
+	c.Assert("foo bar baz", Contains, "foo")
+	c.Assert("foo bar baz", Contains, "bar")
+	c.Assert("foo bar baz", Contains, "baz")
+	c.Assert("foo bar baz", Not(Contains), "omg")
+}
