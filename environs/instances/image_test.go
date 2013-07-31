@@ -5,10 +5,11 @@ package instances
 
 import (
 	. "launchpad.net/gocheck"
+	"testing"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	coretesting "launchpad.net/juju-core/testing"
-	"testing"
 )
 
 type imageSuite struct {
@@ -265,4 +266,44 @@ func (s *imageSuite) TestImageMatch(c *C) {
 		c.Logf("test %d", i)
 		c.Check(t.image.match(t.itype), Equals, t.match)
 	}
+}
+
+func (*imageSuite) TestImageMetadataToImagesAcceptsNil(c *C) {
+	c.Check(ImageMetadataToImages(nil), HasLen, 0)
+}
+
+func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *C) {
+	input := []*imagemetadata.ImageMetadata{
+		{
+			Id:          "id",
+			Storage:     "storage-is-ignored",
+			VType:       "vtype",
+			Arch:        "arch",
+			RegionAlias: "region-alias-is-ignored",
+			RegionName:  "region-name-is-ignored",
+			Endpoint:    "endpoint-is-ignored",
+		},
+	}
+	expectation := []Image{
+		{
+			Id:    "id",
+			VType: "vtype",
+			Arch:  "arch",
+		},
+	}
+	c.Check(ImageMetadataToImages(input), DeepEquals, expectation)
+}
+
+func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *C) {
+	input := []*imagemetadata.ImageMetadata{
+		{Id: "one", Arch: "Z80"},
+		{Id: "two", Arch: "i386"},
+		{Id: "three", Arch: "amd64"},
+	}
+	expectation := []Image{
+		{Id: "one", Arch: "Z80"},
+		{Id: "two", Arch: "i386"},
+		{Id: "three", Arch: "amd64"},
+	}
+	c.Check(ImageMetadataToImages(input), DeepEquals, expectation)
 }
