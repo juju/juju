@@ -43,6 +43,37 @@ func makeResponse(content string, status int) *http.Response {
 	}
 }
 
+// MockingTransport is used as an http.Client.Transport for testing.  It
+// records the sequence of requests, and returns a predetermined sequence of
+// Responses and errors.
+type MockingTransport struct {
+    Exchanges     []*MockingTransportExchange
+    ExchangeCount int
+}
+
+// MockingTransport implements the http.RoundTripper interface.
+var _ http.RoundTripper = &MockingTransport{}
+
+func (t *MockingTransport) AddExchange(response *http.Response, err error) {
+    exchange := MockingTransportExchange{Response: response, Error: err}
+    t.Exchanges = append(t.Exchanges, &exchange)
+}
+
+func (t *MockingTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
+    exchange := t.Exchanges[t.ExchangeCount]
+    t.ExchangeCount += 1
+    exchange.Request = req
+    return exchange.Response, exchange.Error
+}
+
+// MockingTransportExchange is a recording of a request and a response over
+// HTTP.
+type MockingTransportExchange struct {
+    Request  *http.Request
+    Response *http.Response
+    Error    error
+}
+
 // testStorageContext is a struct implementing the storageContext interface
 // used in test.  It will return, via getContainer() and getStorageContext()
 // the objects used at creation time.
@@ -218,4 +249,28 @@ func (*StorageSuite) TestURL(c *C) {
 	// The signature is base64-encoded.
 	_, err = base64.StdEncoding.DecodeString(signature)
 	c.Assert(err, IsNil)
+}
+
+func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
+    transport := &MockingTransport{}
+    transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
+    transport.AddExchange(makeResponse("", http.StatusCreated), nil)
+    client := &http.Client{Transport: transport}
+    storageContext := gwacl.NewTestStorageContext(client)
+    storageContext.Account = "account"
+    context := &testStorageContext{storageContext: storageContext}
+    azStorage := azureStorage{context}
+
+    err := azStorage.CreateContainer("cntnr")
+
+    c.Assert(err, IsNil)
+    c.Assert(transport.ExchangeCount, Equals, 2)
+    // Without going too far into gwacl's innards, this is roughly what
+    // it needs to do in order to call GetContainerProperties.
+    c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+    c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
+
+    // ... and for CreateContainer.
+    c.Check(transport.Exchanges[1].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+    c.Check(transport.Exchanges[1].Request.Method, Equals, "PUT")
 }

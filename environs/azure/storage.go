@@ -120,6 +120,22 @@ func (storage *azureStorage) RemoveAll() error {
 	return context.DeleteContainer(storage.getContainer())
 }
 
+// CreateContainer makes a private container in the storage account.
+// It can be called when the container already exists and returns with no error
+// if it does.
+func (storage *azureStorage) CreateContainer(name string) error {
+    context, err := storage.getStorageContext()
+    if err != nil {
+        return err
+    }
+    _, err = context.GetContainerProperties(name)
+    if err == nil {
+        // No error means it's already there, just return now.
+        return nil
+    }
+    return context.CreateContainer(name)
+}
+
 // publicEnvironStorageContext is a storageContext which gets its information
 // from an azureEnviron object to create a public storage.
 type publicEnvironStorageContext struct {
