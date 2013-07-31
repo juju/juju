@@ -330,7 +330,6 @@ func (s *backingSettings) updated(st *State, store *multiwatcher.Store, id inter
 		}
 		newInfo := *info
 		cleanSettingsMap(*s)
-		replaceKeys(*s, unescapeReplacer)
 		newInfo.Config = *s
 		info0 = &newInfo
 	default:

@@ -16,10 +16,15 @@ import (
 
 // See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
 // for why we're using those replacements.
-var fullWidthDot = "\uff0e"
-var fullWidthDollar = "\uff04"
-var escapeReplacer = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
-var unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
+const (
+	fullWidthDot = "\uff0e"
+	fullWidthDollar = "\uff04"
+)
+
+var (
+	escapeReplacer = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
+	unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
+)
 
 const (
 	ItemAdded = iota
@@ -113,18 +118,6 @@ func (c *Settings) Delete(key string) {
 	delete(c.core, key)
 }
 
-// copyMap copies the keys and values of one map into a new one.
-func copyMap(in map[string]interface{}, transform func(string) string) (out map[string]interface{}) {
-	out = make(map[string]interface{})
-	for key, value := range in {
-		if transform != nil {
-			key = transform(key)
-		}
-		out[key] = value
-	}
-	return
-}
-
 // cacheKeys returns the keys of all caches as a key=>true map.
 func cacheKeys(caches ...map[string]interface{}) map[string]bool {
 	keys := make(map[string]bool)
@@ -198,22 +191,38 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanSettingsMap cleans the map of version and _id fields.
+// cleanSettingsMap cleans the map of version and _id fields and also unescapes
+// keys coming out of MongoDB.
 func cleanSettingsMap(in map[string]interface{}) {
 	delete(in, "_id")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
+	replaceKeys(in, unescapeReplacer.Replace)
 }
 
-// Given a strings.Replacer, modify the provided map in place by replacing keys
-// with their replacement version if they have been modified.
-func replaceKeys(m map[string]interface{}, replacer *strings.Replacer) {
+// replaceKeys will modify the provided map in place by replacing keys with
+// their replacement if they have been modified.
+func replaceKeys(m map[string]interface{}, replace func(string)string) {
 	for key, value := range m {
-		if new := replacer.Replace(key); new != key {
+		if newKey := replace(key); newKey != key {
 			delete(m, key)
-			m[new] = value
+			m[newKey] = value
 		}
 	}
+	return
+}
+
+// copyMap copies the keys and values of one map into a new one.  If replace
+// is non-nil, for each old key k, the new key will be replace(k).
+func copyMap(in map[string]interface{}, replace func(string) string) (out map[string]interface{}) {
+	out = make(map[string]interface{})
+	for key, value := range in {
+		if replace != nil {
+			key = replace(key)
+		}
+		out[key] = value
+	}
+	return
 }
 
 // Read (re)reads the node data into c.
@@ -243,7 +252,6 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	}
 	txnRevno := config["txn-revno"].(int64)
 	cleanSettingsMap(config)
-	replaceKeys(config, unescapeReplacer)
 	return config, txnRevno, nil
 }
 
@@ -259,9 +267,7 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
-	newValues := copyMap(values, func(s string) string {
-		return escapeReplacer.Replace(s)
-	})
+	newValues := copyMap(values, escapeReplacer.Replace)
 	return txn.Op{
 		C:      st.settings.Name,
 		Id:     key,
@@ -309,9 +315,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 			deletes[escapeReplacer.Replace(k)] = 1
 		}
 	}
-	newValues := copyMap(values, func(s string) string {
-		return escapeReplacer.Replace(s)
-	})
+	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
 	op.Update = D{
 		{"$set", newValues},

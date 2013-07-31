@@ -790,9 +790,11 @@ var allWatcherChangedTests = []struct {
 			Config:   charm.Settings{"key.dotted": "bar"},
 		}},
 		setUp: func(c *C, st *State) {
-			svc, err := st.AddService("wordpress",
-				AddCustomCharm(c, st, "wordpress", "config.yaml",
-					dottedConfig, "series", 3))
+			testCharm := AddCustomCharm(
+				c, st, "wordpress",
+				"config.yaml", dottedConfig,
+				"series", 3)
+			svc, err := st.AddService("wordpress", testCharm)
 			c.Assert(err, IsNil)
 			setServiceConfigAttr(c, svc, "key.dotted", "foo")
 		},
