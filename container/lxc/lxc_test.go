@@ -95,7 +95,8 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-1], gc.Equals, "start jujud-machine-1-lxc-0")
+	c.Assert(scripts[len(scripts)-2], gc.Equals, "start jujud-machine-1-lxc-0")
+	c.Assert(scripts[len(scripts)-1], gc.Equals, "ifconfig")
 
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)
@@ -167,4 +168,16 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	result, err = bar.ListContainers()
 	c.Assert(err, gc.IsNil)
 	testing.MatchInstances(c, result, bar1, bar2)
+}
+
+type NetworkSuite struct {
+	testing.LoggingSuite
+}
+
+var _ = gc.Suite(&NetworkSuite{})
+
+func (*NetworkSuite) TestNilConfigUsesDefault(c *gc.C) {
+	config := lxc.GenerateNetworkConfig(nil)
+	c.Assert(config, gc.Matches, `(\n|.)*lxc.network.type = veth\n(\n|.)*`)
+	c.Assert(config, gc.Matches, `(\n|.)*lxc.network.link = lxcbr0\n(\n|.)*`)
 }
