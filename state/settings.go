@@ -311,10 +311,11 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 			deletes[escapeReplacer.Replace(k)] = 1
 		}
 	}
-	escapeSettingsMap(values)
+	newValues := copyMap(values)
+	escapeSettingsMap(newValues)
 	op := s.assertUnchangedOp()
 	op.Update = D{
-		{"$set", values},
+		{"$set", newValues},
 		{"$unset", deletes},
 	}
 	assertFailed := func() (bool, error) {
