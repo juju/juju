@@ -181,7 +181,7 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
 	ps.Env = env
 	ps.Dir = charmDir
-    outReader, outWriter, err := os.Pipe()
+	outReader, outWriter, err := os.Pipe()
 	if err != nil {
 		return fmt.Errorf("cannot make logging pipe: %v", err)
 	}

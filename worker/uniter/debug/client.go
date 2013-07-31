@@ -40,7 +40,7 @@ func encodeArgs(hooks []string) []byte {
 	// Marshal to YAML, then encode in base64 to avoid shell escapes.
 	yamlArgs, err := goyaml.Marshal(hookArgs{Hooks: hooks})
 	if err != nil {
-        // This should not happen: we're in full control.
+		// This should not happen: we're in full control.
 		panic(err)
 	}
 	return yamlArgs

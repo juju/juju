@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"path/filepath"
 
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
 )
 
 const defaultFlockDir = "/tmp"
@@ -22,7 +22,7 @@ func NewHooksContext(unitName string) *HooksContext {
 }
 
 func (c *HooksContext) ClientFileLock() string {
-	basename := fmt.Sprintf("juju-%s-debug-hooks", state.UnitTag(c.Unit))
+	basename := fmt.Sprintf("juju-%s-debug-hooks", names.UnitTag(c.Unit))
 	return filepath.Join(c.FlockDir, basename)
 }
 
