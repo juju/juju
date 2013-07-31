@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 )
@@ -81,7 +82,7 @@ func (manager *containerManager) StartContainer(
 	stateInfo *state.Info,
 	apiInfo *api.Info) (instance.Instance, error) {
 
-	name := state.MachineTag(machineId)
+	name := names.MachineTag(machineId)
 	if manager.name != "" {
 		name = fmt.Sprintf("%s-%s", manager.name, name)
 	}

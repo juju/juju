@@ -6,14 +6,16 @@ package provisioner
 import (
 	"fmt"
 
+	"launchpad.net/tomb"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker"
-	"launchpad.net/tomb"
 )
 
 type ProvisionerTask interface {
@@ -329,7 +331,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	// Generated nonce has the format: "machine-#:UUID". The first
 	// part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
-	nonce := fmt.Sprintf("%s:%s", state.MachineTag(task.machineId), uuid.String())
+	nonce := fmt.Sprintf("%s:%s", names.MachineTag(task.machineId), uuid.String())
 	inst, metadata, err := task.broker.StartInstance(machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next

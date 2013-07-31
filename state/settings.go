@@ -6,12 +6,16 @@ package state
 import (
 	"fmt"
 	"sort"
+	"strings"
 
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
 )
+
+var escapeReplacer = strings.NewReplacer(".", "\uff0e", "$", "\uff04")
+var unescapeReplacer = strings.NewReplacer("\uff0e", ".", "\uff04", "$")
 
 const (
 	ItemAdded = iota
@@ -142,13 +146,13 @@ func (c *Settings) Write() ([]ItemChange, error) {
 		switch {
 		case incore && ondisk:
 			change = ItemChange{ItemModified, key, old, new}
-			updates[key] = new
+			updates[escapeReplacer.Replace(key)] = new
 		case incore && !ondisk:
 			change = ItemChange{ItemAdded, key, nil, new}
-			updates[key] = new
+			updates[escapeReplacer.Replace(key)] = new
 		case ondisk && !incore:
 			change = ItemChange{ItemDeleted, key, old, nil}
-			deletions[key] = 1
+			deletions[escapeReplacer.Replace(key)] = 1
 		default:
 			panic("unreachable")
 		}
@@ -193,6 +197,28 @@ func cleanSettingsMap(in map[string]interface{}) {
 	delete(in, "txn-queue")
 }
 
+// unescapeSettingsMap unescapes keys as needed after reading from MongoDB.
+func unescapeSettingsMap(in map[string]interface{}) {
+	for key, value := range in {
+		new := unescapeReplacer.Replace(key)
+		if new != key {
+			delete(in, key)
+			in[new] = value
+		}
+	}
+}
+
+// escapeSettingsMap escapes keys as needed before writing to MongoDB.
+func escapeSettingsMap(in map[string]interface{}) {
+	for key, value := range in {
+		new := escapeReplacer.Replace(key)
+		if new != key {
+			delete(in, key)
+			in[new] = value
+		}
+	}
+}
+
 // Read (re)reads the node data into c.
 func (c *Settings) Read() error {
 	config, txnRevno, err := readSettingsDoc(c.st, c.key)
@@ -220,6 +246,7 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	}
 	txnRevno := config["txn-revno"].(int64)
 	cleanSettingsMap(config)
+	unescapeSettingsMap(config)
 	return config, txnRevno, nil
 }
 
@@ -235,11 +262,13 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
+	newValues := copyMap(values)
+	escapeSettingsMap(newValues)
 	return txn.Op{
 		C:      st.settings.Name,
 		Id:     key,
 		Assert: txn.DocMissing,
-		Insert: values,
+		Insert: newValues,
 	}
 }
 
@@ -279,12 +308,14 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 	deletes := map[string]int{}
 	for k := range s.disk {
 		if _, found := values[k]; !found {
-			deletes[k] = 1
+			deletes[escapeReplacer.Replace(k)] = 1
 		}
 	}
+	newValues := copyMap(values)
+	escapeSettingsMap(newValues)
 	op := s.assertUnchangedOp()
 	op.Update = D{
-		{"$set", values},
+		{"$set", newValues},
 		{"$unset", deletes},
 	}
 	assertFailed := func() (bool, error) {

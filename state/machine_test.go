@@ -243,23 +243,6 @@ func (s *MachineSuite) TestTag(c *C) {
 	c.Assert(s.machine.Tag(), Equals, "machine-0")
 }
 
-func (s *MachineSuite) TestMachineTag(c *C) {
-	c.Assert(state.MachineTag("10"), Equals, "machine-10")
-	// Check a container id.
-	c.Assert(state.MachineTag("10/lxc/1"), Equals, "machine-10-lxc-1")
-}
-
-func (s *MachineSuite) TestMachineIdFromTag(c *C) {
-	c.Assert(state.MachineIdFromTag("machine-10"), Equals, "10")
-	// Check a container id.
-	c.Assert(state.MachineIdFromTag("machine-10-lxc-1"), Equals, "10/lxc/1")
-	// Check reversability.
-	nested := "2/kvm/0/lxc/3"
-	c.Assert(state.MachineIdFromTag(state.MachineTag(nested)), Equals, nested)
-	// Try with an invalid tag format.
-	c.Assert(state.MachineIdFromTag("foo"), Equals, "")
-}
-
 func (s *MachineSuite) TestSetMongoPassword(c *C) {
 	testSetMongoPassword(c, func(st *state.State) (entity, error) {
 		return st.Machine(s.machine.Id())

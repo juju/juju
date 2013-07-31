@@ -15,6 +15,7 @@ import (
 type azureInstance struct {
 	// An instance contains an Azure Service (instance==service).
 	gwacl.HostedServiceDescriptor
+	environ *azureEnviron
 }
 
 // azureInstance implements Instance.
@@ -50,7 +51,46 @@ func (azInstance *azureInstance) WaitDNSName() (string, error) {
 
 // OpenPorts is specified in the Instance interface.
 func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
-	// TODO: implement this.
+	env := azInstance.environ
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return err
+	}
+	defer env.releaseManagementAPI(context)
+
+	env.Lock()
+	defer env.Unlock()
+
+	deployments, err := context.ListAllDeployments(&gwacl.ListAllDeploymentsRequest{
+		ServiceName: azInstance.ServiceName,
+	})
+	if err != nil {
+		return err
+	}
+
+	for _, deployment := range deployments {
+		for _, role := range deployment.RoleList {
+			request := &gwacl.AddRoleEndpointsRequest{
+				ServiceName:    azInstance.ServiceName,
+				DeploymentName: deployment.Name,
+				RoleName:       role.RoleName,
+			}
+			for _, port := range ports {
+				request.InputEndpoints = append(
+					request.InputEndpoints, gwacl.InputEndpoint{
+						LocalPort: port.Number,
+						Name:      fmt.Sprintf("%s%d", port.Protocol, port.Number),
+						Port:      port.Number,
+						Protocol:  port.Protocol,
+					})
+			}
+			err := context.AddRoleEndpoints(request)
+			if err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
