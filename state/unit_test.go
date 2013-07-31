@@ -44,12 +44,6 @@ func (s *UnitSuite) TestUnitNotFound(c *C) {
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *UnitSuite) TestUnitNameFromTag(c *C) {
-	// Try both valid and invalid tag formats.
-	c.Assert(state.UnitNameFromTag("unit-wordpress-0"), Equals, "wordpress/0")
-	c.Assert(state.UnitNameFromTag("foo"), Equals, "")
-}
-
 func (s *UnitSuite) TestService(c *C) {
 	svc, err := s.unit.Service()
 	c.Assert(err, IsNil)
@@ -224,8 +218,14 @@ func (s *UnitSuite) TestRefresh(c *C) {
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
-	fail := func() { s.unit.SetStatus(params.StatusError, "") }
-	c.Assert(fail, PanicMatches, "unit error status with no info")
+	err := s.unit.SetStatus(params.StatusError, "")
+	c.Assert(err, ErrorMatches, `cannot set status "error" without info`)
+	err = s.unit.SetStatus(params.StatusPending, "")
+	c.Assert(err, ErrorMatches, `cannot set status "pending"`)
+	err = s.unit.SetStatus(params.StatusDown, "")
+	c.Assert(err, ErrorMatches, `cannot set status "down"`)
+	err = s.unit.SetStatus(params.Status("vliegkat"), "orville")
+	c.Assert(err, ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, err := s.unit.Status()
 	c.Assert(err, IsNil)
@@ -245,13 +245,6 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(status, Equals, params.StatusError)
 	c.Assert(info, Equals, "test-hook failed")
-
-	err = s.unit.SetStatus(params.StatusPending, "deploying...")
-	c.Assert(err, IsNil)
-	status, info, err = s.unit.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusPending)
-	c.Assert(info, Equals, "deploying...")
 }
 
 func (s *UnitSuite) TestGetSetStatusWhileNotAlive(c *C) {
@@ -531,10 +524,6 @@ func assertUnitRemoved(c *C, unit *state.Unit) {
 
 func (s *UnitSuite) TestTag(c *C) {
 	c.Assert(s.unit.Tag(), Equals, "unit-wordpress-0")
-}
-
-func (s *UnitSuite) TestUnitTag(c *C) {
-	c.Assert(state.UnitTag("wordpress/2"), Equals, "unit-wordpress-2")
 }
 
 func (s *UnitSuite) TestSetMongoPassword(c *C) {

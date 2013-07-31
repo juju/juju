@@ -6,6 +6,8 @@ package state
 import (
 	"time"
 
+	"labix.org/v2/mgo/txn"
+
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
@@ -201,6 +203,86 @@ func (s *SettingsSuite) TestSetItem(c *C) {
 	c.Assert(err, IsNil)
 	cleanSettingsMap(mgoData)
 	c.Assert(mgoData, DeepEquals, options)
+}
+
+func (s *SettingsSuite) TestSetItemEscape(c *C) {
+	// Check that Set works as expected.
+	node, err := createSettings(s.state, s.key, nil)
+	c.Assert(err, IsNil)
+	options := map[string]interface{}{"$bar": 1, "foo.alpha": "beta"}
+	node.Set("foo.alpha", "beta")
+	node.Set("$bar", 1)
+	changes, err := node.Write()
+	c.Assert(err, IsNil)
+	c.Assert(changes, DeepEquals, []ItemChange{
+		{ItemAdded, "$bar", nil, 1},
+		{ItemAdded, "foo.alpha", nil, "beta"},
+	})
+	// Check local state.
+	c.Assert(node.Map(), DeepEquals, options)
+
+	// Check MongoDB state.
+	mgoOptions := map[string]interface{}{"\uff04bar": 1, "foo\uff0ealpha": "beta"}
+	mgoData := make(map[string]interface{}, 0)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	c.Assert(err, IsNil)
+	cleanMgoSettings(mgoData)
+	c.Assert(mgoData, DeepEquals, mgoOptions)
+
+	// Now get another state by reading from the database instance and
+	// check read state has replaced '.' and '$' after fetching from
+	// MongoDB.
+	nodeTwo, err := readSettings(s.state, s.key)
+	c.Assert(err, IsNil)
+	c.Assert(nodeTwo.disk, DeepEquals, options)
+	c.Assert(nodeTwo.core, DeepEquals, options)
+}
+
+func (s *SettingsSuite) TestReplaceSettingsEscape(c *C) {
+	// Check that replaceSettings works as expected.
+	node, err := createSettings(s.state, s.key, nil)
+	c.Assert(err, IsNil)
+	node.Set("foo.alpha", "beta")
+	node.Set("$bar", 1)
+	_, err = node.Write()
+	c.Assert(err, IsNil)
+
+	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
+	rop, settingsChanged, err := replaceSettingsOp(s.state, s.key, options)
+	c.Assert(err, IsNil)
+	ops := []txn.Op{rop}
+	err = node.st.runTransaction(ops)
+	c.Assert(err, IsNil)
+
+	changed, err := settingsChanged()
+	c.Assert(err, IsNil)
+	c.Assert(changed, Equals, true)
+
+	// Check MongoDB state.
+	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
+	mgoData := make(map[string]interface{}, 0)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	c.Assert(err, IsNil)
+	cleanMgoSettings(mgoData)
+	c.Assert(mgoData, DeepEquals, mgoOptions)
+}
+
+func (s *SettingsSuite) TestCreateSettingsEscape(c *C) {
+	// Check that createSettings works as expected.
+	options := map[string]interface{}{"$baz": 1, "foo.bar": "beta"}
+	node, err := createSettings(s.state, s.key, options)
+	c.Assert(err, IsNil)
+
+	// Check local state.
+	c.Assert(node.Map(), DeepEquals, options)
+
+	// Check MongoDB state.
+	mgoOptions := map[string]interface{}{"\uff04baz": 1, "foo\uff0ebar": "beta"}
+	mgoData := make(map[string]interface{}, 0)
+	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
+	c.Assert(err, IsNil)
+	cleanMgoSettings(mgoData)
+	c.Assert(mgoData, DeepEquals, mgoOptions)
 }
 
 func (s *SettingsSuite) TestMultipleReads(c *C) {
@@ -401,4 +483,12 @@ func (s *SettingsSuite) TestWriteTwice(c *C) {
 	c.Assert(nodeOne.key, Equals, nodeTwo.key)
 	c.Assert(nodeOne.disk, DeepEquals, nodeTwo.disk)
 	c.Assert(nodeOne.core, DeepEquals, nodeTwo.core)
+}
+
+// cleanMgoSettings will remove MongoDB-specific settings but not unescape any
+// keys, as opposed to cleanSettingsMap which does unescape keys.
+func cleanMgoSettings(in map[string]interface{}) {
+	delete(in, "_id")
+	delete(in, "txn-revno")
+	delete(in, "txn-queue")
 }

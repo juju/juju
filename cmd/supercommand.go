@@ -6,6 +6,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"sort"
 	"strings"
 
@@ -65,9 +66,11 @@ type SuperCommand struct {
 	Doc             string
 	Log             *Log
 	subcmds         map[string]Command
+	commonflags     *gnuflag.FlagSet
 	flags           *gnuflag.FlagSet
 	subcmd          Command
 	showHelp        bool
+	showVersion     bool
 	missingCallback MissingCallback
 }
 
@@ -172,15 +175,31 @@ func (c *SuperCommand) Info() *Info {
 
 const helpPurpose = "show help on a command or other topic"
 
-// SetFlags adds the options that apply to all commands, particularly those
-// due to logging.
-func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
+// setCommonFlags creates a new "commonflags" flagset, whose
+// flags are shared with the argument f; this enables us to
+// add non-global flags to f, which do not carry into subcommands.
+func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 	if c.Log != nil {
 		c.Log.AddFlags(f)
 	}
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
 
+	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+	c.commonflags.SetOutput(ioutil.Discard)
+	f.VisitAll(func(flag *gnuflag.Flag) {
+		c.commonflags.Var(flag.Value, flag.Name, flag.Usage)
+	})
+}
+
+// SetFlags adds the options that apply to all commands, particularly those
+// due to logging.
+func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.setCommonFlags(f)
+	// Only flags set by setCommonFlags are passed on to subcommands.
+	// Any flags added below only take effect when no subcommand is
+	// specified (e.g. juju --version).
+	f.BoolVar(&c.showVersion, "version", false, "Show the version of juju")
 	c.flags = f
 }
 
@@ -207,11 +226,11 @@ func (c *SuperCommand) Init(args []string) error {
 		return fmt.Errorf("unrecognized command: %s %s", c.Name, args[0])
 	}
 	args = args[1:]
-	c.subcmd.SetFlags(c.flags)
-	if err := c.flags.Parse(true, args); err != nil {
+	c.subcmd.SetFlags(c.commonflags)
+	if err := c.commonflags.Parse(true, args); err != nil {
 		return err
 	}
-	args = c.flags.Args()
+	args = c.commonflags.Args()
 	if c.showHelp {
 		// We want to treat help for the command the same way we would if we went "help foo".
 		args = []string{c.subcmd.Info().Name}
@@ -307,7 +326,7 @@ command.
 `)
 
 	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	c.super.SetFlags(f)
+	c.super.setCommonFlags(f)
 	f.SetOutput(buf)
 	f.PrintDefaults()
 	return buf.String()
@@ -355,6 +374,13 @@ func (c *helpCommand) Init(args []string) error {
 }
 
 func (c *helpCommand) Run(ctx *Context) error {
+	if c.super.showVersion {
+		var v VersionCommand
+		v.SetFlags(c.super.flags)
+		v.Init(nil)
+		return v.Run(ctx)
+	}
+
 	// If there is no help topic specified, print basic usage.
 	if c.topic == "" {
 		if _, ok := c.topics["basics"]; ok {

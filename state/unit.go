@@ -7,7 +7,6 @@ import (
 	stderrors "errors"
 	"fmt"
 	"sort"
-	"strings"
 	"time"
 
 	"labix.org/v2/mgo"
@@ -19,6 +18,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
@@ -433,9 +433,9 @@ func (u *Unit) SubordinateNames() []string {
 // the unit. If no such entity can be determined, false is returned.
 func (u *Unit) DeployerTag() (string, bool) {
 	if u.doc.Principal != "" {
-		return UnitTag(u.doc.Principal), true
+		return names.UnitTag(u.doc.Principal), true
 	} else if u.doc.MachineId != "" {
-		return MachineTag(u.doc.MachineId), true
+		return names.MachineTag(u.doc.MachineId), true
 	}
 	return "", false
 }
@@ -476,12 +476,12 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status params.Status, info string) error {
-	if status == params.StatusError && info == "" {
-		panic("unit error status with no info")
-	}
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+	}
+	if err := doc.validateSet(); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
@@ -628,33 +628,11 @@ func (u *Unit) AgentAlive() (bool, error) {
 	return u.st.pwatcher.Alive(u.globalKey())
 }
 
-const unitTagPrefix = "unit-"
-
-// UnitTag returns the tag for the
-// unit with the given name.
-func UnitTag(unitName string) string {
-	return unitTagPrefix + strings.Replace(unitName, "/", "-", -1)
-}
-
-// UnitNameFromTag returns the unit name that was used to create the tag.
-func UnitNameFromTag(tag string) string {
-	// TODO(dimitern): Possibly change this to return (string, error),
-	// so the case below can be reported.
-	if !strings.HasPrefix(tag, unitTagPrefix) {
-		return ""
-	}
-	// Strip off the "unit-" prefix.
-	name := tag[len(unitTagPrefix):]
-	// Put the slashes back.
-	name = strings.Replace(name, "-", "/", -1)
-	return name
-}
-
 // Tag returns a name identifying the unit that is safe to use
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (u *Unit) Tag() string {
-	return UnitTag(u.Name())
+	return names.UnitTag(u.Name())
 }
 
 // WaitAgentAlive blocks until the respective agent is alive.

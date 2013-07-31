@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -87,7 +88,7 @@ func (s *deployerSuite) SetUpTest(c *gc.C) {
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:          state.MachineTag(s.machine1.Id()),
+		Tag:          names.MachineTag(s.machine1.Id()),
 		LoggedIn:     true,
 		Manager:      false,
 		MachineAgent: true,

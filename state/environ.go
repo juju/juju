@@ -8,6 +8,7 @@ import (
 	"labix.org/v2/mgo/txn"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 )
 
 // environGlobalKey is the key for the environment, its
@@ -52,7 +53,7 @@ func (st *State) Environment() (*Environment, error) {
 // The returned name will be different from other Tag values returned
 // by any other entities from the same state.
 func (e Environment) Tag() string {
-	return "environment-" + e.doc.Name
+	return names.EnvironTag(e.doc.Name)
 }
 
 // UUID returns the universally unique identifier of the environment.

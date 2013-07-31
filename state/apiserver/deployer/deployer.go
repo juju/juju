@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -28,7 +29,11 @@ type DeployerAPI struct {
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	machine, err := st.Machine(state.MachineIdFromTag(machineTag))
+	id, err := names.MachineFromTag(machineTag)
+	if err != nil {
+		return nil, err
+	}
+	machine, err := st.Machine(id)
 	if err != nil {
 		return nil, err
 	}
@@ -60,7 +65,7 @@ func NewDeployerAPI(
 		// Then we just check if the unit is already known.
 		return func(tag string) bool {
 			for _, unit := range units {
-				if state.UnitTag(unit) == tag {
+				if names.UnitTag(unit) == tag {
 					return true
 				}
 			}
@@ -77,6 +82,30 @@ func NewDeployerAPI(
 	}, nil
 }
 
+func (d *DeployerAPI) watchOneMachineUnits(entity params.Entity) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	if !d.authorizer.AuthOwner(entity.Tag) {
+		return nothing, common.ErrPerm
+	}
+	id, err := names.MachineFromTag(entity.Tag)
+	if err != nil {
+		return nothing, err
+	}
+	machine, err := d.st.Machine(id)
+	if err != nil {
+		return nothing, err
+	}
+	watch := machine.WatchUnits()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: d.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.MustErr(watch)
+}
+
 // WatchUnits starts a StringsWatcher to watch all units deployed to
 // any machine passed in args, in order to track which ones should be
 // deployed or recalled.
@@ -85,21 +114,8 @@ func (d *DeployerAPI) WatchUnits(args params.Entities) (params.StringsWatchResul
 		Results: make([]params.StringsWatchResult, len(args.Entities)),
 	}
 	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if d.authorizer.AuthOwner(entity.Tag) {
-			var machine *state.Machine
-			machine, err = d.st.Machine(state.MachineIdFromTag(entity.Tag))
-			if err == nil {
-				watch := machine.WatchUnits()
-				// Consume the initial event and forward it to the result.
-				if changes, ok := <-watch.Changes(); ok {
-					result.Results[i].StringsWatcherId = d.resources.Register(watch)
-					result.Results[i].Changes = changes
-				} else {
-					err = watcher.MustErr(watch)
-				}
-			}
-		}
+		entityResult, err := d.watchOneMachineUnits(entity)
+		result.Results[i] = entityResult
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
