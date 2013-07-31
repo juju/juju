@@ -154,9 +154,9 @@ func (suite *EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 }
 
 func (*EnvironSuite) TestGetContainerName(c *C) {
-    env := makeEnviron(c)
-    expected := env.getEnvPrefix() + "private"
-    c.Check(env.getContainerName(), Equals, expected)
+	env := makeEnviron(c)
+	expected := env.getEnvPrefix() + "private"
+	c.Check(env.getContainerName(), Equals, expected)
 }
 
 func (suite *EnvironSuite) TestAllInstances(c *C) {
