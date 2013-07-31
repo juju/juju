@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/worker/machiner"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 const bootstrapMachineId = "0"
@@ -166,6 +167,10 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		// TODO(rog) use id instead of *Machine (or introduce Clone method)
+		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.DataDir), nil
+	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
@@ -201,10 +206,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// rather than taking everything down indiscriminately.
 	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return NewUpgrader(st, m, dataDir), nil
-	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
