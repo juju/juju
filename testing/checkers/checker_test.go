@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	gc "launchpad.net/gocheck"
+
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
