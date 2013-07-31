@@ -90,6 +90,20 @@ func (context *testStorageContext) getStorageContext() (*gwacl.StorageContext, e
 	return context.storageContext, nil
 }
 
+// makeFakeStorage creates a test azureStorage object that will talk to a
+// fake HTTP server set up to always return preconfigured http.Response objects.
+// The MockingTransport object can be used to check that the expected query has
+// been issued to the test server.
+func makeFakeStorage(container, account string) (azureStorage, *MockingTransport) {
+    transport := &MockingTransport{}
+    client := &http.Client{Transport: transport}
+    storageContext := gwacl.NewTestStorageContext(client)
+    storageContext.Account = "account"
+    context := &testStorageContext{storageContext: storageContext}
+    azStorage := azureStorage{context}
+    return azStorage, transport
+}
+
 // makeAzureStorage creates a test azureStorage object that will talk to a
 // fake http server set up to always return the given http.Response object.
 // makeAzureStorage returns an azureStorage object and a TestTransport object.
@@ -252,14 +266,9 @@ func (*StorageSuite) TestURL(c *C) {
 }
 
 func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
-    transport := &MockingTransport{}
+    azStorage, transport := makeFakeStorage("", "account")
     transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
     transport.AddExchange(makeResponse("", http.StatusCreated), nil)
-    client := &http.Client{Transport: transport}
-    storageContext := gwacl.NewTestStorageContext(client)
-    storageContext.Account = "account"
-    context := &testStorageContext{storageContext: storageContext}
-    azStorage := azureStorage{context}
 
     err := azStorage.CreateContainer("cntnr")
 
