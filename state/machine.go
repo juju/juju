@@ -660,7 +660,7 @@ func (m *Machine) SetStatus(status params.Status, info string) error {
 		Status:     status,
 		StatusInfo: info,
 	}
-	if err := doc.validate(); err != nil {
+	if err := doc.validateSet(); err != nil {
 		return err
 	}
 	ops := []txn.Op{{

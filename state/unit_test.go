@@ -222,6 +222,8 @@ func (s *UnitSuite) TestGetSetStatusWhileAlive(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set status "error" without info`)
 	err = s.unit.SetStatus(params.StatusPending, "")
 	c.Assert(err, ErrorMatches, `cannot set status "pending"`)
+	err = s.unit.SetStatus(params.StatusDown, "")
+	c.Assert(err, ErrorMatches, `cannot set status "down"`)
 	err = s.unit.SetStatus(params.Status("vliegkat"), "orville")
 	c.Assert(err, ErrorMatches, `cannot set invalid status "vliegkat"`)
 

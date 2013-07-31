@@ -54,8 +54,13 @@ const (
 // Valid returns true if status has a known value.
 func (status Status) Valid() bool {
 	switch status {
-	case StatusPending, StatusInstalled, StatusStarted:
-	case StatusStopped, StatusError, StatusDown:
+	case
+		StatusPending,
+		StatusInstalled,
+		StatusStarted,
+		StatusStopped,
+		StatusError,
+		StatusDown:
 	default:
 		return false
 	}
