@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
@@ -480,13 +481,13 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{
-		"USER":                     env.config.user,
-		"HOME":                     os.Getenv("HOME"),
-		"JUJU_PROVIDER_TYPE":       env.config.Type(),
-		"JUJU_STORAGE_DIR":         env.config.storageDir(),
-		"JUJU_STORAGE_ADDR":        env.config.storageAddr(),
-		"JUJU_SHARED_STORAGE_DIR":  env.config.sharedStorageDir(),
-		"JUJU_SHARED_STORAGE_ADDR": env.config.sharedStorageAddr(),
+		"USER":                      env.config.user,
+		"HOME":                      os.Getenv("HOME"),
+		osenv.JujuProviderType:      env.config.Type(),
+		osenv.JujuStorageDir:        env.config.storageDir(),
+		osenv.JujuStorageAddr:       env.config.storageAddr(),
+		osenv.JujuSharedStorageDir:  env.config.sharedStorageDir(),
+		osenv.JujuSharedStorageAddr: env.config.sharedStorageAddr(),
 	}
 	agent := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),

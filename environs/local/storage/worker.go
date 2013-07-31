@@ -7,6 +7,7 @@ import (
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -36,8 +37,8 @@ func (s *storageWorker) Wait() error {
 }
 
 func (s *storageWorker) waitForDeath() error {
-	storageDir := os.Getenv("JUJU_STORAGE_DIR")
-	storageAddr := os.Getenv("JUJU_STORAGE_ADDR")
+	storageDir := os.Getenv(osenv.JujuStorageDir)
+	storageAddr := os.Getenv(osenv.JujuStorageAddr)
 	logger.Infof("serving %s on %s", storageDir, storageAddr)
 
 	storageListener, err := localstorage.Serve(storageAddr, storageDir)
@@ -47,8 +48,8 @@ func (s *storageWorker) waitForDeath() error {
 	}
 	defer storageListener.Close()
 
-	sharedStorageDir := os.Getenv("JUJU_SHARED_STORAGE_DIR")
-	sharedStorageAddr := os.Getenv("JUJU_SHARED_STORAGE_ADDR")
+	sharedStorageDir := os.Getenv(osenv.JujuSharedStorageDir)
+	sharedStorageAddr := os.Getenv(osenv.JujuSharedStorageAddr)
 	logger.Infof("serving %s on %s", sharedStorageDir, sharedStorageAddr)
 
 	sharedStorageListener, err := localstorage.Serve(sharedStorageAddr, sharedStorageDir)

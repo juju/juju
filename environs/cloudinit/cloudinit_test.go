@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -60,7 +61,7 @@ var cloudinitTests = []cloudinitTest{
 		cfg: cloudinit.MachineConfig{
 			MachineId:          "0",
 			AuthorizedKeys:     "sshkey1",
-			MachineEnvironment: map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+			MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 			// precise currently needs mongo from PPA
 			Tools:           newSimpleTools("1.2.3-precise-amd64"),
 			StateServer:     true,
@@ -118,7 +119,7 @@ start jujud-machine-0
 		cfg: cloudinit.MachineConfig{
 			MachineId:          "0",
 			AuthorizedKeys:     "sshkey1",
-			MachineEnvironment: map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+			MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 			// raring provides mongo in the archive
 			Tools:           newSimpleTools("1.2.3-raring-amd64"),
 			StateServer:     true,
@@ -175,7 +176,7 @@ start jujud-machine-0
 		cfg: cloudinit.MachineConfig{
 			MachineId:          "99",
 			AuthorizedKeys:     "sshkey1",
-			MachineEnvironment: map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+			MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 			DataDir:            environs.DataDir,
 			StateServer:        false,
 			Tools:              newSimpleTools("1.2.3-linux-amd64"),
@@ -215,7 +216,7 @@ start jujud-machine-99
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
-			MachineEnvironment:   map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+			MachineEnvironment:   map[string]string{osenv.JujuProviderType: "dummy"},
 			DataDir:              environs.DataDir,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
@@ -565,7 +566,7 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 		MachineId:          "99",
 		Tools:              newSimpleTools("9.9.9-linux-arble"),
 		AuthorizedKeys:     "sshkey1",
-		MachineEnvironment: map[string]string{"JUJU_PROVIDER_TYPE": "dummy"},
+		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 		StateInfo: &state.Info{
 			Addrs:  []string{"host:98765"},
 			CACert: []byte(testing.CACert),
