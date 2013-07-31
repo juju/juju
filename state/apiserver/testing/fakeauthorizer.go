@@ -9,7 +9,7 @@ type FakeAuthorizer struct {
 	LoggedIn     bool
 	Manager      bool
 	MachineAgent bool
-	UnitAgent bool
+	UnitAgent    bool
 	Client       bool
 }
 
