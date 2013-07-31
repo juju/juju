@@ -51,15 +51,20 @@ func (azInstance *azureInstance) WaitDNSName() (string, error) {
 
 // OpenPorts is specified in the Instance interface.
 func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
+	azInstance.environ.Lock()
+	defer azInstance.environ.Unlock()
+	return azInstance.openEndpoints(ports)
+}
+
+// openEndpoints opens the endpoints in the Azure deployment. The caller is
+// responsible for locking and unlocking the environ.
+func (azInstance *azureInstance) openEndpoints(ports []instance.Port) error {
 	env := azInstance.environ
 	context, err := env.getManagementAPI()
 	if err != nil {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
-
-	env.Lock()
-	defer env.Unlock()
 
 	deployments, err := context.ListAllDeployments(&gwacl.ListAllDeploymentsRequest{
 		ServiceName: azInstance.ServiceName,
