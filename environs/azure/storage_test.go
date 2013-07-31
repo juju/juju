@@ -22,19 +22,6 @@ type StorageSuite struct {
 
 var _ = Suite(new(StorageSuite))
 
-// TestTransport is used as an http.Client.Transport for testing.  It records
-// the latest request, and returns a predetermined Response and error.
-type TestTransport struct {
-	Request  *http.Request
-	Response *http.Response
-	Error    error
-}
-
-func (t *TestTransport) RoundTrip(req *http.Request) (resp *http.Response, err error) {
-	t.Request = req
-	return t.Response, t.Error
-}
-
 func makeResponse(content string, status int) *http.Response {
 	return &http.Response{
 		Status:     fmt.Sprintf("%d", status),
@@ -99,24 +86,9 @@ func makeFakeStorage(container, account string) (azureStorage, *MockingTransport
     client := &http.Client{Transport: transport}
     storageContext := gwacl.NewTestStorageContext(client)
     storageContext.Account = "account"
-    context := &testStorageContext{storageContext: storageContext}
+    context := &testStorageContext{container: container, storageContext: storageContext}
     azStorage := azureStorage{context}
     return azStorage, transport
-}
-
-// makeAzureStorage creates a test azureStorage object that will talk to a
-// fake http server set up to always return the given http.Response object.
-// makeAzureStorage returns an azureStorage object and a TestTransport object.
-// The TestTransport object can be used to check that the expected query has
-// been issued to the test server.
-func makeAzureStorage(response *http.Response, container string, account string) (azureStorage, *TestTransport) {
-	transport := &TestTransport{Response: response}
-	client := &http.Client{Transport: transport}
-	storageContext := gwacl.NewTestStorageContext(client)
-	storageContext.Account = account
-	context := &testStorageContext{container: container, storageContext: storageContext}
-	azStorage := azureStorage{context}
-	return azStorage, transport
 }
 
 var blobListResponse = `
@@ -142,14 +114,17 @@ var blobListResponse = `
 func (*StorageSuite) TestList(c *C) {
 	container := "container"
 	response := makeResponse(blobListResponse, http.StatusOK)
-	azStorage, transport := makeAzureStorage(response, container, "account")
+    azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
+
 	prefix := "prefix"
 	names, err := azStorage.List(prefix)
 	c.Assert(err, IsNil)
+    c.Assert(transport.ExchangeCount, Equals, 1)
 	// The prefix has been passed down as a query parameter.
-	c.Check(transport.Request.URL.Query()["prefix"], DeepEquals, []string{prefix})
+	c.Check(transport.Exchanges[0].Request.URL.Query()["prefix"], DeepEquals, []string{prefix})
 	// The container name is used in the requested URL.
-	c.Check(transport.Request.URL.String(), Matches, ".*"+container+".*")
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, ".*"+container+".*")
 	c.Check(names, DeepEquals, []string{"prefix-1", "prefix-2"})
 }
 
@@ -158,7 +133,9 @@ func (*StorageSuite) TestGet(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse(blobContent, http.StatusOK)
-	azStorage, transport := makeAzureStorage(response, container, "account")
+	azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
+
 	reader, err := azStorage.Get(filename)
 	c.Assert(err, IsNil)
 	c.Assert(reader, NotNil)
@@ -166,7 +143,8 @@ func (*StorageSuite) TestGet(c *C) {
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
+    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, IsNil)
 	c.Check(string(data), Equals, blobContent)
@@ -176,7 +154,8 @@ func (*StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("not found", http.StatusNotFound)
-	azStorage, _ := makeAzureStorage(response, container, "account")
+	azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
 	_, err := azStorage.Get(filename)
 	c.Assert(err, NotNil)
 	c.Check(errors.IsNotFoundError(err), Equals, true)
@@ -187,34 +166,40 @@ func (*StorageSuite) TestPut(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusCreated)
-	azStorage, transport := makeAzureStorage(response, container, "account")
+	azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
+    transport.AddExchange(response, nil)
 	err := azStorage.Put(filename, strings.NewReader(blobContent), int64(len(blobContent)))
 	c.Assert(err, IsNil)
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
+    c.Assert(transport.ExchangeCount, Equals, 2)
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 }
 
 func (*StorageSuite) TestRemove(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusAccepted)
-	azStorage, transport := makeAzureStorage(response, container, "account")
+	azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-	c.Check(transport.Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
-	c.Check(transport.Request.Method, Equals, "DELETE")
+    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
+	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
 
 func (*StorageSuite) TestRemoveErrors(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusForbidden)
-	azStorage, _ := makeAzureStorage(response, container, "account")
+	azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
 	c.Assert(err, NotNil)
 }
@@ -222,7 +207,8 @@ func (*StorageSuite) TestRemoveErrors(c *C) {
 func (*StorageSuite) TestRemoveAll(c *C) {
 	// When we ask gwacl to remove all blobs, it calls DeleteContainer.
 	response := makeResponse("", http.StatusAccepted)
-	storage, transport := makeAzureStorage(response, "cntnr", "account")
+	storage, transport := makeFakeStorage("cntnr", "account")
+    transport.AddExchange(response, nil)
 
 	err := storage.RemoveAll()
 	c.Assert(err, IsNil)
@@ -231,15 +217,17 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	c.Assert(err, IsNil)
 	// Without going too far into gwacl's innards, this is roughly what
 	// it needs to do in order to delete a container.
-	c.Check(transport.Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
-	c.Check(transport.Request.Method, Equals, "DELETE")
+    c.Assert(transport.ExchangeCount, Equals, 1)
+	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
+	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
 
 func (*StorageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
-	azStorage, _ := makeAzureStorage(response, container, "account")
+	azStorage, transport := makeFakeStorage(container, "account")
+    transport.AddExchange(response, nil)
 	err := azStorage.Remove(filename)
 	c.Assert(err, IsNil)
 }
@@ -248,7 +236,7 @@ func (*StorageSuite) TestURL(c *C) {
 	container := "container"
 	filename := "blobname"
 	account := "account"
-	azStorage, _ := makeAzureStorage(nil, container, account)
+	azStorage, _ := makeFakeStorage(container, account)
 	URL, err := azStorage.URL(filename)
 	c.Assert(err, IsNil)
 	parsedURL, err := url.Parse(URL)
