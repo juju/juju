@@ -314,7 +314,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 		machineConfig,
 		runCmd,
 		createBridgeNetwork(),
-		"restart networking",
+		"service networking restart",
 	)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
