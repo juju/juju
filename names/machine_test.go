@@ -77,7 +77,7 @@ var machineIdTests = []struct {
 
 func (s *machineSuite) TestMachineIdFormats(c *gc.C) {
 	for i, test := range machineIdTests {
-		c.Logf("%d. %q", i, test.pattern)
+		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsMachine(test.pattern), gc.Equals, test.valid)
 	}
 }
@@ -109,7 +109,7 @@ var machineOrNewContainerTests = []struct {
 
 func (s *machineSuite) TestMachineOrNewContainerFormats(c *gc.C) {
 	for i, test := range machineOrNewContainerTests {
-		c.Logf("%d. %q", i, test.pattern)
+		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsMachineOrNewContainer(test.pattern), gc.Equals, test.valid)
 	}
 }

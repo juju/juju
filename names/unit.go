@@ -30,7 +30,8 @@ func UnitFromTag(tag string) (string, error) {
 	if kind != UnitTagKind || err != nil {
 		return "", fmt.Errorf("%q is not a valid unit tag", tag)
 	}
-	// Replace only the last "-" with "/".
+	// Replace only the last "-" with "/", as it is valid for service
+	// names to contain hyphens.
 	if i := strings.LastIndex(name, "-"); i > 0 {
 		name = name[:i] + "/" + name[i+1:]
 	}
