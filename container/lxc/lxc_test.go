@@ -59,7 +59,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
-	network := lxc.DefaultNetworkConfig()
+	network := lxc.BridgeNetworkConfig("nic42")
 
 	series := "series"
 	nonce := "fake-nonce"
@@ -79,7 +79,10 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 
 	name := string(instance.Id())
 	// Check our container config files.
-	c.Assert(filepath.Join(s.ContainerDir, name, "lxc.conf"), jc.IsNonEmptyFile)
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, name, "lxc.conf"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
+
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	c.Assert(cloudInitFilename, jc.IsNonEmptyFile)
 	data, err := ioutil.ReadFile(cloudInitFilename)
