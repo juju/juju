@@ -50,13 +50,13 @@ func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *C) {
-	os.Setenv("JUJU_ENV", "magic")
+	os.Setenv(osenv.JujuEnv, "magic")
 	env := getDefaultEnvironment()
 	c.Assert(env, Equals, "magic")
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *C) {
-	os.Setenv("JUJU_ENV", "magic")
+	os.Setenv(osenv.JujuEnv, "magic")
 	err := writeCurrentEnvironment("fubar")
 	c.Assert(err, IsNil)
 	env := getDefaultEnvironment()

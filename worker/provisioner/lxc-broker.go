@@ -39,7 +39,7 @@ func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series st
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
-	bridgeDevice := os.Getenv("JUJU_LXC_BRIDGE")
+	bridgeDevice := os.Getenv(osenv.JujuLxcBridge)
 	if bridgeDevice == "" {
 		bridgeDevice = lxc.DefaultLxcBridge
 	}
