@@ -138,7 +138,7 @@ func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
 	// We assume that any entity that we can upgrade will
 	// have a Life, which is certainly true now, but is
 	// an assumption that may need revisiting at some point.
-	entity0, err := u.st.AgentEntity(tag)
+	entity, err := u.st.AgentEntity(tag)
 	if err != nil {
 		return err
 	}

@@ -61,7 +61,7 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	// if it fails, the agent in question should still be able
 	// to authenticate to another API server and ask it to change
 	// its password.
-	
+
 	// TODO(rog) when the API is universal, check that the entity is a
 	// machine with jobs that imply it needs access to the mongo state.
 	if err := entity.SetMongoPassword(password); err != nil {

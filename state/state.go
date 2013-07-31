@@ -488,7 +488,7 @@ type Lifer interface {
 // AgentTooler is implemented by entities
 // that have associated agent tools.
 type AgentTooler interface {
-	AgentTools() (*tools.Tools, error) 
+	AgentTools() (*tools.Tools, error)
 	SetAgentTools(*tools.Tools) error
 }
 
