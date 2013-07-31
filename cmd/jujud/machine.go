@@ -26,6 +26,7 @@ import (
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 )
@@ -246,6 +247,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			})
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
+			})
+			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		case state.JobManageState:
 			runner.StartWorker("apiserver", func() (worker.Worker, error) {

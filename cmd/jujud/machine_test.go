@@ -285,6 +285,12 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpOpenPorts{}), NotNil)
 
+	// Ensure that the minunits worker is alive by doing a rudimentary check
+	// that it responds to state changes.
+	err = svc.SetMinUnits(2)
+	c.Assert(err, IsNil)
+	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), NotNil)
+
 	err = a.Stop()
 	c.Assert(err, IsNil)
 
