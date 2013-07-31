@@ -8,6 +8,8 @@ import (
 	"os"
 
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 

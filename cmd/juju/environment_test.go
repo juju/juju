@@ -6,7 +6,6 @@ package main
 import (
 	"fmt"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	"strings"
