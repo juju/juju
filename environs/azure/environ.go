@@ -72,15 +72,9 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	}
 
 	// Set up storage.
-	storage := &azureStorage{
+	env.storage = &azureStorage{
 		storageContext: &environStorageContext{environ: &env},
 	}
-	env.storage = storage
-
-	// We have to make sure the storage has a container in it.  Doing it
-	// in the Bootstrap() code is too late because storage is accessed
-	// before that point.
-	storage.CreateContainer(env.getContainerName())
 
 	// Set up public storage.
 	publicContext := publicEnvironStorageContext{environ: &env}

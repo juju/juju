@@ -87,7 +87,7 @@ func makeFakeStorage(container, account string) (azureStorage, *MockingTransport
 	storageContext := gwacl.NewTestStorageContext(client)
 	storageContext.Account = account
 	context := &testStorageContext{container: container, storageContext: storageContext}
-	azStorage := azureStorage{context}
+	azStorage := azureStorage{storageContext: context}
 	return azStorage, transport
 }
 
@@ -165,17 +165,20 @@ func (*StorageSuite) TestPut(c *C) {
 	blobContent := "test blob"
 	container := "container"
 	filename := "blobname"
-	response := makeResponse("", http.StatusCreated)
 	azStorage, transport := makeFakeStorage(container, "account")
-	transport.AddExchange(response, nil)
-	transport.AddExchange(response, nil)
+    // The create container call makes two exchanges.
+	transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
+	transport.AddExchange(makeResponse("", http.StatusCreated), nil)
+	putResponse := makeResponse("", http.StatusCreated)
+	transport.AddExchange(putResponse, nil)
+	transport.AddExchange(putResponse, nil)
 	err := azStorage.Put(filename, strings.NewReader(blobContent), int64(len(blobContent)))
 	c.Assert(err, IsNil)
 
 	context, err := azStorage.getStorageContext()
 	c.Assert(err, IsNil)
-	c.Assert(transport.ExchangeCount, Equals, 2)
-	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
+	c.Assert(transport.ExchangeCount, Equals, 4)
+	c.Check(transport.Exchanges[2].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 }
 
 func (*StorageSuite) TestRemove(c *C) {
