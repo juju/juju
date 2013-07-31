@@ -287,6 +287,9 @@ func (s *MachineSuite) TestManageEnviron(c *C) {
 
 	// Ensure that the minunits worker is alive by doing a rudimentary check
 	// that it responds to state changes.
+	// At this time there is one unit for the service. If the minimum number of
+	// units for the service is set to two, the worker adds and assigns a new
+	// unit. As a consequence, a new instance is started.
 	err = svc.SetMinUnits(2)
 	c.Assert(err, IsNil)
 	c.Check(opRecvTimeout(c, s.State, op, dummy.OpStartInstance{}), NotNil)
