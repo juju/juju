@@ -12,24 +12,24 @@ import (
 
 const defaultFlockDir = "/tmp"
 
-type DebugHooksContext struct {
+type HooksContext struct {
 	Unit     string
 	FlockDir string
 }
 
-func NewDebugHooksContext(unitName string) *DebugHooksContext {
-	return &DebugHooksContext{Unit: unitName, FlockDir: defaultFlockDir}
+func NewHooksContext(unitName string) *HooksContext {
+	return &HooksContext{Unit: unitName, FlockDir: defaultFlockDir}
 }
 
-func (c *DebugHooksContext) ClientFileLock() string {
+func (c *HooksContext) ClientFileLock() string {
 	basename := fmt.Sprintf("juju-%s-debug-hooks", state.UnitTag(c.Unit))
 	return filepath.Join(c.FlockDir, basename)
 }
 
-func (c *DebugHooksContext) ClientExitFileLock() string {
+func (c *HooksContext) ClientExitFileLock() string {
 	return c.ClientFileLock() + "-exit"
 }
 
-func (c *DebugHooksContext) tmuxSessionName() string {
+func (c *HooksContext) tmuxSessionName() string {
 	return c.Unit
 }

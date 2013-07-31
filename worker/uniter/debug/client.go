@@ -4,12 +4,19 @@
 package debug
 
 import (
+	"encoding/base64"
 	"strings"
+
+	"launchpad.net/goyaml"
 )
+
+type hookArgs struct {
+	Hooks []string `yaml:"hooks,omitempty"`
+}
 
 // ClientScript returns a bash script suitable for executing
 // on the unit system to intercept hooks via tmux shell.
-func (c *DebugHooksContext) ClientScript(hooks []string) string {
+func ClientScript(c *HooksContext, hooks []string) string {
 	// If any hook is "*", then the client is interested in all.
 	for _, hook := range hooks {
 		if hook == "*" {
@@ -17,11 +24,26 @@ func (c *DebugHooksContext) ClientScript(hooks []string) string {
 			break
 		}
 	}
+
 	s := strings.Replace(debugHooksClientScript, "{unit_name}", c.Unit, -1)
+	s = strings.Replace(s, "{tmux_conf}", tmuxConf, 1)
 	s = strings.Replace(s, "{entry_flock}", c.ClientFileLock(), -1)
 	s = strings.Replace(s, "{exit_flock}", c.ClientExitFileLock(), -1)
-	s = strings.Replace(s, "{hook_args}", strings.Join(hooks, " "), -1)
+
+	yamlArgs := encodeArgs(hooks)
+	base64Args := base64.StdEncoding.EncodeToString(yamlArgs)
+	s = strings.Replace(s, "{hook_args}", base64Args, 1)
 	return s
+}
+
+func encodeArgs(hooks []string) []byte {
+	// Marshal to YAML, then encode in base64 to avoid shell escapes.
+	yamlArgs, err := goyaml.Marshal(hookArgs{Hooks: hooks})
+	if err != nil {
+        // This should not happen: we're in full control.
+		panic(err)
+	}
+	return yamlArgs
 }
 
 const debugHooksClientScript = `#!/bin/bash
@@ -33,7 +55,7 @@ flock -n 8 || (echo "Failed to acquire {entry_flock}: unit is already being debu
 exec 8>&-
 
 # Write out the debug-hooks args.
-echo "{hook_args}" > {entry_flock}
+echo "{hook_args}" | base64 -d > {entry_flock}
 
 # Lock the juju-<unit>-debug-exit lockfile.
 flock -n 9 || exit 1
@@ -50,7 +72,22 @@ if [ ! -f ~/.tmux.conf ]; then
         else
                 # Otherwise, use the legacy juju/tmux configuration
                 cat > ~/.tmux.conf <<END
+                {tmux_conf}
+END
+        fi
+fi
 
+(
+    # Close the inherited lock FD, or tmux will keep it open.
+    exec 9>&-
+    exec tmux new-session -s {unit_name}
+)
+) 9>{exit_flock}
+) 8>{entry_flock}
+exit $?
+`
+
+const tmuxConf = `
 # Status bar
 set-option -g status-bg black
 set-option -g status-fg white
@@ -80,21 +117,4 @@ set-window-option -g xterm-keys on
 
 # Prevent ESC key from adding delay and breaking Vim's ESC > arrow key
 set-option -s escape-time 0
-
-END
-        fi
-fi
-
-(
-    # Close the inherited lock FD, or tmux will keep it open.
-    exec 9>&-
-    # The beauty below is a workaround for a bug in tmux (1.5 in Oneiric) or
-    # epoll that doesn't support /dev/null or whatever.  Without it the
-    # command hangs.
-    tmux new-session -d -s {unit_name} 2>&1 | cat > /dev/null || true
-    exec tmux attach -t {unit_name}
-)
-) 9>{exit_flock}
-) 8>{entry_flock}
-exit $?
 `

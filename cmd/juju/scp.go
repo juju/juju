@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju"
 )
 
 // SCPCommand is responsible for launching a scp command to copy files to/from remote machine(s)
@@ -39,7 +38,7 @@ func (c *SCPCommand) Init(args []string) error {
 // forks ssh with c.Args, if provided.
 func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	var err error
-	c.Conn, err = juju.NewConnFromName(c.EnvName)
+	c.Conn, err = c.initConn()
 	if err != nil {
 		return err
 	}

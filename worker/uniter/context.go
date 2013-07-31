@@ -151,39 +151,12 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
 	var err error
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
-	debugctx := unitdebug.NewDebugHooksContext(ctx.unit.Name())
-	if session, err := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
+	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
 		log.Infof("worker/uniter: executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
-		var outReader, outWriter *os.File
-		ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-		ps.Env = env
-		ps.Dir = charmDir
-		outReader, outWriter, err = os.Pipe()
-		if err != nil {
-			return fmt.Errorf("cannot make logging pipe: %v", err)
-		}
-		ps.Stdout = outWriter
-		ps.Stderr = outWriter
-		logger := &hookLogger{
-			r:    outReader,
-			done: make(chan struct{}),
-		}
-		go logger.run()
-		err = ps.Start()
-		outWriter.Close()
-		if err == nil {
-			err = ps.Wait()
-		}
-		logger.stop()
-		if ee, ok := err.(*exec.Error); ok && err != nil {
-			if os.IsNotExist(ee.Err) {
-				// Missing hook is perfectly valid, but worth mentioning.
-				log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
-				return nil
-			}
-		}
+		err = runCharmHook(hookName, charmDir, env)
 	}
 	write := err == nil
 	for id, rctx := range ctx.relations {
@@ -200,6 +173,37 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 			}
 		}
 		rctx.ClearCache()
+	}
+	return err
+}
+
+func runCharmHook(hookName, charmDir string, env []string) error {
+	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
+	ps.Env = env
+	ps.Dir = charmDir
+    outReader, outWriter, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("cannot make logging pipe: %v", err)
+	}
+	ps.Stdout = outWriter
+	ps.Stderr = outWriter
+	logger := &hookLogger{
+		r:    outReader,
+		done: make(chan struct{}),
+	}
+	go logger.run()
+	err = ps.Start()
+	outWriter.Close()
+	if err == nil {
+		err = ps.Wait()
+	}
+	logger.stop()
+	if ee, ok := err.(*exec.Error); ok && err != nil {
+		if os.IsNotExist(ee.Err) {
+			// Missing hook is perfectly valid, but worth mentioning.
+			log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
+			return nil
+		}
 	}
 	return err
 }

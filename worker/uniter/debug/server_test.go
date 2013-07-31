@@ -14,11 +14,11 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/checkers"
-	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
+	"launchpad.net/juju-core/worker/uniter/debug"
 )
 
 type DebugHooksServerSuite struct {
-	ctx     *unitdebug.DebugHooksContext
+	ctx     *debug.HooksContext
 	fakebin string
 	tmpdir  string
 	oldenv  []string
@@ -50,7 +50,7 @@ func (s *DebugHooksServerSuite) SetUpTest(c *C) {
 		err := ioutil.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
 		c.Assert(err, IsNil)
 	}
-	s.ctx = unitdebug.NewDebugHooksContext("foo/8")
+	s.ctx = debug.NewHooksContext("foo/8")
 	s.ctx.FlockDir = s.tmpdir
 	s.setenv("JUJU_UNIT_NAME", s.ctx.Unit)
 }
@@ -64,7 +64,6 @@ func (s *DebugHooksServerSuite) TearDownTest(c *C) {
 	}
 }
 
-// TestFindSession tests the behaviour of DebugHooksContext.FindSession.
 func (s *DebugHooksServerSuite) TestFindSession(c *C) {
 	// Test "tmux has-session" failure. The error
 	// message is the output of tmux has-session.
@@ -86,12 +85,12 @@ func (s *DebugHooksServerSuite) TestFindSession(c *C) {
 	session, err = s.ctx.FindSession()
 	c.Assert(session, NotNil)
 	c.Assert(err, IsNil)
-	// If session.hooks is empty/nil, it'll match anything.
+	// If session.hooks is empty, it'll match anything.
 	c.Assert(session.MatchHook(""), Equals, true)
 	c.Assert(session.MatchHook("something"), Equals, true)
 
 	// Hooks file is present, non-empty
-	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte("foo bar baz"), 0777)
+	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
 	c.Assert(err, IsNil)
 	session, err = s.ctx.FindSession()
 	c.Assert(session, NotNil)
@@ -105,8 +104,6 @@ func (s *DebugHooksServerSuite) TestFindSession(c *C) {
 	c.Assert(session.MatchHook("foo bar baz"), Equals, false)
 }
 
-// TestRunHookErrors tests the behaviour of DebugHooksContext.RunHook
-// in exceptional situations.
 func (s *DebugHooksServerSuite) TestRunHookExceptional(c *C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
 	c.Assert(err, IsNil)

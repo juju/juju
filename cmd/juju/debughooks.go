@@ -7,18 +7,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"os/exec"
 
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 )
 
 // DebugHooksCommand is responsible for launching a ssh shell on a given unit or machine.
 type DebugHooksCommand struct {
-	SSHCommon
+	SSHCommand
 	hooks []string
 }
 
@@ -86,13 +84,12 @@ func (c *DebugHooksCommand) validateHooks(unit *state.Unit) error {
 // and connects to it via SSH to execute the debug-hooks
 // script.
 func (c *DebugHooksCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.Conn, err = juju.NewConnFromName(c.EnvName)
+	conn, err := c.initConn()
 	if err != nil {
 		return err
 	}
-	defer c.Close()
-	unit, err := c.Conn.State.Unit(c.Target)
+	defer conn.Close()
+	unit, err := conn.State.Unit(c.Target)
 	if err != nil {
 		return err
 	}
@@ -100,19 +97,9 @@ func (c *DebugHooksCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	host, err := c.hostFromTarget(c.Target)
-	if err != nil {
-		return err
-	}
-
-	debugctx := unitdebug.NewDebugHooksContext(c.Target)
-	args := []string{"-l", "ubuntu", "-t", "-o", "StrictHostKeyChecking no", "-o", "PasswordAuthentication no", host, "--"}
-	script := base64.StdEncoding.EncodeToString([]byte(debugctx.ClientScript(c.hooks)))
-	args = append(args, fmt.Sprintf("sudo /bin/bash -c '%s'", fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script)))
-	cmd := exec.Command("ssh", args...)
-	cmd.Stdin = ctx.Stdin
-	cmd.Stdout = ctx.Stdout
-	cmd.Stderr = ctx.Stderr
-	c.Close()
-	return cmd.Run()
+	debugctx := unitdebug.NewHooksContext(c.Target)
+	script := base64.StdEncoding.EncodeToString([]byte(unitdebug.ClientScript(debugctx, c.hooks)))
+	args := []string{"--", fmt.Sprintf("sudo /bin/bash -c '%s'", fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script))}
+	c.Args = args
+	return c.SSHCommand.Run(ctx)
 }

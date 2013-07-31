@@ -9,23 +9,22 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
+	"launchpad.net/juju-core/worker/uniter/debug"
 )
 
 type DebugHooksClientSuite struct{}
 
 var _ = Suite(&DebugHooksClientSuite{})
 
-// TestClientScript tests the behaviour of DebugHooksContext.ClientScript.
 func (*DebugHooksClientSuite) TestClientScript(c *C) {
-	ctx := unitdebug.NewDebugHooksContext("foo/8")
+	ctx := debug.NewHooksContext("foo/8")
 
 	// Test the variable substitutions.
-	result := ctx.ClientScript(nil)
+	result := debug.ClientScript(ctx, nil)
 	// No variables left behind.
 	c.Assert(result, Matches, "[^{}]*")
 	// tmux new-session -d -s {unit_name}
-	c.Assert(result, Matches, fmt.Sprintf("(.|\n)*tmux new-session -d -s %s(.|\n)*", regexp.QuoteMeta(ctx.Unit)))
+	c.Assert(result, Matches, fmt.Sprintf("(.|\n)*tmux new-session -s %s(.|\n)*", regexp.QuoteMeta(ctx.Unit)))
 	//) 9>{exit_flock}
 	c.Assert(result, Matches, fmt.Sprintf("(.|\n)*\\) 9>%s(.|\n)*", regexp.QuoteMeta(ctx.ClientExitFileLock())))
 	//) 8>{entry_flock}
@@ -34,15 +33,15 @@ func (*DebugHooksClientSuite) TestClientScript(c *C) {
 	// nil is the same as empty slice is the same as "*".
 	// Also, if "*" is present as well as a named hook,
 	// it is equivalent to "*".
-	c.Assert(ctx.ClientScript(nil), Equals, ctx.ClientScript([]string{}))
-	c.Assert(ctx.ClientScript([]string{"*"}), Equals, ctx.ClientScript(nil))
-	c.Assert(ctx.ClientScript([]string{"*", "something"}), Equals, ctx.ClientScript([]string{"*"}))
+	c.Assert(debug.ClientScript(ctx, nil), Equals, debug.ClientScript(ctx, []string{}))
+	c.Assert(debug.ClientScript(ctx, []string{"*"}), Equals, debug.ClientScript(ctx, nil))
+	c.Assert(debug.ClientScript(ctx, []string{"*", "something"}), Equals, debug.ClientScript(ctx, []string{"*"}))
 
-	// ClientScript does not validate hook names, as it doesn't have
+	// debug.ClientScript does not validate hook names, as it doesn't have
 	// a full state API connection to determine valid relation hooks.
 	expected := fmt.Sprintf(
-		`(.|\n)*echo "something somethingelse" > %s(.|\n)*`,
+		`(.|\n)*echo "aG9va3M6Ci0gc29tZXRoaW5nIHNvbWV0aGluZ2Vsc2UK" | base64 -d > %s(.|\n)*`,
 		regexp.QuoteMeta(ctx.ClientFileLock()),
 	)
-	c.Assert(ctx.ClientScript([]string{"something somethingelse"}), Matches, expected)
+	c.Assert(debug.ClientScript(ctx, []string{"something somethingelse"}), Matches, expected)
 }

@@ -8,7 +8,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
+	"launchpad.net/juju-core/worker/uniter/debug"
 )
 
 type DebugHooksCommonSuite struct{}
@@ -19,9 +19,9 @@ func TestPackage(t *testing.T) {
 	TestingT(t)
 }
 
-// TestCommonScript tests the behaviour of DebugHooksContext.
-func (*DebugHooksCommonSuite) TestDebugHooksContext(c *C) {
-	ctx := unitdebug.NewDebugHooksContext("foo/8")
+// TestCommonScript tests the behaviour of HooksContext.
+func (*DebugHooksCommonSuite) TestHooksContext(c *C) {
+	ctx := debug.NewHooksContext("foo/8")
 	c.Assert(ctx.Unit, Equals, "foo/8")
 	c.Assert(ctx.FlockDir, Equals, "/tmp")
 	ctx.FlockDir = "/var/lib/juju"
