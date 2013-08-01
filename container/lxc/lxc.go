@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -337,6 +338,7 @@ func cloudInitUserData(
 	if err := environs.FinishMachineConfig(machineConfig, environConfig, constraints.Value{}); err != nil {
 		return nil, err
 	}
+	machineConfig.MachineEnvironment[osenv.JujuContainerType] = string(instance.LXC)
 	cloudConfig, err := cloudinit.New(machineConfig)
 	if err != nil {
 		return nil, err

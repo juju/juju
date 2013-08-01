@@ -4,10 +4,15 @@
 package maas
 
 import (
+	"os"
+
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/utils"
 )
 
 // Logger for the MAAS provider.
@@ -63,6 +68,10 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]inte
 }
 
 func (maasEnvironProvider) hostname() (string, error) {
+	// Hack to get container ip addresses properly for MAAS demo.
+	if os.Getenv(osenv.JujuContainerType) == string(instance.LXC) {
+		return utils.GetAddressForInterface("eth0")
+	}
 	info := machineInfo{}
 	err := info.load()
 	if err != nil {
