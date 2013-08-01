@@ -186,7 +186,6 @@ func (s *UnitSuite) TestGetPublicAddressFromMachine(c *C) {
 	err = machine.SetAddresses(addresses)
 	c.Assert(err, IsNil)
 
-	// XXX(gz) Following fails, machine doc lacks addresses when read, why?
 	address, ok = s.unit.PublicAddress()
 	c.Check(address, Equals, "8.8.8.8")
 	c.Assert(ok, Equals, true)
