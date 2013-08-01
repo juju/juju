@@ -67,6 +67,7 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
+	Addresses     []address
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -583,6 +584,38 @@ func IsNotProvisionedError(err error) bool {
 		return true
 	}
 	return false
+}
+
+// Addresses returns any hostnames and ips associated with a machine
+func (m *Machine) Addresses() (addresses []instance.Address) {
+	for _, address := range m.doc.Addresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
+}
+
+// SetAddresses records any addresses related to the machine
+func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
+	var stateaddresses []address
+	for _, address := range addresses {
+		stateaddresses = append(stateaddresses, NewAddress(address))
+	}
+
+	// XXX(gz) Want some fancier update logic here probably
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: D{{"$set", D{{"addresses", stateaddresses}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.Addresses = stateaddresses
+	return nil
 }
 
 func (e *NotProvisionedError) Error() string {
