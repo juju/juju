@@ -89,7 +89,7 @@ func serialize(c *C, object gwacl.AzureObject) []byte {
 
 func prepareConversationForPortChanges(
 	c *C, service *gwacl.HostedServiceDescriptor,
-	deployments []gwacl.Deployment) *[]*gwacl.X509Request {
+	deployments []gwacl.Deployment) []gwacl.DispatcherResponse {
 	// Construct the series of responses to expected requests.
 	responses := []gwacl.DispatcherResponse{
 		// First, GetHostedServiceProperties
@@ -116,7 +116,7 @@ func prepareConversationForPortChanges(
 				gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))
 		}
 	}
-	return gwacl.PatchManagementAPIResponses(responses)
+	return responses
 }
 
 type expectedRequest struct {
@@ -138,7 +138,8 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
 		makeDeployment("deployment-two", makeRole("role-three")),
 	}
-	record := prepareConversationForPortChanges(c, service, deployments)
+	record := gwacl.PatchManagementAPIResponses(
+		prepareConversationForPortChanges(c, service, deployments))
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
@@ -269,7 +270,8 @@ func (*StorageSuite) TestClosePorts(c *C) {
 				makeInputEndpoint(9, "udp"),
 			)),
 	}
-	record := prepareConversationForPortChanges(c, service, deployments)
+	record := gwacl.PatchManagementAPIResponses(
+		prepareConversationForPortChanges(c, service, deployments))
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.ClosePorts("machine-id", []instance.Port{{"tcp", 587}, {"udp", 9}})
