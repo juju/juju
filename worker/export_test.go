@@ -15,14 +15,14 @@ func init() {
 	}
 }
 
-func (nw *notifyWorker) SetClosedHandler(f func(watcher.Errer) error) func(watcher.Errer) error {
-	old := nw.closedHandler
-	nw.closedHandler = f
+func (nw *notifyWorker) SetMustErr(f func(watcher.Errer) error) func(watcher.Errer) error {
+	old := nw.mustErr
+	nw.mustErr = f
 	return old
 }
 
-func (sw *stringsWorker) SetClosedHandler(f func(watcher.Errer) error) func(watcher.Errer) error {
-	old := sw.closedHandler
-	sw.closedHandler = f
+func (sw *stringsWorker) SetMustErr(f func(watcher.Errer) error) func(watcher.Errer) error {
+	old := sw.mustErr
+	sw.mustErr = f
 	return old
 }
