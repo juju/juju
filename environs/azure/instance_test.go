@@ -87,7 +87,7 @@ func serialize(c *C, object gwacl.AzureObject) []byte {
 	return []byte(xml)
 }
 
-func prepareConversationForPortChanges(
+func preparePortChangeConversation(
 	c *C, service *gwacl.HostedServiceDescriptor,
 	deployments []gwacl.Deployment) []gwacl.DispatcherResponse {
 	// Construct the series of responses to expected requests.
@@ -139,7 +139,7 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		makeDeployment("deployment-two", makeRole("role-three")),
 	}
 	record := gwacl.PatchManagementAPIResponses(
-		prepareConversationForPortChanges(c, service, deployments))
+		preparePortChangeConversation(c, service, deployments))
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
@@ -271,7 +271,7 @@ func (*StorageSuite) TestClosePorts(c *C) {
 			)),
 	}
 	record := gwacl.PatchManagementAPIResponses(
-		prepareConversationForPortChanges(c, service, deployments))
+		preparePortChangeConversation(c, service, deployments))
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.ClosePorts("machine-id", []instance.Port{{"tcp", 587}, {"udp", 9}})
