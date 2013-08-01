@@ -938,6 +938,7 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *C) {
 func (s *MachineSuite) TestSetAddresses(c *C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, IsNil)
+	c.Assert(machine.Addresses(), HasLen, 0)
 
 	addresses := []instance.Address{
 		instance.NewAddress("127.0.0.1"),

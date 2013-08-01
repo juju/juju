@@ -596,25 +596,24 @@ func (m *Machine) Addresses() (addresses []instance.Address) {
 
 // SetAddresses records any addresses related to the machine
 func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
-	var stateaddresses []address
+	var stateAddresses []address
 	for _, address := range addresses {
-		stateaddresses = append(stateaddresses, NewAddress(address))
+		stateAddresses = append(stateAddresses, NewAddress(address))
 	}
 
-	// XXX(gz) Want some fancier update logic here probably
 	ops := []txn.Op{
 		{
 			C:      m.st.machines.Name,
 			Id:     m.doc.Id,
 			Assert: notDeadDoc,
-			Update: D{{"$set", D{{"addresses", stateaddresses}}}},
+			Update: D{{"$set", D{{"addresses", stateAddresses}}}},
 		},
 	}
 
 	if err = m.st.runTransaction(ops); err != nil {
 		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
 	}
-	m.doc.Addresses = stateaddresses
+	m.doc.Addresses = stateAddresses
 	return nil
 }
 
