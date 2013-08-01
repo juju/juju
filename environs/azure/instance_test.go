@@ -177,8 +177,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
@@ -207,8 +206,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 			nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
@@ -244,8 +242,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 			nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
@@ -317,8 +314,7 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.ClosePorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
@@ -347,8 +343,7 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
 			nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.ClosePorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
@@ -384,8 +379,7 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
 			nil, http.StatusInternalServerError, nil),
 	}
 	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.ClosePorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
