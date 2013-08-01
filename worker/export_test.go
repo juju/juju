@@ -20,3 +20,9 @@ func (nw *notifyWorker) SetClosedHandler(f func(watcher.Errer) error) func(watch
 	nw.closedHandler = f
 	return old
 }
+
+func (sw *stringsWorker) SetClosedHandler(f func(watcher.Errer) error) func(watcher.Errer) error {
+	old := sw.closedHandler
+	sw.closedHandler = f
+	return old
+}
