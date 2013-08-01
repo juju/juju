@@ -119,6 +119,19 @@ func prepareConversationForPortChanges(
 	return gwacl.PatchManagementAPIResponses(responses)
 }
 
+type expectedRequest struct {
+	method     string
+	urlpattern string
+}
+
+func assertPortChangeConversation(c *C, record []*gwacl.X509Request, expected []expectedRequest) {
+	c.Assert(record, HasLen, len(expected))
+	for index, request := range record {
+		c.Check(request.Method, Equals, expected[index].method)
+		c.Check(request.URL, Matches, expected[index].urlpattern)
+	}
+}
+
 func (*StorageSuite) TestOpenPorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
@@ -133,10 +146,7 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 	})
 
 	c.Assert(err, IsNil)
-	expected := []struct {
-		method     string
-		urlpattern string
-	}{
+	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/services/hostedservices/service-name[?].*"},   // GetHostedServiceProperties
 		{"GET", ".*/deployments/deployment-one/roles/role-one"},   // GetRole
 		{"PUT", ".*/deployments/deployment-one/roles/role-one"},   // UpdateRole
@@ -144,12 +154,7 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		{"PUT", ".*/deployments/deployment-one/roles/role-two"},   // UpdateRole
 		{"GET", ".*/deployments/deployment-two/roles/role-three"}, // GetRole
 		{"PUT", ".*/deployments/deployment-two/roles/role-three"}, // UpdateRole
-	}
-	c.Assert(*record, HasLen, len(expected))
-	for index, request := range *record {
-		c.Check(request.Method, Equals, expected[index].method)
-		c.Check(request.URL, Matches, expected[index].urlpattern)
-	}
+	})
 
 	// A representative UpdateRole payload includes configuration for the
 	// ports requested.
@@ -273,10 +278,7 @@ func (*StorageSuite) TestClosePorts(c *C) {
 	err := azInstance.ClosePorts("machine-id", []instance.Port{{"tcp", 587}, {"udp", 9}})
 
 	c.Assert(err, IsNil)
-	expected := []struct {
-		method     string
-		urlpattern string
-	}{
+	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/services/hostedservices/service-name[?].*"},   // GetHostedServiceProperties
 		{"GET", ".*/deployments/deployment-one/roles/role-one"},   // GetRole
 		{"PUT", ".*/deployments/deployment-one/roles/role-one"},   // UpdateRole
@@ -284,12 +286,7 @@ func (*StorageSuite) TestClosePorts(c *C) {
 		{"PUT", ".*/deployments/deployment-one/roles/role-two"},   // UpdateRole
 		{"GET", ".*/deployments/deployment-two/roles/role-three"}, // GetRole
 		{"PUT", ".*/deployments/deployment-two/roles/role-three"}, // UpdateRole
-	}
-	c.Assert(*record, HasLen, len(expected))
-	for index, request := range *record {
-		c.Check(request.Method, Equals, expected[index].method)
-		c.Check(request.URL, Matches, expected[index].urlpattern)
-	}
+	})
 
 	// The first UpdateRole removes all endpoints from the role's
 	// configuration.
