@@ -87,12 +87,10 @@ func serialize(c *C, object gwacl.AzureObject) []byte {
 	return []byte(xml)
 }
 
-func (*StorageSuite) TestOpenPorts(c *C) {
-	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
-		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
-		makeDeployment("deployment-two", makeRole("role-three")),
-	}
+func prepareConversationForPortChanges(
+	c *C, service *gwacl.HostedServiceDescriptor,
+	deployments []gwacl.Deployment) *[]*gwacl.X509Request {
+	// Construct the series of responses to expected requests.
 	responses := []gwacl.DispatcherResponse{
 		// First, GetHostedServiceProperties
 		gwacl.NewDispatcherResponse(
@@ -118,9 +116,17 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 				gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))
 		}
 	}
-	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	return gwacl.PatchManagementAPIResponses(responses)
+}
+
+func (*StorageSuite) TestOpenPorts(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	deployments := []gwacl.Deployment{
+		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
+		makeDeployment("deployment-two", makeRole("role-three")),
+	}
+	record := prepareConversationForPortChanges(c, service, deployments)
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
@@ -261,34 +267,8 @@ func (*StorageSuite) TestClosePorts(c *C) {
 				makeInputEndpoint(9, "udp"),
 			)),
 	}
-	responses := []gwacl.DispatcherResponse{
-		// First, GetHostedServiceProperties
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.HostedService{
-				Deployments:             deployments,
-				HostedServiceDescriptor: *service,
-				XMLNS: gwacl.XMLNS,
-			}),
-			http.StatusOK, nil),
-	}
-	for _, deployment := range deployments {
-		for _, role := range deployment.RoleList {
-			// GetRole returns a PersistentVMRole.
-			persistentRole := &gwacl.PersistentVMRole{
-				XMLNS:             gwacl.XMLNS,
-				RoleName:          role.RoleName,
-				ConfigurationSets: role.ConfigurationSets,
-			}
-			responses = append(responses, gwacl.NewDispatcherResponse(
-				serialize(c, persistentRole), http.StatusOK, nil))
-			// UpdateRole expects a 200 response, that's all.
-			responses = append(responses,
-				gwacl.NewDispatcherResponse(nil, http.StatusOK, nil))
-		}
-	}
-	record := gwacl.PatchManagementAPIResponses(responses)
-	env := makeEnviron(c)
-	azInstance := azureInstance{*service, env}
+	record := prepareConversationForPortChanges(c, service, deployments)
+	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.ClosePorts("machine-id", []instance.Port{{"tcp", 587}, {"udp", 9}})
 
