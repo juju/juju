@@ -153,6 +153,12 @@ func (suite *EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
 }
 
+func (*EnvironSuite) TestGetContainerName(c *C) {
+	env := makeEnviron(c)
+	expected := env.getEnvPrefix() + "private"
+	c.Check(env.getContainerName(), Equals, expected)
+}
+
 func (suite *EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
