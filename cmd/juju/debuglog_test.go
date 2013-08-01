@@ -42,4 +42,11 @@ func (s *DebugLogSuite) TestDebugLogInvokesSSHCommand(c *C) {
 	c.Assert(debugCmd.runCalled, Equals, true)
 	c.Assert(debugCmd.Target, Equals, "0")
 	c.Assert([]string{"tail -f /var/log/juju/all-machines.log"}, DeepEquals, debugCmd.Args)
+
+	debugLogCmd, err = runDebugLog(c, "--all")
+	c.Assert(err, IsNil)
+	debugCmd = debugLogCmd.sshCmd.(*dummySSHCommand)
+	c.Assert(debugCmd.runCalled, Equals, true)
+	c.Assert(debugCmd.Target, Equals, "0")
+	c.Assert([]string{"tail -n +1 -f /var/log/juju/all-machines.log"}, DeepEquals, debugCmd.Args)
 }

@@ -10,7 +10,8 @@ import (
 
 type DebugLogCommand struct {
 	// The debug log command simply invokes juju ssh with the required arguments.
-	sshCmd cmd.Command
+	sshCmd  cmd.Command
+	showAll bool
 }
 
 const debuglogDoc = `
@@ -29,11 +30,19 @@ func (c *DebugLogCommand) Info() *cmd.Info {
 
 func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshCmd.SetFlags(f)
+	f.BoolVar(&c.showAll, "a", false, "show the complete log file contents")
+	f.BoolVar(&c.showAll, "all", false, "")
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
-	args = append([]string{"0"}, args...)
-	args = append(args, "tail -f /var/log/juju/all-machines.log")
+	args = append([]string{"0"}, args...) // machine 0
+	tailcmd := "tail "
+	if c.showAll {
+		// tail starting from line 1
+		tailcmd += "-n +1 "
+	}
+	tailcmd += "-f /var/log/juju/all-machines.log"
+	args = append(args, tailcmd)
 	return c.sshCmd.Init(args)
 }
 
