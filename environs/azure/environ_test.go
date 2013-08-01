@@ -443,6 +443,20 @@ func (*EnvironSuite) TestSetConfigWillNotUpdateName(c *C) {
 	c.Check(env.Name(), Equals, originalName)
 }
 
+func (*EnvironSuite) TestSetConfigClearsStorageAccountKey(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = "key-for-previous-config"
+	attrs := makeAzureConfigMap(c)
+	attrs["default-series"] = "other"
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	err = env.SetConfig(cfg)
+	c.Assert(err, IsNil)
+
+	c.Check(env.storageAccountKey, Equals, "")
+}
+
 func (*EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
