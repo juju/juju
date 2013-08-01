@@ -945,5 +945,6 @@ func (s *MachineSuite) TestSetAddresses(c *C) {
 	}
 	err = machine.SetAddresses(addresses)
 	c.Assert(err, IsNil)
+	machine.Refresh()
 	c.Assert(machine.Addresses(), DeepEquals, addresses)
 }
