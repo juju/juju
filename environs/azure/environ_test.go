@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -611,10 +612,10 @@ func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	// - one GET request to fetch the service's properties;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
-	assertOneRequest(c, *requests, "GET", service1Name)
-	assertOneRequest(c, *requests, "DELETE", service1Name)
-	assertOneRequest(c, *requests, "GET", service2Name)
-	assertOneRequest(c, *requests, "DELETE", service2Name)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
 // getVnetAndAffinityGroupCleanupResponses returns the responses
@@ -713,15 +714,16 @@ var emptyListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
-// assertOneRequest asserts that at least one request in the given slice
-// contains a request with the given method and whose URL contains the given string.
-func assertOneRequest(c *C, requests []*gwacl.X509Request, method string, urlFragment string) {
+// assertOneRequestMatches asserts that at least one request in the given slice
+// contains a request with the given method and whose URL matches the given regexp.
+func assertOneRequestMatches(c *C, requests []*gwacl.X509Request, method string, urlPattern string) {
 	for _, request := range requests {
-		if request.Method == method && strings.Contains(request.URL, urlFragment) {
+		matched, err := regexp.MatchString(urlPattern, request.URL)
+		if err == nil && request.Method == method && matched {
 			return
 		}
 	}
-	c.Error(fmt.Sprintf("None of the requests matches: Method=%v, URL fragment=%v", method, urlFragment))
+	c.Error(fmt.Sprintf("None of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
 }
 
 func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
@@ -759,10 +761,10 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	// the Virtual Network and the Affinity Group.
 	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
-	assertOneRequest(c, *requests, "GET", service1Name)
-	assertOneRequest(c, *requests, "DELETE", service1Name)
-	assertOneRequest(c, *requests, "GET", service2Name)
-	assertOneRequest(c, *requests, "DELETE", service2Name)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
 func (*EnvironSuite) TestGetInstance(c *C) {
