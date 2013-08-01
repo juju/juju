@@ -28,6 +28,7 @@ func (azInstance *azureInstance) Id() instance.Id {
 
 var AZURE_DOMAIN_NAME = "cloudapp.net"
 
+// Addresses is specified in the Instance interface.
 func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 	logger.Errorf("azureInstance.Addresses not implemented")
 	return nil, nil

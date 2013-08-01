@@ -13,18 +13,18 @@ import (
 	"launchpad.net/juju-core/environs/jujutest"
 )
 
-type InstanceTypeSuite struct{}
+type instanceTypeSuite struct{}
 
-var _ = gc.Suite(&InstanceTypeSuite{})
+var _ = gc.Suite(&instanceTypeSuite{})
 
-func (*InstanceTypeSuite) TestNewPreferredTypesAcceptsNil(c *gc.C) {
+func (*instanceTypeSuite) TestNewPreferredTypesAcceptsNil(c *gc.C) {
 	types := newPreferredTypes(nil)
 
 	c.Check(types, gc.HasLen, 0)
 	c.Check(types.Len(), gc.Equals, 0)
 }
 
-func (*InstanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
+func (*instanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
 	availableTypes := []gwacl.RoleSize{{Name: "Humongous", Cost: 123}}
 
 	types := newPreferredTypes(availableTypes)
@@ -34,7 +34,7 @@ func (*InstanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
 	c.Check(types.Len(), gc.Equals, len(availableTypes))
 }
 
-func (*InstanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
+func (*instanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
 	availableTypes := []gwacl.RoleSize{
 		{Name: "Excessive", Cost: 12},
 		{Name: "Ridiculous", Cost: 99},
@@ -50,7 +50,7 @@ func (*InstanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
 	c.Check(types[2].Name, gc.Equals, "Ridiculous")
 }
 
-func (*InstanceTypeSuite) TestLessComparesCost(c *gc.C) {
+func (*instanceTypeSuite) TestLessComparesCost(c *gc.C) {
 	types := preferredTypes{
 		{Name: "Cheap", Cost: 1},
 		{Name: "Posh", Cost: 200},
@@ -60,7 +60,7 @@ func (*InstanceTypeSuite) TestLessComparesCost(c *gc.C) {
 	c.Check(types.Less(1, 0), gc.Equals, false)
 }
 
-func (*InstanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
+func (*instanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
 	types := preferredTypes{
 		{Name: "First"},
 		{Name: "Last"},
@@ -72,7 +72,7 @@ func (*InstanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
 	c.Check(types[1].Name, gc.Equals, "First")
 }
 
-func (*InstanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
+func (*instanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
 	types := preferredTypes{
 		{Name: "First"},
 		{Name: "Last"},
@@ -84,7 +84,7 @@ func (*InstanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
 	c.Check(types[1].Name, gc.Equals, "First")
 }
 
-func (*InstanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
+func (*instanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
 	types := preferredTypes{
 		{Name: "A"},
 		{Name: "B"},
@@ -100,30 +100,30 @@ func (*InstanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
 	c.Check(types[3].Name, gc.Equals, "D")
 }
 
-func (*InstanceTypeSuite) TestSufficesAcceptsNilRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesAcceptsNilRequirement(c *gc.C) {
 	types := preferredTypes{}
 	c.Check(types.suffices(0, nil), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSufficesAcceptsMetRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesAcceptsMetRequirement(c *gc.C) {
 	types := preferredTypes{}
 	var expectation uint64 = 100
 	c.Check(types.suffices(expectation+1, &expectation), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSufficesAcceptsExactRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesAcceptsExactRequirement(c *gc.C) {
 	types := preferredTypes{}
 	var expectation uint64 = 100
 	c.Check(types.suffices(expectation+1, &expectation), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSufficesRejectsUnmetRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesRejectsUnmetRequirement(c *gc.C) {
 	types := preferredTypes{}
 	var expectation uint64 = 100
 	c.Check(types.suffices(expectation-1, &expectation), gc.Equals, false)
 }
 
-func (*InstanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
+func (*instanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
 	types := preferredTypes{}
 	var desiredCores uint64 = 5
 	constraint := constraints.Value{CpuCores: &desiredCores}
@@ -136,7 +136,7 @@ func (*InstanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
 	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
+func (*instanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
 	types := preferredTypes{}
 	var desiredMem uint64 = 37
 	constraint := constraints.Value{Mem: &desiredMem}
@@ -149,20 +149,20 @@ func (*InstanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
 	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
 	c.Check(
 		*defaultToBaselineSpec(constraints.Value{}).Mem,
 		gc.Equals,
 		uint64(defaultMem))
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesOriginalIntact(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesOriginalIntact(c *gc.C) {
 	original := constraints.Value{}
 	defaultToBaselineSpec(original)
 	c.Check(original.Mem, gc.IsNil)
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C) {
 	const low = 100 * gwacl.MB
 	var value uint64 = low
 	c.Check(
@@ -172,7 +172,7 @@ func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C)
 	c.Check(value, gc.Equals, uint64(low))
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C) {
 	const high = 100 * gwacl.MB
 	var value uint64 = high
 	c.Check(
@@ -182,14 +182,14 @@ func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C
 	c.Check(value, gc.Equals, uint64(high))
 }
 
-func (*InstanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
+func (*instanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
 	var lots uint64 = 1000000000000
 	_, err := selectMachineType(nil, constraints.Value{Mem: &lots})
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no machine type matches constraints mem=100000*[MGT]")
 }
 
-func (*InstanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
+func (*instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	var desiredCores uint64 = 50
 	availableTypes := []gwacl.RoleSize{
 		// Cheap, but not up to our requirements.
@@ -276,7 +276,7 @@ func prepareSimpleStreamsResponse(location, series, release, arch, json string) 
 	}
 }
 
-func (*InstanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
+func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
 	emptyResponse := `
 		{
 		 "format": "products:1.0"
@@ -291,7 +291,7 @@ func (*InstanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
 }
 
-func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
+func (*instanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 	// Real-world simplestreams index, pared down to a minimum:
 	response := `
 	{

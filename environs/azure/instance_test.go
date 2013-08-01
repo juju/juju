@@ -14,9 +14,9 @@ import (
 	"net/http"
 )
 
-type InstanceSuite struct{}
+type instanceSuite struct{}
 
-var _ = Suite(new(InstanceSuite))
+var _ = Suite(&instanceSuite{})
 
 // makeHostedServiceDescriptor creates a HostedServiceDescriptor with the
 // given service name.
@@ -25,14 +25,14 @@ func makeHostedServiceDescriptor(name string) *gwacl.HostedServiceDescriptor {
 	return &gwacl.HostedServiceDescriptor{ServiceName: name, Label: labelBase64}
 }
 
-func (*StorageSuite) TestId(c *C) {
+func (*instanceSuite) TestId(c *C) {
 	serviceName := "test-name"
 	testService := makeHostedServiceDescriptor(serviceName)
 	azInstance := azureInstance{*testService, nil}
 	c.Check(azInstance.Id(), Equals, instance.Id(serviceName))
 }
 
-func (*StorageSuite) TestDNSName(c *C) {
+func (*instanceSuite) TestDNSName(c *C) {
 	// An instance's DNS name is computed from its hosted-service name.
 	host := "hostname"
 	testService := makeHostedServiceDescriptor(host)
@@ -42,7 +42,7 @@ func (*StorageSuite) TestDNSName(c *C) {
 	c.Check(dnsName, Equals, host+"."+AZURE_DOMAIN_NAME)
 }
 
-func (*StorageSuite) TestWaitDNSName(c *C) {
+func (*instanceSuite) TestWaitDNSName(c *C) {
 	// An Azure instance gets its DNS name immediately, so there's no
 	// waiting involved.
 	host := "hostname"
@@ -84,7 +84,7 @@ func serialize(c *C, object gwacl.AzureObject) []byte {
 	return []byte(xml)
 }
 
-func (*StorageSuite) TestOpenPorts(c *C) {
+func (*instanceSuite) TestOpenPorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
 		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
@@ -156,7 +156,7 @@ func (*StorageSuite) TestOpenPorts(c *C) {
 		})
 }
 
-func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
+func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := []gwacl.DispatcherResponse{
 		// GetHostedServiceProperties breaks.
@@ -174,7 +174,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 	c.Check(*record, HasLen, 1)
 }
 
-func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
+func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
 		makeDeployment("deployment-one", makeRole("role-one")),
@@ -204,7 +204,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 	c.Check(*record, HasLen, 2)
 }
 
-func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
+func (*instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	deployments := []gwacl.Deployment{
 		makeDeployment("deployment-one", makeRole("role-one")),
