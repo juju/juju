@@ -25,7 +25,7 @@ type CleanerSuite struct {
 
 var _ = Suite(&CleanerSuite{})
 
-var _ worker.WatchHandler = (*cleaner.Cleaner)(nil)
+var _ worker.NotifyWatchHandler = (*cleaner.Cleaner)(nil)
 
 func (s *CleanerSuite) TestCleaner(c *C) {
 	cr := cleaner.NewCleaner(s.State)

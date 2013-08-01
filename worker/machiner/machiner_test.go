@@ -85,7 +85,7 @@ func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus p
 	}
 }
 
-var _ worker.WatchHandler = (*machiner.Machiner)(nil)
+var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *C) {
 	mr := machiner.NewMachiner(s.machinerState, "eleventy-one")
