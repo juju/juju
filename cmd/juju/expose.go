@@ -13,7 +13,7 @@ import (
 
 // ExposeCommand is responsible exposing services.
 type ExposeCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 }
 

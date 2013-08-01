@@ -5,12 +5,14 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
 	"launchpad.net/goose/identity"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	"strings"
 )
 
 // ImageMetadataCommand is used to write out a boilerplate environments.yaml file.
@@ -26,7 +28,7 @@ type ImageMetadataCommand struct {
 
 func (c *ImageMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "image-metadata",
+		Name:    "generate-image",
 		Purpose: "generate simplestreams image metadata",
 	}
 }
@@ -37,7 +39,7 @@ func (c *ImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.Name, "n", "", "the cloud name, as a prefix for the generated file names")
 	f.StringVar(&c.ImageId, "i", "", "the image id")
 	f.StringVar(&c.Region, "r", "", "the region")
-	f.StringVar(&c.Endpoint, "e", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
+	f.StringVar(&c.Endpoint, "u", "", "the cloud endpoint (for Openstack, this is the Identity Service endpoint)")
 }
 
 func (c *ImageMetadataCommand) Init(args []string) error {

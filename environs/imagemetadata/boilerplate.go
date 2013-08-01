@@ -8,6 +8,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/juju-core/environs/config"
+	"os"
+	"path/filepath"
 	"text/template"
 	"time"
 )
@@ -15,9 +17,18 @@ import (
 const (
 	defaultIndexFileName = "index.json"
 	defaultImageFileName = "imagemetadata.json"
+	streamsDir           = "streams/v1"
 )
 
+// Boilerplate generates some basic simplestreams metadata using the specified cloud and image details.
+// If name is non-empty, it will be used as a prefix for the names of the generated index and image files.
 func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
+	return MakeBoilerplate(name, series, im, cloudSpec, true)
+}
+
+// MakeBoilerplate exists so it can be called by tests. See Boilerplate above. It provides an option to retain
+// the streams directories when writing the generated metadata files.
+func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec, flattenPath bool) ([]string, error) {
 	indexFileName := defaultIndexFileName
 	imageFileName := defaultImageFileName
 	if name != "" {
@@ -30,7 +41,7 @@ func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) (
 		Arch:          im.Arch,
 		Region:        cloudSpec.Region,
 		URL:           cloudSpec.Endpoint,
-		Path:          "streams/v1",
+		Path:          streamsDir,
 		ImageFileName: imageFileName,
 		Updated:       now.Format(time.RFC1123Z),
 		VersionKey:    now.Format("20060102"),
@@ -42,6 +53,14 @@ func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) (
 		return nil, fmt.Errorf("invalid series %q", series)
 	}
 
+	if !flattenPath {
+		streamsPath := config.JujuHomePath(streamsDir)
+		if err = os.MkdirAll(streamsPath, 0755); err != nil {
+			return nil, err
+		}
+		indexFileName = filepath.Join(streamsDir, indexFileName)
+		imageFileName = filepath.Join(streamsDir, imageFileName)
+	}
 	err = writeJsonFile(imparams, indexFileName, indexBoilerplate)
 	if err != nil {
 		return nil, err
@@ -84,24 +103,24 @@ var indexBoilerplate = `
 {
  "index": {
    "com.ubuntu.cloud:custom": {
-    "updated": "{{.Updated}}",
-    "clouds": [
-     {
-       "region": "{{.Region}}",
-       "endpoint": "{{.URL}}"
-     }
-    ],
-    "cloudname": "custom",
-    "datatype": "image-ids",
-    "format": "products:1.0",
-    "products": [
-      "com.ubuntu.cloud:server:{{.Version}}:{{.Arch}}"
-    ],
-    "path": "{{.Path}}/{{.ImageFileName}}"
+     "updated": "{{.Updated}}",
+     "clouds": [
+       {
+         "region": "{{.Region}}",
+         "endpoint": "{{.URL}}"
+       }
+     ],
+     "cloudname": "custom",
+     "datatype": "image-ids",
+     "format": "products:1.0",
+     "products": [
+       "com.ubuntu.cloud:server:{{.Version}}:{{.Arch}}"
+     ],
+     "path": "{{.Path}}/{{.ImageFileName}}"
    }
-  },
-  "updated": "{{.Updated}}",
-  "format": "index:1.0"
+ },
+ "updated": "{{.Updated}}",
+ "format": "index:1.0"
 }
 `
 

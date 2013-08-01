@@ -234,7 +234,6 @@ var commandNames = []string{
 	"get-environment",
 	"help",
 	"help-tool",
-	"image-metadata",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation
@@ -303,6 +302,7 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 
 var globalFlags = []string{
 	"--debug .*",
+	"--description .*",
 	"-h, --help .*",
 	"--log-config .*",
 	"--log-file .*",
