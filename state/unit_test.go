@@ -169,6 +169,29 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
+func (s *UnitSuite) TestGetPublicAddressFromMachine(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	address, ok := s.unit.PublicAddress()
+	c.Check(address, Equals, "")
+	c.Assert(ok, Equals, false)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetAddresses(addresses)
+	c.Assert(err, IsNil)
+
+	// XXX(gz) Following fails, machine doc lacks addresses when read, why?
+	address, ok = s.unit.PublicAddress()
+	c.Check(address, Equals, "8.8.8.8")
+	c.Assert(ok, Equals, true)
+}
+
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)

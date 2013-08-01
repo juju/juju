@@ -442,7 +442,16 @@ func (u *Unit) DeployerTag() (string, bool) {
 
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
-	return u.doc.PublicAddress, u.doc.PublicAddress != ""
+	publicaddress := u.doc.PublicAddress
+	if u.doc.MachineId != "" {
+		m, err := u.st.Machine(u.doc.MachineId)
+		if err != nil {
+			// XXX(gz) Or treat as not having an address?
+			panic(err)
+		}
+		publicaddress = instance.SelectPublicAddress(m.Addresses())
+	}
+	return publicaddress, publicaddress != ""
 }
 
 // PrivateAddress returns the private address of the unit and whether it is valid.
