@@ -147,9 +147,10 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
 		Out:     logPath,
-		// Propagate the provider type enviroment variable.
+		// Propagate the provider type and container type enviroment variables.
 		Env: map[string]string{
-			osenv.JujuProviderType: os.Getenv(osenv.JujuProviderType),
+			osenv.JujuProviderType:  os.Getenv(osenv.JujuProviderType),
+			osenv.JujuContainerType: os.Getenv(osenv.JujuContainerType),
 		},
 	}
 	return uconf.Install()
