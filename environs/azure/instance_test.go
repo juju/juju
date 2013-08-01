@@ -89,7 +89,7 @@ func serialize(c *C, object gwacl.AzureObject) []byte {
 
 func preparePortChangeConversation(
 	c *C, service *gwacl.HostedServiceDescriptor,
-	deployments []gwacl.Deployment) []gwacl.DispatcherResponse {
+	deployments ...gwacl.Deployment) []gwacl.DispatcherResponse {
 	// Construct the series of responses to expected requests.
 	responses := []gwacl.DispatcherResponse{
 		// First, GetHostedServiceProperties
@@ -119,6 +119,12 @@ func preparePortChangeConversation(
 	return responses
 }
 
+// point is 1-indexed; it represents which request should fail.
+func failPortChangeConversationAt(point int, responses []gwacl.DispatcherResponse) {
+	responses[point-1] = gwacl.NewDispatcherResponse(
+		nil, http.StatusInternalServerError, nil)
+}
+
 type expectedRequest struct {
 	method     string
 	urlpattern string
@@ -134,12 +140,12 @@ func assertPortChangeConversation(c *C, record []*gwacl.X509Request, expected []
 
 func (*StorageSuite) TestOpenPorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
-		makeDeployment("deployment-one", makeRole("role-one"), makeRole("role-two")),
-		makeDeployment("deployment-two", makeRole("role-three")),
-	}
-	record := gwacl.PatchManagementAPIResponses(
-		preparePortChangeConversation(c, service, deployments))
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one",
+			makeRole("role-one"), makeRole("role-two")),
+		makeDeployment("deployment-two",
+			makeRole("role-three")))
+	record := gwacl.PatchManagementAPIResponses(responses)
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
 	err := azInstance.OpenPorts("machine-id", []instance.Port{
@@ -190,22 +196,9 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 
 func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
-		makeDeployment("deployment-one", makeRole("role-one")),
-	}
-	responses := []gwacl.DispatcherResponse{
-		// First, GetHostedServiceProperties
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.HostedService{
-				Deployments:             deployments,
-				HostedServiceDescriptor: *service,
-				XMLNS: gwacl.XMLNS,
-			}),
-			http.StatusOK, nil),
-		// Second, GetRole fails
-		gwacl.NewDispatcherResponse(
-			nil, http.StatusInternalServerError, nil),
-	}
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one", makeRole("role-one")))
+	failPortChangeConversationAt(2, responses) // 2nd request, GetRole
 	record := gwacl.PatchManagementAPIResponses(responses)
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
@@ -219,29 +212,9 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 
 func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
-		makeDeployment("deployment-one", makeRole("role-one")),
-	}
-	responses := []gwacl.DispatcherResponse{
-		// First, GetHostedServiceProperties
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.HostedService{
-				Deployments:             deployments,
-				HostedServiceDescriptor: *service,
-				XMLNS: gwacl.XMLNS,
-			}),
-			http.StatusOK, nil),
-		// Second, GetRole
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.PersistentVMRole{
-				XMLNS:    gwacl.XMLNS,
-				RoleName: "role-one",
-			}),
-			http.StatusOK, nil),
-		// Third, UpdateRole fails
-		gwacl.NewDispatcherResponse(
-			nil, http.StatusInternalServerError, nil),
-	}
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one", makeRole("role-one")))
+	failPortChangeConversationAt(3, responses) // 3rd request, UpdateRole
 	record := gwacl.PatchManagementAPIResponses(responses)
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
@@ -255,7 +228,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 
 func (*StorageSuite) TestClosePorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
+	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
 			makeRole("role-one",
 				makeInputEndpoint(587, "tcp"),
@@ -268,13 +241,12 @@ func (*StorageSuite) TestClosePorts(c *C) {
 			makeRole("role-three",
 				makeInputEndpoint(9, "tcp"),
 				makeInputEndpoint(9, "udp"),
-			)),
-	}
-	record := gwacl.PatchManagementAPIResponses(
-		preparePortChangeConversation(c, service, deployments))
+			)))
+	record := gwacl.PatchManagementAPIResponses(responses)
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
-	err := azInstance.ClosePorts("machine-id", []instance.Port{{"tcp", 587}, {"udp", 9}})
+	err := azInstance.ClosePorts("machine-id",
+		[]instance.Port{{"tcp", 587}, {"udp", 9}})
 
 	c.Assert(err, IsNil)
 	assertPortChangeConversation(c, *record, []expectedRequest{
@@ -328,22 +300,9 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) {
 
 func (*StorageSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
-		makeDeployment("deployment-one", makeRole("role-one")),
-	}
-	responses := []gwacl.DispatcherResponse{
-		// First, GetHostedServiceProperties
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.HostedService{
-				Deployments:             deployments,
-				HostedServiceDescriptor: *service,
-				XMLNS: gwacl.XMLNS,
-			}),
-			http.StatusOK, nil),
-		// Second, GetRole fails
-		gwacl.NewDispatcherResponse(
-			nil, http.StatusInternalServerError, nil),
-	}
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one", makeRole("role-one")))
+	failPortChangeConversationAt(2, responses) // 2nd request, GetRole
 	record := gwacl.PatchManagementAPIResponses(responses)
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
@@ -357,29 +316,9 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
 
 func (*StorageSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
-	deployments := []gwacl.Deployment{
-		makeDeployment("deployment-one", makeRole("role-one")),
-	}
-	responses := []gwacl.DispatcherResponse{
-		// First, GetHostedServiceProperties
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.HostedService{
-				Deployments:             deployments,
-				HostedServiceDescriptor: *service,
-				XMLNS: gwacl.XMLNS,
-			}),
-			http.StatusOK, nil),
-		// Second, GetRole
-		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.PersistentVMRole{
-				XMLNS:    gwacl.XMLNS,
-				RoleName: "role-one",
-			}),
-			http.StatusOK, nil),
-		// Third, UpdateRole fails
-		gwacl.NewDispatcherResponse(
-			nil, http.StatusInternalServerError, nil),
-	}
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one", makeRole("role-one")))
+	failPortChangeConversationAt(3, responses) // 3rd request, UpdateRole
 	record := gwacl.PatchManagementAPIResponses(responses)
 	azInstance := azureInstance{*service, makeEnviron(c)}
 
