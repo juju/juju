@@ -237,7 +237,7 @@ var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Con
 	return deployer.NewSimpleContext(dataDir, caCert, st), nil
 }
 
-func newDeployer(st *apideployer.State, machineTag string, dataDir string) (*deployer.Deployer, error) {
+func newDeployer(st *apideployer.State, machineTag string, dataDir string) (worker.Worker, error) {
 	ctx, err := newDeployContext(st, dataDir)
 	if err != nil {
 		return nil, err
