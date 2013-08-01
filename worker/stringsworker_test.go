@@ -156,7 +156,6 @@ func waitForHandledStrings(c *gc.C, handled chan []string, expect []string) {
 	select {
 	case changes := <-handled:
 		c.Assert(changes, gc.DeepEquals, expect)
-		return
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("handled failed to signal after %s", coretesting.LongWait)
 	}

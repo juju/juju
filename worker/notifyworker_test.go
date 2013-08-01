@@ -173,7 +173,6 @@ func waitShort(c *gc.C, w worker.Worker) error {
 func waitForHandledNotify(c *gc.C, handled chan struct{}) {
 	select {
 	case <-handled:
-		return
 	case <-time.After(coretesting.LongWait):
 		c.Errorf("handled failed to signal after %s", coretesting.LongWait)
 	}
