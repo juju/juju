@@ -230,7 +230,7 @@ func (*StorageSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 				XMLNS: gwacl.XMLNS,
 			}),
 			http.StatusOK, nil),
-		// Seconds, GetRole
+		// Second, GetRole
 		gwacl.NewDispatcherResponse(
 			serialize(c, &gwacl.PersistentVMRole{
 				XMLNS:    gwacl.XMLNS,
@@ -367,7 +367,7 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
 				XMLNS: gwacl.XMLNS,
 			}),
 			http.StatusOK, nil),
-		// Seconds, GetRole
+		// Second, GetRole
 		gwacl.NewDispatcherResponse(
 			serialize(c, &gwacl.PersistentVMRole{
 				XMLNS:    gwacl.XMLNS,
