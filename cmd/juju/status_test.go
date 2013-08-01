@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -145,6 +146,21 @@ var (
 			},
 			"1/lxc/1": M{
 				"instance-id": "pending",
+				"series":      "series",
+			},
+		},
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
+		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+	}
+	machine1WithContainersScoped = M{
+		"agent-state": "started",
+		"containers": M{
+			"1/lxc/0": M{
+				"agent-state": "started",
+				"dns-name":    "dummyenv-2.dns",
+				"instance-id": "dummyenv-2",
 				"series":      "series",
 			},
 		},
@@ -478,6 +494,141 @@ var statusTests = []testCase{
 								"life":             "dying",
 								"agent-state":      "down",
 								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+
+		scopedExpect{
+			"scope status on dummy-service/0 unit",
+			[]string{"dummy-service/0"},
+			M{
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on exposed-service service",
+			[]string{"exposed-service"},
+			M{
+				"machines": M{
+					"2": machine2,
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on service pattern",
+			[]string{"d*-service"},
+			M{
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on unit pattern",
+			[]string{"e*posed-service/*"},
+			M{
+				"machines": M{
+					"2": machine2,
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on combination of service and unit patterns",
+			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
+			M{
+				"machines": M{
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
 							},
 						},
 					},
@@ -844,6 +995,29 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		// once again, with a scope on mysql/1
+		scopedExpect{
+			"machines with nested containers",
+			[]string{"mysql/1"},
+			M{
+				"machines": M{
+					"1": machine1WithContainersScoped,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/1": M{
+								"machine":     "1/lxc/0",
+								"agent-state": "started",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -1157,19 +1331,26 @@ func (as addSubordinate) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
+type scopedExpect struct {
+	what   string
+	scope  []string
+	output M
+}
+
 type expect struct {
 	what   string
 	output M
 }
 
-func (e expect) step(c *C, ctx *context) {
-	c.Logf("expect: %s", e.what)
+func (e scopedExpect) step(c *C, ctx *context) {
+	c.Logf("expect: %s %s", e.what, strings.Join(e.scope, " "))
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		code, stdout, stderr := runStatus(c, "--format", format.name)
+		args := append([]string{"--format", format.name}, e.scope...)
+		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, Equals, 0)
 		c.Assert(stderr, HasLen, 0)
 
@@ -1186,6 +1367,10 @@ func (e expect) step(c *C, ctx *context) {
 		c.Assert(err, IsNil)
 		c.Assert(actual, DeepEquals, expected)
 	}
+}
+
+func (e expect) step(c *C, ctx *context) {
+	scopedExpect{e.what, nil, e.output}.step(c, ctx)
 }
 
 func (s *StatusSuite) TestStatusAllFormats(c *C) {

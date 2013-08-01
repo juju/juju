@@ -6,6 +6,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"path"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -24,7 +25,8 @@ import (
 
 type StatusCommand struct {
 	cmd.EnvCommandBase
-	out cmd.Output
+	out   cmd.Output
+	scope []string
 }
 
 var statusDoc = "This command will report on the runtime state of various system entities."
@@ -46,11 +48,43 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+func (c *StatusCommand) Init(args []string) error {
+	c.scope = args
+	return nil
+}
+
 type statusContext struct {
 	instances map[instance.Id]instance.Instance
 	machines  map[string][]*state.Machine
 	services  map[string]*state.Service
 	units     map[string]map[string]*state.Unit
+}
+
+type patternMatcher struct {
+	patterns []string
+}
+
+func (m *patternMatcher) match(s string) bool {
+	for _, pattern := range m.patterns {
+		if ok, _ := path.Match(pattern, s); ok {
+			return true
+		}
+	}
+	return false
+}
+
+func processScope(scope []string) (sm *patternMatcher, um *patternMatcher) {
+	for _, pattern := range scope {
+		m := &sm
+		if strings.Contains(pattern, "/") {
+			m = &um
+		}
+		if *m == nil {
+			*m = &patternMatcher{}
+		}
+		(*m).patterns = append((*m).patterns, pattern)
+	}
+	return sm, um
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -61,12 +95,28 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	var context statusContext
-	if context.machines, err = fetchAllMachines(conn.State); err != nil {
+	sm, um := processScope(c.scope)
+	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, sm, um); err != nil {
 		return err
 	}
-	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
+
+	// Filter machines by units in scope.
+	var machineIds *set.Strings
+	if sm != nil || um != nil {
+		machineIds = new(set.Strings)
+		for _, unitMap := range context.units {
+			for _, unit := range unitMap {
+				mid, err := unit.AssignedMachineId()
+				if err == nil {
+					machineIds.Add(mid)
+				}
+			}
+		}
+	}
+	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
 		return err
 	}
+
 	context.instances, err = fetchAllInstances(conn.Environ)
 	if err != nil {
 		// We cannot see instances from the environment, but
@@ -96,16 +146,31 @@ func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance,
 	return m, nil
 }
 
-// fetchAllMachines returns a map from top level machine id to machines, where machines[0] is the host
+// fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
 // machine and machines[1..n] are any containers (including nested ones).
-func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
+//
+// If machineIds is non-nil, only machines whose IDs are in the set, and their ancestors,
+// will be processed.
+func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, err
 	}
+	if machineIds != nil {
+		// Make sure we include full ancestry in machineIds.
+		for _, id := range machineIds.SortedValues() {
+			for id != "" {
+				machineIds.Add(id)
+				id = state.ParentId(id)
+			}
+		}
+	}
 	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
+		if machineIds != nil && !machineIds.Contains(m.Id()) {
+			continue
+		}
 		parentId, ok := m.ParentId()
 		if !ok {
 			// Only top level host machines go directly into the machine map.
@@ -125,7 +190,7 @@ func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
 
 // fetchAllServicesAndUnits returns a map from service name to service
 // and a map from service name to unit name to unit.
-func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
+func fetchAllServicesAndUnits(st *state.State, sm *patternMatcher, um *patternMatcher) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
 	services, err := st.AllServices()
@@ -133,16 +198,24 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 		return nil, nil, err
 	}
 	for _, s := range services {
-		svcMap[s.Name()] = s
+		if sm != nil && !sm.match(s.Name()) {
+			continue
+		}
 		units, err := s.AllUnits()
 		if err != nil {
 			return nil, nil, err
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
+			if um != nil && !um.match(u.Name()) {
+				continue
+			}
 			svcUnitMap[u.Name()] = u
 		}
-		unitMap[s.Name()] = svcUnitMap
+		if um == nil || len(svcUnitMap) > 0 {
+			unitMap[s.Name()] = svcUnitMap
+			svcMap[s.Name()] = s
+		}
 	}
 	return svcMap, unitMap, nil
 }
