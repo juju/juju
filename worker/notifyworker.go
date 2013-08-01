@@ -69,7 +69,7 @@ type tearDowner interface {
 	TearDown() error
 }
 
-// propagated tears down the handler, but ensures any error is
+// propagateTearDown tears down the handler, but ensures any error is
 // propagated through the tomb's Kill method.
 func propagateTearDown(handler tearDowner, t *tomb.Tomb) {
 	if err := handler.TearDown(); err != nil {
