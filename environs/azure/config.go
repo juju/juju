@@ -16,7 +16,6 @@ var configFields = schema.Fields{
 	"management-certificate-path":   schema.String(),
 	"management-certificate":        schema.String(),
 	"storage-account-name":          schema.String(),
-	"storage-account-key":           schema.String(),
 	"public-storage-account-name":   schema.String(),
 	"public-storage-container-name": schema.String(),
 	"force-image-name":              schema.String(),
@@ -49,10 +48,6 @@ func (cfg *azureEnvironConfig) ManagementCertificate() string {
 
 func (cfg *azureEnvironConfig) StorageAccountName() string {
 	return cfg.attrs["storage-account-name"].(string)
-}
-
-func (cfg *azureEnvironConfig) StorageAccountKey() string {
-	return cfg.attrs["storage-account-key"].(string)
 }
 
 func (cfg *azureEnvironConfig) PublicStorageContainerName() string {
@@ -125,7 +120,6 @@ const boilerplateYAML = `azure:
   management-certificate-path: /home/me/azure.pem
   # Windows Azure Storage info.
   storage-account-name: ghedlkjhw54e
-  storage-account-key: fdjh4sfkg
   # Public Storage info (account name and container name) denoting a public
   # container holding the juju tools.
   # public-storage-account-name: public-storage-account
@@ -147,6 +141,5 @@ func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]int
 		return nil, err
 	}
 	secretAttrs["management-certificate"] = azureCfg.ManagementCertificate()
-	secretAttrs["storage-account-key"] = azureCfg.StorageAccountKey()
 	return secretAttrs, nil
 }
