@@ -11,17 +11,17 @@ import (
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
 type PasswordChanger struct {
-	st           AgentEntityGetter
+	st           AuthenticatorGetter
 	getCanChange GetAuthFunc
 }
 
-type AgentEntityGetter interface {
-	AgentEntity(tag string) (state.AgentEntity, error)
+type AuthenticatorGetter interface {
+	Authenticator(tag string) (state.TaggedAuthenticator, error)
 }
 
 // NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
 // used on each invocation of SetPasswords to determine current permissions.
-func NewPasswordChanger(st AgentEntityGetter, getCanChange GetAuthFunc) *PasswordChanger {
+func NewPasswordChanger(st AuthenticatorGetter, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
 		st:           st,
 		getCanChange: getCanChange,
@@ -53,7 +53,10 @@ func (pc *PasswordChanger) SetPasswords(args params.PasswordChanges) (params.Err
 }
 
 func (pc *PasswordChanger) setPassword(tag, password string) error {
-	entity, err := pc.st.AgentEntity(tag)
+	type mongoPassworder interface {
+		SetMongoPassword(password string) error
+	}
+	entity, err := pc.st.Authenticator(tag)
 	if err != nil {
 		return err
 	}
@@ -61,11 +64,12 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	// if it fails, the agent in question should still be able
 	// to authenticate to another API server and ask it to change
 	// its password.
-
-	// TODO(rog) when the API is universal, check that the entity is a
-	// machine with jobs that imply it needs access to the mongo state.
-	if err := entity.SetMongoPassword(password); err != nil {
-		return err
+	if entity, ok := entity.(mongoPassworder); ok {
+		// TODO(rog) when the API is universal, check that the entity is a
+		// machine with jobs that imply it needs access to the mongo state.
+		if err := entity.SetMongoPassword(password); err != nil {
+			return err
+		}
 	}
 	return entity.SetPassword(password)
 }

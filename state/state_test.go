@@ -1545,11 +1545,6 @@ func (s *StateSuite) TestAuthenticator(c *gc.C) {
 	)
 }
 
-var (
-	_ state.AgentEntity = (*state.Machine)(nil)
-	_ state.AgentEntity = (*state.Unit)(nil)
-)
-
 func (s *StateSuite) TestAgentEntity(c *gc.C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
@@ -1561,7 +1556,7 @@ func (s *StateSuite) TestAgentEntity(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, machine.Tag())
 
 	entity, err = s.State.AgentEntity(user.Tag())
-	c.Assert(err, gc.ErrorMatches, `"user-arble" cannot have an agent`)
+	c.Assert(err, gc.ErrorMatches, `"user-arble" does not support agent operations`)
 	c.Assert(entity, gc.IsNil)
 
 	entity, err = s.State.AgentEntity("machine-99")

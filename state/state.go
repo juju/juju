@@ -476,7 +476,6 @@ type AgentEntity interface {
 	Authenticator
 	MongoPassworder
 	AgentTooler
-	Annotator
 }
 
 // Lifer represents an entity with a life.
@@ -544,6 +543,9 @@ func (st *State) Authenticator(tag string) (TaggedAuthenticator, error) {
 	return nil, fmt.Errorf("entity %q does not support authentication", tag)
 }
 
+// AgentEntity returns the AgentEntity with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement AgentEntity.
 func (st *State) AgentEntity(tag string) (AgentEntity, error) {
 	e, err := st.entity(tag)
 	if err != nil {
@@ -552,10 +554,12 @@ func (st *State) AgentEntity(tag string) (AgentEntity, error) {
 	if e, ok := e.(AgentEntity); ok {
 		return e, nil
 	}
-	return nil, fmt.Errorf("%q cannot have an agent", tag)
+	return nil, fmt.Errorf("%q does not support agent operations", tag)
 }
 
-// Annotator attempts to return aa TaggedAnnotator with the given tag.
+// Annotator attempts to return the TaggedAnnotator with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement TaggedAnnotator.
 func (st *State) Annotator(tag string) (TaggedAnnotator, error) {
 	e, err := st.entity(tag)
 	if err != nil {
@@ -567,7 +571,9 @@ func (st *State) Annotator(tag string) (TaggedAnnotator, error) {
 	return nil, fmt.Errorf("entity %q does not support annotations", tag)
 }
 
-// Lifer attempts to return a Lifer with the given tag.
+// Lifer attempts to return the Lifer with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement Lifer.
 func (st *State) Lifer(tag string) (Lifer, error) {
 	e, err := st.entity(tag)
 	if err != nil {
@@ -580,6 +586,8 @@ func (st *State) Lifer(tag string) (Lifer, error) {
 }
 
 // Remover attempts to return a Remover with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement Remover.
 func (st *State) Remover(tag string) (Remover, error) {
 	e, err := st.entity(tag)
 	if err != nil {
