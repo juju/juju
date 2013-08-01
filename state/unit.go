@@ -13,6 +13,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -23,6 +25,8 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
 )
+
+var unitLogger = loggo.GetLogger("juju.state.unit")
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
 type AssignmentPolicy string
@@ -442,16 +446,17 @@ func (u *Unit) DeployerTag() (string, bool) {
 
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
-	publicaddress := u.doc.PublicAddress
-	if u.doc.MachineId != "" {
-		m, err := u.st.Machine(u.doc.MachineId)
+	publicAddress := u.doc.PublicAddress
+	id := u.doc.MachineId
+	if id != "" {
+		m, err := u.st.Machine(id)
 		if err != nil {
-			// XXX(gz) Or treat as not having an address?
-			panic(err)
+			unitLogger.Errorf("unit %v misses machine id %v", u, id)
+			return "", false
 		}
-		publicaddress = instance.SelectPublicAddress(m.Addresses())
+		publicAddress = instance.SelectPublicAddress(m.Addresses())
 	}
-	return publicaddress, publicaddress != ""
+	return publicAddress, publicAddress != ""
 }
 
 // PrivateAddress returns the private address of the unit and whether it is valid.
