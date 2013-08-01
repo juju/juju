@@ -4,53 +4,33 @@
 package minunitsworker
 
 import (
-	"fmt"
-
 	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.minunitsworker")
 
 // MinUnitsWorker ensures the minimum number of units for services is respected.
 type MinUnitsWorker struct {
-	tomb tomb.Tomb
-	st   *state.State
+	st *state.State
 }
 
-// NewMinUnitsWorker returns a MinUnitsWorker that runs service.EnsureMinUnits()
+// NewMinUnitsWorker returns a Worker that runs service.EnsureMinUnits()
 // if the number of alive units belonging to a service decreases, or if the
 // minimum required number of units for a service is increased.
-func NewMinUnitsWorker(st *state.State) *MinUnitsWorker {
+func NewMinUnitsWorker(st *state.State) worker.Worker {
 	mu := &MinUnitsWorker{st: st}
-	go func() {
-		defer mu.tomb.Done()
-		mu.tomb.Kill(mu.loop())
-	}()
-	return mu
+	return worker.NewStringsWorker(mu)
 }
 
-func (mu *MinUnitsWorker) String() string {
-	return fmt.Sprintf("minunitsworker")
+func (mu *MinUnitsWorker) SetUp() (api.StringsWatcher, error) {
+	return mu.st.WatchMinUnits(), nil
 }
 
-func (mu *MinUnitsWorker) Kill() {
-	mu.tomb.Kill(nil)
-}
-
-func (mu *MinUnitsWorker) Stop() error {
-	mu.tomb.Kill(nil)
-	return mu.tomb.Wait()
-}
-
-func (mu *MinUnitsWorker) Wait() error {
-	return mu.tomb.Wait()
-}
-
-func (mu *MinUnitsWorker) handle(serviceName string) error {
+func (mu *MinUnitsWorker) handleOneService(serviceName string) error {
 	service, err := mu.st.Service(serviceName)
 	if err != nil {
 		return err
@@ -58,28 +38,18 @@ func (mu *MinUnitsWorker) handle(serviceName string) error {
 	return service.EnsureMinUnits()
 }
 
-func (mu *MinUnitsWorker) process(serviceNames []string) {
+func (mu *MinUnitsWorker) Handle(serviceNames []string) error {
 	for _, name := range serviceNames {
 		logger.Infof("processing service %q", name)
-		if err := mu.handle(name); err != nil {
+		if err := mu.handleOneService(name); err != nil {
 			logger.Errorf("failed to process service %q: %v", name, err)
+			return err
 		}
 	}
+	return nil
 }
 
-func (mu *MinUnitsWorker) loop() error {
-	w := mu.st.WatchMinUnits()
-	defer watcher.Stop(w, &mu.tomb)
-	for {
-		select {
-		case <-mu.tomb.Dying():
-			return tomb.ErrDying
-		case serviceNames, ok := <-w.Changes():
-			if !ok {
-				return watcher.MustErr(w)
-			}
-			mu.process(serviceNames)
-		}
-	}
-	panic("unreachable")
+func (mu *MinUnitsWorker) TearDown() error {
+	// Nothing to do here.
+	return nil
 }
