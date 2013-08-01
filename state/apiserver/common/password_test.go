@@ -26,13 +26,13 @@ var _ = Suite(&passwordSuite{})
 
 func (*passwordSuite) TestSetPasswords(c *C) {
 	st := &fakeAuthState{
-		entities: map[string]state.AgentEntity{
-			"x0": &fakeEntity{},
-			"x1": &fakeEntity{},
-			"x2": &fakeEntity{
+		entities: map[string]state.TaggedAuthenticator{
+			"x0": &fakeAuthenticator{},
+			"x1": &fakeAuthenticator{},
+			"x2": &fakeAuthenticator{
 				err: fmt.Errorf("x2 error"),
 			},
-			"x3": &fakeEntity{},
+			"x3": &fakeAuthenticatorWithMongoPass{},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
@@ -61,12 +61,11 @@ func (*passwordSuite) TestSetPasswords(c *C) {
 			{nil},
 		},
 	})
-	c.Assert(st.entities["x0"].(*fakeEntity).pass, Equals, "")
-	c.Assert(st.entities["x1"].(*fakeEntity).pass, Equals, "x1pass")
-	c.Assert(st.entities["x1"].(*fakeEntity).mongoPass, Equals, "x1pass")
-	c.Assert(st.entities["x2"].(*fakeEntity).pass, Equals, "")
-	c.Assert(st.entities["x3"].(*fakeEntity).pass, Equals, "x3pass")
-	c.Assert(st.entities["x3"].(*fakeEntity).mongoPass, Equals, "x3pass")
+	c.Assert(st.entities["x0"].(*fakeAuthenticator).pass, Equals, "")
+	c.Assert(st.entities["x1"].(*fakeAuthenticator).pass, Equals, "x1pass")
+	c.Assert(st.entities["x2"].(*fakeAuthenticator).pass, Equals, "")
+	c.Assert(st.entities["x3"].(*fakeAuthenticatorWithMongoPass).pass, Equals, "x3pass")
+	c.Assert(st.entities["x3"].(*fakeAuthenticatorWithMongoPass).mongoPass, Equals, "x3pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *C) {
@@ -97,27 +96,25 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *C) {
 }
 
 type fakeAuthState struct {
-	entities map[string]state.AgentEntity
+	entities map[string]state.TaggedAuthenticator
 }
 
-func (st *fakeAuthState) AgentEntity(tag string) (state.AgentEntity, error) {
+func (st *fakeAuthState) Authenticator(tag string) (state.TaggedAuthenticator, error) {
 	if auth, ok := st.entities[tag]; ok {
 		return auth, nil
 	}
 	return nil, errors.NotFoundf("entity %q", tag)
 }
 
-type fakeEntity struct {
-	err       error
-	pass      string
-	mongoPass string
-
-	// Any AgentEntity methods we don't implement on fakeEntity
-	// will fall back to this and panic.
-	state.AgentEntity
+type fakeAuthenticator struct {
+	// Any Authenticator methods we don't implement on fakeAuthenticator
+	// will fall back to this and panic because it's always nil.
+	state.TaggedAuthenticator
+	err  error
+	pass string
 }
 
-func (a *fakeEntity) SetPassword(pass string) error {
+func (a *fakeAuthenticator) SetPassword(pass string) error {
 	if a.err != nil {
 		return a.err
 	}
@@ -125,7 +122,12 @@ func (a *fakeEntity) SetPassword(pass string) error {
 	return nil
 }
 
-func (a *fakeEntity) SetMongoPassword(pass string) error {
+type fakeAuthenticatorWithMongoPass struct {
+	fakeAuthenticator
+	mongoPass string
+}
+
+func (a *fakeAuthenticatorWithMongoPass) SetMongoPassword(pass string) error {
 	if a.err != nil {
 		return a.err
 	}

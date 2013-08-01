@@ -1545,11 +1545,6 @@ func (s *StateSuite) TestAuthenticator(c *gc.C) {
 	)
 }
 
-var (
-	_ state.AgentEntity = (*state.Machine)(nil)
-	_ state.AgentEntity = (*state.Unit)(nil)
-)
-
 func (s *StateSuite) TestAgentEntity(c *gc.C) {
 	machine, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
