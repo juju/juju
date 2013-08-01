@@ -81,7 +81,7 @@ func (nw *notifyWorker) loop() error {
 	w, err := nw.handler.SetUp()
 	if err != nil {
 		if w != nil {
-			// We don't bother to propogate an error, because we
+			// We don't bother to propagate an error, because we
 			// already have an error
 			w.Stop()
 		}
