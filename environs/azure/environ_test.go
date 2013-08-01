@@ -583,7 +583,15 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 	return service1, service1Desc
 }
 
+func setServiceDeletionConcurrency(nbGoroutines int) func() {
+	oldMaxConcurrentDeletes := maxConcurrentDeletes
+	maxConcurrentDeletes = nbGoroutines
+	return func() { maxConcurrentDeletes = oldMaxConcurrentDeletes }
+}
+
 func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
 	service1Name := "service1"
 	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
@@ -603,10 +611,10 @@ func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	// - one GET request to fetch the service's properties;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
-	c.Check((*requests)[0].Method, Equals, "GET")
-	c.Check((*requests)[1].Method, Equals, "DELETE")
-	c.Check((*requests)[2].Method, Equals, "GET")
-	c.Check((*requests)[3].Method, Equals, "DELETE")
+	assertOneRequest(c, *requests, "GET", service1Name)
+	assertOneRequest(c, *requests, "DELETE", service1Name)
+	assertOneRequest(c, *requests, "GET", service2Name)
+	assertOneRequest(c, *requests, "DELETE", service2Name)
 }
 
 // getVnetAndAffinityGroupCleanupResponses returns the responses
@@ -705,10 +713,23 @@ var emptyListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
+// assertOneRequest asserts that at least one request in the given slice
+// contains a request with the given method and whose URL contains the given string.
+func assertOneRequest(c *C, requests []*gwacl.X509Request, method string, urlFragment string) {
+	for _, request := range requests {
+		if request.Method == method && strings.Contains(request.URL, urlFragment) {
+			return
+		}
+	}
+	c.Error(fmt.Sprintf("None of the requests matches: Method=%v, URL fragment=%v", method, urlFragment))
+}
+
 func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
+	cleanup1 := setServiceDeletionConcurrency(3)
+	defer cleanup1()
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	cleanup2 := setDummyStorage(c, env)
+	defer cleanup2()
 
 	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
@@ -738,14 +759,10 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	// the Virtual Network and the Affinity Group.
 	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
-	c.Check((*requests)[1].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
-	c.Check((*requests)[2].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[2].URL, service1Name), IsTrue)
-	c.Check((*requests)[3].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
-	c.Check((*requests)[4].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+	assertOneRequest(c, *requests, "GET", service1Name)
+	assertOneRequest(c, *requests, "DELETE", service1Name)
+	assertOneRequest(c, *requests, "GET", service2Name)
+	assertOneRequest(c, *requests, "DELETE", service2Name)
 }
 
 func (*EnvironSuite) TestGetInstance(c *C) {
