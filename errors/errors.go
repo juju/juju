@@ -66,7 +66,9 @@ func Unauthorizedf(format string, args ...interface{}) error {
 }
 
 // NoEnvError indicates the default environment config file is missing
-type NoEnvError error
+type NoEnvError struct {
+	error
+}
 
 // IsNoEnv returns true if err is a NoEnvError
 func IsNoEnv(err error) bool {

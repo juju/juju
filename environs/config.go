@@ -139,7 +139,7 @@ func ReadEnvirons(path string) (*Environs, error) {
 	data, err := ioutil.ReadFile(environsFilepath)
 	if err != nil {
 		if path == "" && os.IsNotExist(err) {
-			return nil, errors.NoEnvError(err)
+			return nil, errors.NoEnvError{err}
 		}
 		return nil, err
 	}
