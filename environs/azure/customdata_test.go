@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -32,14 +33,13 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		StateInfo: &state.Info{
 			CACert: []byte(testing.CACert),
 			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    state.MachineTag(machineID),
+			Tag:    names.MachineTag(machineID),
 		},
 		APIInfo: &api.Info{
 			CACert: []byte(testing.CACert),
 			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    state.MachineTag(machineID),
+			Tag:    names.MachineTag(machineID),
 		},
-		ProviderType: "azure",
 	}
 }
 

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/utils"
 )
@@ -66,7 +67,7 @@ func (s *Service) Name() string {
 // as a file name.  The returned name will be different from other
 // Tag values returned by any other entities from the same state.
 func (s *Service) Tag() string {
-	return "service-" + s.Name()
+	return names.ServiceTag(s.Name())
 }
 
 // serviceGlobalKey returns the global database key for the service
@@ -691,7 +692,7 @@ func (s *Service) removeUnitOps(u *Unit, asserts D) ([]txn.Op, error) {
 
 // Unit returns the service's unit with name.
 func (s *Service) Unit(name string) (*Unit, error) {
-	if !IsUnitName(name) {
+	if !names.IsUnit(name) {
 		return nil, fmt.Errorf("%q is not a valid unit name", name)
 	}
 	udoc := &unitDoc{}

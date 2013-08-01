@@ -17,7 +17,9 @@ import (
 	localstorage "launchpad.net/juju-core/environs/local/storage"
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
@@ -57,7 +59,7 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
-	if !state.IsMachineId(a.MachineId) {
+	if !names.IsMachine(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.Conf.checkArgs(args); err != nil {
@@ -212,7 +214,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	providerType := os.Getenv(osenv.JujuProviderType)
 	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
@@ -282,7 +284,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 }
 
 func (a *MachineAgent) Tag() string {
-	return state.MachineTag(a.MachineId)
+	return names.MachineTag(a.MachineId)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

@@ -6,10 +6,12 @@ package main
 import (
 	"errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
@@ -34,7 +36,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units > 1 with --to")
 		}
-		if !state.IsMachineOrNewContainer(c.ToMachineSpec) {
+		if !names.IsMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}
 	}
@@ -43,7 +45,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 
 // AddUnitCommand is responsible adding additional units to a service.
 type AddUnitCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	UnitCommandBase
 	ServiceName string
 }

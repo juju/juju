@@ -10,7 +10,7 @@ import (
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 }
 
 func (c *DestroyEnvironmentCommand) Info() *cmd.Info {

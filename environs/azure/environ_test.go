@@ -153,6 +153,12 @@ func (suite *EnvironSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
 }
 
+func (*EnvironSuite) TestGetContainerName(c *C) {
+	env := makeEnviron(c)
+	expected := env.getEnvPrefix() + "private"
+	c.Check(env.getContainerName(), Equals, expected)
+}
+
 func (suite *EnvironSuite) TestAllInstances(c *C) {
 	env := makeEnviron(c)
 	prefix := env.getEnvPrefix()
@@ -586,7 +592,9 @@ func (*EnvironSuite) TestStopInstancesDestroysMachines(c *C) {
 	responses := buildDestroyAzureServiceResponses(c, services)
 	requests := gwacl.PatchManagementAPIResponses(responses)
 	env := makeEnviron(c)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+	instances := convertToInstances(
+		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc},
+		env)
 
 	err := env.StopInstances(instances)
 	c.Check(err, IsNil)
@@ -630,7 +638,7 @@ func (*EnvironSuite) TestDestroyCleansUpStorage(c *C) {
 	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
 	responses = append(responses, cleanupResponses...)
 	gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
 	err := env.Destroy(instances)
 	c.Check(err, IsNil)
@@ -665,7 +673,7 @@ func (*EnvironSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *C) {
 	}
 	responses = append(responses, cleanupResponses...)
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{})
+	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
 	err = env.Destroy(instances)
 	c.Check(err, IsNil)
@@ -718,7 +726,9 @@ func (*EnvironSuite) TestDestroyStopsAllInstances(c *C) {
 	requests := gwacl.PatchManagementAPIResponses(responses)
 
 	// Call Destroy with service1 and service2.
-	instances := convertToInstances([]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc})
+	instances := convertToInstances(
+		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc},
+		env)
 	err := env.Destroy(instances)
 	c.Check(err, IsNil)
 
@@ -751,6 +761,9 @@ func (*EnvironSuite) TestGetInstance(c *C) {
 	c.Check(err, IsNil)
 
 	c.Check(string(instance.Id()), Equals, serviceName)
+	c.Check(instance, FitsTypeOf, &azureInstance{})
+	azInstance := instance.(*azureInstance)
+	c.Check(azInstance.environ, Equals, env)
 }
 
 func (*EnvironSuite) TestNewOSVirtualDisk(c *C) {
@@ -1007,4 +1020,16 @@ func (*EnvironSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *C) {
 	// Hard-coded to true for now.  Once we support other base URLs, this
 	// may have to become configurable.
 	c.Check(env.getImageMetadataSigningRequired(), Equals, true)
+}
+
+func (*EnvironSuite) TestConvertToInstances(c *C) {
+	services := []gwacl.HostedServiceDescriptor{
+		{ServiceName: "foo"}, {ServiceName: "bar"},
+	}
+	env := makeEnviron(c)
+	instances := convertToInstances(services, env)
+	c.Check(instances, DeepEquals, []instance.Instance{
+		&azureInstance{services[0], env},
+		&azureInstance{services[1], env},
+	})
 }

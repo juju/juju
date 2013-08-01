@@ -6,17 +6,20 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
-	"os"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/names"
 )
 
 type DeployCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	UnitCommandBase
 	CharmName    string
 	ServiceName  string
@@ -70,13 +73,13 @@ func (c *DeployCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.BumpRevision, "upgrade", false, "")
 	f.Var(&c.Config, "config", "path to yaml-formatted service config")
 	f.Var(constraints.ConstraintsValue{&c.Constraints}, "constraints", "set service constraints")
-	f.StringVar(&c.RepoPath, "repository", os.Getenv("JUJU_REPOSITORY"), "local charm repository")
+	f.StringVar(&c.RepoPath, "repository", os.Getenv(osenv.JujuRepository), "local charm repository")
 }
 
 func (c *DeployCommand) Init(args []string) error {
 	switch len(args) {
 	case 2:
-		if !state.IsServiceName(args[1]) {
+		if !names.IsService(args[1]) {
 			return fmt.Errorf("invalid service name %q", args[1])
 		}
 		c.ServiceName = args[1]

@@ -26,7 +26,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	flags := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
 	flags.SetOutput(ioutil.Discard)
 	plugin.SetFlags(flags)
-	cmd.ParseArgs(plugin, flags, args)
+	flags.Parse(false, args)
 	plugin.Init(flags.Args())
 	err := plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
@@ -39,7 +39,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	name string
 	args []string
 }
@@ -132,8 +132,8 @@ func GetPluginDescriptions() []PluginDescription {
 			defer func() {
 				description <- result
 			}()
-			cmd := exec.Command(plugin, "--description")
-			output, err := cmd.CombinedOutput()
+			desccmd := exec.Command(plugin, "--description")
+			output, err := desccmd.CombinedOutput()
 
 			if err == nil {
 				// trim to only get the first line
