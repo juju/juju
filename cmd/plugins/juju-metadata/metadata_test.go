@@ -79,6 +79,7 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 
 var globalFlags = []string{
 	"--debug .*",
+	"--description .*",
 	"-h, --help .*",
 	"--log-config .*",
 	"--log-file .*",
