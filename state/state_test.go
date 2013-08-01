@@ -1556,7 +1556,7 @@ func (s *StateSuite) TestAgentEntity(c *gc.C) {
 	c.Assert(entity.Tag(), gc.Equals, machine.Tag())
 
 	entity, err = s.State.AgentEntity(user.Tag())
-	c.Assert(err, gc.ErrorMatches, `"user-arble" cannot have an agent`)
+	c.Assert(err, gc.ErrorMatches, `"user-arble" does not support agent operations`)
 	c.Assert(entity, gc.IsNil)
 
 	entity, err = s.State.AgentEntity("machine-99")
