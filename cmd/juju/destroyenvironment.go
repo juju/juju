@@ -4,6 +4,7 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -29,7 +30,7 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 func (c *DestroyEnvironmentCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.assumeYes, "y", false, "Do not ask for confirmation")
-	f.BoolVar(&c.assumeYes, "yes", false, "Do not ask for confirmation")
+	f.BoolVar(&c.assumeYes, "yes", false, "")
 }
 
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
@@ -41,14 +42,10 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	if !c.assumeYes {
 		var answer string
 		fmt.Fprintf(ctx.Stdout, destroyEnvMsg[1:], environ.Name(), environ.Config().Type())
-		_, err = fmt.Fscanln(ctx.Stdin, &answer)
-		if err != nil {
-			return err
-		}
+		fmt.Fscanln(ctx.Stdin, &answer) // ignore error, treat as "n"
 		answer = strings.ToLower(answer)
 		if answer != "y" && answer != "yes" {
-			fmt.Fprintln(ctx.Stdout, "Environment destruction aborted")
-			return nil
+			return errors.New("Environment destruction aborted")
 		}
 	}
 

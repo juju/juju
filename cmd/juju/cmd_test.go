@@ -175,18 +175,16 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *C) {
 	// Ensure confirmation is requested if "-y" is not specified.
 	stdin.WriteString("n")
 	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand))
-	c.Check(<-errc, IsNil)
-	_, ok := <-opc
-	c.Check(ok, Equals, false)
+	c.Check(<-errc, ErrorMatches, "Environment destruction aborted")
+	c.Check(<-opc, IsNil)
 	c.Check(stdout.String(), Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
 
-	// EOF on stdin: error.
+	// EOF on stdin: equivalent to answering no.
 	stdin.Reset()
 	stdout.Reset()
 	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
 	c.Check(<-opc, IsNil)
-	c.Check(<-errc, ErrorMatches, "EOF")
-	c.Check(<-opc, IsNil)
+	c.Check(<-errc, ErrorMatches, "Environment destruction aborted")
 
 	// "--yes" passed: no confirmation request.
 	stdin.Reset()
