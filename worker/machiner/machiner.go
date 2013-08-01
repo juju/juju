@@ -21,7 +21,7 @@ type Machiner struct {
 	machine *machiner.Machine
 }
 
-// NewMachiner returns a Machiner that will wait for the identified machine
+// NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
 func NewMachiner(st *machiner.State, tag string) worker.Worker {
