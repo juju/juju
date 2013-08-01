@@ -1147,7 +1147,7 @@ func (*EnvironSuite) TestConvertToInstances(c *C) {
 
 func (*EnvironSuite) TestExtractStorageKeyPicksPrimaryKeyIfSet(c *C) {
 	keys := gwacl.StorageAccountKeys{
-		Primary: "mainkey",
+		Primary:   "mainkey",
 		Secondary: "otherkey",
 	}
 	c.Check(extractStorageKey(&keys), Equals, "mainkey")
