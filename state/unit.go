@@ -59,9 +59,8 @@ const (
 
 // UnitSettings holds information about a service unit's settings
 // within a relation.
-// NOTE: Settings field is NEVER guaranteed to be
-// populated and up-to-date at hook execution time, and if nil will be
-// refreshed by the hook queue. We need to remove it in the future.
+// NOTE: Settings field may always be nil and should never be
+// dependent upon. We need to remove it in the future.
 type UnitSettings struct {
 	Version  int64
 	Settings map[string]interface{}
