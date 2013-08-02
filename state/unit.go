@@ -57,8 +57,10 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
-// UnitSettings holds information about a service unit's settings within a
-// relation.
+// UnitSettings holds information about a service unit's settings
+// within a relation.
+// NOTE: Settings field may always be nil and should never be
+// dependent upon. We need to remove it in the future.
 type UnitSettings struct {
 	Version  int64
 	Settings map[string]interface{}
