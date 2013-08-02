@@ -138,7 +138,7 @@ func assertPortChangeConversation(c *C, record []*gwacl.X509Request, expected []
 	}
 }
 
-func (*StorageSuite) TestOpenPorts(c *C) {
+func (*instanceSuite) TestOpenPorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
@@ -226,7 +226,7 @@ func (*instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 	c.Check(*record, HasLen, 3)
 }
 
-func (*StorageSuite) TestClosePorts(c *C) {
+func (*instanceSuite) TestClosePorts(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
@@ -281,7 +281,7 @@ func (*StorageSuite) TestClosePorts(c *C) {
 		&[]gwacl.InputEndpoint{makeInputEndpoint(9, "tcp")})
 }
 
-func (*StorageSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) {
+func (*instanceSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := []gwacl.DispatcherResponse{
 		// GetHostedServiceProperties breaks.
@@ -298,7 +298,7 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) {
 	c.Check(*record, HasLen, 1)
 }
 
-func (*StorageSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
+func (*instanceSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one", makeRole("role-one")))
@@ -314,7 +314,7 @@ func (*StorageSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
 	c.Check(*record, HasLen, 2)
 }
 
-func (*StorageSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
+func (*instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one", makeRole("role-one")))
