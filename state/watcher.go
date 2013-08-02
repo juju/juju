@@ -512,10 +512,12 @@ type RelationUnitsWatcher struct {
 // scope of a RelationUnit, and changes to the settings of those units known
 // to have entered.
 //
-// When a remove unit first enters scope, or its settings are changed
-// later, those changes will be noted in the Changed field. When the
-// remote unit leaves the scope, it will be noted in the Departed field,
-// and no further events will be sent for that remote unit.
+// When remote units first enter scope and then when their settings
+// change, the changes will be noted in the Changed field, which holds
+// the unit settings for every such unit, indexed by the unit id.
+//
+// When remote units leave scope, their ids will be noted in the
+// Departed field, and no further events will be sent for those units.
 type RelationUnitsChange struct {
 	Changed  map[string]UnitSettings
 	Departed []string
