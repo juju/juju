@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
 	"launchpad.net/juju-core/worker/upgrader"
@@ -261,6 +262,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		default:
 			log.Warningf("ignoring unknown job %q", job)
