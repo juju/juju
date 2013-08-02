@@ -627,8 +627,9 @@ func chanReadError(c *C, ch <-chan error, what string) error {
 	case e := <-ch:
 		return e
 	case <-time.After(3 * time.Second):
+		c.Fatalf("timeout on channel read %s", what)
 	}
-	c.Fatalf("timeout on channel read %s", what)
+	panic("unreachable")
 }
 
 // newRPCClientServer starts an RPC server serving a connection from a
