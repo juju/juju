@@ -19,6 +19,8 @@ import (
 // the lock.  It will panic if the function fails to do either.
 // TODO: Support generic sync.Locker instead of just Mutex.
 // TODO: This could be a gocheck checker.
+// TODO(rog): make this work reliably even for functions that take longer
+// than a few µs to execute.
 func TestLockingFunction(lock *sync.Mutex, function func()) {
 	// We record two events that must happen in the right order.
 	// Buffer the channel so that we don't get hung up during attempts
