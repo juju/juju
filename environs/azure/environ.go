@@ -706,6 +706,11 @@ func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
 	return env.openEndpoints(context, ports)
 }
 
+// Method expression for azureInstance.openEndpoints, here purely so it can be
+// patched out in tests.
+var openInstanceEndpoints func(
+	*azureInstance, *azureManagementContext, []instance.Port) error = (*azureInstance).openEndpoints
+
 // openEndpoints() opens the endpoints across all Azure deployments related to
 // this environment. The caller is responsible for locking and unlocking the
 // environ and releasing the management context.
@@ -716,7 +721,7 @@ func (env *azureEnviron) openEndpoints(context *azureManagementContext, ports []
 	}
 	for _, instance := range instances {
 		azInstance := instance.(*azureInstance)
-		err := azInstance.openEndpoints(context, ports)
+		err := openInstanceEndpoints(azInstance, context, ports)
 		if err != nil {
 			return err
 		}
