@@ -692,41 +692,15 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	return nil
 }
 
-// OpenPorts is specified in the Environ interface.
+// OpenPorts is specified in the Environ interface. However, Azure does not
+// support the global firewall mode.
 func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(context)
-
-	env.Lock()
-	defer env.Unlock()
-
-	return env.openEndpoints(context, ports)
-}
-
-// openEndpoints() opens the endpoints across all Azure deployments related to
-// this environment. The caller is responsible for locking and unlocking the
-// environ and releasing the management context.
-func (env *azureEnviron) openEndpoints(context *azureManagementContext, ports []instance.Port) error {
-	instances, err := env.AllInstances()
-	if err != nil {
-		return err
-	}
-	for _, instance := range instances {
-		azInstance := instance.(*azureInstance)
-		err := azInstance.openEndpoints(context, ports)
-		if err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-// ClosePorts is specified in the Environ interface.
+// ClosePorts is specified in the Environ interface. However, Azure does not
+// support the global firewall mode.
 func (env *azureEnviron) ClosePorts(ports []instance.Port) error {
-	// TODO: implement this.
 	return nil
 }
 
