@@ -7,6 +7,7 @@ import (
 	"os"
 
 	. "launchpad.net/gocheck"
+	"launchpad.net/juju-core/cmd"
 	_ "launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/testing"
 )
@@ -68,7 +69,7 @@ func (*SwitchSimpleSuite) TestSettingWritesFile(c *C) {
 	context, err := testing.RunCommand(c, &SwitchCommand{}, []string{"erewhemos-2"})
 	c.Assert(err, IsNil)
 	c.Assert(testing.Stdout(context), Equals, "Changed default environment from \"erewhemos\" to \"erewhemos-2\"\n")
-	c.Assert(readCurrentEnvironment(), Equals, "erewhemos-2")
+	c.Assert(cmd.ReadCurrentEnvironment(), Equals, "erewhemos-2")
 }
 
 func (*SwitchSimpleSuite) TestSettingToUnknown(c *C) {

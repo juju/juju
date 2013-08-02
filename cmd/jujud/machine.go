@@ -17,6 +17,7 @@ import (
 	localstorage "launchpad.net/juju-core/environs/local/storage"
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -84,10 +85,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
 	log.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
-		return err
-	}
-	if err := EnsureWeHaveLXC(a.Conf.DataDir, a.Tag()); err != nil {
-		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
@@ -199,11 +196,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If this fails, other bits will fail, so we just log the error, and
-	// let the other failures actually restart runners
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		log.Warningf("failed to EnsureAPIInfo: %v", err)
-	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
@@ -222,7 +214,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	providerType := os.Getenv(osenv.JujuProviderType)
 	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {

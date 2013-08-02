@@ -22,6 +22,11 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
+var dottedConfig = `
+options:
+  key.dotted: {default: My Key, description: Desc, type: string}
+`
+
 type storeManagerStateSuite struct {
 	testing.LoggingSuite
 	testing.MgoSuite
@@ -775,6 +780,33 @@ var allWatcherChangedTests = []struct {
 				Name:     "wordpress",
 				CharmURL: "local:series/series-wordpress-3",
 				Config:   charm.Settings{"blog-title": "foo"},
+			},
+		},
+	}, {
+		about: "service config is unescaped when reading from the backing store",
+		add: []params.EntityInfo{&params.ServiceInfo{
+			Name:     "wordpress",
+			CharmURL: "local:series/series-wordpress-3",
+			Config:   charm.Settings{"key.dotted": "bar"},
+		}},
+		setUp: func(c *C, st *State) {
+			testCharm := AddCustomCharm(
+				c, st, "wordpress",
+				"config.yaml", dottedConfig,
+				"series", 3)
+			svc, err := st.AddService("wordpress", testCharm)
+			c.Assert(err, IsNil)
+			setServiceConfigAttr(c, svc, "key.dotted", "foo")
+		},
+		change: watcher.Change{
+			C:  "settings",
+			Id: "s#wordpress#local:series/series-wordpress-3",
+		},
+		expectContents: []params.EntityInfo{
+			&params.ServiceInfo{
+				Name:     "wordpress",
+				CharmURL: "local:series/series-wordpress-3",
+				Config:   charm.Settings{"key.dotted": "foo"},
 			},
 		},
 	}, {

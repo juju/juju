@@ -31,7 +31,7 @@ var serviceNameTests = []struct {
 
 func (s *serviceSuite) TestServiceNameFormats(c *gc.C) {
 	for i, test := range serviceNameTests {
-		c.Logf("%d. %q", i, test.pattern)
+		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsService(test.pattern), gc.Equals, test.valid)
 	}
 }

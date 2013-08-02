@@ -209,43 +209,14 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 // getContainerName returns the name of the private storage account container
 // that this environment is using.
 func (env *azureEnviron) getContainerName() string {
-	return env.getEnvPrefix() + "-private"
-}
-
-func (env *azureEnviron) createStorageContainer() error {
-	containerName := env.getContainerName()
-	context, err := env.getStorageContext()
-	if err != nil {
-		return err
-	}
-	return context.CreateContainer(containerName)
-}
-
-func (env *azureEnviron) deleteStorageContainer() error {
-	containerName := env.getContainerName()
-	context, err := env.getStorageContext()
-	if err != nil {
-		return err
-	}
-	return context.DeleteContainer(containerName)
+	return env.getEnvPrefix() + "private"
 }
 
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	// TODO(bug 1199847). The creation of the affinity group, the
-	// virtual network and the container is specific to the Azure provider.
-	err = env.createStorageContainer()
-	if err != nil {
-		return err
-	}
-	// If we fail after this point, clean up the container.
-	defer func() {
-		if err != nil {
-			env.deleteStorageContainer()
-		}
-	}()
-
+	// TODO(bug 1199847). The creation of the affinity group and the
+	// virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
 		return err
@@ -521,7 +492,7 @@ func (env *azureEnviron) getInstance(instanceName string) (instance.Instance, er
 	if err != nil {
 		return nil, fmt.Errorf("could not get instance %q: %v", instanceName, err)
 	}
-	instance := &azureInstance{service.HostedServiceDescriptor}
+	instance := &azureInstance{service.HostedServiceDescriptor, env}
 	return instance, nil
 }
 
@@ -665,7 +636,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		return nil, environs.ErrNoInstances
 	}
 
-	instances := convertToInstances(services)
+	instances := convertToInstances(services, env)
 
 	// Check if we got a partial result.
 	if len(ids) != len(instances) {
@@ -690,7 +661,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertToInstances(services), nil
+	return convertToInstances(services, env), nil
 }
 
 // getEnvPrefix returns the prefix used to name the objects specific to this
@@ -701,10 +672,10 @@ func (env *azureEnviron) getEnvPrefix() string {
 
 // convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
 // into a slice of instance.Instance objects.
-func convertToInstances(services []gwacl.HostedServiceDescriptor) []instance.Instance {
+func convertToInstances(services []gwacl.HostedServiceDescriptor, env *azureEnviron) []instance.Instance {
 	instances := make([]instance.Instance, len(services))
 	for i, service := range services {
-		instances[i] = &azureInstance{service}
+		instances[i] = &azureInstance{service, env}
 	}
 	return instances
 }

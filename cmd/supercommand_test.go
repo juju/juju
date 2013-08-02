@@ -6,6 +6,7 @@ package cmd_test
 import (
 	"bytes"
 	"fmt"
+	"strings"
 
 	"launchpad.net/gnuflag"
 	. "launchpad.net/gocheck"
@@ -56,6 +57,10 @@ func (s *SuperCommandSuite) TestDispatch(c *C) {
 
 	_, tc, err = initDefenestrate([]string{"defenestrate", "gibberish"})
 	c.Assert(err, ErrorMatches, `unrecognized args: \["gibberish"\]`)
+
+	// --description must be used on it's own.
+	_, _, err = initDefenestrate([]string{"--description", "defenestrate"})
+	c.Assert(err, ErrorMatches, `unrecognized args: \["defenestrate"\]`)
 }
 
 func (s *SuperCommandSuite) TestRegister(c *C) {
@@ -173,6 +178,35 @@ func (s *SuperCommandSuite) TestLogging(c *C) {
 	c.Assert(bufferString(ctx.Stderr), Matches, `^.* ERROR .* command failed: BAM!
 error: BAM!
 `)
+}
+
+func (s *SuperCommandSuite) TestDescription(c *C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", Purpose: "blow up the death star"})
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := testing.Context(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--description"})
+	c.Assert(code, Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), Equals, "blow up the death star\n")
+}
+
+func (s *SuperCommandSuite) TestHelp(c *C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest"})
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := testing.Context(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--help"})
+	c.Assert(code, Equals, 0)
+	stripped := strings.Replace(bufferString(ctx.Stdout), "\n", "", -1)
+	c.Assert(stripped, Matches, ".*usage: jujutest blah.*blah-doc.*")
+}
+
+func (s *SuperCommandSuite) TestHelpWithPrefix(c *C) {
+	jc := cmd.NewSuperCommand(cmd.SuperCommandParams{Name: "jujutest", UsagePrefix: "juju"})
+	jc.Register(&TestCommand{Name: "blah"})
+	ctx := testing.Context(c)
+	code := cmd.Main(jc, ctx, []string{"blah", "--help"})
+	c.Assert(code, Equals, 0)
+	stripped := strings.Replace(bufferString(ctx.Stdout), "\n", "", -1)
+	c.Assert(stripped, Matches, ".*usage: juju jujutest blah.*blah-doc.*")
 }
 
 func NewSuperWithCallback(callback func(*cmd.Context, string, []string) error) cmd.Command {

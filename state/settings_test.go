@@ -226,7 +226,7 @@ func (s *SettingsSuite) TestSetItemEscape(c *C) {
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
-	cleanSettingsMap(mgoData)
+	cleanMgoSettings(mgoData)
 	c.Assert(mgoData, DeepEquals, mgoOptions)
 
 	// Now get another state by reading from the database instance and
@@ -263,7 +263,7 @@ func (s *SettingsSuite) TestReplaceSettingsEscape(c *C) {
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
-	cleanSettingsMap(mgoData)
+	cleanMgoSettings(mgoData)
 	c.Assert(mgoData, DeepEquals, mgoOptions)
 }
 
@@ -281,7 +281,7 @@ func (s *SettingsSuite) TestCreateSettingsEscape(c *C) {
 	mgoData := make(map[string]interface{}, 0)
 	err = s.MgoSuite.Session.DB("juju").C("settings").FindId(s.key).One(&mgoData)
 	c.Assert(err, IsNil)
-	cleanSettingsMap(mgoData)
+	cleanMgoSettings(mgoData)
 	c.Assert(mgoData, DeepEquals, mgoOptions)
 }
 
@@ -483,4 +483,12 @@ func (s *SettingsSuite) TestWriteTwice(c *C) {
 	c.Assert(nodeOne.key, Equals, nodeTwo.key)
 	c.Assert(nodeOne.disk, DeepEquals, nodeTwo.disk)
 	c.Assert(nodeOne.core, DeepEquals, nodeTwo.core)
+}
+
+// cleanMgoSettings will remove MongoDB-specific settings but not unescape any
+// keys, as opposed to cleanSettingsMap which does unescape keys.
+func cleanMgoSettings(in map[string]interface{}) {
+	delete(in, "_id")
+	delete(in, "txn-revno")
+	delete(in, "txn-queue")
 }

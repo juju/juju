@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state" // Only because of state.Info
@@ -148,7 +149,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Out:     logPath,
 		// Propagate the provider type enviroment variable.
 		Env: map[string]string{
-			"JUJU_PROVIDER_TYPE": os.Getenv("JUJU_PROVIDER_TYPE"),
+			osenv.JujuProviderType: os.Getenv(osenv.JujuProviderType),
 		},
 	}
 	return uconf.Install()
