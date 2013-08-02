@@ -15,6 +15,8 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
+
+	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -1020,6 +1022,56 @@ func (*EnvironSuite) TestGetImageMetadataSigningRequiredDefaultsToTrue(c *C) {
 	// Hard-coded to true for now.  Once we support other base URLs, this
 	// may have to become configurable.
 	c.Check(env.getImageMetadataSigningRequired(), Equals, true)
+}
+
+func (*EnvironSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *C) {
+	env := makeEnviron(c)
+	forcedImage := "my-image"
+	env.ecfg.attrs["force-image-name"] = forcedImage
+
+	// We'll tailor our constraints so as to get a specific instance type.
+	aim := gwacl.RoleNameMap["ExtraLarge"]
+	cons := constraints.Value{
+		CpuCores: &aim.CpuCores,
+		Mem:      &aim.Mem,
+	}
+
+	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	c.Assert(err, IsNil)
+
+	c.Check(instanceType, Equals, aim.Name)
+	c.Check(image, Equals, forcedImage)
+}
+
+func (*EnvironSuite) TestSelectInstanceTypeAndImageUsesSimplestreamsByDefault(c *C) {
+	env := makeEnviron(c)
+
+	// We'll tailor our constraints so as to get a specific instance type.
+	aim := gwacl.RoleNameMap["ExtraSmall"]
+	cons := constraints.Value{
+		CpuCores: &aim.CpuCores,
+		Mem:      &aim.Mem,
+	}
+
+	// We have one image available.
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:          "image",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
+			RegionAlias: "North Europe",
+			RegionName:  "North Europe",
+			Endpoint:    "http://localhost/",
+		},
+	}
+	cleanup := patchFetchImageMetadata(images, nil)
+	defer cleanup()
+
+	instanceType, image, err := env.selectInstanceTypeAndImage(cons, "precise", "West US")
+	c.Assert(err, IsNil)
+
+	c.Check(instanceType, Equals, aim.Name)
+	c.Check(image, Equals, "image")
 }
 
 func (*EnvironSuite) TestConvertToInstances(c *C) {

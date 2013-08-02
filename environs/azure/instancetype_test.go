@@ -10,6 +10,8 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 )
 
@@ -339,4 +341,138 @@ func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 
 	c.Assert(images, gc.HasLen, 1)
 	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
+}
+
+func (*InstanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
+	roleSize := gwacl.RoleSize{
+		Name:             "Outrageous",
+		CpuCores:         128,
+		Mem:              4 * gwacl.TB,
+		OSDiskSpaceCloud: 48 * gwacl.TB,
+		OSDiskSpaceVirt:  50 * gwacl.TB,
+		MaxDataDisks:     20,
+		Cost:             999999500,
+	}
+	vtype := "Hyper-V"
+	var cpupower uint64 = 100
+	expectation := instances.InstanceType{
+		Id:       roleSize.Name,
+		Name:     roleSize.Name,
+		Arches:   []string{"amd64", "i386"},
+		CpuCores: roleSize.CpuCores,
+		Mem:      roleSize.Mem,
+		Cost:     roleSize.Cost,
+		VType:    &vtype,
+		CpuPower: &cpupower,
+	}
+	c.Check(newInstanceType(roleSize), gc.DeepEquals, expectation)
+}
+
+func (*InstanceTypeSuite) TestListInstanceTypesAcceptsNil(c *gc.C) {
+	c.Check(listInstanceTypes(nil), gc.HasLen, 0)
+}
+
+func (*InstanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
+	roleSizes := []gwacl.RoleSize{
+		{Name: "Biggish"},
+		{Name: "Tiny"},
+		{Name: "Huge"},
+		{Name: "Miniscule"},
+	}
+
+	expectation := make([]instances.InstanceType, len(roleSizes))
+	for index, roleSize := range roleSizes {
+		expectation[index] = newInstanceType(roleSize)
+	}
+
+	c.Check(listInstanceTypes(roleSizes), gc.DeepEquals, expectation)
+}
+
+func (*InstanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
+	impossibleConstraint := instances.InstanceConstraint{
+		Series: "precise",
+		Arches: []string{"axp"},
+	}
+
+	_, err := findInstanceSpec(nil, impossibleConstraint)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
+}
+
+// patchFetchImageMetadata temporarily replaces imagemetadata.Fetch() with a
+// fake that returns the given canned answer.
+// It returns a cleanup function, which you must call when done.
+func patchFetchImageMetadata(cannedResponse []*imagemetadata.ImageMetadata, cannedError error) func() {
+	original := fetchImageMetadata
+	fetchImageMetadata = func([]string, string, *imagemetadata.ImageConstraint, bool) ([]*imagemetadata.ImageMetadata, error) {
+		return cannedResponse, cannedError
+	}
+	return func() { fetchImageMetadata = original }
+}
+
+func (*InstanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
+	// We have one OS image.
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:          "image-id",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
+			RegionAlias: "West US",
+			RegionName:  "West US",
+			Endpoint:    "http://localhost/",
+		},
+	}
+	cleanup := patchFetchImageMetadata(images, nil)
+	defer cleanup()
+
+	// We'll tailor our constraints to describe one particular Azure
+	// instance type:
+	aim := gwacl.RoleNameMap["Large"]
+	constraints := instances.InstanceConstraint{
+		Region: "West US",
+		Series: "precise",
+		Arches: []string{"amd64"},
+		Constraints: constraints.Value{
+			CpuCores: &aim.CpuCores,
+			Mem:      &aim.Mem,
+		},
+	}
+
+	// Find a matching instance type and image.
+	spec, err := findInstanceSpec(baseURLs, constraints)
+	c.Assert(err, gc.IsNil)
+
+	// We got the instance type we described in our constraints, and
+	// the image returned by (the fake) simplestreams.
+	c.Check(spec.InstanceType.Name, gc.Equals, aim.Name)
+	c.Check(spec.Image.Id, gc.Equals, "image-id")
+}
+
+func (*InstanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:          "image-id",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
+			RegionAlias: "West US",
+			RegionName:  "West US",
+			Endpoint:    "http://localhost/",
+		},
+	}
+	cleanup := patchFetchImageMetadata(images, nil)
+	defer cleanup()
+
+	// findInstanceSpec sets baseline constraints, so that it won't pick
+	// ExtraSmall (which is too small for routine tasks) if you fail to
+	// set sufficient hardware constraints.
+	anyInstanceType := instances.InstanceConstraint{
+		Region: "West US",
+		Series: "precise",
+		Arches: []string{"amd64"},
+	}
+
+	spec, err := findInstanceSpec(baseURLs, anyInstanceType)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(spec.InstanceType.Name, gc.Equals, "Small")
 }
