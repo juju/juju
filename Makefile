@@ -1,31 +1,43 @@
+#
 # Makefile for juju-core.
-PROJECT=launchpad.net/juju-core
+#
+
+ifndef GOPATH
+$(warning You need to set up a GOPATH.  See the README file.)
+endif
+
+define DEPENDENCIES
+  build-essential
+  bzr
+  distro-info-data
+  git-core
+  golang-go
+  mercurial
+  zip
+endef
+
 
 # Default target.  Compile, just to see if it will.
 build:
-	go build $(PROJECT)/...
+	go build ./...
 
 # Run tests.
 check:
-	go test $(PROJECT)/...
+	go test ./...
 
 # Reformat the source files.
 format:
-	go fmt $(PROJECT)/...
+	go fmt ./...
 
 # Install packages required to develop Juju and run tests.
 install-dependencies:
-	sudo apt-get install build-essential bzr zip git-core mercurial distro-info-data golang-go
+	sudo apt-get install $(strip $(DEPENDENCIES))
 	@echo
 	@echo "Make sure you have MongoDB installed.  See the README file."
-	@if [ -z "$(GOPATH)" ]; then \
-		echo; \
-		echo "You need to set up a GOPATH.  See the README file."; \
-	fi
 
 # Invoke gofmt's "simplify" option to streamline the source code.
 simplify:
-	find "$(GOPATH)/src/$(PROJECT)/" -name \*.go | xargs gofmt -w -s
+	gofmt -w -s .
 
 
 .PHONY: build check format install-dependencies simplify
