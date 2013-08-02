@@ -36,6 +36,39 @@ var (
 	lxcObjectFactory    = golxc.Factory()
 )
 
+const (
+	// BridgeNetwork will have the container use the lxc bridge.
+	bridgeNetwork = "bridge"
+	// PhyscialNetwork will have the container use a specified network device.
+	physicalNetwork = "physical"
+	// DefaultLxcBridge is the package created container bridge
+	DefaultLxcBridge = "lxcbr0"
+)
+
+// NetworkConfig defines how the container network will be configured.
+type NetworkConfig struct {
+	networkType string
+	device      string
+}
+
+// DefaultNetworkConfig returns a valid NetworkConfig to use the
+// defaultLxcBridge that is created by the lxc package.
+func DefaultNetworkConfig() *NetworkConfig {
+	return &NetworkConfig{bridgeNetwork, DefaultLxcBridge}
+}
+
+// BridgeNetworkConfig returns a valid NetworkConfig to use the specified
+// device as a network bridge for the container.
+func BridgeNetworkConfig(device string) *NetworkConfig {
+	return &NetworkConfig{bridgeNetwork, device}
+}
+
+// PhysicalNetworkConfig returns a valid NetworkConfig to use the specified
+// device as the network device for the container.
+func PhysicalNetworkConfig(device string) *NetworkConfig {
+	return &NetworkConfig{physicalNetwork, device}
+}
+
 // ManagerConfig contains the initialization parameters for the ContainerManager.
 type ManagerConfig struct {
 	Name   string
@@ -49,6 +82,7 @@ type ContainerManager interface {
 	// StartContainer creates and starts a new lxc container for the specified machine.
 	StartContainer(
 		machineId, series, nonce string,
+		network *NetworkConfig,
 		tools *tools.Tools,
 		environConfig *config.Config,
 		stateInfo *state.Info,
@@ -78,6 +112,7 @@ func NewContainerManager(conf ManagerConfig) ContainerManager {
 
 func (manager *containerManager) StartContainer(
 	machineId, series, nonce string,
+	network *NetworkConfig,
 	tools *tools.Tools,
 	environConfig *config.Config,
 	stateInfo *state.Info,
@@ -106,7 +141,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("write the lxc.conf file")
-	configFile, err := writeLxcConfig(directory, manager.logdir)
+	configFile, err := writeLxcConfig(network, directory, manager.logdir)
 	if err != nil {
 		logger.Errorf("failed to write config file: %v", err)
 		return nil, err
@@ -223,18 +258,41 @@ func restartSymlink(name string) string {
 	return filepath.Join(lxcRestartDir, name+".conf")
 }
 
-const localConfig = `
-lxc.network.type = veth
-lxc.network.link = lxcbr0
-lxc.network.flags = up
-
+const localConfig = `%s
 lxc.mount.entry=%s var/log/juju none defaults,bind 0 0
 `
 
-func writeLxcConfig(directory, logdir string) (string, error) {
-	// TODO(thumper): support different network settings.
+const networkTemplate = `
+lxc.network.type = %s
+lxc.network.link = %s
+lxc.network.flags = up
+`
+
+func networkConfigTemplate(networkType, networkLink string) string {
+	return fmt.Sprintf(networkTemplate, networkType, networkLink)
+}
+
+func generateNetworkConfig(network *NetworkConfig) string {
+	if network == nil {
+		logger.Warningf("network unspecified, using default networking config")
+		network = DefaultNetworkConfig()
+	}
+	switch network.networkType {
+	case physicalNetwork:
+		return networkConfigTemplate("phys", network.device)
+	default:
+		logger.Warningf("Unknown network config type %q: using bridge", network.networkType)
+		fallthrough
+	case bridgeNetwork:
+		return networkConfigTemplate("veth", network.device)
+	}
+	panic("unreachable")
+}
+
+func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, error) {
+	networkConfig := generateNetworkConfig(network)
 	configFilename := filepath.Join(directory, "lxc.conf")
-	configContent := fmt.Sprintf(localConfig, logdir)
+	configContent := fmt.Sprintf(localConfig, networkConfig, logdir)
 	if err := ioutil.WriteFile(configFilename, []byte(configContent), 0644); err != nil {
 		return "", err
 	}
@@ -284,11 +342,17 @@ func cloudInitUserData(
 	if err != nil {
 		return nil, err
 	}
+
 	mirror, err := lxcMirror()
 	if err != nil {
 		return nil, err
 	}
 	cloudConfig.SetAptMirror(mirror)
+
+	// Run ifconfig to get the addresses of the internal container at least
+	// logged in the host.
+	cloudConfig.AddRunCmd("ifconfig")
+
 	data, err := cloudConfig.Render()
 	if err != nil {
 		return nil, err

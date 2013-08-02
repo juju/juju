@@ -186,6 +186,12 @@ func (r *srvRoot) AuthMachineAgent() bool {
 	return ok
 }
 
+// AuthUnitAgent returns whether the current client is a unit agent.
+func (r *srvRoot) AuthUnitAgent() bool {
+	_, ok := r.entity.(*state.Unit)
+	return ok
+}
+
 // AuthOwner returns whether the authenticated user's tag matches the
 // given entity tag.
 func (r *srvRoot) AuthOwner(tag string) bool {

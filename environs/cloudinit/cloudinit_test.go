@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -58,9 +59,9 @@ var cloudinitTests = []cloudinitTest{
 	{
 		// precise state server
 		cfg: cloudinit.MachineConfig{
-			MachineId:      "0",
-			AuthorizedKeys: "sshkey1",
-			ProviderType:   "dummy",
+			MachineId:          "0",
+			AuthorizedKeys:     "sshkey1",
+			MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 			// precise currently needs mongo from PPA
 			Tools:           newSimpleTools("1.2.3-precise-amd64"),
 			StateServer:     true,
@@ -116,9 +117,9 @@ start jujud-machine-0
 	}, {
 		// raring state server
 		cfg: cloudinit.MachineConfig{
-			MachineId:      "0",
-			AuthorizedKeys: "sshkey1",
-			ProviderType:   "dummy",
+			MachineId:          "0",
+			AuthorizedKeys:     "sshkey1",
+			MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 			// raring provides mongo in the archive
 			Tools:           newSimpleTools("1.2.3-raring-amd64"),
 			StateServer:     true,
@@ -173,13 +174,13 @@ start jujud-machine-0
 `,
 	}, {
 		cfg: cloudinit.MachineConfig{
-			MachineId:      "99",
-			AuthorizedKeys: "sshkey1",
-			ProviderType:   "dummy",
-			DataDir:        environs.DataDir,
-			StateServer:    false,
-			Tools:          newSimpleTools("1.2.3-linux-amd64"),
-			MachineNonce:   "FAKE_NONCE",
+			MachineId:          "99",
+			AuthorizedKeys:     "sshkey1",
+			MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
+			DataDir:            environs.DataDir,
+			StateServer:        false,
+			Tools:              newSimpleTools("1.2.3-linux-amd64"),
+			MachineNonce:       "FAKE_NONCE",
 			StateInfo: &state.Info{
 				Addrs:    []string{"state-addr.testing.invalid:12345"},
 				Tag:      "machine-99",
@@ -215,7 +216,7 @@ start jujud-machine-99
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
-			ProviderType:         "dummy",
+			MachineEnvironment:   map[string]string{osenv.JujuProviderType: "dummy"},
 			DataDir:              environs.DataDir,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
@@ -557,15 +558,15 @@ var verifyTests = []struct {
 // checked for by NewCloudInit.
 func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 	cfg := &cloudinit.MachineConfig{
-		StateServer:     true,
-		StateServerCert: serverCert,
-		StateServerKey:  serverKey,
-		StatePort:       1234,
-		APIPort:         1235,
-		MachineId:       "99",
-		Tools:           newSimpleTools("9.9.9-linux-arble"),
-		AuthorizedKeys:  "sshkey1",
-		ProviderType:    "dummy",
+		StateServer:        true,
+		StateServerCert:    serverCert,
+		StateServerKey:     serverKey,
+		StatePort:          1234,
+		APIPort:            1235,
+		MachineId:          "99",
+		Tools:              newSimpleTools("9.9.9-linux-arble"),
+		AuthorizedKeys:     "sshkey1",
+		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 		StateInfo: &state.Info{
 			Addrs:  []string{"host:98765"},
 			CACert: []byte(testing.CACert),

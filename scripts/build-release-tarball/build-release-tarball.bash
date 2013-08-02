@@ -69,8 +69,8 @@ bzr-checkout lp:tomb -1 launchpad.net/tomb
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
 
 # tar it up
-TARFILE=$WORK/juju-core_${VERSION}.tar.gz
+TARFILE=`pwd`/juju-core_${VERSION}.tar.gz
 cd $WORK/..
-tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr .
+tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr juju-core_${VERSION}
 
 echo "release tarball: ${TARFILE}"

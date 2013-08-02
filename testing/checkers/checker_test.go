@@ -6,22 +6,30 @@ package checkers_test
 import (
 	"testing"
 
-	. "launchpad.net/gocheck"
-	. "launchpad.net/juju-core/testing/checkers"
+	gc "launchpad.net/gocheck"
+
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-func Test(t *testing.T) { TestingT(t) }
+func Test(t *testing.T) { gc.TestingT(t) }
 
 type CheckerSuite struct{}
 
-var _ = Suite(&CheckerSuite{})
+var _ = gc.Suite(&CheckerSuite{})
 
-func (s *CheckerSuite) TestHasPrefix(c *C) {
-	c.Assert("foo bar", HasPrefix, "foo")
-	c.Assert("foo bar", Not(HasPrefix), "omg")
+func (s *CheckerSuite) TestHasPrefix(c *gc.C) {
+	c.Assert("foo bar", jc.HasPrefix, "foo")
+	c.Assert("foo bar", gc.Not(jc.HasPrefix), "omg")
 }
 
-func (s *CheckerSuite) TestHasSuffix(c *C) {
-	c.Assert("foo bar", HasSuffix, "bar")
-	c.Assert("foo bar", Not(HasSuffix), "omg")
+func (s *CheckerSuite) TestHasSuffix(c *gc.C) {
+	c.Assert("foo bar", jc.HasSuffix, "bar")
+	c.Assert("foo bar", gc.Not(jc.HasSuffix), "omg")
+}
+
+func (s *CheckerSuite) TestContains(c *gc.C) {
+	c.Assert("foo bar baz", jc.Contains, "foo")
+	c.Assert("foo bar baz", jc.Contains, "bar")
+	c.Assert("foo bar baz", jc.Contains, "baz")
+	c.Assert("foo bar baz", gc.Not(jc.Contains), "omg")
 }
