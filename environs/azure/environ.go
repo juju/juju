@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -314,6 +315,9 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	return req, nil
 }
 
+// architectures lists the CPU architectures supported by Azure.
+var architectures = []string{"amd64", "i386"}
+
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
 func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
@@ -329,6 +333,47 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
 	}
 	return svc, nil
+}
+
+// selectInstanceTypeAndImage returns the appropriate instance-type name and
+// the OS image name for launching a virtual machine with the given parameters.
+func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
+	sourceImageName := env.getSnapshot().ecfg.forceImageName()
+	if sourceImageName != "" {
+		// Configuration forces us to use a specific image.  There may
+		// not be a suitable image in the simplestreams database.
+		// This means we can't use Juju's normal selection mechanism,
+		// because it combines instance-type and image selection: if
+		// there are no images we can use, it won't offer us an
+		// instance type either.
+		//
+		// Select the instance type using simple, Azure-specific code.
+		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+		if err != nil {
+			return "", "", err
+		}
+		return machineType.Name, sourceImageName, nil
+	}
+
+	// Choose the most suitable instance type and OS image, based on
+	// simplestreams information.
+	//
+	// This should be the normal execution path.  The user is not expected
+	// to configure a source image name in normal use.
+
+	// TODO(jtv): Simplestreams for Azure aren't quite done yet.   The
+	// source image name is forced in the boilerplate config for the time
+	// being.
+	spec, err := findInstanceSpec(baseURLs, instances.InstanceConstraint{
+		Region:      location,
+		Series:      series,
+		Arches:      architectures,
+		Constraints: cons,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
 // internalStartInstance does the provider-specific work of starting an
@@ -388,17 +433,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	instanceType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series[0], location)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: use simplestreams to get the name of the image given
-	// the constraints provided by Juju.
-	// In the meantime we use a temporary Saucy image containing a
-	// cloud-init package which supports Azure, see the boilerplate config
-	// for its exact name.
-	sourceImageName := snap.ecfg.forceImageName()
 
 	// virtualNetworkName is the virtual network to which all the
 	// deployments in this environment belong.
@@ -408,7 +446,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	vhd := env.newOSDisk(sourceImageName)
 
 	// 2. Create a Role for a Linux machine.
-	role := env.newRole(instanceType.Name, vhd, userData, roleHostname)
+	role := env.newRole(instanceType, vhd, userData, roleHostname)
 
 	// 3. Create the Deployment object.
 	deployment := env.newDeployment(role, serviceName, serviceName, virtualNetworkName)
