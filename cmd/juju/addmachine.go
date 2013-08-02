@@ -57,7 +57,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 	}
 	// container arg can either be 'type:machine' or 'type'
 	if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
-		if !names.IsMachineOrNewContainer(containerSpec) {
+		if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
 			return fmt.Errorf("malformed container argument %q", containerSpec)
 		}
 		sep := strings.Index(containerSpec, ":")

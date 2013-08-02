@@ -64,6 +64,9 @@ var machineIdTests = []struct {
 	{pattern: "1/foo", valid: false},
 	{pattern: "2/foo/", valid: false},
 	{pattern: "3/lxc/42", valid: true},
+	{pattern: "3/lxc-nodash/42", valid: false},
+	{pattern: "0/lxc/00", valid: false},
+	{pattern: "0/lxc/0/", valid: false},
 	{pattern: "03/lxc/42", valid: false},
 	{pattern: "3/lxc/042", valid: false},
 	{pattern: "4/foo/bar", valid: false},
@@ -79,37 +82,5 @@ func (s *machineSuite) TestMachineIdFormats(c *gc.C) {
 	for i, test := range machineIdTests {
 		c.Logf("test %d: %q", i, test.pattern)
 		c.Assert(names.IsMachine(test.pattern), gc.Equals, test.valid)
-	}
-}
-
-var machineOrNewContainerTests = []struct {
-	pattern string
-	valid   bool
-}{
-	{pattern: "42", valid: true},
-	{pattern: "0", valid: true},
-	{pattern: "042", valid: false},
-	{pattern: ":42", valid: false},
-	{pattern: "lxc:42", valid: true},
-	{pattern: "lxc:042", valid: false},
-	{pattern: "lxc:0", valid: true},
-	{pattern: "foo42", valid: false},
-	{pattern: "foo", valid: false},
-	{pattern: "foo:3/", valid: false},
-	{pattern: "kvm:3/foo", valid: false},
-	{pattern: "kvm:3/foo/", valid: false},
-	{pattern: "lxc:42/kvm/0", valid: true},
-	{pattern: "lxc:042/kvm/0", valid: false},
-	{pattern: "lxc:42/kvm/00", valid: false},
-	{pattern: "lxc:42/kvm/56/lxc/0", valid: true},
-	{pattern: "lxc:042/kvm/56/lxc/0", valid: false},
-	{pattern: "lxc:42/kvm/056/lxc/0", valid: false},
-	{pattern: "lxc:42/kvm/56/lxc/00", valid: false},
-}
-
-func (s *machineSuite) TestMachineOrNewContainerFormats(c *gc.C) {
-	for i, test := range machineOrNewContainerTests {
-		c.Logf("test %d: %q", i, test.pattern)
-		c.Assert(names.IsMachineOrNewContainer(test.pattern), gc.Equals, test.valid)
 	}
 }
