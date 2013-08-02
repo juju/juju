@@ -433,32 +433,32 @@ func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
 		collectionByName: make(map[string]allWatcherStateCollection),
 	}
 	collections := []allWatcherStateCollection{{
-		Collection:    st.machines,
-		infoType: reflect.TypeOf(backingMachine{}),
+		Collection: st.machines,
+		infoType:   reflect.TypeOf(backingMachine{}),
 	}, {
-		Collection:    st.units,
-		infoType: reflect.TypeOf(backingUnit{}),
+		Collection: st.units,
+		infoType:   reflect.TypeOf(backingUnit{}),
 	}, {
-		Collection:    st.services,
-		infoType: reflect.TypeOf(backingService{}),
+		Collection: st.services,
+		infoType:   reflect.TypeOf(backingService{}),
 	}, {
-		Collection:    st.relations,
-		infoType: reflect.TypeOf(backingRelation{}),
+		Collection: st.relations,
+		infoType:   reflect.TypeOf(backingRelation{}),
 	}, {
-		Collection:    st.annotations,
-		infoType: reflect.TypeOf(backingAnnotation{}),
+		Collection: st.annotations,
+		infoType:   reflect.TypeOf(backingAnnotation{}),
 	}, {
-		Collection:    st.statuses,
-		infoType: reflect.TypeOf(backingStatus{}),
-		subsidiary:    true,
+		Collection: st.statuses,
+		infoType:   reflect.TypeOf(backingStatus{}),
+		subsidiary: true,
 	}, {
-		Collection:    st.constraints,
-		infoType: reflect.TypeOf(backingConstraints{}),
-		subsidiary:    true,
+		Collection: st.constraints,
+		infoType:   reflect.TypeOf(backingConstraints{}),
+		subsidiary: true,
 	}, {
-		Collection:    st.settings,
-		infoType: reflect.TypeOf(backingSettings{}),
-		subsidiary:    true,
+		Collection: st.settings,
+		infoType:   reflect.TypeOf(backingSettings{}),
+		subsidiary: true,
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {
