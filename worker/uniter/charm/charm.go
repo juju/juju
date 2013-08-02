@@ -84,7 +84,6 @@ func (d *BundlesDir) download(sch *state.Charm, abort <-chan struct{}) (err erro
 			return os.Rename(st.File.Name(), d.bundlePath(sch))
 		}
 	}
-	panic("unreachable")
 }
 
 // bundlePath returns the path to the location where the verified charm

@@ -65,7 +65,6 @@ func importance(err error) int {
 	case err == worker.ErrTerminateAgent:
 		return 3
 	}
-	panic("unreachable")
 }
 
 // moreImportant returns whether err0 is

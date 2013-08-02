@@ -654,7 +654,6 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 			out = nil
 		}
 	}
-	panic("unreachable")
 }
 
 // unitsWatcher notifies of changes to a set of units. Notifications will be
@@ -1226,7 +1225,6 @@ func (w *machineUnitsWatcher) loop() (err error) {
 			changes = nil
 		}
 	}
-	panic("unreachable")
 }
 
 // cleanupWatcher notifies of changes in the cleanups collection.
@@ -1278,5 +1276,4 @@ func (w *cleanupWatcher) loop() (err error) {
 			out = nil
 		}
 	}
-	panic("unreachable")
 }

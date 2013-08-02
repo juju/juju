@@ -1169,7 +1169,6 @@ func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 			c.Fatalf("uniter still alive")
 		}
 	}
-	panic("unreachable")
 }
 
 type stopUniter struct {

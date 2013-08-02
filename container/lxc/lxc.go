@@ -285,7 +285,6 @@ func generateNetworkConfig(network *NetworkConfig) string {
 	case bridgeNetwork:
 		return networkConfigTemplate("veth", network.device)
 	}
-	panic("unreachable")
 }
 
 func writeLxcConfig(network *NetworkConfig, directory, logdir string) (string, error) {
@@ -368,5 +367,4 @@ func uniqueDirectory(path, name string) (string, error) {
 			return "", err
 		}
 	}
-	panic("unreachable")
 }
