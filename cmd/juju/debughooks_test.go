@@ -6,12 +6,14 @@ package main
 import (
 	"bytes"
 	"fmt"
+	"net/url"
+	"regexp"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	coretesting "launchpad.net/juju-core/testing"
-	"net/url"
-	"regexp"
 )
 
 var _ = Suite(&DebugHooksSuite{})
