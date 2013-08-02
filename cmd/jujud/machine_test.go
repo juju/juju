@@ -467,7 +467,6 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 			c.Fatalf("time out wating for operation")
 		}
 	}
-	panic("not reached")
 }
 
 func (s *MachineSuite) TestOpenAPIState(c *C) {

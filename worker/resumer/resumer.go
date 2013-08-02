@@ -67,5 +67,4 @@ func (rr *Resumer) loop() error {
 			}
 		}
 	}
-	panic("unreachable")
 }

@@ -335,9 +335,8 @@ func waitDeath(c *C, u *Upgrader) *UpgradeReadyError {
 		c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
 		return err.(*UpgradeReadyError)
 	case <-time.After(coretesting.LongWait):
-		c.Fatalf("upgrader did not die as expected")
 	}
-	panic("unreachable")
+	c.Fatalf("upgrader did not die as expected")
 }
 
 type testAgentState chan *tools.Tools

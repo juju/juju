@@ -235,7 +235,6 @@ func (u *Upgrader) run() error {
 			return nil
 		}
 	}
-	panic("not reached")
 }
 
 func (u *Upgrader) upgradeReady(old, new *tools.Tools) *UpgradeReadyError {
