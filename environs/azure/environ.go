@@ -715,12 +715,13 @@ var openInstanceEndpoints func(
 // this environment. The caller is responsible for locking and unlocking the
 // environ and releasing the management context.
 func (env *azureEnviron) openEndpoints(context *azureManagementContext, ports []instance.Port) error {
-	instances, err := env.AllInstances()
+	request := &gwacl.ListPrefixedHostedServicesRequest{ServiceNamePrefix: env.getEnvPrefix()}
+	services, err := context.ListPrefixedHostedServices(request)
 	if err != nil {
 		return err
 	}
-	for _, instance := range instances {
-		azInstance := instance.(*azureInstance)
+	for _, service := range services {
+		azInstance := &azureInstance{service, env}
 		err := openInstanceEndpoints(azInstance, context, ports)
 		if err != nil {
 			return err

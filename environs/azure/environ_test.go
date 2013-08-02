@@ -1027,3 +1027,47 @@ func (*EnvironSuite) TestConvertToInstances(c *C) {
 		&azureInstance{services[1], env},
 	})
 }
+
+type openEndpointCall struct {
+	name  string
+	ports []instance.Port
+}
+
+func openPorts(c *C, env *azureEnviron, services []gwacl.HostedServiceDescriptor, ports []instance.Port) []openEndpointCall {
+	calls := []openEndpointCall{}
+	// Patch a recording function into place.
+	openInstanceEndpointsOriginal := openInstanceEndpoints
+	defer func() { openInstanceEndpoints = openInstanceEndpointsOriginal }()
+	openInstanceEndpoints = func(i *azureInstance, _ *azureManagementContext, p []instance.Port) error {
+		calls = append(calls, openEndpointCall{i.ServiceName, p})
+		return nil
+	}
+	// Patch in a service list for the given services.
+	patchWithServiceListResponse(c, services)
+	// Open the ports.
+	err := env.OpenPorts(ports)
+	c.Assert(err, IsNil)
+	return calls
+}
+
+func (*EnvironSuite) TestOpenPortsWithNoInstances(c *C) {
+	env := makeEnviron(c)
+	services := []gwacl.HostedServiceDescriptor{}
+	ports := []instance.Port{{"tcp", 80}}
+	openEndpointCalls := openPorts(c, env, services, ports)
+	c.Assert(openEndpointCalls, HasLen, 0)
+}
+
+func (*EnvironSuite) TestOpenPortsWithInstances(c *C) {
+	env := makeEnviron(c)
+	services := []gwacl.HostedServiceDescriptor{
+		{ServiceName: env.getEnvPrefix() + "one"},
+		{ServiceName: env.getEnvPrefix() + "two"},
+	}
+	ports := []instance.Port{{"tcp", 80}, {"udp", 53}}
+	openEndpointCalls := openPorts(c, env, services, ports)
+	c.Assert(openEndpointCalls, DeepEquals, []openEndpointCall{
+		{services[0].ServiceName, ports},
+		{services[1].ServiceName, ports},
+	})
+}
