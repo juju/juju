@@ -512,13 +512,12 @@ type RelationUnitsWatcher struct {
 // scope of a RelationUnit, and changes to the settings of those units known
 // to have entered.
 //
-// When a counterpart first enters scope, it is/ noted in the Joined field,
-// and its settings are noted in the Changed field. Subsequently, settings
-// changes will be noted in the Changed field alone, until the couterpart
-// leaves the scope; at that point, it will be noted in the Departed field,
-// and no further events will be sent for that counterpart unit.
+// When a counterpart first enters scope, its settings are noted in
+// the Changed field. Subsequently, settings changes will be noted in
+// the Changed field alone, until the couterpart leaves the scope; at
+// that point, it will be noted in the Departed field, and no further
+// events will be sent for that counterpart unit.
 type RelationUnitsChange struct {
-	Joined   []string
 	Changed  map[string]UnitSettings
 	Departed []string
 }
@@ -546,13 +545,13 @@ func newRelationUnitsWatcher(ru *RelationUnit) *RelationUnitsWatcher {
 // Changes returns a channel that will receive the changes to
 // counterpart units in a relation. The first event on the
 // channel holds the initial state of the relation in its
-// Joined and Changed fields.
+// Changed field.
 func (w *RelationUnitsWatcher) Changes() <-chan RelationUnitsChange {
 	return w.out
 }
 
 func (changes *RelationUnitsChange) empty() bool {
-	return len(changes.Joined)+len(changes.Changed)+len(changes.Departed) == 0
+	return len(changes.Changed)+len(changes.Departed) == 0
 }
 
 // mergeSettings reads the relation settings node for the unit with the
@@ -583,7 +582,6 @@ func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *Relat
 		if err != nil {
 			return err
 		}
-		changes.Joined = append(changes.Joined, name)
 		changes.Departed = remove(changes.Departed, name)
 		w.st.watcher.Watch(w.st.settings.Name, key, revno, w.updates)
 		w.watching.Add(key)
@@ -594,7 +592,6 @@ func (w *RelationUnitsWatcher) mergeScope(changes *RelationUnitsChange, c *Relat
 		if changes.Changed != nil {
 			delete(changes.Changed, name)
 		}
-		changes.Joined = remove(changes.Joined, name)
 		w.st.watcher.Unwatch(w.st.settings.Name, key, w.updates)
 		w.watching.Remove(key)
 	}
