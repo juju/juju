@@ -27,10 +27,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		return nil, common.ErrPerm
 	}
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			// TODO(go1.1): method expression
-			return authorizer.AuthOwner(tag)
-		}, nil
+		return authorizer.AuthOwner, nil
 	}
 	return &MachinerAPI{
 		LifeGetter: common.NewLifeGetter(st, getCanRead),
