@@ -736,15 +736,15 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	return nil
 }
 
-// OpenPorts is specified in the Environ interface.
+// OpenPorts is specified in the Environ interface. However, Azure does not
+// support the global firewall mode.
 func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
-	// TODO: implement this.
 	return nil
 }
 
-// ClosePorts is specified in the Environ interface.
+// ClosePorts is specified in the Environ interface. However, Azure does not
+// support the global firewall mode.
 func (env *azureEnviron) ClosePorts(ports []instance.Port) error {
-	// TODO: implement this.
 	return nil
 }
 
