@@ -10,13 +10,13 @@ import (
 	"launchpad.net/juju-core/environs/config"
 )
 
-type EnvironProviderSuite struct {
-	ProviderSuite
+type environProviderSuite struct {
+	providerSuite
 }
 
-var _ = Suite(new(EnvironProviderSuite))
+var _ = Suite(&environProviderSuite{})
 
-func (*EnvironProviderSuite) TestOpen(c *C) {
+func (*environProviderSuite) TestOpen(c *C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "my-shiny-new-env"
@@ -29,7 +29,7 @@ func (*EnvironProviderSuite) TestOpen(c *C) {
 	c.Check(env.Name(), Equals, attrs["name"])
 }
 
-func (EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) {
+func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	// Make the config invalid.
@@ -89,7 +89,7 @@ func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddres
 	}
 }
 
-func (*EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
+func (*environProviderSuite) TestParseWALASharedConfig(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	deploymentName := "gwaclmachineex95rsek"
 	internalAddress := "10.76.200.59"
@@ -104,7 +104,7 @@ func (*EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	c.Check(config.Instances[0].Address, Equals, internalAddress)
 }
 
-func (*EnvironProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
+func (*environProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	serviceName := "gwaclr12slechtstschrijvende5"
 	config := WALASharedConfig{
@@ -117,21 +117,21 @@ func (*EnvironProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
 	c.Check(config.getDeploymentFQDN(), Equals, serviceName+".cloudapp.net")
 }
 
-func (*EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
+func (*environProviderSuite) TestConfigGetDeploymentHostname(c *C) {
 	deploymentName := "gwaclmachineex95rsek"
 	config := WALASharedConfig{Deployment: WALADeployment{Name: "id", Service: WALADeploymentService{Name: deploymentName}}}
 
 	c.Check(config.getDeploymentName(), Equals, deploymentName)
 }
 
-func (*EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
+func (*environProviderSuite) TestConfigGetInternalIP(c *C) {
 	internalAddress := "10.76.200.59"
 	config := WALASharedConfig{Instances: []WALAInstance{{Address: internalAddress}}}
 
 	c.Check(config.getInternalIP(), Equals, internalAddress)
 }
 
-func (*EnvironProviderSuite) TestPublicAddress(c *C) {
+func (*environProviderSuite) TestPublicAddress(c *C) {
 	deploymentName := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	cleanup := overrideWALASharedConfig(c, "deploymentid", deploymentName, "10.76.200.59")
 	defer cleanup()
@@ -143,7 +143,7 @@ func (*EnvironProviderSuite) TestPublicAddress(c *C) {
 	c.Check(pubAddress, Equals, expectedAddress)
 }
 
-func (*EnvironProviderSuite) TestPrivateAddress(c *C) {
+func (*environProviderSuite) TestPrivateAddress(c *C) {
 	internalAddress := "10.76.200.59"
 	cleanup := overrideWALASharedConfig(c, "deploy-id", "name", internalAddress)
 	defer cleanup()
