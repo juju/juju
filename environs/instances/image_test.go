@@ -4,7 +4,8 @@
 package instances
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
+
 	"testing"
 
 	"launchpad.net/juju-core/constraints"
@@ -17,16 +18,16 @@ type imageSuite struct {
 }
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
-var _ = Suite(&imageSuite{})
+var _ = gc.Suite(&imageSuite{})
 
-func (s *imageSuite) SetUpSuite(c *C) {
+func (s *imageSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 }
 
-func (s *imageSuite) TearDownSuite(c *C) {
+func (s *imageSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -191,7 +192,7 @@ var findInstanceSpecTests = []instanceSpecTestParams{
 	},
 }
 
-func (s *imageSuite) TestFindInstanceSpec(c *C) {
+func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
@@ -201,7 +202,7 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			Arches:    t.arches,
 		}
 		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), &ic)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {
 			im := *imageMetadata
@@ -218,15 +219,15 @@ func (s *imageSuite) TestFindInstanceSpec(c *C) {
 			Constraints: constraints.MustParse(t.constraints),
 		}, t.instanceTypes)
 		if t.err != "" {
-			c.Check(err, ErrorMatches, t.err)
+			c.Check(err, gc.ErrorMatches, t.err)
 			continue
 		}
-		if !c.Check(err, IsNil) {
+		if !c.Check(err, gc.IsNil) {
 			continue
 		}
-		c.Check(spec.Image.Id, Equals, t.imageId)
+		c.Check(spec.Image.Id, gc.Equals, t.imageId)
 		if len(t.instanceTypes) == 1 {
-			c.Check(spec.InstanceType, DeepEquals, t.instanceTypes[0])
+			c.Check(spec.InstanceType, gc.DeepEquals, t.instanceTypes[0])
 		}
 	}
 }
@@ -261,18 +262,18 @@ var imageMatchtests = []struct {
 	},
 }
 
-func (s *imageSuite) TestImageMatch(c *C) {
+func (s *imageSuite) TestImageMatch(c *gc.C) {
 	for i, t := range imageMatchtests {
 		c.Logf("test %d", i)
-		c.Check(t.image.match(t.itype), Equals, t.match)
+		c.Check(t.image.match(t.itype), gc.Equals, t.match)
 	}
 }
 
-func (*imageSuite) TestImageMetadataToImagesAcceptsNil(c *C) {
-	c.Check(ImageMetadataToImages(nil), HasLen, 0)
+func (*imageSuite) TestImageMetadataToImagesAcceptsNil(c *gc.C) {
+	c.Check(ImageMetadataToImages(nil), gc.HasLen, 0)
 }
 
-func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *C) {
+func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *gc.C) {
 	input := []*imagemetadata.ImageMetadata{
 		{
 			Id:          "id",
@@ -291,10 +292,10 @@ func (*imageSuite) TestImageMetadataToImagesConvertsSelectMetadata(c *C) {
 			Arch:  "arch",
 		},
 	}
-	c.Check(ImageMetadataToImages(input), DeepEquals, expectation)
+	c.Check(ImageMetadataToImages(input), gc.DeepEquals, expectation)
 }
 
-func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *C) {
+func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *gc.C) {
 	input := []*imagemetadata.ImageMetadata{
 		{Id: "one", Arch: "Z80"},
 		{Id: "two", Arch: "i386"},
@@ -305,5 +306,5 @@ func (*imageSuite) TestImageMetadataToImagesMaintainsOrdering(c *C) {
 		{Id: "two", Arch: "i386"},
 		{Id: "three", Arch: "amd64"},
 	}
-	c.Check(ImageMetadataToImages(input), DeepEquals, expectation)
+	c.Check(ImageMetadataToImages(input), gc.DeepEquals, expectation)
 }

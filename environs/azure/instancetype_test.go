@@ -343,7 +343,7 @@ func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
 }
 
-func (*InstanceTypeSuite) TestnewInstanceTypeConvertsRoleSize(c *gc.C) {
+func (*InstanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
 	roleSize := gwacl.RoleSize{
 		Name:             "Outrageous",
 		CpuCores:         128,
