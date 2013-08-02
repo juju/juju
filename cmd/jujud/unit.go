@@ -84,11 +84,6 @@ func (a *UnitAgent) Workers() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		// We suppress this error, because it is probably more interesting
-		// to see other failures, but we log it, in case it is a root cause
-		agentLogger.Warningf("error while calling EnsureAPIInfo: %v", err)
-	}
 	unit := entity.(*state.Unit)
 	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
