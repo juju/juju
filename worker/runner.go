@@ -221,7 +221,6 @@ func (runner *Runner) run() error {
 			workerInfo.restartDelay = RestartDelay
 		}
 	}
-	panic("unreachable")
 }
 
 func killAll(workers map[string]*workerInfo) {

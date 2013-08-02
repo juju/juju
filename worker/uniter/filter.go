@@ -194,7 +194,6 @@ func (f *filter) SetCharm(curl *charm.URL) error {
 	case <-f.didSetCharm:
 		return nil
 	}
-	panic("unreachable")
 }
 
 // WantResolvedEvent indicates that the filter should send a resolved event
@@ -221,7 +220,6 @@ func (f *filter) ClearResolved() error {
 		log.Debugf("resolved clear completed")
 		return nil
 	}
-	panic("unreachable")
 }
 
 // DiscardConfigEvent indicates that the filter should discard any pending
@@ -406,7 +404,6 @@ func (f *filter) loop(unitName string) (err error) {
 			f.outConfig = nil
 		}
 	}
-	panic("unreachable")
 }
 
 // unitChanged responds to changes in the unit.

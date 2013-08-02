@@ -186,7 +186,6 @@ func (sm *StoreManager) loop() error {
 		}
 		sm.respond()
 	}
-	panic("unreachable")
 }
 
 // Stop stops the StoreManager.
