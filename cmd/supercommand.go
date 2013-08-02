@@ -444,7 +444,7 @@ func (c *helpCommand) Run(ctx *Context) error {
 	}
 	// If we have a missing callback, call that with --help
 	if c.super.missingCallback != nil {
-		helpArgs := []string{"--", "--help"}
+		helpArgs := []string{"--help"}
 		if len(c.topicArgs) > 0 {
 			helpArgs = append(helpArgs, c.topicArgs...)
 		}
