@@ -22,6 +22,11 @@ func (inst *localInstance) Id() instance.Id {
 	return inst.id
 }
 
+// State implements instance.Instance.State.
+func (inst *localInstance) State() string {
+	return ""
+}
+
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
 	logger.Errorf("localInstance.Addresses not implemented")
 	return nil, nil

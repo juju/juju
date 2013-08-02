@@ -22,6 +22,11 @@ func (mi *maasInstance) Id() instance.Id {
 	return instance.Id((*mi.maasObject).URI().String())
 }
 
+func (mi *maasInstance) State() string {
+	// TODO determine MAAS instance state
+	return ""
+}
+
 // refreshInstance refreshes the instance with the most up-to-date information
 // from the MAAS server.
 func (mi *maasInstance) refreshInstance() error {

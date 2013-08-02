@@ -726,6 +726,10 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
+func (inst *dummyInstance) State() string {
+	return ""
+}
+
 func (inst *dummyInstance) DNSName() (string, error) {
 	defer delay()
 	return string(inst.id) + ".dns", nil

@@ -26,6 +26,11 @@ func (azInstance *azureInstance) Id() instance.Id {
 	return instance.Id(azInstance.ServiceName)
 }
 
+// State is specified in the Instance interface.
+func (azInstance *azureInstance) State() string {
+	return azInstance.HostedServiceDescriptor.Status
+}
+
 var AZURE_DOMAIN_NAME = "cloudapp.net"
 
 func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {

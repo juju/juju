@@ -6,10 +6,13 @@ package lxc
 import (
 	"fmt"
 
+	"launchpad.net/golxc"
+
 	"launchpad.net/juju-core/instance"
 )
 
 type lxcInstance struct {
+	golxc.Container
 	id string
 }
 
@@ -18,6 +21,13 @@ var _ instance.Instance = (*lxcInstance)(nil)
 // Id implements instance.Instance.Id.
 func (lxc *lxcInstance) Id() instance.Id {
 	return instance.Id(lxc.id)
+}
+
+// State implements instance.Instance.State.
+func (lxc *lxcInstance) State() string {
+	// On error, the state will be "unknown".
+	state, _, _ := lxc.Info()
+	return string(state)
 }
 
 func (lxc *lxcInstance) Addresses() ([]instance.Address, error) {

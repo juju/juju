@@ -58,6 +58,7 @@ func (inst *dnsNameFakeInstance) WaitDNSName() (string, error) {
 
 func (*dnsNameFakeInstance) Addresses() ([]instance.Address, error)   { return nil, nil }
 func (*dnsNameFakeInstance) Id() instance.Id                          { return "" }
+func (*dnsNameFakeInstance) State() string                            { return "" }
 func (*dnsNameFakeInstance) OpenPorts(string, []instance.Port) error  { return nil }
 func (*dnsNameFakeInstance) ClosePorts(string, []instance.Port) error { return nil }
 func (*dnsNameFakeInstance) Ports(string) ([]instance.Port, error)    { return nil, nil }
