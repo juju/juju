@@ -155,7 +155,7 @@ func (env *azureEnviron) createAffinityGroup() error {
 	}
 	defer env.releaseManagementAPI(azure)
 	snap := env.getSnapshot()
-	location := snap.ecfg.Location()
+	location := snap.ecfg.location()
 	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, location)
 	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
 		CreateAffinityGroup: cag})
@@ -338,7 +338,7 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
-	sourceImageName := env.getSnapshot().ecfg.ForceImageName()
+	sourceImageName := env.getSnapshot().ecfg.forceImageName()
 	if sourceImageName != "" {
 		// Configuration forces us to use a specific image.  There may
 		// not be a suitable image in the simplestreams database.
@@ -416,7 +416,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	defer env.releaseManagementAPI(azure)
 
 	snap := env.getSnapshot()
-	location := snap.ecfg.Location()
+	location := snap.ecfg.location()
 	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
@@ -502,7 +502,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	vhdName := gwacl.MakeRandomDiskName("juju")
 	vhdPath := fmt.Sprintf("vhds/%s", vhdName)
 	snap := env.getSnapshot()
-	storageAccount := snap.ecfg.StorageAccountName()
+	storageAccount := snap.ecfg.storageAccountName()
 	mediaLink := gwacl.CreateVirtualHardDiskMediaLink(storageAccount, vhdPath)
 	// The disk label is optional and the disk name can be omitted if
 	// mediaLink is provided.
@@ -778,8 +778,8 @@ type azureManagementContext struct {
 // later.
 func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	snap := env.getSnapshot()
-	subscription := snap.ecfg.ManagementSubscriptionId()
-	certData := snap.ecfg.ManagementCertificate()
+	subscription := snap.ecfg.managementSubscriptionId()
+	certData := snap.ecfg.managementCertificate()
 	certFile, err := newTempCertFile([]byte(certData))
 	if err != nil {
 		return nil, err
@@ -820,8 +820,8 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.StorageAccountName(),
-		Key:     ecfg.StorageAccountKey(),
+		Account: ecfg.storageAccountName(),
+		Key:     ecfg.storageAccountKey(),
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -832,7 +832,7 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.PublicStorageAccountName(),
+		Account: ecfg.publicStorageAccountName(),
 		Key:     "", // Empty string means anonymous access.
 	}
 	// There is currently no way for this to fail.

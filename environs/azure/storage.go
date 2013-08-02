@@ -173,7 +173,7 @@ type publicEnvironStorageContext struct {
 var _ storageContext = (*publicEnvironStorageContext)(nil)
 
 func (context *publicEnvironStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.PublicStorageContainerName()
+	return context.environ.getSnapshot().ecfg.publicStorageContainerName()
 }
 
 func (context *publicEnvironStorageContext) getStorageContext() (*gwacl.StorageContext, error) {
