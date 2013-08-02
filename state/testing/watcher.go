@@ -99,6 +99,8 @@ func (c NotifyWatcherC) AssertOneChange() {
 	case <-time.After(testing.LongWait):
 		c.Fatalf("watcher did not send change")
 	}
+	panic("really?")
+	time.Sleep(6 * time.Second)
 	c.AssertNoChange()
 }
 
