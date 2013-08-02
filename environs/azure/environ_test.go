@@ -1093,7 +1093,8 @@ func (*EnvironSuite) TestOpenPortsFailsWhenOpeningMachinePortsFails(c *C) {
 	}
 	// Patch an erroring function into place.
 	defer resetOpenInstanceEndpoints()
-	openInstanceEndpoints = func(i *azureInstance, _ *azureManagementContext, p []instance.Port) error {
+	openInstanceEndpoints = func(i *azureInstance, _ *azureManagementContext,
+		p []instance.Port) error {
 		return fmt.Errorf("Entirely unexpected")
 	}
 	// Patch in a service list for the given services.
