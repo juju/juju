@@ -1028,6 +1028,12 @@ func (*EnvironSuite) TestConvertToInstances(c *C) {
 	})
 }
 
+var openInstanceEndpointsOriginal = openInstanceEndpoints
+
+func resetOpenInstanceEndpoints() {
+	openInstanceEndpoints = openInstanceEndpointsOriginal
+}
+
 type openEndpointCall struct {
 	name  string
 	ports []instance.Port
@@ -1036,8 +1042,7 @@ type openEndpointCall struct {
 func openPorts(c *C, env *azureEnviron, services []gwacl.HostedServiceDescriptor, ports []instance.Port) []openEndpointCall {
 	calls := []openEndpointCall{}
 	// Patch a recording function into place.
-	openInstanceEndpointsOriginal := openInstanceEndpoints
-	defer func() { openInstanceEndpoints = openInstanceEndpointsOriginal }()
+	defer resetOpenInstanceEndpoints()
 	openInstanceEndpoints = func(i *azureInstance, _ *azureManagementContext, p []instance.Port) error {
 		calls = append(calls, openEndpointCall{i.ServiceName, p})
 		return nil
@@ -1070,4 +1075,30 @@ func (*EnvironSuite) TestOpenPortsWithInstances(c *C) {
 		{services[0].ServiceName, ports},
 		{services[1].ServiceName, ports},
 	})
+}
+
+func (*EnvironSuite) TestOpenPortsFailsWhenUnableToGetServices(c *C) {
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
+	}
+	gwacl.PatchManagementAPIResponses(responses)
+	err := makeEnviron(c).OpenPorts(nil)
+	c.Assert(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+}
+
+func (*EnvironSuite) TestOpenPortsFailsWhenOpeningMachinePortsFails(c *C) {
+	env := makeEnviron(c)
+	services := []gwacl.HostedServiceDescriptor{
+		{ServiceName: env.getEnvPrefix() + "one"},
+	}
+	// Patch an erroring function into place.
+	defer resetOpenInstanceEndpoints()
+	openInstanceEndpoints = func(i *azureInstance, _ *azureManagementContext, p []instance.Port) error {
+		return fmt.Errorf("Entirely unexpected")
+	}
+	// Patch in a service list for the given services.
+	patchWithServiceListResponse(c, services)
+	// Open the ports.
+	err := env.OpenPorts(nil)
+	c.Assert(err, ErrorMatches, "Entirely unexpected")
 }
