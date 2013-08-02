@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -29,8 +28,7 @@ func NewUpgraderAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UpgraderAPI, error) {
-	// TODO: Unit agents are also allowed to use this API
-	if !authorizer.AuthMachineAgent() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
@@ -66,16 +64,12 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	if !u.authorizer.AuthOwner(entity.Tag) {
 		return nil, common.ErrPerm
 	}
-	id, err := names.MachineFromTag(entity.Tag)
+	agentEntity, err := u.st.AgentEntity(entity.Tag)
 	if err != nil {
 		return nil, err
 	}
-	machine, err := u.st.Machine(id)
-	if err != nil {
-		return nil, err
-	}
-	// TODO: Support Unit as well as Machine
-	existingTools, err := machine.AgentTools()
+
+	existingTools, err := agentEntity.AgentTools()
 	if err != nil {
 		return nil, err
 	}
@@ -138,10 +132,9 @@ func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
 	// We assume that any entity that we can upgrade will
 	// have a Life, which is certainly true now, but is
 	// an assumption that may need revisiting at some point.
-	entity0, err := u.st.Lifer(tag)
+	entity, err := u.st.AgentEntity(tag)
 	if err != nil {
 		return err
 	}
-	entity := entity0.(state.SetAgentTooler)
 	return entity.SetAgentTools(tools)
 }

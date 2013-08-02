@@ -418,6 +418,39 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *C) {
 	})
 }
 
+func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *C) {
+	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
+		// Ensure that the MinUnits worker is alive by doing a simple check
+		// that it responds to state changes: add a service, set its minimum
+		// number of units to one, wait for the worker to add the missing unit.
+		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+		c.Assert(err, IsNil)
+		err = service.SetMinUnits(1)
+		c.Assert(err, IsNil)
+		w := service.Watch()
+		defer w.Stop()
+
+		// Trigger a sync on the state used by the agent, and wait for the unit
+		// to be created.
+		agentState.Sync()
+		timeout := time.After(testing.LongWait)
+		for {
+			select {
+			case <-timeout:
+				c.Fatalf("unit not created")
+			case <-time.After(testing.ShortWait):
+				s.State.StartSync()
+			case <-w.Changes():
+				units, err := service.AllUnits()
+				c.Assert(err, IsNil)
+				if len(units) == 1 {
+					return
+				}
+			}
+		}
+	})
+}
+
 var serveAPIWithBadConfTests = []struct {
 	change func(c *agent.Conf)
 	err    string

@@ -464,20 +464,30 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Tagger represents entities with a tag.
+// Tagger represents an entity with a tag.
 type Tagger interface {
 	Tag() string
 }
 
-// Lifer represents entities with a life.
+// AgentEntity represents an entity that can
+// have an agent responsible for it.
+type AgentEntity interface {
+	Lifer
+	Authenticator
+	MongoPassworder
+	AgentTooler
+}
+
+// Lifer represents an entity with a life.
 type Lifer interface {
 	Tagger
 	Life() Life
 }
 
-// SetAgentTooler is implemented by entities
-// that have a SetAgentTools method.
-type SetAgentTooler interface {
+// AgentTooler is implemented by entities
+// that have associated agent tools.
+type AgentTooler interface {
+	AgentTools() (*tools.Tools, error)
 	SetAgentTools(*tools.Tools) error
 }
 
@@ -494,6 +504,12 @@ type Authenticator interface {
 	Refresh() error
 	SetPassword(pass string) error
 	PasswordValid(pass string) bool
+}
+
+// MongoPassworder represents an entity that can
+// have a mongo password set for it.
+type MongoPassworder interface {
+	SetMongoPassword(password string) error
 }
 
 // TaggedAuthenticator represents tagged entities capable of authentication.
@@ -527,7 +543,23 @@ func (st *State) Authenticator(tag string) (TaggedAuthenticator, error) {
 	return nil, fmt.Errorf("entity %q does not support authentication", tag)
 }
 
-// Annotator attempts to return aa TaggedAnnotator with the given tag.
+// AgentEntity returns the AgentEntity with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement AgentEntity.
+func (st *State) AgentEntity(tag string) (AgentEntity, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(AgentEntity); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("%q does not support agent operations", tag)
+}
+
+// Annotator attempts to return the TaggedAnnotator with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement TaggedAnnotator.
 func (st *State) Annotator(tag string) (TaggedAnnotator, error) {
 	e, err := st.entity(tag)
 	if err != nil {
@@ -539,7 +571,9 @@ func (st *State) Annotator(tag string) (TaggedAnnotator, error) {
 	return nil, fmt.Errorf("entity %q does not support annotations", tag)
 }
 
-// Lifer attempts to return a Lifer with the given tag.
+// Lifer attempts to return the Lifer with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement Lifer.
 func (st *State) Lifer(tag string) (Lifer, error) {
 	e, err := st.entity(tag)
 	if err != nil {
@@ -552,6 +586,8 @@ func (st *State) Lifer(tag string) (Lifer, error) {
 }
 
 // Remover attempts to return a Remover with the given tag.
+// It is an error if the tag refers to an entity which does
+// not implement Remover.
 func (st *State) Remover(tag string) (Remover, error) {
 	e, err := st.entity(tag)
 	if err != nil {
