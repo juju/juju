@@ -128,6 +128,18 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+	if region == "" {
+		return nil, fmt.Errorf("region must be specified")
+	}
+	return &imagemetadata.MetadataLookupParams{
+		Region:        region,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
+}
+
 func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
 	ecfg, err := providerInstance.newConfig(cfg)
@@ -1099,4 +1111,23 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		}
 	}
 	return firstErr
+}
+
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+	baseURLs, err := e.getImageBaseURLs()
+	if err != nil {
+		return nil, err
+	}
+	if region == "" {
+		region = e.ecfg().region()
+	}
+	return &imagemetadata.MetadataLookupParams{
+		Series:        e.ecfg().DefaultSeries(),
+		Region:        region,
+		Endpoint:      e.ecfg().authURL(),
+		BaseURLs:      baseURLs,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
 }

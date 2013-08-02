@@ -23,7 +23,7 @@ type SSHCommand struct {
 
 // SSHCommon provides common methods for SSHCommand and SCPCommand.
 type SSHCommon struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	Target string
 	Args   []string
 	*juju.Conn

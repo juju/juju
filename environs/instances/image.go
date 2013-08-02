@@ -5,7 +5,9 @@ package instances
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
 )
 
 // InstanceConstraint constrains the possible instances that may be
@@ -95,4 +97,19 @@ func (image Image) match(itype InstanceType) bool {
 		}
 	}
 	return false
+}
+
+// ImageMetadataToImages converts an array of ImageMetadata pointers (as
+// returned by imagemetadata.Fetch) to an array of Image objects (as required
+// by instances.FindInstanceSpec).
+func ImageMetadataToImages(inputs []*imagemetadata.ImageMetadata) []Image {
+	result := make([]Image, len(inputs))
+	for index, input := range inputs {
+		result[index] = Image{
+			Id:    input.Id,
+			VType: input.VType,
+			Arch:  input.Arch,
+		}
+	}
+	return result
 }

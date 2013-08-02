@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -75,7 +76,7 @@ func moreImportant(err0, err1 error) bool {
 }
 
 func isUpgraded(err error) bool {
-	_, ok := err.(*UpgradeReadyError)
+	_, ok := err.(*upgrader.UpgradeReadyError)
 	return ok
 }
 
@@ -189,7 +190,7 @@ func agentDone(err error) error {
 	if err == worker.ErrTerminateAgent {
 		err = nil
 	}
-	if ug, ok := err.(*UpgradeReadyError); ok {
+	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
 			return err
@@ -237,7 +238,7 @@ var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Con
 	return deployer.NewSimpleContext(dataDir, caCert, st), nil
 }
 
-func newDeployer(st *apideployer.State, machineTag string, dataDir string) (*deployer.Deployer, error) {
+func newDeployer(st *apideployer.State, machineTag string, dataDir string) (worker.Worker, error) {
 	ctx, err := newDeployContext(st, dataDir)
 	if err != nil {
 		return nil, err

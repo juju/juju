@@ -4,8 +4,6 @@
 package cleaner
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -17,14 +15,10 @@ type Cleaner struct {
 	st *state.State
 }
 
-// NewCleaner returns a worker.NotifyWorker that runs state.Cleanup()
+// NewCleaner returns a worker.Worker that runs state.Cleanup()
 // if the CleanupWatcher signals documents marked for deletion.
-func NewCleaner(st *state.State) worker.NotifyWorker {
+func NewCleaner(st *state.State) worker.Worker {
 	return worker.NewNotifyWorker(&Cleaner{st: st})
-}
-
-func (c *Cleaner) String() string {
-	return fmt.Sprintf("cleaner")
 }
 
 func (c *Cleaner) SetUp() (api.NotifyWatcher, error) {

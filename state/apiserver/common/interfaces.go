@@ -18,6 +18,10 @@ type Authorizer interface {
 	// machine agent.
 	AuthMachineAgent() bool
 
+	// AuthUnitAgent returns whether the authenticated entity is a
+	// unit agent.
+	AuthUnitAgent() bool
+
 	// AuthOwner returns whether the authenticated entity is the same
 	// as the given entity.
 	AuthOwner(tag string) bool

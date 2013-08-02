@@ -5,6 +5,8 @@ package azure
 
 import (
 	"io"
+	"net/http"
+	"sync"
 	"time"
 
 	"launchpad.net/gwacl"
@@ -14,6 +16,8 @@ import (
 )
 
 type azureStorage struct {
+	mutex            sync.Mutex
+	createdContainer bool
 	storageContext
 }
 
@@ -94,6 +98,10 @@ func (storage *azureStorage) ConsistencyStrategy() utils.AttemptStrategy {
 
 // Put is specified in the StorageWriter interface.
 func (storage *azureStorage) Put(name string, r io.Reader, length int64) error {
+	err := storage.createContainer(storage.getContainer())
+	if err != nil {
+		return err
+	}
 	limitedReader := io.LimitReader(r, length)
 	context, err := storage.getStorageContext()
 	if err != nil {
@@ -120,6 +128,54 @@ func (storage *azureStorage) RemoveAll() error {
 	return context.DeleteContainer(storage.getContainer())
 }
 
+// createContainer makes a private container in the storage account.
+// It can be called when the container already exists and returns with no error
+// if it does.  To avoid unnecessary HTTP requests, we do this only once for
+// every PUT operation by using a mutex lock and boolean flag.
+func (storage *azureStorage) createContainer(name string) error {
+	// We must get our storage context before entering our critical
+	// section, because this may lock the environment.
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
+
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	if storage.createdContainer {
+		return nil
+	}
+	_, err = context.GetContainerProperties(name)
+	if err == nil {
+		// No error means it's already there, just return now.
+		return nil
+	}
+	httpErr, isHTTPErr := err.(gwacl.HTTPError)
+	if !isHTTPErr || httpErr.StatusCode() != http.StatusNotFound {
+		// We were hoping for a 404: Not Found.  That means we can go
+		// ahead and create the container.  But we got some other
+		// error.
+		return err
+	}
+	err = context.CreateContainer(name)
+	if err != nil {
+		return err
+	}
+	storage.createdContainer = true
+	return nil
+}
+
+// deleteContainer deletes the named comtainer from the storage account.
+func (storage *azureStorage) deleteContainer(name string) error {
+	context, err := storage.getStorageContext()
+	if err != nil {
+		return err
+	}
+
+	return context.DeleteContainer(name)
+}
+
 // publicEnvironStorageContext is a storageContext which gets its information
 // from an azureEnviron object to create a public storage.
 type publicEnvironStorageContext struct {
@@ -129,7 +185,7 @@ type publicEnvironStorageContext struct {
 var _ storageContext = (*publicEnvironStorageContext)(nil)
 
 func (context *publicEnvironStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.PublicStorageContainerName()
+	return context.environ.getSnapshot().ecfg.publicStorageContainerName()
 }
 
 func (context *publicEnvironStorageContext) getStorageContext() (*gwacl.StorageContext, error) {

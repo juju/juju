@@ -1,13 +1,16 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package main
+package cmd_test
 
 import (
 	"io/ioutil"
 	"os"
 
 	. "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -26,54 +29,54 @@ func (s *EnvironmentCommandSuite) TearDownTest(c *C) {
 }
 
 func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *C) {
-	env := readCurrentEnvironment()
+	env := cmd.ReadCurrentEnvironment()
 	c.Assert(env, Equals, "")
 }
 
 func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *C) {
-	err := writeCurrentEnvironment("fubar")
+	err := cmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, IsNil)
-	env := readCurrentEnvironment()
+	env := cmd.ReadCurrentEnvironment()
 	c.Assert(env, Equals, "fubar")
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *C) {
-	env := getDefaultEnvironment()
+	env := cmd.GetDefaultEnvironment()
 	c.Assert(env, Equals, "")
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *C) {
-	err := writeCurrentEnvironment("fubar")
+	err := cmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, IsNil)
-	env := getDefaultEnvironment()
+	env := cmd.GetDefaultEnvironment()
 	c.Assert(env, Equals, "fubar")
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *C) {
-	os.Setenv("JUJU_ENV", "magic")
-	env := getDefaultEnvironment()
+	os.Setenv(osenv.JujuEnv, "magic")
+	env := cmd.GetDefaultEnvironment()
 	c.Assert(env, Equals, "magic")
 }
 
 func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *C) {
-	os.Setenv("JUJU_ENV", "magic")
-	err := writeCurrentEnvironment("fubar")
+	os.Setenv(osenv.JujuEnv, "magic")
+	err := cmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, IsNil)
-	env := getDefaultEnvironment()
+	env := cmd.GetDefaultEnvironment()
 	c.Assert(env, Equals, "magic")
 }
 
 func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *C) {
-	err := writeCurrentEnvironment("fubar")
+	err := cmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, IsNil)
-	current, err := ioutil.ReadFile(getCurrentEnvironmentFilePath())
+	current, err := ioutil.ReadFile(cmd.GetCurrentEnvironmentFilePath())
 	c.Assert(err, IsNil)
 	c.Assert(string(current), Equals, "fubar\n")
 }
 
 func (*EnvironmentCommandSuite) TestErrorWritingFile(c *C) {
 	// Can't write a file over a directory.
-	os.MkdirAll(getCurrentEnvironmentFilePath(), 0777)
-	err := writeCurrentEnvironment("fubar")
+	os.MkdirAll(cmd.GetCurrentEnvironmentFilePath(), 0777)
+	err := cmd.WriteCurrentEnvironment("fubar")
 	c.Assert(err, ErrorMatches, "unable to write to the environment file: .*")
 }

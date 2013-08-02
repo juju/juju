@@ -23,7 +23,7 @@ import (
 )
 
 type StatusCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	out cmd.Output
 }
 

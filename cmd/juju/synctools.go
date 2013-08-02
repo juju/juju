@@ -16,7 +16,7 @@ var syncTools = sync.SyncTools
 // SyncToolsCommand copies all the tools from the us-east-1 bucket to the local
 // bucket.
 type SyncToolsCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	allVersions  bool
 	dryRun       bool
 	publicBucket bool

@@ -35,6 +35,7 @@ type MissingCallback func(ctx *Context, subcommand string, args []string) error
 // SuperCommandParams provides a way to have default parameter to the
 // `NewSuperCommand` call.
 type SuperCommandParams struct {
+	UsagePrefix     string
 	Name            string
 	Purpose         string
 	Doc             string
@@ -50,6 +51,7 @@ func NewSuperCommand(params SuperCommandParams) *SuperCommand {
 		Purpose:         params.Purpose,
 		Doc:             params.Doc,
 		Log:             params.Log,
+		usagePrefix:     params.UsagePrefix,
 		missingCallback: params.MissingCallback}
 	command.init()
 	return command
@@ -65,11 +67,13 @@ type SuperCommand struct {
 	Purpose         string
 	Doc             string
 	Log             *Log
+	usagePrefix     string
 	subcmds         map[string]Command
 	commonflags     *gnuflag.FlagSet
 	flags           *gnuflag.FlagSet
 	subcmd          Command
 	showHelp        bool
+	showDescription bool
 	showVersion     bool
 	missingCallback MissingCallback
 }
@@ -184,6 +188,11 @@ func (c *SuperCommand) setCommonFlags(f *gnuflag.FlagSet) {
 	}
 	f.BoolVar(&c.showHelp, "h", false, helpPurpose)
 	f.BoolVar(&c.showHelp, "help", false, "")
+	// In the case where we are providing the basis for a plugin,
+	// plugins are required to support the --description argument.
+	// The Purpose attribute will be printed (if defined), allowing
+	// plugins to provide a sensible line of text for 'juju help plugins'.
+	f.BoolVar(&c.showDescription, "description", false, "")
 
 	c.commonflags = gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	c.commonflags.SetOutput(ioutil.Discard)
@@ -205,6 +214,9 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
+	if c.showDescription {
+		return CheckEmpty(args)
+	}
 	if len(args) == 0 {
 		c.subcmd = c.subcmds["help"]
 		return nil
@@ -241,6 +253,14 @@ func (c *SuperCommand) Init(args []string) error {
 
 // Run executes the subcommand that was selected in Init.
 func (c *SuperCommand) Run(ctx *Context) error {
+	if c.showDescription {
+		if c.Purpose != "" {
+			fmt.Fprintf(ctx.Stdout, "%s\n", c.Purpose)
+		} else {
+			fmt.Fprintf(ctx.Stdout, "%s: no description available\n", c.Info().Name)
+		}
+		return nil
+	}
 	if c.subcmd == nil {
 		panic("Run: missing subcommand; Init failed or not called")
 	}
@@ -283,9 +303,10 @@ func (c *missingCommand) Run(ctx *Context) error {
 
 type helpCommand struct {
 	CommandBase
-	super  *SuperCommand
-	topic  string
-	topics map[string]topic
+	super     *SuperCommand
+	topic     string
+	topicArgs []string
+	topics    map[string]topic
 }
 
 func (c *helpCommand) init() {
@@ -368,7 +389,12 @@ func (c *helpCommand) Init(args []string) error {
 	case 1:
 		c.topic = args[0]
 	default:
-		return fmt.Errorf("extra arguments to command help: %q", args[2:])
+		if c.super.missingCallback == nil {
+			return fmt.Errorf("extra arguments to command help: %q", args[1:])
+		} else {
+			c.topic = args[0]
+			c.topicArgs = args[1:]
+		}
 	}
 	return nil
 }
@@ -402,6 +428,9 @@ func (c *helpCommand) Run(ctx *Context) error {
 	if helpcmd, ok := c.super.subcmds[c.topic]; ok {
 		info := helpcmd.Info()
 		info.Name = fmt.Sprintf("%s %s", c.super.Name, info.Name)
+		if c.super.usagePrefix != "" {
+			info.Name = fmt.Sprintf("%s %s", c.super.usagePrefix, info.Name)
+		}
 		f := gnuflag.NewFlagSet(info.Name, gnuflag.ContinueOnError)
 		helpcmd.SetFlags(f)
 		ctx.Stdout.Write(info.Help(f))
@@ -415,11 +444,15 @@ func (c *helpCommand) Run(ctx *Context) error {
 	}
 	// If we have a missing callback, call that with --help
 	if c.super.missingCallback != nil {
+		helpArgs := []string{"--", "--help"}
+		if len(c.topicArgs) > 0 {
+			helpArgs = append(helpArgs, c.topicArgs...)
+		}
 		subcmd := &missingCommand{
 			callback:  c.super.missingCallback,
 			superName: c.super.Name,
 			name:      c.topic,
-			args:      []string{"--", "--help"},
+			args:      helpArgs,
 		}
 		err := subcmd.Run(ctx)
 		_, isUnrecognized := err.(*UnrecognizedCommand)

@@ -92,8 +92,9 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
-	// ProviderType refers to the type of the provider that created the machine.
-	ProviderType string
+	// MachineEnvironment defines additional environment variables to set in
+	// the machine agent upstart script.
+	MachineEnvironment map[string]string
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
@@ -292,7 +293,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.ProviderType)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.MachineEnvironment)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
@@ -397,9 +398,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")
-	}
-	if cfg.ProviderType == "" {
-		return fmt.Errorf("missing provider type")
 	}
 	if cfg.StateServer {
 		if cfg.Config == nil {

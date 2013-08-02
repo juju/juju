@@ -437,6 +437,15 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
 }
 
+func (s *localServerSuite) TestValidateImageMetadata(c *C) {
+	params, err := s.Env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("some-region")
+	c.Assert(err, IsNil)
+	params.Series = "raring"
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	c.Assert(err, IsNil)
+	c.Assert(image_ids, DeepEquals, []string{"id-y"})
+}
+
 func (s *localServerSuite) TestRemoveAll(c *C) {
 	storage := s.Env.Storage()
 	for _, a := range []byte("abcdefghijklmnopqrstuvwxyz") {
