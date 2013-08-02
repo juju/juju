@@ -953,7 +953,7 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1006,7 +1006,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(subUnits[0].Name())
 	wc.AssertNoChange()
 
