@@ -256,7 +256,7 @@ func (*storageSuite) TestURL(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (*storageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
+func (*storageSuite) TestCreateContainerCreatesContainerIfDoesNotExist(c *C) {
 	azStorage, transport := makeFakeStorage("", "account")
 	transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
 	transport.AddExchange(makeResponse("", http.StatusCreated), nil)
@@ -275,7 +275,7 @@ func (*storageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
 	c.Check(transport.Exchanges[1].Request.Method, Equals, "PUT")
 }
 
-func (*storageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
+func (*storageSuite) TestCreateContainerIsDoneIfContainerAlreadyExists(c *C) {
 	container := ""
 	azStorage, transport := makeFakeStorage(container, "account")
 	header := make(http.Header)
@@ -296,6 +296,20 @@ func (*storageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
 	// it needs to do in order to call GetContainerProperties.
 	c.Check(transport.Exchanges[0].Request.URL.String(), Matches, "http.*/cntnr?.*restype=container.*")
 	c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
+}
+
+func (*storageSuite) TestCreateContainerFailsIfContainerInaccessible(c *C) {
+	azStorage, transport := makeFakeStorage("", "account")
+	transport.AddExchange(makeResponse("", http.StatusInternalServerError), nil)
+
+	err := azStorage.createContainer("cntnr")
+	c.Assert(err, NotNil)
+
+	// createContainer got an error when trying to query for an existing
+	// container of the right name.  But it does not mistake that error for
+	// "this container does not exist yet so go ahead and create it."
+	// The proper response to the situation is to report the failure.
+	c.Assert(err, ErrorMatches, ".*Internal Server Error.*")
 }
 
 func (*storageSuite) TestDeleteContainer(c *C) {
