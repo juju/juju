@@ -232,7 +232,7 @@ var ctests = []struct {
 }
 
 const (
-	header = "#cloud-config\n"
+	header          = "#cloud-config\n"
 	addFileExpected = `runcmd:
 - install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
 - echo '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
