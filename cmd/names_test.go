@@ -9,12 +9,12 @@ import (
 	"launchpad.net/juju-core/cmd"
 )
 
-type NamesSuite struct {
+type namesSuite struct {
 }
 
-var _ = gc.Suite(&NamesSuite{})
+var _ = gc.Suite(&namesSuite{})
 
-func (*NamesSuite) TestNameChecks(c *gc.C) {
+func (*namesSuite) TestNameChecks(c *gc.C) {
 	assertMachineOrNewContainer := func(s string, expect bool) {
 		c.Assert(cmd.IsMachineOrNewContainer(s), gc.Equals, expect)
 	}

@@ -11,9 +11,7 @@ const (
 	MachineSnippet   = NumberSnippet + ContainerSnippet + "*"
 )
 
-var (
-	validMachine = regexp.MustCompile("^" + MachineSnippet + "$")
-)
+var validMachine = regexp.MustCompile("^" + MachineSnippet + "$")
 
 // IsMachine returns whether id is a valid machine id.
 func IsMachine(id string) bool {

@@ -4,8 +4,9 @@
 package cmd
 
 import (
-	"launchpad.net/juju-core/names"
 	"regexp"
+
+	"launchpad.net/juju-core/names"
 )
 
 const (
