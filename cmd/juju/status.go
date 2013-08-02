@@ -64,13 +64,17 @@ type patternMatcher struct {
 	patterns []string
 }
 
-func (m *patternMatcher) match(s string) bool {
+func (m *patternMatcher) match(s string) (bool, error) {
 	for _, pattern := range m.patterns {
-		if ok, _ := path.Match(pattern, s); ok {
-			return true
+		ok, err := path.Match(pattern, s)
+		if err != nil {
+			err = fmt.Errorf("%s: %q", err, pattern)
+			return false, err
+		} else if ok {
+			return true, nil
 		}
 	}
-	return false
+	return false, nil
 }
 
 func processScope(scope []string) (sm *patternMatcher, um *patternMatcher) {
@@ -198,8 +202,13 @@ func fetchAllServicesAndUnits(st *state.State, sm *patternMatcher, um *patternMa
 		return nil, nil, err
 	}
 	for _, s := range services {
-		if sm != nil && !sm.match(s.Name()) {
-			continue
+		if sm != nil {
+			ok, err := sm.match(s.Name())
+			if err != nil {
+				return nil, nil, err
+			} else if !ok {
+				continue
+			}
 		}
 		units, err := s.AllUnits()
 		if err != nil {
@@ -207,8 +216,13 @@ func fetchAllServicesAndUnits(st *state.State, sm *patternMatcher, um *patternMa
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
-			if um != nil && !um.match(u.Name()) {
-				continue
+			if um != nil {
+				ok, err := um.match(u.Name())
+				if err != nil {
+					return nil, nil, err
+				} else if !ok {
+					continue
+				}
 			}
 			svcUnitMap[u.Name()] = u
 		}

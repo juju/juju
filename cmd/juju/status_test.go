@@ -27,11 +27,11 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
+func runStatus(c *C, args ...string) (code int, stdout []byte, stderr string) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(&StatusCommand{}, ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
-	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
+	stderr = ctx.Stderr.(*bytes.Buffer).String()
 	return
 }
 
@@ -1383,4 +1383,29 @@ func (s *StatusSuite) TestStatusAllFormats(c *C) {
 			ctx.run(c, t.steps)
 		}()
 	}
+}
+
+func (s *StatusSuite) TestStatusFilterErrors(c *C) {
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		addAliveUnit{"mysql", "1"},
+	}
+	ctx := s.newContext()
+	defer s.resetContext(c, ctx)
+	ctx.run(c, steps)
+
+	// Status filters can only fail if the patterns are invalid.
+	code, _, stderr := runStatus(c, "[")
+	c.Assert(code, Not(Equals), 0)
+	c.Assert(stderr, Equals, `error: syntax error in pattern: "["`+"\n")
+
+	// Pattern validity is checked lazily; if a bad pattern
+	// proceeds a valid, matching pattern, then the bad pattern
+	// will not cause an error.
+	code, _, stderr = runStatus(c, "*", "[")
+	c.Assert(code, Equals, 0)
+	c.Assert(stderr, HasLen, 0)
 }
