@@ -4,8 +4,7 @@
 package deployer
 
 import (
-	"strings"
-
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -21,23 +20,12 @@ func (u *Unit) Tag() string {
 	return u.tag
 }
 
-const unitTagPrefix = "unit-"
-
-// UnitTag returns the tag for the
-// unit with the given name.
-func UnitTag(unitName string) string {
-	return unitTagPrefix + strings.Replace(unitName, "/", "-", -1)
-}
-
 // Name returns the unit's name.
 func (u *Unit) Name() string {
-	if !strings.HasPrefix(u.tag, unitTagPrefix) {
-		return ""
+	name, err := names.UnitFromTag(u.tag)
+	if err != nil {
+		panic(err)
 	}
-	// Strip off the "unit-" prefix.
-	name := u.tag[len(unitTagPrefix):]
-	// Put the slashes back.
-	name = strings.Replace(name, "-", "/", -1)
 	return name
 }
 

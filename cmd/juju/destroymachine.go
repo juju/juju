@@ -5,14 +5,15 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
 )
 
 // DestroyMachineCommand causes an existing machine to be destroyed.
 type DestroyMachineCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	MachineIds []string
 }
 
@@ -31,7 +32,7 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 		return fmt.Errorf("no machines specified")
 	}
 	for _, id := range args {
-		if !state.IsMachineId(id) {
+		if !names.IsMachine(id) {
 			return fmt.Errorf("invalid machine id %q", id)
 		}
 	}

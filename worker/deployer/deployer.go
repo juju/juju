@@ -7,14 +7,15 @@ import (
 	"fmt"
 
 	"launchpad.net/loggo"
-	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
+	"launchpad.net/juju-core/worker"
 )
 
 var logger = loggo.GetLogger("juju.worker.deployer")
@@ -23,7 +24,6 @@ var logger = loggo.GetLogger("juju.worker.deployer")
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	tomb       tomb.Tomb
 	st         *apideployer.State
 	ctx        Context
 	machineTag string
@@ -34,7 +34,6 @@ type Deployer struct {
 // strategies; where a Deployer is responsible for what to deploy, a Context
 // is responsible for how to deploy.
 type Context interface {
-
 	// DeployUnit causes the agent for the specified unit to be started and run
 	// continuously until further notice without further intervention. It will
 	// return an error if the agent is already deployed.
@@ -49,46 +48,57 @@ type Context interface {
 	DeployedUnits() ([]string, error)
 }
 
-// NewDeployer returns a Deployer that deploys and recalls unit agents via
-// ctx, taking a machine id to operate on.
-func NewDeployer(st *apideployer.State, ctx Context, machineTag string) *Deployer {
+// NewDeployer returns a Worker that deploys and recalls unit agents
+// via ctx, taking a machine id to operate on.
+func NewDeployer(st *apideployer.State, ctx Context, machineTag string) worker.Worker {
 	d := &Deployer{
 		st:         st,
 		ctx:        ctx,
 		machineTag: machineTag,
 	}
-	go func() {
-		defer d.tomb.Done()
-		d.tomb.Kill(d.loop())
-	}()
-	return d
-}
-
-func (d *Deployer) String() string {
-	return "deployer for " + d.machineTag
-}
-
-func (d *Deployer) Kill() {
-	d.tomb.Kill(nil)
-}
-
-func (d *Deployer) Stop() error {
-	d.tomb.Kill(nil)
-	return d.tomb.Wait()
-}
-
-func (d *Deployer) Wait() error {
-	return d.tomb.Wait()
+	return worker.NewStringsWorker(d)
 }
 
 func isNotFoundOrUnauthorized(err error) bool {
 	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
 }
 
+func (d *Deployer) SetUp() (api.StringsWatcher, error) {
+	machine, err := d.st.Machine(d.machineTag)
+	if err != nil {
+		return nil, err
+	}
+	machineUnitsWatcher, err := machine.WatchUnits()
+	if err != nil {
+		return nil, err
+	}
+
+	deployed, err := d.ctx.DeployedUnits()
+	if err != nil {
+		return nil, err
+	}
+	for _, unitName := range deployed {
+		d.deployed.Add(unitName)
+		if err := d.changed(unitName); err != nil {
+			return nil, err
+		}
+	}
+	return machineUnitsWatcher, nil
+}
+
+func (d *Deployer) Handle(unitNames []string) error {
+	for _, unitName := range unitNames {
+		if err := d.changed(unitName); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 // changed ensures that the named unit is deployed, recalled, or removed, as
 // indicated by its state.
 func (d *Deployer) changed(unitName string) error {
-	unitTag := apideployer.UnitTag(unitName)
+	unitTag := names.UnitTag(unitName)
 	// Determine unit life state, and whether we're responsible for it.
 	logger.Infof("checking unit %q", unitName)
 	var life params.Life
@@ -172,41 +182,7 @@ func (d *Deployer) remove(unit *apideployer.Unit) error {
 	return unit.Remove()
 }
 
-func (d *Deployer) loop() error {
-	machine, err := d.st.Machine(d.machineTag)
-	if err != nil {
-		return err
-	}
-	machineUnitsWatcher, err := machine.WatchUnits()
-	if err != nil {
-		return err
-	}
-	defer watcher.Stop(machineUnitsWatcher, &d.tomb)
-
-	deployed, err := d.ctx.DeployedUnits()
-	if err != nil {
-		return err
-	}
-	for _, unitName := range deployed {
-		d.deployed.Add(unitName)
-		if err := d.changed(unitName); err != nil {
-			return err
-		}
-	}
-	for {
-		select {
-		case <-d.tomb.Dying():
-			return tomb.ErrDying
-		case changes, ok := <-machineUnitsWatcher.Changes():
-			if !ok {
-				return watcher.MustErr(machineUnitsWatcher)
-			}
-			for _, unitName := range changes {
-				if err := d.changed(unitName); err != nil {
-					return err
-				}
-			}
-		}
-	}
-	panic("unreachable")
+func (d *Deployer) TearDown() error {
+	// Nothing to do here.
+	return nil
 }

@@ -212,7 +212,7 @@ func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
 		return nil, err
 	}
 	resp, err := http.Get(nameURL)
-	if err != nil && resp.StatusCode == http.StatusNotFound {
+	if err != nil || resp.StatusCode == http.StatusNotFound {
 		return nil, &errors.NotFoundError{err, ""}
 	}
 	return resp.Body, nil

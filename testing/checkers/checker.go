@@ -121,3 +121,25 @@ func (checker *hasSuffixChecker) Check(params []interface{}, names []string) (re
 
 	return false, "Obtained value is not a string and has no .String()"
 }
+
+type containsChecker struct {
+	*CheckerInfo
+}
+
+var Contains Checker = &containsChecker{
+	&CheckerInfo{Name: "Contains", Params: []string{"obtained", "expected"}},
+}
+
+func (checker *containsChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	expected, ok := params[1].(string)
+	if !ok {
+		return false, "expected must be a string"
+	}
+
+	obtained, isString := stringOrStringer(params[0])
+	if isString {
+		return strings.Contains(obtained, expected), ""
+	}
+
+	return false, "Obtained value is not a string and has no .String()"
+}

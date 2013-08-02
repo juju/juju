@@ -243,23 +243,6 @@ func (s *MachineSuite) TestTag(c *C) {
 	c.Assert(s.machine.Tag(), Equals, "machine-0")
 }
 
-func (s *MachineSuite) TestMachineTag(c *C) {
-	c.Assert(state.MachineTag("10"), Equals, "machine-10")
-	// Check a container id.
-	c.Assert(state.MachineTag("10/lxc/1"), Equals, "machine-10-lxc-1")
-}
-
-func (s *MachineSuite) TestMachineIdFromTag(c *C) {
-	c.Assert(state.MachineIdFromTag("machine-10"), Equals, "10")
-	// Check a container id.
-	c.Assert(state.MachineIdFromTag("machine-10-lxc-1"), Equals, "10/lxc/1")
-	// Check reversability.
-	nested := "2/kvm/0/lxc/3"
-	c.Assert(state.MachineIdFromTag(state.MachineTag(nested)), Equals, nested)
-	// Try with an invalid tag format.
-	c.Assert(state.MachineIdFromTag("foo"), Equals, "")
-}
-
 func (s *MachineSuite) TestSetMongoPassword(c *C) {
 	testSetMongoPassword(c, func(st *state.State) (entity, error) {
 		return st.Machine(s.machine.Id())
@@ -894,10 +877,14 @@ func (s *MachineSuite) TestConstraintsLifecycle(c *C) {
 }
 
 func (s *MachineSuite) TestGetSetStatusWhileAlive(c *C) {
-	failError := func() { s.machine.SetStatus(params.StatusError, "") }
-	c.Assert(failError, PanicMatches, "machine error status with no info")
-	failPending := func() { s.machine.SetStatus(params.StatusPending, "") }
-	c.Assert(failPending, PanicMatches, "machine status cannot be set to pending")
+	err := s.machine.SetStatus(params.StatusError, "")
+	c.Assert(err, ErrorMatches, `cannot set status "error" without info`)
+	err = s.machine.SetStatus(params.StatusPending, "")
+	c.Assert(err, ErrorMatches, `cannot set status "pending"`)
+	err = s.machine.SetStatus(params.StatusDown, "")
+	c.Assert(err, ErrorMatches, `cannot set status "down"`)
+	err = s.machine.SetStatus(params.Status("vliegkat"), "orville")
+	c.Assert(err, ErrorMatches, `cannot set invalid status "vliegkat"`)
 
 	status, info, err := s.machine.Status()
 	c.Assert(err, IsNil)

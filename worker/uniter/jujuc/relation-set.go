@@ -40,9 +40,6 @@ func (c *RelationSetCommand) Init(args []string) error {
 	if c.RelationId == -1 {
 		return fmt.Errorf("no relation id specified")
 	}
-	if len(args) == 0 {
-		return fmt.Errorf(`expected "key=value" parameters, got nothing`)
-	}
 	for _, kv := range args {
 		parts := strings.SplitN(kv, "=", 2)
 		if len(parts) != 2 || len(parts[0]) == 0 {

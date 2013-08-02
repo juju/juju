@@ -19,6 +19,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -1047,15 +1048,15 @@ func (*StateSuite) TestSortPorts(c *gc.C) {
 
 func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertService := func(s string, expect bool) {
-		c.Assert(state.IsServiceName(s), gc.Equals, expect)
+		c.Assert(names.IsService(s), gc.Equals, expect)
 		// Check that anything that is considered a valid service name
 		// is also (in)valid if a(n) (in)valid unit designator is added
 		// to it.
-		c.Assert(state.IsUnitName(s+"/0"), gc.Equals, expect)
-		c.Assert(state.IsUnitName(s+"/99"), gc.Equals, expect)
-		c.Assert(state.IsUnitName(s+"/-1"), gc.Equals, false)
-		c.Assert(state.IsUnitName(s+"/blah"), gc.Equals, false)
-		c.Assert(state.IsUnitName(s+"/"), gc.Equals, false)
+		c.Assert(names.IsUnit(s+"/0"), gc.Equals, expect)
+		c.Assert(names.IsUnit(s+"/99"), gc.Equals, expect)
+		c.Assert(names.IsUnit(s+"/-1"), gc.Equals, false)
+		c.Assert(names.IsUnit(s+"/blah"), gc.Equals, false)
+		c.Assert(names.IsUnit(s+"/"), gc.Equals, false)
 	}
 	// Service names must be non-empty...
 	assertService("", false)
@@ -1079,7 +1080,7 @@ func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertService("foo-2", false)
 
 	assertMachine := func(s string, expect bool) {
-		c.Assert(state.IsMachineId(s), gc.Equals, expect)
+		c.Assert(names.IsMachine(s), gc.Equals, expect)
 	}
 	assertMachine("0", true)
 	assertMachine("00", false)
@@ -1104,7 +1105,7 @@ func (*StateSuite) TestNameChecks(c *gc.C) {
 	assertMachine("0/lxc/1/embedded/2", true)
 
 	assertMachineOrNewContainer := func(s string, expect bool) {
-		c.Assert(state.IsMachineOrNewContainer(s), gc.Equals, expect)
+		c.Assert(names.IsMachineOrNewContainer(s), gc.Equals, expect)
 	}
 	assertMachineOrNewContainer("0", true)
 	assertMachineOrNewContainer("00", false)
@@ -1467,7 +1468,7 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 }
 
 func (s *StateSuite) testEntity(c *gc.C, getEntity func(string) (state.Tagger, error)) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
+	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-bad", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
 	for _, name := range bad {
 		c.Logf(name)
 		e, err := getEntity(name)
@@ -1542,6 +1543,25 @@ func (s *StateSuite) TestAuthenticator(c *gc.C) {
 		gc.ErrorMatches,
 		`entity "environment-.*" does not support authentication`,
 	)
+}
+
+func (s *StateSuite) TestAgentEntity(c *gc.C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, gc.IsNil)
+
+	entity, err := s.State.AgentEntity(machine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.Tag(), gc.Equals, machine.Tag())
+
+	entity, err = s.State.AgentEntity(user.Tag())
+	c.Assert(err, gc.ErrorMatches, `"user-arble" does not support agent operations`)
+	c.Assert(entity, gc.IsNil)
+
+	entity, err = s.State.AgentEntity("machine-99")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(entity, gc.IsNil)
 }
 
 func (s *StateSuite) TestAnnotator(c *gc.C) {
@@ -1626,7 +1646,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	}
 	for _, name := range bad {
 		c.Logf(name)
-		coll, id, err := s.State.ParseTag(name)
+		coll, id, err := state.ParseTag(s.State, name)
 		c.Check(coll, gc.Equals, "")
 		c.Check(id, gc.Equals, "")
 		c.Assert(err, gc.ErrorMatches, `invalid entity name ".*"`)
@@ -1635,7 +1655,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a machine entity name.
 	m, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	coll, id, err := s.State.ParseTag(m.Tag())
+	coll, id, err := state.ParseTag(s.State, m.Tag())
 	c.Assert(coll, gc.Equals, "machines")
 	c.Assert(id, gc.Equals, m.Id())
 	c.Assert(err, gc.IsNil)
@@ -1643,7 +1663,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a service entity name.
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "dummy"))
 	c.Assert(err, gc.IsNil)
-	coll, id, err = s.State.ParseTag(svc.Tag())
+	coll, id, err = state.ParseTag(s.State, svc.Tag())
 	c.Assert(coll, gc.Equals, "services")
 	c.Assert(id, gc.Equals, svc.Name())
 	c.Assert(err, gc.IsNil)
@@ -1651,7 +1671,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a unit entity name.
 	u, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	coll, id, err = s.State.ParseTag(u.Tag())
+	coll, id, err = state.ParseTag(s.State, u.Tag())
 	c.Assert(coll, gc.Equals, "units")
 	c.Assert(id, gc.Equals, u.Name())
 	c.Assert(err, gc.IsNil)
@@ -1659,7 +1679,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 	// Parse a user entity name.
 	user, err := s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
-	coll, id, err = s.State.ParseTag(user.Tag())
+	coll, id, err = state.ParseTag(s.State, user.Tag())
 	c.Assert(coll, gc.Equals, "users")
 	c.Assert(id, gc.Equals, user.Name())
 	c.Assert(err, gc.IsNil)

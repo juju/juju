@@ -11,14 +11,15 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 )
 
-type CustomDataSuite struct{}
+type customDataSuite struct{}
 
-var _ = gc.Suite(&CustomDataSuite{})
+var _ = gc.Suite(&customDataSuite{})
 
 // makeMachineConfig produces a valid cloudinit machine config.
 func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
@@ -32,14 +33,13 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		StateInfo: &state.Info{
 			CACert: []byte(testing.CACert),
 			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    state.MachineTag(machineID),
+			Tag:    names.MachineTag(machineID),
 		},
 		APIInfo: &api.Info{
 			CACert: []byte(testing.CACert),
 			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    state.MachineTag(machineID),
+			Tag:    names.MachineTag(machineID),
 		},
-		ProviderType: "azure",
 	}
 }
 
@@ -50,13 +50,13 @@ func makeBadMachineConfig() *cloudinit.MachineConfig {
 	return &cloudinit.MachineConfig{}
 }
 
-func (*CustomDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
+func (*customDataSuite) TestMakeCustomDataPropagatesError(c *gc.C) {
 	_, err := makeCustomData(makeBadMachineConfig())
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "failure while generating custom data: invalid machine configuration: invalid machine id")
 }
 
-func (*CustomDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
+func (*customDataSuite) TestMakeCustomDataEncodesUserData(c *gc.C) {
 	cfg := makeMachineConfig(c)
 
 	encodedData, err := makeCustomData(cfg)

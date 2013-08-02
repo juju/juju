@@ -13,7 +13,7 @@ import (
 
 // AddRelationCommand adds a relation between two service endpoints.
 type AddRelationCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	Endpoints []string
 }
 

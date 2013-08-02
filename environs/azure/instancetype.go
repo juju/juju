@@ -10,6 +10,8 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that
@@ -90,7 +92,7 @@ func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
 }
 
 // selectMachineType returns the Azure machine type that best matches the
-// supplied instanceContraint.
+// supplied instanceConstraint.
 func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.Value) (*gwacl.RoleSize, error) {
 	types := newPreferredTypes(availableTypes)
 	for _, machineType := range types {
@@ -99,4 +101,96 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 		}
 	}
 	return nil, fmt.Errorf("no machine type matches constraints %v", constraint)
+}
+
+// baseURLs specifies where we look for simplestreams information.  It's just
+// the central database, but this may become more configurable.  This variable
+// is here as a placeholder, but also as an injection point for tests.
+var baseURLs = []string{imagemetadata.DefaultBaseURL}
+
+// getEndpoint returns the endpoint to use for the given Azure location
+// (e.g. West Europe or China North).
+func getEndpoint(location string) (string, error) {
+	// TODO: Get actual proper endpoint information from Simplestreams, or
+	// at the very least, support the separate endpoint for China.
+	return "https://management.core.windows.net/", nil
+}
+
+// As long as this code only supports the default simplestreams
+// database, which is always signed, there is no point in accepting
+// unsigned metadata.
+//
+// For tests, however, unsigned data is more convenient.  They can override
+// this setting.
+var signedImageDataOnly = true
+
+// fetchImageMetadata is a pointer to the imagemetadata.Fetch function.  It's
+// only needed as an injection point where tests can substitute fakes.
+var fetchImageMetadata = imagemetadata.Fetch
+
+// findMatchingImages queries simplestreams for OS images that match the given
+// requirements.
+//
+// If it finds no matching images, that's an error.
+func findMatchingImages(location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
+	endpoint, err := getEndpoint(location)
+	if err != nil {
+		return nil, err
+	}
+	constraint := imagemetadata.ImageConstraint{
+		CloudSpec: imagemetadata.CloudSpec{location, endpoint},
+		Series:    series,
+		Arches:    arches,
+	}
+	indexPath := imagemetadata.DefaultIndexPath
+	images, err := fetchImageMetadata(baseURLs, indexPath, &constraint, signedImageDataOnly)
+	if err != nil {
+		return nil, err
+	}
+	if len(images) == 0 {
+		return nil, fmt.Errorf("no OS images found for location %q, series %q, architectures %q (and endpoint: %q)", location, series, arches, endpoint)
+	}
+	return images, nil
+}
+
+// newInstanceType creates an InstanceType based on a gwacl.RoleSize.
+func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
+	vtype := "Hyper-V"
+	// Actually Azure has shared and dedicated CPUs, but gwacl doesn't
+	// model that distinction yet.
+	var cpuPower uint64 = 100
+
+	return instances.InstanceType{
+		Id:       roleSize.Name,
+		Name:     roleSize.Name,
+		Arches:   architectures,
+		CpuCores: roleSize.CpuCores,
+		Mem:      roleSize.Mem,
+		Cost:     roleSize.Cost,
+		VType:    &vtype,
+		CpuPower: &cpuPower,
+	}
+}
+
+// listInstanceTypes describes the available instance types based on a
+// description in gwacl's terms.
+func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
+	types := make([]instances.InstanceType, len(roleSizes))
+	for index, roleSize := range roleSizes {
+		types[index] = newInstanceType(roleSize)
+	}
+	return types
+}
+
+// findInstanceSpec returns the InstanceSpec that best satisfies the supplied
+// InstanceConstraint.
+func findInstanceSpec(baseURLs []string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
+	imageData, err := findMatchingImages(constraint.Region, constraint.Series, constraint.Arches)
+	if err != nil {
+		return nil, err
+	}
+	images := instances.ImageMetadataToImages(imageData)
+	instanceTypes := listInstanceTypes(gwacl.RoleSizes)
+	return instances.FindInstanceSpec(images, &constraint, instanceTypes)
 }

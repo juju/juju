@@ -5,18 +5,20 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
 // GetConstraintsCommand shows the constraints for a service or environment.
 type GetConstraintsCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }
@@ -44,7 +46,7 @@ func (c *GetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 func (c *GetConstraintsCommand) Init(args []string) error {
 	if len(args) > 0 {
-		if !state.IsServiceName(args[0]) {
+		if !names.IsService(args[0]) {
 			return fmt.Errorf("invalid service name %q", args[0])
 		}
 		c.ServiceName, args = args[0], args[1:]
@@ -78,7 +80,7 @@ func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 
 // SetConstraintsCommand shows the constraints for a service or environment.
 type SetConstraintsCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 	Constraints constraints.Value
 }
@@ -98,7 +100,7 @@ func (c *SetConstraintsCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *SetConstraintsCommand) Init(args []string) (err error) {
-	if c.ServiceName != "" && !state.IsServiceName(c.ServiceName) {
+	if c.ServiceName != "" && !names.IsService(c.ServiceName) {
 		return fmt.Errorf("invalid service name %q", c.ServiceName)
 	}
 	c.Constraints, err = constraints.Parse(args...)

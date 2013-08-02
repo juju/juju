@@ -5,16 +5,17 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
 
 // DestroyServiceCommand causes an existing service to be destroyed.
 type DestroyServiceCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 }
 
@@ -31,7 +32,7 @@ func (c *DestroyServiceCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("no service specified")
 	}
-	if !state.IsServiceName(args[0]) {
+	if !names.IsService(args[0]) {
 		return fmt.Errorf("invalid service name %q", args[0])
 	}
 	c.ServiceName, args = args[0], args[1:]

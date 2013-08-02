@@ -17,7 +17,9 @@ import (
 	localstorage "launchpad.net/juju-core/environs/local/storage"
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
@@ -25,8 +27,10 @@ import (
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 const bootstrapMachineId = "0"
@@ -57,7 +61,7 @@ func (a *MachineAgent) SetFlags(f *gnuflag.FlagSet) {
 
 // Init initializes the command for running.
 func (a *MachineAgent) Init(args []string) error {
-	if !state.IsMachineId(a.MachineId) {
+	if !names.IsMachine(a.MachineId) {
 		return fmt.Errorf("--machine-id option must be set, and expects a non-negative integer")
 	}
 	if err := a.Conf.checkArgs(args); err != nil {
@@ -83,10 +87,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	defer a.tomb.Done()
 	log.Infof("machine agent %v start", a.Tag())
 	if err := a.Conf.read(a.Tag()); err != nil {
-		return err
-	}
-	if err := EnsureWeHaveLXC(a.Conf.DataDir, a.Tag()); err != nil {
-		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
 		return err
 	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
@@ -169,6 +169,10 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		// TODO(rog) use id instead of *Machine (or introduce Clone method)
+		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.DataDir), nil
+	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
@@ -198,21 +202,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If this fails, other bits will fail, so we just log the error, and
-	// let the other failures actually restart runners
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		log.Warningf("failed to EnsureAPIInfo: %v", err)
-	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
 	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return NewUpgrader(st, m, dataDir), nil
-	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
@@ -221,7 +216,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	providerType := os.Getenv(osenv.JujuProviderType)
 	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
@@ -268,6 +263,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// the transaction log.
 				return resumer.NewResumer(st), nil
 			})
+			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+				return minunitsworker.NewMinUnitsWorker(st), nil
+			})
 		default:
 			log.Warningf("ignoring unknown job %q", job)
 		}
@@ -291,7 +289,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 }
 
 func (a *MachineAgent) Tag() string {
-	return state.MachineTag(a.MachineId)
+	return names.MachineTag(a.MachineId)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

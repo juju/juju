@@ -21,6 +21,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -70,7 +71,7 @@ func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machin
 	c.Assert(err, IsNil)
 	err = m.SetPassword("machine-password")
 	c.Assert(err, IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, state.MachineTag(m.Id()), "machine-password")
+	conf, tools := s.agentSuite.primeAgent(c, names.MachineTag(m.Id()), "machine-password")
 	conf.MachineNonce = state.BootstrapNonce
 	conf.APIInfo.Nonce = conf.MachineNonce
 	err = conf.Write()
@@ -212,8 +213,17 @@ func (s *MachineSuite) TestHostUnits(c *C) {
 	err = u0.EnsureDead()
 	c.Assert(err, IsNil)
 	ctx.waitDeployed(c, u1.Name())
-	err = u0.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+
+	// The deployer actually removes the unit just after
+	// removing its deployment, so we need to poll here
+	// until it actually happens.
+	for attempt := testing.LongAttempt.Start(); attempt.Next(); {
+		err := u0.Refresh()
+		if err == nil && attempt.HasNext() {
+			continue
+		}
+		c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	}
 
 	// short-circuit-remove u1 after it's been deployed; check it's recalled
 	// and removed from state.
@@ -408,6 +418,39 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *C) {
 	})
 }
 
+func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *C) {
+	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
+		// Ensure that the MinUnits worker is alive by doing a simple check
+		// that it responds to state changes: add a service, set its minimum
+		// number of units to one, wait for the worker to add the missing unit.
+		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+		c.Assert(err, IsNil)
+		err = service.SetMinUnits(1)
+		c.Assert(err, IsNil)
+		w := service.Watch()
+		defer w.Stop()
+
+		// Trigger a sync on the state used by the agent, and wait for the unit
+		// to be created.
+		agentState.Sync()
+		timeout := time.After(testing.LongWait)
+		for {
+			select {
+			case <-timeout:
+				c.Fatalf("unit not created")
+			case <-time.After(testing.ShortWait):
+				s.State.StartSync()
+			case <-w.Changes():
+				units, err := service.AllUnits()
+				c.Assert(err, IsNil)
+				if len(units) == 1 {
+					return
+				}
+			}
+		}
+	})
+}
+
 var serveAPIWithBadConfTests = []struct {
 	change func(c *agent.Conf)
 	err    string
@@ -457,7 +500,6 @@ func opRecvTimeout(c *C, st *state.State, opc <-chan dummy.Operation, kinds ...d
 			c.Fatalf("time out wating for operation")
 		}
 	}
-	panic("not reached")
 }
 
 func (s *MachineSuite) TestOpenAPIState(c *C) {

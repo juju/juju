@@ -15,7 +15,7 @@ import (
 
 // GetCommand retrieves the configuration of a service.
 type GetCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }

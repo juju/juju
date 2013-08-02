@@ -21,6 +21,8 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
@@ -267,8 +269,9 @@ func (env *localEnviron) StartInstance(
 	tools := possibleTools[0]
 	logger.Debugf("tools: %#v", tools)
 
+	network := lxc.DefaultNetworkConfig()
 	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineNonce,
+		machineId, series, machineNonce, network,
 		tools, env.config.Config,
 		stateInfo, apiInfo)
 	if err != nil {
@@ -459,19 +462,22 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
-	tag := state.MachineTag(machineId)
+	tag := names.MachineTag(machineId)
 	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
+	machineEnvironment := map[string]string{
+		"USER":                      env.config.user,
+		"HOME":                      os.Getenv("HOME"),
+		osenv.JujuProviderType:      env.config.Type(),
+		osenv.JujuStorageDir:        env.config.storageDir(),
+		osenv.JujuStorageAddr:       env.config.storageAddr(),
+		osenv.JujuSharedStorageDir:  env.config.sharedStorageDir(),
+		osenv.JujuSharedStorageAddr: env.config.sharedStorageAddr(),
+	}
 	agent := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
-		toolsDir, dataDir, logDir, tag, machineId, logConfig, env.config.Type())
-	agent.Env["USER"] = env.config.user
-	agent.Env["HOME"] = os.Getenv("HOME")
-	agent.Env["JUJU_STORAGE_DIR"] = env.config.storageDir()
-	agent.Env["JUJU_STORAGE_ADDR"] = env.config.storageAddr()
-	agent.Env["JUJU_SHARED_STORAGE_DIR"] = env.config.sharedStorageDir()
-	agent.Env["JUJU_SHARED_STORAGE_ADDR"] = env.config.sharedStorageAddr()
+		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
 
 	agent.InitDir = upstartScriptLocation
 	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
@@ -492,7 +498,7 @@ func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
 		logger.Errorf("failed to get state info to write bootstrap agent file: %v", err)
 		return err
 	}
-	tag := state.MachineTag("0")
+	tag := names.MachineTag("0")
 	info.Tag = tag
 	apiInfo.Tag = tag
 	conf := &agent.Conf{
