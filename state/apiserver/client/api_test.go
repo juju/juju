@@ -35,8 +35,9 @@ func chanReadEmpty(c *C, ch <-chan struct{}, what string) bool {
 	case _, ok := <-ch:
 		return ok
 	case <-time.After(10 * time.Second):
+		c.Fatalf("timed out reading from %s", what)
 	}
-	c.Fatalf("timed out reading from %s", what)
+	panic("unreachable")
 }
 
 func chanReadStrings(c *C, ch <-chan []string, what string) ([]string, bool) {
@@ -44,8 +45,9 @@ func chanReadStrings(c *C, ch <-chan []string, what string) ([]string, bool) {
 	case changes, ok := <-ch:
 		return changes, ok
 	case <-time.After(10 * time.Second):
+		c.Fatalf("timed out reading from %s", what)
 	}
-	c.Fatalf("timed out reading from %s", what)
+	panic("unreachable")
 }
 
 func chanReadConfig(c *C, ch <-chan *config.Config, what string) (*config.Config, bool) {
@@ -53,8 +55,9 @@ func chanReadConfig(c *C, ch <-chan *config.Config, what string) (*config.Config
 	case envConfig, ok := <-ch:
 		return envConfig, ok
 	case <-time.After(10 * time.Second):
+		c.Fatalf("timed out reading from %s", what)
 	}
-	c.Fatalf("timed out reading from %s", what)
+	panic("unreachable")
 }
 
 func removeServiceAndUnits(c *C, service *state.Service) {
