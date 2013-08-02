@@ -220,9 +220,7 @@ var ctests = []struct {
 	},
 	{
 		"AddFile",
-		"runcmd:\n" +
-			"- install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'\n" +
-			"- echo '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'\n",
+		addFileExpected,
 		func(cfg *cloudinit.Config) {
 			cfg.AddFile(
 				"/etc/apt/apt.conf.d/99proxy",
@@ -233,7 +231,13 @@ var ctests = []struct {
 	},
 }
 
-const header = "#cloud-config\n"
+const (
+	header = "#cloud-config\n"
+	addFileExpected = `runcmd:
+- install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
+- echo '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
+`
+)
 
 func (S) TestOutput(c *C) {
 	for _, t := range ctests {
