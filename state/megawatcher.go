@@ -427,7 +427,7 @@ type allWatcherStateCollection struct {
 }
 
 func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
-	collectionByType := make(map[reflect.Type]allWatcherStateCollection),
+	collectionByType := make(map[reflect.Type]allWatcherStateCollection)
 	b := &allWatcherStateBacking{
 		st:               st,
 		collectionByName: make(map[string]allWatcherStateCollection),

@@ -27,7 +27,7 @@ func NewAPI(st *state.State, auth common.Authorizer) (*API, error) {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
-		return return auth.AuthOwner, nil
+		return auth.AuthOwner, nil
 	}
 	return &API{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
