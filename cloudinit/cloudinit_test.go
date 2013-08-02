@@ -201,6 +201,36 @@ var ctests = []struct {
 			cfg.SetAttr("arbitraryAttr", "someValue")
 		},
 	},
+	{
+		"RunCmd",
+		"runcmd:\n- ifconfig\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddRunCmd("ifconfig")
+		},
+	},
+	{
+		"AddScripts",
+		"runcmd:\n- echo 'Hello World'\n- ifconfig\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddScripts(
+				"echo 'Hello World'",
+				"ifconfig",
+			)
+		},
+	},
+	{
+		"AddFile",
+		"runcmd:\n" +
+			"- install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'\n" +
+			"- echo '\"Acquire::http::Proxy \"http://10.0.3.1:3142\";' > '/etc/apt/apt.conf.d/99proxy'\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddFile(
+				"/etc/apt/apt.conf.d/99proxy",
+				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
 }
 
 const header = "#cloud-config\n"
