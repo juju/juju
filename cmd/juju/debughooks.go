@@ -99,7 +99,8 @@ func (c *DebugHooksCommand) Run(ctx *cmd.Context) error {
 	}
 	debugctx := unitdebug.NewHooksContext(c.Target)
 	script := base64.StdEncoding.EncodeToString([]byte(unitdebug.ClientScript(debugctx, c.hooks)))
-	args := []string{"--", fmt.Sprintf("sudo /bin/bash -c '%s'", fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script))}
+	innercmd := fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, script)
+	args := []string{"--", fmt.Sprintf("sudo /bin/bash -c '%s'", innercmd)}
 	c.Args = args
 	return c.SSHCommand.Run(ctx)
 }

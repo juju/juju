@@ -5,13 +5,10 @@ package main
 
 import (
 	"bytes"
-	"fmt"
-	"net/url"
 	"regexp"
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -59,9 +56,9 @@ var debugHooksTests = []struct {
 	stderr: `error: "mysql" is not a valid unit name` + "\n",
 }, {
 	info:   `invalid unit`,
-	args:   []string{"nonexistant/123"},
+	args:   []string{"nonexistent/123"},
 	code:   1,
-	stderr: `error: unit "nonexistant/123" not found` + "\n",
+	stderr: `error: unit "nonexistent/123" not found` + "\n",
 }, {
 	info:   `invalid hook`,
 	args:   []string{"mysql/0", "invalid-hook"},
@@ -70,23 +67,16 @@ var debugHooksTests = []struct {
 }}
 
 func (s *DebugHooksSuite) TestDebugHooksCommand(c *C) {
-	m := s.makeMachines(3, c)
-	ch := coretesting.Charms.Dir("dummy")
-	curl := charm.MustParseURL(
-		fmt.Sprintf("local:series/%s-%d", ch.Meta().Name, ch.Revision()),
-	)
-	bundleURL, err := url.Parse("http://bundles.example.com/dummy-1")
-	c.Assert(err, IsNil)
-	dummy, err := s.State.AddCharm(ch, curl, bundleURL, "dummy-1-sha256")
-	c.Assert(err, IsNil)
+	machines := s.makeMachines(3, c)
+	dummy := s.AddTestingCharm(c, "dummy")
 	srv, err := s.State.AddService("mysql", dummy)
 	c.Assert(err, IsNil)
-	s.addUnit(srv, m[0], c)
+	s.addUnit(srv, machines[0], c)
 
 	srv, err = s.State.AddService("mongodb", dummy)
 	c.Assert(err, IsNil)
-	s.addUnit(srv, m[1], c)
-	s.addUnit(srv, m[2], c)
+	s.addUnit(srv, machines[1], c)
+	s.addUnit(srv, machines[2], c)
 
 	for i, t := range debugHooksTests {
 		c.Logf("test %d: %s\n\t%s\n", i, t.info, t.args)
