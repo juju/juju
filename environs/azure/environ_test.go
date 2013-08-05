@@ -33,12 +33,15 @@ type environSuite struct {
 
 var _ = Suite(&environSuite{})
 
+// makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, IsNil)
+	// Prevent the test from trying to query for a storage-account key.
+	env.storageAccountKey = "fake-storage-account-key"
 	return env
 }
 
@@ -224,7 +227,6 @@ func (*environSuite) TestStorage(c *C) {
 	context, err := storage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(context.Account, Equals, env.ecfg.storageAccountName())
-	c.Check(context.Key, Equals, env.ecfg.storageAccountKey())
 }
 
 func (*environSuite) TestPublicStorage(c *C) {
@@ -251,13 +253,122 @@ func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
 	c.Check(env.PublicStorage(), Equals, environs.EmptyStorage)
 }
 
-func (*environSuite) TestGetStorageContext(c *C) {
+func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *C) {
+	env := makeEnviron(c)
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "a-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	requests := gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	returnedKey, err := env.queryStorageAccountKey()
+	c.Assert(err, IsNil)
+
+	c.Check(returnedKey, Equals, keysInAzure.Primary)
+	c.Assert(*requests, HasLen, 1)
+	c.Check((*requests)[0].Method, Equals, "GET")
+}
+
+func (*environSuite) TestGetStorageContextCreatesStorageContext(c *C) {
 	env := makeEnviron(c)
 	storage, err := env.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Assert(storage, NotNil)
 	c.Check(storage.Account, Equals, env.ecfg.storageAccountName())
-	c.Check(storage.Key, Equals, env.ecfg.storageAccountKey())
+}
+
+func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = "my-key"
+
+	storage, err := env.getStorageContext()
+	c.Assert(err, IsNil)
+
+	c.Check(storage.Key, Equals, "my-key")
+}
+
+func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	storage, err := env.getStorageContext()
+	c.Assert(err, IsNil)
+
+	c.Check(storage.Key, Equals, keysInAzure.Primary)
+	c.Check(env.storageAccountKey, Equals, keysInAzure.Primary)
+}
+
+func (*environSuite) TestGetStorageContextFailsIfNoKeyAvailable(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	azureResponse, err := xml.Marshal(gwacl.StorageAccountKeys{})
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	_, err = env.getStorageContext()
+	c.Assert(err, NotNil)
+
+	c.Check(err, ErrorMatches, "no keys available for storage account")
+}
+
+func (*environSuite) TestUpdateStorageAccountKeyGetsFreshKey(c *C) {
+	env := makeEnviron(c)
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	key, err := env.updateStorageAccountKey(env.getSnapshot())
+	c.Assert(err, IsNil)
+
+	c.Check(key, Equals, keysInAzure.Primary)
+	c.Check(env.storageAccountKey, Equals, keysInAzure.Primary)
+}
+
+func (*environSuite) TestUpdateStorageAccountKeyReturnsError(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
+	})
+
+	_, err := env.updateStorageAccountKey(env.getSnapshot())
+	c.Assert(err, NotNil)
+
+	c.Check(err, ErrorMatches, "could not obtain storage account keys: GET request failed.*Internal Server Error.*")
+	c.Check(env.storageAccountKey, Equals, "")
+}
+
+func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	// Here we use a snapshot that's different from the environment, to
+	// simulate a concurrent change to the environment.
+	_, err = env.updateStorageAccountKey(makeEnviron(c))
+	c.Assert(err, NotNil)
+
+	// updateStorageAccountKey detects the change, and refuses to write its
+	// outdated information into env.
+	c.Check(err, ErrorMatches, "environment was reconfigured")
+	c.Check(env.storageAccountKey, Equals, "")
 }
 
 func (*environSuite) TestGetPublicStorageContext(c *C) {
@@ -332,6 +443,20 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *C) {
 		ErrorMatches,
 		`cannot change name from ".*" to "new-name"`)
 	c.Check(env.Name(), Equals, originalName)
+}
+
+func (*environSuite) TestSetConfigClearsStorageAccountKey(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = "key-for-previous-config"
+	attrs := makeAzureConfigMap(c)
+	attrs["default-series"] = "other"
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	err = env.SetConfig(cfg)
+	c.Assert(err, IsNil)
+
+	c.Check(env.storageAccountKey, Equals, "")
 }
 
 func (*environSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
@@ -1084,4 +1209,23 @@ func (*environSuite) TestConvertToInstances(c *C) {
 		&azureInstance{services[0], env},
 		&azureInstance{services[1], env},
 	})
+}
+
+func (*environSuite) TestExtractStorageKeyPicksPrimaryKeyIfSet(c *C) {
+	keys := gwacl.StorageAccountKeys{
+		Primary:   "mainkey",
+		Secondary: "otherkey",
+	}
+	c.Check(extractStorageKey(&keys), Equals, "mainkey")
+}
+
+func (*environSuite) TestExtractStorageKeyFallsBackToSecondaryKey(c *C) {
+	keys := gwacl.StorageAccountKeys{
+		Secondary: "sparekey",
+	}
+	c.Check(extractStorageKey(&keys), Equals, "sparekey")
+}
+
+func (*environSuite) TestExtractStorageKeyReturnsBlankIfNoneSet(c *C) {
+	c.Check(extractStorageKey(&gwacl.StorageAccountKeys{}), Equals, "")
 }

@@ -59,6 +59,11 @@ type azureEnviron struct {
 
 	// publicStorage is the public storage that this environ uses.
 	publicStorage environs.StorageReader
+
+	// storageAccountKey holds an access key to this environment's
+	// private storage.  This is automatically queried from Azure on
+	// startup.
+	storageAccountKey string
 }
 
 // azureEnviron implements Environ.
@@ -88,6 +93,37 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	}
 
 	return &env, nil
+}
+
+// extractStorageKey returns the primary account key from a gwacl
+// StorageAccountKeys struct, or if there is none, the secondary one.
+func extractStorageKey(keys *gwacl.StorageAccountKeys) string {
+	if keys.Primary != "" {
+		return keys.Primary
+	}
+	return keys.Secondary
+}
+
+// queryStorageAccountKey retrieves the storage account's key from Azure.
+func (env *azureEnviron) queryStorageAccountKey() (string, error) {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return "", err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	accountName := env.getSnapshot().ecfg.storageAccountName()
+	keys, err := azure.GetStorageAccountKeys(accountName)
+	if err != nil {
+		return "", fmt.Errorf("could not obtain storage account keys: %v", err)
+	}
+
+	key := extractStorageKey(keys)
+	if key == "" {
+		return "", fmt.Errorf("no keys available for storage account")
+	}
+
+	return key, nil
 }
 
 // Name is specified in the Environ interface.
@@ -291,6 +327,11 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	}
 
 	env.ecfg = ecfg
+
+	// Reset storage account key.  Even if we had one before, it may not
+	// be appropriate for the new config.
+	env.storageAccountKey = ""
+
 	return nil
 }
 
@@ -812,18 +853,70 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 	context.certFile.Delete()
 }
 
+// updateStorageAccountKey queries the storage account key, and updates the
+// version cached in env.storageAccountKey.
+//
+// It takes a snapshot in order to preserve transactional integrity relative
+// to the snapshot's starting state, without having to lock the environment
+// for the duration.  If there is a conflicting change to env relative to the
+// state recorded in the snapshot, this function will fail.
+func (env *azureEnviron) updateStorageAccountKey(snapshot *azureEnviron) (string, error) {
+	// This method follows an RCU pattern, an optimistic technique to
+	// implement atomic read-update transactions: get a consistent snapshot
+	// of state; process data; enter critical section; check for conflicts;
+	// write back changes.  The advantage is that there are no long-held
+	// locks, in particular while waiting for the request to Azure to
+	// complete.
+	// "Get a consistent snapshot of state" is the caller's responsibility.
+	// The caller can use env.getSnapshot().
+
+	// Process data: get a current account key from Azure.
+	key, err := env.queryStorageAccountKey()
+	if err != nil {
+		return "", err
+	}
+
+	// Enter critical section.
+	env.Lock()
+	defer env.Unlock()
+
+	// Check for conflicts: is the config still what it was?
+	if env.ecfg != snapshot.ecfg {
+		// The environment has been reconfigured while we were
+		// working on this, so the key we just get may not be
+		// appropriate any longer.  So fail.
+		// Whatever we were doing isn't likely to be right any more
+		// anyway.  Otherwise, it might be worth returning the key
+		// just in case it still works, and proceed without updating
+		// env.storageAccountKey.
+		return "", fmt.Errorf("environment was reconfigured")
+	}
+
+	// Write back changes.
+	env.storageAccountKey = key
+	return key, nil
+}
+
 // getStorageContext obtains a context object for interfacing with Azure's
 // storage API.
 // For now, each invocation just returns a separate object.  This is probably
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
 func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
-	ecfg := env.getSnapshot().ecfg
-	context := gwacl.StorageContext{
-		Account: ecfg.storageAccountName(),
-		Key:     ecfg.storageAccountKey(),
+	snap := env.getSnapshot()
+	key := snap.storageAccountKey
+	if key == "" {
+		// We don't know the storage-account key yet.  Request it.
+		var err error
+		key, err = env.updateStorageAccountKey(snap)
+		if err != nil {
+			return nil, err
+		}
 	}
-	// There is currently no way for this to fail.
+	context := gwacl.StorageContext{
+		Account: snap.ecfg.storageAccountName(),
+		Key:     key,
+	}
 	return &context, nil
 }
 
