@@ -942,6 +942,182 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		// scoped on 'logging'
+		scopedExpect{
+			"subordinates scoped on logging",
+			[]string{"logging"},
+			M{
+				"machines": M{
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/1": M{
+										"agent-state":      "error",
+										"agent-state-info": "somehow lost in all those logs",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"server":    L{"wordpress"},
+							"juju-info": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+
+		// scoped on wordpress/0
+		scopedExpect{
+			"subordinates scoped on logging",
+			[]string{"wordpress/0"},
+			M{
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+	), test(
+		"one service with two subordinate services",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"logging"},
+		addCharm{"monitoring"},
+
+		addService{"wordpress", "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
+
+		addService{"logging", "logging"},
+		setServiceExposed{"logging", true},
+		addService{"monitoring", "monitoring"},
+		setServiceExposed{"monitoring", true},
+
+		relateServices{"wordpress", "logging"},
+		relateServices{"wordpress", "monitoring"},
+
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"wordpress/0", "monitoring"},
+
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", params.StatusStarted, ""},
+
+		setUnitsAlive{"monitoring"},
+		setUnitStatus{"monitoring/0", params.StatusStarted, ""},
+
+		// scoped on monitoring; make sure logging doesn't show up.
+		scopedExpect{
+			"subordinates scoped on:",
+			[]string{"monitoring"},
+			M{
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"monitoring/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"logging-dir":     L{"logging"},
+							"monitoring-port": L{"monitoring"},
+						},
+					},
+					"monitoring": M{
+						"charm":   "local:series/monitoring-1",
+						"exposed": true,
+						"relations": M{
+							"monitoring-port": L{"wordpress"},
+						},
+						"subordinate-to": L{"wordpress"},
+					},
+				},
+			},
+		},
 	), test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
@@ -1398,14 +1574,14 @@ func (s *StatusSuite) TestStatusFilterErrors(c *C) {
 	ctx.run(c, steps)
 
 	// Status filters can only fail if the patterns are invalid.
-	code, _, stderr := runStatus(c, "[")
+	code, _, stderr := runStatus(c, "[/")
 	c.Assert(code, Not(Equals), 0)
-	c.Assert(stderr, Equals, `error: syntax error in pattern: "["`+"\n")
+	c.Assert(stderr, Equals, `error: syntax error in pattern: "[/"`+"\n")
 
 	// Pattern validity is checked lazily; if a bad pattern
 	// proceeds a valid, matching pattern, then the bad pattern
 	// will not cause an error.
-	code, _, stderr = runStatus(c, "*", "[")
+	code, _, stderr = runStatus(c, "*", "[/")
 	c.Assert(code, Equals, 0)
 	c.Assert(stderr, HasLen, 0)
 }
