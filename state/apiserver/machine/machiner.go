@@ -47,7 +47,7 @@ func (m *MachinerAPI) watchOneMachine(entity params.Entity) (string, error) {
 	if !m.auth.AuthOwner(entity.Tag) {
 		return "", common.ErrPerm
 	}
-	id, err := names.MachineFromTag(entity.Tag)
+	_, id, err := names.ParseTag(entity.Tag, names.MachineTagKind)
 	if err != nil {
 		return "", err
 	}
@@ -96,7 +96,7 @@ func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, err
 		if m.auth.AuthOwner(entity.Tag) {
 			var machine *state.Machine
 			var id string
-			id, err = names.MachineFromTag(entity.Tag)
+			_, id, err = names.ParseTag(entity.Tag, names.MachineTagKind)
 			if err == nil {
 				machine, err = m.st.Machine(id)
 				if err == nil {

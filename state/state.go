@@ -619,42 +619,20 @@ func (st *State) Remover(tag string) (Remover, error) {
 }
 
 // entity returns the entity for the given tag.
+//
+// The returned value can be of type *Machine, *Unit,
+// *User, *Service or *Environment, depending
+// on the tag.
 func (st *State) entity(tag string) (interface{}, error) {
-	i := strings.Index(tag, "-")
-	if i <= 0 || i >= len(tag)-1 {
-		return nil, fmt.Errorf("invalid entity tag %q", tag)
-	}
-	id := tag[i+1:]
-	tagKind, err := names.TagKind(tag)
-	if err != nil {
-		return nil, fmt.Errorf("invalid entity tag %q", tag)
-	}
-	switch tagKind {
+	kind, id, err := names.ParseTag(tag, "")
+	switch kind {
 	case names.MachineTagKind:
-		id, err := names.MachineFromTag(tag)
-		if err != nil {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
-		if !names.IsMachine(id) {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
 		return st.Machine(id)
 	case names.UnitTagKind:
-		i := strings.LastIndex(id, "-")
-		if i == -1 {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
-		name := id[:i] + "/" + id[i+1:]
-		if !names.IsUnit(name) {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
-		return st.Unit(name)
+		return st.Unit(id)
 	case names.UserTagKind:
 		return st.User(id)
 	case names.ServiceTagKind:
-		if !names.IsService(id) {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
 		return st.Service(id)
 	case names.EnvironTagKind:
 		conf, err := st.EnvironConfig()
@@ -668,7 +646,7 @@ func (st *State) entity(tag string) (interface{}, error) {
 		}
 		return st.Environment()
 	}
-	return nil, fmt.Errorf("invalid entity tag %q", tag)
+	return nil, err
 }
 
 // parseTag, given an entity tag, returns the collection name and id

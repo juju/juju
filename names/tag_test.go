@@ -62,8 +62,55 @@ var parseTagTests = []struct {
 	tag: "machine-#",
 	expectKind: names.MachineTagKind,
 	resultErr: `"machine-#" is not a valid machine tag`,
-},
-}
+}, {
+	tag: "unit-wordpress-0",
+	expectKind: names.UnitTagKind,
+	resultId: "wordpress/0",
+}, {
+	tag: "unit-rabbitmq-server-0",
+	expectKind: names.UnitTagKind,
+	resultId: "rabbitmq-server/0",
+}, {
+	tag: "foo",
+	expectKind: names.UnitTagKind,
+	resultErr:  `"foo" is not a valid unit tag`,
+}, {
+	tag: "unit-#",
+	expectKind: names.UnitTagKind,
+	resultErr:  `"unit-#" is not a valid unit tag`,
+}, {
+	tag: "service-wordpress",
+	expectKind: names.ServiceTagKind,
+	resultId: "wordpress",
+}, {
+	tag: "service-#",
+	expectKind: names.ServiceTagKind,
+	resultErr: `"service-#" is not a valid service tag`,
+}, {
+	tag: "unit-wordpress-0",
+	expectKind: "machine",
+	resultErr: `"unit-wordpress-0" is not a valid machine tag`,
+}, {
+	tag: "environment-foo",
+	expectKind: names.EnvironTagKind,
+	resultId: "foo",
+}, {
+	tag: "environment-/",
+	expectKind: names.EnvironTagKind,
+	resultErr: `"environment-/" is not a valid environment tag`,
+},  {
+	tag: "user-foo",
+	expectKind: names.UserTagKind,
+	resultId: "foo",
+}, {
+	tag: "user-/",
+	expectKind: names.UserTagKind,
+	resultErr: `"user-/" is not a valid user tag`,
+}, {
+	tag: "foo",
+	expectKind: "",
+	resultErr: `"foo" is not a valid tag`,
+}}
 
 var makeTag = map[string]func(id string) string {
 	names.MachineTagKind: names.MachineTag,
@@ -95,6 +142,11 @@ func (*tagSuite) TestParseTag(c *gc.C) {
 				reversed := f(id)
 				c.Assert(reversed, gc.Equals, test.tag)
 			}
+			// Check that it parses ok without an expectKind.
+			kind1, id1, err1 := names.ParseTag(test.tag, "")
+			c.Assert(err1, gc.IsNil)
+			c.Assert(kind1, gc.Equals, test.expectKind)
+			c.Assert(id1, gc.Equals, id)
 		}
 	}
 }

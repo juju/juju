@@ -64,16 +64,21 @@ func makeTag(kind, rest string) string {
 // or if expectKind is not empty and the kind is
 // not as expected.
 func ParseTag(tag, expectKind string) (kind, id string, err error) {
-	kind, name, err := splitTag(tag)
+	kind, id, err = splitTag(tag)
 	if err != nil {
-		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
+		if expectKind != "" {
+			return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
+		}
+		return "", "", fmt.Errorf("%q is not a valid tag", tag)
 	}
 	if expectKind != "" && kind != expectKind {
 		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
 	}
-	id = fromTagName[kind](name)
+	if fromTag := fromTagName[kind]; fromTag != nil {
+		id = fromTag(id)
+	}
 	if verify := verifyId[kind]; verify != nil && !verify(id) {
-		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
+		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, kind)
 	}
 	return kind, id, nil
 }
