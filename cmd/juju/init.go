@@ -29,9 +29,10 @@ func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "w", false, "overwrite existing environments.yaml file.")
 }
 
-var errJujuEnvExists = fmt.Errorf(
-	"A juju environment configuration already exists.\n" +
-		"Use -w to overwrite the existing environments.yaml.\n")
+var errJujuEnvExists = fmt.Errorf(`A juju environment configuration already exists.
+
+Use -w to overwrite the existing environments.yaml.
+`)
 
 // Run checks to see if there is already an environments.yaml file. In one does not exist already,
 // a boilerplate version is created so that the user can edit it to get started.
