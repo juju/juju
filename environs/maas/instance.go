@@ -23,7 +23,11 @@ func (mi *maasInstance) Id() instance.Id {
 }
 
 func (mi *maasInstance) State() string {
-	// TODO determine MAAS instance state
+	// MAAS does not track node status once they're allocated.
+	// Since any instance that juju knows about will be an
+	// allocated one, it doesn't make sense to report any
+	// state unless we obtain it through some means other than
+	// through the MAAS API.
 	return ""
 }
 
