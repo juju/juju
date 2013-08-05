@@ -111,6 +111,23 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
 
+// ServiceUpdate updates the service attributes, including charm URL,
+// minimum number of units, settings and constraints.
+func (c *Client) ServiceUpdate(serviceName string, charmUrl string,
+	forceCharmUrl bool, minUnits *int, settingsStrings map[string]string,
+	settingsYAML string, constraints *constraints.Value) error {
+	params := params.ServiceUpdate{
+		ServiceName:     serviceName,
+		CharmUrl:        charmUrl,
+		ForceCharmUrl:   forceCharmUrl,
+		MinUnits:        minUnits,
+		SettingsStrings: settingsStrings,
+		SettingsYAML:    settingsYAML,
+		Constraints:     constraints,
+	}
+	return c.st.Call("Client", "", "ServiceUpdate", params, nil)
+}
+
 // ServiceSetCharm sets the charm for a given service.
 func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
 	args := params.ServiceSetCharm{
