@@ -24,16 +24,16 @@ var validKinds = map[string]bool{
 	UserTagKind:    true,
 }
 
-var fromTagName = map[string]func(string) string {
-	UnitTagKind: unitFromTagName,
+var fromTagName = map[string]func(string) string{
+	UnitTagKind:    unitFromTagName,
 	MachineTagKind: machineFromTagName,
 }
 
-var verifyId = map[string]func(string)bool {
-	UnitTagKind: IsUnit,
+var verifyId = map[string]func(string) bool{
+	UnitTagKind:    IsUnit,
 	MachineTagKind: IsMachine,
 	ServiceTagKind: IsService,
-	UserTagKind: IsUser,
+	UserTagKind:    IsUser,
 	EnvironTagKind: IsEnvironment,
 }
 

@@ -1387,11 +1387,11 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 
 func (s *StateSuite) testEntity(c *gc.C, getEntity func(string) (state.Tagger, error)) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-bad", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
-	for _, name := range bad {
-		c.Logf(name)
+	for i, name := range bad {
+		c.Logf("test %d. entity %q", i, name)
 		e, err := getEntity(name)
 		c.Check(e, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, `".*" is not a valid tag`)
+		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
 	}
 
 	e, err := getEntity("machine-1234")

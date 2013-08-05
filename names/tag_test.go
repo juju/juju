@@ -42,79 +42,79 @@ func (*tagSuite) TestTagKind(c *gc.C) {
 }
 
 var parseTagTests = []struct {
-	tag string
+	tag        string
 	expectKind string
-	resultId string
-	resultErr string
+	resultId   string
+	resultErr  string
 }{{
-	tag: "machine-10",
+	tag:        "machine-10",
 	expectKind: names.MachineTagKind,
-	resultId: "10",
+	resultId:   "10",
 }, {
-	tag: "machine-10-lxc-1",
+	tag:        "machine-10-lxc-1",
 	expectKind: names.MachineTagKind,
-	resultId: "10/lxc/1",
+	resultId:   "10/lxc/1",
 }, {
-	tag: "foo",
+	tag:        "foo",
 	expectKind: names.MachineTagKind,
 	resultErr:  `"foo" is not a valid machine tag`,
 }, {
-	tag: "machine-#",
+	tag:        "machine-#",
 	expectKind: names.MachineTagKind,
-	resultErr: `"machine-#" is not a valid machine tag`,
+	resultErr:  `"machine-#" is not a valid machine tag`,
 }, {
-	tag: "unit-wordpress-0",
+	tag:        "unit-wordpress-0",
 	expectKind: names.UnitTagKind,
-	resultId: "wordpress/0",
+	resultId:   "wordpress/0",
 }, {
-	tag: "unit-rabbitmq-server-0",
+	tag:        "unit-rabbitmq-server-0",
 	expectKind: names.UnitTagKind,
-	resultId: "rabbitmq-server/0",
+	resultId:   "rabbitmq-server/0",
 }, {
-	tag: "foo",
+	tag:        "foo",
 	expectKind: names.UnitTagKind,
 	resultErr:  `"foo" is not a valid unit tag`,
 }, {
-	tag: "unit-#",
+	tag:        "unit-#",
 	expectKind: names.UnitTagKind,
 	resultErr:  `"unit-#" is not a valid unit tag`,
 }, {
-	tag: "service-wordpress",
+	tag:        "service-wordpress",
 	expectKind: names.ServiceTagKind,
-	resultId: "wordpress",
+	resultId:   "wordpress",
 }, {
-	tag: "service-#",
+	tag:        "service-#",
 	expectKind: names.ServiceTagKind,
-	resultErr: `"service-#" is not a valid service tag`,
+	resultErr:  `"service-#" is not a valid service tag`,
 }, {
-	tag: "unit-wordpress-0",
+	tag:        "unit-wordpress-0",
 	expectKind: "machine",
-	resultErr: `"unit-wordpress-0" is not a valid machine tag`,
+	resultErr:  `"unit-wordpress-0" is not a valid machine tag`,
 }, {
-	tag: "environment-foo",
+	tag:        "environment-foo",
 	expectKind: names.EnvironTagKind,
-	resultId: "foo",
+	resultId:   "foo",
 }, {
-	tag: "environment-/",
+	tag:        "environment-/",
 	expectKind: names.EnvironTagKind,
-	resultErr: `"environment-/" is not a valid environment tag`,
-},  {
-	tag: "user-foo",
-	expectKind: names.UserTagKind,
-	resultId: "foo",
+	resultErr:  `"environment-/" is not a valid environment tag`,
 }, {
-	tag: "user-/",
+	tag:        "user-foo",
 	expectKind: names.UserTagKind,
-	resultErr: `"user-/" is not a valid user tag`,
+	resultId:   "foo",
 }, {
-	tag: "foo",
+	tag:        "user-/",
+	expectKind: names.UserTagKind,
+	resultErr:  `"user-/" is not a valid user tag`,
+}, {
+	tag:        "foo",
 	expectKind: "",
-	resultErr: `"foo" is not a valid tag`,
+	resultErr:  `"foo" is not a valid tag`,
 }}
 
-var makeTag = map[string]func(id string) string {
+var makeTag = map[string]func(id string) string{
 	names.MachineTagKind: names.MachineTag,
-	names.UnitTagKind: names.UnitTag,
+	names.UnitTagKind:    names.UnitTag,
 	names.ServiceTagKind: names.ServiceTag,
 	// TODO environment and user, when they have Tag functions.
 }

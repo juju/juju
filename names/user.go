@@ -2,6 +2,7 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package names
+
 import "strings"
 
 // IsMachine returns whether id is a valid user id.

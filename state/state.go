@@ -642,7 +642,7 @@ func (st *State) entity(tag string) (interface{}, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
+			return nil, fmt.Errorf(`%q is not a valid environment tag`, tag)
 		}
 		return st.Environment()
 	}
