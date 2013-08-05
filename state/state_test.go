@@ -1391,7 +1391,7 @@ func (s *StateSuite) testEntity(c *gc.C, getEntity func(string) (state.Tagger, e
 		c.Logf(name)
 		e, err := getEntity(name)
 		c.Check(e, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, `invalid entity tag ".*"`)
+		c.Assert(err, gc.ErrorMatches, `".*" is not a valid tag`)
 	}
 
 	e, err := getEntity("machine-1234")

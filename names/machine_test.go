@@ -26,28 +26,33 @@ func (s *machineSuite) TestMachineTag(c *gc.C) {
 }
 
 func (s *machineSuite) TestMachineFromTag(c *gc.C) {
-	id, err := names.MachineFromTag("machine-10")
+	kind, id, err := names.ParseTag("machine-10", names.MachineTagKind)
+	c.Assert(kind, gc.Equals, names.MachineTagKind)
 	c.Assert(err, gc.IsNil)
 	c.Assert(id, gc.Equals, "10")
 
 	// Check a container id.
-	id, err = names.MachineFromTag("machine-10-lxc-1")
+	kind, id, err = names.ParseTag("machine-10-lxc-1", names.MachineTagKind)
+	c.Assert(kind, gc.Equals, names.MachineTagKind)
 	c.Assert(err, gc.IsNil)
 	c.Assert(id, gc.Equals, "10/lxc/1")
 
 	// Check reversability.
 	nested := "2/kvm/0/lxc/3"
-	id, err = names.MachineFromTag(names.MachineTag(nested))
+	kind, id, err = names.ParseTag(names.MachineTag(nested), names.MachineTagKind)
+	c.Assert(kind, gc.Equals, names.MachineTagKind)
 	c.Assert(err, gc.IsNil)
 	c.Assert(id, gc.Equals, nested)
 
 	// Try with an invalid tag formats.
-	id, err = names.MachineFromTag("foo")
+	kind, id, err = names.ParseTag("foo", names.MachineTagKind)
 	c.Assert(err, gc.ErrorMatches, `"foo" is not a valid machine tag`)
+	c.Assert(kind, gc.Equals, "")
 	c.Assert(id, gc.Equals, "")
 
-	id, err = names.MachineFromTag("machine-#")
+	kind, id, err = names.ParseTag("machine-#", names.MachineTagKind)
 	c.Assert(err, gc.ErrorMatches, `"machine-#" is not a valid machine tag`)
+	c.Assert(kind, gc.Equals, "")
 	c.Assert(id, gc.Equals, "")
 }
 
