@@ -17,11 +17,13 @@ type InitSuite struct {
 
 var _ = Suite(&InitSuite{})
 
+// The environments.yaml is created by default if it
+// does not already exist.
 func (*InitSuite) TestBoilerPlateEnvironment(c *C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
 	// run without an environments.yaml
 	ctx := testing.Context(c)
-	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
+	code := cmd.Main(&InitCommand{}, ctx, nil)
 	c.Check(code, Equals, 0)
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
