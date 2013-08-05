@@ -43,7 +43,8 @@ func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	os.Setenv("PATH", tmpDir)
 	err := ioutil.WriteFile(
 		filepath.Join(tmpDir, "apt-config"),
-		[]byte(aptConfig), 0755)
+		[]byte(aptConfig),
+		0755)
 	c.Assert(err, gc.IsNil)
 }
 
@@ -64,10 +65,16 @@ func (s *LxcSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
-const configProxy = `Acquire::http::Proxy "1.2.3.4:3142";
-Acquire::https::Proxy "false";`
+const (
+	aptHTTPProxy = "http://1.2.3.4:3142"
+	configProxyExtra = `Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "false";`
+)
 
-var aptConfig = fmt.Sprintf("#!/bin/sh\n echo '%s'", configProxy)
+var (
+	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
+	aptConfig = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
+)
 
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
 	config := testing.EnvironConfig(c)
@@ -107,15 +114,17 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	err = goyaml.Unmarshal(data, &x)
 	c.Assert(err, gc.IsNil)
 
+	c.Assert(x["apt_proxy"], gc.Equals, aptHTTPProxy)
+
 	var scripts []string
 	for _, s := range x["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 
 	c.Assert(scripts[len(scripts)-4], gc.Equals, "start jujud-machine-1-lxc-0")
-	c.Assert(scripts[len(scripts)-3], gc.Equals, "install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy'")
+	c.Assert(scripts[len(scripts)-3], gc.Equals, "install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'")
 	c.Assert(scripts[len(scripts)-2], gc.Equals,
-		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy'", configProxy))
+		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra))
 	c.Assert(scripts[len(scripts)-1], gc.Equals, "ifconfig")
 
 	// Check the mount point has been created inside the container.

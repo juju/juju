@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"regexp"
 
 	"launchpad.net/golxc"
 	"launchpad.net/loggo"
@@ -34,6 +35,7 @@ var (
 	lxcContainerDir     = "/var/lib/lxc"
 	lxcRestartDir       = "/etc/lxc/auto"
 	lxcObjectFactory    = golxc.Factory()
+	aptHTTPProxyRE = regexp.MustCompile(`^Acquire::http::Proxy.*"([^"]+)";$`)
 )
 
 const (
@@ -350,7 +352,21 @@ func cloudInitUserData(
 		return nil, err
 	}
 	if proxyConfig != "" {
-		cloudConfig.AddFile("/etc/apt/apt.conf.d/99proxy", proxyConfig, 0600)
+		var proxyLines []string
+		for _, line := range strings.Split(proxyConfig, "\n") {
+			line = strings.TrimSpace(line)
+			if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
+				cloudConfig.SetAptProxy(m[1])
+			} else {
+				proxyLines = append(proxyLines, line)
+			}
+		}
+		if len(proxyLines) > 0 {
+			cloudConfig.AddFile(
+				"/etc/apt/apt.conf.d/99proxy-extra",
+				strings.Join(proxyLines, "\n"),
+				0600)
+		}
 	}
 
 	// Run ifconfig to get the addresses of the internal container at least
