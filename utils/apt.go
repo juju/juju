@@ -58,7 +58,8 @@ func AptConfigProxy() (string, error) {
 		"dump",
 		"Acquire::http::Proxy",
 		"Acquire::https::Proxy",
-		"Acquire::ftp::Proxy"}
+		"Acquire::ftp::Proxy",
+	}
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	out, err := commandOutput(cmd)
 	if err != nil {

@@ -125,7 +125,8 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 		"start jujud-machine-1-lxc-0",
 		"install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
 		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra),
-		"ifconfig"})
+		"ifconfig",
+	})
 
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)
