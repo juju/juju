@@ -19,6 +19,37 @@ type deadEnsurerSuite struct{}
 
 var _ = gc.Suite(&deadEnsurerSuite{})
 
+type fakeDeadEnsurerState struct {
+	entities map[string]*fakeDeadEnsurer
+}
+
+func (st *fakeDeadEnsurerState) DeadEnsurer(tag string) (state.DeadEnsurer, error) {
+	if deadEnsurer, ok := st.entities[tag]; ok {
+		if deadEnsurer.err != nil {
+			return nil, deadEnsurer.err
+		}
+		return deadEnsurer, nil
+	}
+	return nil, errors.NotFoundf("entity %q", tag)
+}
+
+type fakeDeadEnsurer struct {
+	life state.Life
+	err  error
+}
+
+func (e *fakeDeadEnsurer) Tag() string {
+	panic("not needed")
+}
+
+func (e *fakeDeadEnsurer) EnsureDead() error {
+	return e.err
+}
+
+func (e *fakeDeadEnsurer) Life() state.Life {
+	return e.life
+}
+
 func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
 	st := &fakeDeadEnsurerState{
 		entities: map[string]*fakeDeadEnsurer{
@@ -73,35 +104,4 @@ func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	result, err := d.EnsureDead(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
-}
-
-type fakeDeadEnsurerState struct {
-	entities map[string]*fakeDeadEnsurer
-}
-
-func (st *fakeDeadEnsurerState) DeadEnsurer(tag string) (state.DeadEnsurer, error) {
-	if deadEnsurer, ok := st.entities[tag]; ok {
-		if deadEnsurer.err != nil {
-			return nil, deadEnsurer.err
-		}
-		return deadEnsurer, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type fakeDeadEnsurer struct {
-	life state.Life
-	err  error
-}
-
-func (r *fakeDeadEnsurer) Tag() string {
-	panic("not needed")
-}
-
-func (r *fakeDeadEnsurer) EnsureDead() error {
-	return r.err
-}
-
-func (r *fakeDeadEnsurer) Life() state.Life {
-	return r.life
 }
