@@ -6,7 +6,7 @@ package common_test
 import (
 	"fmt"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
@@ -17,9 +17,9 @@ import (
 
 type lifeSuite struct{}
 
-var _ = Suite(&lifeSuite{})
+var _ = gc.Suite(&lifeSuite{})
 
-func (*lifeSuite) TestLife(c *C) {
+func (*lifeSuite) TestLife(c *gc.C) {
 	st := &fakeLifeState{
 		entities: map[string]*fakeLifer{
 			"x0": {life: state.Alive},
@@ -42,8 +42,8 @@ func (*lifeSuite) TestLife(c *C) {
 		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
 	}}
 	results, err := lg.Life(entities)
-	c.Assert(err, IsNil)
-	c.Assert(results, DeepEquals, params.LifeResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: params.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -54,23 +54,23 @@ func (*lifeSuite) TestLife(c *C) {
 	})
 }
 
-func (*lifeSuite) TestLifeError(c *C) {
+func (*lifeSuite) TestLifeError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
 	_, err := lg.Life(params.Entities{[]params.Entity{{"x0"}}})
-	c.Assert(err, ErrorMatches, "pow")
+	c.Assert(err, gc.ErrorMatches, "pow")
 }
 
-func (*lifeSuite) TestLifeNoArgsNoError(c *C) {
+func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
 	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
 	result, err := lg.Life(params.Entities{})
-	c.Assert(err, IsNil)
-	c.Assert(result.Results, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 0)
 }
 
 type fakeLifeState struct {
