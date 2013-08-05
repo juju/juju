@@ -16,7 +16,7 @@ type StatusSetter struct {
 }
 
 type StatusSetterer interface {
-	// state.State implements StatusSetter to provide wats for us to
+	// state.State implements StatusSetter to provide ways for us to
 	// call object.SetStatus (for machines, units, etc). This is used
 	// to allow us to test with mocks without having to actually bring
 	// up state.
