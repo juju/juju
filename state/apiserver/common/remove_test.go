@@ -19,6 +19,43 @@ type removeSuite struct{}
 
 var _ = gc.Suite(&removeSuite{})
 
+type fakeRemoverState struct {
+	entities map[string]*fakeRemover
+}
+
+func (st *fakeRemoverState) Remover(tag string) (state.Remover, error) {
+	if remover, ok := st.entities[tag]; ok {
+		if remover.err != nil {
+			return nil, remover.err
+		}
+		return remover, nil
+	}
+	return nil, errors.NotFoundf("entity %q", tag)
+}
+
+type fakeRemover struct {
+	life          state.Life
+	err           error
+	errEnsureDead error
+	errRemove     error
+}
+
+func (r *fakeRemover) Tag() string {
+	panic("not needed")
+}
+
+func (r *fakeRemover) EnsureDead() error {
+	return r.errEnsureDead
+}
+
+func (r *fakeRemover) Remove() error {
+	return r.errRemove
+}
+
+func (r *fakeRemover) Life() state.Life {
+	return r.life
+}
+
 func (*removeSuite) TestRemove(c *gc.C) {
 	st := &fakeRemoverState{
 		entities: map[string]*fakeRemover{
@@ -75,41 +112,4 @@ func (*removeSuite) TestRemoveNoArgsNoError(c *gc.C) {
 	result, err := r.Remove(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
-}
-
-type fakeRemoverState struct {
-	entities map[string]*fakeRemover
-}
-
-func (st *fakeRemoverState) Remover(tag string) (state.Remover, error) {
-	if remover, ok := st.entities[tag]; ok {
-		if remover.err != nil {
-			return nil, remover.err
-		}
-		return remover, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type fakeRemover struct {
-	life          state.Life
-	err           error
-	errEnsureDead error
-	errRemove     error
-}
-
-func (r *fakeRemover) Tag() string {
-	panic("not needed")
-}
-
-func (r *fakeRemover) EnsureDead() error {
-	return r.errEnsureDead
-}
-
-func (r *fakeRemover) Remove() error {
-	return r.errRemove
-}
-
-func (r *fakeRemover) Life() state.Life {
-	return r.life
 }

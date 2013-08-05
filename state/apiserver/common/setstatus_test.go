@@ -19,6 +19,33 @@ type statusSetterSuite struct{}
 
 var _ = gc.Suite(&statusSetterSuite{})
 
+type fakeStatusSetterState struct {
+	entities map[string]*fakeStatusSetter
+}
+
+func (st *fakeStatusSetterState) StatusSetter(tag string) (state.StatusSetter, error) {
+	if statusSetter, ok := st.entities[tag]; ok {
+		if statusSetter.err != nil {
+			return nil, statusSetter.err
+		}
+		return statusSetter, nil
+	}
+	return nil, errors.NotFoundf("entity %q", tag)
+}
+
+type fakeStatusSetter struct {
+	tag    string
+	status params.Status
+	info   string
+	err    error
+}
+
+func (r *fakeStatusSetter) SetStatus(status params.Status, info string) error {
+	r.status = status
+	r.info = info
+	return r.err
+}
+
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeStatusSetterState{
 		entities: map[string]*fakeStatusSetter{
@@ -101,31 +128,4 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 	result, err := s.SetStatus(params.SetStatus{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
-}
-
-type fakeStatusSetterState struct {
-	entities map[string]*fakeStatusSetter
-}
-
-func (st *fakeStatusSetterState) StatusSetter(tag string) (state.StatusSetter, error) {
-	if statusSetter, ok := st.entities[tag]; ok {
-		if statusSetter.err != nil {
-			return nil, statusSetter.err
-		}
-		return statusSetter, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type fakeStatusSetter struct {
-	tag    string
-	status params.Status
-	info   string
-	err    error
-}
-
-func (r *fakeStatusSetter) SetStatus(status params.Status, info string) error {
-	r.status = status
-	r.info = info
-	return r.err
 }
