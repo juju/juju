@@ -36,9 +36,7 @@ func (c *InitCommand) Run(context *cmd.Context) error {
 	config := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvirons("")
 	if err == nil {
-		fmt.Fprintf(out, "A juju environment configuration already exists.\n")
-		fmt.Fprintf(out, "It will not be overwritten.\n")
-		return nil
+		return fmt.Errorf("A juju environment configuration already exists.\n. It will not be overwritten.\n")
 	}
 	if !os.IsNotExist(err) {
 		return err

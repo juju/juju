@@ -43,13 +43,15 @@ environments:
         authorized-keys: i-am-a-key
 `
 
+// An existing environments.yaml will not be overwritten without
+// the explicit -w option.
 func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	ctx := testing.Context(c)
-	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
-	c.Check(code, Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
+	code := cmd.Main(&InitCommand{}, ctx, nil)
+	c.Check(code, Equals, 1)
+	errOut := ctx.Stderr.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
 	c.Check(strippedOut, Matches, ".*A juju environment configuration already exists.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
@@ -58,8 +60,8 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 	c.Assert(string(data), Equals, existingEnv)
 }
 
-// Without the write (-w) option, any existing environmens.yaml file is preserved and the boilerplate is
-// written to stdout.
+// An existing environments.yaml will be overwritten when -w is
+// explicit.
 func (*InitSuite) TestPrintBoilerplate(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
