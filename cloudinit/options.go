@@ -4,7 +4,10 @@
 package cloudinit
 
 import (
+	"fmt"
 	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // SetAttr sets an arbitrary attribute in the cloudinit config.
@@ -214,6 +217,27 @@ func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
 		akeys = append(akeys, line)
 	}
 	cfg.attrs["ssh_authorized_keys"] = akeys
+}
+
+// AddScripts is a simple shorthand for calling AddRunCmd multiple times.
+func (cfg *Config) AddScripts(scripts ...string) {
+	for _, s := range scripts {
+		cfg.AddRunCmd(s)
+	}
+}
+
+// AddFile will add multiple run_cmd entries to safely set the contents of a
+// specific file to the requested contents.
+func (cfg *Config) AddFile(filename, data string, mode uint) {
+	p := shquote(filename)
+	cfg.AddScripts(
+		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
+		fmt.Sprintf("echo %s > %s", shquote(data), p),
+	)
+}
+
+func shquote(p string) string {
+	return utils.ShQuote(p)
 }
 
 // TODO
