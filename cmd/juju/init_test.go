@@ -21,7 +21,6 @@ var _ = Suite(&InitSuite{})
 // does not already exist.
 func (*InitSuite) TestBoilerPlateEnvironment(c *C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
-	// run without an environments.yaml
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, nil)
 	c.Check(code, Equals, 0)
@@ -62,17 +61,18 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 
 // An existing environments.yaml will be overwritten when -w is
 // explicit.
-func (*InitSuite) TestPrintBoilerplate(c *C) {
+func (*InitSuite) TestExistingEnvironmentOverwritten(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	ctx := testing.Context(c)
-	code := cmd.Main(&InitCommand{}, ctx, nil)
+	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
 	c.Check(code, Equals, 0)
-	errOut := ctx.Stdout.(*bytes.Buffer).String()
-	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, Matches, ".*## This is the Juju config file, which you can use.*")
+	stdOut := ctx.Stdout.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(stdOut, "\n", "", -1)
+	c.Check(strippedOut, Matches, ".*A boilerplate environment configuration file has been written.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
 	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, existingEnv)
+	strippedData := strings.Replace(string(data), "\n", "", -1)
+	c.Assert(strippedData, Matches, ".*## This is the Juju config file, which you can use.*")
 }

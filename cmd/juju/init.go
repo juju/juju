@@ -35,10 +35,10 @@ func (c *InitCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 	config := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvirons("")
-	if err == nil {
+	if err == nil && !c.WriteFile {
 		return fmt.Errorf("A juju environment configuration already exists.\n. It will not be overwritten.\n")
 	}
-	if !os.IsNotExist(err) {
+	if err != nil && !os.IsNotExist(err) {
 		return err
 	}
 	filename, err := environs.WriteEnvirons("", config)
