@@ -398,12 +398,3 @@ func uniqueDirectory(path, name string) (string, error) {
 		}
 	}
 }
-
-// utilsAptConfigProxy calls utils.AptConfigProxy, this is used as a overloading
-// point to return a stable result in tests that does not depend on the apt
-// config of the host running the tests.
-func utilsAptConfigProxy() (string, error) {
-	return utils.AptConfigProxy()
-}
-
-var aptConfigProxy = utilsAptConfigProxy
