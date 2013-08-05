@@ -16,6 +16,8 @@ import (
 // MachinerAPI implements the API used by the machiner worker.
 type MachinerAPI struct {
 	*common.LifeGetter
+	*common.StatusSetter
+
 	st        *state.State
 	resources *common.Resources
 	auth      common.Authorizer
@@ -33,37 +35,12 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		}, nil
 	}
 	return &MachinerAPI{
-		LifeGetter: common.NewLifeGetter(st, getCanRead),
-		st:         st,
-		resources:  resources,
-		auth:       authorizer,
+		LifeGetter:   common.NewLifeGetter(st, getCanRead),
+		StatusSetter: common.NewStatusSetter(st, getCanRead),
+		st:           st,
+		resources:    resources,
+		auth:         authorizer,
 	}, nil
-}
-
-// SetStatus sets the status of each given machine.
-func (m *MachinerAPI) SetStatus(args params.MachinesSetStatus) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Machines)),
-	}
-	if len(args.Machines) == 0 {
-		return result, nil
-	}
-	for i, arg := range args.Machines {
-		err := common.ErrPerm
-		if m.auth.AuthOwner(arg.Tag) {
-			var machine *state.Machine
-			var id string
-			id, err = names.MachineFromTag(arg.Tag)
-			if err == nil {
-				machine, err = m.st.Machine(id)
-				if err == nil {
-					err = machine.SetStatus(arg.Status, arg.Info)
-				}
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
 }
 
 func (m *MachinerAPI) watchOneMachine(entity params.Entity) (string, error) {
