@@ -121,11 +121,11 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-4], gc.Equals, "start jujud-machine-1-lxc-0")
-	c.Assert(scripts[len(scripts)-3], gc.Equals, "install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'")
-	c.Assert(scripts[len(scripts)-2], gc.Equals,
-		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra))
-	c.Assert(scripts[len(scripts)-1], gc.Equals, "ifconfig")
+	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
+		"start jujud-machine-1-lxc-0",
+		"install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
+		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra),
+		"ifconfig"})
 
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)
