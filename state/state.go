@@ -508,6 +508,11 @@ type Remover interface {
 	Remove() error
 }
 
+// AgentEntityWatcher represents entities with a Watch method.
+type AgentEntityWatcher interface {
+	Watch() NotifyWatcher
+}
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
@@ -635,6 +640,20 @@ func (st *State) Remover(tag string) (Remover, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support removal", tag)
+}
+
+// AgentEntityWatcher attempts to return an AgentEntityWatcher with
+// the given tag. It is an error if the tag refers to an entity which
+// does not implement AgentEntityWatcher.
+func (st *State) AgentEntityWatcher(tag string) (AgentEntityWatcher, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(AgentEntityWatcher); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support watching", tag)
 }
 
 // entity returns the entity for the given tag.
