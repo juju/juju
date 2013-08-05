@@ -43,7 +43,7 @@ func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	os.Setenv("PATH", tmpDir)
 	err := ioutil.WriteFile(
 		filepath.Join(tmpDir, "apt-config"),
-		[]byte(aptConfig),
+		[]byte(aptConfigScript),
 		0755)
 	c.Assert(err, gc.IsNil)
 }
@@ -73,7 +73,7 @@ Acquire::ftp::Proxy "false";`
 
 var (
 	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
-	aptConfig       = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
+	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
 )
 
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
