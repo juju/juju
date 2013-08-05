@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/worker"
@@ -417,11 +416,11 @@ func (f *filter) unitChanged() error {
 	if f.life != f.unit.Life() {
 		switch f.life = f.unit.Life(); f.life {
 		case state.Dying:
-			log.Noticef("worker/uniter/filter: unit is dying")
+			log.Infof("worker/uniter/filter: unit is dying")
 			close(f.outUnitDying)
 			f.outUpgrade = nil
 		case state.Dead:
-			log.Noticef("worker/uniter/filter: unit is dead")
+			log.Infof("worker/uniter/filter: unit is dead")
 			return worker.ErrTerminateAgent
 		}
 	}
