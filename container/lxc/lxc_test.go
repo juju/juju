@@ -30,6 +30,7 @@ func Test(t *stdtesting.T) {
 type LxcSuite struct {
 	testing.LoggingSuite
 	lxc.TestSuite
+	oldPath string
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -37,9 +38,17 @@ var _ = gc.Suite(&LxcSuite{})
 func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
+	tmpDir := c.MkDir()
+	s.oldPath = os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir)
+	err := ioutil.WriteFile(
+		filepath.Join(tmpDir, "apt-config"),
+		[]byte(aptConfig), 0755)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *LxcSuite) TearDownSuite(c *gc.C) {
+	os.Setenv("PATH", s.oldPath)
 	s.TestSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
@@ -54,6 +63,11 @@ func (s *LxcSuite) TearDownTest(c *gc.C) {
 	s.TestSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
+
+const configProxy = `Acquire::http::Proxy "1.2.3.4:3142";
+Acquire::https::Proxy "false";`
+
+var aptConfig = fmt.Sprintf("#!/bin/sh\n echo '%s'", configProxy)
 
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
 	config := testing.EnvironConfig(c)
@@ -98,7 +112,10 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-2], gc.Equals, "start jujud-machine-1-lxc-0")
+	c.Assert(scripts[len(scripts)-4], gc.Equals, "start jujud-machine-1-lxc-0")
+	c.Assert(scripts[len(scripts)-3], gc.Equals, "install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy'")
+	c.Assert(scripts[len(scripts)-2], gc.Equals,
+		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy'", configProxy))
 	c.Assert(scripts[len(scripts)-1], gc.Equals, "ifconfig")
 
 	// Check the mount point has been created inside the container.

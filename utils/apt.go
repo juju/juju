@@ -6,6 +6,7 @@ package utils
 import (
 	"os"
 	"os/exec"
+	"strings"
 
 	"launchpad.net/loggo"
 )
@@ -21,6 +22,14 @@ func osRunCommand(cmd *exec.Cmd) error {
 }
 
 var runCommand = osRunCommand
+
+// osCommandOutput calls cmd.Output, this is used as an overloading point so we
+// can test what *would* be run without actually executing another program
+func osCommandOutput(cmd *exec.Cmd) ([]byte, error) {
+	return cmd.Output()
+}
+
+var commandOutput = osCommandOutput
 
 // This is the default apt-get command used in cloud-init, the various settings
 // mean that apt won't actually block waiting for a prompt from the user.
@@ -42,4 +51,24 @@ func AptGetInstall(packages ...string) error {
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	cmd.Env = append(os.Environ(), aptGetEnvOptions...)
 	return runCommand(cmd)
+}
+
+// AptConfigProxy will consult apt-config about the configured proxy
+// settings. If there are no proxy settings configured, an empty string is
+// returned.
+func AptConfigProxy() (string, error) {
+	var (
+		out []byte
+		err error
+	)
+	cmd := exec.Command(
+		"apt-config",
+		"dump",
+		"Acquire::http::Proxy",
+		"Acquire::https::Proxy",
+		"Acquire::ftp::Proxy")
+	if out, err = commandOutput(cmd); err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(string(out)), nil
 }

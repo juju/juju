@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 
@@ -23,6 +22,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -342,11 +342,16 @@ func cloudInitUserData(
 		return nil, err
 	}
 
-	mirror, err := lxcMirror()
+	// Run apt-config to fetch proxy settings from host. If no proxy
+	// settings are configured, then we don't set up any proxy information
+	// on the container.
+	proxyConfig, err := utils.AptConfigProxy()
 	if err != nil {
 		return nil, err
 	}
-	cloudConfig.SetAptMirror(mirror)
+	if proxyConfig != "" {
+		cloudConfig.AddFile("/etc/apt/apt.conf.d/99proxy", proxyConfig, 0600)
+	}
 
 	// Run ifconfig to get the addresses of the internal container at least
 	// logged in the host.
@@ -378,39 +383,11 @@ func uniqueDirectory(path, name string) (string, error) {
 	}
 }
 
-// lxcMirror will source /etc/default/lxc to find out if a MIRROR variable is
-// set, for backwards compatibility with the default lxc templates, since we're
-// providing a custom userdata and that bypasses the ubuntu-cloud template
-// detection of the MIRROR variable.
-func lxcMirror() (string, error) {
-	var f *os.File
-	var err error
-	if f, err = ioutil.TempFile("", "lxc-mirror"); err != nil {
-		return "", err
-	}
-	f.Write([]byte(`#!/bin/bash
-set -e
-
-if [ -r /etc/default/lxc ]; then
-    . /etc/default/lxc
-fi
-
-if [ -z "$MIRROR" ]; then
-    MIRROR="http://archive.ubuntu.com/ubuntu"
-fi
-
-echo -n $MIRROR`))
-	defer os.Remove(f.Name())
-	defer f.Close()
-	err = f.Chmod(0700)
-	if err != nil {
-		return "", err
-	}
-	f.Close()
-	cmd := exec.Command(f.Name())
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", err
-	}
-	return string(out), nil
+// utilsAptConfigProxy calls utils.AptConfigProxy, this is used as a overloading
+// point to return a stable result in tests that does not depend on the apt
+// config of the host running the tests.
+func utilsAptConfigProxy() (string, error) {
+	return utils.AptConfigProxy()
 }
+
+var aptConfigProxy = utilsAptConfigProxy
