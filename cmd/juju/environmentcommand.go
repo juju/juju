@@ -5,14 +5,17 @@ package main
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/errors"
 )
 
 const CurrentEnvironmentFilename = "current-environment"
@@ -66,4 +69,24 @@ func (c *EnvCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	defaultEnv := getDefaultEnvironment()
 	f.StringVar(&c.EnvName, "e", defaultEnv, "juju environment to operate in")
 	f.StringVar(&c.EnvName, "environment", defaultEnv, "")
+}
+
+// envOpenFailure checks to see if the given error is a NoEnvError, and if it is, and
+// the caller was using the
+func (c *EnvCommandBase) envOpenFailure(err error, w io.Writer) error {
+	if errors.IsNoEnv(err) {
+		if c.EnvName == "" {
+			fmt.Fprintln(w, "No juju environment configuration file exists.")
+			fmt.Fprintln(w, err.Error())
+			fmt.Fprintln(w, "Please create a configuration by running:")
+			fmt.Fprintln(w, "    juju init -w")
+			fmt.Fprintln(w, "then edit the file to configure your juju environment.")
+			fmt.Fprintln(w, "You can then re-run the command.")
+		} else {
+			fmt.Fprintln(w, "Juju environment configuration file does not exist.")
+			fmt.Fprintln(w, err.Error())
+		}
+		return cmd.ErrSilent
+	}
+	return err
 }

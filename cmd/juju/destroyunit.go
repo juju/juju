@@ -44,10 +44,10 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 
 // Run connects to the environment specified on the command line and destroys
 // units therein.
-func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
+func (c *DestroyUnitCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 	params := params.DestroyServiceUnits{

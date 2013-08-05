@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
@@ -33,10 +34,10 @@ func (c *AddRelationCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *AddRelationCommand) Run(_ *cmd.Context) error {
+func (c *AddRelationCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 	params := params.AddRelation{

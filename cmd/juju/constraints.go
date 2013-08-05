@@ -57,7 +57,7 @@ func (c *GetConstraintsCommand) Init(args []string) error {
 func (c *GetConstraintsCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 

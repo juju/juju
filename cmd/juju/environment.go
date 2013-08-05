@@ -5,10 +5,12 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"strings"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
@@ -129,7 +131,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 

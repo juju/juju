@@ -6,7 +6,9 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -95,10 +97,10 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 var errUpToDate = stderrors.New("no upgrades available")
 
 // Run changes the version proposed for the juju tools.
-func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
+func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 	defer func() {

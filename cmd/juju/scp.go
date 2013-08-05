@@ -41,7 +41,7 @@ func (c *SCPCommand) Run(ctx *cmd.Context) error {
 	var err error
 	c.Conn, err = juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer c.Close()
 

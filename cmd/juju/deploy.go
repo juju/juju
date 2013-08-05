@@ -99,7 +99,7 @@ func (c *DeployCommand) Init(args []string) error {
 func (c *DeployCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 	conf, err := conn.State.EnvironConfig()

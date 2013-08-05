@@ -39,10 +39,10 @@ func (c *DestroyServiceCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *DestroyServiceCommand) Run(_ *cmd.Context) error {
+func (c *DestroyServiceCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 

@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
@@ -35,10 +36,10 @@ func (c *UnexposeCommand) Init(args []string) error {
 
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
-func (c *UnexposeCommand) Run(_ *cmd.Context) error {
+func (c *UnexposeCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 	params := params.ServiceUnexpose{ServiceName: c.ServiceName}

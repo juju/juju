@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
@@ -56,7 +57,7 @@ func (c *SetCommand) Init(args []string) error {
 func (c *SetCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 	service, err := conn.State.Service(c.ServiceName)

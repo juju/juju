@@ -14,7 +14,6 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
-	jujuerrors "launchpad.net/juju-core/errors"
 )
 
 // ErrSilent can be returned from Run to signal that Main should exit with
@@ -161,14 +160,6 @@ func Main(c Command, ctx *Context, args []string) int {
 		return rc
 	}
 	if err := c.Run(ctx); err != nil {
-		if jujuerrors.IsNoEnv(err) {
-			out := ctx.Stderr
-			fmt.Fprintln(out, "No juju environment configuration file exists.")
-			fmt.Fprintln(out, "Please create a configuration by running:")
-			fmt.Fprintln(out, "    juju init -w")
-			fmt.Fprintln(out, "then edit the file to configure your juju environment.")
-			fmt.Fprintln(out, "You can then re-run the command.")
-		}
 		if err != ErrSilent {
 			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
 		}

@@ -67,10 +67,10 @@ func (c *AddMachineCommand) Init(args []string) error {
 	return err
 }
 
-func (c *AddMachineCommand) Run(_ *cmd.Context) error {
+func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return c.envOpenFailure(err, ctx.Stderr)
 	}
 	defer conn.Close()
 
