@@ -35,7 +35,7 @@ var (
 	lxcContainerDir     = "/var/lib/lxc"
 	lxcRestartDir       = "/etc/lxc/auto"
 	lxcObjectFactory    = golxc.Factory()
-	aptHTTPProxyRE      = regexp.MustCompile(`^Acquire::http::Proxy.*"([^"]+)";$`)
+	aptHTTPProxyRE      = regexp.MustCompile(`^Acquire::http::Proxy\s+"([^"]+)";$`)
 )
 
 const (
