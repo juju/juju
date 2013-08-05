@@ -55,8 +55,8 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 	err = s.machine1.SetStatus(params.StatusStopped, "foo")
 	c.Assert(err, IsNil)
 
-	args := params.MachinesSetStatus{
-		Machines: []params.MachineSetStatus{
+	args := params.SetStatus{
+		Entities: []params.SetEntityStatus{
 			{Tag: "machine-1", Status: params.StatusError, Info: "not really"},
 			{Tag: "machine-0", Status: params.StatusStopped, Info: "foobar"},
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},

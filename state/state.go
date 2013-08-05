@@ -478,6 +478,11 @@ type AgentEntity interface {
 	AgentTooler
 }
 
+// StatusSetter represents an entity that can have its status changed.
+type StatusSetter interface {
+	SetStatus(params.Status, string) error
+}
+
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Tagger
@@ -555,6 +560,20 @@ func (st *State) AgentEntity(tag string) (AgentEntity, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("%q does not support agent operations", tag)
+}
+
+// StatusSetter returns a StatusSetter with the given tag.
+// It is an error if the tag refers to an entity which does not
+// implement StatusSetter.
+func (st *State) StatusSetter(tag string) (StatusSetter, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(StatusSetter); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("%q does not support setting status", tag)
 }
 
 // Annotator attempts to return the TaggedAnnotator with the given tag.

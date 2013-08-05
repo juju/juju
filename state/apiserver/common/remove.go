@@ -18,8 +18,9 @@ type Remover struct {
 
 type Removerer interface {
 	// state.State implements Remover to provide ways for us to call
-	// object.Remove (for Units, etc). This is used to allow us to
-	// test with mocks without having to actually bring up state.
+	// object.Remove (for machines, units, etc). This is used to allow
+	// us to test with mocks without having to actually bring up
+	// state.
 	Remover(tag string) (state.Remover, error)
 }
 

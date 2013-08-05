@@ -42,6 +42,7 @@ type LifeResults struct {
 }
 
 // MachineSetStatus holds a machine tag, status and extra info.
+// DEPRECATE(v1.14)
 type MachineSetStatus struct {
 	Tag    string
 	Status Status
@@ -49,8 +50,21 @@ type MachineSetStatus struct {
 }
 
 // MachinesSetStatus holds the parameters for making a Machiner.SetStatus call.
+// DEPRECATE(v1.14)
 type MachinesSetStatus struct {
 	Machines []MachineSetStatus
+}
+
+// SetEntityStatus holds an entity tag, status and extra info.
+type SetEntityStatus struct {
+	Tag    string
+	Status Status
+	Info   string
+}
+
+// SetStatus holds the parameters for making a SetStatus call.
+type SetStatus struct {
+	Entities []SetEntityStatus
 }
 
 // MachineAgentGetMachinesResults holds the results of a
