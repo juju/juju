@@ -24,6 +24,46 @@ func TestAll(t *stdtesting.T) {
 
 var _ = gc.Suite(&passwordSuite{})
 
+type fakeAuthState struct {
+	entities map[string]state.TaggedAuthenticator
+}
+
+func (st *fakeAuthState) Authenticator(tag string) (state.TaggedAuthenticator, error) {
+	if auth, ok := st.entities[tag]; ok {
+		return auth, nil
+	}
+	return nil, errors.NotFoundf("entity %q", tag)
+}
+
+type fakeAuthenticator struct {
+	// Any Authenticator methods we don't implement on fakeAuthenticator
+	// will fall back to this and panic because it's always nil.
+	state.TaggedAuthenticator
+	err  error
+	pass string
+}
+
+func (a *fakeAuthenticator) SetPassword(pass string) error {
+	if a.err != nil {
+		return a.err
+	}
+	a.pass = pass
+	return nil
+}
+
+type fakeAuthenticatorWithMongoPass struct {
+	fakeAuthenticator
+	mongoPass string
+}
+
+func (a *fakeAuthenticatorWithMongoPass) SetMongoPassword(pass string) error {
+	if a.err != nil {
+		return a.err
+	}
+	a.mongoPass = pass
+	return nil
+}
+
 func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	st := &fakeAuthState{
 		entities: map[string]state.TaggedAuthenticator{
@@ -93,44 +133,4 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
 	result, err := pc.SetPasswords(params.PasswordChanges{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
-}
-
-type fakeAuthState struct {
-	entities map[string]state.TaggedAuthenticator
-}
-
-func (st *fakeAuthState) Authenticator(tag string) (state.TaggedAuthenticator, error) {
-	if auth, ok := st.entities[tag]; ok {
-		return auth, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type fakeAuthenticator struct {
-	// Any Authenticator methods we don't implement on fakeAuthenticator
-	// will fall back to this and panic because it's always nil.
-	state.TaggedAuthenticator
-	err  error
-	pass string
-}
-
-func (a *fakeAuthenticator) SetPassword(pass string) error {
-	if a.err != nil {
-		return a.err
-	}
-	a.pass = pass
-	return nil
-}
-
-type fakeAuthenticatorWithMongoPass struct {
-	fakeAuthenticator
-	mongoPass string
-}
-
-func (a *fakeAuthenticatorWithMongoPass) SetMongoPassword(pass string) error {
-	if a.err != nil {
-		return a.err
-	}
-	a.mongoPass = pass
-	return nil
 }

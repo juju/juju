@@ -16,7 +16,7 @@ type StatusSetter struct {
 }
 
 type StatusSetterer interface {
-	// state.State implements StatusSetter to provide wats for us to
+	// state.State implements StatusSetter to provide ways for us to
 	// call object.SetStatus (for machines, units, etc). This is used
 	// to allow us to test with mocks without having to actually bring
 	// up state.
@@ -43,6 +43,11 @@ func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info st
 
 // SetStatus sets the status of each given entity.
 func (s *StatusSetter) SetStatus(args params.SetStatus) (params.ErrorResults, error) {
+	// This is only to ensure compatibility with v1.12.
+	// DEPRECATE(v1.14)
+	if len(args.Entities) == 0 {
+		args.Entities = args.Machines
+	}
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
 	}

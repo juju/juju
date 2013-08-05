@@ -19,6 +19,33 @@ type lifeSuite struct{}
 
 var _ = gc.Suite(&lifeSuite{})
 
+type fakeLifeState struct {
+	entities map[string]*fakeLifer
+}
+
+func (st *fakeLifeState) Lifer(tag string) (state.Lifer, error) {
+	if lifer, ok := st.entities[tag]; ok {
+		if lifer.err != nil {
+			return nil, lifer.err
+		}
+		return lifer, nil
+	}
+	return nil, errors.NotFoundf("entity %q", tag)
+}
+
+type fakeLifer struct {
+	life state.Life
+	err  error
+}
+
+func (l *fakeLifer) Tag() string {
+	panic("not needed")
+}
+
+func (l *fakeLifer) Life() state.Life {
+	return l.life
+}
+
 func (*lifeSuite) TestLife(c *gc.C) {
 	st := &fakeLifeState{
 		entities: map[string]*fakeLifer{
@@ -71,31 +98,4 @@ func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
 	result, err := lg.Life(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
-}
-
-type fakeLifeState struct {
-	entities map[string]*fakeLifer
-}
-
-func (st *fakeLifeState) Lifer(tag string) (state.Lifer, error) {
-	if lifer, ok := st.entities[tag]; ok {
-		if lifer.err != nil {
-			return nil, lifer.err
-		}
-		return lifer, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
-type fakeLifer struct {
-	life state.Life
-	err  error
-}
-
-func (l *fakeLifer) Tag() string {
-	panic("not needed")
-}
-
-func (l *fakeLifer) Life() state.Life {
-	return l.life
 }

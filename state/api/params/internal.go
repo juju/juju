@@ -65,6 +65,9 @@ type SetEntityStatus struct {
 // SetStatus holds the parameters for making a SetStatus call.
 type SetStatus struct {
 	Entities []SetEntityStatus
+	// Machines is only here to ensure compatibility with v1.12.
+	// DEPRECATE(v1.14)
+	Machines []SetEntityStatus
 }
 
 // MachineAgentGetMachinesResults holds the results of a
