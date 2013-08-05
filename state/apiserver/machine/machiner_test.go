@@ -4,7 +4,7 @@
 package machine_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -21,9 +21,9 @@ type machinerSuite struct {
 	machiner  *machine.MachinerAPI
 }
 
-var _ = Suite(&machinerSuite{})
+var _ = gc.Suite(&machinerSuite{})
 
-func (s *machinerSuite) SetUpTest(c *C) {
+func (s *machinerSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 
 	// Create the resource registry separately to track invocations to
@@ -36,24 +36,24 @@ func (s *machinerSuite) SetUpTest(c *C) {
 		s.resources,
 		s.authorizer,
 	)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.machiner = machiner
 }
 
-func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *C) {
+func (s *machinerSuite) TestMachinerFailsWithNonMachineAgentUser(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.MachineAgent = false
 	aMachiner, err := machine.NewMachinerAPI(s.State, s.resources, anAuthorizer)
-	c.Assert(err, NotNil)
-	c.Assert(aMachiner, IsNil)
-	c.Assert(err, ErrorMatches, "permission denied")
+	c.Assert(err, gc.NotNil)
+	c.Assert(aMachiner, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *machinerSuite) TestSetStatus(c *C) {
+func (s *machinerSuite) TestSetStatus(c *gc.C) {
 	err := s.machine0.SetStatus(params.StatusStarted, "blah")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine1.SetStatus(params.StatusStopped, "foo")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
 		Entities: []params.SetEntityStatus{
@@ -62,8 +62,8 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 			{Tag: "machine-42", Status: params.StatusStarted, Info: "blah"},
 		}}
 	result, err := s.machiner.SetStatus(args)
-	c.Assert(err, IsNil)
-	c.Assert(result, DeepEquals, params.ErrorResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
 			{apiservertesting.ErrUnauthorized},
@@ -73,22 +73,22 @@ func (s *machinerSuite) TestSetStatus(c *C) {
 
 	// Verify machine 0 - no change.
 	status, info, err := s.machine0.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusStarted)
-	c.Assert(info, Equals, "blah")
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusStarted)
+	c.Assert(info, gc.Equals, "blah")
 	// ...machine 1 is fine though.
 	status, info, err = s.machine1.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusError)
-	c.Assert(info, Equals, "not really")
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusError)
+	c.Assert(info, gc.Equals, "not really")
 }
 
-func (s *machinerSuite) TestLife(c *C) {
+func (s *machinerSuite) TestLife(c *gc.C) {
 	err := s.machine1.EnsureDead()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine1.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(s.machine1.Life(), Equals, state.Dead)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -96,8 +96,8 @@ func (s *machinerSuite) TestLife(c *C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.Life(args)
-	c.Assert(err, IsNil)
-	c.Assert(result, DeepEquals, params.LifeResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.LifeResults{
 		Results: []params.LifeResult{
 			{Life: "dead"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -106,9 +106,9 @@ func (s *machinerSuite) TestLife(c *C) {
 	})
 }
 
-func (s *machinerSuite) TestEnsureDead(c *C) {
-	c.Assert(s.machine0.Life(), Equals, state.Alive)
-	c.Assert(s.machine1.Life(), Equals, state.Alive)
+func (s *machinerSuite) TestEnsureDead(c *gc.C) {
+	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
+	c.Assert(s.machine1.Life(), gc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -116,8 +116,8 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.EnsureDead(args)
-	c.Assert(err, IsNil)
-	c.Assert(result, DeepEquals, params.ErrorResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
 			{nil},
 			{apiservertesting.ErrUnauthorized},
@@ -126,30 +126,30 @@ func (s *machinerSuite) TestEnsureDead(c *C) {
 	})
 
 	err = s.machine0.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(s.machine0.Life(), Equals, state.Alive)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine0.Life(), gc.Equals, state.Alive)
 	err = s.machine1.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(s.machine1.Life(), Equals, state.Dead)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
 
 	// Try it again on a Dead machine; should work.
 	args = params.Entities{
 		Entities: []params.Entity{{Tag: "machine-1"}},
 	}
 	result, err = s.machiner.EnsureDead(args)
-	c.Assert(err, IsNil)
-	c.Assert(result, DeepEquals, params.ErrorResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{{nil}},
 	})
 
 	// Verify Life is unchanged.
 	err = s.machine1.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(s.machine1.Life(), Equals, state.Dead)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.machine1.Life(), gc.Equals, state.Dead)
 }
 
-func (s *machinerSuite) TestWatch(c *C) {
-	c.Assert(s.resources.Count(), Equals, 0)
+func (s *machinerSuite) TestWatch(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "machine-1"},
@@ -157,8 +157,8 @@ func (s *machinerSuite) TestWatch(c *C) {
 		{Tag: "machine-42"},
 	}}
 	result, err := s.machiner.Watch(args)
-	c.Assert(err, IsNil)
-	c.Assert(result, DeepEquals, params.NotifyWatchResults{
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
 			{NotifyWatcherId: "1"},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -167,8 +167,8 @@ func (s *machinerSuite) TestWatch(c *C) {
 	})
 
 	// Verify the resource was registered and stop when done
-	c.Assert(s.resources.Count(), Equals, 1)
-	c.Assert(result.Results[0].NotifyWatcherId, Equals, "1")
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	c.Assert(result.Results[0].NotifyWatcherId, gc.Equals, "1")
 	resource := s.resources.Get("1")
 	defer statetesting.AssertStop(c, resource)
 
