@@ -346,7 +346,7 @@ func (*environSuite) TestUpdateStorageAccountKeyReturnsError(c *C) {
 	_, err := env.updateStorageAccountKey(env.getSnapshot())
 	c.Assert(err, NotNil)
 
-	c.Check(err, ErrorMatches, "could not obtain storage account keys: GET request failed.*Internal Server Error.*")
+	c.Check(err, ErrorMatches, "cannot obtain storage account keys: GET request failed.*Internal Server Error.*")
 	c.Check(env.storageAccountKey, Equals, "")
 }
 

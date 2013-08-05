@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -115,7 +116,7 @@ func (env *azureEnviron) queryStorageAccountKey() (string, error) {
 	accountName := env.getSnapshot().ecfg.storageAccountName()
 	keys, err := azure.GetStorageAccountKeys(accountName)
 	if err != nil {
-		return "", fmt.Errorf("could not obtain storage account keys: %v", err)
+		return "", fmt.Errorf("cannot obtain storage account keys: %v", err)
 	}
 
 	key := extractStorageKey(keys)
