@@ -60,7 +60,7 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 }
 
 // An existing environments.yaml will be overwritten when -w is
-// explicit.
+// given explicitly.
 func (*InitSuite) TestExistingEnvironmentOverwritten(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 

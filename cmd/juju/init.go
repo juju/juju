@@ -26,8 +26,12 @@ func (c *InitCommand) Info() *cmd.Info {
 }
 
 func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.WriteFile, "w", false, "Overwrite existing environments.yaml file.")
+	f.BoolVar(&c.WriteFile, "w", false, "overwrite existing environments.yaml file.")
 }
+
+var errJujuEnvExists = fmt.Errorf(
+	"A juju environment configuration already exists.\n" +
+		"Use -w to overwrite the existing environments.yaml.\n")
 
 // Run checks to see if there is already an environments.yaml file. In one does not exist already,
 // a boilerplate version is created so that the user can edit it to get started.
@@ -36,7 +40,7 @@ func (c *InitCommand) Run(context *cmd.Context) error {
 	config := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvirons("")
 	if err == nil && !c.WriteFile {
-		return fmt.Errorf("A juju environment configuration already exists.\nUse -w to overwrite the existing environments.yaml.\n")
+		return errJujuEnvExists
 	}
 	if err != nil && !os.IsNotExist(err) {
 		return err
