@@ -39,7 +39,7 @@ type fakeDeadEnsurer struct {
 }
 
 func (e *fakeDeadEnsurer) Tag() string {
-	panic("not needed")
+	panic("fakeDeadEnsurer.Tag() must not be called")
 }
 
 func (e *fakeDeadEnsurer) EnsureDead() error {
