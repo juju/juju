@@ -68,6 +68,12 @@ func (storage *azureStorage) List(prefix string) ([]string, error) {
 	}
 	request := &gwacl.ListBlobsRequest{Container: storage.getContainer(), Prefix: prefix, Marker: ""}
 	blobList, err := context.ListAllBlobs(request)
+	httpErr, isHTTPErr := err.(gwacl.HTTPError)
+	if isHTTPErr && httpErr.StatusCode() == http.StatusNotFound {
+		// A 404 means the container doesn't exist.  There are no files so
+		// just return nothing.
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
