@@ -17,6 +17,7 @@ import (
 type MachinerAPI struct {
 	*common.LifeGetter
 	*common.StatusSetter
+	*common.DeadEnsurer
 
 	st        *state.State
 	resources *common.Resources
@@ -37,6 +38,7 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 	return &MachinerAPI{
 		LifeGetter:   common.NewLifeGetter(st, getCanRead),
 		StatusSetter: common.NewStatusSetter(st, getCanRead),
+		DeadEnsurer:  common.NewDeadEnsurer(st, getCanRead),
 		st:           st,
 		resources:    resources,
 		auth:         authorizer,
@@ -77,33 +79,6 @@ func (m *MachinerAPI) Watch(args params.Entities) (params.NotifyWatchResults, er
 	for i, entity := range args.Entities {
 		watcherId, err := m.watchOneMachine(entity)
 		result.Results[i].NotifyWatcherId = watcherId
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// EnsureDead changes the lifecycle of each given machine to Dead if
-// it's Alive or Dying. It does nothing otherwise.
-func (m *MachinerAPI) EnsureDead(args params.Entities) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if m.auth.AuthOwner(entity.Tag) {
-			var machine *state.Machine
-			var id string
-			id, err = names.MachineFromTag(entity.Tag)
-			if err == nil {
-				machine, err = m.st.Machine(id)
-				if err == nil {
-					err = machine.EnsureDead()
-				}
-			}
-		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

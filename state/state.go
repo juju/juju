@@ -496,10 +496,15 @@ type AgentTooler interface {
 	SetAgentTools(*tools.Tools) error
 }
 
-// Remover represents entities with lifecycles, EnsureDead and Remove methods.
-type Remover interface {
+// DeadEnsurer represents entities with lifecycles and an EnsureDead method.
+type DeadEnsurer interface {
 	Lifer
 	EnsureDead() error
+}
+
+// Remover represents entities with lifecycles, EnsureDead and Remove methods.
+type Remover interface {
+	DeadEnsurer
 	Remove() error
 }
 
@@ -602,6 +607,20 @@ func (st *State) Lifer(tag string) (Lifer, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support lifecycles", tag)
+}
+
+// DeadEnsurer attempts to return a DeadEnsurer with the given tag.
+// It is an error if the tag refers to an entity which does not
+// implement DeadEnsurer.
+func (st *State) DeadEnsurer(tag string) (DeadEnsurer, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(DeadEnsurer); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support EnsureDead", tag)
 }
 
 // Remover attempts to return a Remover with the given tag.
