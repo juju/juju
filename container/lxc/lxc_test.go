@@ -66,14 +66,14 @@ func (s *LxcSuite) TearDownTest(c *gc.C) {
 }
 
 const (
-	aptHTTPProxy = "http://1.2.3.4:3142"
+	aptHTTPProxy     = "http://1.2.3.4:3142"
 	configProxyExtra = `Acquire::https::Proxy "false";
 Acquire::ftp::Proxy "false";`
 )
 
 var (
 	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
-	aptConfig = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
+	aptConfig       = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
 )
 
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
