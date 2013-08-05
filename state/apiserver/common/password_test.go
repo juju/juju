@@ -107,20 +107,11 @@ func (st *fakeAuthState) Authenticator(tag string) (state.TaggedAuthenticator, e
 }
 
 type fakeAuthenticator struct {
+	// Any Authenticator methods we don't implement on fakeAuthenticator
+	// will fall back to this and panic because it's always nil.
+	state.TaggedAuthenticator
 	err  error
 	pass string
-}
-
-func (a *fakeAuthenticator) Tag() string {
-	panic("Tag not implemented")
-}
-
-func (a *fakeAuthenticator) Refresh() error {
-	panic("Refresh not implemented")
-}
-
-func (a *fakeAuthenticator) PasswordValid(string) bool {
-	panic("PasswordValid not implemented")
 }
 
 func (a *fakeAuthenticator) SetPassword(pass string) error {

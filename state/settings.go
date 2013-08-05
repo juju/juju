@@ -14,8 +14,17 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-var escapeReplacer = strings.NewReplacer(".", "\uff0e", "$", "\uff04")
-var unescapeReplacer = strings.NewReplacer("\uff0e", ".", "\uff04", "$")
+// See: http://docs.mongodb.org/manual/faq/developers/#faq-dollar-sign-escaping
+// for why we're using those replacements.
+const (
+	fullWidthDot    = "\uff0e"
+	fullWidthDollar = "\uff04"
+)
+
+var (
+	escapeReplacer   = strings.NewReplacer(".", fullWidthDot, "$", fullWidthDollar)
+	unescapeReplacer = strings.NewReplacer(fullWidthDot, ".", fullWidthDollar, "$")
+)
 
 const (
 	ItemAdded = iota
@@ -89,7 +98,7 @@ func (c *Settings) Get(key string) (value interface{}, found bool) {
 
 // Map returns all keys and values of the node.
 func (c *Settings) Map() map[string]interface{} {
-	return copyMap(c.core)
+	return copyMap(c.core, nil)
 }
 
 // Set sets key to value
@@ -107,15 +116,6 @@ func (c *Settings) Update(kv map[string]interface{}) {
 // Delete removes key.
 func (c *Settings) Delete(key string) {
 	delete(c.core, key)
-}
-
-// copyMap copies the keys and values of one map into a new one.
-func copyMap(in map[string]interface{}) (out map[string]interface{}) {
-	out = make(map[string]interface{})
-	for key, value := range in {
-		out[key] = value
-	}
-	return
 }
 
 // cacheKeys returns the keys of all caches as a key=>true map.
@@ -143,16 +143,17 @@ func (c *Settings) Write() ([]ItemChange, error) {
 			continue
 		}
 		var change ItemChange
+		escapedKey := escapeReplacer.Replace(key)
 		switch {
 		case incore && ondisk:
 			change = ItemChange{ItemModified, key, old, new}
-			updates[escapeReplacer.Replace(key)] = new
+			updates[escapedKey] = new
 		case incore && !ondisk:
 			change = ItemChange{ItemAdded, key, nil, new}
-			updates[escapeReplacer.Replace(key)] = new
+			updates[escapedKey] = new
 		case ondisk && !incore:
 			change = ItemChange{ItemDeleted, key, old, nil}
-			deletions[escapeReplacer.Replace(key)] = 1
+			deletions[escapedKey] = 1
 		default:
 			panic("unreachable")
 		}
@@ -178,7 +179,7 @@ func (c *Settings) Write() ([]ItemChange, error) {
 	if err != nil {
 		return nil, fmt.Errorf("cannot write settings: %v", err)
 	}
-	c.disk = copyMap(c.core)
+	c.disk = copyMap(c.core, nil)
 	return changes, nil
 }
 
@@ -190,33 +191,38 @@ func newSettings(st *State, key string) *Settings {
 	}
 }
 
-// cleanSettingsMap cleans the map of version and _id fields.
+// cleanSettingsMap cleans the map of version and _id fields and also unescapes
+// keys coming out of MongoDB.
 func cleanSettingsMap(in map[string]interface{}) {
 	delete(in, "_id")
 	delete(in, "txn-revno")
 	delete(in, "txn-queue")
+	replaceKeys(in, unescapeReplacer.Replace)
 }
 
-// unescapeSettingsMap unescapes keys as needed after reading from MongoDB.
-func unescapeSettingsMap(in map[string]interface{}) {
-	for key, value := range in {
-		new := unescapeReplacer.Replace(key)
-		if new != key {
-			delete(in, key)
-			in[new] = value
+// replaceKeys will modify the provided map in place by replacing keys with
+// their replacement if they have been modified.
+func replaceKeys(m map[string]interface{}, replace func(string) string) {
+	for key, value := range m {
+		if newKey := replace(key); newKey != key {
+			delete(m, key)
+			m[newKey] = value
 		}
 	}
+	return
 }
 
-// escapeSettingsMap escapes keys as needed before writing to MongoDB.
-func escapeSettingsMap(in map[string]interface{}) {
+// copyMap copies the keys and values of one map into a new one.  If replace
+// is non-nil, for each old key k, the new key will be replace(k).
+func copyMap(in map[string]interface{}, replace func(string) string) (out map[string]interface{}) {
+	out = make(map[string]interface{})
 	for key, value := range in {
-		new := escapeReplacer.Replace(key)
-		if new != key {
-			delete(in, key)
-			in[new] = value
+		if replace != nil {
+			key = replace(key)
 		}
+		out[key] = value
 	}
+	return
 }
 
 // Read (re)reads the node data into c.
@@ -232,7 +238,7 @@ func (c *Settings) Read() error {
 	}
 	c.txnRevno = txnRevno
 	c.disk = config
-	c.core = copyMap(config)
+	c.core = copyMap(config, nil)
 	return nil
 }
 
@@ -246,7 +252,6 @@ func readSettingsDoc(st *State, key string) (map[string]interface{}, int64, erro
 	}
 	txnRevno := config["txn-revno"].(int64)
 	cleanSettingsMap(config)
-	unescapeSettingsMap(config)
 	return config, txnRevno, nil
 }
 
@@ -262,8 +267,7 @@ func readSettings(st *State, key string) (*Settings, error) {
 var errSettingsExist = fmt.Errorf("cannot overwrite existing settings")
 
 func createSettingsOp(st *State, key string, values map[string]interface{}) txn.Op {
-	newValues := copyMap(values)
-	escapeSettingsMap(newValues)
+	newValues := copyMap(values, escapeReplacer.Replace)
 	return txn.Op{
 		C:      st.settings.Name,
 		Id:     key,
@@ -275,7 +279,7 @@ func createSettingsOp(st *State, key string, values map[string]interface{}) txn.
 // createSettings writes an initial config node.
 func createSettings(st *State, key string, values map[string]interface{}) (*Settings, error) {
 	s := newSettings(st, key)
-	s.core = copyMap(values)
+	s.core = copyMap(values, nil)
 	ops := []txn.Op{createSettingsOp(st, key, values)}
 	err := s.st.runTransaction(ops)
 	if err == txn.ErrAborted {
@@ -311,8 +315,7 @@ func replaceSettingsOp(st *State, key string, values map[string]interface{}) (tx
 			deletes[escapeReplacer.Replace(k)] = 1
 		}
 	}
-	newValues := copyMap(values)
-	escapeSettingsMap(newValues)
+	newValues := copyMap(values, escapeReplacer.Replace)
 	op := s.assertUnchangedOp()
 	op.Update = D{
 		{"$set", newValues},

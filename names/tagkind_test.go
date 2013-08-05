@@ -29,7 +29,7 @@ var tagKindTests = []struct {
 
 func (s *tagKindSuite) TestTagKind(c *gc.C) {
 	for i, test := range tagKindTests {
-		c.Logf("%d. %q -> %q", i, test.tag, test.kind)
+		c.Logf("test %d: %q -> %q", i, test.tag, test.kind)
 		kind, err := names.TagKind(test.tag)
 		if test.err == "" {
 			c.Assert(test.kind, gc.Equals, kind)

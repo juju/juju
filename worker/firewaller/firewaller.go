@@ -118,7 +118,6 @@ func (fw *Firewaller) loop() error {
 			}
 		}
 	}
-	panic("not reached")
 }
 
 // stop a watcher with logging of a possible error.

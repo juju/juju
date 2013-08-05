@@ -13,7 +13,7 @@ import (
 
 // UnexposeCommand is responsible exposing services.
 type UnexposeCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 }
 

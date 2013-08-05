@@ -25,11 +25,11 @@ type CleanerSuite struct {
 
 var _ = Suite(&CleanerSuite{})
 
-var _ worker.WatchHandler = (*cleaner.Cleaner)(nil)
+var _ worker.NotifyWatchHandler = (*cleaner.Cleaner)(nil)
 
 func (s *CleanerSuite) TestCleaner(c *C) {
 	cr := cleaner.NewCleaner(s.State)
-	defer func() { c.Assert(cr.Stop(), IsNil) }()
+	defer func() { c.Assert(worker.Stop(cr), IsNil) }()
 
 	needed, err := s.State.NeedsCleanup()
 	c.Assert(err, IsNil)

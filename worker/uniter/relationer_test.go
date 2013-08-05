@@ -72,7 +72,6 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	s.State.StartSync()
 	ch, ok := <-w.Changes()
 	c.Assert(ok, Equals, true)
-	c.Assert(ch.Joined, HasLen, 0)
 	c.Assert(ch.Changed, HasLen, 0)
 	c.Assert(ch.Departed, HasLen, 0)
 
@@ -83,7 +82,6 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	select {
 	case ch, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(ch.Joined, DeepEquals, []string{"u/0"})
 		c.Assert(ch.Changed, HasLen, 1)
 		_, found := ch.Changed["u/0"]
 		c.Assert(found, Equals, true)
@@ -119,7 +117,6 @@ func (s *RelationerSuite) TestEnterLeaveScope(c *C) {
 	select {
 	case ch, ok := <-w.Changes():
 		c.Assert(ok, Equals, true)
-		c.Assert(ch.Joined, HasLen, 0)
 		c.Assert(ch.Changed, HasLen, 0)
 		c.Assert(ch.Departed, DeepEquals, []string{"u/0"})
 	case <-time.After(worstCase):

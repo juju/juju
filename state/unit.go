@@ -57,8 +57,10 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
-// UnitSettings holds information about a service unit's settings within a
-// relation.
+// UnitSettings holds information about a service unit's settings
+// within a relation.
+// NOTE: Settings field may always be nil and should never be
+// dependent upon. We need to remove it in the future.
 type UnitSettings struct {
 	Version  int64
 	Settings map[string]interface{}
@@ -90,6 +92,8 @@ type Unit struct {
 	doc unitDoc
 	annotator
 }
+
+var _ AgentEntity = (*Unit)(nil)
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
@@ -476,12 +480,12 @@ func (u *Unit) Status() (status params.Status, info string, err error) {
 
 // SetStatus sets the status of the unit.
 func (u *Unit) SetStatus(status params.Status, info string) error {
-	if status == params.StatusError && info == "" {
-		panic("unit error status with no info")
-	}
 	doc := statusDoc{
 		Status:     status,
 		StatusInfo: info,
+	}
+	if err := doc.validateSet(); err != nil {
+		return err
 	}
 	ops := []txn.Op{{
 		C:      u.st.units.Name,
