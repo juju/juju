@@ -128,6 +128,19 @@ func (*storageSuite) TestList(c *C) {
 	c.Check(names, DeepEquals, []string{"prefix-1", "prefix-2"})
 }
 
+func (*storageSuite) TestListWithNonexistentContainerReturnsNoFiles(c *C) {
+	// If Azure returns a 404 it means the container doesn't exist. In this
+	// case the provider should interpret this as "no files" and return nil.
+	container := "container"
+	response := makeResponse("", http.StatusNotFound)
+	azStorage, transport := makeFakeStorage(container, "account")
+	transport.AddExchange(response, nil)
+
+	names, err := azStorage.List("prefix")
+	c.Assert(err, IsNil)
+	c.Assert(names, IsNil)
+}
+
 func (*storageSuite) TestGet(c *C) {
 	blobContent := "test blob"
 	container := "container"
