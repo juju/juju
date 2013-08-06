@@ -43,7 +43,7 @@ environments:
 `
 
 // An existing environments.yaml will not be overwritten without
-// the explicit -w option.
+// the explicit -f option.
 func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
@@ -59,13 +59,13 @@ func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *C) {
 	c.Assert(string(data), Equals, existingEnv)
 }
 
-// An existing environments.yaml will be overwritten when -w is
+// An existing environments.yaml will be overwritten when -f is
 // given explicitly.
 func (*InitSuite) TestExistingEnvironmentOverwritten(c *C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	ctx := testing.Context(c)
-	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
+	code := cmd.Main(&InitCommand{}, ctx, []string{"-f"})
 	c.Check(code, Equals, 0)
 	stdOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(stdOut, "\n", "", -1)
