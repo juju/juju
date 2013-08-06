@@ -108,12 +108,12 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 // is here as a placeholder, but also as an injection point for tests.
 var baseURLs = []string{imagemetadata.DefaultBaseURL}
 
-// getEndpoint returns the endpoint to use for the given Azure location
-// (e.g. West Europe or China North).
-func getEndpoint(location string) (string, error) {
-	// TODO: Get actual proper endpoint information from Simplestreams, or
-	// at the very least, support the separate endpoint for China.
-	return "https://management.core.windows.net/", nil
+// getEndpoint returns the simplestreams endpoint to use for the given Azure
+// location (e.g. West Europe or China North).
+func getEndpoint(location string) string {
+	// Simplestreams uses the management-API endpoint for the image, not
+	// the base managent API URL.
+	return gwacl.GetEndpoint(location).ManagementAPI()
 }
 
 // As long as this code only supports the default simplestreams
@@ -133,10 +133,7 @@ var fetchImageMetadata = imagemetadata.Fetch
 //
 // If it finds no matching images, that's an error.
 func findMatchingImages(location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
-	endpoint, err := getEndpoint(location)
-	if err != nil {
-		return nil, err
-	}
+	endpoint := getEndpoint(location)
 	constraint := imagemetadata.ImageConstraint{
 		CloudSpec: imagemetadata.CloudSpec{location, endpoint},
 		Series:    series,
