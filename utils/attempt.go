@@ -38,6 +38,8 @@ func (s AttemptStrategy) Start() *Attempt {
 
 // Next waits until it is time to perform the next attempt or returns
 // false if it is time to stop trying.
+// It always returns true the first time it is called - we are guaranteed to
+// make at least one attempt.
 func (a *Attempt) Next() bool {
 	now := time.Now()
 	sleep := a.nextSleep(now)

@@ -5,6 +5,8 @@ package testing
 
 import (
 	"time"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // ShortWait is a reasonable amount of time to block waiting for something that
@@ -18,3 +20,8 @@ const ShortWait = 50 * time.Millisecond
 // so that we don't have spurious failures without actually slowing down the
 // test suite
 const LongWait = 10 * time.Second
+
+var LongAttempt = &utils.AttemptStrategy{
+	Total: LongWait,
+	Delay: ShortWait,
+}

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/worker"
@@ -80,7 +81,6 @@ func isUpgraded(err error) bool {
 
 type Agent interface {
 	Entity(st *state.State) (AgentState, error)
-	APIEntity(st *api.State) (AgentAPIState, error)
 	Tag() string
 }
 
@@ -92,11 +92,6 @@ type AgentState interface {
 	Tag() string
 	SetMongoPassword(password string) error
 	Life() state.Life
-}
-
-type AgentAPIState interface {
-	Life() params.Life
-	SetPassword(password string) error
 }
 
 type fatalError struct {
@@ -145,7 +140,7 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 	return st, entity, nil
 }
 
-func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
+func openAPIState(c *agent.Conf, a Agent) (*api.State, *apiagent.Entity, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
@@ -155,7 +150,7 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, AgentAPIState, error) {
 	if err != nil {
 		return nil, nil, err
 	}
-	entity, err := a.APIEntity(st)
+	entity, err := st.Agent().Entity(a.Tag())
 	if params.ErrCode(err) == params.CodeNotFound || err == nil && entity.Life() == params.Dead {
 		err = worker.ErrTerminateAgent
 	}

@@ -100,7 +100,7 @@ func (a *annotator) insertOps(toInsert map[string]string) ([]txn.Op, error) {
 	// If the entity is not the environment, add a DocExists check on the
 	// entity document, in order to avoid possible races between entity
 	// removal and annotation creation.
-	coll, id, err := a.st.ParseTag(tag)
+	coll, id, err := a.st.parseTag(tag)
 	if err != nil {
 		return nil, err
 	}
