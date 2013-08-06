@@ -1298,9 +1298,10 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 }
 
 type entity interface {
-	lifer
-	state.TaggedAuthenticator
-	SetMongoPassword(password string) error
+	state.Entity
+	state.Lifer
+	state.Authenticator
+	state.MongoPassworder
 }
 
 func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {

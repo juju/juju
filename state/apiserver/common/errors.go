@@ -5,10 +5,25 @@ package common
 
 import (
 	stderrors "errors"
+	"fmt"
+
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
+
+type notSupportedError struct {
+	entity string
+	operation string
+}
+
+func (e *notSupportedError) Error() string {
+	return fmt.Sprintf("entity %q does not support %s", e.entity, e.operation)
+}
+
+func NotSupportedError(entity, operation string) error {
+	return &notSupportedError{entity, operation}
+}
 
 var (
 	ErrBadId          = stderrors.New("id not found")

@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -19,22 +18,8 @@ type statusSetterSuite struct{}
 
 var _ = gc.Suite(&statusSetterSuite{})
 
-type fakeStatusSetterState struct {
-	entities map[string]*fakeStatusSetter
-}
-
-func (st *fakeStatusSetterState) StatusSetter(tag string) (state.StatusSetter, error) {
-	if statusSetter, ok := st.entities[tag]; ok {
-		if statusSetter.err != nil {
-			return nil, statusSetter.err
-		}
-		return statusSetter, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
 type fakeStatusSetter struct {
-	tag    string
+	state.Entity
 	status params.Status
 	info   string
 	err    error
@@ -47,12 +32,12 @@ func (r *fakeStatusSetter) SetStatus(status params.Status, info string) error {
 }
 
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
-	st := &fakeStatusSetterState{
-		entities: map[string]*fakeStatusSetter{
-			"x0": {status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
-			"x1": {status: params.StatusStarted, info: "foo"},
-			"x2": {status: params.StatusError, info: "some info"},
-			"x3": {status: params.StatusStopped, info: ""},
+	st := &fakeState{
+		entities: map[string]state.Entity{
+			"x0": &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
+			"x1": &fakeStatusSetter{status: params.StatusStarted, info: "foo"},
+			"x2": &fakeStatusSetter{status: params.StatusError, info: "some info"},
+			"x3": &fakeStatusSetter{status: params.StatusStopped, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -85,10 +70,13 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 		},
 	})
-	c.Assert(st.entities["x1"].status, gc.Equals, params.StatusStopped)
-	c.Assert(st.entities["x1"].info, gc.Equals, "")
-	c.Assert(st.entities["x2"].status, gc.Equals, params.StatusPending)
-	c.Assert(st.entities["x2"].info, gc.Equals, "not really")
+	get := func(tag string) *fakeStatusSetter {
+		return st.entities[tag].(*fakeStatusSetter)
+	}
+	c.Assert(get("x1").status, gc.Equals, params.StatusStopped)
+	c.Assert(get("x1").info, gc.Equals, "")
+	c.Assert(get("x2").status, gc.Equals, params.StatusPending)
+	c.Assert(get("x2").info, gc.Equals, "not really")
 
 	// Test compatibility with v1.12.
 	// Remove the rest of this test once it's deprecated.
@@ -112,7 +100,7 @@ func (*statusSetterSuite) TestSetStatusError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := common.NewStatusSetter(&fakeStatusSetterState{}, getCanModify)
+	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	args := params.SetStatus{
 		Entities: []params.SetEntityStatus{{"x0", "", ""}},
 	}
@@ -124,7 +112,7 @@ func (*statusSetterSuite) TestSetStatusNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	s := common.NewStatusSetter(&fakeStatusSetterState{}, getCanModify)
+	s := common.NewStatusSetter(&fakeState{}, getCanModify)
 	result, err := s.SetStatus(params.SetStatus{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)

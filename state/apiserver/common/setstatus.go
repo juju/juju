@@ -11,22 +11,14 @@ import (
 // StatusSetter implements a common SetStatus method for use by
 // various facades.
 type StatusSetter struct {
-	st           StatusSetterer
+	st           state.EntityFinder
 	getCanModify GetAuthFunc
-}
-
-type StatusSetterer interface {
-	// state.State implements StatusSetter to provide ways for us to
-	// call object.SetStatus (for machines, units, etc). This is used
-	// to allow us to test with mocks without having to actually bring
-	// up state.
-	StatusSetter(tag string) (state.StatusSetter, error)
 }
 
 // NewStatusSetter returns a new StatusSetter. The GetAuthFunc will be
 // used on each invocation of SetStatus to determine current
 // permissions.
-func NewStatusSetter(st StatusSetterer, getCanModify GetAuthFunc) *StatusSetter {
+func NewStatusSetter(st state.EntityFinder, getCanModify GetAuthFunc) *StatusSetter {
 	return &StatusSetter{
 		st:           st,
 		getCanModify: getCanModify,
@@ -34,11 +26,15 @@ func NewStatusSetter(st StatusSetterer, getCanModify GetAuthFunc) *StatusSetter 
 }
 
 func (s *StatusSetter) setEntityStatus(tag string, status params.Status, info string) error {
-	statusSetter, err := s.st.StatusSetter(tag)
+	entity0, err := s.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
-	return statusSetter.SetStatus(status, info)
+	entity, ok := entity0.(state.StatusSetter)
+	if !ok {
+		return NotSupportedError(tag, "setting status")
+	}
+	return entity.SetStatus(status, info)
 }
 
 // SetStatus sets the status of each given entity.

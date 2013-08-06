@@ -12,35 +12,34 @@ import (
 
 // Remover implements a common Remove method for use by various facades.
 type Remover struct {
-	st           Removerer
+	st           state.EntityFinder
 	getCanModify GetAuthFunc
-}
-
-type Removerer interface {
-	// state.State implements Remover to provide ways for us to call
-	// object.Remove (for machines, units, etc). This is used to allow
-	// us to test with mocks without having to actually bring up
-	// state.
-	Remover(tag string) (state.Remover, error)
 }
 
 // NewRemover returns a new Remover. The GetAuthFunc will be used on
 // each invocation of Remove to determine current permissions.
-func NewRemover(st Removerer, getCanModify GetAuthFunc) *Remover {
+func NewRemover(st state.EntityFinder, getCanModify GetAuthFunc) *Remover {
 	return &Remover{
 		st:           st,
 		getCanModify: getCanModify,
 	}
 }
 
-func (r *Remover) removeEntity(entity params.Entity) (err error) {
-	var remover state.Remover
-	if remover, err = r.st.Remover(entity.Tag); err != nil {
+func (r *Remover) removeEntity(entityp params.Entity) error {
+	entity, err := r.st.FindEntity(entityp.Tag)
+	if err != nil {
 		return err
+	}
+	remover, ok := entity.(interface{
+		state.Lifer
+		state.Remover
+	})
+	if !ok {
+		return NotSupportedError(entityp.Tag, "removal")
 	}
 	// Only remove entites that are not Alive.
 	if life := remover.Life(); life == state.Alive {
-		return fmt.Errorf("cannot remove entity %q: still alive", entity.Tag)
+		return fmt.Errorf("cannot remove entity %q: still alive", entityp.Tag)
 	}
 	if err = remover.EnsureDead(); err != nil {
 		return err

@@ -4,8 +4,17 @@
 package state
 
 import (
+	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/agent/tools"
 )
+
+// EntityFinder is implemented by *State. See State.FindEntity
+// for documentation on the method.
+type EntityFinder interface {
+	FindEntity(tag string) (Entity, error)
+}
+
+var _ EntityFinder = (*State)(nil)
 
 // Entity represents any entity that can be returned
 // by State.FindEntity. All entities have a tag.
@@ -13,19 +22,34 @@ type Entity interface {
 	Tag() string
 }
 
-// AgentEntity represents an entity that can
-// have an agent responsible for it.
-type AgentEntity interface {
-	Lifer
-	Authenticator
-	MongoPassworder
-	AgentTooler
+var (
+	_ Entity = (*Machine)(nil)
+	_ Entity = (*Unit)(nil)
+	_ Entity = (*Service)(nil)
+	_ Entity = (*Environment)(nil)
+	_ Entity = (*User)(nil)
+)
+
+type StatusSetter interface {
+	SetStatus(status params.Status, info string) error
 }
+
+var (
+	_ StatusSetter = (*Machine)(nil)
+	_ StatusSetter = (*Unit)(nil)
+)
 
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Life() Life
 }
+
+var (
+	_ Lifer = (*Machine)(nil)
+	_ Lifer = (*Unit)(nil)
+	_ Lifer = (*Service)(nil)
+	_ Lifer = (*Relation)(nil)
+)
 
 // AgentTooler is implemented by entities
 // that have associated agent tools.
@@ -40,6 +64,11 @@ type Remover interface {
 	Remove() error
 }
 
+var (
+	_ Remover = (*Machine)(nil)
+	_ Remover = (*Unit)(nil)
+)
+
 // Authenticator represents entites capable of handling password
 // authentication.
 type Authenticator interface {
@@ -48,17 +77,22 @@ type Authenticator interface {
 	PasswordValid(pass string) bool
 }
 
+var (
+	_ Authenticator = (*Machine)(nil)
+	_ Authenticator = (*Unit)(nil)
+	_ Authenticator = (*User)(nil)
+)
+
 // MongoPassworder represents an entity that can
 // have a mongo password set for it.
 type MongoPassworder interface {
 	SetMongoPassword(password string) error
 }
 
-// TaggedAuthenticator represents tagged entities capable of authentication.
-type TaggedAuthenticator interface {
-	Authenticator
-	Entity
-}
+var (
+	_ MongoPassworder = (*Machine)(nil)
+	_ MongoPassworder = (*Unit)(nil)
+)
 
 // Annotator represents entities capable of handling annotations.
 type Annotator interface {
@@ -67,8 +101,24 @@ type Annotator interface {
 	SetAnnotations(pairs map[string]string) error
 }
 
-// TaggedAnnotator represents tagged entities capable of handling annotations.
-type TaggedAnnotator interface {
-	Annotator
-	Entity
+var (
+	_ Annotator = (*Machine)(nil)
+	_ Annotator = (*Unit)(nil)
+	_ Annotator = (*Service)(nil)
+	_ Annotator = (*Environment)(nil)
+)
+
+// AgentEntity represents an entity that can
+// have an agent responsible for it.
+type AgentEntity interface {
+	Lifer
+	Authenticator
+	MongoPassworder
+	AgentTooler
+	StatusSetter
 }
+
+var (
+	_ AgentEntity = (*Machine)(nil)
+	_ AgentEntity = (*Unit)(nil)
+)

@@ -511,7 +511,7 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 	case names.UserTagKind:
 		coll = st.users.Name
 	default:
-		return "", "", fmt.Errorf("invalid entity name %q", tag)
+		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
 	return coll, id, nil
 }

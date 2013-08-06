@@ -24,11 +24,11 @@ func TestAll(t *stdtesting.T) {
 
 var _ = gc.Suite(&passwordSuite{})
 
-type fakeAuthState struct {
-	entities map[string]state.TaggedAuthenticator
+type fakeState struct {
+	entities map[string]state.Entity
 }
 
-func (st *fakeAuthState) Authenticator(tag string) (state.TaggedAuthenticator, error) {
+func (st *fakeState) FindEntity(tag string) (state.Entity, error) {
 	if auth, ok := st.entities[tag]; ok {
 		return auth, nil
 	}
@@ -38,7 +38,8 @@ func (st *fakeAuthState) Authenticator(tag string) (state.TaggedAuthenticator, e
 type fakeAuthenticator struct {
 	// Any Authenticator methods we don't implement on fakeAuthenticator
 	// will fall back to this and panic because it's always nil.
-	state.TaggedAuthenticator
+	state.Authenticator
+	state.Entity
 	err  error
 	pass string
 }
@@ -65,8 +66,8 @@ func (a *fakeAuthenticatorWithMongoPass) SetMongoPassword(pass string) error {
 }
 
 func (*passwordSuite) TestSetPasswords(c *gc.C) {
-	st := &fakeAuthState{
-		entities: map[string]state.TaggedAuthenticator{
+	st := &fakeState{
+		entities: map[string]state.Entity{
 			"x0": &fakeAuthenticator{},
 			"x1": &fakeAuthenticator{},
 			"x2": &fakeAuthenticator{
@@ -112,7 +113,7 @@ func (*passwordSuite) TestSetPasswordsError(c *gc.C) {
 	getCanChange := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
-	pc := common.NewPasswordChanger(&fakeAuthState{}, getCanChange)
+	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
 	var changes []params.PasswordChange
 	for i := 0; i < 4; i++ {
 		tag := fmt.Sprintf("x%d", i)
@@ -129,7 +130,7 @@ func (*passwordSuite) TestSetPasswordsNoArgsNoError(c *gc.C) {
 	getCanChange := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("splat")
 	}
-	pc := common.NewPasswordChanger(&fakeAuthState{}, getCanChange)
+	pc := common.NewPasswordChanger(&fakeState{}, getCanChange)
 	result, err := pc.SetPasswords(params.PasswordChanges{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
