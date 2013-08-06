@@ -10,7 +10,7 @@ func EnvironTag(name string) string {
 	return makeTag(EnvironTagKind, name)
 }
 
-// IsMachine returns whether id is a valid environment id.
+// IsEnvironment returns whether id is a valid environment id.
 // TODO(rog) stricter constraints
 func IsEnvironment(name string) bool {
 	return !strings.Contains(name, "/")

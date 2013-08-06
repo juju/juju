@@ -15,29 +15,6 @@ type unitSuite struct{}
 
 var _ = gc.Suite(&unitSuite{})
 
-func (s *unitSuite) TestUnitFromTag(c *gc.C) {
-	// Try both valid and invalid tag formats.
-	kind, tag, err := names.ParseTag("unit-wordpress-0", names.UnitTagKind)
-	c.Assert(err, gc.IsNil)
-	c.Assert(kind, gc.Equals, names.UnitTagKind)
-	c.Assert(tag, gc.Equals, "wordpress/0")
-
-	kind, tag, err = names.ParseTag("unit-rabbitmq-server-0", names.UnitTagKind)
-	c.Assert(err, gc.IsNil)
-	c.Assert(kind, gc.Equals, names.UnitTagKind)
-	c.Assert(tag, gc.Equals, "rabbitmq-server/0")
-
-	kind, tag, err = names.ParseTag("foo", names.UnitTagKind)
-	c.Assert(err, gc.ErrorMatches, `"foo" is not a valid unit tag`)
-	c.Assert(kind, gc.Equals, "")
-	c.Assert(tag, gc.Equals, "")
-
-	kind, tag, err = names.ParseTag("unit-#", names.UnitTagKind)
-	c.Assert(err, gc.ErrorMatches, `"unit-#" is not a valid unit tag`)
-	c.Assert(kind, gc.Equals, "")
-	c.Assert(tag, gc.Equals, "")
-}
-
 func (s *unitSuite) TestUnitTag(c *gc.C) {
 	c.Assert(names.UnitTag("wordpress/2"), gc.Equals, "unit-wordpress-2")
 }

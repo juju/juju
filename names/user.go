@@ -5,7 +5,7 @@ package names
 
 import "strings"
 
-// IsMachine returns whether id is a valid user id.
+// IsUser returns whether id is a valid user id.
 // TODO(rog) stricter constraints
 func IsUser(name string) bool {
 	return !strings.Contains(name, "/")
