@@ -27,8 +27,8 @@ func (c *InitCommand) Info() *cmd.Info {
 }
 
 func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
-	f.BoolVar(&c.WriteFile, "f", false, "overwrite existing environments.yaml file.")
-	f.BoolVar(&c.ShowFile, "show", false, "show the existing environments.yaml file.")
+	f.BoolVar(&c.WriteFile, "f", false, "force overwriting environments.yaml file even if it exists (ignored if --show flag specified)")
+	f.BoolVar(&c.ShowFile, "show", false, "print the generated configuration data to stdout instead of writing it to a file")
 }
 
 var errJujuEnvExists = fmt.Errorf(`A juju environment configuration already exists.
@@ -41,6 +41,10 @@ Use -f to overwrite the existing environments.yaml.
 func (c *InitCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 	config := environs.BoilerplateConfig()
+	if c.ShowFile {
+		fmt.Fprint(out, config)
+		return nil
+	}
 	_, err := environs.ReadEnvirons("")
 	if err == nil && !c.WriteFile {
 		return errJujuEnvExists
@@ -52,13 +56,7 @@ func (c *InitCommand) Run(context *cmd.Context) error {
 	if err != nil {
 		return fmt.Errorf("A boilerplate environment configuration file could not be created: %s", err.Error())
 	}
-
-	if c.ShowFile {
-		fmt.Fprint(out, config)
-		fmt.Fprintf(out, "\nThis boilerplate environment configuration file has been written to %s.\n", filename)
-	} else {
-		fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
-	}
+	fmt.Fprintf(out, "A boilerplate environment configuration file has been written to %s.\n", filename)
 	fmt.Fprint(out, "Edit the file to configure your juju environment and run bootstrap.\n")
 	return nil
 }
