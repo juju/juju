@@ -828,7 +828,8 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	}
 	// After this point, if we need to leave prematurely, we should clean
 	// up that certificate file.
-	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	location := snap.ecfg.location()
+	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path(), location)
 	if err != nil {
 		certFile.Delete()
 		return nil, err
@@ -915,8 +916,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 		}
 	}
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.storageAccountName(),
-		Key:     key,
+		Account:       snap.ecfg.storageAccountName(),
+		Key:           key,
+		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
 	}
 	return &context, nil
 }
@@ -926,8 +928,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.publicStorageAccountName(),
-		Key:     "", // Empty string means anonymous access.
+		Account:       ecfg.publicStorageAccountName(),
+		Key:           "", // Empty string means anonymous access.
+		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -939,15 +942,6 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	// Hard-coded to the central Simplestreams database for now.
 	return []string{imagemetadata.DefaultBaseURL}, nil
-}
-
-// getEndpoint returns the endpoint (as defined in Simplestreams) for the
-// given Azure region.
-func (env *azureEnviron) getEndpoint(region string) (string, error) {
-	// Hard-coded for now, but actually China has a different endpoint.
-	// TODO: Extract information from simplestreams, or hard-code the
-	// Chinese ones as well.
-	return "https://management.core.windows.net/", nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which
