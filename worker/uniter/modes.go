@@ -26,7 +26,7 @@ type Mode func(u *Uniter) (Mode, error)
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
-	log.Infof("updating unit addresses")
+	logger.Infof("updating unit addresses")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -45,7 +45,7 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
 		return nil, err
 	}
-	log.Infof("reconciling relation state")
+	logger.Infof("reconciling relation state")
 	if err := u.restoreRelations(); err != nil {
 		return nil, err
 	}
@@ -58,10 +58,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	// If we haven't yet loaded state, do so.
 	if u.s == nil {
-		log.Infof("loading uniter state")
+		logger.Infof("loading uniter state")
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
-			log.Infof("charm is not deployed")
+			logger.Infof("charm is not deployed")
 			curl, _ := u.service.CharmURL()
 			return ModeInstalling(curl), nil
 		} else if err != nil {
@@ -72,7 +72,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// Filter out states not related to charm deployment.
 	switch u.s.Op {
 	case Continue:
-		log.Infof("continuing after %q hook", u.s.Hook.Kind)
+		logger.Infof("continuing after %q hook", u.s.Hook.Kind)
 		switch u.s.Hook.Kind {
 		case hooks.Stop:
 			return ModeTerminating, nil
@@ -89,30 +89,30 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		return ModeAbide, nil
 	case RunHook:
 		if u.s.OpStep == Queued {
-			log.Infof("found queued %q hook", u.s.Hook.Kind)
+			logger.Infof("found queued %q hook", u.s.Hook.Kind)
 			if err = u.runHook(*u.s.Hook); err != nil && err != errHookFailed {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
 		if u.s.OpStep == Done {
-			log.Infof("found uncommitted %q hook", u.s.Hook.Kind)
+			logger.Infof("found uncommitted %q hook", u.s.Hook.Kind)
 			if err = u.commitHook(*u.s.Hook); err != nil {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		log.Infof("awaiting error resolution for %q hook", u.s.Hook.Kind)
+		logger.Infof("awaiting error resolution for %q hook", u.s.Hook.Kind)
 		return ModeHookError, nil
 	}
 
 	// Resume interrupted deployment operations.
 	curl := u.s.CharmURL
 	if u.s.Op == Install {
-		log.Infof("resuming charm install")
+		logger.Infof("resuming charm install")
 		return ModeInstalling(curl), nil
 	} else if u.s.Op == Upgrade {
-		log.Infof("resuming charm upgrade")
+		logger.Infof("resuming charm upgrade")
 		return ModeUpgrading(curl), nil
 	}
 	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Op))
@@ -401,9 +401,9 @@ func ModeConflicted(curl *charm.URL) Mode {
 // modeContext returns a function that implements logging and common error
 // manipulation for Mode funcs.
 func modeContext(name string, err *error) func() {
-	log.Infof("%s starting", name)
+	logger.Infof("%s starting", name)
 	return func() {
-		log.Debugf("%s exiting", name)
+		logger.Debugf("%s exiting", name)
 		switch *err {
 		case nil, tomb.ErrDying, worker.ErrTerminateAgent:
 		default:
