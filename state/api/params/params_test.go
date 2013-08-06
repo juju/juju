@@ -53,9 +53,10 @@ var marshalTestCases = []struct {
 				"hello": "goodbye",
 				"foo":   false,
 			},
+			MinUnits: 42,
 		},
 	},
-	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false}}]`,
+	json: `["service","change",{"CharmURL": "cs:series/name","Name":"Benji","Exposed":true,"Life":"dying","Constraints":{"arch":"arm", "mem": 1024},"Config": {"hello":"goodbye","foo":false},"MinUnits":42}]`,
 }, {
 	about: "UnitInfo Delta",
 	value: params.Delta{
