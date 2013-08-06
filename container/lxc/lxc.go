@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 
 	"launchpad.net/golxc"
@@ -22,6 +23,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 )
 
 var logger = loggo.GetLogger("juju.container.lxc")
@@ -33,6 +35,7 @@ var (
 	lxcContainerDir     = "/var/lib/lxc"
 	lxcRestartDir       = "/etc/lxc/auto"
 	lxcObjectFactory    = golxc.Factory()
+	aptHTTPProxyRE      = regexp.MustCompile(`(?i)^Acquire::HTTP::Proxy\s+"([^"]+)";$`)
 )
 
 const (
@@ -340,9 +343,36 @@ func cloudInitUserData(
 	if err != nil {
 		return nil, err
 	}
+
+	// Run apt-config to fetch proxy settings from host. If no proxy
+	// settings are configured, then we don't set up any proxy information
+	// on the container.
+	proxyConfig, err := utils.AptConfigProxy()
+	if err != nil {
+		return nil, err
+	}
+	if proxyConfig != "" {
+		var proxyLines []string
+		for _, line := range strings.Split(proxyConfig, "\n") {
+			line = strings.TrimSpace(line)
+			if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
+				cloudConfig.SetAptProxy(m[1])
+			} else {
+				proxyLines = append(proxyLines, line)
+			}
+		}
+		if len(proxyLines) > 0 {
+			cloudConfig.AddFile(
+				"/etc/apt/apt.conf.d/99proxy-extra",
+				strings.Join(proxyLines, "\n"),
+				0644)
+		}
+	}
+
 	// Run ifconfig to get the addresses of the internal container at least
 	// logged in the host.
 	cloudConfig.AddRunCmd("ifconfig")
+
 	data, err := cloudConfig.Render()
 	if err != nil {
 		return nil, err

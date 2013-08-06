@@ -59,7 +59,6 @@ func makeAzureConfigMap(c *C) map[string]interface{} {
 		"management-subscription-id":    "subscription-id",
 		"management-certificate":        testCert,
 		"storage-account-name":          "account-name",
-		"storage-account-key":           "YWNjb3VudC1rZXkK",
 		"public-storage-account-name":   "public-account-name",
 		"public-storage-container-name": "public-container-name",
 	}
@@ -117,7 +116,6 @@ func (*configSuite) TestValidateParsesAzureConfig(c *C) {
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
 	storageAccountName := "account-name"
-	storageAccountKey := "account-key"
 	publicStorageAccountName := "public-account-name"
 	publicStorageContainerName := "public-container-name"
 	forceImageName := "force-image-name"
@@ -127,7 +125,6 @@ func (*configSuite) TestValidateParsesAzureConfig(c *C) {
 		"management-subscription-id":    managementSubscriptionId,
 		"management-certificate":        certificate,
 		"storage-account-name":          storageAccountName,
-		"storage-account-key":           storageAccountKey,
 		"public-storage-account-name":   publicStorageAccountName,
 		"public-storage-container-name": publicStorageContainerName,
 		"force-image-name":              forceImageName,
@@ -144,7 +141,6 @@ func (*configSuite) TestValidateParsesAzureConfig(c *C) {
 	c.Check(azConfig.managementSubscriptionId(), Equals, managementSubscriptionId)
 	c.Check(azConfig.managementCertificate(), Equals, certificate)
 	c.Check(azConfig.storageAccountName(), Equals, storageAccountName)
-	c.Check(azConfig.storageAccountKey(), Equals, storageAccountKey)
 	c.Check(azConfig.publicStorageAccountName(), Equals, publicStorageAccountName)
 	c.Check(azConfig.publicStorageContainerName(), Equals, publicStorageContainerName)
 	c.Check(azConfig.forceImageName(), Equals, forceImageName)
@@ -217,8 +213,6 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *C) {
 	attrs := makeAzureConfigMap(c)
 	certificate := "certificate"
 	attrs["management-certificate"] = certificate
-	storageAccountKey := "key"
-	attrs["storage-account-key"] = storageAccountKey
 	config, err := config.New(attrs)
 	c.Assert(err, IsNil)
 
@@ -228,7 +222,6 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *C) {
 
 	expectedAttrs := map[string]interface{}{
 		"management-certificate": certificate,
-		"storage-account-key":    storageAccountKey,
 	}
 	c.Check(secretAttrs, DeepEquals, expectedAttrs)
 }

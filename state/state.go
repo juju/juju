@@ -478,6 +478,11 @@ type AgentEntity interface {
 	AgentTooler
 }
 
+// StatusSetter represents an entity that can have its status changed.
+type StatusSetter interface {
+	SetStatus(params.Status, string) error
+}
+
 // Lifer represents an entity with a life.
 type Lifer interface {
 	Tagger
@@ -491,11 +496,21 @@ type AgentTooler interface {
 	SetAgentTools(*tools.Tools) error
 }
 
-// Remover represents entities with lifecycles, EnsureDead and Remove methods.
-type Remover interface {
+// DeadEnsurer represents entities with lifecycles and an EnsureDead method.
+type DeadEnsurer interface {
 	Lifer
 	EnsureDead() error
+}
+
+// Remover represents entities with lifecycles, EnsureDead and Remove methods.
+type Remover interface {
+	DeadEnsurer
 	Remove() error
+}
+
+// AgentEntityWatcher represents entities with a Watch method.
+type AgentEntityWatcher interface {
+	Watch() NotifyWatcher
 }
 
 // Authenticator represents entites capable of handling password
@@ -557,6 +572,20 @@ func (st *State) AgentEntity(tag string) (AgentEntity, error) {
 	return nil, fmt.Errorf("%q does not support agent operations", tag)
 }
 
+// StatusSetter returns a StatusSetter with the given tag.
+// It is an error if the tag refers to an entity which does not
+// implement StatusSetter.
+func (st *State) StatusSetter(tag string) (StatusSetter, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(StatusSetter); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("%q does not support setting status", tag)
+}
+
 // Annotator attempts to return the TaggedAnnotator with the given tag.
 // It is an error if the tag refers to an entity which does
 // not implement TaggedAnnotator.
@@ -585,6 +614,20 @@ func (st *State) Lifer(tag string) (Lifer, error) {
 	return nil, fmt.Errorf("entity %q does not support lifecycles", tag)
 }
 
+// DeadEnsurer attempts to return a DeadEnsurer with the given tag.
+// It is an error if the tag refers to an entity which does not
+// implement DeadEnsurer.
+func (st *State) DeadEnsurer(tag string) (DeadEnsurer, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(DeadEnsurer); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support EnsureDead", tag)
+}
+
 // Remover attempts to return a Remover with the given tag.
 // It is an error if the tag refers to an entity which does
 // not implement Remover.
@@ -597,6 +640,20 @@ func (st *State) Remover(tag string) (Remover, error) {
 		return e, nil
 	}
 	return nil, fmt.Errorf("entity %q does not support removal", tag)
+}
+
+// AgentEntityWatcher attempts to return an AgentEntityWatcher with
+// the given tag. It is an error if the tag refers to an entity which
+// does not implement AgentEntityWatcher.
+func (st *State) AgentEntityWatcher(tag string) (AgentEntityWatcher, error) {
+	e, err := st.entity(tag)
+	if err != nil {
+		return nil, err
+	}
+	if e, ok := e.(AgentEntityWatcher); ok {
+		return e, nil
+	}
+	return nil, fmt.Errorf("entity %q does not support watching", tag)
 }
 
 // entity returns the entity for the given tag.

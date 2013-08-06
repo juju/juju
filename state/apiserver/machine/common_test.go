@@ -3,7 +3,7 @@ package machine_test
 import (
 	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -24,15 +24,15 @@ type commonSuite struct {
 	machine1 *state.Machine
 }
 
-func (s *commonSuite) SetUpTest(c *C) {
+func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	var err error
 	s.machine0, err = s.State.AddMachine("series", state.JobManageEnviron, state.JobManageState)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming machine 1 has logged in.
