@@ -121,7 +121,7 @@ var makeTag = map[string]func(id string) string{
 
 func (*tagSuite) TestParseTag(c *gc.C) {
 	for i, test := range parseTagTests {
-		c.Logf("test %d. %q expectKind %q", i, test.tag, test.expectKind)
+		c.Logf("test %d: %q expectKind %q", i, test.tag, test.expectKind)
 		kind, id, err := names.ParseTag(test.tag, test.expectKind)
 		if test.resultErr != "" {
 			c.Assert(err, gc.ErrorMatches, test.resultErr)
