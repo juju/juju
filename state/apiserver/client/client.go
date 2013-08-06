@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -172,7 +171,6 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 // minimum number of units, settings and constraints.
 // All parameters in params.ServiceUpdate except the service name are optional.
 func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
-	log.Infof("-------> ServiceUpdate args: %#v", args)
 	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err

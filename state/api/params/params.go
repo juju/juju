@@ -73,7 +73,7 @@ type ServiceUpdate struct {
 	ForceCharmUrl   bool
 	MinUnits        *int
 	SettingsStrings map[string]string
-	SettingsYAML    string // Takes precedence over SettingsMap if both are present.
+	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
 	Constraints     *constraints.Value
 }
 
