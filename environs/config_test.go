@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -83,6 +84,15 @@ func (suite) TestInvalidEnv(c *C) {
 		e, err := es.Open(t.name)
 		c.Check(err, ErrorMatches, t.err)
 		c.Check(e, IsNil)
+	}
+}
+
+func (suite) TestNoEnv(c *C) {
+	defer testing.MakeFakeHomeNoEnvironments(c).Restore()
+	es, err := environs.ReadEnvirons("")
+	c.Assert(es, IsNil)
+	if !errors.IsNoEnv(err) {
+		c.Errorf("Error from no-juju environment is not a errors.NoEnvError, instead is a %T", err)
 	}
 }
 
