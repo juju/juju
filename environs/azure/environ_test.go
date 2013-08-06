@@ -276,6 +276,7 @@ func (*environSuite) TestGetStorageContextCreatesStorageContext(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(storage, NotNil)
 	c.Check(storage.Account, Equals, env.ecfg.storageAccountName())
+	c.Check(storage.AzureEndpoint, Equals, gwacl.GetEndpoint(env.ecfg.location()))
 }
 
 func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *C) {
@@ -544,7 +545,7 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
@@ -567,7 +568,7 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(makeNonAvailabilityResponse(c), http.StatusOK, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
@@ -581,7 +582,7 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
@@ -598,7 +599,7 @@ func (*environSuite) TestNewHostedServiceCreatesService(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := newHostedService(azure, prefix, affinityGroup, location)
@@ -624,7 +625,7 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := newHostedService(azure, "service", "affinity-group", "location")
@@ -665,7 +666,7 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil))
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	_, err = newHostedService(azure, "service", "affinity-group", "location")

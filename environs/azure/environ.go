@@ -828,7 +828,8 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	}
 	// After this point, if we need to leave prematurely, we should clean
 	// up that certificate file.
-	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	location := snap.ecfg.location()
+	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path(), location)
 	if err != nil {
 		certFile.Delete()
 		return nil, err
@@ -915,8 +916,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 		}
 	}
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.storageAccountName(),
-		Key:     key,
+		Account:       snap.ecfg.storageAccountName(),
+		Key:           key,
+		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
 	}
 	return &context, nil
 }
@@ -926,8 +928,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.publicStorageAccountName(),
-		Key:     "", // Empty string means anonymous access.
+		Account:       ecfg.publicStorageAccountName(),
+		Key:           "", // Empty string means anonymous access.
+		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
