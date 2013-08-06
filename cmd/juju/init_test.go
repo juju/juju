@@ -34,6 +34,24 @@ func (*InitSuite) TestBoilerPlateEnvironment(c *C) {
 	c.Assert(strippedData, Matches, ".*## This is the Juju config file, which you can use.*")
 }
 
+// The environments.yaml is created and additionally sent to stdout
+// with --show
+func (*InitSuite) TestBoilerPlatePrinted(c *C) {
+	defer testing.MakeEmptyFakeHome(c).Restore()
+	ctx := testing.Context(c)
+	code := cmd.Main(&InitCommand{}, ctx, []string{"--show"})
+	c.Check(code, Equals, 0)
+	outStr := ctx.Stdout.(*bytes.Buffer).String()
+	strippedOut := strings.Replace(outStr, "\n", "", -1)
+	c.Check(strippedOut, Matches, ".*## This is the Juju config file, which you can use.*")
+	c.Check(strippedOut, Matches, ".*This boilerplate environment configuration file has been written.*")
+	environpath := testing.HomePath(".juju", "environments.yaml")
+	data, err := ioutil.ReadFile(environpath)
+	c.Assert(err, IsNil)
+	strippedData := strings.Replace(string(data), "\n", "", -1)
+	c.Assert(strippedData, Matches, ".*## This is the Juju config file, which you can use.*")
+}
+
 const existingEnv = `
 environments:
     test:
