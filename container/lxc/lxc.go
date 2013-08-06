@@ -365,7 +365,7 @@ func cloudInitUserData(
 			cloudConfig.AddFile(
 				"/etc/apt/apt.conf.d/99proxy-extra",
 				strings.Join(proxyLines, "\n"),
-				0600)
+				0644)
 		}
 	}
 
