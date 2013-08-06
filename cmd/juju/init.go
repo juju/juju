@@ -15,7 +15,7 @@ import (
 type InitCommand struct {
 	cmd.CommandBase
 	WriteFile bool
-	ShowFile  bool
+	Show      bool
 }
 
 func (c *InitCommand) Info() *cmd.Info {
@@ -28,7 +28,7 @@ func (c *InitCommand) Info() *cmd.Info {
 
 func (c *InitCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.BoolVar(&c.WriteFile, "f", false, "force overwriting environments.yaml file even if it exists (ignored if --show flag specified)")
-	f.BoolVar(&c.ShowFile, "show", false, "print the generated configuration data to stdout instead of writing it to a file")
+	f.BoolVar(&c.Show, "show", false, "print the generated configuration data to stdout instead of writing it to a file")
 }
 
 var errJujuEnvExists = fmt.Errorf(`A juju environment configuration already exists.
@@ -41,7 +41,7 @@ Use -f to overwrite the existing environments.yaml.
 func (c *InitCommand) Run(context *cmd.Context) error {
 	out := context.Stdout
 	config := environs.BoilerplateConfig()
-	if c.ShowFile {
+	if c.Show {
 		fmt.Fprint(out, config)
 		return nil
 	}
