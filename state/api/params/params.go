@@ -338,9 +338,9 @@ type ServiceInfo struct {
 	Exposed     bool
 	CharmURL    string
 	Life        Life
+	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
-	MinUnits    int
 }
 
 func (i *ServiceInfo) EntityId() EntityId {
