@@ -4,8 +4,8 @@
 package state
 
 import (
-	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/state/api/params"
 )
 
 // EntityFinder is implemented by *State. See State.FindEntity

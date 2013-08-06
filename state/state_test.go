@@ -1387,10 +1387,10 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-var findEntityTests = []struct{
+var findEntityTests = []struct {
 	tag string
 	err string
-} {{
+}{{
 	tag: "",
 	err: `"" is not a valid tag`,
 }, {
@@ -1445,10 +1445,10 @@ var findEntityTests = []struct{
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind: (*state.User)(nil),
+	names.UserTagKind:    (*state.User)(nil),
 	names.EnvironTagKind: (*state.Environment)(nil),
 	names.ServiceTagKind: (*state.Service)(nil),
-	names.UnitTagKind: (*state.Unit)(nil),
+	names.UnitTagKind:    (*state.Unit)(nil),
 	names.MachineTagKind: (*state.Machine)(nil),
 }
 

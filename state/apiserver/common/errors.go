@@ -13,7 +13,7 @@ import (
 )
 
 type notSupportedError struct {
-	entity string
+	entity    string
 	operation string
 }
 

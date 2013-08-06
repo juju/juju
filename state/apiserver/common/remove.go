@@ -30,7 +30,7 @@ func (r *Remover) removeEntity(entityp params.Entity) error {
 	if err != nil {
 		return err
 	}
-	remover, ok := entity.(interface{
+	remover, ok := entity.(interface {
 		state.Lifer
 		state.Remover
 	})
