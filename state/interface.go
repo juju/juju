@@ -111,6 +111,7 @@ var (
 // AgentEntity represents an entity that can
 // have an agent responsible for it.
 type AgentEntity interface {
+	Entity
 	Lifer
 	Authenticator
 	MongoPassworder
