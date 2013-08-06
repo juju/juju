@@ -18,8 +18,9 @@ type Remover struct {
 
 type Removerer interface {
 	// state.State implements Remover to provide ways for us to call
-	// object.Remove (for Units, etc). This is used to allow us to
-	// test with mocks without having to actually bring up state.
+	// object.Remove (for machines, units, etc). This is used to allow
+	// us to test with mocks without having to actually bring up
+	// state.
 	Remover(tag string) (state.Remover, error)
 }
 
@@ -32,14 +33,14 @@ func NewRemover(st Removerer, getCanModify GetAuthFunc) *Remover {
 	}
 }
 
-func (r *Remover) removeEntity(entity params.Entity) (err error) {
+func (r *Remover) removeEntity(tag string) (err error) {
 	var remover state.Remover
-	if remover, err = r.st.Remover(entity.Tag); err != nil {
+	if remover, err = r.st.Remover(tag); err != nil {
 		return err
 	}
 	// Only remove entites that are not Alive.
 	if life := remover.Life(); life == state.Alive {
-		return fmt.Errorf("cannot remove entity %q: still alive", entity.Tag)
+		return fmt.Errorf("cannot remove entity %q: still alive", tag)
 	}
 	if err = remover.EnsureDead(); err != nil {
 		return err
@@ -63,7 +64,7 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	for i, entity := range args.Entities {
 		err := ErrPerm
 		if canModify(entity.Tag) {
-			err = r.removeEntity(entity)
+			err = r.removeEntity(entity.Tag)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

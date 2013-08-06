@@ -92,7 +92,7 @@ func defaultToBaselineSpec(constraint constraints.Value) constraints.Value {
 }
 
 // selectMachineType returns the Azure machine type that best matches the
-// supplied instanceContraint.
+// supplied instanceConstraint.
 func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.Value) (*gwacl.RoleSize, error) {
 	types := newPreferredTypes(availableTypes)
 	for _, machineType := range types {
@@ -124,6 +124,10 @@ func getEndpoint(location string) (string, error) {
 // this setting.
 var signedImageDataOnly = true
 
+// fetchImageMetadata is a pointer to the imagemetadata.Fetch function.  It's
+// only needed as an injection point where tests can substitute fakes.
+var fetchImageMetadata = imagemetadata.Fetch
+
 // findMatchingImages queries simplestreams for OS images that match the given
 // requirements.
 //
@@ -139,7 +143,7 @@ func findMatchingImages(location, series string, arches []string) ([]*imagemetad
 		Arches:    arches,
 	}
 	indexPath := imagemetadata.DefaultIndexPath
-	images, err := imagemetadata.Fetch(baseURLs, indexPath, &constraint, signedImageDataOnly)
+	images, err := fetchImageMetadata(baseURLs, indexPath, &constraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -149,13 +153,44 @@ func findMatchingImages(location, series string, arches []string) ([]*imagemetad
 	return images, nil
 }
 
+// newInstanceType creates an InstanceType based on a gwacl.RoleSize.
+func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
+	vtype := "Hyper-V"
+	// Actually Azure has shared and dedicated CPUs, but gwacl doesn't
+	// model that distinction yet.
+	var cpuPower uint64 = 100
+
+	return instances.InstanceType{
+		Id:       roleSize.Name,
+		Name:     roleSize.Name,
+		Arches:   architectures,
+		CpuCores: roleSize.CpuCores,
+		Mem:      roleSize.Mem,
+		Cost:     roleSize.Cost,
+		VType:    &vtype,
+		CpuPower: &cpuPower,
+	}
+}
+
+// listInstanceTypes describes the available instance types based on a
+// description in gwacl's terms.
+func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
+	types := make([]instances.InstanceType, len(roleSizes))
+	for index, roleSize := range roleSizes {
+		types[index] = newInstanceType(roleSize)
+	}
+	return types
+}
+
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-// TODO: Move the InstanceConstraint into the function, if that's easier.
 func findInstanceSpec(baseURLs []string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
-	// TODO: defaultToBaselineSpec()
-	// TODO: Get matching images.
-	// TODO: Define instances.InstanceConstraint.
-	// TODO: return instances.FindInstanceSpec(images, instanceConstraint, instanceTypes)
-	return nil, nil
+	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
+	imageData, err := findMatchingImages(constraint.Region, constraint.Series, constraint.Arches)
+	if err != nil {
+		return nil, err
+	}
+	images := instances.ImageMetadataToImages(imageData)
+	instanceTypes := listInstanceTypes(gwacl.RoleSizes)
+	return instances.FindInstanceSpec(images, &constraint, instanceTypes)
 }

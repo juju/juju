@@ -92,8 +92,9 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
-	// ProviderType refers to the type of the provider that created the machine.
-	ProviderType string
+	// MachineEnvironment defines additional environment variables to set in
+	// the machine agent upstart script.
+	MachineEnvironment map[string]string
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
@@ -103,12 +104,6 @@ type MachineConfig struct {
 
 	// StateInfoURL is the URL of a file which contains information about the state server machines.
 	StateInfoURL string
-}
-
-func addScripts(c *cloudinit.Config, scripts ...string) {
-	for _, s := range scripts {
-		c.AddRunCmd(s)
-	}
 }
 
 func base64yaml(m *config.Config) string {
@@ -137,14 +132,14 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		c.AddPackage("lxc")
 	}
 
-	addScripts(c,
+	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	addScripts(c,
+	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
@@ -180,7 +175,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		}
 		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
-		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
+		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
 		if err := cfg.addMongoToBoot(c); err != nil {
 			return nil, err
 		}
@@ -191,7 +186,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		if err != nil {
 			return nil, err
 		}
-		addScripts(c,
+		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
@@ -226,19 +221,9 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
-	addScripts(c,
-		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", string(content)),
-	)
+	c.AddFile("/etc/rsyslog.d/25-juju.conf", string(content), 0600)
 	c.AddRunCmd("restart rsyslog")
 	return nil
-}
-
-func addFile(c *cloudinit.Config, filename, data string, mode uint) {
-	p := shquote(filename)
-	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(data), p),
-		fmt.Sprintf("chmod %o %s", mode, p),
-	)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
@@ -279,7 +264,7 @@ func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (*agent.
 	if err != nil {
 		return nil, err
 	}
-	addScripts(c, cmds...)
+	c.AddScripts(cmds...)
 	return acfg, nil
 }
 
@@ -289,21 +274,21 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// the upstart script.
 	toolsDir := tools.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
+	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.ProviderType)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, cfg.MachineEnvironment)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
 	}
-	addScripts(c, cmds...)
+	c.AddScripts(cmds...)
 	return nil
 }
 
 func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	dbDir := filepath.Join(cfg.DataDir, "db")
-	addScripts(c,
+	c.AddScripts(
 		"mkdir -p "+dbDir+"/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
 		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.0",
@@ -316,7 +301,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
 	}
-	addScripts(c, cmds...)
+	c.AddScripts(cmds...)
 	return nil
 }
 
@@ -397,9 +382,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")
-	}
-	if cfg.ProviderType == "" {
-		return fmt.Errorf("missing provider type")
 	}
 	if cfg.StateServer {
 		if cfg.Config == nil {

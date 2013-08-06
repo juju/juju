@@ -16,7 +16,7 @@ import (
 
 // DestroyEnvironmentCommand destroys an environment.
 type DestroyEnvironmentCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	assumeYes bool
 }
 

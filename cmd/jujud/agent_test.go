@@ -22,6 +22,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 var _ = Suite(&toolSuite{})
@@ -33,7 +34,7 @@ type toolSuite struct {
 var errorImportanceTests = []error{
 	nil,
 	stderrors.New("foo"),
-	&UpgradeReadyError{},
+	&upgrader.UpgradeReadyError{},
 	worker.ErrTerminateAgent,
 }
 
@@ -253,8 +254,8 @@ func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *tools.Tools) 
 	newTools := s.uploadTools(c, newVers)
 	s.proposeVersion(c, newVers.Number)
 	err := runWithTimeout(agent)
-	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
-	ug := err.(*UpgradeReadyError)
+	c.Assert(err, FitsTypeOf, &upgrader.UpgradeReadyError{})
+	ug := err.(*upgrader.UpgradeReadyError)
 	c.Assert(ug.NewTools, DeepEquals, newTools)
 	c.Assert(ug.OldTools, DeepEquals, currentTools)
 }

@@ -30,6 +30,7 @@ func Test(t *stdtesting.T) {
 type LxcSuite struct {
 	testing.LoggingSuite
 	lxc.TestSuite
+	oldPath string
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -37,9 +38,18 @@ var _ = gc.Suite(&LxcSuite{})
 func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
+	tmpDir := c.MkDir()
+	s.oldPath = os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir)
+	err := ioutil.WriteFile(
+		filepath.Join(tmpDir, "apt-config"),
+		[]byte(aptConfigScript),
+		0755)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *LxcSuite) TearDownSuite(c *gc.C) {
+	os.Setenv("PATH", s.oldPath)
 	s.TestSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
@@ -55,10 +65,22 @@ func (s *LxcSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 }
 
+const (
+	aptHTTPProxy     = "http://1.2.3.4:3142"
+	configProxyExtra = `Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "false";`
+)
+
+var (
+	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
+	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
+)
+
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
 	config := testing.EnvironConfig(c)
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
+	network := lxc.BridgeNetworkConfig("nic42")
 
 	series := "series"
 	nonce := "fake-nonce"
@@ -67,7 +89,7 @@ func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) ins
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
 
-	inst, err := manager.StartContainer(machineId, series, nonce, tools, config, stateInfo, apiInfo)
+	inst, err := manager.StartContainer(machineId, series, nonce, network, tools, config, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 	return inst
 }
@@ -78,7 +100,10 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 
 	name := string(instance.Id())
 	// Check our container config files.
-	c.Assert(filepath.Join(s.ContainerDir, name, "lxc.conf"), jc.IsNonEmptyFile)
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, name, "lxc.conf"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = nic42")
+
 	cloudInitFilename := filepath.Join(s.ContainerDir, name, "cloud-init")
 	c.Assert(cloudInitFilename, jc.IsNonEmptyFile)
 	data, err := ioutil.ReadFile(cloudInitFilename)
@@ -89,12 +114,19 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	err = goyaml.Unmarshal(data, &x)
 	c.Assert(err, gc.IsNil)
 
+	c.Assert(x["apt_proxy"], gc.Equals, aptHTTPProxy)
+
 	var scripts []string
 	for _, s := range x["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-1], gc.Equals, "start jujud-machine-1-lxc-0")
+	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
+		"start jujud-machine-1-lxc-0",
+		"install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
+		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra),
+		"ifconfig",
+	})
 
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)
@@ -166,4 +198,48 @@ func (s *LxcSuite) TestListContainers(c *gc.C) {
 	result, err = bar.ListContainers()
 	c.Assert(err, gc.IsNil)
 	testing.MatchInstances(c, result, bar1, bar2)
+}
+
+type NetworkSuite struct {
+	testing.LoggingSuite
+}
+
+var _ = gc.Suite(&NetworkSuite{})
+
+func (*NetworkSuite) TestGenerateNetworkConfig(c *gc.C) {
+	for _, test := range []struct {
+		config *lxc.NetworkConfig
+		net    string
+		link   string
+	}{{
+		config: nil,
+		net:    "veth",
+		link:   "lxcbr0",
+	}, {
+		config: lxc.DefaultNetworkConfig(),
+		net:    "veth",
+		link:   "lxcbr0",
+	}, {
+		config: lxc.BridgeNetworkConfig("foo"),
+		net:    "veth",
+		link:   "foo",
+	}, {
+		config: lxc.PhysicalNetworkConfig("foo"),
+		net:    "phys",
+		link:   "foo",
+	}} {
+		config := lxc.GenerateNetworkConfig(test.config)
+		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.type = %s\n", test.net))
+		c.Assert(config, jc.Contains, fmt.Sprintf("lxc.network.link = %s\n", test.link))
+	}
+}
+
+func (*NetworkSuite) TestNetworkConfigTemplate(c *gc.C) {
+	config := lxc.NetworkConfigTemplate("foo", "bar")
+	expected := `
+lxc.network.type = foo
+lxc.network.link = bar
+lxc.network.flags = up
+`
+	c.Assert(config, gc.Equals, expected)
 }

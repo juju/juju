@@ -8,12 +8,14 @@ import (
 	"sync"
 
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -58,6 +60,11 @@ type azureEnviron struct {
 
 	// publicStorage is the public storage that this environ uses.
 	publicStorage environs.StorageReader
+
+	// storageAccountKey holds an access key to this environment's
+	// private storage.  This is automatically queried from Azure on
+	// startup.
+	storageAccountKey string
 }
 
 // azureEnviron implements Environ.
@@ -87,6 +94,37 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	}
 
 	return &env, nil
+}
+
+// extractStorageKey returns the primary account key from a gwacl
+// StorageAccountKeys struct, or if there is none, the secondary one.
+func extractStorageKey(keys *gwacl.StorageAccountKeys) string {
+	if keys.Primary != "" {
+		return keys.Primary
+	}
+	return keys.Secondary
+}
+
+// queryStorageAccountKey retrieves the storage account's key from Azure.
+func (env *azureEnviron) queryStorageAccountKey() (string, error) {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return "", err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	accountName := env.getSnapshot().ecfg.storageAccountName()
+	keys, err := azure.GetStorageAccountKeys(accountName)
+	if err != nil {
+		return "", fmt.Errorf("cannot obtain storage account keys: %v", err)
+	}
+
+	key := extractStorageKey(keys)
+	if key == "" {
+		return "", fmt.Errorf("no keys available for storage account")
+	}
+
+	return key, nil
 }
 
 // Name is specified in the Environ interface.
@@ -154,7 +192,7 @@ func (env *azureEnviron) createAffinityGroup() error {
 	}
 	defer env.releaseManagementAPI(azure)
 	snap := env.getSnapshot()
-	location := snap.ecfg.Location()
+	location := snap.ecfg.location()
 	cag := gwacl.NewCreateAffinityGroup(affinityGroupName, affinityGroupName, affinityGroupName, location)
 	return azure.CreateAffinityGroup(&gwacl.CreateAffinityGroupRequest{
 		CreateAffinityGroup: cag})
@@ -208,43 +246,14 @@ func (env *azureEnviron) deleteVirtualNetwork() error {
 // getContainerName returns the name of the private storage account container
 // that this environment is using.
 func (env *azureEnviron) getContainerName() string {
-	return env.getEnvPrefix() + "-private"
-}
-
-func (env *azureEnviron) createStorageContainer() error {
-	containerName := env.getContainerName()
-	context, err := env.getStorageContext()
-	if err != nil {
-		return err
-	}
-	return context.CreateContainer(containerName)
-}
-
-func (env *azureEnviron) deleteStorageContainer() error {
-	containerName := env.getContainerName()
-	context, err := env.getStorageContext()
-	if err != nil {
-		return err
-	}
-	return context.DeleteContainer(containerName)
+	return env.getEnvPrefix() + "private"
 }
 
 // Bootstrap is specified in the Environ interface.
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	// TODO(bug 1199847). The creation of the affinity group, the
-	// virtual network and the container is specific to the Azure provider.
-	err = env.createStorageContainer()
-	if err != nil {
-		return err
-	}
-	// If we fail after this point, clean up the container.
-	defer func() {
-		if err != nil {
-			env.deleteStorageContainer()
-		}
-	}()
-
+	// TODO(bug 1199847). The creation of the affinity group and the
+	// virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
 		return err
@@ -319,6 +328,11 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	}
 
 	env.ecfg = ecfg
+
+	// Reset storage account key.  Even if we had one before, it may not
+	// be appropriate for the new config.
+	env.storageAccountKey = ""
+
 	return nil
 }
 
@@ -343,6 +357,9 @@ func attemptCreateService(azure *gwacl.ManagementAPI, prefix string, affinityGro
 	return req, nil
 }
 
+// architectures lists the CPU architectures supported by Azure.
+var architectures = []string{"amd64", "i386"}
+
 // newHostedService creates a hosted service.  It will make up a unique name,
 // starting with the given prefix.
 func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupName string, location string) (*gwacl.CreateHostedService, error) {
@@ -358,6 +375,47 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 		return nil, fmt.Errorf("could not come up with a unique hosted service name - is your randomizer initialized?")
 	}
 	return svc, nil
+}
+
+// selectInstanceTypeAndImage returns the appropriate instance-type name and
+// the OS image name for launching a virtual machine with the given parameters.
+func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
+	sourceImageName := env.getSnapshot().ecfg.forceImageName()
+	if sourceImageName != "" {
+		// Configuration forces us to use a specific image.  There may
+		// not be a suitable image in the simplestreams database.
+		// This means we can't use Juju's normal selection mechanism,
+		// because it combines instance-type and image selection: if
+		// there are no images we can use, it won't offer us an
+		// instance type either.
+		//
+		// Select the instance type using simple, Azure-specific code.
+		machineType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+		if err != nil {
+			return "", "", err
+		}
+		return machineType.Name, sourceImageName, nil
+	}
+
+	// Choose the most suitable instance type and OS image, based on
+	// simplestreams information.
+	//
+	// This should be the normal execution path.  The user is not expected
+	// to configure a source image name in normal use.
+
+	// TODO(jtv): Simplestreams for Azure aren't quite done yet.   The
+	// source image name is forced in the boilerplate config for the time
+	// being.
+	spec, err := findInstanceSpec(baseURLs, instances.InstanceConstraint{
+		Region:      location,
+		Series:      series,
+		Arches:      architectures,
+		Constraints: cons,
+	})
+	if err != nil {
+		return "", "", err
+	}
+	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
 // internalStartInstance does the provider-specific work of starting an
@@ -400,7 +458,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	defer env.releaseManagementAPI(azure)
 
 	snap := env.getSnapshot()
-	location := snap.ecfg.Location()
+	location := snap.ecfg.location()
 	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
 		return nil, err
@@ -417,17 +475,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	instanceType, err := selectMachineType(gwacl.RoleSizes, defaultToBaselineSpec(cons))
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series[0], location)
 	if err != nil {
 		return nil, err
 	}
-
-	// TODO: use simplestreams to get the name of the image given
-	// the constraints provided by Juju.
-	// In the meantime we use a temporary Saucy image containing a
-	// cloud-init package which supports Azure, see the boilerplate config
-	// for its exact name.
-	sourceImageName := snap.ecfg.ForceImageName()
 
 	// virtualNetworkName is the virtual network to which all the
 	// deployments in this environment belong.
@@ -437,7 +488,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	vhd := env.newOSDisk(sourceImageName)
 
 	// 2. Create a Role for a Linux machine.
-	role := env.newRole(instanceType.Name, vhd, userData, roleHostname)
+	role := env.newRole(instanceType, vhd, userData, roleHostname)
 
 	// 3. Create the Deployment object.
 	deployment := env.newDeployment(role, serviceName, serviceName, virtualNetworkName)
@@ -483,7 +534,7 @@ func (env *azureEnviron) getInstance(instanceName string) (instance.Instance, er
 	if err != nil {
 		return nil, fmt.Errorf("could not get instance %q: %v", instanceName, err)
 	}
-	instance := &azureInstance{service.HostedServiceDescriptor}
+	instance := &azureInstance{service.HostedServiceDescriptor, env}
 	return instance, nil
 }
 
@@ -493,7 +544,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	vhdName := gwacl.MakeRandomDiskName("juju")
 	vhdPath := fmt.Sprintf("vhds/%s", vhdName)
 	snap := env.getSnapshot()
-	storageAccount := snap.ecfg.StorageAccountName()
+	storageAccount := snap.ecfg.storageAccountName()
 	mediaLink := gwacl.CreateVirtualHardDiskMediaLink(storageAccount, vhdPath)
 	// The disk label is optional and the disk name can be omitted if
 	// mediaLink is provided.
@@ -627,7 +678,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 		return nil, environs.ErrNoInstances
 	}
 
-	instances := convertToInstances(services)
+	instances := convertToInstances(services, env)
 
 	// Check if we got a partial result.
 	if len(ids) != len(instances) {
@@ -652,7 +703,7 @@ func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	if err != nil {
 		return nil, err
 	}
-	return convertToInstances(services), nil
+	return convertToInstances(services, env), nil
 }
 
 // getEnvPrefix returns the prefix used to name the objects specific to this
@@ -663,10 +714,10 @@ func (env *azureEnviron) getEnvPrefix() string {
 
 // convertToInstances converts a slice of gwacl.HostedServiceDescriptor objects
 // into a slice of instance.Instance objects.
-func convertToInstances(services []gwacl.HostedServiceDescriptor) []instance.Instance {
+func convertToInstances(services []gwacl.HostedServiceDescriptor, env *azureEnviron) []instance.Instance {
 	instances := make([]instance.Instance, len(services))
 	for i, service := range services {
-		instances[i] = &azureInstance{service}
+		instances[i] = &azureInstance{service, env}
 	}
 	return instances
 }
@@ -727,15 +778,15 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	return nil
 }
 
-// OpenPorts is specified in the Environ interface.
+// OpenPorts is specified in the Environ interface. However, Azure does not
+// support the global firewall mode.
 func (env *azureEnviron) OpenPorts(ports []instance.Port) error {
-	// TODO: implement this.
 	return nil
 }
 
-// ClosePorts is specified in the Environ interface.
+// ClosePorts is specified in the Environ interface. However, Azure does not
+// support the global firewall mode.
 func (env *azureEnviron) ClosePorts(ports []instance.Port) error {
-	// TODO: implement this.
 	return nil
 }
 
@@ -769,8 +820,8 @@ type azureManagementContext struct {
 // later.
 func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	snap := env.getSnapshot()
-	subscription := snap.ecfg.ManagementSubscriptionId()
-	certData := snap.ecfg.ManagementCertificate()
+	subscription := snap.ecfg.managementSubscriptionId()
+	certData := snap.ecfg.managementCertificate()
 	certFile, err := newTempCertFile([]byte(certData))
 	if err != nil {
 		return nil, err
@@ -803,18 +854,70 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 	context.certFile.Delete()
 }
 
+// updateStorageAccountKey queries the storage account key, and updates the
+// version cached in env.storageAccountKey.
+//
+// It takes a snapshot in order to preserve transactional integrity relative
+// to the snapshot's starting state, without having to lock the environment
+// for the duration.  If there is a conflicting change to env relative to the
+// state recorded in the snapshot, this function will fail.
+func (env *azureEnviron) updateStorageAccountKey(snapshot *azureEnviron) (string, error) {
+	// This method follows an RCU pattern, an optimistic technique to
+	// implement atomic read-update transactions: get a consistent snapshot
+	// of state; process data; enter critical section; check for conflicts;
+	// write back changes.  The advantage is that there are no long-held
+	// locks, in particular while waiting for the request to Azure to
+	// complete.
+	// "Get a consistent snapshot of state" is the caller's responsibility.
+	// The caller can use env.getSnapshot().
+
+	// Process data: get a current account key from Azure.
+	key, err := env.queryStorageAccountKey()
+	if err != nil {
+		return "", err
+	}
+
+	// Enter critical section.
+	env.Lock()
+	defer env.Unlock()
+
+	// Check for conflicts: is the config still what it was?
+	if env.ecfg != snapshot.ecfg {
+		// The environment has been reconfigured while we were
+		// working on this, so the key we just get may not be
+		// appropriate any longer.  So fail.
+		// Whatever we were doing isn't likely to be right any more
+		// anyway.  Otherwise, it might be worth returning the key
+		// just in case it still works, and proceed without updating
+		// env.storageAccountKey.
+		return "", fmt.Errorf("environment was reconfigured")
+	}
+
+	// Write back changes.
+	env.storageAccountKey = key
+	return key, nil
+}
+
 // getStorageContext obtains a context object for interfacing with Azure's
 // storage API.
 // For now, each invocation just returns a separate object.  This is probably
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
 func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
-	ecfg := env.getSnapshot().ecfg
-	context := gwacl.StorageContext{
-		Account: ecfg.StorageAccountName(),
-		Key:     ecfg.StorageAccountKey(),
+	snap := env.getSnapshot()
+	key := snap.storageAccountKey
+	if key == "" {
+		// We don't know the storage-account key yet.  Request it.
+		var err error
+		key, err = env.updateStorageAccountKey(snap)
+		if err != nil {
+			return nil, err
+		}
 	}
-	// There is currently no way for this to fail.
+	context := gwacl.StorageContext{
+		Account: snap.ecfg.storageAccountName(),
+		Key:     key,
+	}
 	return &context, nil
 }
 
@@ -823,7 +926,7 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.PublicStorageAccountName(),
+		Account: ecfg.publicStorageAccountName(),
 		Key:     "", // Empty string means anonymous access.
 	}
 	// There is currently no way for this to fail.

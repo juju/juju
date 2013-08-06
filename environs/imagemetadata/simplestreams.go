@@ -192,6 +192,16 @@ type indexMetadata struct {
 // This needs to be a var so we can override it for testing.
 var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
+var httpClient *http.Client = http.DefaultClient
+
+// SetHttpClient replaces the default http.Client used to fetch the metadata
+// and returns the old one.
+func SetHttpClient(c *http.Client) *http.Client {
+	old := httpClient
+	httpClient = c
+	return old
+}
+
 const (
 	DefaultIndexPath = "streams/v1/index"
 	signedSuffix     = ".sjson"
@@ -243,7 +253,7 @@ func fetchData(baseURL, path string, requireSigned bool) (data []byte, dataURL s
 		dataURL += "/"
 	}
 	dataURL += path
-	resp, err := http.Get(dataURL)
+	resp, err := httpClient.Get(dataURL)
 	if err != nil {
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
 	}

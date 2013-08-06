@@ -21,9 +21,9 @@ type SSHCommand struct {
 	SSHCommon
 }
 
-// SSHCommon provides common methods for SSHCommand and SCPCommand.
+// SSHCommon provides common methods for SSHCommand, SCPCommand and DebugHooksCommand.
 type SSHCommon struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	Target string
 	Args   []string
 	*juju.Conn
@@ -55,12 +55,14 @@ func (c *SSHCommand) Init(args []string) error {
 // Run resolves c.Target to a machine, to the address of a i
 // machine or unit forks ssh passing any arguments provided.
 func (c *SSHCommand) Run(ctx *cmd.Context) error {
-	var err error
-	c.Conn, err = juju.NewConnFromName(c.EnvName)
-	if err != nil {
-		return err
+	if c.Conn == nil {
+		var err error
+		c.Conn, err = c.initConn()
+		if err != nil {
+			return err
+		}
+		defer c.Close()
 	}
-	defer c.Close()
 	host, err := c.hostFromTarget(c.Target)
 	if err != nil {
 		return err
@@ -73,6 +75,14 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	cmd.Stderr = ctx.Stderr
 	c.Close()
 	return cmd.Run()
+}
+
+// initConn initialises the state connection.
+// It is the caller's responsibility to close the connection.
+func (c *SSHCommon) initConn() (*juju.Conn, error) {
+	var err error
+	c.Conn, err = juju.NewConnFromName(c.EnvName)
+	return c.Conn, err
 }
 
 func (c *SSHCommon) hostFromTarget(target string) (string, error) {

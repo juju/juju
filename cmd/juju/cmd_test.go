@@ -11,6 +11,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -107,10 +108,10 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 
 		// JUJU_ENV is the final place the environment can be overriden
 		com, args = cmdFunc()
-		oldenv := os.Getenv("JUJU_ENV")
-		os.Setenv("JUJU_ENV", "walthamstow")
+		oldenv := os.Getenv(osenv.JujuEnv)
+		os.Setenv(osenv.JujuEnv, "walthamstow")
 		testInit(c, com, args, "")
-		os.Setenv("JUJU_ENV", oldenv)
+		os.Setenv(osenv.JujuEnv, oldenv)
 		assertConnName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
@@ -252,8 +253,8 @@ func initDeployCommand(args ...string) (*DeployCommand, error) {
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *C) {
-	defer os.Setenv("JUJU_REPOSITORY", os.Getenv("JUJU_REPOSITORY"))
-	os.Setenv("JUJU_REPOSITORY", "/path/to/repo")
+	defer os.Setenv(osenv.JujuRepository, os.Getenv(osenv.JujuRepository))
+	os.Setenv(osenv.JujuRepository, "/path/to/repo")
 
 	for _, t := range deployTests {
 		initExpectations(t.com)

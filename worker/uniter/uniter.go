@@ -528,5 +528,4 @@ func (u *Uniter) addRelation(rel *state.Relation, dir *relation.StateDir) error 
 			return nil
 		}
 	}
-	panic("unreachable")
 }

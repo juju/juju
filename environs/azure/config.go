@@ -16,7 +16,6 @@ var configFields = schema.Fields{
 	"management-certificate-path":   schema.String(),
 	"management-certificate":        schema.String(),
 	"storage-account-name":          schema.String(),
-	"storage-account-key":           schema.String(),
 	"public-storage-account-name":   schema.String(),
 	"public-storage-container-name": schema.String(),
 	"force-image-name":              schema.String(),
@@ -35,35 +34,31 @@ type azureEnvironConfig struct {
 	attrs map[string]interface{}
 }
 
-func (cfg *azureEnvironConfig) Location() string {
+func (cfg *azureEnvironConfig) location() string {
 	return cfg.attrs["location"].(string)
 }
 
-func (cfg *azureEnvironConfig) ManagementSubscriptionId() string {
+func (cfg *azureEnvironConfig) managementSubscriptionId() string {
 	return cfg.attrs["management-subscription-id"].(string)
 }
 
-func (cfg *azureEnvironConfig) ManagementCertificate() string {
+func (cfg *azureEnvironConfig) managementCertificate() string {
 	return cfg.attrs["management-certificate"].(string)
 }
 
-func (cfg *azureEnvironConfig) StorageAccountName() string {
+func (cfg *azureEnvironConfig) storageAccountName() string {
 	return cfg.attrs["storage-account-name"].(string)
 }
 
-func (cfg *azureEnvironConfig) StorageAccountKey() string {
-	return cfg.attrs["storage-account-key"].(string)
-}
-
-func (cfg *azureEnvironConfig) PublicStorageContainerName() string {
+func (cfg *azureEnvironConfig) publicStorageContainerName() string {
 	return cfg.attrs["public-storage-container-name"].(string)
 }
 
-func (cfg *azureEnvironConfig) PublicStorageAccountName() string {
+func (cfg *azureEnvironConfig) publicStorageAccountName() string {
 	return cfg.attrs["public-storage-account-name"].(string)
 }
 
-func (cfg *azureEnvironConfig) ForceImageName() string {
+func (cfg *azureEnvironConfig) forceImageName() string {
 	return cfg.attrs["force-image-name"].(string)
 }
 
@@ -95,7 +90,7 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	envCfg.Config = cfg
 	envCfg.attrs = validated
 
-	cert := envCfg.ManagementCertificate()
+	cert := envCfg.managementCertificate()
 	if cert == "" {
 		certPath := envCfg.attrs["management-certificate-path"].(string)
 		pemData, err := ioutil.ReadFile(certPath)
@@ -105,10 +100,10 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 		envCfg.attrs["management-certificate"] = string(pemData)
 	}
 	delete(envCfg.attrs, "management-certificate-path")
-	if envCfg.Location() == "" {
+	if envCfg.location() == "" {
 		return nil, fmt.Errorf("environment has no location; you need to set one.  E.g. 'West US'")
 	}
-	if (envCfg.PublicStorageAccountName() == "") != (envCfg.PublicStorageContainerName() == "") {
+	if (envCfg.publicStorageAccountName() == "") != (envCfg.publicStorageContainerName() == "") {
 		return nil, fmt.Errorf("public-storage-account-name and public-storage-container-name must be specified both or none of them")
 	}
 
@@ -117,6 +112,7 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 
 const boilerplateYAML = `azure:
   type: azure
+  admin-secret: {{rand}}
   # Location for instances, e.g. West US, North Europe.
   location: West US
   # http://msdn.microsoft.com/en-us/library/windowsazure
@@ -125,7 +121,6 @@ const boilerplateYAML = `azure:
   management-certificate-path: /home/me/azure.pem
   # Windows Azure Storage info.
   storage-account-name: ghedlkjhw54e
-  storage-account-key: fdjh4sfkg
   # Public Storage info (account name and container name) denoting a public
   # container holding the juju tools.
   # public-storage-account-name: public-storage-account
@@ -146,7 +141,6 @@ func (prov azureEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]int
 	if err != nil {
 		return nil, err
 	}
-	secretAttrs["management-certificate"] = azureCfg.ManagementCertificate()
-	secretAttrs["storage-account-key"] = azureCfg.StorageAccountKey()
+	secretAttrs["management-certificate"] = azureCfg.managementCertificate()
 	return secretAttrs, nil
 }

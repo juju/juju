@@ -64,7 +64,6 @@ func wait(signal chan struct{}) error {
 	case <-time.After(25 * time.Millisecond):
 		return errors.New("timeout")
 	}
-	panic("unreachable")
 }
 
 var tests = []struct {

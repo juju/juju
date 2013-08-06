@@ -16,7 +16,7 @@ import (
 
 // SetCommand updates the configuration of a service
 type SetCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
 	SettingsYAML    cmd.FileVar
