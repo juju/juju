@@ -158,11 +158,11 @@ func (st *State) WatchEnvironMachines() StringsWatcher {
 // WatchContainers returns a StringsWatcher that notifies of changes to the
 // lifecycles of containers on a machine.
 func (m *Machine) WatchContainers(ctype instance.ContainerType) StringsWatcher {
-	members := D{{"parent", m.doc.Id}}
-	match := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, names.NumberSnippet)
-	child := regexp.MustCompile(match)
+	isChild := fmt.Sprintf("^%s/%s/%s$", m.doc.Id, ctype, names.NumberSnippet)
+	members := D{{"_id", D{{"$regex", isChild}}}}
+	compiled := regexp.MustCompile(isChild)
 	filter := func(key interface{}) bool {
-		return child.MatchString(key.(string))
+		return compiled.MatchString(key.(string))
 	}
 	return newLifecycleWatcher(m.st, m.st.machines, members, filter)
 }
@@ -201,6 +201,7 @@ func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
+		watchLogger.Debugf("xxx %v", doc)
 		ids.Add(doc.Id)
 		if doc.Life != Dead {
 			w.life[doc.Id] = doc.Life

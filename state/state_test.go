@@ -958,11 +958,24 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
+	// Add a nested container of the right type: not reported.
+	params.ParentId = m.Id()
+	params.ContainerType = instance.LXC
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
 	params.ContainerType = instance.LXC
 	m2, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+	statetesting.AssertStop(c, w)
+
+	w = machine.WatchContainers(instance.LXC)
+	defer statetesting.AssertStop(c, w)
+	wc = statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
 
 	// Make the container Dying: reported.
