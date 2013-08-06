@@ -944,15 +944,6 @@ func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
-// getEndpoint returns the endpoint (as defined in Simplestreams) for the
-// given Azure region.
-func (env *azureEnviron) getEndpoint(region string) (string, error) {
-	// Hard-coded for now, but actually China has a different endpoint.
-	// TODO: Extract information from simplestreams, or hard-code the
-	// Chinese ones as well.
-	return "https://management.core.windows.net/", nil
-}
-
 // getImageStream returns the name of the simplestreams stream from which
 // this environment wants its images, e.g. "releases" or "daily", or the
 // blank string for the default.

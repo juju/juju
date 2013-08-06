@@ -1109,34 +1109,6 @@ func (*environSuite) TestGetImageBaseURLs(c *C) {
 	c.Check(urls, DeepEquals, []string{imagemetadata.DefaultBaseURL})
 }
 
-func (*environSuite) TestGetEndpointReturnsFixedEndpointForSupportedRegion(c *C) {
-	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint("West US")
-	c.Assert(err, IsNil)
-	c.Check(endpoint, Equals, "https://management.core.windows.net/")
-}
-
-// TODO: Enable this test and satisfy it.
-/*
-func (*environSuite) TestGetEndpointReturnsChineseEndpointForChina(c *C) {
-	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint("China East")
-	c.Assert(err, IsNil)
-	c.Check(endpoint, Equals, "https://management.core.chinacloudapi.cn/")
-}
-*/
-
-// TODO: Enable this test and satisfy it.
-/*
-func (*environSuite) TestGetEndpointRejectsUnknownRegion(c *C) {
-	region := "Central South San Marino Highlands"
-	env := makeEnviron(c)
-	_, err := env.getEndpoint(region)
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, "unknown region: "+region)
-}
-*/
-
 func (*environSuite) TestGetImageStreamDefaultsToBlank(c *C) {
 	env := makeEnviron(c)
 	// Hard-coded to default for now.
