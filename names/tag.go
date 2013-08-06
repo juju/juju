@@ -24,9 +24,9 @@ var validKinds = map[string]bool{
 	UserTagKind:    true,
 }
 
-var fromTagName = map[string]func(string) string{
-	UnitTagKind:    unitFromTagName,
-	MachineTagKind: machineFromTagName,
+var tagSuffixToId = map[string]func(string) string{
+	UnitTagKind:    unitTagSuffixToId,
+	MachineTagKind: machineTagSuffixToId,
 }
 
 var verifyId = map[string]func(string) bool{
@@ -74,8 +74,8 @@ func ParseTag(tag, expectKind string) (kind, id string, err error) {
 	if expectKind != "" && kind != expectKind {
 		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
 	}
-	if fromTag := fromTagName[kind]; fromTag != nil {
-		id = fromTag(id)
+	if toId := tagSuffixToId[kind]; toId != nil {
+		id = toId(id)
 	}
 	if verify := verifyId[kind]; verify != nil && !verify(id) {
 		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, kind)

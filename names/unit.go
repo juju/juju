@@ -28,11 +28,11 @@ func IsUnit(name string) bool {
 	return validUnit.MatchString(name)
 }
 
-func unitFromTagName(name string) string {
+func unitTagSuffixToId(s string) string {
 	// Replace only the last "-" with "/", as it is valid for service
 	// names to contain hyphens.
-	if i := strings.LastIndex(name, "-"); i > 0 {
-		name = name[:i] + "/" + name[i+1:]
+	if i := strings.LastIndex(s, "-"); i > 0 {
+		s = s[:i] + "/" + s[i+1:]
 	}
-	return name
+	return s
 }
