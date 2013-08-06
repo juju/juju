@@ -116,7 +116,7 @@ var makeTag = map[string]func(id string) string{
 	names.MachineTagKind: names.MachineTag,
 	names.UnitTagKind:    names.UnitTag,
 	names.ServiceTagKind: names.ServiceTag,
-	// TODO environment and user, when they have Tag functions.
+	// TODO(rog) environment and user, when they have Tag functions.
 }
 
 func (*tagSuite) TestParseTag(c *gc.C) {
