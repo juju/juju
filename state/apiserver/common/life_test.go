@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -19,27 +18,9 @@ type lifeSuite struct{}
 
 var _ = gc.Suite(&lifeSuite{})
 
-type fakeLifeState struct {
-	entities map[string]*fakeLifer
-}
-
-func (st *fakeLifeState) Lifer(tag string) (state.Lifer, error) {
-	if lifer, ok := st.entities[tag]; ok {
-		if lifer.err != nil {
-			return nil, lifer.err
-		}
-		return lifer, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
 type fakeLifer struct {
+	state.Entity
 	life state.Life
-	err  error
-}
-
-func (l *fakeLifer) Tag() string {
-	panic("not needed")
 }
 
 func (l *fakeLifer) Life() state.Life {
@@ -47,18 +28,17 @@ func (l *fakeLifer) Life() state.Life {
 }
 
 func (*lifeSuite) TestLife(c *gc.C) {
-	st := &fakeLifeState{
-		entities: map[string]*fakeLifer{
-			"x0": {life: state.Alive},
-			"x1": {life: state.Dying},
-			"x2": {life: state.Dead},
-			"x3": {err: fmt.Errorf("x3 error")},
+	st := &fakeState{
+		entities: map[string]state.Entity{
+			"x0": &fakeLifer{life: state.Alive},
+			"x1": &fakeLifer{life: state.Dying},
+			"x2": &fakeLifer{life: state.Dead},
 		},
 	}
 	getCanRead := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x2", "x3":
+			case "x0", "x2":
 				return true
 			}
 			return false
@@ -66,7 +46,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	}
 	lg := common.NewLifeGetter(st, getCanRead)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
+		{"x0"}, {"x1"}, {"x2"}, {"x3"},
 	}}
 	results, err := lg.Life(entities)
 	c.Assert(err, gc.IsNil)
@@ -75,7 +55,6 @@ func (*lifeSuite) TestLife(c *gc.C) {
 			{Life: params.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Life: params.Dead},
-			{Error: &params.Error{Message: "x3 error"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -85,7 +64,7 @@ func (*lifeSuite) TestLifeError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
+	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
 	_, err := lg.Life(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -94,7 +73,7 @@ func (*lifeSuite) TestLifeNoArgsNoError(c *gc.C) {
 	getCanRead := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	lg := common.NewLifeGetter(&fakeLifeState{}, getCanRead)
+	lg := common.NewLifeGetter(&fakeState{}, getCanRead)
 	result, err := lg.Life(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)
