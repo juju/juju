@@ -786,8 +786,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	var notFoundError *errors.NotFoundError
-	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, Satisfies, errors.IsNotFoundError)
 	c.Assert(err, ErrorMatches, "no matching tools available")
 }
 

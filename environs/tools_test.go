@@ -13,6 +13,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -169,7 +170,7 @@ func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, DeepEquals, &errors.NotFoundError{test.err, ""})
+			c.Check(err, checkers.Satisfies, errors.IsNotFoundError)
 			continue
 		}
 		source := private
@@ -390,7 +391,7 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, DeepEquals, &errors.NotFoundError{test.err, ""})
+			c.Check(err, checkers.Satisfies, errors.IsNotFoundError)
 			continue
 		}
 		expect := map[version.Binary]string{}
@@ -485,7 +486,7 @@ func (s *ToolsSuite) TestFindInstanceTools(c *C) {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
-			c.Check(err, DeepEquals, &errors.NotFoundError{test.err, ""})
+			c.Check(err, checkers.Satisfies, errors.IsNotFoundError)
 			continue
 		}
 		expect := map[version.Binary]string{}
@@ -549,7 +550,7 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 			}
 			c.Check(actual.URL, DeepEquals, source[actual.Version])
 		} else {
-			c.Check(err, DeepEquals, &errors.NotFoundError{test.err, ""})
+			c.Check(err, checkers.Satisfies, errors.IsNotFoundError)
 		}
 	}
 }

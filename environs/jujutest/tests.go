@@ -7,7 +7,11 @@ import (
 	"bytes"
 	"io"
 	"io/ioutil"
+	"net/http"
+	"sort"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -15,10 +19,9 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
-	"net/http"
-	"sort"
 )
 
 // TestConfig contains the configuration for the environment
@@ -237,8 +240,7 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, at
 		}
 	}
 	c.Assert(r, IsNil)
-	var notFoundError *errors.NotFoundError
-	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {

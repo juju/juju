@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/testing/checkers"
 	"strings"
 )
 
@@ -366,8 +367,7 @@ func (t *LiveTests) TestPublicStorage(c *C) {
 
 	// Check that the public storage isn't aliased to the private storage.
 	r, err = t.Env.Storage().Get("test-object")
-	var notFoundError *errors.NotFoundError
-	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
 func (t *LiveTests) TestPutBucketOnlyOnce(c *C) {

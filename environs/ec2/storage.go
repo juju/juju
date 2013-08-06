@@ -177,7 +177,7 @@ func (s *storage) RemoveAll() error {
 
 func maybeNotFound(err error) error {
 	if err != nil && s3ErrorStatusCode(err) == 404 {
-		return &errors.NotFoundError{err, ""}
+		return errors.NewNotFoundError(err, "")
 	}
 	return err
 }
@@ -213,7 +213,7 @@ func (h *httpStorageReader) Get(name string) (io.ReadCloser, error) {
 	}
 	resp, err := http.Get(nameURL)
 	if err != nil || resp.StatusCode == http.StatusNotFound {
-		return nil, &errors.NotFoundError{err, ""}
+		return nil, errors.NewNotFoundError(err, "")
 	}
 	return resp.Body, nil
 }
