@@ -28,6 +28,6 @@ func MachineTag(id string) string {
 	return tag
 }
 
-func machineTagSuffixToId(name string) string {
-	return strings.Replace(name, "-", "/", -1)
+func machineTagSuffixToId(s string) string {
+	return strings.Replace(s, "-", "/", -1)
 }
