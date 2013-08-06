@@ -468,7 +468,7 @@ func (st *State) Machine(id string) (*Machine, error) {
 // The returned value can be of type *Machine, *Unit,
 // *User, *Service or *Environment, depending
 // on the tag.
-func (st *State) FindEntity(tag string) (interface{}, error) {
+func (st *State) FindEntity(tag string) (Entity, error) {
 	kind, id, err := names.ParseTag(tag, "")
 	switch kind {
 	case names.MachineTagKind:
@@ -487,7 +487,7 @@ func (st *State) FindEntity(tag string) (interface{}, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf(`%q is not a valid environment tag`, tag)
+			return nil, fmt.Errorf("%q is not a valid environment tag", tag)
 		}
 		return st.Environment()
 	}
