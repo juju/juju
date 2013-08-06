@@ -551,28 +551,11 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
 }
 
-// newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
-// the given Virtual Hard Drive.
-//
-// The VM will have:
-// - an 'ubuntu' user defined with an unguessable (randomly generated) password
-// - its ssh port (TCP 22) open
-// - its state port (TCP mongoDB) port open
-// - its API port (TCP) open
-//
-// roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
-// Large, A6 etc.
-func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
-	// Create a Linux Configuration with the username and the password
-	// empty and disable SSH with password authentication.
-	hostname := roleHostname
-	username := "ubuntu"
-	password := gwacl.MakeRandomPassword()
-	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
+// getInitialEndpoints return a slice of the endpoints every instance should have opened
+// (ssh port, etc).
+func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 	config := env.Config()
-	// Generate a Network Configuration with the initially required ports
-	// open.
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{
+	return []gwacl.InputEndpoint{
 		{
 			LocalPort: 22,
 			Name:      "sshport",
@@ -592,8 +575,30 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 			Name:      "apiport",
 			Port:      config.APIPort(),
 			Protocol:  "TCP",
-		},
-	}, nil)
+		}}
+}
+
+// newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
+// the given Virtual Hard Drive.
+//
+// The VM will have:
+// - an 'ubuntu' user defined with an unguessable (randomly generated) password
+// - its ssh port (TCP 22) open
+// - its state port (TCP mongoDB) port open
+// - its API port (TCP) open
+//
+// roleSize is the name of one of Azure's machine types, e.g. ExtraSmall,
+// Large, A6 etc.
+func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, userData string, roleHostname string) *gwacl.Role {
+	// Create a Linux Configuration with the username and the password
+	// empty and disable SSH with password authentication.
+	hostname := roleHostname
+	username := "ubuntu"
+	password := gwacl.MakeRandomPassword()
+	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
+	// Generate a Network Configuration with the initially required ports
+	// open.
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(), nil)
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(

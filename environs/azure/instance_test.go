@@ -329,3 +329,124 @@ func (*instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
 	c.Check(err, ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
 	c.Check(*record, HasLen, 3)
 }
+
+func (*instanceSuite) TestConvertAndFilterEndpoints(c *C) {
+	env := makeEnviron(c)
+	endpoints := []gwacl.InputEndpoint{
+		{
+			LocalPort: 123,
+			Protocol:  "UDP",
+			Name:      "test123",
+			Port:      1123,
+		},
+		{
+			LocalPort: 456,
+			Protocol:  "TCP",
+			Name:      "test456",
+			Port:      44,
+		}}
+	endpoints = append(endpoints, env.getInitialEndpoints()...)
+	expectedPorts := []instance.Port{
+		{
+			Number:   1123,
+			Protocol: "UDP",
+		},
+		{
+			Number:   44,
+			Protocol: "TCP",
+		}}
+	c.Check(convertAndFilterEndpoints(endpoints, env), DeepEquals, expectedPorts)
+}
+
+func (*instanceSuite) TestConvertAndFilterEndpointsEmptySlice(c *C) {
+	env := makeEnviron(c)
+	c.Check(convertAndFilterEndpoints([]gwacl.InputEndpoint{}, env), DeepEquals, []instance.Port{})
+}
+
+func (*instanceSuite) TestPorts(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	endpoints := []gwacl.InputEndpoint{
+		{
+			LocalPort: 223,
+			Protocol:  "UDP",
+			Name:      "test223",
+			Port:      2123,
+		},
+		{
+			LocalPort: 123,
+			Protocol:  "UDP",
+			Name:      "test123",
+			Port:      1123,
+		},
+		{
+			LocalPort: 456,
+			Protocol:  "TCP",
+			Name:      "test456",
+			Port:      4456,
+		}}
+
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one",
+			makeRole("role-one", endpoints...)))
+	record := gwacl.PatchManagementAPIResponses(responses)
+	azInstance := azureInstance{*service, makeEnviron(c)}
+
+	ports, err := azInstance.Ports("machine-id")
+
+	c.Assert(err, IsNil)
+	assertPortChangeConversation(c, *record, []expectedRequest{
+		{"GET", ".*/services/hostedservices/service-name[?].*"}, // GetHostedServiceProperties
+		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
+	})
+
+	c.Check(
+		ports,
+		DeepEquals,
+		// The result is sorted using state.SortPorts() (i.e. first by protocol,
+		// then by number).
+		[]instance.Port{
+			instance.Port{Number: 4456, Protocol: "TCP"},
+			instance.Port{Number: 1123, Protocol: "UDP"},
+			instance.Port{Number: 2123, Protocol: "UDP"},
+		})
+}
+
+func (*instanceSuite) TestPortsErrorsIfMoreThanOneRole(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one",
+			makeRole("role-one"), makeRole("role-two")))
+	gwacl.PatchManagementAPIResponses(responses)
+	azInstance := azureInstance{*service, makeEnviron(c)}
+
+	_, err := azInstance.Ports("machine-id")
+
+	c.Check(err, ErrorMatches, ".*more than one Azure role inside the deployment.*")
+}
+
+func (*instanceSuite) TestPortsErrorsIfMoreThanOneDeployment(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	responses := preparePortChangeConversation(c, service,
+		makeDeployment("deployment-one",
+			makeRole("role-one")),
+		makeDeployment("deployment-two",
+			makeRole("role-two")))
+	gwacl.PatchManagementAPIResponses(responses)
+	azInstance := azureInstance{*service, makeEnviron(c)}
+
+	_, err := azInstance.Ports("machine-id")
+
+	c.Check(err, ErrorMatches, ".*more than one Azure deployment inside the service.*")
+}
+
+func (*instanceSuite) TestPortsReturnsEmptySliceIfNotDeployment(c *C) {
+	service := makeHostedServiceDescriptor("service-name")
+	responses := preparePortChangeConversation(c, service)
+	gwacl.PatchManagementAPIResponses(responses)
+	azInstance := azureInstance{*service, makeEnviron(c)}
+
+	ports, err := azInstance.Ports("machine-id")
+
+	c.Assert(err, IsNil)
+	c.Check(ports, DeepEquals, []instance.Port{})
+}
