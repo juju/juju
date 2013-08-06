@@ -886,6 +886,36 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
 	c.Assert(err, IsNil)
 }
 
+func (s *UnitSuite) TestPrincipalName(c *C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	_, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	subordinates := s.unit.SubordinateNames()
+	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+
+	su, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	principal, valid := su.PrincipalName()
+	c.Assert(valid, Equals, true)
+	c.Assert(principal, Equals, s.unit.Name())
+
+	// Calling PrincipalName on a principal unit yields "", false.
+	principal, valid = s.unit.PrincipalName()
+	c.Assert(valid, Equals, false)
+	c.Assert(principal, Equals, "")
+}
+
 func (s *UnitSuite) TestRemove(c *C) {
 	err := s.unit.Remove()
 	c.Assert(err, ErrorMatches, `cannot remove unit "wordpress/0": unit is not dead`)

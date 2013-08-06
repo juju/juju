@@ -1108,7 +1108,7 @@ var statusTests = []testCase{
 						},
 					},
 					"monitoring": M{
-						"charm":   "local:series/monitoring-1",
+						"charm":   "local:series/monitoring-0",
 						"exposed": true,
 						"relations": M{
 							"monitoring-port": L{"wordpress"},

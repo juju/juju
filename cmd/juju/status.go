@@ -25,15 +25,31 @@ import (
 
 type StatusCommand struct {
 	cmd.EnvCommandBase
-	out   cmd.Output
-	scope []string
+	out      cmd.Output
+	patterns []string
 }
 
-var statusDoc = "This command will report on the runtime state of various system entities."
+var statusDoc = `
+This command will report on the runtime state of various system entities.
+
+Patterns may be specified to filter the status to only those services and
+units that match one the patterns. The pattern syntax follows Unix file
+matching:
+    *         matches any sequence of characters, excluding '/'
+    ?         matches any single character, excluding '/'
+    [range]   matches any single character in the range
+    [^range]  matches any single character not in the range
+              (range can be a set of characters, or a range like a-z)
+
+If a pattern includes a '/', then it will be used as-is to match units;
+otherwise, the pattern will used to match services.  Patterns will be
+tried in the sequence specified; invalid patterns will only be detected
+if and when they are tried.`[1:]
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
+		Args:    "[pattern...]",
 		Purpose: "output status information about an environment",
 		Doc:     statusDoc,
 		Aliases: []string{"stat"},
@@ -49,7 +65,7 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *StatusCommand) Init(args []string) error {
-	c.scope = args
+	c.patterns = args
 	return nil
 }
 
@@ -64,9 +80,20 @@ type unitMatcher struct {
 	patterns []string
 }
 
-// match attempts to match a state.Unit to a pattern,
-// taking into account subordinate relationships.
-func (m *unitMatcher) match(u *state.Unit, subordinateTo string) (bool, error) {
+// matchesAny returns true if the unitMatcher will
+// match any unit, regardless of its attributes.
+func (m unitMatcher) matchesAny() bool {
+	return len(m.patterns) == 0
+}
+
+// matchUnit attempts to match a state.Unit to one of
+// a set of patterns, taking into account subordinate
+// relationships.
+func (m unitMatcher) matchUnit(u *state.Unit) (bool, error) {
+	if m.matchesAny() {
+		return true, nil
+	}
+
 	// Keep the unit if:
 	//  (a) its name matches a pattern, or
 	//  (b) it's a principal and one of its subordinates matches, or
@@ -85,15 +112,24 @@ func (m *unitMatcher) match(u *state.Unit, subordinateTo string) (bool, error) {
 				return match, err
 			}
 		}
+		return false, nil
+	} else {
+		principal, valid := u.PrincipalName()
+		if !valid {
+			panic("PrincipalName failed for subordinate unit")
+		}
+		return m.matchString(principal)
 	}
-	return m.matchString(subordinateTo)
 }
 
-func (m *unitMatcher) matchString(s string) (bool, error) {
+// matchString matches a string to one of the patterns in
+// the unit matcher, returning an error if a pattern with
+// invalid syntax is encountered.
+func (m unitMatcher) matchString(s string) (bool, error) {
 	for _, pattern := range m.patterns {
 		ok, err := path.Match(pattern, s)
 		if err != nil {
-			err = fmt.Errorf("%s: %q", err, pattern)
+			err = fmt.Errorf("pattern syntax error in %q", pattern)
 			return false, err
 		} else if ok {
 			return true, nil
@@ -102,17 +138,16 @@ func (m *unitMatcher) matchString(s string) (bool, error) {
 	return false, nil
 }
 
-func processScope(scope []string) (m *unitMatcher) {
-	for _, pattern := range scope {
+// newUnitMatcher returns a unitMatcher that matches units
+// with one of the specified patterns, or all units if no
+// patterns are specified.
+func newUnitMatcher(patterns []string) unitMatcher {
+	for i, pattern := range patterns {
 		if !strings.Contains(pattern, "/") {
-			pattern += "/*"
+			patterns[i] += "/*"
 		}
-		if m == nil {
-			m = &unitMatcher{}
-		}
-		m.patterns = append(m.patterns, pattern)
 	}
-	return m
+	return unitMatcher{patterns}
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -123,22 +158,17 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	var context statusContext
-	um := processScope(c.scope)
-	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, um); err != nil {
+	unitMatcher := newUnitMatcher(c.patterns)
+	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
 		return err
 	}
 
 	// Filter machines by units in scope.
 	var machineIds *set.Strings
-	if um != nil {
-		machineIds = new(set.Strings)
-		for _, unitMap := range context.units {
-			for _, unit := range unitMap {
-				mid, err := unit.AssignedMachineId()
-				if err == nil {
-					machineIds.Add(mid)
-				}
-			}
+	if !unitMatcher.matchesAny() {
+		machineIds, err = fetchUnitMachineIds(context.units)
+		if err != nil {
+			return err
 		}
 	}
 	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
@@ -177,22 +207,12 @@ func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance,
 // fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
 // machine and machines[1..n] are any containers (including nested ones).
 //
-// If machineIds is non-nil, only machines whose IDs are in the set, and their ancestors,
-// will be processed.
+// If machineIds is non-nil, only machines whose IDs are in the set are returned.
 func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
 		return nil, err
-	}
-	if machineIds != nil {
-		// Make sure we include full ancestry in machineIds.
-		for _, id := range machineIds.SortedValues() {
-			for id != "" {
-				machineIds.Add(id)
-				id = state.ParentId(id)
-			}
-		}
 	}
 	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
@@ -218,7 +238,7 @@ func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*stat
 
 // fetchAllServicesAndUnits returns a map from service name to service
 // and a map from service name to unit name to unit.
-func fetchAllServicesAndUnits(st *state.State, um *unitMatcher) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
+func fetchAllServicesAndUnits(st *state.State, unitMatcher unitMatcher) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
 	services, err := st.AllServices()
@@ -232,46 +252,39 @@ func fetchAllServicesAndUnits(st *state.State, um *unitMatcher) (map[string]*sta
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
+			ok, err := unitMatcher.matchUnit(u)
+			if err != nil {
+				return nil, nil, err
+			} else if !ok {
+				continue
+			}
 			svcUnitMap[u.Name()] = u
 		}
-		unitMap[s.Name()] = svcUnitMap
-		svcMap[s.Name()] = s
-	}
-	// Filter units and services. We must do this
-	// after collecting all units, as we require
-	// the subordinateTo relationships.
-	if um != nil {
-		subordinateTo := make(map[string]string)
-		for _, svcUnitMap := range unitMap {
-			for _, u := range svcUnitMap {
-				if u.IsPrincipal() {
-					for _, s := range u.SubordinateNames() {
-						subordinateTo[s] = u.Name()
-					}
-				}
-			}
-		}
-		for service, svcUnitMap := range unitMap {
-			for unitName, u := range svcUnitMap {
-				var principal string
-				if !u.IsPrincipal() {
-					principal = subordinateTo[unitName]
-				}
-				ok, err := um.match(u, principal)
-				if err != nil {
-					return nil, nil, err
-				} else if !ok {
-					delete(svcUnitMap, unitName)
-					continue
-				}
-			}
-			if len(svcUnitMap) == 0 {
-				delete(unitMap, service)
-				delete(svcMap, service)
-			}
+		if unitMatcher.matchesAny() || len(svcUnitMap) > 0 {
+			unitMap[s.Name()] = svcUnitMap
+			svcMap[s.Name()] = s
 		}
 	}
 	return svcMap, unitMap, nil
+}
+
+// fetchUnitMachineIds returns a set of IDs for machines that
+// the specified units reside on, and those machines' ancestors.
+func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings, error) {
+	machineIds := new(set.Strings)
+	for _, svcUnitMap := range units {
+		for _, unit := range svcUnitMap {
+			mid, err := unit.AssignedMachineId()
+			if err != nil {
+				return nil, err
+			}
+			for mid != "" {
+				machineIds.Add(mid)
+				mid = state.ParentId(mid)
+			}
+		}
+	}
+	return machineIds, nil
 }
 
 func (context *statusContext) processMachines() map[string]machineStatus {
@@ -411,10 +424,7 @@ func (context *statusContext) processUnit(unit *state.Unit) (status unitStatus) 
 
 func (context *statusContext) unitByName(name string) *state.Unit {
 	serviceName := strings.Split(name, "/")[0]
-	if svcUnitMap, ok := context.units[serviceName]; ok {
-		return svcUnitMap[name]
-	}
-	return nil
+	return context.units[serviceName][name]
 }
 
 func (*statusContext) processRelations(service *state.Service) (related map[string][]string, subord []string, err error) {
