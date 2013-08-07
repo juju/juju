@@ -851,7 +851,7 @@ func assertOneRequestMatches(c *C, requests []*gwacl.X509Request, method string,
 			return
 		}
 	}
-	c.Error(fmt.Sprintf("None of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
+	c.Error(fmt.Sprintf("none of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
 }
 
 func (*environSuite) TestDestroyStopsAllInstances(c *C) {
