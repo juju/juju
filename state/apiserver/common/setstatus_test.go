@@ -26,10 +26,10 @@ type fakeStatusSetter struct {
 	fetchError
 }
 
-func (r *fakeStatusSetter) SetStatus(status params.Status, info string) error {
-	r.status = status
-	r.info = info
-	return r.err
+func (s *fakeStatusSetter) SetStatus(status params.Status, info string) error {
+	s.status = status
+	s.info = info
+	return s.err
 }
 
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {

@@ -58,9 +58,18 @@ type AgentTooler interface {
 	SetAgentTools(*tools.Tools) error
 }
 
-// Remover represents entities with lifecycles, EnsureDead and Remove methods.
-type Remover interface {
+// EnsureDeader with an EnsureDead method.
+type EnsureDeader interface {
 	EnsureDead() error
+}
+
+var (
+	_ EnsureDeader = (*Machine)(nil)
+	_ EnsureDeader = (*Unit)(nil)
+)
+
+// Remover represents entities with a Remove method.
+type Remover interface {
 	Remove() error
 }
 
@@ -117,6 +126,8 @@ type AgentEntity interface {
 	MongoPassworder
 	AgentTooler
 	StatusSetter
+	EnsureDeader
+	Remover
 }
 
 var (

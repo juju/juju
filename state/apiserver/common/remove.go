@@ -33,6 +33,7 @@ func (r *Remover) removeEntity(tag string) error {
 	remover, ok := entity.(interface {
 		state.Lifer
 		state.Remover
+		state.EnsureDeader
 	})
 	if !ok {
 		return NotSupportedError(tag, "removal")
