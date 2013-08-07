@@ -74,11 +74,13 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "cannot retrieve instances from the environment: %v\n", err)
 	}
 	result := struct {
-		Machines map[string]machineStatus `json:"machines"`
-		Services map[string]serviceStatus `json:"services"`
+		Environment string                   `json:"environment"`
+		Machines    map[string]machineStatus `json:"machines"`
+		Services    map[string]serviceStatus `json:"services"`
 	}{
-		Machines: context.processMachines(),
-		Services: context.processServices(),
+		Environment: conn.Environ.Name(),
+		Machines:    context.processMachines(),
+		Services:    context.processServices(),
 	}
 	return c.out.Write(ctx, result)
 }
