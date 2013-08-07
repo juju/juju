@@ -26,7 +26,6 @@ func (c *EndpointCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-
 // Print out the addresses of the api server endpoints.
 func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
@@ -39,7 +38,7 @@ func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	for _, url := range(api_info.Addrs) {
+	for _, url := range api_info.Addrs {
 		url = fmt.Sprintf("%s\n", url)
 		_, err := ctx.Stdout.Write([]byte(url))
 		if err != nil {

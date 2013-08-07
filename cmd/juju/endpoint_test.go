@@ -18,7 +18,6 @@ type EndpointSuite struct {
 
 var _ = Suite(&EndpointSuite{})
 
-
 func (s *EndpointSuite) TestEndpoint(c *C) {
 	ctx := coretesting.Context(c)
 	code := cmd.Main(&EndpointCommand{}, ctx, []string{})
