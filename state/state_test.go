@@ -1422,7 +1422,7 @@ var findEntityTests = []struct {
 	err: `"service-foo/bar" is not a valid service tag`,
 }, {
 	tag: "environment-foo",
-	err: `"environment-foo" is not a valid environment tag`,
+	err: `environment "foo" not found`,
 }, {
 	tag: "machine-1234",
 	err: `machine 1234 not found`,

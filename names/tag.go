@@ -66,19 +66,23 @@ func makeTag(kind, rest string) string {
 func ParseTag(tag, expectKind string) (kind, id string, err error) {
 	kind, id, err = splitTag(tag)
 	if err != nil {
-		if expectKind != "" {
-			return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
-		}
-		return "", "", fmt.Errorf("%q is not a valid tag", tag)
+		return "", "", invalidTagError(tag, expectKind)
 	}
 	if expectKind != "" && kind != expectKind {
-		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, expectKind)
+		return "", "", invalidTagError(tag, expectKind)
 	}
 	if toId := tagSuffixToId[kind]; toId != nil {
 		id = toId(id)
 	}
 	if verify := verifyId[kind]; verify != nil && !verify(id) {
-		return "", "", fmt.Errorf("%q is not a valid %s tag", tag, kind)
+		return "", "", invalidTagError(tag, expectKind)
 	}
 	return kind, id, nil
+}
+
+func invalidTagError(tag, kind string) error {
+	if kind != "" {
+		return fmt.Errorf("%q is not a valid %s tag", tag, kind)
+	}
+	return fmt.Errorf("%q is not a valid tag", tag)
 }
