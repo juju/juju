@@ -29,7 +29,7 @@ type DeployerAPI struct {
 // getAllUnits returns a list of all principal and subordinate units
 // assigned to the given machine.
 func getAllUnits(st *state.State, machineTag string) ([]string, error) {
-	id, err := names.MachineFromTag(machineTag)
+	_, id, err := names.ParseTag(machineTag, names.MachineTagKind)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,7 @@ func (d *DeployerAPI) watchOneMachineUnits(entity params.Entity) (params.Strings
 	if !d.authorizer.AuthOwner(entity.Tag) {
 		return nothing, common.ErrPerm
 	}
-	id, err := names.MachineFromTag(entity.Tag)
+	_, id, err := names.ParseTag(entity.Tag, names.MachineTagKind)
 	if err != nil {
 		return nothing, err
 	}

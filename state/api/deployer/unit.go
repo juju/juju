@@ -22,7 +22,7 @@ func (u *Unit) Tag() string {
 
 // Name returns the unit's name.
 func (u *Unit) Name() string {
-	name, err := names.UnitFromTag(u.tag)
+	_, name, err := names.ParseTag(u.tag, names.UnitTagKind)
 	if err != nil {
 		panic(err)
 	}
