@@ -947,21 +947,21 @@ func (*environSuite) TestNewRole(c *C) {
 	sshEndpoint, ok := endpoints[22]
 	c.Assert(ok, Equals, true)
 	c.Check(sshEndpoint.LocalPort, Equals, 22)
-	c.Check(sshEndpoint.Protocol, Equals, "TCP")
+	c.Check(sshEndpoint.Protocol, Equals, "tcp")
 
 	// There's also an endpoint for the state (mongodb) port.
 	// TODO: Ought to have this only for state servers.
 	stateEndpoint, ok := endpoints[env.Config().StatePort()]
 	c.Assert(ok, Equals, true)
 	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
-	c.Check(stateEndpoint.Protocol, Equals, "TCP")
+	c.Check(stateEndpoint.Protocol, Equals, "tcp")
 
 	// And one for the API port.
 	// TODO: Ought to have this only for API servers.
 	apiEndpoint, ok := endpoints[env.Config().APIPort()]
 	c.Assert(ok, Equals, true)
 	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())
-	c.Check(apiEndpoint.Protocol, Equals, "TCP")
+	c.Check(apiEndpoint.Protocol, Equals, "tcp")
 }
 
 func (*environSuite) TestNewDeployment(c *C) {
