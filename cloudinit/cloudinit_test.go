@@ -49,6 +49,13 @@ var ctests = []struct {
 		},
 	},
 	{
+		"AptProxy",
+		"apt_proxy: http://foo.com\n",
+		func(cfg *cloudinit.Config) {
+			cfg.SetAptProxy("http://foo.com")
+		},
+	},
+	{
 		"AptMirror",
 		"apt_mirror: http://foo.com\n",
 		func(cfg *cloudinit.Config) {

@@ -187,8 +187,9 @@ var statusTests = []testCase{
 		expect{
 			"empty state",
 			M{
-				"machines": M{},
-				"services": M{},
+				"environment": "dummyenv",
+				"machines":    M{},
+				"services":    M{},
 			},
 		},
 
@@ -196,6 +197,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -210,6 +212,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "pending",
@@ -227,6 +230,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -245,6 +249,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"dns-name":      "dummyenv-0.dns",
@@ -266,6 +271,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "started",
@@ -284,6 +290,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -298,6 +305,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
@@ -321,6 +329,7 @@ var statusTests = []testCase{
 		expect{
 			"no services exposed yet",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -335,6 +344,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed service",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -354,6 +364,7 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -380,6 +391,7 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -428,6 +440,7 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -495,6 +508,7 @@ var statusTests = []testCase{
 		expect{
 			"service shows life==dying",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -565,6 +579,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -658,6 +673,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -734,6 +750,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -822,6 +839,7 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,

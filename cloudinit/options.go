@@ -37,6 +37,12 @@ func (cfg *Config) SetAptUpdate(yes bool) {
 	cfg.set("apt_update", yes, yes)
 }
 
+// SetAptProxy sets the URL to be used as the apt
+// proxy.
+func (cfg *Config) SetAptProxy(url string) {
+	cfg.set("apt_proxy", url != "", url)
+}
+
 // SetAptMirror sets the URL to be used as the apt
 // mirror site. If not set, the URL is selected based
 // on cloud metadata in EC2 - <region>.archive.ubuntu.com
