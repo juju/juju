@@ -23,6 +23,7 @@ type fakeRemover struct {
 	life          state.Life
 	errEnsureDead error
 	errRemove     error
+	fetchError
 }
 
 func (r *fakeRemover) EnsureDead() error {
@@ -39,18 +40,19 @@ func (r *fakeRemover) Life() state.Life {
 
 func (*removeSuite) TestRemove(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]state.Entity{
+		entities: map[string]entityWithError{
 			"x0": &fakeRemover{life: state.Dying, errEnsureDead: fmt.Errorf("x0 EnsureDead fails")},
 			"x1": &fakeRemover{life: state.Dying, errRemove: fmt.Errorf("x1 Remove fails")},
 			"x2": &fakeRemover{life: state.Alive},
 			"x3": &fakeRemover{life: state.Dying},
 			"x4": &fakeRemover{life: state.Dead},
+			"x5": &fakeRemover{fetchError: "x5 error"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x1", "x2", "x3":
+			case "x0", "x1", "x2", "x3", "x5":
 				return true
 			}
 			return false
@@ -58,7 +60,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 	}
 	r := common.NewRemover(st, getCanModify)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x6"},
+		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"}, {"x5"}, {"x6"},
 	}}
 	result, err := r.Remove(entities)
 	c.Assert(err, gc.IsNil)
@@ -69,6 +71,7 @@ func (*removeSuite) TestRemove(c *gc.C) {
 			{&params.Error{Message: `cannot remove entity "x2": still alive`}},
 			{nil},
 			{apiservertesting.ErrUnauthorized},
+			{&params.Error{Message: "x5 error"}},
 			{apiservertesting.ErrUnauthorized},
 		},
 	})

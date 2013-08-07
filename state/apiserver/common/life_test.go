@@ -21,6 +21,7 @@ var _ = gc.Suite(&lifeSuite{})
 type fakeLifer struct {
 	state.Entity
 	life state.Life
+	fetchError
 }
 
 func (l *fakeLifer) Life() state.Life {
@@ -29,16 +30,17 @@ func (l *fakeLifer) Life() state.Life {
 
 func (*lifeSuite) TestLife(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]state.Entity{
+		entities: map[string]entityWithError{
 			"x0": &fakeLifer{life: state.Alive},
 			"x1": &fakeLifer{life: state.Dying},
 			"x2": &fakeLifer{life: state.Dead},
+			"x3": &fakeLifer{fetchError: "x3 error"},
 		},
 	}
 	getCanRead := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x2":
+			case "x0", "x2", "x3":
 				return true
 			}
 			return false
@@ -46,7 +48,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 	}
 	lg := common.NewLifeGetter(st, getCanRead)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"},
+		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
 	}}
 	results, err := lg.Life(entities)
 	c.Assert(err, gc.IsNil)
@@ -55,6 +57,7 @@ func (*lifeSuite) TestLife(c *gc.C) {
 			{Life: params.Alive},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Life: params.Dead},
+			{Error: &params.Error{Message: "x3 error"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})

@@ -25,8 +25,8 @@ func NewRemover(st state.EntityFinder, getCanModify GetAuthFunc) *Remover {
 	}
 }
 
-func (r *Remover) removeEntity(entityp params.Entity) error {
-	entity, err := r.st.FindEntity(entityp.Tag)
+func (r *Remover) removeEntity(tag string) error {
+	entity, err := r.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
@@ -35,11 +35,11 @@ func (r *Remover) removeEntity(entityp params.Entity) error {
 		state.Remover
 	})
 	if !ok {
-		return NotSupportedError(entityp.Tag, "removal")
+		return NotSupportedError(tag, "removal")
 	}
 	// Only remove entites that are not Alive.
 	if life := remover.Life(); life == state.Alive {
-		return fmt.Errorf("cannot remove entity %q: still alive", entityp.Tag)
+		return fmt.Errorf("cannot remove entity %q: still alive", tag)
 	}
 	if err = remover.EnsureDead(); err != nil {
 		return err
@@ -63,7 +63,7 @@ func (r *Remover) Remove(args params.Entities) (params.ErrorResults, error) {
 	for i, entity := range args.Entities {
 		err := ErrPerm
 		if canModify(entity.Tag) {
-			err = r.removeEntity(entity)
+			err = r.removeEntity(entity.Tag)
 		}
 		result.Results[i].Error = ServerError(err)
 	}

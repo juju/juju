@@ -24,15 +24,33 @@ func TestAll(t *stdtesting.T) {
 
 var _ = gc.Suite(&passwordSuite{})
 
+type entityWithError interface {
+	state.Entity
+	error() error
+}
+
 type fakeState struct {
-	entities map[string]state.Entity
+	entities map[string]entityWithError
 }
 
 func (st *fakeState) FindEntity(tag string) (state.Entity, error) {
-	if auth, ok := st.entities[tag]; ok {
-		return auth, nil
+	entity, ok := st.entities[tag]
+	if !ok {
+		return nil, errors.NotFoundf("entity %q", tag)
 	}
-	return nil, errors.NotFoundf("entity %q", tag)
+	if err := entity.error(); err != nil {
+		return nil, err
+	}
+	return entity, nil
+}
+
+type fetchError string
+
+func (f fetchError) error() error {
+	if f == "" {
+		return nil
+	}
+	return fmt.Errorf("%s", string(f))
 }
 
 type fakeAuthenticator struct {
@@ -42,6 +60,7 @@ type fakeAuthenticator struct {
 	state.Entity
 	err  error
 	pass string
+	fetchError
 }
 
 func (a *fakeAuthenticator) SetPassword(pass string) error {
@@ -67,13 +86,16 @@ func (a *fakeAuthenticatorWithMongoPass) SetMongoPassword(pass string) error {
 
 func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]state.Entity{
+		entities: map[string]entityWithError{
 			"x0": &fakeAuthenticator{},
 			"x1": &fakeAuthenticator{},
 			"x2": &fakeAuthenticator{
 				err: fmt.Errorf("x2 error"),
 			},
-			"x3": &fakeAuthenticatorWithMongoPass{},
+			"x3": &fakeAuthenticator{
+				fetchError: "x3 error",
+			},
+			"x4": &fakeAuthenticatorWithMongoPass{},
 		},
 	}
 	getCanChange := func() (common.AuthFunc, error) {
@@ -83,7 +105,7 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 	}
 	pc := common.NewPasswordChanger(st, getCanChange)
 	var changes []params.PasswordChange
-	for i := 0; i < 4; i++ {
+	for i := 0; i < 5; i++ {
 		tag := fmt.Sprintf("x%d", i)
 		changes = append(changes, params.PasswordChange{
 			Tag:      tag,
@@ -99,14 +121,15 @@ func (*passwordSuite) TestSetPasswords(c *gc.C) {
 			{apiservertesting.ErrUnauthorized},
 			{nil},
 			{&params.Error{Message: "x2 error"}},
+			{&params.Error{Message: "x3 error"}},
 			{nil},
 		},
 	})
 	c.Assert(st.entities["x0"].(*fakeAuthenticator).pass, gc.Equals, "")
 	c.Assert(st.entities["x1"].(*fakeAuthenticator).pass, gc.Equals, "x1pass")
 	c.Assert(st.entities["x2"].(*fakeAuthenticator).pass, gc.Equals, "")
-	c.Assert(st.entities["x3"].(*fakeAuthenticatorWithMongoPass).pass, gc.Equals, "x3pass")
-	c.Assert(st.entities["x3"].(*fakeAuthenticatorWithMongoPass).mongoPass, gc.Equals, "x3pass")
+	c.Assert(st.entities["x4"].(*fakeAuthenticatorWithMongoPass).pass, gc.Equals, "x4pass")
+	c.Assert(st.entities["x4"].(*fakeAuthenticatorWithMongoPass).mongoPass, gc.Equals, "x4pass")
 }
 
 func (*passwordSuite) TestSetPasswordsError(c *gc.C) {

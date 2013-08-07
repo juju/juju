@@ -23,6 +23,7 @@ type fakeStatusSetter struct {
 	status params.Status
 	info   string
 	err    error
+	fetchError
 }
 
 func (r *fakeStatusSetter) SetStatus(status params.Status, info string) error {
@@ -33,17 +34,18 @@ func (r *fakeStatusSetter) SetStatus(status params.Status, info string) error {
 
 func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 	st := &fakeState{
-		entities: map[string]state.Entity{
+		entities: map[string]entityWithError{
 			"x0": &fakeStatusSetter{status: params.StatusPending, info: "blah", err: fmt.Errorf("x0 fails")},
 			"x1": &fakeStatusSetter{status: params.StatusStarted, info: "foo"},
 			"x2": &fakeStatusSetter{status: params.StatusError, info: "some info"},
-			"x3": &fakeStatusSetter{status: params.StatusStopped, info: ""},
+			"x3": &fakeStatusSetter{fetchError: "x3 error"},
+			"x4": &fakeStatusSetter{status: params.StatusStopped, info: ""},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x1", "x2":
+			case "x0", "x1", "x2", "x3":
 				return true
 			}
 			return false
@@ -55,8 +57,9 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{"x0", params.StatusStarted, "bar"},
 			{"x1", params.StatusStopped, ""},
 			{"x2", params.StatusPending, "not really"},
-			{"x3", params.StatusError, "blarg"},
-			{"x4", params.StatusStarted, "42"},
+			{"x3", params.StatusStopped, ""},
+			{"x4", params.StatusError, "blarg"},
+			{"x5", params.StatusStarted, "42"},
 		},
 	}
 	result, err := s.SetStatus(args)
@@ -66,6 +69,7 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{&params.Error{Message: "x0 fails"}},
 			{nil},
 			{nil},
+			{&params.Error{Message: "x3 error"}},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
@@ -90,6 +94,7 @@ func (*statusSetterSuite) TestSetStatus(c *gc.C) {
 			{&params.Error{Message: "x0 fails"}},
 			{nil},
 			{nil},
+			{&params.Error{Message: "x3 error"}},
 			{apiservertesting.ErrUnauthorized},
 			{apiservertesting.ErrUnauthorized},
 		},
