@@ -347,7 +347,7 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 	cleanup := prepareSimpleStreamsResponse("West Europe", "precise", "12.04", "amd64", response)
 	defer cleanup()
 
-	images, err := findMatchingImages("West Europe", "precise", "released", []string{"amd64"})
+	images, err := findMatchingImages("West Europe", "precise", "", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(images, gc.HasLen, 1)
