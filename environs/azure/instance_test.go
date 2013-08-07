@@ -335,13 +335,13 @@ func (*instanceSuite) TestConvertAndFilterEndpoints(c *C) {
 	endpoints := []gwacl.InputEndpoint{
 		{
 			LocalPort: 123,
-			Protocol:  "UDP",
+			Protocol:  "udp",
 			Name:      "test123",
 			Port:      1123,
 		},
 		{
 			LocalPort: 456,
-			Protocol:  "TCP",
+			Protocol:  "tcp",
 			Name:      "test456",
 			Port:      44,
 		}}
@@ -349,18 +349,19 @@ func (*instanceSuite) TestConvertAndFilterEndpoints(c *C) {
 	expectedPorts := []instance.Port{
 		{
 			Number:   1123,
-			Protocol: "UDP",
+			Protocol: "udp",
 		},
 		{
 			Number:   44,
-			Protocol: "TCP",
+			Protocol: "tcp",
 		}}
 	c.Check(convertAndFilterEndpoints(endpoints, env), DeepEquals, expectedPorts)
 }
 
 func (*instanceSuite) TestConvertAndFilterEndpointsEmptySlice(c *C) {
 	env := makeEnviron(c)
-	c.Check(convertAndFilterEndpoints([]gwacl.InputEndpoint{}, env), DeepEquals, []instance.Port{})
+	ports := convertAndFilterEndpoints([]gwacl.InputEndpoint{}, env)
+	c.Check(ports, HasLen, 0)
 }
 
 func (*instanceSuite) TestPorts(c *C) {
@@ -368,19 +369,19 @@ func (*instanceSuite) TestPorts(c *C) {
 	endpoints := []gwacl.InputEndpoint{
 		{
 			LocalPort: 223,
-			Protocol:  "UDP",
+			Protocol:  "udp",
 			Name:      "test223",
 			Port:      2123,
 		},
 		{
 			LocalPort: 123,
-			Protocol:  "UDP",
+			Protocol:  "udp",
 			Name:      "test123",
 			Port:      1123,
 		},
 		{
 			LocalPort: 456,
-			Protocol:  "TCP",
+			Protocol:  "tcp",
 			Name:      "test456",
 			Port:      4456,
 		}}
@@ -405,9 +406,9 @@ func (*instanceSuite) TestPorts(c *C) {
 		// The result is sorted using state.SortPorts() (i.e. first by protocol,
 		// then by number).
 		[]instance.Port{
-			instance.Port{Number: 4456, Protocol: "TCP"},
-			instance.Port{Number: 1123, Protocol: "UDP"},
-			instance.Port{Number: 2123, Protocol: "UDP"},
+			instance.Port{Number: 4456, Protocol: "tcp"},
+			instance.Port{Number: 1123, Protocol: "udp"},
+			instance.Port{Number: 2123, Protocol: "udp"},
 		})
 }
 
@@ -439,7 +440,7 @@ func (*instanceSuite) TestPortsErrorsIfMoreThanOneDeployment(c *C) {
 	c.Check(err, ErrorMatches, ".*more than one Azure deployment inside the service.*")
 }
 
-func (*instanceSuite) TestPortsReturnsEmptySliceIfNotDeployment(c *C) {
+func (*instanceSuite) TestPortsReturnsEmptySliceIfNoDeployment(c *C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service)
 	gwacl.PatchManagementAPIResponses(responses)

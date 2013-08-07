@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/firewaller"
 )
 
 type azureInstance struct {
@@ -159,28 +160,23 @@ func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext,
 }
 
 // convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of instance.Port.
-// It filters out the initial endpoints that every instance should have opened (ssh port, etc.).
-func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron) []instance.Port {
+func convertEndpointsToPorts(endpoints []gwacl.InputEndpoint) []instance.Port {
 	ports := []instance.Port{}
-	initialEndpoints := env.getInitialEndpoints()
 	for _, endpoint := range endpoints {
-		// Exclude the endpoint if it's an initial endpoint.
-		exclude := false
-		for _, initialEndpoint := range initialEndpoints {
-			if strings.ToLower(initialEndpoint.Protocol) == strings.ToLower(endpoint.Protocol) && initialEndpoint.Port == endpoint.Port {
-				exclude = true
-				break
-			}
-		}
-		if !exclude {
-			// Convert the endpoint into an instance.Port.
-			port := instance.Port{
-				Protocol: endpoint.Protocol,
-				Number:   endpoint.Port}
-			ports = append(ports, port)
-		}
+		ports = append(ports, instance.Port{
+			Protocol: strings.ToLower(endpoint.Protocol),
+			Number:   endpoint.Port,
+		})
 	}
 	return ports
+}
+
+// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of instance.Port
+// and filters out the initial endpoints that every instance should have opened (ssh port, etc.).
+func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron) []instance.Port {
+	return firewaller.Diff(
+		convertEndpointsToPorts(endpoints),
+		convertEndpointsToPorts(env.getInitialEndpoints()))
 }
 
 // Ports is specified in the Instance interface.
@@ -200,9 +196,10 @@ func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error
 	return ports, nil
 }
 
-// listPorts returns the slice of ports (instance.Port) that this machine has opened. The
-// returned list does not contain the "initial ports" (i.e. the ports every instance shoud have
-// opened). The caller is responsible for locking and unlocking the environ and releasing the
+// listPorts returns the slice of ports (instance.Port) that this machine
+// has opened. The returned list does not contain the "initial ports"
+// (i.e. the ports every instance shoud have opened). The caller is
+// responsible for locking and unlocking the environ and releasing the
 // management context.
 func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]instance.Port, error) {
 	deployments, err := context.ListAllDeployments(&gwacl.ListAllDeploymentsRequest{

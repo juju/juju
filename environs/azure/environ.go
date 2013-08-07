@@ -551,7 +551,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
 }
 
-// getInitialEndpoints returns a slice of the endpoints every instance should have opened
+// getInitialEndpoints returns a slice of the endpoints every instance should have open
 // (ssh port, etc).
 func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 	config := env.Config()
@@ -560,21 +560,21 @@ func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 			LocalPort: 22,
 			Name:      "sshport",
 			Port:      22,
-			Protocol:  "TCP",
+			Protocol:  "tcp",
 		},
 		// TODO: Ought to have this only for state servers.
 		{
 			LocalPort: config.StatePort(),
 			Name:      "stateport",
 			Port:      config.StatePort(),
-			Protocol:  "TCP",
+			Protocol:  "tcp",
 		},
 		// TODO: Ought to have this only for API servers.
 		{
 			LocalPort: config.APIPort(),
 			Name:      "apiport",
 			Port:      config.APIPort(),
-			Protocol:  "TCP",
+			Protocol:  "tcp",
 		}}
 }
 
