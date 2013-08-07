@@ -16,6 +16,7 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"

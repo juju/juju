@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
