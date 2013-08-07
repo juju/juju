@@ -472,6 +472,7 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 	kind, id, err := names.ParseTag(tag, "")
 	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, add
 	// support for relation entities here.
+	switch kind {
 	case names.MachineTagKind:
 		return st.Machine(id)
 	case names.UnitTagKind:
