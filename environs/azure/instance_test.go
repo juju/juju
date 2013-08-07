@@ -448,5 +448,5 @@ func (*instanceSuite) TestPortsReturnsEmptySliceIfNotDeployment(c *C) {
 	ports, err := azInstance.Ports("machine-id")
 
 	c.Assert(err, IsNil)
-	c.Check(ports, DeepEquals, []instance.Port{})
+	c.Check(ports, HasLen, 0)
 }

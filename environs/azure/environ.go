@@ -551,7 +551,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
 }
 
-// getInitialEndpoints return a slice of the endpoints every instance should have opened
+// getInitialEndpoints returns a slice of the endpoints every instance should have opened
 // (ssh port, etc).
 func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 	config := env.Config()

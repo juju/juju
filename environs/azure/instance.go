@@ -201,9 +201,9 @@ func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error
 }
 
 // listPorts returns the slice of ports (instance.Port) that this machine has opened. The
-// returned list if sorted using state.SortPorts and does not contain the "initial ports" (i.e.
-// the ports every instance shoud have opened). The caller is responsible for locking and
-// unlocking the environ and releasing the management context.
+// returned list does not contain the "initial ports" (i.e. the ports every instance shoud have
+// opened). The caller is responsible for locking and unlocking the environ and releasing the
+// management context.
 func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]instance.Port, error) {
 	deployments, err := context.ListAllDeployments(&gwacl.ListAllDeploymentsRequest{
 		ServiceName: azInstance.ServiceName,
@@ -237,7 +237,7 @@ func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]i
 			ports := convertAndFilterEndpoints(endpoints, env)
 			return ports, nil
 		}
-		return []instance.Port{}, nil
+		return nil, nil
 	}
-	return []instance.Port{}, nil
+	return nil, nil
 }
