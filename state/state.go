@@ -489,7 +489,7 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf("%q is not a valid environment tag", tag)
+			return nil, errors.NotFoundf("environment %q", id)
 		}
 		return st.Environment()
 	}
