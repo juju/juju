@@ -117,6 +117,18 @@ var (
 	_ Annotator = (*Environment)(nil)
 )
 
+// NotifyWatcherFactory represents an entity that
+// can be watched.
+type NotifyWatcherFactory interface {
+	Watch() NotifyWatcher
+}
+
+var (
+	_ NotifyWatcherFactory = (*Machine)(nil)
+	_ NotifyWatcherFactory = (*Unit)(nil)
+	_ NotifyWatcherFactory = (*Service)(nil)
+)
+
 // AgentEntity represents an entity that can
 // have an agent responsible for it.
 type AgentEntity interface {
@@ -128,6 +140,7 @@ type AgentEntity interface {
 	StatusSetter
 	EnsureDeader
 	Remover
+	NotifyWatcherFactory
 }
 
 var (
