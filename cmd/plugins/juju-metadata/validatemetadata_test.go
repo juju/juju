@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 type ValidateMetadataSuite struct {
@@ -66,7 +67,7 @@ func (s *ValidateMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, e
 		Id:   id,
 		Arch: "amd64",
 	}
-	cloudSpec := imagemetadata.CloudSpec{
+	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: endpoint,
 	}

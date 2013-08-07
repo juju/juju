@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that
@@ -106,7 +107,7 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 // baseURLs specifies where we look for simplestreams information.  It's just
 // the central database, but this may become more configurable.  This variable
 // is here as a placeholder, but also as an injection point for tests.
-var baseURLs = []string{imagemetadata.DefaultBaseURL}
+var baseURLs = []string{simplestreams.DefaultBaseURL}
 
 // getEndpoint returns the endpoint to use for the given Azure location
 // (e.g. West Europe or China North).
@@ -137,13 +138,13 @@ func findMatchingImages(location, series string, arches []string) ([]*imagemetad
 	if err != nil {
 		return nil, err
 	}
-	constraint := imagemetadata.ImageConstraint{
-		CloudSpec: imagemetadata.CloudSpec{location, endpoint},
+	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{location, endpoint},
 		Series:    series,
 		Arches:    arches,
-	}
-	indexPath := imagemetadata.DefaultIndexPath
-	images, err := fetchImageMetadata(baseURLs, indexPath, &constraint, signedImageDataOnly)
+	})
+	indexPath := simplestreams.DefaultIndexPath
+	images, err := fetchImageMetadata(baseURLs, indexPath, constraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
