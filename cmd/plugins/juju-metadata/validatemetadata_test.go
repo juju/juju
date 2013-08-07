@@ -13,8 +13,8 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
-	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/environs/simplestreams"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 type ValidateMetadataSuite struct {

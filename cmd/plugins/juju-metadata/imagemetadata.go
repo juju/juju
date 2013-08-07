@@ -12,8 +12,8 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // ImageMetadataCommand is used to write out a boilerplate environments.yaml file.
