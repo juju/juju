@@ -296,7 +296,6 @@ func (conn *Conn) loop() error {
 			return err
 		}
 	}
-	panic("unreachable")
 }
 
 func (conn *Conn) readBody(resp interface{}, isRequest bool) error {

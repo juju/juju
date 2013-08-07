@@ -219,7 +219,7 @@ func (s *clientSuite) TestClientAnnotations(c *C) {
 
 func (s *clientSuite) TestClientAnnotationsBadEntity(c *C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
-	expected := `invalid entity tag ".*"`
+	expected := `".*" is not a valid( [a-z]+)? tag`
 	for _, id := range bad {
 		err := s.APIState.Client().SetAnnotations(id, map[string]string{"mykey": "myvalue"})
 		c.Assert(err, ErrorMatches, expected)

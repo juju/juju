@@ -5,12 +5,14 @@ package maas
 
 import (
 	"fmt"
+	"net/url"
+	"strings"
+
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/utils"
-	"net/url"
-	"strings"
 )
 
 // extractSystemId extracts the 'system_id' part from an InstanceId.
