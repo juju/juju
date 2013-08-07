@@ -65,6 +65,7 @@ func Main(args []string) {
 	// Reporting commands.
 	jujucmd.Register(&StatusCommand{})
 	jujucmd.Register(&SwitchCommand{})
+	jujucmd.Register(&EndpointCommand{})
 
 	// Error resolution and debugging commands.
 	jujucmd.Register(&SCPCommand{})
