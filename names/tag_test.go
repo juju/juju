@@ -127,6 +127,16 @@ func (*tagSuite) TestParseTag(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.resultErr)
 			c.Assert(kind, gc.Equals, "")
 			c.Assert(id, gc.Equals, "")
+
+			// If the tag has a valid kind which matches the
+			// expected kind, test that using an empty
+			// expectKind does not change the error message.
+			if tagKind, err := names.TagKind(test.tag); err == nil && tagKind == test.expectKind {
+				kind, id, err := names.ParseTag(test.tag, "")
+				c.Assert(err, gc.ErrorMatches, test.resultErr)
+				c.Assert(kind, gc.Equals, "")
+				c.Assert(id, gc.Equals, "")
+			}
 		} else {
 			c.Assert(err, gc.IsNil)
 			c.Assert(id, gc.Equals, test.resultId)

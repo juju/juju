@@ -28,8 +28,6 @@ type Machine struct {
 	annotator
 }
 
-var _ AgentEntity = (*Machine)(nil)
-
 // MachineJob values define responsibilities that machines may be
 // expected to fulfil.
 type MachineJob int

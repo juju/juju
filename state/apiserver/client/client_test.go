@@ -183,7 +183,11 @@ func (s *clientSuite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	environment, err := s.State.Environment()
 	c.Assert(err, IsNil)
-	entities := []state.TaggedAnnotator{service, unit, machine, environment}
+	type taggedAnnotator interface {
+		state.Annotator
+		state.Entity
+	}
+	entities := []taggedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 		for _, entity := range entities {
 			id := entity.Tag()

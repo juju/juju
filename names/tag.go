@@ -75,7 +75,7 @@ func ParseTag(tag, expectKind string) (kind, id string, err error) {
 		id = toId(id)
 	}
 	if verify := verifyId[kind]; verify != nil && !verify(id) {
-		return "", "", invalidTagError(tag, expectKind)
+		return "", "", invalidTagError(tag, kind)
 	}
 	return kind, id, nil
 }
