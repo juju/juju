@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"path"
+	"regexp"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -131,17 +132,9 @@ func (m unitMatcher) matchString(s string) bool {
 	return false
 }
 
-// validatePattern checks if a string contains invalid
-// pattern characters, and, if so, returns an error.
-func validatePattern(s string) error {
-	const valid = "abcdefghijklmnopqrstuvwxyz0123456789-*"
-	for _, r := range s {
-		if !strings.ContainsRune(valid, r) {
-			return fmt.Errorf("pattern %q contains invalid character: %c", s, r)
-		}
-	}
-	return nil
-}
+// validPattern must match the parts of a unit or service name
+// pattern either side of the '/' for it to be valid.
+var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
 
 // newUnitMatcher returns a unitMatcher that matches units
 // with one of the specified patterns, or all units if no
@@ -149,7 +142,8 @@ func validatePattern(s string) error {
 //
 // An error will be returned if any of the specified patterns
 // is invalid. Patterns are valid if they contain only
-// alpha-numeric characters, hyphens, or asterisks.
+// alpha-numeric characters, hyphens, or asterisks (and one
+// optional '/' to separate service/unit).
 func newUnitMatcher(patterns []string) (unitMatcher, error) {
 	for i, pattern := range patterns {
 		fields := strings.Split(pattern, "/")
@@ -157,8 +151,8 @@ func newUnitMatcher(patterns []string) (unitMatcher, error) {
 			return unitMatcher{}, fmt.Errorf("pattern %q contains too many '/' characters", pattern)
 		}
 		for _, f := range fields {
-			if err := validatePattern(f); err != nil {
-				return unitMatcher{}, err
+			if !validPattern.MatchString(f) {
+				return unitMatcher{}, fmt.Errorf("pattern %q contains invalid characters", pattern)
 			}
 		}
 		if len(fields) == 1 {

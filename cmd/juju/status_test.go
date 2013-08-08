@@ -1576,7 +1576,7 @@ func (s *StatusSuite) TestStatusFilterErrors(c *C) {
 	// Status filters can only fail if the patterns are invalid.
 	code, _, stderr := runStatus(c, "[*")
 	c.Assert(code, Not(Equals), 0)
-	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid character: [`+"\n")
+	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid characters`+"\n")
 
 	code, _, stderr = runStatus(c, "//")
 	c.Assert(code, Not(Equals), 0)
@@ -1587,5 +1587,5 @@ func (s *StatusSuite) TestStatusFilterErrors(c *C) {
 	// will still cause an error.
 	code, _, stderr = runStatus(c, "*", "[*")
 	c.Assert(code, Not(Equals), 0)
-	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid character: [`+"\n")
+	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid characters`+"\n")
 }
