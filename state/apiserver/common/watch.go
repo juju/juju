@@ -4,6 +4,7 @@
 package common
 
 import (
+	"fmt"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -45,6 +46,7 @@ func (a *AgentEntityWatcher) watchEntity(tag string) (string, error) {
 	if _, ok := <-watch.Changes(); ok {
 		return a.resources.Register(watch), nil
 	}
+	fmt.Printf("AAAAAAAAAAAAAAAAAAAAA")
 	return "", watcher.MustErr(watch)
 }
 
