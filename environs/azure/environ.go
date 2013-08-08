@@ -631,6 +631,13 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	return inst, nil, err
 }
 
+// Spawn this many goroutines to issue requests for destroying services.
+// TODO: this is currently set to 1 because of a problem in Azure:
+// removing Services in the same affinity group concurrently causes a conflict.
+// This conflict is wrongly reported by Azure as a BadRequest (400).
+// This has been reported to Windows Azure.
+var maxConcurrentDeletes = 1
+
 // StopInstances is specified in the Environ interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
@@ -641,17 +648,44 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
-	// Shut down all the instances; if there are errors, return only the
-	// first one (but try to shut down all instances regardless).
-	var firstErr error
-	for _, instance := range instances {
-		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
-		err := context.DestroyHostedService(request)
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
+
+	// Destroy all the services in parallel.
+	servicesToDestroy := make(chan string)
+
+	// Spawn min(len(instances), maxConcurrentDeletes) goroutines to
+	// destroy the services.
+	nbRoutines := len(instances)
+	if maxConcurrentDeletes < nbRoutines {
+		nbRoutines = maxConcurrentDeletes
 	}
-	return firstErr
+
+	var wg sync.WaitGroup
+	wg.Add(nbRoutines)
+	errc := make(chan error, len(instances))
+	for i := 0; i < nbRoutines; i++ {
+		go func() {
+			defer wg.Done()
+			for serviceName := range servicesToDestroy {
+				request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
+				err := context.DestroyHostedService(request)
+				if err != nil {
+					errc <- err
+				}
+			}
+		}()
+	}
+	// Feed all the service names to servicesToDestroy.
+	for _, instance := range instances {
+		servicesToDestroy <- string(instance.Id())
+	}
+	close(servicesToDestroy)
+	wg.Wait()
+	select {
+	case err := <-errc:
+		return err
+	default:
+	}
+	return nil
 }
 
 // Instances is specified in the Environ interface.
