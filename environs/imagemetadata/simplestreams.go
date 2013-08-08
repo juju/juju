@@ -241,7 +241,7 @@ func (metadata *indexMetadata) hasProduct(prodIds []string) bool {
 type indexMetadataArray []*indexMetadata
 
 // filter returns those entries from an indexMetadata array for which the given
-// match function returns "true."  It preserves order.
+// match function returns true.  It preserves order.
 func (entries indexMetadataArray) filter(match func(*indexMetadata) bool) indexMetadataArray {
 	result := indexMetadataArray{}
 	for _, metadata := range entries {
