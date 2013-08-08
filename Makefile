@@ -17,7 +17,7 @@ format:
 install-dependencies:
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository ppa:juju/golang
-    # XXX - this should be changed to devel?
+	# XXX - this should be changed to devel?
 	@sudo apt-add-repository ppa:juju/experimental
 	@sudo apt-get update
 	@echo Installing dependencies
