@@ -22,7 +22,6 @@ type allWatcherStateBacking struct {
 	st *State
 	// collections
 	collectionByName map[string]allWatcherStateCollection
-	collectionByType map[reflect.Type]allWatcherStateCollection
 }
 
 type backingMachine machineDoc
@@ -420,56 +419,55 @@ var (
 type allWatcherStateCollection struct {
 	*mgo.Collection
 
-	// infoSliceType stores the type of a slice of the info type
-	// that we use for this collection.  In Go 1.1 we can change
-	// this to use the type itself, as we'll have reflect.SliceOf.
-	infoSliceType reflect.Type
+	// infoType stores the type of the info type
+	// that we use for this collection.
+	infoType reflect.Type
 	// subsidiary is true if the collection is used only
 	// to modify a primary entity.
 	subsidiary bool
 }
 
 func newAllWatcherStateBacking(st *State) multiwatcher.Backing {
+	collectionByType := make(map[reflect.Type]allWatcherStateCollection)
 	b := &allWatcherStateBacking{
 		st:               st,
 		collectionByName: make(map[string]allWatcherStateCollection),
-		collectionByType: make(map[reflect.Type]allWatcherStateCollection),
 	}
 	collections := []allWatcherStateCollection{{
-		Collection:    st.machines,
-		infoSliceType: reflect.TypeOf([]backingMachine(nil)),
+		Collection: st.machines,
+		infoType:   reflect.TypeOf(backingMachine{}),
 	}, {
-		Collection:    st.units,
-		infoSliceType: reflect.TypeOf([]backingUnit(nil)),
+		Collection: st.units,
+		infoType:   reflect.TypeOf(backingUnit{}),
 	}, {
-		Collection:    st.services,
-		infoSliceType: reflect.TypeOf([]backingService(nil)),
+		Collection: st.services,
+		infoType:   reflect.TypeOf(backingService{}),
 	}, {
-		Collection:    st.relations,
-		infoSliceType: reflect.TypeOf([]backingRelation(nil)),
+		Collection: st.relations,
+		infoType:   reflect.TypeOf(backingRelation{}),
 	}, {
-		Collection:    st.annotations,
-		infoSliceType: reflect.TypeOf([]backingAnnotation(nil)),
+		Collection: st.annotations,
+		infoType:   reflect.TypeOf(backingAnnotation{}),
 	}, {
-		Collection:    st.statuses,
-		infoSliceType: reflect.TypeOf([]backingStatus(nil)),
-		subsidiary:    true,
+		Collection: st.statuses,
+		infoType:   reflect.TypeOf(backingStatus{}),
+		subsidiary: true,
 	}, {
-		Collection:    st.constraints,
-		infoSliceType: reflect.TypeOf([]backingConstraints(nil)),
-		subsidiary:    true,
+		Collection: st.constraints,
+		infoType:   reflect.TypeOf(backingConstraints{}),
+		subsidiary: true,
 	}, {
-		Collection:    st.settings,
-		infoSliceType: reflect.TypeOf([]backingSettings(nil)),
-		subsidiary:    true,
+		Collection: st.settings,
+		infoType:   reflect.TypeOf(backingSettings{}),
+		subsidiary: true,
 	}}
 	// Populate the collection maps from the above set of collections.
 	for _, c := range collections {
-		docType := c.infoSliceType.Elem()
-		if _, ok := b.collectionByType[docType]; ok {
+		docType := c.infoType
+		if _, ok := collectionByType[docType]; ok {
 			panic(fmt.Errorf("duplicate collection type %s", docType))
 		}
-		b.collectionByType[docType] = c
+		collectionByType[docType] = c
 		if _, ok := b.collectionByName[c.Name]; ok {
 			panic(fmt.Errorf("duplicate collection name %q", c.Name))
 		}
@@ -499,7 +497,7 @@ func (b *allWatcherStateBacking) GetAll(all *multiwatcher.Store) error {
 		if c.subsidiary {
 			continue
 		}
-		infoSlicePtr := reflect.New(c.infoSliceType)
+		infoSlicePtr := reflect.New(reflect.SliceOf(c.infoType))
 		if err := c.Find(nil).All(infoSlicePtr.Interface()); err != nil {
 			return fmt.Errorf("cannot get all %s: %v", c.Name, err)
 		}
@@ -519,7 +517,7 @@ func (b *allWatcherStateBacking) Changed(all *multiwatcher.Store, change watcher
 	if !ok {
 		panic(fmt.Errorf("unknown collection %q in fetch request", change.C))
 	}
-	doc := reflect.New(c.infoSliceType.Elem()).Interface().(backingEntityDoc)
+	doc := reflect.New(c.infoType).Interface().(backingEntityDoc)
 	// TODO(rog) investigate ways that this can be made more efficient
 	// than simply fetching each entity in turn.
 	// TODO(rog) avoid fetching documents that we have no interest

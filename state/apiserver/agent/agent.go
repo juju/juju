@@ -27,10 +27,7 @@ func NewAPI(st *state.State, auth common.Authorizer) (*API, error) {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
-		// TODO(go1.1): method expression
-		return func(tag string) bool {
-			return auth.AuthOwner(tag)
-		}, nil
+		return auth.AuthOwner, nil
 	}
 	return &API{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
