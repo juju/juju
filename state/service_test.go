@@ -1304,7 +1304,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	// TODO(fwereade) split this test up a bit.
 	w := s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w, false}
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1347,7 +1347,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	rel2 := addRelation()
 	w = s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
-	wc = testing.StringsWatcherC{c, s.State, w, false}
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(rel1.String(), rel2.String())
 	wc.AssertNoChange()
 

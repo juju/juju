@@ -1566,7 +1566,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
@@ -1612,7 +1612,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.
@@ -1643,7 +1643,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchMinUnits()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewLaxStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
