@@ -79,6 +79,11 @@ var sshTests = []struct {
 		[]string{"0", "--", "uname", "-a"},
 		sshArgs + "dummyenv-0.dns uname -a\n",
 	},
+	// juju ssh 0 uname -a
+	{
+		[]string{"0", "uname", "-a"},
+		sshArgs + "dummyenv-0.dns uname -a\n",
+	},
 	{
 		[]string{"mysql/0"},
 		sshArgs + "dummyenv-0.dns\n",
