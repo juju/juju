@@ -454,7 +454,10 @@ func (u *Unit) PublicAddress() (string, bool) {
 			unitLogger.Errorf("unit %v misses machine id %v", u, id)
 			return "", false
 		}
-		publicAddress = instance.SelectPublicAddress(m.Addresses())
+		addresses := m.Addresses()
+		if len(addresses) > 0 {
+			publicAddress = instance.SelectPublicAddress(addresses)
+		}
 	}
 	return publicAddress, publicAddress != ""
 }
