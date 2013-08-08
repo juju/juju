@@ -127,26 +127,23 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 type byCost []InstanceType
 
 func (bc byCost) Len() int { return len(bc) }
+
 func (bc byCost) Less(i, j int) bool {
-	if bc[i].Cost != bc[j].Cost {
-		return bc[i].Cost < bc[j].Cost
+	inst0, inst1 := &bc[i], &bc[j]
+	if inst0.Cost != inst1.Cost {
+		return inst0.Cost < inst1.Cost
 	}
-	if bc[i].Mem != bc[j].Mem {
-		return bc[i].Mem < bc[j].Mem
+	if inst0.Mem != inst1.Mem {
+		return inst0.Mem < inst1.Mem
 	}
-	iCpuPower := uint64(0)
-	jCpuPower := uint64(0)
-	if bc[i].CpuPower != nil {
-		iCpuPower = *bc[i].CpuPower
+	if inst0.CpuPower != nil &&
+		inst1.CpuPower != nil &&
+		*inst0.CpuPower != *inst1.CpuPower {
+		return *inst0.CpuPower < *inst1.CpuPower
 	}
-	if bc[j].CpuPower != nil {
-		jCpuPower = *bc[j].CpuPower
-	}
-	if iCpuPower != jCpuPower {
-		return iCpuPower < jCpuPower
-	}
-	return bc[i].CpuCores < bc[j].CpuCores
+	return inst0.CpuCores < inst1.CpuCores
 }
+
 func (bc byCost) Swap(i, j int) {
 	bc[i], bc[j] = bc[j], bc[i]
 }

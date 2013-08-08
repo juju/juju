@@ -285,6 +285,24 @@ var byCostTests = []struct {
 		expectedItypes: []string{
 			"it-1", "it-2",
 		},
+	}, {
+		about: "when cpu power is missing in side a, pick the lowest cores",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2, CpuPower: CpuPower(200)},
+			{Id: "1", Name: "it-1", CpuCores: 1},
+		},
+		expectedItypes: []string{
+			"it-1", "it-2",
+		},
+	}, {
+		about: "when cpu power is missing in side b, pick the lowest cores",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2},
+			{Id: "1", Name: "it-1", CpuCores: 1, CpuPower: CpuPower(200)},
+		},
+		expectedItypes: []string{
+			"it-1", "it-2",
+		},
 	},
 }
 
