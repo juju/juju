@@ -23,7 +23,7 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	return environ.Destroy(nil)
 }

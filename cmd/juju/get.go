@@ -48,10 +48,10 @@ func (c *GetCommand) Init(args []string) error {
 
 // Run fetches the configuration of the service and formats
 // the result as a YAML string.
-func (c *GetCommand) Run(ctx *cmd.Context) error {
+func (c *GetCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 

@@ -40,10 +40,10 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DestroyMachineCommand) Run(ctx *cmd.Context) error {
+func (c *DestroyMachineCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	return conn.State.DestroyMachines(c.MachineIds...)

@@ -56,7 +56,7 @@ type statusContext struct {
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 

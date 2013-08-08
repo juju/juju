@@ -108,7 +108,7 @@ func (c *UpgradeCharmCommand) Init(args []string) error {
 func (c *UpgradeCharmCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	service, err := conn.State.Service(c.ServiceName)

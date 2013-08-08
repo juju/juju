@@ -128,10 +128,10 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
+func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 

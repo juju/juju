@@ -36,10 +36,10 @@ func (c *ExposeCommand) Init(args []string) error {
 
 // Run changes the juju-managed firewall to expose any
 // ports that were also explicitly marked by units as open.
-func (c *ExposeCommand) Run(ctx *cmd.Context) error {
+func (c *ExposeCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 

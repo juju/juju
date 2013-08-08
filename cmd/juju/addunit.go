@@ -88,10 +88,10 @@ func (c *AddUnitCommand) Init(args []string) error {
 
 // Run connects to the environment specified on the command line
 // and calls conn.AddUnits.
-func (c *AddUnitCommand) Run(ctx *cmd.Context) error {
+func (c *AddUnitCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 

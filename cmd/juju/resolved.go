@@ -47,10 +47,10 @@ func (c *ResolvedCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *ResolvedCommand) Run(ctx *cmd.Context) error {
+func (c *ResolvedCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	unit, err := conn.State.Unit(c.UnitName)

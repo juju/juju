@@ -13,7 +13,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/errors"
 )
 
 var logger = loggo.GetLogger("juju.environs")
@@ -139,7 +138,7 @@ func ReadEnvirons(path string) (*Environs, error) {
 	data, err := ioutil.ReadFile(environsFilepath)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return nil, errors.NoEnvError{err}
+			return nil, NoEnvError{err}
 		}
 		return nil, err
 	}

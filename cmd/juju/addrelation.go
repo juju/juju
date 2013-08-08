@@ -34,10 +34,10 @@ func (c *AddRelationCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *AddRelationCommand) Run(ctx *cmd.Context) error {
+func (c *AddRelationCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	params := params.AddRelation{

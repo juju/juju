@@ -58,7 +58,7 @@ func (c *SSHCommand) Run(ctx *cmd.Context) error {
 	var err error
 	c.Conn, err = juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer c.Close()
 	host, err := c.hostFromTarget(c.Target)

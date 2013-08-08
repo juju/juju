@@ -36,10 +36,10 @@ func (c *UnexposeCommand) Init(args []string) error {
 
 // Run changes the juju-managed firewall to hide any
 // ports that were also explicitly marked by units as closed.
-func (c *UnexposeCommand) Run(ctx *cmd.Context) error {
+func (c *UnexposeCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	params := params.ServiceUnexpose{ServiceName: c.ServiceName}

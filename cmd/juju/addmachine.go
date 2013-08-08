@@ -70,7 +70,7 @@ func (c *AddMachineCommand) Init(args []string) error {
 func (c *AddMachineCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 

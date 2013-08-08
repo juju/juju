@@ -47,7 +47,7 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 func (c *DestroyUnitCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	params := params.DestroyServiceUnits{

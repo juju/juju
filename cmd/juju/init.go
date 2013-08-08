@@ -5,10 +5,11 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/errors"
 )
 
 // InitCommand is used to write out a boilerplate environments.yaml file.
@@ -44,7 +45,7 @@ func (c *InitCommand) Run(context *cmd.Context) error {
 		fmt.Fprintf(out, "It will not be overwritten.\n")
 		return nil
 	}
-	if !errors.IsNoEnv(err) {
+	if !environs.IsNoEnv(err) {
 		return err
 	}
 	filename, err := environs.WriteEnvirons("", config)

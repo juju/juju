@@ -100,7 +100,7 @@ var errUpToDate = stderrors.New("no upgrades available")
 func (c *UpgradeJujuCommand) Run(ctx *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	defer conn.Close()
 	defer func() {

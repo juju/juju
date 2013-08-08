@@ -57,10 +57,10 @@ func (c *BootstrapCommand) Init(args []string) error {
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) (err error) {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
-		return c.envOpenFailure(err, ctx.Stderr)
+		return err
 	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
 	_, err = environs.EnsureCertificate(environ, environs.WriteCertAndKey)
