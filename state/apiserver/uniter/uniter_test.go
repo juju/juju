@@ -28,12 +28,12 @@ type uniterSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 	resources  *common.Resources
 
-	machine0 *state.Machine
-	machine1 *state.Machine
-	service0 *state.Service
-	service1 *state.Service
-	unit0    *state.Unit
-	unit1    *state.Unit
+	machine0      *state.Machine
+	machine1      *state.Machine
+	wordpress     *state.Service
+	mysql         *state.Service
+	wordpressUnit *state.Unit
+	mysqlUnit     *state.Unit
 
 	uniter *uniter.UniterAPI
 }
@@ -49,24 +49,24 @@ func (s *uniterSuite) SetUpTest(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.service0, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.wordpress, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
-	s.service1, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
+	s.mysql, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
-	s.unit0, err = s.service0.AddUnit()
+	s.wordpressUnit, err = s.wordpress.AddUnit()
 	c.Assert(err, gc.IsNil)
-	s.unit1, err = s.service1.AddUnit()
+	s.mysqlUnit, err = s.mysql.AddUnit()
 	c.Assert(err, gc.IsNil)
 	// Assign each unit to each machine.
-	err = s.unit0.AssignToMachine(s.machine0)
+	err = s.wordpressUnit.AssignToMachine(s.machine0)
 	c.Assert(err, gc.IsNil)
-	err = s.unit1.AssignToMachine(s.machine1)
+	err = s.mysqlUnit.AssignToMachine(s.machine1)
 	c.Assert(err, gc.IsNil)
 
 	// Create a FakeAuthorizer so we can check permissions,
 	// set up assuming unit 0 has logged in.
 	s.authorizer = apiservertesting.FakeAuthorizer{
-		Tag:       s.unit0.Tag(),
+		Tag:       s.wordpressUnit.Tag(),
 		LoggedIn:  true,
 		Manager:   false,
 		UnitAgent: true,
@@ -95,9 +95,9 @@ func (s *uniterSuite) TestUniterFailsWithNonUnitAgentUser(c *gc.C) {
 }
 
 func (s *uniterSuite) TestSetStatus(c *gc.C) {
-	err := s.unit0.SetStatus(params.StatusStarted, "blah")
+	err := s.wordpressUnit.SetStatus(params.StatusStarted, "blah")
 	c.Assert(err, gc.IsNil)
-	err = s.unit1.SetStatus(params.StatusStopped, "foo")
+	err = s.mysqlUnit.SetStatus(params.StatusStopped, "foo")
 	c.Assert(err, gc.IsNil)
 
 	args := params.SetStatus{
@@ -116,24 +116,24 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 		},
 	})
 
-	// Verify unit 1 - no change.
-	status, info, err := s.unit1.Status()
+	// Verify mysqlUnit - no change.
+	status, info, err := s.mysqlUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foo")
-	// ...unit 0 is fine though.
-	status, info, err = s.unit0.Status()
+	// ...wordpressUnit is fine though.
+	status, info, err = s.wordpressUnit.Status()
 	c.Assert(err, gc.IsNil)
 	c.Assert(status, gc.Equals, params.StatusStopped)
 	c.Assert(info, gc.Equals, "foobar")
 }
 
 func (s *uniterSuite) TestLife(c *gc.C) {
-	err := s.unit0.EnsureDead()
+	err := s.wordpressUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	err = s.unit0.Refresh()
+	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit0.Life(), gc.Equals, state.Dead)
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -152,8 +152,8 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 }
 
 func (s *uniterSuite) TestEnsureDead(c *gc.C) {
-	c.Assert(s.unit0.Life(), gc.Equals, state.Alive)
-	c.Assert(s.unit1.Life(), gc.Equals, state.Alive)
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
+	c.Assert(s.mysqlUnit.Life(), gc.Equals, state.Alive)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -170,12 +170,12 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 		},
 	})
 
-	err = s.unit0.Refresh()
+	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit0.Life(), gc.Equals, state.Dead)
-	err = s.unit1.Refresh()
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
+	err = s.mysqlUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit1.Life(), gc.Equals, state.Alive)
+	c.Assert(s.mysqlUnit.Life(), gc.Equals, state.Alive)
 
 	// Try it again on a Dead unit; should work.
 	args = params.Entities{
@@ -188,9 +188,9 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	})
 
 	// Verify Life is unchanged.
-	err = s.unit0.Refresh()
+	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.unit0.Life(), gc.Equals, state.Dead)
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 }
 
 func (s *uniterSuite) TestWatch(c *gc.C) {
