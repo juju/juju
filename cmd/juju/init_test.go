@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"strings"
 
-	"launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
@@ -17,22 +17,22 @@ import (
 type InitSuite struct {
 }
 
-var _ = gocheck.Suite(&InitSuite{})
+var _ = gc.Suite(&InitSuite{})
 
-func (*InitSuite) TestBoilerPlateEnvironment(c *gocheck.C) {
+func (*InitSuite) TestBoilerPlateEnvironment(c *gc.C) {
 	defer testing.MakeEmptyFakeHome(c).Restore()
 	// run without an environments.yaml
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
-	c.Check(code, gocheck.Equals, 0)
+	c.Check(code, gc.Equals, 0)
 	outStr := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(outStr, "\n", "", -1)
-	c.Check(strippedOut, gocheck.Matches, ".*A boilerplate environment configuration file has been written.*")
+	c.Check(strippedOut, gc.Matches, ".*A boilerplate environment configuration file has been written.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, gocheck.IsNil)
+	c.Assert(err, gc.IsNil)
 	strippedData := strings.Replace(string(data), "\n", "", -1)
-	c.Assert(strippedData, gocheck.Matches, ".*## This is the Juju config file, which you can use.*")
+	c.Assert(strippedData, gc.Matches, ".*## This is the Juju config file, which you can use.*")
 }
 
 const existingEnv = `
@@ -43,34 +43,34 @@ environments:
         authorized-keys: i-am-a-key
 `
 
-func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *gocheck.C) {
+func (*InitSuite) TestExistingEnvironmentNotOverwritten(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, []string{"-w"})
-	c.Check(code, gocheck.Equals, 0)
+	c.Check(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gocheck.Matches, ".*A juju environment configuration already exists.*")
+	c.Check(strippedOut, gc.Matches, ".*A juju environment configuration already exists.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, gocheck.IsNil)
-	c.Assert(string(data), gocheck.Equals, existingEnv)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, existingEnv)
 }
 
 // Without the write (-w) option, any existing environmens.yaml file is preserved and the boilerplate is
 // written to stdout.
-func (*InitSuite) TestPrintBoilerplate(c *gocheck.C) {
+func (*InitSuite) TestPrintBoilerplate(c *gc.C) {
 	defer testing.MakeFakeHome(c, existingEnv, "existing").Restore()
 
 	ctx := testing.Context(c)
 	code := cmd.Main(&InitCommand{}, ctx, nil)
-	c.Check(code, gocheck.Equals, 0)
+	c.Check(code, gc.Equals, 0)
 	errOut := ctx.Stdout.(*bytes.Buffer).String()
 	strippedOut := strings.Replace(errOut, "\n", "", -1)
-	c.Check(strippedOut, gocheck.Matches, ".*## This is the Juju config file, which you can use.*")
+	c.Check(strippedOut, gc.Matches, ".*## This is the Juju config file, which you can use.*")
 	environpath := testing.HomePath(".juju", "environments.yaml")
 	data, err := ioutil.ReadFile(environpath)
-	c.Assert(err, gocheck.IsNil)
-	c.Assert(string(data), gocheck.Equals, existingEnv)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, existingEnv)
 }

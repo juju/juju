@@ -57,7 +57,7 @@ func (c *BootstrapCommand) Init(args []string) error {
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(ctx *cmd.Context) (err error) {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		return err

@@ -40,7 +40,7 @@ func (c *DestroyMachineCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *DestroyMachineCommand) Run(ctx *cmd.Context) (err error) {
+func (c *DestroyMachineCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err

@@ -129,6 +129,17 @@ func environsPath(path string) string {
 	return path
 }
 
+// NoEnvError indicates the default environment config file is missing.
+type NoEnvError struct {
+	error
+}
+
+// IsNoEnv returns if err is a NoEnvError.
+func IsNoEnv(err error) bool {
+	_, ok := err.(NoEnvError)
+	return ok
+}
+
 // ReadEnvirons reads the juju environments.yaml file
 // and returns the result of running ParseEnvironments
 // on the file's contents.

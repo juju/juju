@@ -124,9 +124,9 @@ type envCmdWrapper struct {
 // run. This is used to give informative messages to the user.
 func (c envCmdWrapper) Run(ctx *cmd.Context) error {
 	err := c.envCmd.Run(ctx)
-	if environs.IsNoEnv(err) && c.EnvironName() == "" {
+	if environs.IsNoEnv(err) {
 		fmt.Fprintln(ctx.Stderr, "No juju environment configuration file exists.")
-		fmt.Fprintln(ctx.Stderr, err.Error())
+		fmt.Fprintln(ctx.Stderr, err)
 		fmt.Fprintln(ctx.Stderr, "Please create a configuration by running:")
 		fmt.Fprintln(ctx.Stderr, "    juju init -w")
 		fmt.Fprintln(ctx.Stderr, "then edit the file to configure your juju environment.")

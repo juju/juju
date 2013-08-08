@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io/ioutil"
 
-	"launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/charm"
@@ -22,7 +22,7 @@ type ConfigSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gocheck.Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 var getTests = []struct {
 	service  string
@@ -65,30 +65,30 @@ var getTests = []struct {
 	// TODO(dfc) add set tests
 }
 
-func (s *ConfigSuite) TestGetConfig(c *gocheck.C) {
+func (s *ConfigSuite) TestGetConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, gocheck.IsNil)
+	c.Assert(err, gc.IsNil)
 	err = svc.UpdateConfigSettings(charm.Settings{"title": "Nearly There"})
-	c.Assert(err, gocheck.IsNil)
+	c.Assert(err, gc.IsNil)
 	for _, t := range getTests {
 		ctx := coretesting.Context(c)
 		code := cmd.Main(&GetCommand{}, ctx, []string{t.service})
-		c.Check(code, gocheck.Equals, 0)
-		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gocheck.Equals, "")
+		c.Check(code, gc.Equals, 0)
+		c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Equals, "")
 		// round trip via goyaml to avoid being sucked into a quagmire of
 		// map[interface{}]interface{} vs map[string]interface{}. This is
 		// also required if we add json support to this command.
 		buf, err := goyaml.Marshal(t.expected)
-		c.Assert(err, gocheck.IsNil)
+		c.Assert(err, gc.IsNil)
 		expected := make(map[string]interface{})
 		err = goyaml.Unmarshal(buf, &expected)
-		c.Assert(err, gocheck.IsNil)
+		c.Assert(err, gc.IsNil)
 
 		actual := make(map[string]interface{})
 		err = goyaml.Unmarshal(ctx.Stdout.(*bytes.Buffer).Bytes(), &actual)
-		c.Assert(err, gocheck.IsNil)
-		c.Assert(actual, gocheck.DeepEquals, expected)
+		c.Assert(err, gc.IsNil)
+		c.Assert(actual, gc.DeepEquals, expected)
 	}
 }
 
@@ -131,10 +131,10 @@ var setTests = []struct {
 },
 }
 
-func (s *ConfigSuite) TestSetConfig(c *gocheck.C) {
+func (s *ConfigSuite) TestSetConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, gocheck.IsNil)
+	c.Assert(err, gc.IsNil)
 	dir := c.MkDir()
 	setupConfigfile(c, dir)
 	for i, t := range setTests {
@@ -143,22 +143,22 @@ func (s *ConfigSuite) TestSetConfig(c *gocheck.C) {
 		ctx := coretesting.ContextForDir(c, dir)
 		code := cmd.Main(&SetCommand{}, ctx, args)
 		if t.err != "" {
-			c.Check(code, gocheck.Not(gocheck.Equals), 0)
-			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gocheck.Matches, t.err)
+			c.Check(code, gc.Not(gc.Equals), 0)
+			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, t.err)
 		} else {
-			c.Check(code, gocheck.Equals, 0)
+			c.Check(code, gc.Equals, 0)
 			settings, err := svc.ConfigSettings()
-			c.Assert(err, gocheck.IsNil)
-			c.Assert(settings, gocheck.DeepEquals, t.expect)
+			c.Assert(err, gc.IsNil)
+			c.Assert(settings, gc.DeepEquals, t.expect)
 		}
 	}
 }
 
-func setupConfigfile(c *gocheck.C, dir string) string {
+func setupConfigfile(c *gc.C, dir string) string {
 	ctx := coretesting.ContextForDir(c, dir)
 	path := ctx.AbsPath("testconfig.yaml")
 	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
 	err := ioutil.WriteFile(path, content, 0666)
-	c.Assert(err, gocheck.IsNil)
+	c.Assert(err, gc.IsNil)
 	return path
 }

@@ -34,7 +34,7 @@ func (c *AddRelationCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *AddRelationCommand) Run(ctx *cmd.Context) (err error) {
+func (c *AddRelationCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err

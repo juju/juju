@@ -20,7 +20,7 @@ func (c *DestroyEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
+func (c *DestroyEnvironmentCommand) Run(_ *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		return err
