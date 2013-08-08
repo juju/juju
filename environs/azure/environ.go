@@ -551,6 +551,33 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
 }
 
+// getInitialEndpoints returns a slice of the endpoints every instance should have open
+// (ssh port, etc).
+func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
+	config := env.Config()
+	return []gwacl.InputEndpoint{
+		{
+			LocalPort: 22,
+			Name:      "sshport",
+			Port:      22,
+			Protocol:  "tcp",
+		},
+		// TODO: Ought to have this only for state servers.
+		{
+			LocalPort: config.StatePort(),
+			Name:      "stateport",
+			Port:      config.StatePort(),
+			Protocol:  "tcp",
+		},
+		// TODO: Ought to have this only for API servers.
+		{
+			LocalPort: config.APIPort(),
+			Name:      "apiport",
+			Port:      config.APIPort(),
+			Protocol:  "tcp",
+		}}
+}
+
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
 //
@@ -569,31 +596,9 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
-	config := env.Config()
 	// Generate a Network Configuration with the initially required ports
 	// open.
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{
-		{
-			LocalPort: 22,
-			Name:      "sshport",
-			Port:      22,
-			Protocol:  "TCP",
-		},
-		// TODO: Ought to have this only for state servers.
-		{
-			LocalPort: config.StatePort(),
-			Name:      "stateport",
-			Port:      config.StatePort(),
-			Protocol:  "TCP",
-		},
-		// TODO: Ought to have this only for API servers.
-		{
-			LocalPort: config.APIPort(),
-			Name:      "apiport",
-			Port:      config.APIPort(),
-			Protocol:  "TCP",
-		},
-	}, nil)
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(), nil)
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(

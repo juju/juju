@@ -183,7 +183,11 @@ func (s *clientSuite) TestClientAnnotations(c *C) {
 	c.Assert(err, IsNil)
 	environment, err := s.State.Environment()
 	c.Assert(err, IsNil)
-	entities := []state.TaggedAnnotator{service, unit, machine, environment}
+	type taggedAnnotator interface {
+		state.Annotator
+		state.Entity
+	}
+	entities := []taggedAnnotator{service, unit, machine, environment}
 	for i, t := range clientAnnotationsTests {
 		for _, entity := range entities {
 			id := entity.Tag()
@@ -219,7 +223,7 @@ func (s *clientSuite) TestClientAnnotations(c *C) {
 
 func (s *clientSuite) TestClientAnnotationsBadEntity(c *C) {
 	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-jim", "unit-123", "unit-foo", "service-", "service-foo/bar"}
-	expected := `invalid entity tag ".*"`
+	expected := `".*" is not a valid( [a-z]+)? tag`
 	for _, id := range bad {
 		err := s.APIState.Client().SetAnnotations(id, map[string]string{"mykey": "myvalue"})
 		c.Assert(err, ErrorMatches, expected)

@@ -93,8 +93,6 @@ type Unit struct {
 	annotator
 }
 
-var _ AgentEntity = (*Unit)(nil)
-
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
 		st:  st,
