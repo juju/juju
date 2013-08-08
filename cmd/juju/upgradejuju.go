@@ -97,7 +97,7 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 var errUpToDate = stderrors.New("no upgrades available")
 
 // Run changes the version proposed for the juju tools.
-func (c *UpgradeJujuCommand) Run(_ *cmd.Context) error {
+func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err

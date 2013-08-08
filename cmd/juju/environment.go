@@ -128,7 +128,7 @@ func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	return nil
 }
 
-func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) (err error) {
+func (c *SetEnvironmentCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
