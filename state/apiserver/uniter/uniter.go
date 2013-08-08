@@ -27,10 +27,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		return nil, common.ErrPerm
 	}
 	getCanRead := func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			// TODO(go1.1): method expression
-			return authorizer.AuthOwner(tag)
-		}, nil
+		return authorizer.AuthOwner, nil
 	}
 	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
