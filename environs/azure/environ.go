@@ -650,15 +650,7 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	defer env.releaseManagementAPI(context)
 
 	// Destroy all the services in parallel.
-
-	// Feed all the service names to servicesToDestroy.
 	servicesToDestroy := make(chan string)
-	go func() {
-		for _, instance := range instances {
-			servicesToDestroy <- string(instance.Id())
-		}
-		close(servicesToDestroy)
-	}()
 
 	// Spawn min(len(instances), maxConcurrentDeletes) goroutines to
 	// destroy the services.
@@ -671,18 +663,22 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	wg.Add(nbRoutines)
 	errc := make(chan error, len(instances))
 	for i := 0; i < nbRoutines; i++ {
-		go func() (err error) {
+		go func() {
 			defer wg.Done()
 			for serviceName := range servicesToDestroy {
 				request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
-				err = context.DestroyHostedService(request)
+				err := context.DestroyHostedService(request)
 				if err != nil {
 					errc <- err
 				}
 			}
-			return nil
 		}()
 	}
+	// Feed all the service names to servicesToDestroy.
+	for _, instance := range instances {
+		servicesToDestroy <- string(instance.Id())
+	}
+	close(servicesToDestroy)
 	wg.Wait()
 	select {
 	case err := <-errc:

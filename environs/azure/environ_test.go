@@ -746,6 +746,65 @@ func (*environSuite) TestStopInstancesDestroysMachines(c *C) {
 	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
+func (*environSuite) TestStopInstancesWhenStoppingMachinesFails(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+	}
+	service1Name := "service1"
+	_, service1Desc := makeAzureService(service1Name)
+	service2Name := "service2"
+	service2, service2Desc := makeAzureService(service2Name)
+	services := []*gwacl.HostedService{service2}
+	destroyResponses := buildDestroyAzureServiceResponses(c, services)
+	responses = append(responses, destroyResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances(
+		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc}, env)
+
+	err := env.StopInstances(instances)
+	c.Check(err, ErrorMatches, ".*Conflict.*")
+
+	c.Check(len(*requests), Equals, 3)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
+	// Only one of the services was deleted.
+	assertOneRequestMatches(c, *requests, "DELETE", ".*")
+}
+
+func (*environSuite) TestStopInstancesWithLimitedConcurrency(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	services := []*gwacl.HostedService{}
+	serviceDescs := []gwacl.HostedServiceDescriptor{}
+	for i := 0; i < 10; i++ {
+		serviceName := fmt.Sprintf("service%d", i)
+		service, serviceDesc := makeAzureService(serviceName)
+		services = append(services, service)
+		serviceDescs = append(serviceDescs, *serviceDesc)
+	}
+	responses := buildDestroyAzureServiceResponses(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances(serviceDescs, env)
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
+	c.Check(len(*requests), Equals, len(services)*2)
+}
+
+func (*environSuite) TestStopInstancesWithZeroInstance(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	env := makeEnviron(c)
+	instances := []instance.Instance{}
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
+}
+
 // getVnetAndAffinityGroupCleanupResponses returns the responses
 // (gwacl.DispatcherResponse) that a fake http server should return
 // when gwacl's RemoveVirtualNetworkSite() and DeleteAffinityGroup()
