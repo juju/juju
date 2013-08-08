@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func TestAll(t *stdtesting.T) {
@@ -57,7 +57,7 @@ func (s *machinerSuite) TearDownTest(c *gc.C) {
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *machinerSuite) TestMachineAndMachineId(c *gc.C) {
+func (s *machinerSuite) TestMachineAndMachineTag(c *gc.C) {
 	machine, err := s.machiner.Machine("machine-42")
 	c.Assert(err, gc.ErrorMatches, "permission denied")
 	c.Assert(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
@@ -108,7 +108,7 @@ func (s *machinerSuite) TestEnsureDead(c *gc.C) {
 	err = s.machine.Remove()
 	c.Assert(err, gc.IsNil)
 	err = s.machine.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	err = machine.EnsureDead()
 	c.Assert(err, gc.ErrorMatches, "machine 0 not found")
