@@ -126,8 +126,27 @@ func getMatchingInstanceTypes(ic *InstanceConstraint, allInstanceTypes []Instanc
 // byCost is used to sort a slice of instance types by Cost.
 type byCost []InstanceType
 
-func (bc byCost) Len() int           { return len(bc) }
-func (bc byCost) Less(i, j int) bool { return bc[i].Cost < bc[j].Cost }
+func (bc byCost) Len() int { return len(bc) }
+func (bc byCost) Less(i, j int) bool {
+	if bc[i].Cost != bc[j].Cost {
+		return bc[i].Cost < bc[j].Cost
+	}
+	if bc[i].Mem != bc[j].Mem {
+		return bc[i].Mem < bc[j].Mem
+	}
+	iCpuPower := uint64(0)
+	jCpuPower := uint64(0)
+	if bc[i].CpuPower != nil {
+		iCpuPower = *bc[i].CpuPower
+	}
+	if bc[j].CpuPower != nil {
+		jCpuPower = *bc[j].CpuPower
+	}
+	if iCpuPower != jCpuPower {
+		return iCpuPower < jCpuPower
+	}
+	return bc[i].CpuCores < bc[j].CpuCores
+}
 func (bc byCost) Swap(i, j int) {
 	bc[i], bc[j] = bc[j], bc[i]
 }

@@ -4,6 +4,8 @@
 package instances
 
 import (
+	"sort"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/testing"
@@ -229,5 +231,70 @@ func (s *instanceTypeSuite) TestMatch(c *C) {
 			c.Check(match, Equals, false)
 			c.Check(itype, DeepEquals, InstanceType{})
 		}
+	}
+}
+
+var byCostTest = []struct {
+	info           string
+	itypesToUse    []InstanceType
+	expectedItypes []string
+}{
+	{
+		info: "default to lowest cost",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2, Mem: 4096, Cost: 240},
+			{Id: "1", Name: "it-1", CpuCores: 1, Mem: 2048, Cost: 241},
+		},
+		expectedItypes: []string{
+			"it-2", "it-1",
+		},
+	}, {
+		info: "when no cost associated, pick lowest ram",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2, Mem: 4096},
+			{Id: "1", Name: "it-1", CpuCores: 1, Mem: 2048},
+		},
+		expectedItypes: []string{
+			"it-1", "it-2",
+		},
+	}, {
+		info: "when cost is the same, pick lowest ram",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2, Mem: 4096, Cost: 240},
+			{Id: "1", Name: "it-1", CpuCores: 1, Mem: 2048, Cost: 240},
+		},
+		expectedItypes: []string{
+			"it-1", "it-2",
+		},
+	}, {
+		info: "when cost and ram is the same, pick lowest cpu power",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2, CpuPower: CpuPower(200)},
+			{Id: "1", Name: "it-1", CpuCores: 1, CpuPower: CpuPower(100)},
+		},
+		expectedItypes: []string{
+			"it-1", "it-2",
+		},
+	}, {
+		info: "when cpu power is the same, pick the lowest cores",
+		itypesToUse: []InstanceType{
+			{Id: "2", Name: "it-2", CpuCores: 2, CpuPower: CpuPower(200)},
+			{Id: "1", Name: "it-1", CpuCores: 1, CpuPower: CpuPower(200)},
+		},
+		expectedItypes: []string{
+			"it-1", "it-2",
+		},
+	},
+}
+
+func (s *instanceTypeSuite) TestSortByCost(c *C) {
+	for i, t := range byCostTest {
+		c.Logf("test %d: %s", i, t.info)
+		sort.Sort(byCost(t.itypesToUse))
+		names := make([]string, len(t.itypesToUse))
+		for i, itype := range t.itypesToUse {
+			names[i] = itype.Name
+		}
+		c.Check(names, DeepEquals, t.expectedItypes)
 	}
 }
