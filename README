@@ -99,8 +99,27 @@ commands. You can verify this using
 
     which juju
 
-You should be able to bootstrap a local environment now with:
+You should be able to bootstrap a local environment now with the following
+(Note: the use of sudo for bootstrap here is only required for the local
+provider, as the local container is created in /var/lib/lxc):
 
     juju init
     juju switch local
     sudo juju bootstrap
+
+
+--upload-tools
+--------------
+
+The `juju` client program, and the juju 'tools' are deployed in lockstep. When a
+release of `juju-core` is made, the compiled tools matching that version of juju
+are extracted and uploaded to a known location. This consumes a release version
+number, and implies that no tools are available for the next, development, version
+of juju. Therefore, when using the development version of juju you will need to
+pass an additional flag, `--upload-tools` to instruct the `juju` client to build
+a set of tools from source and upload them to the environment as part of the
+bootstrap process.
+
+    juju bootstrap -e your-environment --upload-tools {--debug}
+
+
