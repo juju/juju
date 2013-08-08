@@ -350,20 +350,33 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 
 // GetAnnotations returns annotations about a given entity.
 func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	entity, err := c.api.state.Annotator(args.Tag)
+	nothing := params.GetAnnotationsResults{}
+	entity, err := c.findEntity(args.Tag)
 	if err != nil {
-		return params.GetAnnotationsResults{}, err
+		return nothing, err
 	}
 	ann, err := entity.Annotations()
 	if err != nil {
-		return params.GetAnnotationsResults{}, err
+		return nothing, err
 	}
 	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
+func (c *Client) findEntity(tag string) (state.Annotator, error) {
+	entity0, err := c.api.state.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	entity, ok := entity0.(state.Annotator)
+	if !ok {
+		return nil, common.NotSupportedError(tag, "annotations")
+	}
+	return entity, nil
+}
+
 // SetAnnotations stores annotations about a given entity.
 func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	entity, err := c.api.state.Annotator(args.Tag)
+	entity, err := c.findEntity(args.Tag)
 	if err != nil {
 		return err
 	}

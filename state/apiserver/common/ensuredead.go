@@ -11,22 +11,14 @@ import (
 // DeadEnsurer implements a common EnsureDead method for use by
 // various facades.
 type DeadEnsurer struct {
-	st           DeadEnsurerer
+	st           state.EntityFinder
 	getCanModify GetAuthFunc
-}
-
-type DeadEnsurerer interface {
-	// state.State implements DeadEnsurer to provide ways for us to
-	// call object.EnsureDead (for machines, units, etc). This is used
-	// to allow us to test with mocks without having to actually bring
-	// up state.
-	DeadEnsurer(tag string) (state.DeadEnsurer, error)
 }
 
 // NewDeadEnsurer returns a new DeadEnsurer. The GetAuthFunc will be
 // used on each invocation of EnsureDead to determine current
 // permissions.
-func NewDeadEnsurer(st DeadEnsurerer, getCanModify GetAuthFunc) *DeadEnsurer {
+func NewDeadEnsurer(st state.EntityFinder, getCanModify GetAuthFunc) *DeadEnsurer {
 	return &DeadEnsurer{
 		st:           st,
 		getCanModify: getCanModify,
@@ -34,11 +26,15 @@ func NewDeadEnsurer(st DeadEnsurerer, getCanModify GetAuthFunc) *DeadEnsurer {
 }
 
 func (d *DeadEnsurer) ensureEntityDead(tag string) error {
-	deadEnsurer, err := d.st.DeadEnsurer(tag)
+	entity0, err := d.st.FindEntity(tag)
 	if err != nil {
 		return err
 	}
-	return deadEnsurer.EnsureDead()
+	entity, ok := entity0.(state.EnsureDeader)
+	if !ok {
+		return NotSupportedError(tag, "ensuring death")
+	}
+	return entity.EnsureDead()
 }
 
 // EnsureDead calls EnsureDead on each given entity from state. It

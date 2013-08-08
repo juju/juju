@@ -5,11 +5,14 @@ package azure
 
 import (
 	"fmt"
+	"strings"
 
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/worker/firewaller"
 )
 
 type azureInstance struct {
@@ -156,8 +159,82 @@ func (azInstance *azureInstance) closeEndpoints(context *azureManagementContext,
 	return nil
 }
 
+// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of instance.Port.
+func convertEndpointsToPorts(endpoints []gwacl.InputEndpoint) []instance.Port {
+	ports := []instance.Port{}
+	for _, endpoint := range endpoints {
+		ports = append(ports, instance.Port{
+			Protocol: strings.ToLower(endpoint.Protocol),
+			Number:   endpoint.Port,
+		})
+	}
+	return ports
+}
+
+// convertAndFilterEndpoints converts a slice of gwacl.InputEndpoint into a slice of instance.Port
+// and filters out the initial endpoints that every instance should have opened (ssh port, etc.).
+func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviron) []instance.Port {
+	return firewaller.Diff(
+		convertEndpointsToPorts(endpoints),
+		convertEndpointsToPorts(env.getInitialEndpoints()))
+}
+
 // Ports is specified in the Instance interface.
 func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
-	// TODO: implement this.
-	return []instance.Port{}, nil
+	env := azInstance.environ
+	context, err := env.getManagementAPI()
+	if err != nil {
+		return nil, err
+	}
+	defer env.releaseManagementAPI(context)
+
+	ports, err := azInstance.listPorts(context)
+	if err != nil {
+		return nil, err
+	}
+	state.SortPorts(ports)
+	return ports, nil
+}
+
+// listPorts returns the slice of ports (instance.Port) that this machine
+// has opened. The returned list does not contain the "initial ports"
+// (i.e. the ports every instance shoud have opened). The caller is
+// responsible for locking and unlocking the environ and releasing the
+// management context.
+func (azInstance *azureInstance) listPorts(context *azureManagementContext) ([]instance.Port, error) {
+	deployments, err := context.ListAllDeployments(&gwacl.ListAllDeploymentsRequest{
+		ServiceName: azInstance.ServiceName,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	env := azInstance.environ
+	switch {
+	// Only zero or one deployment is a valid state (instance==service).
+	case len(deployments) > 1:
+		return nil, fmt.Errorf("more than one Azure deployment inside the service named %q", azInstance.ServiceName)
+	case len(deployments) == 1:
+		deployment := deployments[0]
+		switch {
+		// Only zero or one role is a valid state (instance==service).
+		case len(deployment.RoleList) > 1:
+			return nil, fmt.Errorf("more than one Azure role inside the deployment named %q", deployment.Name)
+		case len(deployment.RoleList) == 1:
+			role := deployment.RoleList[0]
+
+			endpoints, err := context.ListRoleEndpoints(&gwacl.ListRoleEndpointsRequest{
+				ServiceName:    azInstance.ServiceName,
+				DeploymentName: deployment.Name,
+				RoleName:       role.RoleName,
+			})
+			if err != nil {
+				return nil, err
+			}
+			ports := convertAndFilterEndpoints(endpoints, env)
+			return ports, nil
+		}
+		return nil, nil
+	}
+	return nil, nil
 }

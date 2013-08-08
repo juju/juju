@@ -10,28 +10,28 @@ import (
 // address represents the location of a machine, including metadata about what
 // kind of location the address describes.
 type address struct {
-	value        string
-	addresstype  instance.AddressType
-	networkname  string                `bson:",omitempty"`
-	networkscope instance.NetworkScope `bson:",omitempty"`
+	Value        string
+	AddressType  instance.AddressType
+	NetworkName  string                `bson:",omitempty"`
+	NetworkScope instance.NetworkScope `bson:",omitempty"`
 }
 
 func NewAddress(addr instance.Address) address {
 	stateaddr := address{
-		value:        addr.Value,
-		addresstype:  addr.Type,
-		networkname:  addr.NetworkName,
-		networkscope: addr.NetworkScope,
+		Value:        addr.Value,
+		AddressType:  addr.Type,
+		NetworkName:  addr.NetworkName,
+		NetworkScope: addr.NetworkScope,
 	}
 	return stateaddr
 }
 
 func (addr *address) InstanceAddress() instance.Address {
 	instanceaddr := instance.Address{
-		Value:        addr.value,
-		Type:         addr.addresstype,
-		NetworkName:  addr.networkname,
-		NetworkScope: addr.networkscope,
+		Value:        addr.Value,
+		Type:         addr.AddressType,
+		NetworkName:  addr.NetworkName,
+		NetworkScope: addr.NetworkScope,
 	}
 	return instanceaddr
 }

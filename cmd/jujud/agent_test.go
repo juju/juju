@@ -103,14 +103,6 @@ func runWithTimeout(r runner) error {
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
 }
 
-type entity interface {
-	state.Tagger
-	SetMongoPassword(string) error
-	SetPassword(string) error
-	PasswordValid(string) bool
-	Refresh() error
-}
-
 // agentSuite is a fixture to be used by agent test suites.
 type agentSuite struct {
 	testing.JujuConnSuite
@@ -185,7 +177,7 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *tools.Tools {
 	return agentTools
 }
 
-func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
+func (s *agentSuite) testOpenAPIState(c *C, ent state.AgentEntity, agentCmd Agent) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, IsNil)
 

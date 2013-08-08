@@ -16,6 +16,11 @@ import (
 
 type clientAPI struct{ *client.API }
 
+type taggedAuthenticator interface {
+	state.Entity
+	state.Authenticator
+}
+
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
 type srvRoot struct {
@@ -23,10 +28,10 @@ type srvRoot struct {
 	srv       *Server
 	resources *common.Resources
 
-	entity state.TaggedAuthenticator
+	entity taggedAuthenticator
 }
 
-func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
+func newSrvRoot(srv *Server, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
 		resources: common.NewResources(),

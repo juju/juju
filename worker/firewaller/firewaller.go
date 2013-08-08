@@ -235,8 +235,8 @@ func (fw *Firewaller) reconcileGlobal() error {
 		wantedPorts = append(wantedPorts, port)
 	}
 	// Check which ports to open or to close.
-	toOpen := diff(wantedPorts, initialPorts)
-	toClose := diff(initialPorts, wantedPorts)
+	toOpen := Diff(wantedPorts, initialPorts)
+	toClose := Diff(initialPorts, wantedPorts)
 	if len(toOpen) > 0 {
 		log.Infof("worker/firewaller: opening global ports %v", toOpen)
 		if err := fw.environ.OpenPorts(toOpen); err != nil {
@@ -283,8 +283,8 @@ func (fw *Firewaller) reconcileInstances() error {
 			return err
 		}
 		// Check which ports to open or to close.
-		toOpen := diff(machined.ports, initialPorts)
-		toClose := diff(initialPorts, machined.ports)
+		toOpen := Diff(machined.ports, initialPorts)
+		toClose := Diff(initialPorts, machined.ports)
 		if len(toOpen) > 0 {
 			log.Infof("worker/firewaller: opening instance ports %v for machine %s",
 				toOpen, machined.id)
@@ -375,8 +375,8 @@ func (fw *Firewaller) flushMachine(machined *machineData) error {
 	for port := range ports {
 		want = append(want, port)
 	}
-	toOpen := diff(want, machined.ports)
-	toClose := diff(machined.ports, want)
+	toOpen := Diff(want, machined.ports)
+	toClose := Diff(machined.ports, want)
 	machined.ports = want
 	if fw.globalMode {
 		return fw.flushGlobalPorts(toOpen, toClose)
@@ -744,8 +744,8 @@ func (sd *serviceData) Stop() error {
 	return sd.tomb.Wait()
 }
 
-// diff returns all the ports that exist in A but not B.
-func diff(A, B []instance.Port) (missing []instance.Port) {
+// Diff returns all the ports that exist in A but not B.
+func Diff(A, B []instance.Port) (missing []instance.Port) {
 next:
 	for _, a := range A {
 		for _, b := range B {

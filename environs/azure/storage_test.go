@@ -91,6 +91,14 @@ func makeFakeStorage(container, account string) (azureStorage, *MockingTransport
 	return azStorage, transport
 }
 
+// setStorageEndpoint sets a given Azure API endpoint on a given azureStorage.
+func setStorageEndpoint(azStorage *azureStorage, endpoint gwacl.APIEndpoint) {
+	// Ugly, because of the confusingly similar layers of nesting.
+	testContext := azStorage.storageContext.(*testStorageContext)
+	var gwaclContext *gwacl.StorageContext = testContext.storageContext
+	gwaclContext.AzureEndpoint = endpoint
+}
+
 var blobListResponse = `
   <?xml version="1.0" encoding="utf-8"?>
   <EnumerationResults ContainerName="http://myaccount.blob.core.windows.net/mycontainer">
@@ -253,6 +261,9 @@ func (*storageSuite) TestURL(c *C) {
 	filename := "blobname"
 	account := "account"
 	azStorage, _ := makeFakeStorage(container, account)
+	// Use a realistic service endpoint for this test, so that we can see
+	// that we're really getting the expected kind of URL.
+	setStorageEndpoint(&azStorage, gwacl.GetEndpoint("West US"))
 	URL, err := azStorage.URL(filename)
 	c.Assert(err, IsNil)
 	parsedURL, err := url.Parse(URL)
