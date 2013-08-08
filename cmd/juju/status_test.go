@@ -27,11 +27,11 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func runStatus(c *C, args ...string) (code int, stdout []byte, stderr string) {
+func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(&StatusCommand{}, ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
-	stderr = ctx.Stderr.(*bytes.Buffer).String()
+	stderr = ctx.Stderr.(*bytes.Buffer).Bytes()
 	return
 }
 
@@ -1574,14 +1574,18 @@ func (s *StatusSuite) TestStatusFilterErrors(c *C) {
 	ctx.run(c, steps)
 
 	// Status filters can only fail if the patterns are invalid.
-	code, _, stderr := runStatus(c, "[/")
+	code, _, stderr := runStatus(c, "[*")
 	c.Assert(code, Not(Equals), 0)
-	c.Assert(stderr, Equals, `error: syntax error in pattern: "[/"`+"\n")
+	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid character: [`+"\n")
 
-	// Pattern validity is checked lazily; if a bad pattern
+	code, _, stderr = runStatus(c, "//")
+	c.Assert(code, Not(Equals), 0)
+	c.Assert(string(stderr), Equals, `error: pattern "//" contains too many '/' characters`+"\n")
+
+	// Pattern validity is checked eagerly; if a bad pattern
 	// proceeds a valid, matching pattern, then the bad pattern
-	// will not cause an error.
-	code, _, stderr = runStatus(c, "*", "[/")
-	c.Assert(code, Equals, 0)
-	c.Assert(stderr, HasLen, 0)
+	// will still cause an error.
+	code, _, stderr = runStatus(c, "*", "[*")
+	c.Assert(code, Not(Equals), 0)
+	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid character: [`+"\n")
 }

@@ -32,24 +32,20 @@ type StatusCommand struct {
 var statusDoc = `
 This command will report on the runtime state of various system entities.
 
-Patterns may be specified to filter the status to only those services and
-units that match one the patterns. The pattern syntax follows Unix file
-matching:
-    *         matches any sequence of characters, excluding '/'
-    ?         matches any single character, excluding '/'
-    [range]   matches any single character in the range
-    [^range]  matches any single character not in the range
-              (range can be a set of characters, or a range like a-z)
+Service or unit names may be specified to filter the status to only those
+services and units that match, along with the related machines, services
+and units. If a subordinate unit is matched, then its principal unit will
+be displayed. If a principal unit is matched, then all of its subordinates
+will be displayed.
 
-If a pattern includes a '/', then it will be used as-is to match units;
-otherwise, the pattern will used to match services.  Patterns will be
-tried in the sequence specified; invalid patterns will only be detected
-if and when they are tried.`[1:]
+Wildcards ('*') may be specified in service/unit names to match any sequence
+of characters. For example, 'nova-*' will match any service whose name begins
+with 'nova-': 'nova-compute', 'nova-volume', etc.`[1:]
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
-		Args:    "[pattern...]",
+		Args:    "[pattern ...]",
 		Purpose: "output status information about an environment",
 		Doc:     statusDoc,
 		Aliases: []string{"stat"},
@@ -89,9 +85,9 @@ func (m unitMatcher) matchesAny() bool {
 // matchUnit attempts to match a state.Unit to one of
 // a set of patterns, taking into account subordinate
 // relationships.
-func (m unitMatcher) matchUnit(u *state.Unit) (bool, error) {
+func (m unitMatcher) matchUnit(u *state.Unit) bool {
 	if m.matchesAny() {
-		return true, nil
+		return true
 	}
 
 	// Keep the unit if:
@@ -101,53 +97,75 @@ func (m unitMatcher) matchUnit(u *state.Unit) (bool, error) {
 	//
 	// Note: do *not* include a second subordinate if the principal is
 	// only matched on account of a first subordinate matching.
-	match, err := m.matchString(u.Name())
-	if match || err != nil {
-		return match, err
+	if m.matchString(u.Name()) {
+		return true
 	}
 	if u.IsPrincipal() {
 		for _, s := range u.SubordinateNames() {
-			match, err = m.matchString(s)
-			if match || err != nil {
-				return match, err
+			if m.matchString(s) {
+				return true
 			}
 		}
-		return false, nil
-	} else {
-		principal, valid := u.PrincipalName()
-		if !valid {
-			panic("PrincipalName failed for subordinate unit")
-		}
-		return m.matchString(principal)
+		return false
 	}
+	principal, valid := u.PrincipalName()
+	if !valid {
+		panic("PrincipalName failed for subordinate unit")
+	}
+	return m.matchString(principal)
 }
 
 // matchString matches a string to one of the patterns in
 // the unit matcher, returning an error if a pattern with
 // invalid syntax is encountered.
-func (m unitMatcher) matchString(s string) (bool, error) {
+func (m unitMatcher) matchString(s string) bool {
 	for _, pattern := range m.patterns {
 		ok, err := path.Match(pattern, s)
 		if err != nil {
-			err = fmt.Errorf("pattern syntax error in %q", pattern)
-			return false, err
+			// We validate patterns, so should never get here.
+			panic(fmt.Errorf("pattern syntax error in %q", pattern))
 		} else if ok {
-			return true, nil
+			return true
 		}
 	}
-	return false, nil
+	return false
+}
+
+// validatePattern checks if a string contains invalid
+// pattern characters, and, if so, returns an error.
+func validatePattern(s string) error {
+	const valid = "abcdefghijklmnopqrstuvwxyz0123456789-*"
+	for _, r := range s {
+		if !strings.ContainsRune(valid, r) {
+			return fmt.Errorf("pattern %q contains invalid character: %c", s, r)
+		}
+	}
+	return nil
 }
 
 // newUnitMatcher returns a unitMatcher that matches units
 // with one of the specified patterns, or all units if no
 // patterns are specified.
-func newUnitMatcher(patterns []string) unitMatcher {
+//
+// An error will be returned if any of the specified patterns
+// is invalid. Patterns are valid if they contain only
+// alpha-numeric characters, hyphens, or asterisks.
+func newUnitMatcher(patterns []string) (unitMatcher, error) {
 	for i, pattern := range patterns {
-		if !strings.Contains(pattern, "/") {
+		fields := strings.Split(pattern, "/")
+		if len(fields) > 2 {
+			return unitMatcher{}, fmt.Errorf("pattern %q contains too many '/' characters", pattern)
+		}
+		for _, f := range fields {
+			if err := validatePattern(f); err != nil {
+				return unitMatcher{}, err
+			}
+		}
+		if len(fields) == 1 {
 			patterns[i] += "/*"
 		}
 	}
-	return unitMatcher{patterns}
+	return unitMatcher{patterns}, nil
 }
 
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
@@ -158,7 +176,10 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	defer conn.Close()
 
 	var context statusContext
-	unitMatcher := newUnitMatcher(c.patterns)
+	unitMatcher, err := newUnitMatcher(c.patterns)
+	if err != nil {
+		return err
+	}
 	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
 		return err
 	}
@@ -252,10 +273,7 @@ func fetchAllServicesAndUnits(st *state.State, unitMatcher unitMatcher) (map[str
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
-			ok, err := unitMatcher.matchUnit(u)
-			if err != nil {
-				return nil, nil, err
-			} else if !ok {
+			if !unitMatcher.matchUnit(u) {
 				continue
 			}
 			svcUnitMap[u.Name()] = u
@@ -274,6 +292,9 @@ func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings,
 	machineIds := new(set.Strings)
 	for _, svcUnitMap := range units {
 		for _, unit := range svcUnitMap {
+			if !unit.IsPrincipal() {
+				continue
+			}
 			mid, err := unit.AssignedMachineId()
 			if err != nil {
 				return nil, err
