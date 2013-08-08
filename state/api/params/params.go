@@ -66,6 +66,17 @@ type ServiceDeploy struct {
 	ToMachineSpec string
 }
 
+// ServiceUpdate holds the parameters for making the ServiceUpdate call.
+type ServiceUpdate struct {
+	ServiceName     string
+	CharmUrl        string
+	ForceCharmUrl   bool
+	MinUnits        *int
+	SettingsStrings map[string]string
+	SettingsYAML    string // Takes precedence over SettingsStrings if both are present.
+	Constraints     *constraints.Value
+}
+
 // ServiceSetCharm sets the charm for a given service.
 type ServiceSetCharm struct {
 	ServiceName string
@@ -327,6 +338,7 @@ type ServiceInfo struct {
 	Exposed     bool
 	CharmURL    string
 	Life        Life
+	MinUnits    int
 	Constraints constraints.Value
 	Config      map[string]interface{}
 }
