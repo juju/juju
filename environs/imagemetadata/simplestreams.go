@@ -208,8 +208,8 @@ func (metadata *cloudImageMetadata) extractCatalogsForProducts(productIds []stri
 }
 
 // extractIndexes returns just the array of indexes, in arbitrary order.
-func (ind *indices) extractIndexes() indexMetadataArray {
-	result := indexMetadataArray{}
+func (ind *indices) extractIndexes() indexMetadataSlice {
+	result := make(indexMetadataSlice, 0, len(ind.Indexes))
 	for _, metadata := range ind.Indexes {
 		result = append(result, metadata)
 	}
@@ -238,12 +238,12 @@ func (metadata *indexMetadata) hasProduct(prodIds []string) bool {
 	return false
 }
 
-type indexMetadataArray []*indexMetadata
+type indexMetadataSlice []*indexMetadata
 
 // filter returns those entries from an indexMetadata array for which the given
 // match function returns true.  It preserves order.
-func (entries indexMetadataArray) filter(match func(*indexMetadata) bool) indexMetadataArray {
-	result := indexMetadataArray{}
+func (entries indexMetadataSlice) filter(match func(*indexMetadata) bool) indexMetadataSlice {
+	result := indexMetadataSlice{}
 	for _, metadata := range entries {
 		if match(metadata) {
 			result = append(result, metadata)
@@ -298,7 +298,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Warningf("skipping index %q/%q: %v", baseURL, indexPath, err)
+				logger.Warningf("skipping index because of error getting latest metadata %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -397,6 +397,9 @@ func (indexRef *indexReference) getImageIdsPath(ic *ImageConstraint) (string, er
 	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file has no data for product name(s) %q", prodIds)
 	}
+
+	logger.Debugf("candidate matches for products %q are %v", prodIds, candidates)
+
 	// Pick arbitrary match.
 	return candidates[0].ProductsFilePath, nil
 }
@@ -618,7 +621,7 @@ func getLatestImageIdMetadata(imageMetadata *cloudImageMetadata, ic *ImageConstr
 
 	catalogs := imageMetadata.extractCatalogsForProducts(prodIds)
 	if len(catalogs) == 0 {
-		availableProducts := []string{}
+		availableProducts := make([]string, 0, len(imageMetadata.Products))
 		for product := range imageMetadata.Products {
 			availableProducts = append(availableProducts, product)
 		}

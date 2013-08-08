@@ -388,7 +388,7 @@ func (*simplestreamsSuite) TestExtractIndexesAcceptsNil(c *C) {
 func (*simplestreamsSuite) TestExtractIndexesReturnsIndex(c *C) {
 	metadata := indexMetadata{}
 	ind := indices{Indexes: map[string]*indexMetadata{"foo": &metadata}}
-	c.Check(ind.extractIndexes(), DeepEquals, indexMetadataArray{&metadata})
+	c.Check(ind.extractIndexes(), DeepEquals, indexMetadataSlice{&metadata})
 }
 
 func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *C) {
@@ -486,7 +486,7 @@ func (*simplestreamsSuite) TestHasProductReturnsFalseIfProductsDoNotMatch(c *C) 
 }
 
 func (*simplestreamsSuite) TestFilterReturnsNothingForEmptyArray(c *C) {
-	empty := indexMetadataArray{}
+	empty := indexMetadataSlice{}
 	c.Check(
 		empty.filter(func(*indexMetadata) bool { return true }),
 		HasLen,
@@ -494,7 +494,7 @@ func (*simplestreamsSuite) TestFilterReturnsNothingForEmptyArray(c *C) {
 }
 
 func (*simplestreamsSuite) TestFilterRemovesNonMatches(c *C) {
-	array := indexMetadataArray{&indexMetadata{}}
+	array := indexMetadataSlice{&indexMetadata{}}
 	c.Check(
 		array.filter(func(*indexMetadata) bool { return false }),
 		HasLen,
@@ -503,17 +503,17 @@ func (*simplestreamsSuite) TestFilterRemovesNonMatches(c *C) {
 
 func (*simplestreamsSuite) TestFilterIncludesMatches(c *C) {
 	metadata := indexMetadata{}
-	array := indexMetadataArray{&metadata}
+	array := indexMetadataSlice{&metadata}
 	c.Check(
 		array.filter(func(*indexMetadata) bool { return true }),
 		DeepEquals,
-		indexMetadataArray{&metadata})
+		indexMetadataSlice{&metadata})
 }
 
 func (*simplestreamsSuite) TestFilterLeavesOriginalUnchanged(c *C) {
 	item1 := indexMetadata{CloudName: "aws"}
 	item2 := indexMetadata{CloudName: "openstack"}
-	array := indexMetadataArray{&item1, &item2}
+	array := indexMetadataSlice{&item1, &item2}
 
 	result := array.filter(func(metadata *indexMetadata) bool {
 		return metadata.CloudName == "aws"
@@ -523,11 +523,11 @@ func (*simplestreamsSuite) TestFilterLeavesOriginalUnchanged(c *C) {
 
 	// The original, however, has not changed.
 	c.Assert(array, HasLen, 2)
-	c.Check(array, DeepEquals, indexMetadataArray{&item1, &item2})
+	c.Check(array, DeepEquals, indexMetadataSlice{&item1, &item2})
 }
 
 func (*simplestreamsSuite) TestFilterPreservesOrder(c *C) {
-	array := indexMetadataArray{
+	array := indexMetadataSlice{
 		&indexMetadata{CloudName: "aws"},
 		&indexMetadata{CloudName: "maas"},
 		&indexMetadata{CloudName: "openstack"},
@@ -540,7 +540,7 @@ func (*simplestreamsSuite) TestFilterPreservesOrder(c *C) {
 }
 
 func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *C) {
-	array := indexMetadataArray{
+	array := indexMetadataSlice{
 		&indexMetadata{Format: "1.0"},
 		&indexMetadata{Format: "1.1"},
 		&indexMetadata{Format: "2.0"},
@@ -551,7 +551,7 @@ func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *C) {
 		return strings.HasSuffix(metadata.Format, ".0")
 	})
 
-	c.Check(dotOFormats, DeepEquals, indexMetadataArray{array[0], array[2]})
+	c.Check(dotOFormats, DeepEquals, indexMetadataSlice{array[0], array[2]})
 }
 
 func (s *simplestreamsSuite) TestFetchNoSignedMetadata(c *C) {
