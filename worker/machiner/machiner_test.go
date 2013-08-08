@@ -85,7 +85,7 @@ func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus p
 	}
 }
 
-var _ worker.WatchHandler = (*machiner.Machiner)(nil)
+var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
 func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *C) {
 	mr := machiner.NewMachiner(s.machinerState, "eleventy-one")
@@ -94,7 +94,7 @@ func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *C) {
 
 func (s *MachinerSuite) TestRunStop(c *C) {
 	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
-	c.Assert(mr.Stop(), IsNil)
+	c.Assert(worker.Stop(mr), IsNil)
 	c.Assert(s.apiMachine.Refresh(), IsNil)
 	c.Assert(s.apiMachine.Life(), Equals, params.Alive)
 }
@@ -106,21 +106,21 @@ func (s *MachinerSuite) TestStartSetsStatus(c *C) {
 	c.Assert(info, Equals, "")
 
 	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
-	defer mr.Stop()
+	defer worker.Stop(mr)
 
 	s.waitMachineStatus(c, s.machine, params.StatusStarted)
 }
 
 func (s *MachinerSuite) TestSetsStatusWhenDying(c *C) {
 	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
-	defer mr.Stop()
+	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), IsNil)
 	s.waitMachineStatus(c, s.machine, params.StatusStopped)
 }
 
 func (s *MachinerSuite) TestSetDead(c *C) {
 	mr := machiner.NewMachiner(s.machinerState, s.machine.Tag())
-	defer mr.Stop()
+	defer worker.Stop(mr)
 	c.Assert(s.machine.Destroy(), IsNil)
 	s.State.StartSync()
 	c.Assert(mr.Wait(), Equals, worker.ErrTerminateAgent)

@@ -118,7 +118,6 @@ func (task *provisionerTask) loop() error {
 			}
 		}
 	}
-	panic("not reached")
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {

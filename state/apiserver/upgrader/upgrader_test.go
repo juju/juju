@@ -95,6 +95,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
+	anAuthorizer.UnitAgent = false
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, NotNil)

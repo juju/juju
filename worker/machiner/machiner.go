@@ -3,8 +3,6 @@
 package machiner
 
 import (
-	"fmt"
-
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/errors"
@@ -23,16 +21,12 @@ type Machiner struct {
 	machine *machiner.Machine
 }
 
-// NewMachiner returns a Machiner that will wait for the identified machine
+// NewMachiner returns a Worker that will wait for the identified machine
 // to become Dying and make it Dead; or until the machine becomes Dead by
 // other means.
-func NewMachiner(st *machiner.State, tag string) worker.NotifyWorker {
+func NewMachiner(st *machiner.State, tag string) worker.Worker {
 	mr := &Machiner{st: st, tag: tag}
 	return worker.NewNotifyWorker(mr)
-}
-
-func (mr *Machiner) String() string {
-	return fmt.Sprintf("machiner for %s", mr.tag)
 }
 
 func isNotFoundOrUnauthorized(err error) bool {

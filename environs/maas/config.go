@@ -6,10 +6,11 @@ package maas
 import (
 	"errors"
 	"fmt"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/schema"
 	"net/url"
 	"strings"
+
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/schema"
 )
 
 var configFields = schema.Fields{

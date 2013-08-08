@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -1046,87 +1045,6 @@ func (*StateSuite) TestSortPorts(c *gc.C) {
 	}
 }
 
-func (*StateSuite) TestNameChecks(c *gc.C) {
-	assertService := func(s string, expect bool) {
-		c.Assert(names.IsService(s), gc.Equals, expect)
-		// Check that anything that is considered a valid service name
-		// is also (in)valid if a(n) (in)valid unit designator is added
-		// to it.
-		c.Assert(names.IsUnit(s+"/0"), gc.Equals, expect)
-		c.Assert(names.IsUnit(s+"/99"), gc.Equals, expect)
-		c.Assert(names.IsUnit(s+"/-1"), gc.Equals, false)
-		c.Assert(names.IsUnit(s+"/blah"), gc.Equals, false)
-		c.Assert(names.IsUnit(s+"/"), gc.Equals, false)
-	}
-	// Service names must be non-empty...
-	assertService("", false)
-	// must not consist entirely of numbers
-	assertService("33", false)
-	// may consist of a single word
-	assertService("wordpress", true)
-	// may contain hyphen-seperated words...
-	assertService("super-duper-wordpress", true)
-	// ...but those words must have at least one letter in them
-	assertService("super-1234-wordpress", false)
-	// may contain internal numbers.
-	assertService("w0rd-pre55", true)
-	// must not begin with a number
-	assertService("3wordpress", false)
-	// but internal, hyphen-sperated words can begin with numbers
-	assertService("foo-2foo", true)
-	// and may end with a number...
-	assertService("foo2", true)
-	// ...unless that number is all by itself
-	assertService("foo-2", false)
-
-	assertMachine := func(s string, expect bool) {
-		c.Assert(names.IsMachine(s), gc.Equals, expect)
-	}
-	assertMachine("0", true)
-	assertMachine("00", false)
-	assertMachine("1", true)
-	assertMachine("1000001", true)
-	assertMachine("01", false)
-	assertMachine("-1", false)
-	assertMachine("", false)
-	assertMachine("cantankerous", false)
-	// And container specs
-	assertMachine("0/", false)
-	assertMachine("0/0", false)
-	assertMachine("0/lxc", false)
-	assertMachine("0/lxc/", false)
-	assertMachine("0/lxc/0", true)
-	assertMachine("0/lxc/0/", false)
-	assertMachine("0/lxc/00", false)
-	assertMachine("0/lxc/01", false)
-	assertMachine("0/lxc/10", true)
-	assertMachine("0/kvm/4", true)
-	assertMachine("0/no-dash/0", false)
-	assertMachine("0/lxc/1/embedded/2", true)
-
-	assertMachineOrNewContainer := func(s string, expect bool) {
-		c.Assert(names.IsMachineOrNewContainer(s), gc.Equals, expect)
-	}
-	assertMachineOrNewContainer("0", true)
-	assertMachineOrNewContainer("00", false)
-	assertMachineOrNewContainer("1", true)
-	assertMachineOrNewContainer("0/lxc/0", true)
-	assertMachineOrNewContainer("lxc:0", true)
-	assertMachineOrNewContainer("lxc:lxc:0", false)
-	assertMachineOrNewContainer("kvm:0/lxc/1", true)
-	assertMachineOrNewContainer("lxc:", false)
-	assertMachineOrNewContainer(":lxc", false)
-	assertMachineOrNewContainer("0/lxc/", false)
-	assertMachineOrNewContainer("0/lxc", false)
-	assertMachineOrNewContainer("kvm:0/lxc", false)
-	assertMachine("0/lxc/00", false)
-	assertMachine("0/lxc/01", false)
-	assertMachineOrNewContainer("0/lxc/01", false)
-	assertMachineOrNewContainer("0/lxc/10", true)
-	assertMachineOrNewContainer("0/kvm/4", true)
-	assertMachine("0/lxc/1/embedded/2", true)
-}
-
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
@@ -1543,6 +1461,25 @@ func (s *StateSuite) TestAuthenticator(c *gc.C) {
 		gc.ErrorMatches,
 		`entity "environment-.*" does not support authentication`,
 	)
+}
+
+func (s *StateSuite) TestAgentEntity(c *gc.C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, gc.IsNil)
+	user, err := s.State.AddUser("arble", "pass")
+	c.Assert(err, gc.IsNil)
+
+	entity, err := s.State.AgentEntity(machine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(entity.Tag(), gc.Equals, machine.Tag())
+
+	entity, err = s.State.AgentEntity(user.Tag())
+	c.Assert(err, gc.ErrorMatches, `"user-arble" does not support agent operations`)
+	c.Assert(entity, gc.IsNil)
+
+	entity, err = s.State.AgentEntity("machine-99")
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	c.Assert(entity, gc.IsNil)
 }
 
 func (s *StateSuite) TestAnnotator(c *gc.C) {

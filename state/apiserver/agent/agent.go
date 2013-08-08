@@ -23,7 +23,7 @@ type API struct {
 // with the given authorizer representing the currently logged in client.
 func NewAPI(st *state.State, auth common.Authorizer) (*API, error) {
 	// Agents are defined to be any user that's not a client user.
-	if auth.AuthClient() {
+	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {

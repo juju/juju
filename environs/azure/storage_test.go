@@ -16,11 +16,11 @@ import (
 	"launchpad.net/juju-core/errors"
 )
 
-type StorageSuite struct {
-	ProviderSuite
+type storageSuite struct {
+	providerSuite
 }
 
-var _ = Suite(new(StorageSuite))
+var _ = Suite(&storageSuite{})
 
 func makeResponse(content string, status int) *http.Response {
 	return &http.Response{
@@ -111,7 +111,7 @@ var blobListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
-func (*StorageSuite) TestList(c *C) {
+func (*storageSuite) TestList(c *C) {
 	container := "container"
 	response := makeResponse(blobListResponse, http.StatusOK)
 	azStorage, transport := makeFakeStorage(container, "account")
@@ -128,7 +128,20 @@ func (*StorageSuite) TestList(c *C) {
 	c.Check(names, DeepEquals, []string{"prefix-1", "prefix-2"})
 }
 
-func (*StorageSuite) TestGet(c *C) {
+func (*storageSuite) TestListWithNonexistentContainerReturnsNoFiles(c *C) {
+	// If Azure returns a 404 it means the container doesn't exist. In this
+	// case the provider should interpret this as "no files" and return nil.
+	container := "container"
+	response := makeResponse("", http.StatusNotFound)
+	azStorage, transport := makeFakeStorage(container, "account")
+	transport.AddExchange(response, nil)
+
+	names, err := azStorage.List("prefix")
+	c.Assert(err, IsNil)
+	c.Assert(names, IsNil)
+}
+
+func (*storageSuite) TestGet(c *C) {
 	blobContent := "test blob"
 	container := "container"
 	filename := "blobname"
@@ -150,7 +163,7 @@ func (*StorageSuite) TestGet(c *C) {
 	c.Check(string(data), Equals, blobContent)
 }
 
-func (*StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
+func (*storageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("not found", http.StatusNotFound)
@@ -161,7 +174,7 @@ func (*StorageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	c.Check(errors.IsNotFoundError(err), Equals, true)
 }
 
-func (*StorageSuite) TestPut(c *C) {
+func (*storageSuite) TestPut(c *C) {
 	blobContent := "test blob"
 	container := "container"
 	filename := "blobname"
@@ -181,7 +194,7 @@ func (*StorageSuite) TestPut(c *C) {
 	c.Check(transport.Exchanges[2].Request.URL.String(), Matches, context.GetFileURL(container, filename)+"?.*")
 }
 
-func (*StorageSuite) TestRemove(c *C) {
+func (*storageSuite) TestRemove(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusAccepted)
@@ -197,7 +210,7 @@ func (*StorageSuite) TestRemove(c *C) {
 	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
 
-func (*StorageSuite) TestRemoveErrors(c *C) {
+func (*storageSuite) TestRemoveErrors(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusForbidden)
@@ -207,7 +220,7 @@ func (*StorageSuite) TestRemoveErrors(c *C) {
 	c.Assert(err, NotNil)
 }
 
-func (*StorageSuite) TestRemoveAll(c *C) {
+func (*storageSuite) TestRemoveAll(c *C) {
 	// When we ask gwacl to remove all blobs, it calls DeleteContainer.
 	response := makeResponse("", http.StatusAccepted)
 	storage, transport := makeFakeStorage("cntnr", "account")
@@ -225,7 +238,7 @@ func (*StorageSuite) TestRemoveAll(c *C) {
 	c.Check(transport.Exchanges[0].Request.Method, Equals, "DELETE")
 }
 
-func (*StorageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
+func (*storageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
 	container := "container"
 	filename := "blobname"
 	response := makeResponse("", http.StatusNotFound)
@@ -235,7 +248,7 @@ func (*StorageSuite) TestRemoveNonExistentBlobSucceeds(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (*StorageSuite) TestURL(c *C) {
+func (*storageSuite) TestURL(c *C) {
 	container := "container"
 	filename := "blobname"
 	account := "account"
@@ -256,7 +269,7 @@ func (*StorageSuite) TestURL(c *C) {
 	c.Assert(err, IsNil)
 }
 
-func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
+func (*storageSuite) TestCreateContainerCreatesContainerIfDoesNotExist(c *C) {
 	azStorage, transport := makeFakeStorage("", "account")
 	transport.AddExchange(makeResponse("", http.StatusNotFound), nil)
 	transport.AddExchange(makeResponse("", http.StatusCreated), nil)
@@ -275,7 +288,7 @@ func (*StorageSuite) TestCreateContainerWhenNotAlreadyExists(c *C) {
 	c.Check(transport.Exchanges[1].Request.Method, Equals, "PUT")
 }
 
-func (*StorageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
+func (*storageSuite) TestCreateContainerIsDoneIfContainerAlreadyExists(c *C) {
 	container := ""
 	azStorage, transport := makeFakeStorage(container, "account")
 	header := make(http.Header)
@@ -298,7 +311,21 @@ func (*StorageSuite) TestCreateContainerWhenAlreadyExists(c *C) {
 	c.Check(transport.Exchanges[0].Request.Method, Equals, "GET")
 }
 
-func (*StorageSuite) TestDeleteContainer(c *C) {
+func (*storageSuite) TestCreateContainerFailsIfContainerInaccessible(c *C) {
+	azStorage, transport := makeFakeStorage("", "account")
+	transport.AddExchange(makeResponse("", http.StatusInternalServerError), nil)
+
+	err := azStorage.createContainer("cntnr")
+	c.Assert(err, NotNil)
+
+	// createContainer got an error when trying to query for an existing
+	// container of the right name.  But it does not mistake that error for
+	// "this container does not exist yet so go ahead and create it."
+	// The proper response to the situation is to report the failure.
+	c.Assert(err, ErrorMatches, ".*Internal Server Error.*")
+}
+
+func (*storageSuite) TestDeleteContainer(c *C) {
 	azStorage, transport := makeFakeStorage("", "account")
 	transport.AddExchange(makeResponse("", http.StatusAccepted), nil)
 

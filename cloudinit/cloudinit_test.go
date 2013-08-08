@@ -49,6 +49,13 @@ var ctests = []struct {
 		},
 	},
 	{
+		"AptProxy",
+		"apt_proxy: http://foo.com\n",
+		func(cfg *cloudinit.Config) {
+			cfg.SetAptProxy("http://foo.com")
+		},
+	},
+	{
 		"AptMirror",
 		"apt_mirror: http://foo.com\n",
 		func(cfg *cloudinit.Config) {
@@ -201,9 +208,43 @@ var ctests = []struct {
 			cfg.SetAttr("arbitraryAttr", "someValue")
 		},
 	},
+	{
+		"RunCmd",
+		"runcmd:\n- ifconfig\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddRunCmd("ifconfig")
+		},
+	},
+	{
+		"AddScripts",
+		"runcmd:\n- echo 'Hello World'\n- ifconfig\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddScripts(
+				"echo 'Hello World'",
+				"ifconfig",
+			)
+		},
+	},
+	{
+		"AddFile",
+		addFileExpected,
+		func(cfg *cloudinit.Config) {
+			cfg.AddFile(
+				"/etc/apt/apt.conf.d/99proxy",
+				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
 }
 
-const header = "#cloud-config\n"
+const (
+	header          = "#cloud-config\n"
+	addFileExpected = `runcmd:
+- install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
+- echo '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
+`
+)
 
 func (S) TestOutput(c *C) {
 	for _, t := range ctests {
