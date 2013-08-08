@@ -162,7 +162,7 @@ func newUnitMatcher(patterns []string) (unitMatcher, error) {
 	return unitMatcher{patterns}, nil
 }
 
-var connectionError = `Unable to connect to environment '%s'.
+var connectionError = `Unable to connect to environment "%s".
 Please check your credentials or use 'juju bootstrap' to create a new environment.
 
 Error details:
