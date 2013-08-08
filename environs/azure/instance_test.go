@@ -406,9 +406,9 @@ func (*instanceSuite) TestPorts(c *C) {
 		// The result is sorted using state.SortPorts() (i.e. first by protocol,
 		// then by number).
 		[]instance.Port{
-			instance.Port{Number: 4456, Protocol: "tcp"},
-			instance.Port{Number: 1123, Protocol: "udp"},
-			instance.Port{Number: 2123, Protocol: "udp"},
+			{Number: 4456, Protocol: "tcp"},
+			{Number: 1123, Protocol: "udp"},
+			{Number: 2123, Protocol: "udp"},
 		})
 }
 
