@@ -518,6 +518,7 @@ var statusTests = []testCase{
 			"scope status on dummy-service/0 unit",
 			[]string{"dummy-service/0"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -541,6 +542,7 @@ var statusTests = []testCase{
 			"scope status on exposed-service service",
 			[]string{"exposed-service"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"2": machine2,
 				},
@@ -566,6 +568,7 @@ var statusTests = []testCase{
 			"scope status on service pattern",
 			[]string{"d*-service"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -589,6 +592,7 @@ var statusTests = []testCase{
 			"scope status on unit pattern",
 			[]string{"e*posed-service/*"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"2": machine2,
 				},
@@ -614,6 +618,7 @@ var statusTests = []testCase{
 			"scope status on combination of service and unit patterns",
 			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -965,6 +970,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"logging"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 					"2": machine2,
@@ -1027,6 +1033,7 @@ var statusTests = []testCase{
 			"subordinates scoped on logging",
 			[]string{"wordpress/0"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -1101,6 +1108,7 @@ var statusTests = []testCase{
 			"subordinates scoped on:",
 			[]string{"monitoring"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1,
 				},
@@ -1195,6 +1203,7 @@ var statusTests = []testCase{
 			"machines with nested containers",
 			[]string{"mysql/1"},
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"1": machine1WithContainersScoped,
 				},
