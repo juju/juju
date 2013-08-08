@@ -11,7 +11,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
 )
@@ -36,7 +35,7 @@ func (c *UnitCommandBase) Init(args []string) error {
 		if c.NumUnits > 1 {
 			return errors.New("cannot use --num-units > 1 with --to")
 		}
-		if !names.IsMachineOrNewContainer(c.ToMachineSpec) {
+		if !cmd.IsMachineOrNewContainer(c.ToMachineSpec) {
 			return fmt.Errorf("invalid --to parameter %q", c.ToMachineSpec)
 		}
 	}

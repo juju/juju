@@ -8,6 +8,7 @@ import (
 	"launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/uniter"
 	"launchpad.net/juju-core/state/api/upgrader"
 )
 
@@ -33,6 +34,12 @@ func (st *State) Client() *Client {
 // required by the machiner worker.
 func (st *State) Machiner() *machiner.State {
 	return machiner.NewState(st)
+}
+
+// Uniter returns a version of the state that provides functionality
+// required by the uniter worker.
+func (st *State) Uniter() *uniter.State {
+	return uniter.NewState(st)
 }
 
 // Agent returns a version of the state that provides

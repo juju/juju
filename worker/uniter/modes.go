@@ -214,7 +214,6 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			return nil, worker.ErrTerminateAgent
 		}
 	}
-	panic("unreachable")
 }
 
 // ModeAbide is the Uniter's usual steady state. It watches for and responds to:
@@ -280,7 +279,6 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return nil, err
 		}
 	}
-	panic("unreachable")
 }
 
 // modeAbideDyingLoop handles the proper termination of all relations in
@@ -323,7 +321,6 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 	}
-	panic("unreachable")
 }
 
 // ModeHookError is responsible for watching and responding to:
@@ -366,7 +363,6 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return ModeUpgrading(curl), nil
 		}
 	}
-	panic("unreachable")
 }
 
 // ModeConflicted is responsible for watching and responding to:
@@ -400,7 +396,6 @@ func ModeConflicted(curl *charm.URL) Mode {
 				return ModeUpgrading(curl), nil
 			}
 		}
-		panic("unreachable")
 	}
 }
 

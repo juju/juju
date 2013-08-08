@@ -169,6 +169,28 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
+func (s *UnitSuite) TestGetPublicAddressFromMachine(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	address, ok := s.unit.PublicAddress()
+	c.Check(address, Equals, "")
+	c.Assert(ok, Equals, false)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetAddresses(addresses)
+	c.Assert(err, IsNil)
+
+	address, ok = s.unit.PublicAddress()
+	c.Check(address, Equals, "8.8.8.8")
+	c.Assert(ok, Equals, true)
+}
+
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)
@@ -884,6 +906,36 @@ func (s *UnitSuite) TestDeathWithSubordinates(c *C) {
 	c.Assert(err, IsNil)
 	err = u.EnsureDead()
 	c.Assert(err, IsNil)
+}
+
+func (s *UnitSuite) TestPrincipalName(c *C) {
+	subCharm := s.AddTestingCharm(c, "logging")
+	_, err := s.State.AddService("logging", subCharm)
+	c.Assert(err, IsNil)
+	eps, err := s.State.InferEndpoints([]string{"logging", "wordpress"})
+	c.Assert(err, IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, IsNil)
+	ru, err := rel.Unit(s.unit)
+	c.Assert(err, IsNil)
+	err = ru.EnterScope(nil)
+	c.Assert(err, IsNil)
+
+	err = s.unit.Refresh()
+	c.Assert(err, IsNil)
+	subordinates := s.unit.SubordinateNames()
+	c.Assert(subordinates, DeepEquals, []string{"logging/0"})
+
+	su, err := s.State.Unit("logging/0")
+	c.Assert(err, IsNil)
+	principal, valid := su.PrincipalName()
+	c.Assert(valid, Equals, true)
+	c.Assert(principal, Equals, s.unit.Name())
+
+	// Calling PrincipalName on a principal unit yields "", false.
+	principal, valid = s.unit.PrincipalName()
+	c.Assert(valid, Equals, false)
+	c.Assert(principal, Equals, "")
 }
 
 func (s *UnitSuite) TestRemove(c *C) {

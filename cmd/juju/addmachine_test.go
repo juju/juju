@@ -92,10 +92,14 @@ func (s *AddMachineSuite) TestAddContainerToExistingMachine(c *C) {
 }
 
 func (s *AddMachineSuite) TestAddMachineErrors(c *C) {
-	err := runAddMachine(c, ":foo")
-	c.Assert(err, ErrorMatches, `malformed container argument ":foo"`)
-	err = runAddMachine(c, "foo:")
-	c.Assert(err, ErrorMatches, `malformed container argument "foo:"`)
+	err := runAddMachine(c, ":lxc")
+	c.Assert(err, ErrorMatches, `malformed container argument ":lxc"`)
+	err = runAddMachine(c, "lxc:")
+	c.Assert(err, ErrorMatches, `malformed container argument "lxc:"`)
+	err = runAddMachine(c, "2")
+	c.Assert(err, ErrorMatches, `malformed container argument "2"`)
+	err = runAddMachine(c, "foo")
+	c.Assert(err, ErrorMatches, `malformed container argument "foo"`)
 	err = runAddMachine(c, "lxc", "--constraints", "container=lxc")
 	c.Assert(err, ErrorMatches, `container constraint "lxc" not allowed when adding a machine`)
 }

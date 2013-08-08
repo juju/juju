@@ -84,6 +84,8 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 	c.Assert(err, IsNil)
 	err = wordpress.SetExposed()
 	c.Assert(err, IsNil)
+	err = wordpress.SetMinUnits(3)
+	c.Assert(err, IsNil)
 	err = wordpress.SetConstraints(constraints.MustParse("mem=100M"))
 	c.Assert(err, IsNil)
 	setServiceConfigAttr(c, wordpress, "blog-title", "boring")
@@ -92,6 +94,7 @@ func (s *storeManagerStateSuite) setUpScenario(c *C) (entities entityInfoSlice) 
 		Exposed:     true,
 		CharmURL:    serviceCharmURL(wordpress).String(),
 		Life:        params.Life(Alive.String()),
+		MinUnits:    3,
 		Constraints: constraints.MustParse("mem=100M"),
 		Config:      charm.Settings{"blog-title": "boring"},
 	})
@@ -410,6 +413,8 @@ var allWatcherChangedTests = []struct {
 			c.Assert(err, IsNil)
 			err = wordpress.SetExposed()
 			c.Assert(err, IsNil)
+			err = wordpress.SetMinUnits(42)
+			c.Assert(err, IsNil)
 		},
 		change: watcher.Change{
 			C:  "services",
@@ -421,6 +426,7 @@ var allWatcherChangedTests = []struct {
 				Exposed:  true,
 				CharmURL: "local:series/series-wordpress-3",
 				Life:     params.Life(Alive.String()),
+				MinUnits: 42,
 				Config:   charm.Settings{},
 			},
 		},
@@ -430,6 +436,7 @@ var allWatcherChangedTests = []struct {
 			Name:        "wordpress",
 			Exposed:     true,
 			CharmURL:    "local:series/series-wordpress-3",
+			MinUnits:    47,
 			Constraints: constraints.MustParse("mem=99M"),
 			Config:      charm.Settings{"blog-title": "boring"},
 		}},

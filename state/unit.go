@@ -13,6 +13,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -23,6 +25,8 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
 )
+
+var unitLogger = loggo.GetLogger("juju.state.unit")
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
 type AssignmentPolicy string
@@ -57,8 +61,10 @@ const (
 	ResolvedNoHooks    ResolvedMode = "no-hooks"
 )
 
-// UnitSettings holds information about a service unit's settings within a
-// relation.
+// UnitSettings holds information about a service unit's settings
+// within a relation.
+// NOTE: Settings field may always be nil and should never be
+// dependent upon. We need to remove it in the future.
 type UnitSettings struct {
 	Version  int64
 	Settings map[string]interface{}
@@ -90,8 +96,6 @@ type Unit struct {
 	doc unitDoc
 	annotator
 }
-
-var _ AgentEntity = (*Unit)(nil)
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
@@ -442,9 +446,28 @@ func (u *Unit) DeployerTag() (string, bool) {
 	return "", false
 }
 
+// PrincipalName returns the name of the unit's principal.
+// If the unit is not a subordinate, false is returned.
+func (u *Unit) PrincipalName() (string, bool) {
+	return u.doc.Principal, u.doc.Principal != ""
+}
+
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
-	return u.doc.PublicAddress, u.doc.PublicAddress != ""
+	publicAddress := u.doc.PublicAddress
+	id := u.doc.MachineId
+	if id != "" {
+		m, err := u.st.Machine(id)
+		if err != nil {
+			unitLogger.Errorf("unit %v misses machine id %v", u, id)
+			return "", false
+		}
+		addresses := m.Addresses()
+		if len(addresses) > 0 {
+			publicAddress = instance.SelectPublicAddress(addresses)
+		}
+	}
+	return publicAddress, publicAddress != ""
 }
 
 // PrivateAddress returns the private address of the unit and whether it is valid.

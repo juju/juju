@@ -11,17 +11,13 @@ import (
 // PasswordChanger implements a common SetPasswords method for use by
 // various facades.
 type PasswordChanger struct {
-	st           AuthenticatorGetter
+	st           state.EntityFinder
 	getCanChange GetAuthFunc
-}
-
-type AuthenticatorGetter interface {
-	Authenticator(tag string) (state.TaggedAuthenticator, error)
 }
 
 // NewPasswordChanger returns a new PasswordChanger. The GetAuthFunc will be
 // used on each invocation of SetPasswords to determine current permissions.
-func NewPasswordChanger(st AuthenticatorGetter, getCanChange GetAuthFunc) *PasswordChanger {
+func NewPasswordChanger(st state.EntityFinder, getCanChange GetAuthFunc) *PasswordChanger {
 	return &PasswordChanger{
 		st:           st,
 		getCanChange: getCanChange,
@@ -56,9 +52,13 @@ func (pc *PasswordChanger) setPassword(tag, password string) error {
 	type mongoPassworder interface {
 		SetMongoPassword(password string) error
 	}
-	entity, err := pc.st.Authenticator(tag)
+	entity0, err := pc.st.FindEntity(tag)
 	if err != nil {
 		return err
+	}
+	entity, ok := entity0.(state.Authenticator)
+	if !ok {
+		return NotSupportedError(tag, "authentication")
 	}
 	// We set the mongo password first on the grounds that
 	// if it fails, the agent in question should still be able

@@ -127,6 +127,7 @@ func (svc *backingService) updated(st *State, store *multiwatcher.Store, id inte
 		Exposed:  svc.Exposed,
 		CharmURL: svc.CharmURL.String(),
 		Life:     params.Life(svc.Life.String()),
+		MinUnits: svc.MinUnits,
 	}
 	oldInfo := store.Get(info.EntityId())
 	needConfig := false

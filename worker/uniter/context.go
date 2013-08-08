@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
@@ -148,8 +149,37 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
+	var err error
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
+	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+		log.Infof("worker/uniter: executing %s via debug-hooks", hookName)
+		err = session.RunHook(hookName, charmDir, env)
+	} else {
+		err = runCharmHook(hookName, charmDir, env)
+	}
+	write := err == nil
+	for id, rctx := range ctx.relations {
+		if write {
+			if e := rctx.WriteSettings(); e != nil {
+				e = fmt.Errorf(
+					"could not write settings from %q to relation %d: %v",
+					hookName, id, e,
+				)
+				log.Errorf("worker/uniter: %v", e)
+				if err == nil {
+					err = e
+				}
+			}
+		}
+		rctx.ClearCache()
+	}
+	return err
+}
+
+func runCharmHook(hookName, charmDir string, env []string) error {
 	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-	ps.Env = ctx.hookVars(charmDir, toolsDir, socketPath)
+	ps.Env = env
 	ps.Dir = charmDir
 	outReader, outWriter, err := os.Pipe()
 	if err != nil {
@@ -174,22 +204,6 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 			log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
 			return nil
 		}
-	}
-	write := err == nil
-	for id, rctx := range ctx.relations {
-		if write {
-			if e := rctx.WriteSettings(); e != nil {
-				e = fmt.Errorf(
-					"could not write settings from %q to relation %d: %v",
-					hookName, id, e,
-				)
-				log.Errorf("worker/uniter: %v", e)
-				if err == nil {
-					err = e
-				}
-			}
-		}
-		rctx.ClearCache()
 	}
 	return err
 }

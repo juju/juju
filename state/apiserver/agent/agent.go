@@ -56,8 +56,13 @@ func (api *API) getEntity(tag string) (result params.AgentGetEntitiesResult, err
 		err = common.ErrPerm
 		return
 	}
-	entity, err := api.st.Lifer(tag)
+	entity0, err := api.st.FindEntity(tag)
 	if err != nil {
+		return
+	}
+	entity, ok := entity0.(state.Lifer)
+	if !ok {
+		err = common.NotSupportedError(tag, "life cycles")
 		return
 	}
 	result.Life = params.Life(entity.Life().String())
