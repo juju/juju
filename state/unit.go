@@ -93,8 +93,6 @@ type Unit struct {
 	annotator
 }
 
-var _ AgentEntity = (*Unit)(nil)
-
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
 		st:  st,
@@ -442,6 +440,12 @@ func (u *Unit) DeployerTag() (string, bool) {
 		return names.MachineTag(u.doc.MachineId), true
 	}
 	return "", false
+}
+
+// PrincipalName returns the name of the unit's principal.
+// If the unit is not a subordinate, false is returned.
+func (u *Unit) PrincipalName() (string, bool) {
+	return u.doc.Principal, u.doc.Principal != ""
 }
 
 // PublicAddress returns the public address of the unit and whether it is valid.

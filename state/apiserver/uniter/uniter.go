@@ -2,16 +2,16 @@
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 // The machiner package implements the API interface
-// used by the machiner worker.
-package machine
+// used by the uniter worker.
+package uniter
 
 import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/apiserver/common"
 )
 
-// MachinerAPI implements the API used by the machiner worker.
-type MachinerAPI struct {
+// UniterAPI implements the API used by the uniter worker.
+type UniterAPI struct {
 	*common.LifeGetter
 	*common.StatusSetter
 	*common.DeadEnsurer
@@ -21,15 +21,15 @@ type MachinerAPI struct {
 	auth common.Authorizer
 }
 
-// NewMachinerAPI creates a new instance of the Machiner API.
-func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*MachinerAPI, error) {
-	if !authorizer.AuthMachineAgent() {
+// NewUniterAPI creates a new instance of the Uniter API.
+func NewUniterAPI(st *state.State, resources *common.Resources, authorizer common.Authorizer) (*UniterAPI, error) {
+	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	getCanRead := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
-	return &MachinerAPI{
+	return &UniterAPI{
 		LifeGetter:         common.NewLifeGetter(st, getCanRead),
 		StatusSetter:       common.NewStatusSetter(st, getCanRead),
 		DeadEnsurer:        common.NewDeadEnsurer(st, getCanRead),
@@ -38,3 +38,5 @@ func NewMachinerAPI(st *state.State, resources *common.Resources, authorizer com
 		auth:               authorizer,
 	}, nil
 }
+
+// TODO(dimitern): Add the other needed API calls.

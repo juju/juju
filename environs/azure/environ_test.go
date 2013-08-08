@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -711,7 +712,15 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 	return service1, service1Desc
 }
 
+func setServiceDeletionConcurrency(nbGoroutines int) func() {
+	oldMaxConcurrentDeletes := maxConcurrentDeletes
+	maxConcurrentDeletes = nbGoroutines
+	return func() { maxConcurrentDeletes = oldMaxConcurrentDeletes }
+}
+
 func (*environSuite) TestStopInstancesDestroysMachines(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
 	service1Name := "service1"
 	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
@@ -731,10 +740,69 @@ func (*environSuite) TestStopInstancesDestroysMachines(c *C) {
 	// - one GET request to fetch the service's properties;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
-	c.Check((*requests)[0].Method, Equals, "GET")
-	c.Check((*requests)[1].Method, Equals, "DELETE")
-	c.Check((*requests)[2].Method, Equals, "GET")
-	c.Check((*requests)[3].Method, Equals, "DELETE")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
+}
+
+func (*environSuite) TestStopInstancesWhenStoppingMachinesFails(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+	}
+	service1Name := "service1"
+	_, service1Desc := makeAzureService(service1Name)
+	service2Name := "service2"
+	service2, service2Desc := makeAzureService(service2Name)
+	services := []*gwacl.HostedService{service2}
+	destroyResponses := buildDestroyAzureServiceResponses(c, services)
+	responses = append(responses, destroyResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances(
+		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc}, env)
+
+	err := env.StopInstances(instances)
+	c.Check(err, ErrorMatches, ".*Conflict.*")
+
+	c.Check(len(*requests), Equals, 3)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
+	// Only one of the services was deleted.
+	assertOneRequestMatches(c, *requests, "DELETE", ".*")
+}
+
+func (*environSuite) TestStopInstancesWithLimitedConcurrency(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	services := []*gwacl.HostedService{}
+	serviceDescs := []gwacl.HostedServiceDescriptor{}
+	for i := 0; i < 10; i++ {
+		serviceName := fmt.Sprintf("service%d", i)
+		service, serviceDesc := makeAzureService(serviceName)
+		services = append(services, service)
+		serviceDescs = append(serviceDescs, *serviceDesc)
+	}
+	responses := buildDestroyAzureServiceResponses(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances(serviceDescs, env)
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
+	c.Check(len(*requests), Equals, len(services)*2)
+}
+
+func (*environSuite) TestStopInstancesWithZeroInstance(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	env := makeEnviron(c)
+	instances := []instance.Instance{}
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
 }
 
 // getVnetAndAffinityGroupCleanupResponses returns the responses
@@ -833,10 +901,24 @@ var emptyListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
+// assertOneRequestMatches asserts that at least one request in the given slice
+// contains a request with the given method and whose URL matches the given regexp.
+func assertOneRequestMatches(c *C, requests []*gwacl.X509Request, method string, urlPattern string) {
+	for _, request := range requests {
+		matched, err := regexp.MatchString(urlPattern, request.URL)
+		if err == nil && request.Method == method && matched {
+			return
+		}
+	}
+	c.Error(fmt.Sprintf("none of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
+}
+
 func (*environSuite) TestDestroyStopsAllInstances(c *C) {
+	cleanup1 := setServiceDeletionConcurrency(3)
+	defer cleanup1()
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	cleanup2 := setDummyStorage(c, env)
+	defer cleanup2()
 
 	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
@@ -866,14 +948,10 @@ func (*environSuite) TestDestroyStopsAllInstances(c *C) {
 	// the Virtual Network and the Affinity Group.
 	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
-	c.Check((*requests)[1].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
-	c.Check((*requests)[2].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[2].URL, service1Name), IsTrue)
-	c.Check((*requests)[3].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
-	c.Check((*requests)[4].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
 func (*environSuite) TestGetInstance(c *C) {
@@ -947,21 +1025,21 @@ func (*environSuite) TestNewRole(c *C) {
 	sshEndpoint, ok := endpoints[22]
 	c.Assert(ok, Equals, true)
 	c.Check(sshEndpoint.LocalPort, Equals, 22)
-	c.Check(sshEndpoint.Protocol, Equals, "TCP")
+	c.Check(sshEndpoint.Protocol, Equals, "tcp")
 
 	// There's also an endpoint for the state (mongodb) port.
 	// TODO: Ought to have this only for state servers.
 	stateEndpoint, ok := endpoints[env.Config().StatePort()]
 	c.Assert(ok, Equals, true)
 	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
-	c.Check(stateEndpoint.Protocol, Equals, "TCP")
+	c.Check(stateEndpoint.Protocol, Equals, "tcp")
 
 	// And one for the API port.
 	// TODO: Ought to have this only for API servers.
 	apiEndpoint, ok := endpoints[env.Config().APIPort()]
 	c.Assert(ok, Equals, true)
 	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())
-	c.Check(apiEndpoint.Protocol, Equals, "TCP")
+	c.Check(apiEndpoint.Protocol, Equals, "tcp")
 }
 
 func (*environSuite) TestNewDeployment(c *C) {
@@ -1127,7 +1205,6 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *C) {
 	forcedImage := "my-image"
 	env.ecfg.attrs["force-image-name"] = forcedImage
 
-	// We'll tailor our constraints so as to get a specific instance type.
 	aim := gwacl.RoleNameMap["ExtraLarge"]
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
