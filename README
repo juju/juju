@@ -8,18 +8,27 @@ Getting started
 
 `juju-core` is written in Go (http://golang.org), a modern, compiled, statically
 typed, concurrent language. This document describes how to build `juju-core`
-from source. If you are looking for binary releases of `juju-core`, they are
-available from the Gophers PPA, `https://launchpad.net/~gophers/+archive/go`.
+from source.
 
-Installing Go
--------------
+If you are looking for binary releases of `juju-core`, they are
+available from the Juju stable PPA, `https://launchpad.net/~juju/+archive/stable`,
+and can be installed with:
 
-If you are using Precise or later, the `golang-go` package is available in the
-main archive and can be installed with
+    sudo apt-add-repository ppa:juju/stable
+    sudo apt-get update
+    sudo apt-get install juju
 
-    sudo apt-get install golang-go
 
-Using Go compiled from source is also supported, but not covered in this document.
+Installing prerequisites
+------------------------
+
+You can use `make install-dependencies` or, if you prefer to install
+them manually, check the Makefile target.
+
+This will add some PPAs to ensure that you have can install the required
+golang and mongodb-server versions for precise onwards, in addition to the
+other dependencies.
+
 
 Setting GOPATH
 --------------
@@ -49,30 +58,6 @@ Add `$GOPATH/bin` to your `PATH`, so you can run the go programs you install:
 
     PATH="$PATH:$GOPATH/bin"
 
-Other prerequisites
--------------------
-
-A number of additional prerequisite packages are required to compile `juju-core`
-and run the tests.  Running "make install-dependencies" from the source tree
-will generally install these for you.
-
-If you do choose to install them manually, here's what you need:
-
-    sudo apt-get install build-essential bzr zip git-core mercurial \
-        distro-info-data
-
-Binaries for mongodb are also required, but a newer version than is present in
-either 12.04 or 12.10 Ubuntu releases. Instead, you can get what you need from
-the public bucket which juju uses when deploying itself:
-
-    http://juju-dist.s3.amazonaws.com/tools/mongo-2.2.0-precise-amd64.tgz
-
-Change the Ubuntu series name and architecture to match your system.
-
-Note that the use of --upload-tools forces the instances to run with the same
-series and architecture of your development system.  Currently the only
-supported architecture that can be deployed is amd64, so you must develop on
-64-bit machines.
 
 Getting juju-core
 =================
@@ -114,28 +99,8 @@ commands. You can verify this using
 
     which juju
 
---upload-tools
---------------
+You should be able to bootstrap a local environment now with:
 
-The `juju` client program, and the juju 'tools' are deployed in lockstep. When a
-release of `juju-core` is made, the compiled tools matching that version of juju
-are extracted and uploaded to a known location. This consumes a release version
-number, and implies that no tools are available for the next, development, version
-of juju. Therefore, when using the development version of juju you will need to
-pass an additional flag, `--upload-tools` to instruct the `juju` client to build
-a set of tools from source and upload them to the environment as part of the
-bootstrap process.
-
-    juju bootstrap -e your-environment --upload-tools {--debug}
-
-Known issues
-============
-
-* If you have used the Python version of Juju, you cannot re-use the
-  control-bucket on S3 for Go Juju.  Change the bucket name in your
-  environments.yaml.
-
-* juju-origin is not supported so it must be removed from the environment you
-  define in environments.yaml if it exists.  At the moment --upload-tools is
-  the work-around to use, though it does have the problems mentioned
-  previously.
+    juju init
+    juju switch local
+    sudo juju bootstrap
