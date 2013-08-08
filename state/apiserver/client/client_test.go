@@ -422,48 +422,36 @@ func (s *clientSuite) deployServiceForTests(c *C, store *coretesting.MockCharmSt
 	c.Assert(err, IsNil)
 }
 
-func (s *clientSuite) TestClientServiceUpdateSetCharm(c *C) {
+func (s *clientSuite) checkClientServiceUpdateSetCharm(c *C, forceCharmUrl bool) {
 	store, restore := makeMockCharmStore()
 	defer restore()
 	s.deployServiceForTests(c, store)
 	addCharm(c, store, "wordpress")
 
 	// Update the charm for the service.
-	charmUrl := "cs:precise/wordpress-3"
-	forceCharmUrl := false
-	err := s.APIState.Client().ServiceUpdate("service", charmUrl, forceCharmUrl,
-		nil, nil, "", nil)
+	args := params.ServiceUpdate{
+		ServiceName:   "service",
+		CharmUrl:      "cs:precise/wordpress-3",
+		ForceCharmUrl: forceCharmUrl,
+	}
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 
-	// Ensure the charm has been updated and not marked as forced.
+	// Ensure the charm has been updated and and the force flag correctly set.
 	service, err := s.State.Service("service")
 	c.Assert(err, IsNil)
 	ch, force, err := service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(ch.URL().String(), Equals, charmUrl)
-	c.Assert(force, Equals, false)
+	c.Assert(ch.URL().String(), Equals, "cs:precise/wordpress-3")
+	c.Assert(force, Equals, forceCharmUrl)
+}
+
+func (s *clientSuite) TestClientServiceUpdateSetCharm(c *C) {
+	s.checkClientServiceUpdateSetCharm(c, false)
 }
 
 func (s *clientSuite) TestClientServiceUpdateForceSetCharm(c *C) {
-	store, restore := makeMockCharmStore()
-	defer restore()
-	s.deployServiceForTests(c, store)
-	addCharm(c, store, "wordpress")
-
-	// Update the charm for the service.
-	charmUrl := "cs:precise/wordpress-3"
-	forceCharmUrl := true
-	err := s.APIState.Client().ServiceUpdate("service", charmUrl, forceCharmUrl,
-		nil, nil, "", nil)
-	c.Assert(err, IsNil)
-
-	// Ensure the charm has been updated and marked as forced.
-	service, err := s.State.Service("service")
-	c.Assert(err, IsNil)
-	ch, force, err := service.Charm()
-	c.Assert(err, IsNil)
-	c.Assert(ch.URL().String(), Equals, charmUrl)
-	c.Assert(force, Equals, true)
+	s.checkClientServiceUpdateSetCharm(c, true)
 }
 
 func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *C) {
@@ -480,8 +468,11 @@ func (s *clientSuite) TestClientServiceUpdateSetCharmErrors(c *C) {
 		"local:precise/wordpress-999999": `charm url has unsupported schema "local"`,
 	} {
 		c.Logf("test %s", charmUrl)
-		err := s.APIState.Client().ServiceUpdate("wordpress", charmUrl, false,
-			nil, nil, "", nil)
+		args := params.ServiceUpdate{
+			ServiceName: "wordpress",
+			CharmUrl:    charmUrl,
+		}
+		err := s.APIState.Client().ServiceUpdate(args)
 		c.Check(err, ErrorMatches, expect)
 	}
 }
@@ -492,7 +483,11 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnits(c *C) {
 
 	// Set minimum units for the service.
 	minUnits := 2
-	err = s.APIState.Client().ServiceUpdate("dummy", "", false, &minUnits, nil, "", nil)
+	args := params.ServiceUpdate{
+		ServiceName: "dummy",
+		MinUnits:    &minUnits,
+	}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 
 	// Ensure the minimum number of units has been set.
@@ -506,8 +501,11 @@ func (s *clientSuite) TestClientServiceUpdateSetMinUnitsError(c *C) {
 
 	// Set a negative minimum number of units for the service.
 	minUnits := -1
-	err = s.APIState.Client().ServiceUpdate("dummy", "", false,
-		&minUnits, nil, "", nil)
+	args := params.ServiceUpdate{
+		ServiceName: "dummy",
+		MinUnits:    &minUnits,
+	}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, ErrorMatches,
 		`cannot set minimum units for service "dummy": cannot set a negative minimum number of units`)
 
@@ -521,9 +519,11 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsStrings(c *C) {
 	c.Assert(err, IsNil)
 
 	// Update settings for the service.
-	settingsStrings := map[string]string{"title": "s-title", "username": "s-user"}
-	err = s.APIState.Client().ServiceUpdate("dummy", "", false, nil,
-		settingsStrings, "", nil)
+	args := params.ServiceUpdate{
+		ServiceName:     "dummy",
+		SettingsStrings: map[string]string{"title": "s-title", "username": "s-user"},
+	}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -538,9 +538,11 @@ func (s *clientSuite) TestClientServiceUpdateSetSettingsYAML(c *C) {
 	c.Assert(err, IsNil)
 
 	// Update settings for the service.
-	settingsYAML := "dummy:\n  title: y-title\n  username: y-user"
-	err = s.APIState.Client().ServiceUpdate("dummy", "", false, nil,
-		nil, settingsYAML, nil)
+	args := params.ServiceUpdate{
+		ServiceName:  "dummy",
+		SettingsYAML: "dummy:\n  title: y-title\n  username: y-user",
+	}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 
 	// Ensure the settings have been correctly updated.
@@ -557,7 +559,11 @@ func (s *clientSuite) TestClientServiceUpdateSetConstraints(c *C) {
 	// Update constraints for the service.
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, IsNil)
-	err = s.APIState.Client().ServiceUpdate("dummy", "", false, nil, nil, "", &cons)
+	args := params.ServiceUpdate{
+		ServiceName: "dummy",
+		Constraints: &cons,
+	}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 
 	// Ensure the constraints have been correctly updated.
@@ -573,15 +579,19 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *C) {
 	addCharm(c, store, "wordpress")
 
 	// Update all the service attributes.
-	charmUrl := "cs:precise/wordpress-3"
-	forceCharmUrl := true
 	minUnits := 3
-	settingsStrings := map[string]string{"blog-title": "string-title"}
-	settingsYAML := "service:\n  blog-title: yaml-title\n"
 	cons, err := constraints.Parse("mem=4096", "cpu-cores=2")
 	c.Assert(err, IsNil)
-	err = s.APIState.Client().ServiceUpdate("service", charmUrl, forceCharmUrl,
-		&minUnits, settingsStrings, settingsYAML, &cons)
+	args := params.ServiceUpdate{
+		ServiceName:     "service",
+		CharmUrl:        "cs:precise/wordpress-3",
+		ForceCharmUrl:   true,
+		MinUnits:        &minUnits,
+		SettingsStrings: map[string]string{"blog-title": "string-title"},
+		SettingsYAML:    "service:\n  blog-title: yaml-title\n",
+		Constraints:     &cons,
+	}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 
 	// Ensure the service has been correctly updated.
@@ -591,7 +601,7 @@ func (s *clientSuite) TestClientServiceUpdateAllParams(c *C) {
 	// Check the charm.
 	ch, force, err := service.Charm()
 	c.Assert(err, IsNil)
-	c.Assert(ch.URL().String(), Equals, charmUrl)
+	c.Assert(ch.URL().String(), Equals, "cs:precise/wordpress-3")
 	c.Assert(force, Equals, true)
 
 	// Check the minimum number of units.
@@ -615,13 +625,19 @@ func (s *clientSuite) TestClientServiceUpdateNoParams(c *C) {
 	c.Assert(err, IsNil)
 
 	// Calling ServiceUpdate with no parameters set is a no-op.
-	err = s.APIState.Client().ServiceUpdate("wordpress", "", false, nil, nil, "", nil)
+	args := params.ServiceUpdate{ServiceName: "wordpress"}
+	err = s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, IsNil)
 }
 
+func (s *clientSuite) TestClientServiceUpdateNoService(c *C) {
+	err := s.APIState.Client().ServiceUpdate(params.ServiceUpdate{})
+	c.Assert(err, ErrorMatches, `"" is not a valid service name`)
+}
+
 func (s *clientSuite) TestClientServiceUpdateInvalidService(c *C) {
-	err := s.APIState.Client().ServiceUpdate("no-such-service", "", false,
-		nil, nil, "", nil)
+	args := params.ServiceUpdate{ServiceName: "no-such-service"}
+	err := s.APIState.Client().ServiceUpdate(args)
 	c.Assert(err, ErrorMatches, `service "no-such-service" not found`)
 }
 

@@ -302,15 +302,14 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 }
 
 func opClientServiceUpdate(c *C, st *api.State, mst *state.State) (func(), error) {
-	serviceName := "no-such-charm"
-	charmUrl := "cs:series/wordpress-42"
-	forceCharmUrl := true
-	minUnits := 2
-	settingsStrings := map[string]string{"blog-title": "foo"}
-	settingsYAML := `"wordpress": {"blog-title": "foo"}`
-	constraints := constraints.Value{}
-	err := st.Client().ServiceUpdate(serviceName, charmUrl, forceCharmUrl,
-		&minUnits, settingsStrings, settingsYAML, &constraints)
+	args := params.ServiceUpdate{
+		ServiceName:     "no-such-charm",
+		CharmUrl:        "cs:series/wordpress-42",
+		ForceCharmUrl:   true,
+		SettingsStrings: map[string]string{"blog-title": "foo"},
+		SettingsYAML:    `"wordpress": {"blog-title": "foo"}`,
+	}
+	err := st.Client().ServiceUpdate(args)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
 	}

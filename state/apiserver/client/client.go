@@ -80,7 +80,7 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	}, nil
 }
 
-// ServiceSet implements the server side of Client.ServerSet.
+// ServiceSet implements the server side of Client.ServiceSet.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
