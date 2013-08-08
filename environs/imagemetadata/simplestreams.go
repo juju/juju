@@ -290,7 +290,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Infof("cannot load index %q/%q: %v", baseURL, indexPath, err)
+				logger.Warningf("cannot load index %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -298,7 +298,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Infof("skipping index %q/%q: %v", baseURL, indexPath, err)
+				logger.Warningf("skipping index %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -374,20 +374,26 @@ func (indexRef *indexReference) getImageIdsPath(ic *ImageConstraint) (string, er
 	}
 	candidates := indexRef.extractIndexes()
 	// Restrict to image-ids entries.
-	candidates = candidates.filter(
-		func(metadata *indexMetadata) bool { return metadata.DataType == imageIds })
+	isImageIDs := func(metadata *indexMetadata) bool {
+		return metadata.DataType == imageIds
+	}
+	candidates = candidates.filter(isImageIDs)
 	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file missing %q data", imageIds)
 	}
 	// Restrict by cloud spec.
-	candidates = candidates.filter(
-		func(metadata *indexMetadata) bool { return metadata.hasCloud(ic.CloudSpec) })
+	hasRightCloud := func(metadata *indexMetadata) bool {
+		return metadata.hasCloud(ic.CloudSpec)
+	}
+	candidates = candidates.filter(hasRightCloud)
 	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file has no data for cloud %v", ic.CloudSpec)
 	}
 	// Restrict by product IDs.
-	candidates = candidates.filter(
-		func(metadata *indexMetadata) bool { return metadata.hasProduct(prodIds) })
+	hasProduct := func(metadata *indexMetadata) bool {
+		return metadata.hasProduct(prodIds)
+	}
+	candidates = candidates.filter(hasProduct)
 	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file has no data for product name(s) %q", prodIds)
 	}
