@@ -115,7 +115,9 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 		assertConnName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
+		if _, ok := com.(*StatusCommand); !ok {
+			testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
+		}
 	}
 }
 

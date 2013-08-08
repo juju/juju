@@ -442,6 +442,12 @@ func (u *Unit) DeployerTag() (string, bool) {
 	return "", false
 }
 
+// PrincipalName returns the name of the unit's principal.
+// If the unit is not a subordinate, false is returned.
+func (u *Unit) PrincipalName() (string, bool) {
+	return u.doc.Principal, u.doc.Principal != ""
+}
+
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
 	return u.doc.PublicAddress, u.doc.PublicAddress != ""
