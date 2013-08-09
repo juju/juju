@@ -78,6 +78,20 @@ func (s *configSuite) TestValidateConfigWithRootDir(c *gc.C) {
 	c.Assert(unknownAttrs["root-dir"], gc.Equals, root)
 }
 
+func (s *configSuite) TestValidateConfigWithTildeInRootDir(c *gc.C) {
+	values := minimalConfigValues()
+	values["root-dir"] = "~/.juju/foo"
+	testConfig, err := config.New(values)
+	c.Assert(err, gc.IsNil)
+
+	valid, err := local.Provider.Validate(testConfig, nil)
+	c.Assert(err, gc.IsNil)
+
+	expectedRootDir := filepath.Join(os.Getenv("HOME"), ".juju", "foo")
+	unknownAttrs := valid.UnknownAttrs()
+	c.Assert(unknownAttrs["root-dir"], gc.Equals, expectedRootDir)
+}
+
 func (s *configSuite) TestNamespace(c *gc.C) {
 	testConfig := minimalConfig(c)
 	c.Assert(local.ConfigNamespace(testConfig), gc.Equals, "tester-test")
