@@ -232,7 +232,7 @@ func init() {
 //
 // It returns a cleanup function, which you must call to reset things when
 // done.
-func prepareSimpleStreamsResponse(location, series, release, arch, json string) func() {
+func prepareSimpleStreamsResponse(stream, location, series, release, arch, json string) func() {
 	fakeURL := fakeSimpleStreamsScheme + "://"
 	originalURLs := baseURLs
 	baseURLs = []string{fakeURL}
@@ -240,35 +240,41 @@ func prepareSimpleStreamsResponse(location, series, release, arch, json string) 
 	originalSignedOnly := signedImageDataOnly
 	signedImageDataOnly = false
 
+	azureName := fmt.Sprintf("com.ubuntu.cloud:%s:azure", stream)
+	streamSuffix := ""
+	if stream != "released" {
+		streamSuffix = "." + stream
+	}
+
 	// Generate an index.  It will point to an Azure index with the
 	// caller's json.
 	index := fmt.Sprintf(`
 		{
 		 "index": {
-		  "com.ubuntu.cloud:released:%s": {
-		   "updated": "Tue, 30 Jul 2013 10:24:31 +0000",
-		   "clouds": [
+		   %q: {
+		    "updated": "Thu, 08 Aug 2013 07:55:58 +0000",
+		    "clouds": [
 			{
 			 "region": %q,
 			 "endpoint": "https://management.core.windows.net/"
 			}
-		   ],
-		   "cloudname": "azure",
-		   "datatype": "image-ids",
-		   "format": "products:1.0",
-		   "products": [
-			"com.ubuntu.cloud:server:%s:%s"
-		   ],
-		   "path": "/v1/azure.json"
-		  }
+		    ],
+		    "format": "products:1.0",
+		    "datatype": "image-ids",
+		    "cloudname": "azure",
+		    "products": [
+			"com.ubuntu.cloud%s:server:%s:%s"
+		    ],
+		    "path": "/v1/%s.json"
+		   }
 		 },
-		 "updated": "Tue, 30 Jul 2013 10:24:31 +0000",
+		 "updated": "Thu, 08 Aug 2013 07:55:58 +0000",
 		 "format": "index:1.0"
 		}
-		`, series, location, release, arch)
+		`, azureName, location, streamSuffix, release, arch, azureName)
 	files := map[string]string{
 		"/v1/index.json": index,
-		"/v1/azure.json": json,
+		"/v1/"+azureName+".json": json,
 	}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
 	return func() {
@@ -295,22 +301,22 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 		 "format": "products:1.0"
 		}
 		`
-	cleanup := prepareSimpleStreamsResponse("West US", "precise", "12.04", "amd64", emptyResponse)
+	cleanup := prepareSimpleStreamsResponse("released", "West US", "precise", "12.04", "amd64", emptyResponse)
 	defer cleanup()
 
-	_, err := findMatchingImages("West US", "precise", "released", []string{"amd64"})
+	_, err := findMatchingImages("West US", "precise", "", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
 
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
 }
 
-func (*instanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
-	// Real-world simplestreams index, pared down to a minimum:
+func (*instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
+	// Based on real-world simplestreams data, pared down to a minimum:
 	response := `
 	{
 	 "updated": "Tue, 09 Jul 2013 22:35:10 +0000",
 	 "datatype": "image-ids",
-	 "content_id": "com.ubuntu.cloud:released:azure",
+	 "content_id": "com.ubuntu.cloud:released",
 	 "products": {
 	  "com.ubuntu.cloud:server:12.04:amd64": {
 	   "release": "precise",
@@ -327,7 +333,7 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 	      }
 	     },
 	     "pub_name": "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130603-en-us-30GB",
-	     "pub_label": "Ubuntu Server 12.04.2 LTS",
+	     "publabel": "Ubuntu Server 12.04.2 LTS",
 	     "label": "release"
 	    }
 	   }
@@ -344,10 +350,60 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 	 }
 	}
 	`
-	cleanup := prepareSimpleStreamsResponse("West Europe", "precise", "12.04", "amd64", response)
+	cleanup := prepareSimpleStreamsResponse("released", "West Europe", "precise", "12.04", "amd64", response)
 	defer cleanup()
 
 	images, err := findMatchingImages("West Europe", "precise", "", []string{"amd64"})
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(images, gc.HasLen, 1)
+	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
+}
+
+func (*instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
+	// Based on real-world simplestreams data, pared down to a minimum:
+	response := `
+	{
+	 "updated": "Tue, 09 Jul 2013 22:35:10 +0000",
+	 "datatype": "image-ids",
+	 "content_id": "com.ubuntu.cloud:daily:azure",
+	 "products": {
+	  "com.ubuntu.cloud.daily:server:12.04:amd64": {
+	   "release": "precise",
+	   "version": "12.04",
+	   "arch": "amd64",
+	   "versions": {
+	    "20130603": {
+	     "items": {
+	      "euww1i3": {
+	       "virt": "Hyper-V",
+	       "crsn": "West Europe",
+	       "root_size": "30GB",
+	       "id": "MATCHING-IMAGE"
+	      }
+	     },
+	     "pub_name": "b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-12_04_2-LTS-amd64-server-20130603-en-us-30GB",
+	     "publabel": "Ubuntu Server 12.04.2 LTS",
+	     "label": "release"
+	    }
+	   }
+	  }
+	 },
+	 "format": "products:1.0",
+	 "_aliases": {
+	  "crsn": {
+	   "West Europe": {
+	    "region": "West Europe",
+	    "endpoint": "https://management.core.windows.net/"
+	   }
+	  }
+	 }
+	}
+	`
+	cleanup := prepareSimpleStreamsResponse("daily", "West Europe", "precise", "12.04", "amd64", response)
+	defer cleanup()
+
+	images, err := findMatchingImages("West Europe", "precise", "daily", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(images, gc.HasLen, 1)
