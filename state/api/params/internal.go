@@ -67,6 +67,18 @@ type SetEntityAddresses struct {
 	Entities []SetEntityAddress
 }
 
+// SetResolved holds an entity tag and a ResolvedMode value.
+type SetResolved struct {
+	Tag  string
+	Mode ResolvedMode
+}
+
+// SetEntitiesResolved holds the parameters for making a SetResolved
+// call on an entity.
+type SetEntitiesResolved struct {
+	Entities []SetResolved
+}
+
 // MachineSetStatus holds a machine tag, status and extra info.
 // DEPRECATE(v1.14)
 type MachineSetStatus struct {

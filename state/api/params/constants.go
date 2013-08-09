@@ -23,6 +23,16 @@ const (
 	JobManageState   MachineJob = "JobManageState"
 )
 
+// ResolvedMode describes the way state transition errors
+// are resolved.
+type ResolvedMode string
+
+const (
+	ResolvedNone       ResolvedMode = ""
+	ResolvedRetryHooks ResolvedMode = "retry-hooks"
+	ResolvedNoHooks    ResolvedMode = "no-hooks"
+)
+
 // Status represents the status of an entity.
 // It could be a unit, machine or its agent.
 type Status string

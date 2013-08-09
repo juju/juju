@@ -328,3 +328,139 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	c.Assert(address, gc.Equals, "4.4.2.2")
 	c.Assert(ok, gc.Equals, true)
 }
+
+func (s *uniterSuite) TestSetResolved(c *gc.C) {
+	mode := s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedNone)
+
+	args := params.SetEntitiesResolved{Entities: []params.SetResolved{
+		{Tag: "unit-mysql-0", Mode: params.ResolvedNoHooks},
+		{Tag: "unit-wordpress-0", Mode: params.ResolvedNoHooks},
+		{Tag: "unit-foo-42", Mode: params.ResolvedNone},
+		{Tag: "unit-wordpress-0", Mode: params.ResolvedRetryHooks},
+		{Tag: "unit-wordpress-0", Mode: "blah"},
+	}}
+	result, err := s.uniter.SetResolved(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+			{Error: &params.Error{
+				Message: `cannot set resolved mode for unit "wordpress/0": already resolved`,
+			}},
+			{Error: &params.Error{
+				Message: `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "blah"`,
+			}},
+		},
+	})
+
+	// Verify wordpressUnit's resolved mode has changed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	mode = s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedNoHooks)
+}
+
+func (s *uniterSuite) TestClearResolved(c *gc.C) {
+	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, gc.IsNil)
+	mode := s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.ClearResolved(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit's resolved mode has changed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	mode = s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedNone)
+}
+
+func (s *uniterSuite) TestGetServiceEntity(c *gc.C) {
+	c.Assert(s.wordpressUnit.ServiceName(), gc.Equals, "wordpress")
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.GetServiceEntity(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResult{
+		Result: []string{
+			"",
+			"service-wordpress",
+			"",
+		},
+	})
+}
+
+func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
+	// Add a subordinate to wordpressUnit.
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	subordinate, err := logging.Unit("logging/0")
+	c.Assert(err, gc.IsNil)
+
+	principal, ok := subordinate.PrincipalName()
+	c.Assert(principal, gc.Equals, "wordpress/0")
+	c.Assert(ok, gc.Equals, true)
+
+	// First try it as wordpressUnit's agent.
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-logging-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.GetPrincipal(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "", Ok: false, Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now try as subordinate's agent.
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = subordinate.Tag()
+	subUniter, err := uniter.NewUniterAPI(s.State, s.resources, subAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	result, err = subUniter.GetPrincipal(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "wordpress/0", Ok: true, Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
