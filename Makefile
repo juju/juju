@@ -13,6 +13,10 @@ check:
 format:
 	go fmt $(PROJECT)/...
 
+# Install juju into $GOPATH/bin.
+install:
+	go install -v $(PROJECT)/...
+
 # Install packages required to develop Juju and run tests.
 install-dependencies:
 	sudo apt-get install build-essential bzr zip git-core mercurial distro-info-data golang-go
