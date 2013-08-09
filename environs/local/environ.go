@@ -269,8 +269,9 @@ func (env *localEnviron) StartInstance(
 	tools := possibleTools[0]
 	logger.Debugf("tools: %#v", tools)
 
+	network := lxc.DefaultNetworkConfig()
 	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineNonce,
+		machineId, series, machineNonce, network,
 		tools, env.config.Config,
 		stateInfo, apiInfo)
 	if err != nil {

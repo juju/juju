@@ -127,7 +127,6 @@ func (p *Provisioner) loop() error {
 			}
 		}
 	}
-	panic("not reached")
 }
 
 func (p *Provisioner) getMachine() (*state.Machine, error) {

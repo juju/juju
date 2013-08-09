@@ -4,15 +4,16 @@
 package maas
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
 
-type ConfigSuite struct{}
+type configSuite struct{}
 
-var _ = Suite(new(ConfigSuite))
+var _ = gc.Suite(&configSuite{})
 
 // copyAttrs copies values from src into dest.  If src contains a key that was
 // already in dest, its value in dest will still be updated to the one from
@@ -46,7 +47,7 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 	return env.(*maasEnviron).ecfg(), nil
 }
 
-func (*ConfigSuite) TestParsesMAASSettings(c *C) {
+func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
@@ -55,31 +56,31 @@ func (*ConfigSuite) TestParsesMAASSettings(c *C) {
 		"maas-oauth":  oauth,
 		"future-key":  future,
 	})
-	c.Assert(err, IsNil)
-	c.Check(ecfg.MAASServer(), Equals, server)
-	c.Check(ecfg.MAASOAuth(), DeepEquals, oauth)
-	c.Check(ecfg.UnknownAttrs()["future-key"], DeepEquals, future)
+	c.Assert(err, gc.IsNil)
+	c.Check(ecfg.maasServer(), gc.Equals, server)
+	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
+	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
-func (*ConfigSuite) TestChecksWellFormedMaasServer(c *C) {
+func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "This should have been a URL.",
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	})
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, ".*malformed maas-server.*")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, ".*malformed maas-server.*")
 }
 
-func (*ConfigSuite) TestChecksWellFormedMaasOAuth(c *C) {
+func (*configSuite) TestChecksWellFormedMaasOAuth(c *gc.C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "This should have been a 3-part token.",
 	})
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, ".*malformed maas-oauth.*")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (*ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
+func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	// The base Validate() function will not allow an environment to
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().
@@ -88,13 +89,13 @@ func (*ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *C) {
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
 	}
 	oldCfg, err := newConfig(baseAttrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	newName := oldCfg.Name() + "-but-different"
 	newCfg, err := oldCfg.Apply(map[string]interface{}{"name": newName})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	_, err = maasEnvironProvider{}.Validate(newCfg, oldCfg.Config)
 
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, ".*cannot change name.*")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, ".*cannot change name.*")
 }

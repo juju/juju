@@ -5,35 +5,37 @@ package maas
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
 )
 
-type UtilSuite struct{}
+type utilSuite struct{}
 
-var _ = Suite(&UtilSuite{})
+var _ = gc.Suite(&utilSuite{})
 
-func (s *UtilSuite) TestExtractSystemId(c *C) {
+func (*utilSuite) TestExtractSystemId(c *gc.C) {
 	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 
 	systemId := extractSystemId(instanceId)
 
-	c.Check(systemId, Equals, "system_id")
+	c.Check(systemId, gc.Equals, "system_id")
 }
 
-func (s *UtilSuite) TestGetSystemIdValues(c *C) {
+func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
 	instanceId1 := instance.Id("/MAAS/api/1.0/nodes/system_id1/")
 	instanceId2 := instance.Id("/MAAS/api/1.0/nodes/system_id2/")
 	instanceIds := []instance.Id{instanceId1, instanceId2}
 
 	values := getSystemIdValues(instanceIds)
 
-	c.Check(values["id"], DeepEquals, []string{"system_id1", "system_id2"})
+	c.Check(values["id"], gc.DeepEquals, []string{"system_id1", "system_id2"})
 }
 
-func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
+func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
 	filename := "path/to/file"
 	old_MAASInstanceFilename := _MAASInstanceFilename
@@ -43,14 +45,14 @@ func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *C) {
 
 	script, err := info.cloudinitRunCmd()
 
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	yaml, err := goyaml.Marshal(info)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	expected := fmt.Sprintf("mkdir -p '%s'; echo -n '%s' > '%s'", environs.DataDir, yaml, filename)
-	c.Check(script, Equals, expected)
+	c.Check(script, gc.Equals, expected)
 }
 
-func (s *UtilSuite) TestMachineInfoLoad(c *C) {
+func (*utilSuite) TestMachineInfoLoad(c *gc.C) {
 	hostname := "hostname"
 	yaml := fmt.Sprintf("hostname: %s\n", hostname)
 	filename := createTempFile(c, []byte(yaml))
@@ -61,6 +63,6 @@ func (s *UtilSuite) TestMachineInfoLoad(c *C) {
 
 	err := info.load()
 
-	c.Assert(err, IsNil)
-	c.Check(info.Hostname, Equals, hostname)
+	c.Assert(err, gc.IsNil)
+	c.Check(info.Hostname, gc.Equals, hostname)
 }

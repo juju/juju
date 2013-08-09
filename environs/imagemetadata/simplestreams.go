@@ -12,13 +12,16 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/errors"
 	"net/http"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
+
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/errors"
 )
 
 // CloudSpec uniquely defines a specific cloud deployment.
@@ -27,12 +30,17 @@ type CloudSpec struct {
 	Endpoint string
 }
 
+var logger = loggo.GetLogger("juju.environs.imagemetadata")
+
 // ImageConstraint defines criteria used to find an image.
 type ImageConstraint struct {
 	CloudSpec
 	Series string
 	Arches []string
-	Stream string // may be "", typically "release", "daily" etc
+	// Stream can be "" for the default "released" stream, or "daily" for
+	// daily images, or any other stream that the available simplestreams
+	// metadata supports.
+	Stream string
 }
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
@@ -189,6 +197,64 @@ type indexMetadata struct {
 	ProductIds       []string    `json:"products"`
 }
 
+// extractCatalogsForProducts gives you just those catalogs from a
+// cloudImageMetadata that are for the given product IDs.  They are kept in
+// the order of the parameter.
+func (metadata *cloudImageMetadata) extractCatalogsForProducts(productIds []string) []imageMetadataCatalog {
+	result := []imageMetadataCatalog{}
+	for _, id := range productIds {
+		if catalog, ok := metadata.Products[id]; ok {
+			result = append(result, catalog)
+		}
+	}
+	return result
+}
+
+// extractIndexes returns just the array of indexes, in arbitrary order.
+func (ind *indices) extractIndexes() indexMetadataSlice {
+	result := make(indexMetadataSlice, 0, len(ind.Indexes))
+	for _, metadata := range ind.Indexes {
+		result = append(result, metadata)
+	}
+	return result
+}
+
+// hasCloud tells you whether an indexMetadata has the given cloud in its
+// Clouds list.
+func (metadata *indexMetadata) hasCloud(cloud CloudSpec) bool {
+	for _, metadataCloud := range metadata.Clouds {
+		if metadataCloud == cloud {
+			return true
+		}
+	}
+	return false
+}
+
+// hasProduct tells you whether an indexMetadata provides any of the given
+// product IDs.
+func (metadata *indexMetadata) hasProduct(prodIds []string) bool {
+	for _, pid := range metadata.ProductIds {
+		if containsString(prodIds, pid) {
+			return true
+		}
+	}
+	return false
+}
+
+type indexMetadataSlice []*indexMetadata
+
+// filter returns those entries from an indexMetadata array for which the given
+// match function returns true.  It preserves order.
+func (entries indexMetadataSlice) filter(match func(*indexMetadata) bool) indexMetadataSlice {
+	result := indexMetadataSlice{}
+	for _, metadata := range entries {
+		if match(metadata) {
+			result = append(result, metadata)
+		}
+	}
+	return result
+}
+
 // This needs to be a var so we can override it for testing.
 var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
@@ -227,6 +293,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+				logger.Warningf("cannot load index %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -234,6 +301,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
+				logger.Warningf("skipping index because of error getting latest metadata %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -307,34 +375,36 @@ func (indexRef *indexReference) getImageIdsPath(ic *ImageConstraint) (string, er
 	if err != nil {
 		return "", err
 	}
-	var containsImageIds bool
-	for _, metadata := range indexRef.Indexes {
-		if metadata.DataType != imageIds {
-			continue
-		}
-		containsImageIds = true
-		var cloudSpecMatches bool
-		for _, cs := range metadata.Clouds {
-			if cs == ic.CloudSpec {
-				cloudSpecMatches = true
-				break
-			}
-		}
-		var prodSpecMatches bool
-		for _, pid := range metadata.ProductIds {
-			if containsString(prodIds, pid) {
-				prodSpecMatches = true
-				break
-			}
-		}
-		if cloudSpecMatches && prodSpecMatches {
-			return metadata.ProductsFilePath, nil
-		}
+	candidates := indexRef.extractIndexes()
+	// Restrict to image-ids entries.
+	isImageIDs := func(metadata *indexMetadata) bool {
+		return metadata.DataType == imageIds
 	}
-	if !containsImageIds {
+	candidates = candidates.filter(isImageIDs)
+	if len(candidates) == 0 {
 		return "", errors.NotFoundf("index file missing %q data", imageIds)
 	}
-	return "", errors.NotFoundf("index file missing data for cloud %v and product name(s) %q", ic.CloudSpec, prodIds)
+	// Restrict by cloud spec.
+	hasRightCloud := func(metadata *indexMetadata) bool {
+		return metadata.hasCloud(ic.CloudSpec)
+	}
+	candidates = candidates.filter(hasRightCloud)
+	if len(candidates) == 0 {
+		return "", errors.NotFoundf("index file has no data for cloud %v", ic.CloudSpec)
+	}
+	// Restrict by product IDs.
+	hasProduct := func(metadata *indexMetadata) bool {
+		return metadata.hasProduct(prodIds)
+	}
+	candidates = candidates.filter(hasProduct)
+	if len(candidates) == 0 {
+		return "", errors.NotFoundf("index file has no data for product name(s) %q", prodIds)
+	}
+
+	logger.Debugf("candidate matches for products %q are %v", prodIds, candidates)
+
+	// Pick arbitrary match.
+	return candidates[0].ProductsFilePath, nil
 }
 
 // utility function to see if element exists in values slice.
@@ -551,15 +621,21 @@ func getLatestImageIdMetadata(imageMetadata *cloudImageMetadata, ic *ImageConstr
 	if err != nil {
 		return nil, err
 	}
-	var matchingImages []*ImageMetadata
-	for _, prodName := range prodIds {
-		metadataCatalog, ok := imageMetadata.Products[prodName]
-		if !ok {
-			continue
+
+	catalogs := imageMetadata.extractCatalogsForProducts(prodIds)
+	if len(catalogs) == 0 {
+		availableProducts := make([]string, 0, len(imageMetadata.Products))
+		for product := range imageMetadata.Products {
+			availableProducts = append(availableProducts, product)
 		}
-		var bv byVersionDesc = make(byVersionDesc, len(metadataCatalog.Images))
+		logger.Debugf("index has no images for product ids %v; it does have product ids %v", prodIds, availableProducts)
+	}
+
+	var matchingImages []*ImageMetadata
+	for _, catalog := range catalogs {
+		var bv byVersionDesc = make(byVersionDesc, len(catalog.Images))
 		i := 0
-		for vers, imageColl := range metadataCatalog.Images {
+		for vers, imageColl := range catalog.Images {
 			bv[i] = imageCollectionVersion{vers, imageColl}
 			i++
 		}

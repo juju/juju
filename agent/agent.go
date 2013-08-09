@@ -200,8 +200,8 @@ func (c *Conf) WriteCommands() ([]string, error) {
 	}
 	f := utils.ShQuote(c.confFile())
 	addCmd("mkdir -p %s", utils.ShQuote(c.Dir()))
+	addCmd("install -m %o /dev/null %s", 0600, f)
 	addCmd("echo %s > %s", utils.ShQuote(string(data)), f)
-	addCmd("chmod %o %s", 0600, f)
 	return cmds, nil
 }
 
