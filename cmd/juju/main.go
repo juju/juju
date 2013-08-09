@@ -46,6 +46,7 @@ func Main(args []string) {
 		MissingCallback: RunPlugin,
 	})
 	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
+	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider", helpLocalProvider)
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	// Creation commands.
