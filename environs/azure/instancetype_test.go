@@ -273,8 +273,8 @@ func prepareSimpleStreamsResponse(stream, location, series, release, arch, json 
 		}
 		`, azureName, location, streamSuffix, release, arch, azureName)
 	files := map[string]string{
-		"/v1/index.json": index,
-		"/v1/"+azureName+".json": json,
+		"/v1/index.json":             index,
+		"/v1/" + azureName + ".json": json,
 	}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
 	return func() {
