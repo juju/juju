@@ -20,7 +20,14 @@ Basic commands:
 
   juju help bootstrap   more help on e.g. bootstrap command
   juju help commands    list all commands
+  juju help glossary    glossary of terms
   juju help topics      list all help topics
+
+Provider information:
+  juju help local       use on this computer
+  juju help aws         use on AWS
+  juju help openstack   use on OpenStack
+  juju help hpcloud     use on HP Cloud
 `
 
 const helpLocalProvider = `
@@ -122,8 +129,8 @@ This answer is for generic upstream OpenStack support, if you're using an
 OpenStack-based provider check these questions out for provider-specific
 information:
 
-- http://askubuntu.com/questions/116174/how-can-i-configure-juju-for-deployment-to-the-hp-cloud
-- http://askubuntu.com/questions/166102/how-do-i-configure-juju-for-deployment-on-rackspace-cloud
+ - http://askubuntu.com/questions/116174/how-can-i-configure-juju-for-deployment-to-the-hp-cloud
+ - http://askubuntu.com/questions/166102/how-do-i-configure-juju-for-deployment-on-rackspace-cloud
 
 `
 
@@ -169,8 +176,8 @@ associated secret key.
 
 And that's it, you're ready to go!
 
-- https://juju.ubuntu.com/docs/getting-started.html
-- https://juju.ubuntu.com/docs/provider-configuration-ec2.html
+ - https://juju.ubuntu.com/docs/getting-started.html
+ - https://juju.ubuntu.com/docs/provider-configuration-ec2.html
 
 References:
 
@@ -180,4 +187,157 @@ References:
   [2]: https://juju.ubuntu.com/docs/provider-configuration-ec2.html
   [3]: http://aws.amazon.com/account
   [4]: http://askubuntu.com/questions/225513/how-do-i-configure-juju-to-use-amazon-web-services-aws
+`
+
+const helpHPCloud = `
+
+You should start by generating a generic configuration file for Juju, using
+the command:
+
+   'juju generate-config -w'
+
+This will generate a file, 'environments.yaml', which will live in your
+'~/.juju/' directory (and will create the directory if it doesn't already
+exist).
+
+The essential configuration sections for HP Cloud look like this:
+
+      hpcloud:
+        type: openstack
+        admin-secret: 6638bebf0c54ffff1007e0247d4dae98
+        control-bucket: juju-bc66a4a4adbee50b2ceeee70436528e5
+        tenant-name: "juju-project1"
+        auth-url: https://region-a.geo-1.identity.hpcloudsvc.com:35357/v2.0
+        auth-mode: userpass
+        username: "xxxyour-hpcloud-usernamexxx"
+        password: "xxxpasswordxxx"
+        region: az-1.region-a.geo-1
+        public-bucket-url: https://region-a.geo-1.objects.hpcloudsvc.com/v1/60502529753910
+
+Please refer to the question on Ask Ubuntu [1] for details on how to get
+the relevant information to finish configuring your hpcloud environment.
+
+Official docs:
+
+ - [Documentation][2]
+ - General OpenStack configuration: [3]
+
+References:
+
+ - Source: Question on Ask Ubuntu [1]
+
+  [1]: http://askubuntu.com/questions/116174/how-can-i-configure-juju-for-deployment-on-hp-cloud
+  [2]: https://juju.ubuntu.com/docs/provider-configuration-openstack.html#openstack-configuration
+  [3]: http://askubuntu.com/questions/132411/how-can-i-configure-juju-for-deployment-on-openstack
+`
+
+const helpGlossary = `
+Bootstrap
+   To boostrap an environment means initializing it so that Services may be
+   deployed on it.
+
+Charm
+   A Charm provides the definition of the service, including its metadata,
+   dependencies to other services, packages necessary, as well as the logic
+   for management of the application. It is the layer that integrates an
+   external application component like Postgres or WordPress into juju. A juju
+   Service may generally be seen as the composition of its juju Charm and the
+   upstream application (traditionally made available through its package).
+
+Charm URL
+   A Charm URL is a resource locator for a charm, with the following format
+   and restrictions:
+
+       <schema>:[~<user>/]<collection>/<name>[-<revision>]
+
+   schema must be either "cs", for a charm from the Juju charm store, or
+   "local", for a charm from a local repository.
+
+   user is only valid in charm store URLs, and allows you to source charms
+   from individual users (rather than from the main charm store); it must be a
+   valid Launchpad user name.
+
+   collection denotes a charm's purpose and status, and is derived from the
+   Ubuntu series targeted by its contained charms: examples include "precise",
+   "quantal", "oneiric-universe".
+
+   name is just the name of the charm; it must start and end with lowercase
+   (ascii) letters, and can otherwise contain any combination of lowercase
+   letters, digits, and "-"s.
+
+   revision, if specified, points to a specific revision of the charm pointed
+   to by the rest of the URL. It must be a non-negative integer.
+
+Endpoint
+   The combination of a service name and a relation name.
+
+Environment
+   An Environment is a configured location where Services can be deployed
+   onto. An Environment typically has a name, which can usually be omitted
+   when there's a single Environment configured, or when a default is
+   explicitly defined. Depending on the type of Environment, it may have to be
+   bootstrapped before interactions with it may take place (e.g. EC2). The
+   local environment configuration is defined in the ~/.juju/environments.yaml
+   file.
+
+Machine Agent
+   Software which runs inside each machine that is part of an Environment, and
+   is able to handle the needs of deploying and managing Service Units in this
+   machine.
+
+Provisioning Agent
+   Software responsible for automatically allocating and terminating machines
+   in an Environment, as necessary for the requested configuration.
+
+Relation
+   Relations are the way in which juju enables Services to communicate to each
+   other, and the way in which the topology of Services is assembled. The
+   Charm defines which Relations a given Service may establish, and what kind
+   of interface these Relations require.
+
+   In many cases, the establishment of a Relation will result into an actual
+   TCP connection being created between the Service Units, but that's not
+   necessarily the case. Relations may also be established to inform Services
+   of configuration parameters, to request monitoring information, or any
+   other details which the Charm author has chosen to make available.
+
+Repository
+   A location where multiple charms are stored. Repositories may be as simple
+   as a directory structure on a local disk, or as complex as a rich smart
+   server supporting remote searching and so on.
+
+Service
+   juju operates in terms of services. A service is any application (or set of
+   applications) that is integrated into the framework as an individual
+   component which should generally be joined with other components to perform
+   a more complex goal.
+
+   As an example, WordPress could be deployed as a service and, to perform its
+   tasks properly, might communicate with a database service and a load
+   balancer service.
+
+Service Configuration
+   There are many different settings in a juju deployment, but the term
+   Service Configuration refers to the settings which a user can define to
+   customize the behavior of a Service.
+
+   The behavior of a Service when its Service Configuration changes is
+   entirely defined by its Charm.
+
+Service Unit
+   A running instance of a given juju Service. Simple Services may be deployed
+   with a single Service Unit, but it is possible for an individual Service to
+   have multiple Service Units running in independent machines. All Service
+   Units for a given Service will share the same Charm, the same relations,
+   and the same user-provided configuration.
+
+   For instance, one may deploy a single MongoDB Service, and specify that it
+   should run 3 Units, so that the replica set is resilient to
+   failures. Internally, even though the replica set shares the same
+   user-provided configuration, each Unit may be performing different roles
+   within the replica set, as defined by the Charm.
+
+Service Unit Agent
+   Software which manages all the lifecycle of a single Service Unit.
+
 `

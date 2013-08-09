@@ -280,6 +280,8 @@ var topicNames = []string{
 	"basics",
 	"commands",
 	"global-options",
+	"glossary",
+	"hpcloud",
 	"local",
 	"openstack",
 	"plugins",
