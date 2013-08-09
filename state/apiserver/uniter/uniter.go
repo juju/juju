@@ -56,6 +56,8 @@ func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
 	return unit, nil
 }
 
+// PublicAddress returns for each given unit, a pair of the public
+// address of the unit and whether it's valid.
 func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
@@ -83,6 +85,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResult
 	return result, nil
 }
 
+// SetPrivateAddress sets the public address of each of the given units.
 func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
@@ -108,6 +111,8 @@ func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.Err
 	return result, nil
 }
 
+// PrivateAddress returns for each given unit, a pair of the private
+// address of the unit and whether it's valid.
 func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
@@ -135,6 +140,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResul
 	return result, nil
 }
 
+// SetPrivateAddress sets the private address of each of the given units.
 func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.Entities)),
