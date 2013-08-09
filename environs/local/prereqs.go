@@ -10,36 +10,49 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+
+	"launchpad.net/juju-core/version"
 )
 
-var notLinuxError = errors.New(`The local provider is currently only available for Linux`)
+var notLinuxError = errors.New("The local provider is currently only available for Linux")
 
-const installMongodUbuntu = `
-MongoDB server must be installed to enable the local provider:
-
-    sudo apt-get install mongodb-server
-`
+const installMongodUbuntu = "MongoDB server must be installed to enable the local provider:"
+const aptAddRepositoryJujuStable = `
+    sudo apt-add-repository ppa:juju/stable   # required for MongoDB SSL support
+    sudo apt-get update`
+const aptGetInstallMongodbServer = `
+    sudo apt-get install mongodb-server`
 
 const installMongodGeneric = `
 MongoDB server must be installed to enable the local provider.
 Please consult your operating system distribution's documentation
-for instructions on installing the MongoDB server.`
+for instructions on installing the MongoDB server. Juju requires
+a MongoDB server built with SSL support.
+`
 
 const installLxcUbuntu = `
 Linux Containers (LXC) userspace tools must be
 installed to enable the local provider:
-
-    sudo apt-get install lxc
-`
+  
+    sudo apt-get install lxc`
 
 const installLxcGeneric = `
 Linux Containers (LXC) userspace tools must be installed to enable the
 local provider. Please consult your operating system distribution's
 documentation for instructions on installing the LXC userspace tools.`
 
+const errUnsupportedOS = `Unsupported operating system: %s
+The local provider is currently only available for Linux`
+
 // mongodPath is the path to "mongod", the MongoDB server.
 // This is a variable only to support unit testing.
 var mongodPath = "/usr/bin/mongod"
+
+// lxclsPath is the path to "lxc-ls", an LXC userspace tool
+// we check the presence of to determine whether the
+// tools are installed. This is a variable only to support
+// unit testing.
+var lxclsPath = "lxc-ls"
 
 // The operating system the process is running in.
 // This is a variable only to support unit testing.
@@ -50,37 +63,30 @@ var goos = runtime.GOOS
 // provider.
 func VerifyPrerequisites() error {
 	if goos != "linux" {
-		return fmt.Errorf(`
-Unsupported operating system: %s
-The local provider is currently only available for Linux`[1:], goos)
+		return fmt.Errorf(errUnsupportedOS, goos)
 	}
-	err := verifyMongod()
-	if err != nil {
+	if err := verifyMongod(); err != nil {
 		return err
 	}
 	return verifyLxc()
 }
 
 func verifyMongod() error {
-	_, err := os.Stat(mongodPath)
-	if err != nil {
+	if _, err := os.Stat(mongodPath); err != nil {
 		if os.IsNotExist(err) {
 			return wrapMongodNotExist(err)
 		} else {
 			return err
 		}
 	}
-	// TODO verify version?
+	// TODO(axw) verify version/SSL capabilities
 	return nil
 }
 
 func verifyLxc() error {
-	_, err := exec.LookPath("lxc-ls")
+	_, err := exec.LookPath(lxclsPath)
 	if err != nil {
-		if err, ok := err.(*exec.Error); ok && err.Err == exec.ErrNotFound {
-			return wrapLxcNotFound(err)
-		}
-		return err
+		return wrapLxcNotFound(err)
 	}
 	return nil
 }
@@ -95,7 +101,15 @@ func isUbuntu() bool {
 
 func wrapMongodNotExist(err error) error {
 	if isUbuntu() {
-		return fmt.Errorf("%v\n%s", err, installMongodUbuntu)
+		series := version.Current.Series
+		args := []interface{}{err, installMongodUbuntu}
+		format := "%v\n%s\n%s"
+		if series == "precise" || series == "quantal" {
+			format += "%s"
+			args = append(args, aptAddRepositoryJujuStable)
+		}
+		args = append(args, aptGetInstallMongodbServer)
+		return fmt.Errorf(format, args...)
 	}
 	return fmt.Errorf("%v\n%s", err, installMongodGeneric)
 }

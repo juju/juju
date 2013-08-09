@@ -38,8 +38,7 @@ func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error
 			return nil, err
 		}
 	}
-	err = VerifyPrerequisites()
-	if err != nil {
+	if err := VerifyPrerequisites(); err != nil {
 		logger.Errorf("failed verification of local provider prerequisites: %v", err)
 		return nil, err
 	}
