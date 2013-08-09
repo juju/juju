@@ -169,6 +169,28 @@ func (s *UnitSuite) TestGetSetPublicAddress(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set public address of unit "wordpress/0": unit not found`)
 }
 
+func (s *UnitSuite) TestGetPublicAddressFromMachine(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	address, ok := s.unit.PublicAddress()
+	c.Check(address, Equals, "")
+	c.Assert(ok, Equals, false)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetAddresses(addresses)
+	c.Assert(err, IsNil)
+
+	address, ok = s.unit.PublicAddress()
+	c.Check(address, Equals, "8.8.8.8")
+	c.Assert(ok, Equals, true)
+}
+
 func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	_, ok := s.unit.PrivateAddress()
 	c.Assert(ok, Equals, false)
@@ -983,7 +1005,7 @@ func (s *UnitSuite) TestRemovePathological(c *C) {
 func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	w := s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1036,7 +1058,7 @@ func (s *UnitSuite) TestWatchSubordinates(c *C) {
 	// Start a new watch, check Dead unit is reported.
 	w = s.unit.WatchSubordinateUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(subUnits[0].Name())
 	wc.AssertNoChange()
 

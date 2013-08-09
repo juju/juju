@@ -138,22 +138,6 @@ loop:
 	// Can't set s.wordpress to Dead while it still has units.
 }
 
-func curryResolvedMode(in <-chan state.ResolvedMode) <-chan interface{} {
-	out := make(chan interface{})
-	go func() {
-		for {
-			val, ok := <-in
-			if !ok {
-				close(out)
-				return
-			} else {
-				out <- val
-			}
-		}
-	}()
-	return out
-}
-
 func (s *FilterSuite) TestResolvedEvents(c *C) {
 	f, err := newFilter(s.State, s.unit.Name())
 	c.Assert(err, IsNil)
@@ -162,7 +146,7 @@ func (s *FilterSuite) TestResolvedEvents(c *C) {
 	resolvedAsserter := coretesting.ContentAsserterC{
 		C:       c,
 		Precond: func() { s.State.StartSync() },
-		Chan:    curryResolvedMode(f.ResolvedEvents()),
+		Chan:    f.ResolvedEvents(),
 	}
 	resolvedAsserter.AssertNoReceive()
 

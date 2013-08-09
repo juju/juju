@@ -167,7 +167,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth(), apiVersion)
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
 	if err != nil {
 		return err
 	}

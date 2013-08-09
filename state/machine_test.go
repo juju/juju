@@ -598,7 +598,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -668,7 +668,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("mysql/0", "mysql/1")
 	wc.AssertNoChange()
 
@@ -693,7 +693,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -763,7 +763,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
 	wc.AssertNoChange()
 
@@ -946,6 +946,7 @@ func (s *MachineSuite) TestSetAddresses(c *C) {
 	}
 	err = machine.SetAddresses(addresses)
 	c.Assert(err, IsNil)
-	machine.Refresh()
+	err = machine.Refresh()
+	c.Assert(err, IsNil)
 	c.Assert(machine.Addresses(), DeepEquals, addresses)
 }

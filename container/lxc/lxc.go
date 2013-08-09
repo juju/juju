@@ -188,7 +188,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("container started")
-	return &lxcInstance{name}, nil
+	return &lxcInstance{container, name}, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -240,7 +240,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 			continue
 		}
 		if container.IsRunning() {
-			result = append(result, &lxcInstance{name})
+			result = append(result, &lxcInstance{container, name})
 		}
 	}
 	return

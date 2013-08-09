@@ -42,6 +42,8 @@ func (s *pollingSuite) TearDownSuite(c *C) {
 // DNSName returns whatever you tell it to, and WaitDNSName delegates to the
 // shared WaitDNSName implementation.  All the other methods are empty stubs.
 type dnsNameFakeInstance struct {
+	// embed a nil Instance to panic on unimplemented method
+	instance.Instance
 	name string
 	err  error
 }
@@ -56,11 +58,7 @@ func (inst *dnsNameFakeInstance) WaitDNSName() (string, error) {
 	return environs.WaitDNSName(inst)
 }
 
-func (*dnsNameFakeInstance) Addresses() ([]instance.Address, error)   { return nil, nil }
-func (*dnsNameFakeInstance) Id() instance.Id                          { return "" }
-func (*dnsNameFakeInstance) OpenPorts(string, []instance.Port) error  { return nil }
-func (*dnsNameFakeInstance) ClosePorts(string, []instance.Port) error { return nil }
-func (*dnsNameFakeInstance) Ports(string) ([]instance.Port, error)    { return nil, nil }
+func (*dnsNameFakeInstance) Id() instance.Id { return "" }
 
 func (pollingSuite) TestWaitDNSNameReturnsDNSNameIfAvailable(c *C) {
 	inst := dnsNameFakeInstance{name: "anansi"}

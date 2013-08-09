@@ -162,10 +162,17 @@ func newUnitMatcher(patterns []string) (unitMatcher, error) {
 	return unitMatcher{patterns}, nil
 }
 
+var connectionError = `Unable to connect to environment "%s".
+Please check your credentials or use 'juju bootstrap' to create a new environment.
+
+Error details:
+%v
+`
+
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return fmt.Errorf(connectionError, c.EnvName, err)
 	}
 	defer conn.Close()
 
@@ -350,6 +357,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		inst, ok := context.instances[instid]
 		if ok {
 			status.DNSName, _ = inst.DNSName()
+			status.InstanceState = inst.Status()
 		} else {
 			// Double plus ungood.  There is an instance id recorded
 			// for this machine in the state, yet the environ cannot

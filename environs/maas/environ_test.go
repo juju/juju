@@ -24,11 +24,11 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-type EnvironSuite struct {
-	ProviderSuite
+type environSuite struct {
+	providerSuite
 }
 
-var _ = gc.Suite(&EnvironSuite{})
+var _ = gc.Suite(&environSuite{})
 
 // getTestConfig creates a customized sample MAAS provider configuration.
 func getTestConfig(name, server, oauth, secret string) *config.Config {
@@ -47,7 +47,7 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 
 // makeEnviron creates a functional maasEnviron for a test.  Its configuration
 // is a bit arbitrary and none of the test code's business.
-func (suite *EnvironSuite) makeEnviron() *maasEnviron {
+func (suite *environSuite) makeEnviron() *maasEnviron {
 	config, err := config.New(map[string]interface{}{
 		"name":            suite.environ.Name(),
 		"type":            "maas",
@@ -71,16 +71,16 @@ func (suite *EnvironSuite) makeEnviron() *maasEnviron {
 	return env
 }
 
-func (suite *EnvironSuite) setupFakeProviderStateFile(c *gc.C) {
+func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
 	suite.testMAASObject.TestServer.NewFile(environs.StateFile, []byte("test file content"))
 }
 
-func (suite *EnvironSuite) setupFakeTools(c *gc.C) {
+func (suite *environSuite) setupFakeTools(c *gc.C) {
 	storage := NewStorage(suite.environ)
 	envtesting.UploadFakeTools(c, storage)
 }
 
-func (*EnvironSuite) TestSetConfigValidatesFirst(c *gc.C) {
+func (*environSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	// SetConfig() validates the config change and disallows, for example,
 	// changes in the environment name.
 	server := "http://maas.testing.invalid"
@@ -101,7 +101,7 @@ func (*EnvironSuite) TestSetConfigValidatesFirst(c *gc.C) {
 	c.Check(env.Name(), gc.Equals, "old-name")
 }
 
-func (*EnvironSuite) TestSetConfigUpdatesConfig(c *gc.C) {
+func (*environSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas2.testing.invalid", "a:b:c", "secret")
 	env, err := NewEnviron(cfg)
@@ -121,7 +121,7 @@ func (*EnvironSuite) TestSetConfigUpdatesConfig(c *gc.C) {
 	c.Check(MAASServer, gc.DeepEquals, maas)
 }
 
-func (*EnvironSuite) TestNewEnvironSetsConfig(c *gc.C) {
+func (*environSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	name := "test env"
 	cfg := getTestConfig(name, "http://maas.testing.invalid", "a:b:c", "secret")
 
@@ -131,7 +131,7 @@ func (*EnvironSuite) TestNewEnvironSetsConfig(c *gc.C) {
 	c.Check(env.name, gc.Equals, name)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsInstances(c *gc.C) {
+func (suite *environSuite) TestInstancesReturnsInstances(c *gc.C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	resourceURI, _ := node.GetField("resource_uri")
@@ -144,7 +144,7 @@ func (suite *EnvironSuite) TestInstancesReturnsInstances(c *gc.C) {
 	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
+func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c *gc.C) {
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
 	instances, err := suite.environ.Instances([]instance.Id{})
@@ -153,7 +153,7 @@ func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfEmptyParameter(c 
 	c.Check(instances, gc.IsNil)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
+func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *gc.C) {
 	input := `{"system_id": "test"}`
 	suite.testMAASObject.TestServer.NewNode(input)
 	instances, err := suite.environ.Instances(nil)
@@ -162,12 +162,12 @@ func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNilParameter(c *g
 	c.Check(instances, gc.IsNil)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
+func (suite *environSuite) TestInstancesReturnsErrNoInstancesIfNoneFound(c *gc.C) {
 	_, err := suite.environ.Instances([]instance.Id{"unknown"})
 	c.Check(err, gc.Equals, environs.ErrNoInstances)
 }
 
-func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
+func (suite *environSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
 	input := `{"system_id": "test"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	resourceURI, _ := node.GetField("resource_uri")
@@ -179,14 +179,14 @@ func (suite *EnvironSuite) TestAllInstancesReturnsAllInstances(c *gc.C) {
 	c.Check(string(instances[0].Id()), gc.Equals, resourceURI)
 }
 
-func (suite *EnvironSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
+func (suite *environSuite) TestAllInstancesReturnsEmptySliceIfNoInstance(c *gc.C) {
 	instances, err := suite.environ.AllInstances()
 
 	c.Check(err, gc.IsNil)
 	c.Check(len(instances), gc.Equals, 0)
 }
 
-func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
+func (suite *environSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) {
 	input1 := `{"system_id": "test"}`
 	node1 := suite.testMAASObject.TestServer.NewNode(input1)
 	resourceURI1, _ := node1.GetField("resource_uri")
@@ -203,7 +203,7 @@ func (suite *EnvironSuite) TestInstancesReturnsErrorIfPartialInstances(c *gc.C) 
 	c.Check(string(instances[0].Id()), gc.Equals, resourceURI1)
 }
 
-func (suite *EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
+func (suite *environSuite) TestStorageReturnsStorage(c *gc.C) {
 	env := suite.makeEnviron()
 	storage := env.Storage()
 	c.Check(storage, gc.NotNil)
@@ -213,7 +213,7 @@ func (suite *EnvironSuite) TestStorageReturnsStorage(c *gc.C) {
 	c.Check(specificStorage.environUnlocked, gc.Equals, env)
 }
 
-func (suite *EnvironSuite) TestPublicStorageReturnsEmptyStorage(c *gc.C) {
+func (suite *environSuite) TestPublicStorageReturnsEmptyStorage(c *gc.C) {
 	env := suite.makeEnviron()
 	storage := env.PublicStorage()
 	c.Assert(storage, gc.NotNil)
@@ -228,7 +228,7 @@ func decodeUserData(userData string) ([]byte, error) {
 	return utils.Gunzip(data)
 }
 
-func (suite *EnvironSuite) TestStartInstanceStartsInstance(c *gc.C) {
+func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
@@ -302,7 +302,7 @@ func stringp(val string) *string {
 	return &val
 }
 
-func (suite *EnvironSuite) TestAcquireNode(c *gc.C) {
+func (suite *environSuite) TestAcquireNode(c *gc.C) {
 	storage := NewStorage(suite.environ)
 	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
 	env := suite.makeEnviron()
@@ -317,7 +317,7 @@ func (suite *EnvironSuite) TestAcquireNode(c *gc.C) {
 	c.Check(actions, gc.DeepEquals, []string{"acquire"})
 }
 
-func (suite *EnvironSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
+func (suite *environSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	storage := NewStorage(suite.environ)
 	fakeTools := envtesting.MustUploadFakeToolsVersion(storage, version.Current)
 	env := suite.makeEnviron()
@@ -334,7 +334,7 @@ func (suite *EnvironSuite) TestAcquireNodeTakesConstraintsIntoAccount(c *gc.C) {
 	c.Assert(nodeRequestValues[0].Get("mem"), gc.Equals, "1024")
 }
 
-func (suite *EnvironSuite) TestConvertConstraints(c *gc.C) {
+func (*environSuite) TestConvertConstraints(c *gc.C) {
 	var testValues = []struct {
 		constraints    constraints.Value
 		expectedResult url.Values
@@ -351,13 +351,13 @@ func (suite *EnvironSuite) TestConvertConstraints(c *gc.C) {
 	}
 }
 
-func (suite *EnvironSuite) getInstance(systemId string) *maasInstance {
+func (suite *environSuite) getInstance(systemId string) *maasInstance {
 	input := `{"system_id": "` + systemId + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	return &maasInstance{&node, suite.environ}
 }
 
-func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
+func (suite *environSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	suite.getInstance("test1")
 
 	err := suite.environ.StopInstances([]instance.Instance{})
@@ -366,7 +366,7 @@ func (suite *EnvironSuite) TestStopInstancesReturnsIfParameterEmpty(c *gc.C) {
 	c.Check(operations, gc.DeepEquals, map[string][]string{})
 }
 
-func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
+func (suite *environSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	instance1 := suite.getInstance("test1")
 	instance2 := suite.getInstance("test2")
 	suite.getInstance("test3")
@@ -380,7 +380,7 @@ func (suite *EnvironSuite) TestStopInstancesStopsAndReleasesInstances(c *gc.C) {
 	c.Check(operations, gc.DeepEquals, expectedOperations)
 }
 
-func (suite *EnvironSuite) TestStateInfo(c *gc.C) {
+func (suite *environSuite) TestStateInfo(c *gc.C) {
 	env := suite.makeEnviron()
 	hostname := "test"
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
@@ -401,7 +401,7 @@ func (suite *EnvironSuite) TestStateInfo(c *gc.C) {
 	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostname + apiPortSuffix})
 }
 
-func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
+func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	env := suite.makeEnviron()
 
 	_, _, err := env.StateInfo()
@@ -409,7 +409,7 @@ func (suite *EnvironSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	c.Check(err, gc.FitsTypeOf, &errors.NotFoundError{})
 }
 
-func (suite *EnvironSuite) TestDestroy(c *gc.C) {
+func (suite *environSuite) TestDestroy(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.getInstance("test1")
 	testInstance := suite.getInstance("test2")
@@ -433,7 +433,7 @@ func (suite *EnvironSuite) TestDestroy(c *gc.C) {
 // It would be nice if we could unit-test Bootstrap() in more detail, but
 // at the time of writing that would require more support from gomaasapi's
 // testing service than we have.
-func (suite *EnvironSuite) TestBootstrapSucceeds(c *gc.C) {
+func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
@@ -441,7 +441,7 @@ func (suite *EnvironSuite) TestBootstrapSucceeds(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (suite *EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
+func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	// Can't RemoveAllTools, no public storage.
@@ -451,7 +451,7 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	c.Check(err, gc.FitsTypeOf, (*errors.NotFoundError)(nil))
 }
 
-func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
+func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	err := env.Bootstrap(constraints.Value{})
@@ -460,7 +460,7 @@ func (suite *EnvironSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*409.*")
 }
 
-func (suite *EnvironSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
+func (suite *environSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode", "hostname": "host"}`)

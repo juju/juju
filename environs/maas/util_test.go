@@ -13,11 +13,11 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
-type UtilSuite struct{}
+type utilSuite struct{}
 
-var _ = gc.Suite(&UtilSuite{})
+var _ = gc.Suite(&utilSuite{})
 
-func (s *UtilSuite) TestExtractSystemId(c *gc.C) {
+func (*utilSuite) TestExtractSystemId(c *gc.C) {
 	instanceId := instance.Id("/MAAS/api/1.0/nodes/system_id/")
 
 	systemId := extractSystemId(instanceId)
@@ -25,7 +25,7 @@ func (s *UtilSuite) TestExtractSystemId(c *gc.C) {
 	c.Check(systemId, gc.Equals, "system_id")
 }
 
-func (s *UtilSuite) TestGetSystemIdValues(c *gc.C) {
+func (*utilSuite) TestGetSystemIdValues(c *gc.C) {
 	instanceId1 := instance.Id("/MAAS/api/1.0/nodes/system_id1/")
 	instanceId2 := instance.Id("/MAAS/api/1.0/nodes/system_id2/")
 	instanceIds := []instance.Id{instanceId1, instanceId2}
@@ -35,7 +35,7 @@ func (s *UtilSuite) TestGetSystemIdValues(c *gc.C) {
 	c.Check(values["id"], gc.DeepEquals, []string{"system_id1", "system_id2"})
 }
 
-func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
+func (*utilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	hostname := "hostname"
 	filename := "path/to/file"
 	old_MAASInstanceFilename := _MAASInstanceFilename
@@ -52,7 +52,7 @@ func (s *UtilSuite) TestMachineInfoCloudinitRunCmd(c *gc.C) {
 	c.Check(script, gc.Equals, expected)
 }
 
-func (s *UtilSuite) TestMachineInfoLoad(c *gc.C) {
+func (*utilSuite) TestMachineInfoLoad(c *gc.C) {
 	hostname := "hostname"
 	yaml := fmt.Sprintf("hostname: %s\n", hostname)
 	filename := createTempFile(c, []byte(yaml))
