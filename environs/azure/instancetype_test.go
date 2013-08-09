@@ -461,7 +461,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 		Arches: []string{"axp"},
 	}
 
-	_, err := findInstanceSpec(nil, "daily", impossibleConstraint)
+	_, err := findInstanceSpec("daily", impossibleConstraint)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
 }
@@ -506,7 +506,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 	}
 
 	// Find a matching instance type and image.
-	spec, err := findInstanceSpec(baseURLs, "released", constraints)
+	spec, err := findInstanceSpec("released", constraints)
 	c.Assert(err, gc.IsNil)
 
 	// We got the instance type we described in our constraints, and
@@ -538,7 +538,7 @@ func (*instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
 		Arches: []string{"amd64"},
 	}
 
-	spec, err := findInstanceSpec(baseURLs, "", anyInstanceType)
+	spec, err := findInstanceSpec("", anyInstanceType)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(spec.InstanceType.Name, gc.Equals, "Small")

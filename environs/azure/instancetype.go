@@ -186,7 +186,7 @@ func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-func findInstanceSpec(baseURLs []string, stream string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(stream string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
 	imageData, err := findMatchingImages(constraint.Region, constraint.Series, stream, constraint.Arches)
 	if err != nil {

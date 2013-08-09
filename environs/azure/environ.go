@@ -409,7 +409,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		Arches:      architectures,
 		Constraints: cons,
 	}
-	spec, err := findInstanceSpec(baseURLs, ecfg.imageStream(), constraint)
+	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
