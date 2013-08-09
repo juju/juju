@@ -329,40 +329,6 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	c.Assert(ok, gc.Equals, true)
 }
 
-func (s *uniterSuite) TestSetResolved(c *gc.C) {
-	mode := s.wordpressUnit.Resolved()
-	c.Assert(mode, gc.Equals, state.ResolvedNone)
-
-	args := params.SetEntitiesResolved{Entities: []params.SetResolved{
-		{Tag: "unit-mysql-0", Mode: params.ResolvedNoHooks},
-		{Tag: "unit-wordpress-0", Mode: params.ResolvedNoHooks},
-		{Tag: "unit-foo-42", Mode: params.ResolvedNone},
-		{Tag: "unit-wordpress-0", Mode: params.ResolvedRetryHooks},
-		{Tag: "unit-wordpress-0", Mode: "blah"},
-	}}
-	result, err := s.uniter.SetResolved(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.ErrorResults{
-		Results: []params.ErrorResult{
-			{apiservertesting.ErrUnauthorized},
-			{nil},
-			{apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{
-				Message: `cannot set resolved mode for unit "wordpress/0": already resolved`,
-			}},
-			{Error: &params.Error{
-				Message: `cannot set resolved mode for unit "wordpress/0": invalid error resolution mode: "blah"`,
-			}},
-		},
-	})
-
-	// Verify wordpressUnit's resolved mode has changed.
-	err = s.wordpressUnit.Refresh()
-	c.Assert(err, gc.IsNil)
-	mode = s.wordpressUnit.Resolved()
-	c.Assert(mode, gc.Equals, state.ResolvedNoHooks)
-}
-
 func (s *uniterSuite) TestClearResolved(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, gc.IsNil)
@@ -389,25 +355,6 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	mode = s.wordpressUnit.Resolved()
 	c.Assert(mode, gc.Equals, state.ResolvedNone)
-}
-
-func (s *uniterSuite) TestGetServiceEntity(c *gc.C) {
-	c.Assert(s.wordpressUnit.ServiceName(), gc.Equals, "wordpress")
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	result, err := s.uniter.GetServiceEntity(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsResult{
-		Result: []string{
-			"",
-			"service-wordpress",
-			"",
-		},
-	})
 }
 
 func (s *uniterSuite) TestGetPrincipal(c *gc.C) {

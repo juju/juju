@@ -8,7 +8,6 @@ package uniter
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -167,34 +166,6 @@ func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.Er
 	return result, nil
 }
 
-// SetResolved marks each given unit as having had any previous state
-// transition problems resolved, and informs the unit that it may
-// attempt to reestablish normal workflow.
-func (u *UniterAPI) SetResolved(args params.SetEntitiesResolved) (params.ErrorResults, error) {
-	result := params.ErrorResults{
-		Results: make([]params.ErrorResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canModify, err := u.getCanRead()
-	if err != nil {
-		return params.ErrorResults{}, err
-	}
-	var unit *state.Unit
-	for i, entity := range args.Entities {
-		err := common.ErrPerm
-		if canModify(entity.Tag) {
-			unit, err = u.getUnit(entity.Tag)
-			if err == nil {
-				err = unit.SetResolved(state.ResolvedMode(entity.Mode))
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
 // ClearResolved removes any resolved setting from each given unit.
 func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
@@ -217,30 +188,6 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// GetServiceEntity returns the corresponding service tag for each
-// given unit, if possible.
-func (u *UniterAPI) GetServiceEntity(args params.Entities) (params.StringsResult, error) {
-	result := params.StringsResult{
-		Result: make([]string, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	canRead, err := u.getCanRead()
-	if err != nil {
-		return params.StringsResult{}, err
-	}
-	for i, entity := range args.Entities {
-		if canRead(entity.Tag) {
-			unit, err := u.getUnit(entity.Tag)
-			if err == nil {
-				result.Result[i] = names.ServiceTag(unit.ServiceName())
-			}
-		}
 	}
 	return result, nil
 }
