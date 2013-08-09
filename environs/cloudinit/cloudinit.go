@@ -171,7 +171,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	if cfg.StateServer {
 		if cfg.NeedMongoPPA() {
-			c.AddAptSource("ppa:juju/experimental", "1024R/C8068B11")
+			c.AddAptSource("ppa:juju/stable", "1024R/C8068B11")
 		}
 		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
