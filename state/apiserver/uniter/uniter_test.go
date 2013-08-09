@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -16,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {
@@ -410,4 +412,74 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
+}
+
+func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
+	// Add two subordinates to wordpressUnit.
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, gc.IsNil)
+	nrpe, err := s.State.AddService("monitoring", s.AddTestingCharm(c, "monitoring"))
+	c.Assert(err, gc.IsNil)
+
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	_, err = logging.Unit("logging/0")
+	c.Assert(err, gc.IsNil)
+
+	eps, err = s.State.InferEndpoints([]string{"wordpress", "monitoring"})
+	c.Assert(err, gc.IsNil)
+	rel, err = s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	relUnit, err = rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	_, err = nrpe.Unit("monitoring/0")
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-logging-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.SubordinateNames(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: nil},
+			{Result: []string{"logging/0", "monitoring/0"}},
+			{Result: nil},
+			{Result: nil},
+		},
+	})
+}
+
+func (s *uniterSuite) TestDestroy(c *gc.C) {
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.Destroy(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit is destroyed and removed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }

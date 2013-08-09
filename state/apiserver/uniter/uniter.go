@@ -220,4 +220,54 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 	return result, nil
 }
 
+// Destroy advances all given Alive units' lifecycles as far as
+// possible. See state/Unit.Destroy().
+func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canModify, err := u.getCanRead()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	var unit *state.Unit
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canModify(entity.Tag) {
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				err = unit.Destroy()
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SubordinateNames returns the names of any subordinate units, for each given unit.
+func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canRead, err := u.getCanRead()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		if canRead(entity.Tag) {
+			unit, err := u.getUnit(entity.Tag)
+			if err == nil {
+				result.Results[i].Result = unit.SubordinateNames()
+			}
+		}
+	}
+	return result, nil
+}
+
 // TODO(dimitern): Add the other needed API calls.

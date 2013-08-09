@@ -23,6 +23,12 @@ type StringsResult struct {
 	Result []string
 }
 
+// StringsResults holds the bulk operation result of an API call that
+// returns a slice of strings.
+type StringsResults struct {
+	Results []StringsResult
+}
+
 // StringBoolResult holds the result of an API call that returns a
 // string and a boolean.
 type StringBoolResult struct {
