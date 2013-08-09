@@ -120,8 +120,8 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	return cfg.Apply(envCfg.attrs)
 }
 
-// TODO: Once we have "released" images for Azure, retire the provisional
-// image-stream setting.
+// TODO: Once we have "released" images for Azure, update the provisional
+// image-stream and default-series settings.
 const boilerplateYAML = `azure:
   type: azure
   admin-secret: {{rand}}
@@ -140,10 +140,12 @@ const boilerplateYAML = `azure:
   # Override OS image selection with a fixed image for all deployments.
   # Most useful for developers.
   # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
-  # Pick a simplestreams stream to select OS images from: "daily" or "released".
-  # Leaving this blank will look for any suitable image, but prefer released
-  # images over daily ones.
-  #image-stream: daily
+  # Pick a simplestreams stream to select OS images from: daily or released
+  # images, or any other stream available on simplestreams.  Leave blank for
+  # released images.
+  # For now, during development, only the daily 13.10 pre-release images work.
+  image-stream: daily
+  default-series: saucy
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {
