@@ -25,7 +25,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -156,7 +156,7 @@ func patchWithServiceListResponse(c *gc.C, services []gwacl.HostedServiceDescrip
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetContainerName(c *gc.C) {
@@ -885,7 +885,7 @@ func (*environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *gc.C) {
 	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), gc.Equals, true)
 	// One request to delete the Affinity Group.
 	agRequest := (*requests)[3]
-	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
 	c.Check(agRequest.Method, gc.Equals, "DELETE")
 
 }
@@ -1125,7 +1125,7 @@ func (*environSuite) TestDestroyVirtualNetwork(c *gc.C) {
 
 func (*environSuite) TestGetVirtualNetworkNameContainsEnvName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetVirtualNetworkNameIsConstant(c *gc.C) {
@@ -1164,13 +1164,13 @@ func (*environSuite) TestDestroyAffinityGroup(c *gc.C) {
 
 	c.Assert(*requests, gc.HasLen, 1)
 	request := (*requests)[0]
-	c.Check(strings.Contains(request.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(strings.Contains(request.URL, env.getAffinityGroupName()), jc.IsTrue)
 	c.Check(request.Method, gc.Equals, "DELETE")
 }
 
 func (*environSuite) TestGetAffinityGroupName(c *gc.C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
