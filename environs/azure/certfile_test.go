@@ -5,61 +5,63 @@ package azure
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/testing/checkers"
 	"os"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing/checkers"
 )
 
 type certFileSuite struct{}
 
-var _ = Suite(&certFileSuite{})
+var _ = gc.Suite(&certFileSuite{})
 
-func (*certFileSuite) TestPathReturnsFullPath(c *C) {
+func (*certFileSuite) TestPathReturnsFullPath(c *gc.C) {
 	certFile := tempCertFile{tempDir: "/tmp/dir", filename: "file"}
-	c.Check(certFile.Path(), Equals, "/tmp/dir/file")
+	c.Check(certFile.Path(), gc.Equals, "/tmp/dir/file")
 }
 
-func (*certFileSuite) TestNewTempCertFileCreatesFile(c *C) {
+func (*certFileSuite) TestNewTempCertFileCreatesFile(c *gc.C) {
 	certData := []byte("content")
 	certFile, err := newTempCertFile(certData)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer certFile.Delete()
 
 	storedData, err := ioutil.ReadFile(certFile.Path())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Check(storedData, DeepEquals, certData)
+	c.Check(storedData, gc.DeepEquals, certData)
 }
 
-func (*certFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
+func (*certFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *gc.C) {
 	certFile, err := newTempCertFile([]byte("content"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer certFile.Delete()
 	info, err := os.Stat(certFile.Path())
-	c.Assert(err, IsNil)
-	c.Check(info.Mode().Perm(), Equals, os.FileMode(0600))
+	c.Assert(err, gc.IsNil)
+	c.Check(info.Mode().Perm(), gc.Equals, os.FileMode(0600))
 }
 
-func (*certFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
+func (*certFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *gc.C) {
 	certFile, err := newTempCertFile([]byte("content"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer certFile.Delete()
 	info, err := os.Stat(certFile.tempDir)
-	c.Assert(err, IsNil)
-	c.Check(info.Mode().Perm(), Equals, os.FileMode(0700))
+	c.Assert(err, gc.IsNil)
+	c.Check(info.Mode().Perm(), gc.Equals, os.FileMode(0700))
 }
 
-func (*certFileSuite) TestDeleteRemovesFile(c *C) {
+func (*certFileSuite) TestDeleteRemovesFile(c *gc.C) {
 	certFile, err := newTempCertFile([]byte("content"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	certFile.Delete()
 	_, err = os.Open(certFile.Path())
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
-func (*certFileSuite) TestDeleteIsIdempotent(c *C) {
+func (*certFileSuite) TestDeleteIsIdempotent(c *gc.C) {
 	certFile, err := newTempCertFile([]byte("content"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	certFile.Delete()
 	certFile.Delete()
 	_, err = os.Open(certFile.Path())
