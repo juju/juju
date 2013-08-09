@@ -12,8 +12,8 @@ import (
 	"strings"
 
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/errors"
 )
 

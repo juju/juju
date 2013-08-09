@@ -9,7 +9,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type certFileSuite struct{}
@@ -56,7 +56,7 @@ func (*certFileSuite) TestDeleteRemovesFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	certFile.Delete()
 	_, err = os.Open(certFile.Path())
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (*certFileSuite) TestDeleteIsIdempotent(c *gc.C) {
@@ -65,5 +65,5 @@ func (*certFileSuite) TestDeleteIsIdempotent(c *gc.C) {
 	certFile.Delete()
 	certFile.Delete()
 	_, err = os.Open(certFile.Path())
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
