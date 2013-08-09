@@ -4,13 +4,23 @@
 package main
 
 import (
+	"flag"
+	"os"
+	"os/exec"
 	"strings"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
 	"fmt"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 )
+
+func Test(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 type MetadataSuite struct {
 	jujuHome *testing.FakeHome
@@ -32,10 +42,35 @@ func (s *MetadataSuite) TearDownTest(c *gc.C) {
 	s.jujuHome.Restore()
 }
 
+var (
+	flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
+)
+
+// Reentrancy point for testing (something as close as possible to) the juju
+// tool itself.
+func TestRunMain(t *stdtesting.T) {
+	if *flagRunMain {
+		Main(flag.Args())
+	}
+}
+
+func badrun(c *gc.C, exit int, args ...string) string {
+	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju-metadata"}, args...)
+
+	ps := exec.Command(os.Args[0], localArgs...)
+
+	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
+	output, err := ps.CombinedOutput()
+	if exit != 0 {
+		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
+	}
+	return string(output)
+}
+
 func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 	// Check that we have correctly registered all the sub commands
 	// by checking the help output.
-	out := badrun(c, 0, "help", "metadata")
+	out := badrun(c, 0, "--help")
 	lines := strings.Split(out, "\n")
 	var names []string
 	for _, line := range lines {
@@ -51,11 +86,8 @@ func (s *MetadataSuite) TestHelpCommands(c *gc.C) {
 
 func (s *MetadataSuite) assertHelpOutput(c *gc.C, cmd string) {
 	expected := fmt.Sprintf("usage: juju metadata %s [options]", cmd)
-	out := badrun(c, 0, "help", "metadata", cmd)
+	out := badrun(c, 0, cmd, "--help")
 	lines := strings.Split(out, "\n")
-	c.Assert(lines[0], gc.Equals, expected)
-	out = badrun(c, 0, "metadata", cmd, "--help")
-	lines = strings.Split(out, "\n")
 	c.Assert(lines[0], gc.Equals, expected)
 }
 
