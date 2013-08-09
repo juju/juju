@@ -37,7 +37,7 @@ type ImageConstraint struct {
 	CloudSpec
 	Series string
 	Arches []string
-	// Stream can be "" for the defautl "released" stream, or "daily" for
+	// Stream can be "" for the default "released" stream, or "daily" for
 	// daily images, or any other stream that the available simplestreams
 	// metadata supports.
 	Stream string

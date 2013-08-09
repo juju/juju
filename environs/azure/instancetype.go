@@ -105,7 +105,7 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 
 // baseURLs specifies where we look for simplestreams information.  It's just
 // the central databases for the released and daily streams, but this may
-//become more configurable.  This variable is here as a placeholder, but also
+// become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
 var baseURLs = []string{
 	imagemetadata.DefaultBaseURL,
