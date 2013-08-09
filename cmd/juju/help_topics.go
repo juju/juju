@@ -8,7 +8,7 @@ Juju -- devops distilled
 https://juju.ubuntu.com/
 
 Juju provides easy, intelligent service orchestration on top of environments
-such as OpenStack, Amazon AWS, or bare metal.
+such as OpenStack, Amazon AWS, bare metal, or your own local machine.
 
 Basic commands:
   juju init             generate boilerplate configuration for juju environments
