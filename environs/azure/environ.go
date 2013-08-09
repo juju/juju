@@ -8,6 +8,7 @@ import (
 	"sync"
 
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -59,6 +60,11 @@ type azureEnviron struct {
 
 	// publicStorage is the public storage that this environ uses.
 	publicStorage environs.StorageReader
+
+	// storageAccountKey holds an access key to this environment's
+	// private storage.  This is automatically queried from Azure on
+	// startup.
+	storageAccountKey string
 }
 
 // azureEnviron implements Environ.
@@ -88,6 +94,37 @@ func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
 	}
 
 	return &env, nil
+}
+
+// extractStorageKey returns the primary account key from a gwacl
+// StorageAccountKeys struct, or if there is none, the secondary one.
+func extractStorageKey(keys *gwacl.StorageAccountKeys) string {
+	if keys.Primary != "" {
+		return keys.Primary
+	}
+	return keys.Secondary
+}
+
+// queryStorageAccountKey retrieves the storage account's key from Azure.
+func (env *azureEnviron) queryStorageAccountKey() (string, error) {
+	azure, err := env.getManagementAPI()
+	if err != nil {
+		return "", err
+	}
+	defer env.releaseManagementAPI(azure)
+
+	accountName := env.getSnapshot().ecfg.storageAccountName()
+	keys, err := azure.GetStorageAccountKeys(accountName)
+	if err != nil {
+		return "", fmt.Errorf("cannot obtain storage account keys: %v", err)
+	}
+
+	key := extractStorageKey(keys)
+	if key == "" {
+		return "", fmt.Errorf("no keys available for storage account")
+	}
+
+	return key, nil
 }
 
 // Name is specified in the Environ interface.
@@ -291,6 +328,11 @@ func (env *azureEnviron) SetConfig(cfg *config.Config) error {
 	}
 
 	env.ecfg = ecfg
+
+	// Reset storage account key.  Even if we had one before, it may not
+	// be appropriate for the new config.
+	env.storageAccountKey = ""
+
 	return nil
 }
 
@@ -509,6 +551,33 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
 }
 
+// getInitialEndpoints returns a slice of the endpoints every instance should have open
+// (ssh port, etc).
+func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
+	config := env.Config()
+	return []gwacl.InputEndpoint{
+		{
+			LocalPort: 22,
+			Name:      "sshport",
+			Port:      22,
+			Protocol:  "tcp",
+		},
+		// TODO: Ought to have this only for state servers.
+		{
+			LocalPort: config.StatePort(),
+			Name:      "stateport",
+			Port:      config.StatePort(),
+			Protocol:  "tcp",
+		},
+		// TODO: Ought to have this only for API servers.
+		{
+			LocalPort: config.APIPort(),
+			Name:      "apiport",
+			Port:      config.APIPort(),
+			Protocol:  "tcp",
+		}}
+}
+
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
 //
@@ -527,31 +596,9 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
-	config := env.Config()
 	// Generate a Network Configuration with the initially required ports
 	// open.
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{
-		{
-			LocalPort: 22,
-			Name:      "sshport",
-			Port:      22,
-			Protocol:  "TCP",
-		},
-		// TODO: Ought to have this only for state servers.
-		{
-			LocalPort: config.StatePort(),
-			Name:      "stateport",
-			Port:      config.StatePort(),
-			Protocol:  "TCP",
-		},
-		// TODO: Ought to have this only for API servers.
-		{
-			LocalPort: config.APIPort(),
-			Name:      "apiport",
-			Port:      config.APIPort(),
-			Protocol:  "TCP",
-		},
-	}, nil)
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(), nil)
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(
@@ -584,6 +631,13 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	return inst, nil, err
 }
 
+// Spawn this many goroutines to issue requests for destroying services.
+// TODO: this is currently set to 1 because of a problem in Azure:
+// removing Services in the same affinity group concurrently causes a conflict.
+// This conflict is wrongly reported by Azure as a BadRequest (400).
+// This has been reported to Windows Azure.
+var maxConcurrentDeletes = 1
+
 // StopInstances is specified in the Environ interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
@@ -594,17 +648,44 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
-	// Shut down all the instances; if there are errors, return only the
-	// first one (but try to shut down all instances regardless).
-	var firstErr error
-	for _, instance := range instances {
-		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
-		err := context.DestroyHostedService(request)
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
+
+	// Destroy all the services in parallel.
+	servicesToDestroy := make(chan string)
+
+	// Spawn min(len(instances), maxConcurrentDeletes) goroutines to
+	// destroy the services.
+	nbRoutines := len(instances)
+	if maxConcurrentDeletes < nbRoutines {
+		nbRoutines = maxConcurrentDeletes
 	}
-	return firstErr
+
+	var wg sync.WaitGroup
+	wg.Add(nbRoutines)
+	errc := make(chan error, len(instances))
+	for i := 0; i < nbRoutines; i++ {
+		go func() {
+			defer wg.Done()
+			for serviceName := range servicesToDestroy {
+				request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
+				err := context.DestroyHostedService(request)
+				if err != nil {
+					errc <- err
+				}
+			}
+		}()
+	}
+	// Feed all the service names to servicesToDestroy.
+	for _, instance := range instances {
+		servicesToDestroy <- string(instance.Id())
+	}
+	close(servicesToDestroy)
+	wg.Wait()
+	select {
+	case err := <-errc:
+		return err
+	default:
+	}
+	return nil
 }
 
 // Instances is specified in the Environ interface.
@@ -786,7 +867,8 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	}
 	// After this point, if we need to leave prematurely, we should clean
 	// up that certificate file.
-	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	location := snap.ecfg.location()
+	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path(), location)
 	if err != nil {
 		certFile.Delete()
 		return nil, err
@@ -812,18 +894,71 @@ func (env *azureEnviron) releaseManagementAPI(context *azureManagementContext) {
 	context.certFile.Delete()
 }
 
+// updateStorageAccountKey queries the storage account key, and updates the
+// version cached in env.storageAccountKey.
+//
+// It takes a snapshot in order to preserve transactional integrity relative
+// to the snapshot's starting state, without having to lock the environment
+// for the duration.  If there is a conflicting change to env relative to the
+// state recorded in the snapshot, this function will fail.
+func (env *azureEnviron) updateStorageAccountKey(snapshot *azureEnviron) (string, error) {
+	// This method follows an RCU pattern, an optimistic technique to
+	// implement atomic read-update transactions: get a consistent snapshot
+	// of state; process data; enter critical section; check for conflicts;
+	// write back changes.  The advantage is that there are no long-held
+	// locks, in particular while waiting for the request to Azure to
+	// complete.
+	// "Get a consistent snapshot of state" is the caller's responsibility.
+	// The caller can use env.getSnapshot().
+
+	// Process data: get a current account key from Azure.
+	key, err := env.queryStorageAccountKey()
+	if err != nil {
+		return "", err
+	}
+
+	// Enter critical section.
+	env.Lock()
+	defer env.Unlock()
+
+	// Check for conflicts: is the config still what it was?
+	if env.ecfg != snapshot.ecfg {
+		// The environment has been reconfigured while we were
+		// working on this, so the key we just get may not be
+		// appropriate any longer.  So fail.
+		// Whatever we were doing isn't likely to be right any more
+		// anyway.  Otherwise, it might be worth returning the key
+		// just in case it still works, and proceed without updating
+		// env.storageAccountKey.
+		return "", fmt.Errorf("environment was reconfigured")
+	}
+
+	// Write back changes.
+	env.storageAccountKey = key
+	return key, nil
+}
+
 // getStorageContext obtains a context object for interfacing with Azure's
 // storage API.
 // For now, each invocation just returns a separate object.  This is probably
 // wasteful (each context gets its own SSL connection) and may need optimizing
 // later.
 func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
-	ecfg := env.getSnapshot().ecfg
-	context := gwacl.StorageContext{
-		Account: ecfg.storageAccountName(),
-		Key:     ecfg.storageAccountKey(),
+	snap := env.getSnapshot()
+	key := snap.storageAccountKey
+	if key == "" {
+		// We don't know the storage-account key yet.  Request it.
+		var err error
+		key, err = env.updateStorageAccountKey(snap)
+		if err != nil {
+			return nil, err
+		}
 	}
-	// There is currently no way for this to fail.
+	context := gwacl.StorageContext{
+		Account:       snap.ecfg.storageAccountName(),
+		Key:           key,
+		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
+	}
 	return &context, nil
 }
 
@@ -832,8 +967,9 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.publicStorageAccountName(),
-		Key:     "", // Empty string means anonymous access.
+		Account:       ecfg.publicStorageAccountName(),
+		Key:           "", // Empty string means anonymous access.
+		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -845,15 +981,6 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	// Hard-coded to the central Simplestreams database for now.
 	return []string{imagemetadata.DefaultBaseURL}, nil
-}
-
-// getEndpoint returns the endpoint (as defined in Simplestreams) for the
-// given Azure region.
-func (env *azureEnviron) getEndpoint(region string) (string, error) {
-	// Hard-coded for now, but actually China has a different endpoint.
-	// TODO: Extract information from simplestreams, or hard-code the
-	// Chinese ones as well.
-	return "https://management.core.windows.net/", nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

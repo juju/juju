@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 	"sync"
 
@@ -33,12 +34,15 @@ type environSuite struct {
 
 var _ = Suite(&environSuite{})
 
+// makeEnviron creates a fake azureEnviron with arbitrary configuration.
 func makeEnviron(c *C) *azureEnviron {
 	attrs := makeAzureConfigMap(c)
 	cfg, err := config.New(attrs)
 	c.Assert(err, IsNil)
 	env, err := NewEnviron(cfg)
 	c.Assert(err, IsNil)
+	// Prevent the test from trying to query for a storage-account key.
+	env.storageAccountKey = "fake-storage-account-key"
 	return env
 }
 
@@ -224,7 +228,6 @@ func (*environSuite) TestStorage(c *C) {
 	context, err := storage.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Check(context.Account, Equals, env.ecfg.storageAccountName())
-	c.Check(context.Key, Equals, env.ecfg.storageAccountKey())
 }
 
 func (*environSuite) TestPublicStorage(c *C) {
@@ -251,13 +254,123 @@ func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *C) {
 	c.Check(env.PublicStorage(), Equals, environs.EmptyStorage)
 }
 
-func (*environSuite) TestGetStorageContext(c *C) {
+func (*environSuite) TestQueryStorageAccountKeyGetsKey(c *C) {
+	env := makeEnviron(c)
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "a-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	requests := gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	returnedKey, err := env.queryStorageAccountKey()
+	c.Assert(err, IsNil)
+
+	c.Check(returnedKey, Equals, keysInAzure.Primary)
+	c.Assert(*requests, HasLen, 1)
+	c.Check((*requests)[0].Method, Equals, "GET")
+}
+
+func (*environSuite) TestGetStorageContextCreatesStorageContext(c *C) {
 	env := makeEnviron(c)
 	storage, err := env.getStorageContext()
 	c.Assert(err, IsNil)
 	c.Assert(storage, NotNil)
 	c.Check(storage.Account, Equals, env.ecfg.storageAccountName())
-	c.Check(storage.Key, Equals, env.ecfg.storageAccountKey())
+	c.Check(storage.AzureEndpoint, Equals, gwacl.GetEndpoint(env.ecfg.location()))
+}
+
+func (*environSuite) TestGetStorageContextUsesKnownStorageAccountKey(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = "my-key"
+
+	storage, err := env.getStorageContext()
+	c.Assert(err, IsNil)
+
+	c.Check(storage.Key, Equals, "my-key")
+}
+
+func (*environSuite) TestGetStorageContextQueriesStorageAccountKeyIfNeeded(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	storage, err := env.getStorageContext()
+	c.Assert(err, IsNil)
+
+	c.Check(storage.Key, Equals, keysInAzure.Primary)
+	c.Check(env.storageAccountKey, Equals, keysInAzure.Primary)
+}
+
+func (*environSuite) TestGetStorageContextFailsIfNoKeyAvailable(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	azureResponse, err := xml.Marshal(gwacl.StorageAccountKeys{})
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	_, err = env.getStorageContext()
+	c.Assert(err, NotNil)
+
+	c.Check(err, ErrorMatches, "no keys available for storage account")
+}
+
+func (*environSuite) TestUpdateStorageAccountKeyGetsFreshKey(c *C) {
+	env := makeEnviron(c)
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	key, err := env.updateStorageAccountKey(env.getSnapshot())
+	c.Assert(err, IsNil)
+
+	c.Check(key, Equals, keysInAzure.Primary)
+	c.Check(env.storageAccountKey, Equals, keysInAzure.Primary)
+}
+
+func (*environSuite) TestUpdateStorageAccountKeyReturnsError(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusInternalServerError, nil),
+	})
+
+	_, err := env.updateStorageAccountKey(env.getSnapshot())
+	c.Assert(err, NotNil)
+
+	c.Check(err, ErrorMatches, "cannot obtain storage account keys: GET request failed.*Internal Server Error.*")
+	c.Check(env.storageAccountKey, Equals, "")
+}
+
+func (*environSuite) TestUpdateStorageAccountKeyDetectsConcurrentUpdate(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = ""
+	keysInAzure := gwacl.StorageAccountKeys{Primary: "my-key"}
+	azureResponse, err := xml.Marshal(keysInAzure)
+	c.Assert(err, IsNil)
+	gwacl.PatchManagementAPIResponses([]gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(azureResponse, http.StatusOK, nil),
+	})
+
+	// Here we use a snapshot that's different from the environment, to
+	// simulate a concurrent change to the environment.
+	_, err = env.updateStorageAccountKey(makeEnviron(c))
+	c.Assert(err, NotNil)
+
+	// updateStorageAccountKey detects the change, and refuses to write its
+	// outdated information into env.
+	c.Check(err, ErrorMatches, "environment was reconfigured")
+	c.Check(env.storageAccountKey, Equals, "")
 }
 
 func (*environSuite) TestGetPublicStorageContext(c *C) {
@@ -332,6 +445,20 @@ func (*environSuite) TestSetConfigWillNotUpdateName(c *C) {
 		ErrorMatches,
 		`cannot change name from ".*" to "new-name"`)
 	c.Check(env.Name(), Equals, originalName)
+}
+
+func (*environSuite) TestSetConfigClearsStorageAccountKey(c *C) {
+	env := makeEnviron(c)
+	env.storageAccountKey = "key-for-previous-config"
+	attrs := makeAzureConfigMap(c)
+	attrs["default-series"] = "other"
+	cfg, err := config.New(attrs)
+	c.Assert(err, IsNil)
+
+	err = env.SetConfig(cfg)
+	c.Assert(err, IsNil)
+
+	c.Check(env.storageAccountKey, Equals, "")
 }
 
 func (*environSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
@@ -419,7 +546,7 @@ func (*environSuite) TestAttemptCreateServiceCreatesService(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := attemptCreateService(azure, prefix, affinityGroup, location)
@@ -442,7 +569,7 @@ func (*environSuite) TestAttemptCreateServiceReturnsNilIfNameNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(makeNonAvailabilityResponse(c), http.StatusOK, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := attemptCreateService(azure, "service", "affinity-group", "location")
@@ -456,7 +583,7 @@ func (*environSuite) TestAttemptCreateServicePropagatesOtherFailure(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusNotFound, nil),
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	_, err = attemptCreateService(azure, "service", "affinity-group", "location")
@@ -473,7 +600,7 @@ func (*environSuite) TestNewHostedServiceCreatesService(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := newHostedService(azure, prefix, affinityGroup, location)
@@ -499,7 +626,7 @@ func (*environSuite) TestNewHostedServiceRetriesIfNotUnique(c *C) {
 		gwacl.NewDispatcherResponse(nil, http.StatusOK, nil),
 	}
 	requests := gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	service, err := newHostedService(azure, "service", "affinity-group", "location")
@@ -540,7 +667,7 @@ func (*environSuite) TestNewHostedServiceFailsIfUnableToFindUniqueName(c *C) {
 		responses = append(responses, gwacl.NewDispatcherResponse(errorBody, http.StatusOK, nil))
 	}
 	gwacl.PatchManagementAPIResponses(responses)
-	azure, err := gwacl.NewManagementAPI("subscription", "")
+	azure, err := gwacl.NewManagementAPI("subscription", "", "West US")
 	c.Assert(err, IsNil)
 
 	_, err = newHostedService(azure, "service", "affinity-group", "location")
@@ -585,7 +712,15 @@ func makeAzureService(name string) (*gwacl.HostedService, *gwacl.HostedServiceDe
 	return service1, service1Desc
 }
 
+func setServiceDeletionConcurrency(nbGoroutines int) func() {
+	oldMaxConcurrentDeletes := maxConcurrentDeletes
+	maxConcurrentDeletes = nbGoroutines
+	return func() { maxConcurrentDeletes = oldMaxConcurrentDeletes }
+}
+
 func (*environSuite) TestStopInstancesDestroysMachines(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
 	service1Name := "service1"
 	service1, service1Desc := makeAzureService(service1Name)
 	service2Name := "service2"
@@ -605,10 +740,69 @@ func (*environSuite) TestStopInstancesDestroysMachines(c *C) {
 	// - one GET request to fetch the service's properties;
 	// - one DELETE request to delete the service.
 	c.Check(len(*requests), Equals, len(services)*2)
-	c.Check((*requests)[0].Method, Equals, "GET")
-	c.Check((*requests)[1].Method, Equals, "DELETE")
-	c.Check((*requests)[2].Method, Equals, "GET")
-	c.Check((*requests)[3].Method, Equals, "DELETE")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
+}
+
+func (*environSuite) TestStopInstancesWhenStoppingMachinesFails(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusConflict, nil),
+	}
+	service1Name := "service1"
+	_, service1Desc := makeAzureService(service1Name)
+	service2Name := "service2"
+	service2, service2Desc := makeAzureService(service2Name)
+	services := []*gwacl.HostedService{service2}
+	destroyResponses := buildDestroyAzureServiceResponses(c, services)
+	responses = append(responses, destroyResponses...)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances(
+		[]gwacl.HostedServiceDescriptor{*service1Desc, *service2Desc}, env)
+
+	err := env.StopInstances(instances)
+	c.Check(err, ErrorMatches, ".*Conflict.*")
+
+	c.Check(len(*requests), Equals, 3)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".")
+	// Only one of the services was deleted.
+	assertOneRequestMatches(c, *requests, "DELETE", ".*")
+}
+
+func (*environSuite) TestStopInstancesWithLimitedConcurrency(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	services := []*gwacl.HostedService{}
+	serviceDescs := []gwacl.HostedServiceDescriptor{}
+	for i := 0; i < 10; i++ {
+		serviceName := fmt.Sprintf("service%d", i)
+		service, serviceDesc := makeAzureService(serviceName)
+		services = append(services, service)
+		serviceDescs = append(serviceDescs, *serviceDesc)
+	}
+	responses := buildDestroyAzureServiceResponses(c, services)
+	requests := gwacl.PatchManagementAPIResponses(responses)
+	env := makeEnviron(c)
+	instances := convertToInstances(serviceDescs, env)
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
+	c.Check(len(*requests), Equals, len(services)*2)
+}
+
+func (*environSuite) TestStopInstancesWithZeroInstance(c *C) {
+	cleanup := setServiceDeletionConcurrency(3)
+	defer cleanup()
+	env := makeEnviron(c)
+	instances := []instance.Instance{}
+
+	err := env.StopInstances(instances)
+	c.Check(err, IsNil)
 }
 
 // getVnetAndAffinityGroupCleanupResponses returns the responses
@@ -707,10 +901,24 @@ var emptyListResponse = `
     <NextMarker />
   </EnumerationResults>`
 
+// assertOneRequestMatches asserts that at least one request in the given slice
+// contains a request with the given method and whose URL matches the given regexp.
+func assertOneRequestMatches(c *C, requests []*gwacl.X509Request, method string, urlPattern string) {
+	for _, request := range requests {
+		matched, err := regexp.MatchString(urlPattern, request.URL)
+		if err == nil && request.Method == method && matched {
+			return
+		}
+	}
+	c.Error(fmt.Sprintf("none of the requests matches: Method=%v, URL pattern=%v", method, urlPattern))
+}
+
 func (*environSuite) TestDestroyStopsAllInstances(c *C) {
+	cleanup1 := setServiceDeletionConcurrency(3)
+	defer cleanup1()
 	env := makeEnviron(c)
-	cleanup := setDummyStorage(c, env)
-	defer cleanup()
+	cleanup2 := setDummyStorage(c, env)
+	defer cleanup2()
 
 	// Simulate 2 instances corresponding to two Azure services.
 	prefix := env.getEnvPrefix()
@@ -740,14 +948,10 @@ func (*environSuite) TestDestroyStopsAllInstances(c *C) {
 	// the Virtual Network and the Affinity Group.
 	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
-	c.Check((*requests)[1].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
-	c.Check((*requests)[2].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[2].URL, service1Name), IsTrue)
-	c.Check((*requests)[3].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
-	c.Check((*requests)[4].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service1Name+".*")
+	assertOneRequestMatches(c, *requests, "GET", ".*"+service2Name+".*")
+	assertOneRequestMatches(c, *requests, "DELETE", ".*"+service2Name+".*")
 }
 
 func (*environSuite) TestGetInstance(c *C) {
@@ -821,21 +1025,21 @@ func (*environSuite) TestNewRole(c *C) {
 	sshEndpoint, ok := endpoints[22]
 	c.Assert(ok, Equals, true)
 	c.Check(sshEndpoint.LocalPort, Equals, 22)
-	c.Check(sshEndpoint.Protocol, Equals, "TCP")
+	c.Check(sshEndpoint.Protocol, Equals, "tcp")
 
 	// There's also an endpoint for the state (mongodb) port.
 	// TODO: Ought to have this only for state servers.
 	stateEndpoint, ok := endpoints[env.Config().StatePort()]
 	c.Assert(ok, Equals, true)
 	c.Check(stateEndpoint.LocalPort, Equals, env.Config().StatePort())
-	c.Check(stateEndpoint.Protocol, Equals, "TCP")
+	c.Check(stateEndpoint.Protocol, Equals, "tcp")
 
 	// And one for the API port.
 	// TODO: Ought to have this only for API servers.
 	apiEndpoint, ok := endpoints[env.Config().APIPort()]
 	c.Assert(ok, Equals, true)
 	c.Check(apiEndpoint.LocalPort, Equals, env.Config().APIPort())
-	c.Check(apiEndpoint.Protocol, Equals, "TCP")
+	c.Check(apiEndpoint.Protocol, Equals, "tcp")
 }
 
 func (*environSuite) TestNewDeployment(c *C) {
@@ -983,34 +1187,6 @@ func (*environSuite) TestGetImageBaseURLs(c *C) {
 	c.Check(urls, DeepEquals, []string{imagemetadata.DefaultBaseURL})
 }
 
-func (*environSuite) TestGetEndpointReturnsFixedEndpointForSupportedRegion(c *C) {
-	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint("West US")
-	c.Assert(err, IsNil)
-	c.Check(endpoint, Equals, "https://management.core.windows.net/")
-}
-
-// TODO: Enable this test and satisfy it.
-/*
-func (*environSuite) TestGetEndpointReturnsChineseEndpointForChina(c *C) {
-	env := makeEnviron(c)
-	endpoint, err := env.getEndpoint("China East")
-	c.Assert(err, IsNil)
-	c.Check(endpoint, Equals, "https://management.core.chinacloudapi.cn/")
-}
-*/
-
-// TODO: Enable this test and satisfy it.
-/*
-func (*environSuite) TestGetEndpointRejectsUnknownRegion(c *C) {
-	region := "Central South San Marino Highlands"
-	env := makeEnviron(c)
-	_, err := env.getEndpoint(region)
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, "unknown region: "+region)
-}
-*/
-
 func (*environSuite) TestGetImageStreamDefaultsToBlank(c *C) {
 	env := makeEnviron(c)
 	// Hard-coded to default for now.
@@ -1029,7 +1205,6 @@ func (*environSuite) TestSelectInstanceTypeAndImageUsesForcedImage(c *C) {
 	forcedImage := "my-image"
 	env.ecfg.attrs["force-image-name"] = forcedImage
 
-	// We'll tailor our constraints so as to get a specific instance type.
 	aim := gwacl.RoleNameMap["ExtraLarge"]
 	cons := constraints.Value{
 		CpuCores: &aim.CpuCores,
@@ -1084,4 +1259,23 @@ func (*environSuite) TestConvertToInstances(c *C) {
 		&azureInstance{services[0], env},
 		&azureInstance{services[1], env},
 	})
+}
+
+func (*environSuite) TestExtractStorageKeyPicksPrimaryKeyIfSet(c *C) {
+	keys := gwacl.StorageAccountKeys{
+		Primary:   "mainkey",
+		Secondary: "otherkey",
+	}
+	c.Check(extractStorageKey(&keys), Equals, "mainkey")
+}
+
+func (*environSuite) TestExtractStorageKeyFallsBackToSecondaryKey(c *C) {
+	keys := gwacl.StorageAccountKeys{
+		Secondary: "sparekey",
+	}
+	c.Check(extractStorageKey(&keys), Equals, "sparekey")
+}
+
+func (*environSuite) TestExtractStorageKeyReturnsBlankIfNoneSet(c *C) {
+	c.Check(extractStorageKey(&gwacl.StorageAccountKeys{}), Equals, "")
 }

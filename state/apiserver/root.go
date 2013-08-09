@@ -10,11 +10,17 @@ import (
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/apiserver/deployer"
 	"launchpad.net/juju-core/state/apiserver/machine"
+	"launchpad.net/juju-core/state/apiserver/uniter"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	"launchpad.net/juju-core/state/multiwatcher"
 )
 
 type clientAPI struct{ *client.API }
+
+type taggedAuthenticator interface {
+	state.Entity
+	state.Authenticator
+}
 
 // srvRoot represents a single client's connection to the state
 // after it has logged in.
@@ -23,10 +29,10 @@ type srvRoot struct {
 	srv       *Server
 	resources *common.Resources
 
-	entity state.TaggedAuthenticator
+	entity taggedAuthenticator
 }
 
-func newSrvRoot(srv *Server, entity state.TaggedAuthenticator) *srvRoot {
+func newSrvRoot(srv *Server, entity taggedAuthenticator) *srvRoot {
 	r := &srvRoot{
 		srv:       srv,
 		resources: common.NewResources(),
@@ -82,6 +88,17 @@ func (r *srvRoot) MachineAgent(id string) (*machine.AgentAPI, error) {
 		return nil, common.ErrBadId
 	}
 	return machine.NewAgentAPI(r.srv.state, r)
+}
+
+// Uniter returns an object that provides access to the Uniter API
+// facade. The id argument is reserved for future use and currently
+// needs to be empty.
+func (r *srvRoot) Uniter(id string) (*uniter.UniterAPI, error) {
+	if id != "" {
+		// Safeguard id for possible future use.
+		return nil, common.ErrBadId
+	}
+	return uniter.NewUniterAPI(r.srv.state, r.resources, r)
 }
 
 // Agent returns an object that provides access to the
