@@ -32,6 +32,14 @@ func (*instanceSuite) TestId(c *C) {
 	c.Check(azInstance.Id(), Equals, instance.Id(serviceName))
 }
 
+func (*instanceSuite) TestStatus(c *C) {
+	serviceName := "test-name"
+	testService := makeHostedServiceDescriptor(serviceName)
+	testService.Status = "something"
+	azInstance := azureInstance{*testService, nil}
+	c.Check(azInstance.Status(), Equals, testService.Status)
+}
+
 func (*instanceSuite) TestDNSName(c *C) {
 	// An instance's DNS name is computed from its hosted-service name.
 	host := "hostname"
