@@ -293,7 +293,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Warningf("cannot load index %q/%q: %v", baseURL, indexPath, err)
+				logger.Debugf("cannot load index %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -301,7 +301,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Warningf("skipping index because of error getting latest metadata %q/%q: %v", baseURL, indexPath, err)
+				logger.Debugf("skipping index because of error getting latest metadata %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
