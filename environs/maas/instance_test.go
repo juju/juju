@@ -7,13 +7,13 @@ import (
 	gc "launchpad.net/gocheck"
 )
 
-type InstanceTest struct {
-	ProviderSuite
+type instanceTest struct {
+	providerSuite
 }
 
-var _ = gc.Suite(&InstanceTest{})
+var _ = gc.Suite(&instanceTest{})
 
-func (s *InstanceTest) TestId(c *gc.C) {
+func (s *instanceTest) TestId(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	resourceURI, _ := obj.GetField("resource_uri")
@@ -22,7 +22,7 @@ func (s *InstanceTest) TestId(c *gc.C) {
 	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
 
-func (s *InstanceTest) TestRefreshInstance(c *gc.C) {
+func (s *instanceTest) TestRefreshInstance(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	s.testMAASObject.TestServer.ChangeNode("system_id", "test2", "test2")
@@ -36,7 +36,7 @@ func (s *InstanceTest) TestRefreshInstance(c *gc.C) {
 	c.Check(testField, gc.Equals, "test2")
 }
 
-func (s *InstanceTest) TestDNSName(c *gc.C) {
+func (s *instanceTest) TestDNSName(c *gc.C) {
 	jsonValue := `{"hostname": "DNS name", "system_id": "system_id"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := maasInstance{&obj, s.environ}
