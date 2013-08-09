@@ -103,7 +103,7 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 	return nil, fmt.Errorf("no machine type matches constraints %v", constraint)
 }
 
-// baseURLs specifies where we look for simplestreams information.  It's just
+// baseURLs specifies where we look for simplestreams information.  It contains
 // the central databases for the released and daily streams, but this may
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.

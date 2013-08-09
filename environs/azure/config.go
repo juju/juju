@@ -121,7 +121,7 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	return cfg.Apply(envCfg.attrs)
 }
 
-// TODO: Once we have "released" images for Azure, update the provisional
+// TODO(jtv): Once we have "released" images for Azure, update the provisional
 // image-stream and default-series settings.
 const boilerplateYAML = `azure:
   type: azure
