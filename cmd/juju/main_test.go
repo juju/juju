@@ -280,6 +280,7 @@ var topicNames = []string{
 	"commands",
 	"global-options",
 	"local",
+	"openstack",
 	"plugins",
 	"topics",
 }

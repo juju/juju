@@ -68,3 +68,61 @@ References:
   [1]: http://askubuntu.com/questions/65359/how-do-i-configure-juju-for-local-usage
   [2]: https://juju.ubuntu.com/docs/getting-started.html
 `
+
+const helpOpenstackProvider = `
+
+First off you need juju and charm-tools, ensure you have the latest stable
+juju:
+
+    sudo add-apt-repository ppa:juju/stable
+    sudo apt-get update && sudo apt-get install juju-core charm-tools
+
+Do a 'juju generate-config -w' to generate a config for OpenStack that you can
+customize for your needs.
+
+Here's an example OpenStack configuration for '~/.juju/environments.yaml',
+including the commented out sections:
+
+      openstack:
+        type: openstack
+        # Specifies whether the use of a floating IP address is required to
+        # give the nodes a public IP address. Some installations assign public
+        # IP addresses by default without requiring a floating IP address.
+        # use-floating-ip: false
+        admin-secret: 13850d1b9786065cadd0f477e8c97cd3
+        # Globally unique swift bucket name
+        control-bucket: juju-fd6ab8d02393af742bfbe8b9629707ee
+        # Usually set via the env variable OS_AUTH_URL, but can be specified here
+        # auth-url: https://yourkeystoneurl:443/v2.0/
+        # override if your workstation is running a different series to which
+        # you are deploying
+        # default-series: precise
+        # The following are used for userpass authentication (the default)
+        auth-mode: userpass
+        # Usually set via the env variable OS_USERNAME, but can be specified here
+        # username: <your username>
+        # Usually set via the env variable OS_PASSWORD, but can be specified here
+        # password: <secret>
+        # Usually set via the env variable OS_TENANT_NAME, but can be specified here
+        # tenant-name: <your tenant name>
+        # Usually set via the env variable OS_REGION_NAME, but can be specified here
+        # region: <your region>
+
+References:
+
+ - Source: Question on Ask Ubuntu [1]
+ - Official Docs [2]
+
+  [1]: http://askubuntu.com/questions/132411/how-can-i-configure-juju-for-deployment-on-openstack
+  [2]: http://juju.ubuntu.com/docs/provider-configuration-openstack.html
+
+Other OpenStack Based Clouds:
+
+This answer is for generic upstream OpenStack support, if you're using an
+OpenStack-based provider check these questions out for provider-specific
+information:
+
+- http://askubuntu.com/questions/116174/how-can-i-configure-juju-for-deployment-to-the-hp-cloud
+- http://askubuntu.com/questions/166102/how-do-i-configure-juju-for-deployment-on-rackspace-cloud
+
+`
