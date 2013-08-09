@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type StateSuite struct{}
@@ -109,7 +109,7 @@ func (suite *StateSuite) TestLoadStateMissingFile(c *C) {
 
 	_, err := environs.LoadState(storage)
 
-	c.Check(err, checkers.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {

@@ -24,7 +24,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type environSuite struct {
@@ -155,7 +155,7 @@ func patchWithServiceListResponse(c *C, services []gwacl.HostedServiceDescriptor
 
 func (suite *environSuite) TestGetEnvPrefixContainsEnvName(c *C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getEnvPrefix(), env.Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetContainerName(c *C) {
@@ -464,7 +464,7 @@ func (*environSuite) TestStateInfoFailsIfNoStateInstances(c *C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	_, _, err := env.StateInfo()
-	c.Check(err, Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
 func (*environSuite) TestStateInfo(c *C) {
@@ -816,7 +816,7 @@ func (*environSuite) TestDestroyDeletesVirtualNetworkAndAffinityGroup(c *C) {
 	c.Check(strings.HasSuffix(putRequest.URL, "services/networking/media"), Equals, true)
 	// One request to delete the Affinity Group.
 	agRequest := (*requests)[3]
-	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(strings.Contains(agRequest.URL, env.getAffinityGroupName()), jc.IsTrue)
 	c.Check(agRequest.Method, Equals, "DELETE")
 
 }
@@ -866,13 +866,13 @@ func (*environSuite) TestDestroyStopsAllInstances(c *C) {
 	c.Check((*requests), HasLen, 1+len(services)*2+2)
 	c.Check((*requests)[0].Method, Equals, "GET")
 	c.Check((*requests)[1].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[1].URL, service1Name), IsTrue)
+	c.Check(strings.Contains((*requests)[1].URL, service1Name), jc.IsTrue)
 	c.Check((*requests)[2].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[2].URL, service1Name), IsTrue)
+	c.Check(strings.Contains((*requests)[2].URL, service1Name), jc.IsTrue)
 	c.Check((*requests)[3].Method, Equals, "GET")
-	c.Check(strings.Contains((*requests)[3].URL, service2Name), IsTrue)
+	c.Check(strings.Contains((*requests)[3].URL, service2Name), jc.IsTrue)
 	c.Check((*requests)[4].Method, Equals, "DELETE")
-	c.Check(strings.Contains((*requests)[4].URL, service2Name), IsTrue)
+	c.Check(strings.Contains((*requests)[4].URL, service2Name), jc.IsTrue)
 }
 
 func (*environSuite) TestGetInstance(c *C) {
@@ -1046,7 +1046,7 @@ func (*environSuite) TestDestroyVirtualNetwork(c *C) {
 
 func (*environSuite) TestGetVirtualNetworkNameContainsEnvName(c *C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getVirtualNetworkName(), env.Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetVirtualNetworkNameIsConstant(c *C) {
@@ -1085,13 +1085,13 @@ func (*environSuite) TestDestroyAffinityGroup(c *C) {
 
 	c.Assert(*requests, HasLen, 1)
 	request := (*requests)[0]
-	c.Check(strings.Contains(request.URL, env.getAffinityGroupName()), IsTrue)
+	c.Check(strings.Contains(request.URL, env.getAffinityGroupName()), jc.IsTrue)
 	c.Check(request.Method, Equals, "DELETE")
 }
 
 func (*environSuite) TestGetAffinityGroupName(c *C) {
 	env := makeEnviron(c)
-	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), IsTrue)
+	c.Check(strings.Contains(env.getAffinityGroupName(), env.Name()), jc.IsTrue)
 }
 
 func (*environSuite) TestGetAffinityGroupNameIsConstant(c *C) {

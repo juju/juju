@@ -8,8 +8,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"strings"
+
 	amzec2 "launchpad.net/goamz/ec2"
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -20,8 +23,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
-	"strings"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 // uniqueName is generated afresh for every test run, so that
@@ -367,7 +369,7 @@ func (t *LiveTests) TestPublicStorage(c *C) {
 
 	// Check that the public storage isn't aliased to the private storage.
 	r, err = t.Env.Storage().Get("test-object")
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (t *LiveTests) TestPutBucketOnlyOnce(c *C) {

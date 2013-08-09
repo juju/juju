@@ -43,11 +43,14 @@ func IsNotFoundError(err error) bool {
 // arguments formatted as with fmt.Sprintf, with the
 // string " not found" appended.
 func NotFoundf(format string, args ...interface{}) error {
-	return notFoundError{&errorWrapper{Msg: fmt.Sprintf(format+" not found", args...)}}
+	return notFoundError{
+		&errorWrapper{
+			Msg: fmt.Sprintf(format+" not found", args...),
+		},
+	}
 }
 
-// NewNotFoundError returns a new error from the given error and message that will
-// return true from IsnotFoundError.
+// NewNotFoundError returns a new error that satisfies IsnotFoundError().
 func NewNotFoundError(err error, msg string) error {
 	return notFoundError{&errorWrapper{Err: err, Msg: msg}}
 }
@@ -67,7 +70,11 @@ func IsUnauthorizedError(err error) bool {
 // Unauthorizedf returns an error for which IsUnauthorizedError returns true.
 // It is mainly used for testing.
 func Unauthorizedf(format string, args ...interface{}) error {
-	return unauthorizedError{&errorWrapper{Msg: fmt.Sprintf(format, args...)}}
+	return unauthorizedError{
+		&errorWrapper{
+			Msg: fmt.Sprintf(format, args...),
+		},
+	}
 }
 
 // NewUnauthorizedError returns an error which wraps err and for which IsUnauthorized
@@ -76,7 +83,7 @@ func NewUnauthorizedError(err error, msg string) error {
 	return unauthorizedError{&errorWrapper{Msg: msg}}
 }
 
-// notBootstrappedError indicates that the system can't be used because it hasn't been
+// notBootstrappedError indicates that the environment can't be used because it hasn't been
 // bootstrapped yet.
 type notBootstrappedError struct {
 	*errorWrapper

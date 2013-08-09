@@ -22,7 +22,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"strings"
@@ -676,7 +676,7 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 		c.Assert(err, IsNil)
 		instId, err := m.InstanceId()
 		if err != nil {
-			c.Assert(state.IsNotProvisionedError(err), IsTrue)
+			c.Assert(state.IsNotProvisionedError(err), jc.IsTrue)
 			continue
 		}
 		_, err = t.Env.Instances([]instance.Id{instId})
@@ -715,7 +715,7 @@ func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
 		c.Assert(err, IsNil)
 		gotId, err = m.InstanceId()
 		if err != nil {
-			c.Assert(state.IsNotProvisionedError(err), IsTrue)
+			c.Assert(state.IsNotProvisionedError(err), jc.IsTrue)
 			if inst == nil {
 				return
 			}
@@ -786,7 +786,7 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	c.Assert(err, Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(err, ErrorMatches, "no matching tools available")
 }
 

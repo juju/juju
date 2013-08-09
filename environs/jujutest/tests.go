@@ -19,7 +19,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -240,7 +240,7 @@ func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string, at
 		}
 	}
 	c.Assert(r, IsNil)
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte, attempt utils.AttemptStrategy) {

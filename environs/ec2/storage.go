@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"launchpad.net/goamz/s3"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/utils"

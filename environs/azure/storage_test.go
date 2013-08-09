@@ -13,8 +13,9 @@ import (
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
+
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type storageSuite struct {
@@ -172,7 +173,7 @@ func (*storageSuite) TestGetReturnsNotFoundIf404(c *C) {
 	transport.AddExchange(response, nil)
 	_, err := azStorage.Get(filename)
 	c.Assert(err, NotNil)
-	c.Check(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (*storageSuite) TestPut(c *C) {
