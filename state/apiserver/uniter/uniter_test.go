@@ -222,3 +222,109 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
 }
+
+func (s *uniterSuite) TestPublicAddress(c *gc.C) {
+	err := s.wordpressUnit.SetPublicAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, ok := s.wordpressUnit.PublicAddress()
+	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(ok, gc.Equals, true)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.PublicAddress(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "1.2.3.4", Ok: true},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestSetPublicAddress(c *gc.C) {
+	err := s.wordpressUnit.SetPublicAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, ok := s.wordpressUnit.PublicAddress()
+	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(ok, gc.Equals, true)
+
+	args := params.SetEntityAddresses{Entities: []params.SetEntityAddress{
+		{Tag: "unit-mysql-0", Address: "4.3.2.1"},
+		{Tag: "unit-wordpress-0", Address: "4.4.2.2"},
+		{Tag: "unit-foo-42", Address: "2.2.4.4"},
+	}}
+	result, err := s.uniter.SetPublicAddress(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit's address has changed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	address, ok = s.wordpressUnit.PublicAddress()
+	c.Assert(address, gc.Equals, "4.4.2.2")
+	c.Assert(ok, gc.Equals, true)
+}
+
+func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
+	err := s.wordpressUnit.SetPrivateAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, ok := s.wordpressUnit.PrivateAddress()
+	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(ok, gc.Equals, true)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.PrivateAddress(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "1.2.3.4", Ok: true},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
+	err := s.wordpressUnit.SetPrivateAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+	address, ok := s.wordpressUnit.PrivateAddress()
+	c.Assert(address, gc.Equals, "1.2.3.4")
+	c.Assert(ok, gc.Equals, true)
+
+	args := params.SetEntityAddresses{Entities: []params.SetEntityAddress{
+		{Tag: "unit-mysql-0", Address: "4.3.2.1"},
+		{Tag: "unit-wordpress-0", Address: "4.4.2.2"},
+		{Tag: "unit-foo-42", Address: "2.2.4.4"},
+	}}
+	result, err := s.uniter.SetPrivateAddress(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit's address has changed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	address, ok = s.wordpressUnit.PrivateAddress()
+	c.Assert(address, gc.Equals, "4.4.2.2")
+	c.Assert(ok, gc.Equals, true)
+}
