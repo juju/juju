@@ -380,7 +380,8 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
-	sourceImageName := env.getSnapshot().ecfg.forceImageName()
+	ecfg := env.getSnapshot().ecfg
+	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
 		// Configuration forces us to use a specific image.  There may
 		// not be a suitable image in the simplestreams database.
@@ -402,16 +403,13 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	//
 	// This should be the normal execution path.  The user is not expected
 	// to configure a source image name in normal use.
-
-	// TODO(jtv): Simplestreams for Azure aren't quite done yet.   The
-	// source image name is forced in the boilerplate config for the time
-	// being.
-	spec, err := findInstanceSpec(baseURLs, instances.InstanceConstraint{
+	constraint := instances.InstanceConstraint{
 		Region:      location,
 		Series:      series,
 		Arches:      architectures,
 		Constraints: cons,
-	})
+	}
+	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}

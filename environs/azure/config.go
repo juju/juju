@@ -19,6 +19,7 @@ var configFields = schema.Fields{
 	"storage-account-name":          schema.String(),
 	"public-storage-account-name":   schema.String(),
 	"public-storage-container-name": schema.String(),
+	"image-stream":                  schema.String(),
 	"force-image-name":              schema.String(),
 }
 var configDefaults = schema.Defaults{
@@ -27,7 +28,12 @@ var configDefaults = schema.Defaults{
 	"management-certificate-path":   "",
 	"public-storage-account-name":   "",
 	"public-storage-container-name": "",
-	"force-image-name":              "",
+	// The default is blank, which means "use the first of the base URLs
+	// that has a matching image."  The first base URL is for "released",
+	// which is what we want, but also a blank default will be easier on
+	// the user if we later make the list of base URLs configurable.
+	"image-stream":     "",
+	"force-image-name": "",
 }
 
 type azureEnvironConfig struct {
@@ -57,6 +63,10 @@ func (cfg *azureEnvironConfig) publicStorageContainerName() string {
 
 func (cfg *azureEnvironConfig) publicStorageAccountName() string {
 	return cfg.attrs["public-storage-account-name"].(string)
+}
+
+func (cfg *azureEnvironConfig) imageStream() string {
+	return cfg.attrs["image-stream"].(string)
 }
 
 func (cfg *azureEnvironConfig) forceImageName() string {
@@ -111,6 +121,8 @@ func (prov azureEnvironProvider) Validate(cfg, oldCfg *config.Config) (*config.C
 	return cfg.Apply(envCfg.attrs)
 }
 
+// TODO(jtv): Once we have "released" images for Azure, update the provisional
+// image-stream and default-series settings.
 const boilerplateYAML = `azure:
   type: azure
   admin-secret: {{rand}}
@@ -129,6 +141,12 @@ const boilerplateYAML = `azure:
   # Override OS image selection with a fixed image for all deployments.
   # Most useful for developers.
   # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
+  # Pick a simplestreams stream to select OS images from: daily or released
+  # images, or any other stream available on simplestreams.  Leave blank for
+  # released images.
+  # For now, during development, only the daily 13.10 pre-release images work.
+  image-stream: daily
+  default-series: saucy
 `
 
 func (prov azureEnvironProvider) BoilerplateConfig() string {

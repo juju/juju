@@ -37,7 +37,10 @@ type ImageConstraint struct {
 	CloudSpec
 	Series string
 	Arches []string
-	Stream string // may be "", typically "release", "daily" etc
+	// Stream can be "" for the default "released" stream, or "daily" for
+	// daily images, or any other stream that the available simplestreams
+	// metadata supports.
+	Stream string
 }
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
