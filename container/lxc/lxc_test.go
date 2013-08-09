@@ -148,13 +148,13 @@ func (s *LxcSuite) TestContainerState(c *gc.C) {
 	instance := StartContainer(c, manager, "1/lxc/0")
 
 	// The mock container will be immediately "running".
-	c.Assert(instance.State(), gc.Equals, string(golxc.StateRunning))
+	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
 
 	// StopContainer stops and then destroys the container, putting it
 	// into "unknown" state.
 	err := manager.StopContainer(instance)
 	c.Assert(err, gc.IsNil)
-	c.Assert(instance.State(), gc.Equals, string(golxc.StateUnknown))
+	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
 }
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {

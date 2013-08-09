@@ -72,8 +72,8 @@ func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
-func (inst *ec2Instance) State() string {
-	return inst.Instance.State.Name
+func (inst *ec2Instance) Status() string {
+	return inst.State.Name
 }
 
 func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteristics {

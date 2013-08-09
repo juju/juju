@@ -357,7 +357,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		inst, ok := context.instances[instid]
 		if ok {
 			status.DNSName, _ = inst.DNSName()
-			status.InstanceState = inst.State()
+			status.InstanceState = inst.Status()
 		} else {
 			// Double plus ungood.  There is an instance id recorded
 			// for this machine in the state, yet the environ cannot

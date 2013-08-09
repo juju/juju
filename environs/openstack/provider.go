@@ -242,7 +242,7 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.ServerDetail.Id)
 }
 
-func (inst *openstackInstance) State() string {
+func (inst *openstackInstance) Status() string {
 	return inst.ServerDetail.Status
 }
 

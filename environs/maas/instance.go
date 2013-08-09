@@ -22,7 +22,7 @@ func (mi *maasInstance) Id() instance.Id {
 	return instance.Id((*mi.maasObject).URI().String())
 }
 
-func (mi *maasInstance) State() string {
+func (mi *maasInstance) Status() string {
 	// MAAS does not track node status once they're allocated.
 	// Since any instance that juju knows about will be an
 	// allocated one, it doesn't make sense to report any

@@ -303,7 +303,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
-func (t *localServerSuite) TestInstanceState(c *C) {
+func (t *localServerSuite) TestInstanceStatus(c *C) {
 	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
 	series := t.env.Config().DefaultSeries()
@@ -315,7 +315,7 @@ func (t *localServerSuite) TestInstanceState(c *C) {
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
-	c.Assert(inst.State(), Equals, "terminated")
+	c.Assert(inst.Status(), Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {

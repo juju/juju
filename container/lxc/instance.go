@@ -23,8 +23,8 @@ func (lxc *lxcInstance) Id() instance.Id {
 	return instance.Id(lxc.id)
 }
 
-// State implements instance.Instance.State.
-func (lxc *lxcInstance) State() string {
+// Status implements instance.Instance.Status.
+func (lxc *lxcInstance) Status() string {
 	// On error, the state will be "unknown".
 	state, _, _ := lxc.Info()
 	return string(state)

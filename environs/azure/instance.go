@@ -29,8 +29,8 @@ func (azInstance *azureInstance) Id() instance.Id {
 	return instance.Id(azInstance.ServiceName)
 }
 
-// State is specified in the Instance interface.
-func (azInstance *azureInstance) State() string {
+// Status is specified in the Instance interface.
+func (azInstance *azureInstance) Status() string {
 	return azInstance.HostedServiceDescriptor.Status
 }
 

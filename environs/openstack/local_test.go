@@ -330,10 +330,10 @@ var instanceGathering = []struct {
 	},
 }
 
-func (s *localServerSuite) TestInstanceState(c *C) {
+func (s *localServerSuite) TestInstanceStatus(c *C) {
 	// goose's test service always returns ACTIVE state.
 	inst, _ := testing.StartInstance(c, s.Env, "100")
-	c.Assert(inst.State(), Equals, nova.StatusActive)
+	c.Assert(inst.Status(), Equals, nova.StatusActive)
 	err := s.Env.StopInstances([]instance.Instance{inst})
 	c.Assert(err, IsNil)
 }

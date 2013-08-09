@@ -726,7 +726,7 @@ func (inst *dummyInstance) Id() instance.Id {
 	return inst.id
 }
 
-func (inst *dummyInstance) State() string {
+func (inst *dummyInstance) Status() string {
 	return ""
 }
 

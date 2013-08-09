@@ -22,8 +22,8 @@ func (inst *localInstance) Id() instance.Id {
 	return inst.id
 }
 
-// State implements instance.Instance.State.
-func (inst *localInstance) State() string {
+// Status implements instance.Instance.Status.
+func (inst *localInstance) Status() string {
 	return ""
 }
 
