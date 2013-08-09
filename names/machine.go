@@ -1,31 +1,23 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
 package names
 
 import (
-	"fmt"
 	"regexp"
 	"strings"
 )
 
 const (
-	ContainerSnippet     = "(/[a-z]+/" + NumberSnippet + ")"
-	MachineSnippet       = NumberSnippet + ContainerSnippet + "*"
-	ContainerSpecSnippet = "([a-z]+:)?"
+	ContainerSnippet = "(/[a-z]+/" + NumberSnippet + ")"
+	MachineSnippet   = NumberSnippet + ContainerSnippet + "*"
 )
 
-var (
-	validMachine               = regexp.MustCompile("^" + MachineSnippet + "$")
-	validMachineOrNewContainer = regexp.MustCompile("^" + ContainerSpecSnippet + MachineSnippet + "$")
-)
+var validMachine = regexp.MustCompile("^" + MachineSnippet + "$")
 
 // IsMachine returns whether id is a valid machine id.
 func IsMachine(id string) bool {
 	return validMachine.MatchString(id)
-}
-
-// IsMachineOrNewContainer returns whether spec is a valid machine id
-// or new container definition.
-func IsMachineOrNewContainer(spec string) bool {
-	return validMachineOrNewContainer.MatchString(spec)
 }
 
 // MachineTag returns the tag for the machine with the given id.
@@ -36,17 +28,6 @@ func MachineTag(id string) string {
 	return tag
 }
 
-// MachineFromTag returns the machine id that was used to create the
-// tag, or an error if it's not the tag of a machine.
-func MachineFromTag(tag string) (string, error) {
-	kind, id, err := splitTag(tag)
-	if kind != MachineTagKind || err != nil {
-		return "", fmt.Errorf("%q is not a valid machine tag", tag)
-	}
-	// Put the slashes back.
-	id = strings.Replace(id, "-", "/", -1)
-	if !IsMachine(id) {
-		return "", fmt.Errorf("%q is not a valid machine tag", tag)
-	}
-	return id, nil
+func machineTagSuffixToId(s string) string {
+	return strings.Replace(s, "-", "/", -1)
 }

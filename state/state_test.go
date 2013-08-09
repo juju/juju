@@ -1046,87 +1046,6 @@ func (*StateSuite) TestSortPorts(c *gc.C) {
 	}
 }
 
-func (*StateSuite) TestNameChecks(c *gc.C) {
-	assertService := func(s string, expect bool) {
-		c.Assert(names.IsService(s), gc.Equals, expect)
-		// Check that anything that is considered a valid service name
-		// is also (in)valid if a(n) (in)valid unit designator is added
-		// to it.
-		c.Assert(names.IsUnit(s+"/0"), gc.Equals, expect)
-		c.Assert(names.IsUnit(s+"/99"), gc.Equals, expect)
-		c.Assert(names.IsUnit(s+"/-1"), gc.Equals, false)
-		c.Assert(names.IsUnit(s+"/blah"), gc.Equals, false)
-		c.Assert(names.IsUnit(s+"/"), gc.Equals, false)
-	}
-	// Service names must be non-empty...
-	assertService("", false)
-	// must not consist entirely of numbers
-	assertService("33", false)
-	// may consist of a single word
-	assertService("wordpress", true)
-	// may contain hyphen-seperated words...
-	assertService("super-duper-wordpress", true)
-	// ...but those words must have at least one letter in them
-	assertService("super-1234-wordpress", false)
-	// may contain internal numbers.
-	assertService("w0rd-pre55", true)
-	// must not begin with a number
-	assertService("3wordpress", false)
-	// but internal, hyphen-sperated words can begin with numbers
-	assertService("foo-2foo", true)
-	// and may end with a number...
-	assertService("foo2", true)
-	// ...unless that number is all by itself
-	assertService("foo-2", false)
-
-	assertMachine := func(s string, expect bool) {
-		c.Assert(names.IsMachine(s), gc.Equals, expect)
-	}
-	assertMachine("0", true)
-	assertMachine("00", false)
-	assertMachine("1", true)
-	assertMachine("1000001", true)
-	assertMachine("01", false)
-	assertMachine("-1", false)
-	assertMachine("", false)
-	assertMachine("cantankerous", false)
-	// And container specs
-	assertMachine("0/", false)
-	assertMachine("0/0", false)
-	assertMachine("0/lxc", false)
-	assertMachine("0/lxc/", false)
-	assertMachine("0/lxc/0", true)
-	assertMachine("0/lxc/0/", false)
-	assertMachine("0/lxc/00", false)
-	assertMachine("0/lxc/01", false)
-	assertMachine("0/lxc/10", true)
-	assertMachine("0/kvm/4", true)
-	assertMachine("0/no-dash/0", false)
-	assertMachine("0/lxc/1/embedded/2", true)
-
-	assertMachineOrNewContainer := func(s string, expect bool) {
-		c.Assert(names.IsMachineOrNewContainer(s), gc.Equals, expect)
-	}
-	assertMachineOrNewContainer("0", true)
-	assertMachineOrNewContainer("00", false)
-	assertMachineOrNewContainer("1", true)
-	assertMachineOrNewContainer("0/lxc/0", true)
-	assertMachineOrNewContainer("lxc:0", true)
-	assertMachineOrNewContainer("lxc:lxc:0", false)
-	assertMachineOrNewContainer("kvm:0/lxc/1", true)
-	assertMachineOrNewContainer("lxc:", false)
-	assertMachineOrNewContainer(":lxc", false)
-	assertMachineOrNewContainer("0/lxc/", false)
-	assertMachineOrNewContainer("0/lxc", false)
-	assertMachineOrNewContainer("kvm:0/lxc", false)
-	assertMachine("0/lxc/00", false)
-	assertMachine("0/lxc/01", false)
-	assertMachineOrNewContainer("0/lxc/01", false)
-	assertMachineOrNewContainer("0/lxc/10", true)
-	assertMachineOrNewContainer("0/kvm/4", true)
-	assertMachine("0/lxc/1/embedded/2", true)
-}
-
 type attrs map[string]interface{}
 
 func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
@@ -1379,9 +1298,10 @@ func testSetPassword(c *gc.C, getEntity func() (state.Authenticator, error)) {
 }
 
 type entity interface {
-	lifer
-	state.TaggedAuthenticator
-	SetMongoPassword(password string) error
+	state.Entity
+	state.Lifer
+	state.Authenticator
+	state.MongoPassworder
 }
 
 func testSetMongoPassword(c *gc.C, getEntity func(st *state.State) (entity, error)) {
@@ -1467,151 +1387,94 @@ func (s *StateSuite) TestSetAdminMongoPassword(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *StateSuite) testEntity(c *gc.C, getEntity func(string) (state.Tagger, error)) {
-	bad := []string{"", "machine", "-foo", "foo-", "---", "machine-bad", "unit-123", "unit-foo", "service-", "service-foo/bar", "environment-foo"}
-	for _, name := range bad {
-		c.Logf(name)
-		e, err := getEntity(name)
-		c.Check(e, gc.IsNil)
-		c.Assert(err, gc.ErrorMatches, `invalid entity tag ".*"`)
-	}
+var findEntityTests = []struct {
+	tag string
+	err string
+}{{
+	tag: "",
+	err: `"" is not a valid tag`,
+}, {
+	tag: "machine",
+	err: `"machine" is not a valid tag`,
+}, {
+	tag: "-foo",
+	err: `"-foo" is not a valid tag`,
+}, {
+	tag: "foo-",
+	err: `"foo-" is not a valid tag`,
+}, {
+	tag: "---",
+	err: `"---" is not a valid tag`,
+}, {
+	tag: "machine-bad",
+	err: `"machine-bad" is not a valid machine tag`,
+}, {
+	tag: "unit-123",
+	err: `"unit-123" is not a valid unit tag`,
+}, {
+	tag: "unit-foo",
+	err: `"unit-foo" is not a valid unit tag`,
+}, {
+	tag: "service-",
+	err: `"service-" is not a valid service tag`,
+}, {
+	tag: "service-foo/bar",
+	err: `"service-foo/bar" is not a valid service tag`,
+}, {
+	tag: "environment-foo",
+	err: `environment "foo" not found`,
+}, {
+	tag: "machine-1234",
+	err: `machine 1234 not found`,
+}, {
+	tag: "unit-foo-654",
+	err: `unit "foo/654" not found`,
+}, {
+	tag: "unit-foo-bar-654",
+	err: `unit "foo-bar/654" not found`,
+}, {
+	tag: "machine-0",
+}, {
+	tag: "service-ser-vice2",
+}, {
+	tag: "unit-ser-vice2-0",
+}, {
+	tag: "user-arble",
+}, {
+	tag: "environment-test-name",
+}}
 
-	e, err := getEntity("machine-1234")
-	c.Check(e, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `machine 1234 not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+var entityTypes = map[string]interface{}{
+	names.UserTagKind:    (*state.User)(nil),
+	names.EnvironTagKind: (*state.Environment)(nil),
+	names.ServiceTagKind: (*state.Service)(nil),
+	names.UnitTagKind:    (*state.Unit)(nil),
+	names.MachineTagKind: (*state.Machine)(nil),
+}
 
-	e, err = getEntity("unit-foo-654")
-	c.Check(e, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `unit "foo/654" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	e, err = getEntity("unit-foo-bar-654")
-	c.Check(e, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `unit "foo-bar/654" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	m, err := s.State.AddMachine("series", state.JobHostUnits)
+func (s *StateSuite) TestFindEntity(c *gc.C) {
+	_, err := s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-
-	e, err = getEntity(m.Tag())
-	c.Assert(err, gc.IsNil)
-	c.Assert(e, gc.FitsTypeOf, m)
-	c.Assert(e.Tag(), gc.Equals, m.Tag())
-
 	svc, err := s.State.AddService("ser-vice2", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
-	u, err := svc.AddUnit()
+	_, err = svc.AddUnit()
+	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
 
-	e, err = getEntity(u.Tag())
-	c.Assert(err, gc.IsNil)
-	c.Assert(e, gc.FitsTypeOf, u)
-	c.Assert(e.Tag(), gc.Equals, u.Tag())
-
-	m.Destroy()
-	svc.Destroy()
-}
-
-func (s *StateSuite) TestAuthenticator(c *gc.C) {
-	getEntity := func(tag string) (state.Tagger, error) {
-		e, err := s.State.Authenticator(tag)
-		if err != nil {
-			return nil, err
+	for i, test := range findEntityTests {
+		c.Logf("test %d: %q", i, test.tag)
+		e, err := s.State.FindEntity(test.tag)
+		if test.err != "" {
+			c.Assert(err, gc.ErrorMatches, test.err)
+		} else {
+			c.Assert(err, gc.IsNil)
+			kind, err := names.TagKind(test.tag)
+			c.Assert(err, gc.IsNil)
+			c.Assert(e, gc.FitsTypeOf, entityTypes[kind])
+			c.Assert(e.Tag(), gc.Equals, test.tag)
 		}
-		return e, nil
 	}
-	s.testEntity(c, getEntity)
-	e, err := getEntity("user-arble")
-	c.Check(e, gc.IsNil)
-	c.Assert(err, gc.ErrorMatches, `user "arble" not found`)
-	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
-
-	user, err := s.State.AddUser("arble", "pass")
-	c.Assert(err, gc.IsNil)
-
-	e, err = getEntity(user.Tag())
-	c.Assert(err, gc.IsNil)
-	c.Assert(e, gc.FitsTypeOf, user)
-	c.Assert(e.Tag(), gc.Equals, user.Tag())
-
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	_, err = getEntity("environment-" + cfg.Name())
-	c.Assert(
-		err,
-		gc.ErrorMatches,
-		`entity "environment-.*" does not support authentication`,
-	)
-}
-
-func (s *StateSuite) TestAnnotator(c *gc.C) {
-	getEntity := func(tag string) (state.Tagger, error) {
-		e, err := s.State.Annotator(tag)
-		if err != nil {
-			return nil, err
-		}
-		return e, nil
-	}
-	s.testEntity(c, getEntity)
-	svc, err := s.State.AddService("ser-vice1", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, gc.IsNil)
-
-	service, err := getEntity(svc.Tag())
-	c.Assert(err, gc.IsNil)
-	c.Assert(service, gc.FitsTypeOf, svc)
-	c.Assert(service.Tag(), gc.Equals, svc.Tag())
-
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	e, err := getEntity("environment-" + cfg.Name())
-	c.Assert(err, gc.IsNil)
-	env, err := s.State.Environment()
-	c.Assert(err, gc.IsNil)
-	c.Assert(e, gc.FitsTypeOf, env)
-	c.Assert(e.Tag(), gc.Equals, env.Tag())
-
-	user, err := s.State.AddUser("arble", "pass")
-	c.Assert(err, gc.IsNil)
-	_, err = getEntity(user.Tag())
-	c.Assert(
-		err,
-		gc.ErrorMatches,
-		`entity "user-arble" does not support annotations`,
-	)
-}
-
-func (s *StateSuite) TestLifer(c *gc.C) {
-	getEntity := func(tag string) (state.Tagger, error) {
-		e, err := s.State.Lifer(tag)
-		if err != nil {
-			return nil, err
-		}
-		return e, nil
-	}
-	s.testEntity(c, getEntity)
-
-	svc, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, gc.IsNil)
-	service, err := getEntity(svc.Tag())
-	c.Assert(err, gc.IsNil)
-	c.Assert(service, gc.FitsTypeOf, svc)
-	c.Assert(service.Tag(), gc.Equals, svc.Tag())
-
-	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, check
-	// it works here.
-
-	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, gc.IsNil)
-	envTag := "environment-" + cfg.Name()
-	_, err = getEntity(envTag)
-	errTemplate := "entity %q does not support lifecycles"
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(errTemplate, envTag))
-
-	user, err := s.State.AddUser("arble", "pass")
-	c.Assert(err, gc.IsNil)
-	_, err = getEntity(user.Tag())
-	c.Assert(err, gc.ErrorMatches, fmt.Sprintf(errTemplate, user.Tag()))
 }
 
 func (s *StateSuite) TestParseTag(c *gc.C) {
@@ -1630,7 +1493,7 @@ func (s *StateSuite) TestParseTag(c *gc.C) {
 		coll, id, err := state.ParseTag(s.State, name)
 		c.Check(coll, gc.Equals, "")
 		c.Check(id, gc.Equals, "")
-		c.Assert(err, gc.ErrorMatches, `invalid entity name ".*"`)
+		c.Assert(err, gc.ErrorMatches, `".*" is not a valid( [a-z]+)? tag`)
 	}
 
 	// Parse a machine entity name.
@@ -1703,7 +1566,7 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Set up two relations for later use, check no events.
@@ -1749,7 +1612,7 @@ func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchCleanups()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewLaxNotifyWatcherC(c, s.State, w)
+	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertOneChange()
 
 	// Create two peer relations by creating their services.
@@ -1780,7 +1643,7 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	// Check initial event.
 	w := s.State.WatchMinUnits()
 	defer statetesting.AssertStop(c, w)
-	wc := statetesting.NewLaxStringsWatcherC(c, s.State, w)
+	wc := statetesting.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 

@@ -38,5 +38,4 @@ func WaitForEnviron(w *state.EnvironConfigWatcher, dying <-chan struct{}) (envir
 			loadedInvalid()
 		}
 	}
-	panic("not reached")
 }

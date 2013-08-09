@@ -31,6 +31,7 @@ func Test(t *stdtesting.T) {
 type LxcSuite struct {
 	testing.LoggingSuite
 	lxc.TestSuite
+	oldPath string
 }
 
 var _ = gc.Suite(&LxcSuite{})
@@ -38,9 +39,18 @@ var _ = gc.Suite(&LxcSuite{})
 func (s *LxcSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
+	tmpDir := c.MkDir()
+	s.oldPath = os.Getenv("PATH")
+	os.Setenv("PATH", tmpDir)
+	err := ioutil.WriteFile(
+		filepath.Join(tmpDir, "apt-config"),
+		[]byte(aptConfigScript),
+		0755)
+	c.Assert(err, gc.IsNil)
 }
 
 func (s *LxcSuite) TearDownSuite(c *gc.C) {
+	os.Setenv("PATH", s.oldPath)
 	s.TestSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
@@ -55,6 +65,17 @@ func (s *LxcSuite) TearDownTest(c *gc.C) {
 	s.TestSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
+
+const (
+	aptHTTPProxy     = "http://1.2.3.4:3142"
+	configProxyExtra = `Acquire::https::Proxy "false";
+Acquire::ftp::Proxy "false";`
+)
+
+var (
+	configHttpProxy = fmt.Sprintf(`Acquire::http::Proxy "%s";`, aptHTTPProxy)
+	aptConfigScript = fmt.Sprintf("#!/bin/sh\n echo '%s\n%s'", configHttpProxy, configProxyExtra)
+)
 
 func StartContainer(c *gc.C, manager lxc.ContainerManager, machineId string) instance.Instance {
 	config := testing.EnvironConfig(c)
@@ -94,13 +115,19 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	err = goyaml.Unmarshal(data, &x)
 	c.Assert(err, gc.IsNil)
 
+	c.Assert(x["apt_proxy"], gc.Equals, aptHTTPProxy)
+
 	var scripts []string
 	for _, s := range x["runcmd"].([]interface{}) {
 		scripts = append(scripts, s.(string))
 	}
 
-	c.Assert(scripts[len(scripts)-2], gc.Equals, "start jujud-machine-1-lxc-0")
-	c.Assert(scripts[len(scripts)-1], gc.Equals, "ifconfig")
+	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
+		"start jujud-machine-1-lxc-0",
+		"install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
+		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra),
+		"ifconfig",
+	})
 
 	// Check the mount point has been created inside the container.
 	c.Assert(filepath.Join(s.LxcDir, name, "rootfs/var/log/juju"), jc.IsDirectory)

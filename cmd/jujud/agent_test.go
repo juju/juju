@@ -22,6 +22,7 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 var _ = Suite(&toolSuite{})
@@ -33,7 +34,7 @@ type toolSuite struct {
 var errorImportanceTests = []error{
 	nil,
 	stderrors.New("foo"),
-	&UpgradeReadyError{},
+	&upgrader.UpgradeReadyError{},
 	worker.ErrTerminateAgent,
 }
 
@@ -100,14 +101,6 @@ func runWithTimeout(r runner) error {
 	}
 	err := r.Stop()
 	return fmt.Errorf("timed out waiting for agent to finish; stop error: %v", err)
-}
-
-type entity interface {
-	state.Tagger
-	SetMongoPassword(string) error
-	SetPassword(string) error
-	PasswordValid(string) bool
-	Refresh() error
 }
 
 // agentSuite is a fixture to be used by agent test suites.
@@ -184,7 +177,7 @@ func (s *agentSuite) primeTools(c *C, vers version.Binary) *tools.Tools {
 	return agentTools
 }
 
-func (s *agentSuite) testOpenAPIState(c *C, ent entity, agentCmd Agent) {
+func (s *agentSuite) testOpenAPIState(c *C, ent state.AgentEntity, agentCmd Agent) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, IsNil)
 
@@ -253,8 +246,8 @@ func (s *agentSuite) testUpgrade(c *C, agent runner, currentTools *tools.Tools) 
 	newTools := s.uploadTools(c, newVers)
 	s.proposeVersion(c, newVers.Number)
 	err := runWithTimeout(agent)
-	c.Assert(err, FitsTypeOf, &UpgradeReadyError{})
-	ug := err.(*UpgradeReadyError)
+	c.Assert(err, FitsTypeOf, &upgrader.UpgradeReadyError{})
+	ug := err.(*upgrader.UpgradeReadyError)
 	c.Assert(ug.NewTools, DeepEquals, newTools)
 	c.Assert(ug.OldTools, DeepEquals, currentTools)
 }

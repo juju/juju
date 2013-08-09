@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -153,6 +154,21 @@ var (
 		"series":      "series",
 		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
 	}
+	machine1WithContainersScoped = M{
+		"agent-state": "started",
+		"containers": M{
+			"1/lxc/0": M{
+				"agent-state": "started",
+				"dns-name":    "dummyenv-2.dns",
+				"instance-id": "dummyenv-2",
+				"series":      "series",
+			},
+		},
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
+		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
 		"exposed": false,
@@ -187,8 +203,9 @@ var statusTests = []testCase{
 		expect{
 			"empty state",
 			M{
-				"machines": M{},
-				"services": M{},
+				"environment": "dummyenv",
+				"machines":    M{},
+				"services":    M{},
 			},
 		},
 
@@ -196,6 +213,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -210,6 +228,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "pending",
@@ -227,6 +246,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -245,6 +265,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"dns-name":      "dummyenv-0.dns",
@@ -266,6 +287,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "started",
@@ -284,6 +306,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -298,6 +321,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
@@ -321,6 +345,7 @@ var statusTests = []testCase{
 		expect{
 			"no services exposed yet",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -335,6 +360,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed service",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -354,6 +380,7 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -380,6 +407,7 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -428,6 +456,7 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -484,6 +513,146 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		scopedExpect{
+			"scope status on dummy-service/0 unit",
+			[]string{"dummy-service/0"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on exposed-service service",
+			[]string{"exposed-service"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"2": machine2,
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on service pattern",
+			[]string{"d*-service"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on unit pattern",
+			[]string{"e*posed-service/*"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"2": machine2,
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on combination of service and unit patterns",
+			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 	test(
 		"add a dying service",
@@ -495,6 +664,7 @@ var statusTests = []testCase{
 		expect{
 			"service shows life==dying",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -565,6 +735,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -658,6 +829,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -734,6 +906,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -791,6 +964,185 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		// scoped on 'logging'
+		scopedExpect{
+			"subordinates scoped on logging",
+			[]string{"logging"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/1": M{
+										"agent-state":      "error",
+										"agent-state-info": "somehow lost in all those logs",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"server":    L{"wordpress"},
+							"juju-info": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+
+		// scoped on wordpress/0
+		scopedExpect{
+			"subordinates scoped on logging",
+			[]string{"wordpress/0"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+	), test(
+		"one service with two subordinate services",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"logging"},
+		addCharm{"monitoring"},
+
+		addService{"wordpress", "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
+
+		addService{"logging", "logging"},
+		setServiceExposed{"logging", true},
+		addService{"monitoring", "monitoring"},
+		setServiceExposed{"monitoring", true},
+
+		relateServices{"wordpress", "logging"},
+		relateServices{"wordpress", "monitoring"},
+
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"wordpress/0", "monitoring"},
+
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", params.StatusStarted, ""},
+
+		setUnitsAlive{"monitoring"},
+		setUnitStatus{"monitoring/0", params.StatusStarted, ""},
+
+		// scoped on monitoring; make sure logging doesn't show up.
+		scopedExpect{
+			"subordinates scoped on:",
+			[]string{"monitoring"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"monitoring/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"logging-dir":     L{"logging"},
+							"monitoring-port": L{"monitoring"},
+						},
+					},
+					"monitoring": M{
+						"charm":   "local:series/monitoring-0",
+						"exposed": true,
+						"relations": M{
+							"monitoring-port": L{"wordpress"},
+						},
+						"subordinate-to": L{"wordpress"},
+					},
+				},
+			},
+		},
 	), test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
@@ -822,6 +1174,7 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -835,6 +1188,30 @@ var statusTests = []testCase{
 								"machine":     "1",
 								"agent-state": "started",
 							},
+							"mysql/1": M{
+								"machine":     "1/lxc/0",
+								"agent-state": "started",
+							},
+						},
+					},
+				},
+			},
+		},
+
+		// once again, with a scope on mysql/1
+		scopedExpect{
+			"machines with nested containers",
+			[]string{"mysql/1"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1WithContainersScoped,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
 							"mysql/1": M{
 								"machine":     "1/lxc/0",
 								"agent-state": "started",
@@ -1157,19 +1534,26 @@ func (as addSubordinate) step(c *C, ctx *context) {
 	c.Assert(err, IsNil)
 }
 
+type scopedExpect struct {
+	what   string
+	scope  []string
+	output M
+}
+
 type expect struct {
 	what   string
 	output M
 }
 
-func (e expect) step(c *C, ctx *context) {
-	c.Logf("expect: %s", e.what)
+func (e scopedExpect) step(c *C, ctx *context) {
+	c.Logf("expect: %s %s", e.what, strings.Join(e.scope, " "))
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		code, stdout, stderr := runStatus(c, "--format", format.name)
+		args := append([]string{"--format", format.name}, e.scope...)
+		code, stdout, stderr := runStatus(c, args...)
 		c.Assert(code, Equals, 0)
 		c.Assert(stderr, HasLen, 0)
 
@@ -1188,6 +1572,10 @@ func (e expect) step(c *C, ctx *context) {
 	}
 }
 
+func (e expect) step(c *C, ctx *context) {
+	scopedExpect{e.what, nil, e.output}.step(c, ctx)
+}
+
 func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
@@ -1198,4 +1586,33 @@ func (s *StatusSuite) TestStatusAllFormats(c *C) {
 			ctx.run(c, t.steps)
 		}()
 	}
+}
+
+func (s *StatusSuite) TestStatusFilterErrors(c *C) {
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		addAliveUnit{"mysql", "1"},
+	}
+	ctx := s.newContext()
+	defer s.resetContext(c, ctx)
+	ctx.run(c, steps)
+
+	// Status filters can only fail if the patterns are invalid.
+	code, _, stderr := runStatus(c, "[*")
+	c.Assert(code, Not(Equals), 0)
+	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid characters`+"\n")
+
+	code, _, stderr = runStatus(c, "//")
+	c.Assert(code, Not(Equals), 0)
+	c.Assert(string(stderr), Equals, `error: pattern "//" contains too many '/' characters`+"\n")
+
+	// Pattern validity is checked eagerly; if a bad pattern
+	// proceeds a valid, matching pattern, then the bad pattern
+	// will still cause an error.
+	code, _, stderr = runStatus(c, "*", "[*")
+	c.Assert(code, Not(Equals), 0)
+	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid characters`+"\n")
 }

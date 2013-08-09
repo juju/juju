@@ -188,7 +188,7 @@ func (s *AssignSuite) TestDeployerTag(c *C) {
 	c.Assert(err, IsNil)
 	subordinate := s.addSubordinate(c, principal)
 
-	assertDeployer := func(u *state.Unit, d state.Tagger) {
+	assertDeployer := func(u *state.Unit, d state.Entity) {
 		err := u.Refresh()
 		c.Assert(err, IsNil)
 		name, ok := u.DeployerTag()

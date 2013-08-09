@@ -4,25 +4,25 @@
 package maas
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 type InstanceTest struct {
 	ProviderSuite
 }
 
-var _ = Suite(&InstanceTest{})
+var _ = gc.Suite(&InstanceTest{})
 
-func (s *InstanceTest) TestId(c *C) {
+func (s *InstanceTest) TestId(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	resourceURI, _ := obj.GetField("resource_uri")
 	instance := maasInstance{&obj, s.environ}
 
-	c.Check(string(instance.Id()), Equals, resourceURI)
+	c.Check(string(instance.Id()), gc.Equals, resourceURI)
 }
 
-func (s *InstanceTest) TestRefreshInstance(c *C) {
+func (s *InstanceTest) TestRefreshInstance(c *gc.C) {
 	jsonValue := `{"system_id": "system_id", "test": "test"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	s.testMAASObject.TestServer.ChangeNode("system_id", "test2", "test2")
@@ -30,25 +30,25 @@ func (s *InstanceTest) TestRefreshInstance(c *C) {
 
 	err := instance.refreshInstance()
 
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 	testField, err := (*instance.maasObject).GetField("test2")
-	c.Check(err, IsNil)
-	c.Check(testField, Equals, "test2")
+	c.Check(err, gc.IsNil)
+	c.Check(testField, gc.Equals, "test2")
 }
 
-func (s *InstanceTest) TestDNSName(c *C) {
+func (s *InstanceTest) TestDNSName(c *gc.C) {
 	jsonValue := `{"hostname": "DNS name", "system_id": "system_id"}`
 	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
 	instance := maasInstance{&obj, s.environ}
 
 	dnsName, err := instance.DNSName()
 
-	c.Check(err, IsNil)
-	c.Check(dnsName, Equals, "DNS name")
+	c.Check(err, gc.IsNil)
+	c.Check(dnsName, gc.Equals, "DNS name")
 
 	// WaitDNSName() currently simply calls DNSName().
 	dnsName, err = instance.WaitDNSName()
 
-	c.Check(err, IsNil)
-	c.Check(dnsName, Equals, "DNS name")
+	c.Check(err, gc.IsNil)
+	c.Check(dnsName, gc.Equals, "DNS name")
 }

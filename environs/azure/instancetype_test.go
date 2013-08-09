@@ -10,21 +10,23 @@ import (
 	"launchpad.net/gwacl"
 
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 )
 
-type InstanceTypeSuite struct{}
+type instanceTypeSuite struct{}
 
-var _ = gc.Suite(&InstanceTypeSuite{})
+var _ = gc.Suite(&instanceTypeSuite{})
 
-func (*InstanceTypeSuite) TestNewPreferredTypesAcceptsNil(c *gc.C) {
+func (*instanceTypeSuite) TestNewPreferredTypesAcceptsNil(c *gc.C) {
 	types := newPreferredTypes(nil)
 
 	c.Check(types, gc.HasLen, 0)
 	c.Check(types.Len(), gc.Equals, 0)
 }
 
-func (*InstanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
+func (*instanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
 	availableTypes := []gwacl.RoleSize{{Name: "Humongous", Cost: 123}}
 
 	types := newPreferredTypes(availableTypes)
@@ -34,7 +36,7 @@ func (*InstanceTypeSuite) TestNewPreferredTypesRepresentsInput(c *gc.C) {
 	c.Check(types.Len(), gc.Equals, len(availableTypes))
 }
 
-func (*InstanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
+func (*instanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
 	availableTypes := []gwacl.RoleSize{
 		{Name: "Excessive", Cost: 12},
 		{Name: "Ridiculous", Cost: 99},
@@ -50,7 +52,7 @@ func (*InstanceTypeSuite) TestNewPreferredTypesSortsByCost(c *gc.C) {
 	c.Check(types[2].Name, gc.Equals, "Ridiculous")
 }
 
-func (*InstanceTypeSuite) TestLessComparesCost(c *gc.C) {
+func (*instanceTypeSuite) TestLessComparesCost(c *gc.C) {
 	types := preferredTypes{
 		{Name: "Cheap", Cost: 1},
 		{Name: "Posh", Cost: 200},
@@ -60,7 +62,7 @@ func (*InstanceTypeSuite) TestLessComparesCost(c *gc.C) {
 	c.Check(types.Less(1, 0), gc.Equals, false)
 }
 
-func (*InstanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
+func (*instanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
 	types := preferredTypes{
 		{Name: "First"},
 		{Name: "Last"},
@@ -72,7 +74,7 @@ func (*InstanceTypeSuite) TestSwapSwitchesEntries(c *gc.C) {
 	c.Check(types[1].Name, gc.Equals, "First")
 }
 
-func (*InstanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
+func (*instanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
 	types := preferredTypes{
 		{Name: "First"},
 		{Name: "Last"},
@@ -84,7 +86,7 @@ func (*InstanceTypeSuite) TestSwapIsCommutative(c *gc.C) {
 	c.Check(types[1].Name, gc.Equals, "First")
 }
 
-func (*InstanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
+func (*instanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
 	types := preferredTypes{
 		{Name: "A"},
 		{Name: "B"},
@@ -100,30 +102,30 @@ func (*InstanceTypeSuite) TestSwapLeavesOtherEntriesIntact(c *gc.C) {
 	c.Check(types[3].Name, gc.Equals, "D")
 }
 
-func (*InstanceTypeSuite) TestSufficesAcceptsNilRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesAcceptsNilRequirement(c *gc.C) {
 	types := preferredTypes{}
 	c.Check(types.suffices(0, nil), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSufficesAcceptsMetRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesAcceptsMetRequirement(c *gc.C) {
 	types := preferredTypes{}
 	var expectation uint64 = 100
 	c.Check(types.suffices(expectation+1, &expectation), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSufficesAcceptsExactRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesAcceptsExactRequirement(c *gc.C) {
 	types := preferredTypes{}
 	var expectation uint64 = 100
 	c.Check(types.suffices(expectation+1, &expectation), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSufficesRejectsUnmetRequirement(c *gc.C) {
+func (*instanceTypeSuite) TestSufficesRejectsUnmetRequirement(c *gc.C) {
 	types := preferredTypes{}
 	var expectation uint64 = 100
 	c.Check(types.suffices(expectation-1, &expectation), gc.Equals, false)
 }
 
-func (*InstanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
+func (*instanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
 	types := preferredTypes{}
 	var desiredCores uint64 = 5
 	constraint := constraints.Value{CpuCores: &desiredCores}
@@ -136,7 +138,7 @@ func (*InstanceTypeSuite) TestSatisfiesComparesCPUCores(c *gc.C) {
 	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
+func (*instanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
 	types := preferredTypes{}
 	var desiredMem uint64 = 37
 	constraint := constraints.Value{Mem: &desiredMem}
@@ -149,20 +151,20 @@ func (*InstanceTypeSuite) TestSatisfiesComparesMem(c *gc.C) {
 	c.Check(types.satisfies(&machine, constraint), gc.Equals, true)
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecSetsMimimumMem(c *gc.C) {
 	c.Check(
 		*defaultToBaselineSpec(constraints.Value{}).Mem,
 		gc.Equals,
 		uint64(defaultMem))
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesOriginalIntact(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesOriginalIntact(c *gc.C) {
 	original := constraints.Value{}
 	defaultToBaselineSpec(original)
 	c.Check(original.Mem, gc.IsNil)
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C) {
 	const low = 100 * gwacl.MB
 	var value uint64 = low
 	c.Check(
@@ -172,7 +174,7 @@ func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesLowerMemIntact(c *gc.C)
 	c.Check(value, gc.Equals, uint64(low))
 }
 
-func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C) {
+func (*instanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C) {
 	const high = 100 * gwacl.MB
 	var value uint64 = high
 	c.Check(
@@ -182,14 +184,14 @@ func (*InstanceTypeSuite) TestDefaultToBaselineSpecLeavesHigherMemIntact(c *gc.C
 	c.Check(value, gc.Equals, uint64(high))
 }
 
-func (*InstanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
+func (*instanceTypeSuite) TestSelectMachineTypeReturnsErrorIfNoMatch(c *gc.C) {
 	var lots uint64 = 1000000000000
 	_, err := selectMachineType(nil, constraints.Value{Mem: &lots})
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no machine type matches constraints mem=100000*[MGT]")
 }
 
-func (*InstanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
+func (*instanceTypeSuite) TestSelectMachineTypeReturnsCheapestMatch(c *gc.C) {
 	var desiredCores uint64 = 50
 	availableTypes := []gwacl.RoleSize{
 		// Cheap, but not up to our requirements.
@@ -276,7 +278,18 @@ func prepareSimpleStreamsResponse(location, series, release, arch, json string) 
 	}
 }
 
-func (*InstanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
+func (*environSuite) TestGetEndpoint(c *gc.C) {
+	c.Check(
+		getEndpoint("West US"),
+		gc.Equals,
+		"https://management.core.windows.net/")
+	c.Check(
+		getEndpoint("China East"),
+		gc.Equals,
+		"https://management.core.chinacloudapi.cn/")
+}
+
+func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C) {
 	emptyResponse := `
 		{
 		 "format": "products:1.0"
@@ -291,7 +304,7 @@ func (*InstanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
 }
 
-func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
+func (*instanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 	// Real-world simplestreams index, pared down to a minimum:
 	response := `
 	{
@@ -339,4 +352,138 @@ func (*InstanceTypeSuite) TestFindMatchingImagesReturnsImages(c *gc.C) {
 
 	c.Assert(images, gc.HasLen, 1)
 	c.Check(images[0].Id, gc.Equals, "MATCHING-IMAGE")
+}
+
+func (*instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
+	roleSize := gwacl.RoleSize{
+		Name:             "Outrageous",
+		CpuCores:         128,
+		Mem:              4 * gwacl.TB,
+		OSDiskSpaceCloud: 48 * gwacl.TB,
+		OSDiskSpaceVirt:  50 * gwacl.TB,
+		MaxDataDisks:     20,
+		Cost:             999999500,
+	}
+	vtype := "Hyper-V"
+	var cpupower uint64 = 100
+	expectation := instances.InstanceType{
+		Id:       roleSize.Name,
+		Name:     roleSize.Name,
+		Arches:   []string{"amd64", "i386"},
+		CpuCores: roleSize.CpuCores,
+		Mem:      roleSize.Mem,
+		Cost:     roleSize.Cost,
+		VType:    &vtype,
+		CpuPower: &cpupower,
+	}
+	c.Check(newInstanceType(roleSize), gc.DeepEquals, expectation)
+}
+
+func (*instanceTypeSuite) TestListInstanceTypesAcceptsNil(c *gc.C) {
+	c.Check(listInstanceTypes(nil), gc.HasLen, 0)
+}
+
+func (*instanceTypeSuite) TestListInstanceTypesMaintainsOrder(c *gc.C) {
+	roleSizes := []gwacl.RoleSize{
+		{Name: "Biggish"},
+		{Name: "Tiny"},
+		{Name: "Huge"},
+		{Name: "Miniscule"},
+	}
+
+	expectation := make([]instances.InstanceType, len(roleSizes))
+	for index, roleSize := range roleSizes {
+		expectation[index] = newInstanceType(roleSize)
+	}
+
+	c.Check(listInstanceTypes(roleSizes), gc.DeepEquals, expectation)
+}
+
+func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
+	impossibleConstraint := instances.InstanceConstraint{
+		Series: "precise",
+		Arches: []string{"axp"},
+	}
+
+	_, err := findInstanceSpec(nil, impossibleConstraint)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
+}
+
+// patchFetchImageMetadata temporarily replaces imagemetadata.Fetch() with a
+// fake that returns the given canned answer.
+// It returns a cleanup function, which you must call when done.
+func patchFetchImageMetadata(cannedResponse []*imagemetadata.ImageMetadata, cannedError error) func() {
+	original := fetchImageMetadata
+	fetchImageMetadata = func([]string, string, *imagemetadata.ImageConstraint, bool) ([]*imagemetadata.ImageMetadata, error) {
+		return cannedResponse, cannedError
+	}
+	return func() { fetchImageMetadata = original }
+}
+
+func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
+	// We have one OS image.
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:          "image-id",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
+			RegionAlias: "West US",
+			RegionName:  "West US",
+			Endpoint:    "http://localhost/",
+		},
+	}
+	cleanup := patchFetchImageMetadata(images, nil)
+	defer cleanup()
+
+	// We'll tailor our constraints to describe one particular Azure
+	// instance type:
+	aim := gwacl.RoleNameMap["Large"]
+	constraints := instances.InstanceConstraint{
+		Region: "West US",
+		Series: "precise",
+		Arches: []string{"amd64"},
+		Constraints: constraints.Value{
+			CpuCores: &aim.CpuCores,
+			Mem:      &aim.Mem,
+		},
+	}
+
+	// Find a matching instance type and image.
+	spec, err := findInstanceSpec(baseURLs, constraints)
+	c.Assert(err, gc.IsNil)
+
+	// We got the instance type we described in our constraints, and
+	// the image returned by (the fake) simplestreams.
+	c.Check(spec.InstanceType.Name, gc.Equals, aim.Name)
+	c.Check(spec.Image.Id, gc.Equals, "image-id")
+}
+
+func (*instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
+	images := []*imagemetadata.ImageMetadata{
+		{
+			Id:          "image-id",
+			VType:       "Hyper-V",
+			Arch:        "amd64",
+			RegionAlias: "West US",
+			RegionName:  "West US",
+			Endpoint:    "http://localhost/",
+		},
+	}
+	cleanup := patchFetchImageMetadata(images, nil)
+	defer cleanup()
+
+	// findInstanceSpec sets baseline constraints, so that it won't pick
+	// ExtraSmall (which is too small for routine tasks) if you fail to
+	// set sufficient hardware constraints.
+	anyInstanceType := instances.InstanceConstraint{
+		Region: "West US",
+		Series: "precise",
+		Arches: []string{"amd64"},
+	}
+
+	spec, err := findInstanceSpec(baseURLs, anyInstanceType)
+	c.Assert(err, gc.IsNil)
+
+	c.Check(spec.InstanceType.Name, gc.Equals, "Small")
 }

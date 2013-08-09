@@ -146,7 +146,6 @@ func (lock *Lock) lockLoop(message string, continueFunc func() error) error {
 		}
 		time.Sleep(lockWaitDelay)
 	}
-	panic("unreachable")
 }
 
 // Lock blocks until it is able to acquire the lock.  Since we are dealing

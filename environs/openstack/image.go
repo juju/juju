@@ -25,7 +25,6 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 			Arches:   ic.Arches,
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
-			Cost:     uint64(flavor.RAM),
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
@@ -44,15 +43,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 	if err != nil {
 		return nil, err
 	}
-	var images []instances.Image
-	for _, imageMetadata := range matchingImages {
-		im := *imageMetadata
-		images = append(images, instances.Image{
-			Id:    im.Id,
-			VType: im.VType,
-			Arch:  im.Arch,
-		})
-	}
+	images := instances.ImageMetadataToImages(matchingImages)
 	spec, err := instances.FindInstanceSpec(images, ic, allInstanceTypes)
 	if err != nil {
 		return nil, err
