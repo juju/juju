@@ -6,14 +6,14 @@ package azure
 import (
 	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/testing"
 )
 
 func TestAzureProvider(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type providerSuite struct {
@@ -21,14 +21,14 @@ type providerSuite struct {
 	restoreTimeouts func()
 }
 
-var _ = Suite(&providerSuite{})
+var _ = gc.Suite(&providerSuite{})
 
-func (s *providerSuite) SetUpSuite(c *C) {
+func (s *providerSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.restoreTimeouts = envtesting.PatchAttemptStrategies()
 }
 
-func (s *providerSuite) TearDownSuite(c *C) {
+func (s *providerSuite) TearDownSuite(c *gc.C) {
 	s.restoreTimeouts()
 	s.LoggingSuite.TearDownSuite(c)
 }
