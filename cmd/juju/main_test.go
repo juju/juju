@@ -276,6 +276,7 @@ func (s *MainSuite) TestHelpCommands(c *C) {
 }
 
 var topicNames = []string{
+	"aws",
 	"basics",
 	"commands",
 	"global-options",

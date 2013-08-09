@@ -126,3 +126,58 @@ information:
 - http://askubuntu.com/questions/166102/how-do-i-configure-juju-for-deployment-on-rackspace-cloud
 
 `
+
+const helpEC2Provider = `
+First install Juju:
+
+    sudo add-apt-repository ppa:juju/stable
+    sudo apt-get update && sudo apt-get -y install juju-core
+
+Do a 'juju generate-config -w' to generate a config for AWS that you can
+customize for your needs. This will create the file
+'~/.juju/environments.yaml'.
+
+Which is a sample environment configured to run with EC2 machines and S3
+permanent storage.
+
+To make this environment actually useful, you will need to tell juju about an
+AWS access key and secret key. To do this, you can either set the
+'AWS_ACCESS_KEY_ID' and 'AWS_SECRET_ACCESS_KEY' [environment variables][1] (as
+usual for other EC2 tools) or you can add access-key and secret-key options to
+your environments.yaml. These are already in place in the generated config,
+you just need to uncomment them out. For example:
+
+    default: sample
+    environments:
+      sample:
+        type: ec2
+        access-key: YOUR-ACCESS-KEY-GOES-HERE
+        secret-key: YOUR-SECRET-KEY-GOES-HERE
+        control-bucket: juju-faefb490d69a41f0a3616a4808e0766b
+        admin-secret: 81a1e7429e6847c4941fda7591246594
+        default-series: precise
+        ssl-hostname-verification: true
+
+See the [EC2 provider documentation][2] for more options. The S3 bucket does
+not need to exist already.
+
+Note If you already have an AWS account, you can determine your access key by
+visiting [your account page][3], clicking "Security Credentials" and then
+clicking "Access Credentials". You'll be taken to a table that lists your
+access keys and has a "show" link for each access key that will reveal the
+associated secret key.
+
+And that's it, you're ready to go!
+
+- https://juju.ubuntu.com/docs/getting-started.html
+- https://juju.ubuntu.com/docs/provider-configuration-ec2.html
+
+References:
+
+ - Source: Question on Ask Ubuntu [4]
+
+  [1]: http://askubuntu.com/questions/730/how-do-i-set-environment-variables
+  [2]: https://juju.ubuntu.com/docs/provider-configuration-ec2.html
+  [3]: http://aws.amazon.com/account
+  [4]: http://askubuntu.com/questions/225513/how-do-i-configure-juju-to-use-amazon-web-services-aws
+`

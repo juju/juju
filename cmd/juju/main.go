@@ -48,6 +48,7 @@ func Main(args []string) {
 	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
 	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider", helpLocalProvider)
 	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider", helpOpenstackProvider)
+	jujucmd.AddHelpTopic("aws", "How to configure an AWS (EC2) provider", helpEC2Provider)
 	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	// Creation commands.
