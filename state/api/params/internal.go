@@ -44,12 +44,6 @@ type StringBoolResults struct {
 	Results []StringBoolResult
 }
 
-// EntityCharmURL holds an entity's tag and a charm URL.
-type EntityCharmURL struct {
-	Tag      string
-	CharmURL string
-}
-
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string
@@ -58,9 +52,15 @@ type EntityPort struct {
 }
 
 // EntitiesPorts holds the parameters for making an OpenPort or
-// ClosePort on an entity.
+// ClosePort on some entities.
 type EntitiesPorts struct {
 	Entities []EntityPort
+}
+
+// EntityCharmURL holds an entity's tag and a charm URL.
+type EntityCharmURL struct {
+	Tag      string
+	CharmURL string
 }
 
 // EntitiesCharmURL holds the parameters for making a SetCharmURL API
