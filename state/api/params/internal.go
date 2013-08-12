@@ -24,7 +24,7 @@ type StringsResult struct {
 	Result []string
 }
 
-// StringsErrorResults holds the bulk operation result of an API call
+// StringsResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
 type StringsResults struct {
 	Results []StringsResult
