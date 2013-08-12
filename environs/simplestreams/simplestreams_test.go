@@ -5,6 +5,7 @@ package simplestreams_test
 
 import (
 	"bytes"
+	"strings"
 	"testing"
 
 	gc "launchpad.net/gocheck"
@@ -57,6 +58,228 @@ func (s *simplestreamsSuite) TestGetProductsPath(c *gc.C) {
 	path, err := indexRef.GetProductsPath(s.ValidConstraint)
 	c.Assert(err, gc.IsNil)
 	c.Assert(path, gc.Equals, "streams/v1/image_metadata.json")
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsAcceptsNil(c *gc.C) {
+	empty := simplestreams.CloudMetadata{}
+	c.Check(simplestreams.ExtractCatalogsForProducts(empty, nil), gc.HasLen, 0)
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsReturnsMatch(c *gc.C) {
+	metadata := simplestreams.CloudMetadata{
+		Products: map[string]simplestreams.MetadataCatalog{
+			"foo": {},
+		},
+	}
+	c.Check(
+		simplestreams.ExtractCatalogsForProducts(metadata, []string{"foo"}),
+		gc.DeepEquals,
+		[]simplestreams.MetadataCatalog{metadata.Products["foo"]})
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsIgnoresNonMatches(c *gc.C) {
+	metadata := simplestreams.CloudMetadata{
+		Products: map[string]simplestreams.MetadataCatalog{
+			"one-product": {},
+		},
+	}
+	absentProducts := []string{"another-product"}
+	c.Check(simplestreams.ExtractCatalogsForProducts(metadata, absentProducts), gc.HasLen, 0)
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsPreservesOrder(c *gc.C) {
+	products := map[string]simplestreams.MetadataCatalog{
+		"1": {},
+		"2": {},
+		"3": {},
+		"4": {},
+	}
+
+	metadata := simplestreams.CloudMetadata{Products: products}
+
+	c.Check(
+		simplestreams.ExtractCatalogsForProducts(metadata, []string{"1", "3", "4", "2"}),
+		gc.DeepEquals,
+		[]simplestreams.MetadataCatalog{
+			products["1"],
+			products["3"],
+			products["4"],
+			products["2"],
+		})
+}
+
+func (*simplestreamsSuite) TestExtractIndexesAcceptsNil(c *gc.C) {
+	ind := simplestreams.Indices{}
+	c.Check(simplestreams.ExtractIndexes(ind), gc.HasLen, 0)
+}
+
+func (*simplestreamsSuite) TestExtractIndexesReturnsIndex(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{}
+	ind := simplestreams.Indices{Indexes: map[string]*simplestreams.IndexMetadata{"foo": &metadata}}
+	c.Check(simplestreams.ExtractIndexes(ind), gc.DeepEquals, simplestreams.IndexMetadataSlice{&metadata})
+}
+
+func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
+	ind := simplestreams.Indices{
+		Indexes: map[string]*simplestreams.IndexMetadata{
+			"foo": {},
+			"bar": {},
+		},
+	}
+
+	array := simplestreams.ExtractIndexes(ind)
+
+	c.Assert(array, gc.HasLen, len(ind.Indexes))
+	c.Check(array[0], gc.NotNil)
+	c.Check(array[1], gc.NotNil)
+	c.Check(array[0], gc.Not(gc.Equals), array[1])
+	c.Check(
+		(array[0] == ind.Indexes["foo"]),
+		gc.Not(gc.Equals),
+		(array[1] == ind.Indexes["foo"]))
+	c.Check(
+		(array[0] == ind.Indexes["bar"]),
+		gc.Not(gc.Equals),
+		(array[1] == ind.Indexes["bar"]))
+}
+
+func (*simplestreamsSuite) TestHasCloudAcceptsNil(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{Clouds: nil}
+	c.Check(simplestreams.HasCloud(metadata, simplestreams.CloudSpec{}), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasCloudFindsMatch(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{
+		Clouds: []simplestreams.CloudSpec{
+			{Region: "r1", Endpoint: "http://e1"},
+			{Region: "r2", Endpoint: "http://e2"},
+		},
+	}
+	c.Check(simplestreams.HasCloud(metadata, metadata.Clouds[1]), gc.Equals, true)
+}
+
+func (*simplestreamsSuite) TestHasCloudReturnsFalseIfCloudsDoNotMatch(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{
+		Clouds: []simplestreams.CloudSpec{
+			{Region: "r1", Endpoint: "http://e1"},
+			{Region: "r2", Endpoint: "http://e2"},
+		},
+	}
+	otherCloud := simplestreams.CloudSpec{Region: "r9", Endpoint: "http://e9"}
+	c.Check(simplestreams.HasCloud(metadata, otherCloud), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasCloudRequiresIdenticalRegion(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{
+		Clouds: []simplestreams.CloudSpec{
+			{Region: "around", Endpoint: "http://nearby"},
+		},
+	}
+	similarCloud := metadata.Clouds[0]
+	similarCloud.Region = "elsewhere"
+	c.Assert(similarCloud, gc.Not(gc.Equals), metadata.Clouds[0])
+
+	c.Check(simplestreams.HasCloud(metadata, similarCloud), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasCloudRequiresIdenticalEndpoint(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{
+		Clouds: []simplestreams.CloudSpec{
+			{Region: "around", Endpoint: "http://nearby"},
+		},
+	}
+	similarCloud := metadata.Clouds[0]
+	similarCloud.Endpoint = "http://far"
+	c.Assert(similarCloud, gc.Not(gc.Equals), metadata.Clouds[0])
+
+	c.Check(simplestreams.HasCloud(metadata, similarCloud), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasProductAcceptsNils(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{}
+	c.Check(simplestreams.HasProduct(metadata, nil), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasProductFindsMatchingProduct(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{ProductIds: []string{"x", "y", "z"}}
+	c.Check(
+		simplestreams.HasProduct(metadata, []string{"a", "b", metadata.ProductIds[1]}),
+		gc.Equals,
+		true)
+}
+
+func (*simplestreamsSuite) TestHasProductReturnsFalseIfProductsDoNotMatch(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{ProductIds: []string{"x", "y", "z"}}
+	c.Check(simplestreams.HasProduct(metadata, []string{"a", "b", "c"}), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestFilterReturnsNothingForEmptyArray(c *gc.C) {
+	empty := simplestreams.IndexMetadataSlice{}
+	c.Check(
+		simplestreams.Filter(empty, func(*simplestreams.IndexMetadata) bool { return true }),
+		gc.HasLen,
+		0)
+}
+
+func (*simplestreamsSuite) TestFilterRemovesNonMatches(c *gc.C) {
+	array := simplestreams.IndexMetadataSlice{&simplestreams.IndexMetadata{}}
+	c.Check(
+		simplestreams.Filter(array, func(*simplestreams.IndexMetadata) bool { return false }),
+		gc.HasLen,
+		0)
+}
+
+func (*simplestreamsSuite) TestFilterIncludesMatches(c *gc.C) {
+	metadata := simplestreams.IndexMetadata{}
+	array := simplestreams.IndexMetadataSlice{&metadata}
+	c.Check(
+		simplestreams.Filter(array, func(*simplestreams.IndexMetadata) bool { return true }),
+		gc.DeepEquals,
+		simplestreams.IndexMetadataSlice{&metadata})
+}
+
+func (*simplestreamsSuite) TestFilterLeavesOriginalUnchanged(c *gc.C) {
+	item1 := simplestreams.IndexMetadata{CloudName: "aws"}
+	item2 := simplestreams.IndexMetadata{CloudName: "openstack"}
+	array := simplestreams.IndexMetadataSlice{&item1, &item2}
+
+	result := simplestreams.Filter(array, func(metadata *simplestreams.IndexMetadata) bool {
+		return metadata.CloudName == "aws"
+	})
+	// This exercises both the "leave out" and the "include" code paths.
+	c.Assert(result, gc.HasLen, 1)
+
+	// The original, however, has not changed.
+	c.Assert(array, gc.HasLen, 2)
+	c.Check(array, gc.DeepEquals, simplestreams.IndexMetadataSlice{&item1, &item2})
+}
+
+func (*simplestreamsSuite) TestFilterPreservesOrder(c *gc.C) {
+	array := simplestreams.IndexMetadataSlice{
+		&simplestreams.IndexMetadata{CloudName: "aws"},
+		&simplestreams.IndexMetadata{CloudName: "maas"},
+		&simplestreams.IndexMetadata{CloudName: "openstack"},
+	}
+
+	c.Check(
+		simplestreams.Filter(array, func(metadata *simplestreams.IndexMetadata) bool { return true }),
+		gc.DeepEquals,
+		array)
+}
+
+func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *gc.C) {
+	array := simplestreams.IndexMetadataSlice{
+		&simplestreams.IndexMetadata{Format: "1.0"},
+		&simplestreams.IndexMetadata{Format: "1.1"},
+		&simplestreams.IndexMetadata{Format: "2.0"},
+		&simplestreams.IndexMetadata{Format: "2.1"},
+	}
+
+	dotOFormats := simplestreams.Filter(array, func(metadata *simplestreams.IndexMetadata) bool {
+		return strings.HasSuffix(metadata.Format, ".0")
+	})
+
+	c.Check(dotOFormats, gc.DeepEquals, simplestreams.IndexMetadataSlice{array[0], array[2]})
 }
 
 func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {

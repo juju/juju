@@ -322,7 +322,7 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 		if test.cfg.StateServer {
 			checkPackage(c, x, "mongodb-server", true)
 			source := struct{ source, key string }{
-				source: "ppa:juju/experimental",
+				source: "ppa:juju/stable",
 				key:    "1024R/C8068B11",
 			}
 			checkAptSource(c, x, source, test.cfg.NeedMongoPPA())

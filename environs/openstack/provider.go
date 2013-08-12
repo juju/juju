@@ -243,6 +243,10 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.ServerDetail.Id)
 }
 
+func (inst *openstackInstance) Status() string {
+	return inst.ServerDetail.Status
+}
+
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {

@@ -652,6 +652,18 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *C) {
 		},
 	})
 
+	mpEP, err := wordpress.Endpoint("monitoring-port")
+	c.Assert(err, IsNil)
+	c.Assert(mpEP, DeepEquals, state.Endpoint{
+		ServiceName: "wordpress",
+		Relation: charm.Relation{
+			Interface: "monitoring",
+			Name:      "monitoring-port",
+			Role:      charm.RoleProvider,
+			Scope:     charm.ScopeContainer,
+		},
+	})
+
 	dbEP, err := wordpress.Endpoint("db")
 	c.Assert(err, IsNil)
 	c.Assert(dbEP, DeepEquals, state.Endpoint{
@@ -681,7 +693,7 @@ func (s *ServiceSuite) TestWordpressEndpoints(c *C) {
 
 	eps, err := wordpress.Endpoints()
 	c.Assert(err, IsNil)
-	c.Assert(eps, DeepEquals, []state.Endpoint{cacheEP, dbEP, jiEP, ldEP, urlEP})
+	c.Assert(eps, DeepEquals, []state.Endpoint{cacheEP, dbEP, jiEP, ldEP, mpEP, urlEP})
 }
 
 func (s *ServiceSuite) TestServiceRefresh(c *C) {
@@ -1292,7 +1304,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	// TODO(fwereade) split this test up a bit.
 	w := s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
-	wc := testing.StringsWatcherC{c, s.State, w, false}
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -1335,7 +1347,7 @@ func (s *ServiceSuite) TestWatchRelations(c *C) {
 	rel2 := addRelation()
 	w = s.mysql.WatchRelations()
 	defer testing.AssertStop(c, w)
-	wc = testing.StringsWatcherC{c, s.State, w, false}
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange(rel1.String(), rel2.String())
 	wc.AssertNoChange()
 

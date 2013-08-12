@@ -88,9 +88,7 @@ func NewCA(envName string, expiry time.Time) (certPEM, keyPEM []byte, err error)
 	template := &x509.Certificate{
 		SerialNumber: new(big.Int),
 		Subject: pkix.Name{
-			// TODO quote the environment name when we start using
-			// Go version 1.1. See Go issue 3791.
-			CommonName:   fmt.Sprintf("juju-generated CA for environment %s", envName),
+			CommonName:   fmt.Sprintf("juju-generated CA for environment %q", envName),
 			Organization: []string{"juju"},
 		},
 		NotBefore:             now.UTC().Add(-5 * time.Minute),

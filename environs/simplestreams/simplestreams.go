@@ -15,14 +15,19 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/errors"
 	"net/http"
 	"os"
 	"reflect"
 	"sort"
 	"strings"
 	"sync"
+
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/errors"
 )
+
+var logger = loggo.GetLogger("juju.environs.simplestreams")
 
 // CloudSpec uniquely defines a specific cloud deployment.
 type CloudSpec struct {
@@ -43,7 +48,10 @@ type LookupParams struct {
 	CloudSpec
 	Series string
 	Arches []string
-	Stream string // may be "", typically "release", "daily" etc
+	// Stream can be "" for the default "released" stream, or "daily" for
+	// daily images, or any other stream that the available simplestreams
+	// metadata supports.
+	Stream string
 }
 
 func (p LookupParams) Params() LookupParams {
@@ -128,7 +136,7 @@ type aliasesByAttribute map[string]attributeValues
 
 // Exported for testing
 type CloudMetadata struct {
-	Products map[string]metadataCatalog    `json:"products"`
+	Products map[string]MetadataCatalog    `json:"products"`
 	Aliases  map[string]aliasesByAttribute `json:"_aliases"`
 	Updated  string                        `json:"updated"`
 	Format   string                        `json:"format"`
@@ -136,7 +144,7 @@ type CloudMetadata struct {
 
 type itemsByVersion map[string]*ItemCollection
 
-type metadataCatalog struct {
+type MetadataCatalog struct {
 	Series     string         `json:"release"`
 	Version    string         `json:"version"`
 	Arch       string         `json:"arch"`
@@ -155,20 +163,20 @@ type ItemCollection struct {
 
 // These structs define the model used for metadata indices.
 
-type indices struct {
-	Indexes map[string]*indexMetadata `json:"index"`
+type Indices struct {
+	Indexes map[string]*IndexMetadata `json:"index"`
 	Updated string                    `json:"updated"`
 	Format  string                    `json:"format"`
 }
 
 // Exported for testing.
 type IndexReference struct {
-	indices
+	Indices
 	BaseURL     string
 	valueParams ValueParams
 }
 
-type indexMetadata struct {
+type IndexMetadata struct {
 	Updated          string      `json:"updated"`
 	Format           string      `json:"format"`
 	DataType         string      `json:"datatype"`
@@ -176,6 +184,64 @@ type indexMetadata struct {
 	Clouds           []CloudSpec `json:"clouds"`
 	ProductsFilePath string      `json:"path"`
 	ProductIds       []string    `json:"products"`
+}
+
+// extractCatalogsForProducts gives you just those catalogs from a
+// cloudImageMetadata that are for the given product IDs.  They are kept in
+// the order of the parameter.
+func (metadata *CloudMetadata) extractCatalogsForProducts(productIds []string) []MetadataCatalog {
+	result := []MetadataCatalog{}
+	for _, id := range productIds {
+		if catalog, ok := metadata.Products[id]; ok {
+			result = append(result, catalog)
+		}
+	}
+	return result
+}
+
+// extractIndexes returns just the array of indexes, in arbitrary order.
+func (ind *Indices) extractIndexes() IndexMetadataSlice {
+	result := make(IndexMetadataSlice, 0, len(ind.Indexes))
+	for _, metadata := range ind.Indexes {
+		result = append(result, metadata)
+	}
+	return result
+}
+
+// hasCloud tells you whether an IndexMetadata has the given cloud in its
+// Clouds list.
+func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
+	for _, metadataCloud := range metadata.Clouds {
+		if metadataCloud == cloud {
+			return true
+		}
+	}
+	return false
+}
+
+// hasProduct tells you whether an IndexMetadata provides any of the given
+// product IDs.
+func (metadata *IndexMetadata) hasProduct(prodIds []string) bool {
+	for _, pid := range metadata.ProductIds {
+		if containsString(prodIds, pid) {
+			return true
+		}
+	}
+	return false
+}
+
+type IndexMetadataSlice []*IndexMetadata
+
+// filter returns those entries from an IndexMetadata array for which the given
+// match function returns true.  It preserves order.
+func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexMetadataSlice {
+	result := IndexMetadataSlice{}
+	for _, metadata := range entries {
+		if match(metadata) {
+			result = append(result, metadata)
+		}
+	}
+	return result
 }
 
 // This needs to be a var so we can override it for testing.
@@ -216,6 +282,7 @@ func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupCons
 		indexRef, err := GetIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned, params)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+				logger.Debugf("cannot load index %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -223,6 +290,7 @@ func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupCons
 		items, err = indexRef.getLatestMetadataWithFormat(cons, "products:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
+				logger.Debugf("skipping index because of error getting latest metadata %q/%q: %v", baseURL, indexPath, err)
 				continue
 			}
 			return nil, err
@@ -278,7 +346,7 @@ func GetIndexWithFormat(baseURL, indexPath, format string, requireSigned bool, p
 		}
 		return nil, fmt.Errorf("cannot read index data, %v", err)
 	}
-	var indices indices
+	var indices Indices
 	err = json.Unmarshal(data, &indices)
 	if err != nil {
 		return nil, fmt.Errorf("cannot unmarshal JSON index metadata at URL %q: %v", url, err)
@@ -288,7 +356,7 @@ func GetIndexWithFormat(baseURL, indexPath, format string, requireSigned bool, p
 	}
 	return &IndexReference{
 		BaseURL:     baseURL,
-		indices:     indices,
+		Indices:     indices,
 		valueParams: params,
 	}, nil
 }
@@ -300,36 +368,36 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 	if err != nil {
 		return "", err
 	}
-	var containsProducts bool
-	for _, metadata := range indexRef.Indexes {
-		if metadata.DataType != indexRef.valueParams.DataType {
-			continue
-		}
-		containsProducts = true
-		var cloudSpecMatches bool
-		for _, cs := range metadata.Clouds {
-			if cs == cons.Params().CloudSpec {
-				cloudSpecMatches = true
-				break
-			}
-		}
-		var prodSpecMatches bool
-		for _, pid := range metadata.ProductIds {
-			if containsString(prodIds, pid) {
-				prodSpecMatches = true
-				break
-			}
-		}
-		if cloudSpecMatches && prodSpecMatches {
-			return metadata.ProductsFilePath, nil
-		}
+	candidates := indexRef.extractIndexes()
+	// Restrict to image-ids entries.
+	dataTypeMatches := func(metadata *IndexMetadata) bool {
+		return metadata.DataType == indexRef.valueParams.DataType
 	}
-	if !containsProducts {
-		return "", &errors.NotFoundError{
-			nil, fmt.Sprintf("index file missing %q data", indexRef.valueParams.DataType)}
+	candidates = candidates.filter(dataTypeMatches)
+	if len(candidates) == 0 {
+		return "", errors.NotFoundf("index file missing %q data", indexRef.valueParams.DataType)
 	}
-	return "", &errors.NotFoundError{
-		nil, fmt.Sprintf("index file missing data for cloud %v and product name(s) %q", cons.Params().CloudSpec, prodIds)}
+	// Restrict by cloud spec.
+	hasRightCloud := func(metadata *IndexMetadata) bool {
+		return metadata.hasCloud(cons.Params().CloudSpec)
+	}
+	candidates = candidates.filter(hasRightCloud)
+	if len(candidates) == 0 {
+		return "", errors.NotFoundf("index file has no data for cloud %v", cons.Params().CloudSpec)
+	}
+	// Restrict by product IDs.
+	hasProduct := func(metadata *IndexMetadata) bool {
+		return metadata.hasProduct(prodIds)
+	}
+	candidates = candidates.filter(hasProduct)
+	if len(candidates) == 0 {
+		return "", errors.NotFoundf("index file has no data for product name(s) %q", prodIds)
+	}
+
+	logger.Debugf("candidate matches for products %q are %v", prodIds, candidates)
+
+	// Pick arbitrary match.
+	return candidates[0].ProductsFilePath, nil
 }
 
 // utility function to see if element exists in values slice.
@@ -439,7 +507,7 @@ func RegisterStructTags(vals ...interface{}) {
 }
 
 func init() {
-	RegisterStructTags(metadataCatalog{}, ItemCollection{})
+	RegisterStructTags(MetadataCatalog{}, ItemCollection{})
 }
 
 func mkTags(vals ...interface{}) map[reflect.Type]map[string]int {
@@ -574,15 +642,21 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFun
 	if err != nil {
 		return nil, err
 	}
-	var matchingItems []interface{}
-	for _, prodName := range prodIds {
-		metadataCatalog, ok := metadata.Products[prodName]
-		if !ok {
-			continue
+
+	catalogs := metadata.extractCatalogsForProducts(prodIds)
+	if len(catalogs) == 0 {
+		availableProducts := make([]string, 0, len(metadata.Products))
+		for product := range metadata.Products {
+			availableProducts = append(availableProducts, product)
 		}
-		var bv byVersionDesc = make(byVersionDesc, len(metadataCatalog.Items))
+		logger.Debugf("index has no images for product ids %v; it does have product ids %v", prodIds, availableProducts)
+	}
+
+	var matchingItems []interface{}
+	for _, catalog := range catalogs {
+		var bv byVersionDesc = make(byVersionDesc, len(catalog.Items))
 		i := 0
-		for vers, itemColl := range metadataCatalog.Items {
+		for vers, itemColl := range catalog.Items {
 			bv[i] = collectionVersion{vers, itemColl}
 			i++
 		}

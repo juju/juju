@@ -61,7 +61,7 @@ func (certSuite) TestNewCA(c *C) {
 	c.Assert(err, IsNil)
 
 	c.Assert(caKey, FitsTypeOf, (*rsa.PrivateKey)(nil))
-	c.Assert(caCert.Subject.CommonName, Equals, "juju-generated CA for environment foo")
+	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment "foo"`)
 	c.Assert(caCert.NotAfter.Equal(expiry), Equals, true)
 	c.Assert(caCert.BasicConstraintsValid, Equals, true)
 	c.Assert(caCert.IsCA, Equals, true)

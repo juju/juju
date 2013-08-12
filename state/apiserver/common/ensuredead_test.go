@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -19,27 +18,11 @@ type deadEnsurerSuite struct{}
 
 var _ = gc.Suite(&deadEnsurerSuite{})
 
-type fakeDeadEnsurerState struct {
-	entities map[string]*fakeDeadEnsurer
-}
-
-func (st *fakeDeadEnsurerState) DeadEnsurer(tag string) (state.DeadEnsurer, error) {
-	if deadEnsurer, ok := st.entities[tag]; ok {
-		if deadEnsurer.err != nil {
-			return nil, deadEnsurer.err
-		}
-		return deadEnsurer, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
 type fakeDeadEnsurer struct {
+	state.Entity
 	life state.Life
 	err  error
-}
-
-func (e *fakeDeadEnsurer) Tag() string {
-	panic("fakeDeadEnsurer.Tag() must not be called")
+	fetchError
 }
 
 func (e *fakeDeadEnsurer) EnsureDead() error {
@@ -51,13 +34,13 @@ func (e *fakeDeadEnsurer) Life() state.Life {
 }
 
 func (*deadEnsurerSuite) TestEnsureDead(c *gc.C) {
-	st := &fakeDeadEnsurerState{
-		entities: map[string]*fakeDeadEnsurer{
-			"x0": {life: state.Dying, err: fmt.Errorf("x0 fails")},
-			"x1": {life: state.Alive},
-			"x2": {life: state.Dying},
-			"x3": {life: state.Dead},
-			"x4": {life: state.Dead, err: fmt.Errorf("x4 error")},
+	st := &fakeState{
+		entities: map[string]entityWithError{
+			"x0": &fakeDeadEnsurer{life: state.Dying, err: fmt.Errorf("x0 fails")},
+			"x1": &fakeDeadEnsurer{life: state.Alive},
+			"x2": &fakeDeadEnsurer{life: state.Dying},
+			"x3": &fakeDeadEnsurer{life: state.Dead},
+			"x4": &fakeDeadEnsurer{fetchError: "x4 error"},
 		},
 	}
 	getCanModify := func() (common.AuthFunc, error) {
@@ -91,7 +74,7 @@ func (*deadEnsurerSuite) TestEnsureDeadError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	d := common.NewDeadEnsurer(&fakeDeadEnsurerState{}, getCanModify)
+	d := common.NewDeadEnsurer(&fakeState{}, getCanModify)
 	_, err := d.EnsureDead(params.Entities{[]params.Entity{{"x0"}}})
 	c.Assert(err, gc.ErrorMatches, "pow")
 }
@@ -100,7 +83,7 @@ func (*removeSuite) TestEnsureDeadNoArgsNoError(c *gc.C) {
 	getCanModify := func() (common.AuthFunc, error) {
 		return nil, fmt.Errorf("pow")
 	}
-	d := common.NewDeadEnsurer(&fakeDeadEnsurerState{}, getCanModify)
+	d := common.NewDeadEnsurer(&fakeState{}, getCanModify)
 	result, err := d.EnsureDead(params.Entities{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(result.Results, gc.HasLen, 0)

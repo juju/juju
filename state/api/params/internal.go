@@ -23,6 +23,20 @@ type StringsResult struct {
 	Result []string
 }
 
+// StringBoolResult holds the result of an API call that returns a
+// string and a boolean.
+type StringBoolResult struct {
+	Error  *Error
+	Result string
+	Ok     bool
+}
+
+// StringBoolResults holds multiple results with a string and a bool
+// each.
+type StringBoolResults struct {
+	Results []StringBoolResult
+}
+
 // BytesResult holds the result of an API call that returns a slice
 // of bytes.
 type BytesResult struct {
@@ -39,6 +53,18 @@ type LifeResult struct {
 // LifeResults holds the life or error status of multiple entities.
 type LifeResults struct {
 	Results []LifeResult
+}
+
+// SetEntityAddress holds an entity tag and an address.
+type SetEntityAddress struct {
+	Tag     string
+	Address string
+}
+
+// SetEntityAddresses holds the parameters for making a Set*Address
+// call, where the address can be a public or a private one.
+type SetEntityAddresses struct {
+	Entities []SetEntityAddress
 }
 
 // MachineSetStatus holds a machine tag, status and extra info.
