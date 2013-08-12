@@ -441,8 +441,8 @@ func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
 	}}
 	result, err := s.uniter.SubordinateNames(args)
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringsErrorResults{
-		Results: []params.StringsErrorResult{
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: []string{"logging/0", "monitoring/0"}},
 			{Error: apiservertesting.ErrUnauthorized},

@@ -18,22 +18,16 @@ type Entities struct {
 }
 
 // StringsResult holds the result of an API call that returns a slice
-// of strings.
+// of strings or an error.
 type StringsResult struct {
-	Result []string
-}
-
-// StringsErrorResult holds the result of an API call that returns a
-// slice of strings or an error.
-type StringsErrorResult struct {
 	Error  *Error
 	Result []string
 }
 
 // StringsErrorResults holds the bulk operation result of an API call
 // that returns a slice of strings or an error.
-type StringsErrorResults struct {
-	Results []StringsErrorResult
+type StringsResults struct {
+	Results []StringsResult
 }
 
 // StringBoolResult holds the result of an API call that returns a
