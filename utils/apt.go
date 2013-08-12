@@ -7,13 +7,17 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strings"
 
 	"launchpad.net/juju-core/log"
 	"launchpad.net/loggo"
 )
 
-var aptLogger = loggo.GetLogger("juju.utils.apt")
+var (
+	aptLogger  = loggo.GetLogger("juju.utils.apt")
+	aptProxyRE = regexp.MustCompile(`(?i)^Acquire::[a-z]+::Proxy\s+"([^"]+)";$`)
+)
 
 // Some helpful functions for running apt in a sane way
 
@@ -67,5 +71,18 @@ func AptConfigProxy() (string, error) {
 			err, cmdArgs, string(out))
 		return "", fmt.Errorf("apt-config failed: %v", err)
 	}
-	return strings.TrimSpace(string(out)), nil
+	proxyConfig := strings.TrimSpace(string(out))
+	if proxyConfig != "" {
+		var proxyLines []string
+		for _, line := range strings.Split(proxyConfig, "\n") {
+			line = strings.TrimSpace(line)
+			if m := aptProxyRE.FindStringSubmatch(line); m != nil {
+				proxyLines = append(proxyLines, line)
+			}
+		}
+		if len(proxyLines) > 0 {
+			proxyConfig = strings.Join(proxyLines, "\n")
+		}
+	}
+	return proxyConfig, nil
 }
