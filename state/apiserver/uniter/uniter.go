@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The machiner package implements the API interface
+// The uniter package implements the API interface
 // used by the uniter worker.
 package uniter
 
@@ -71,8 +71,8 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResult
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PublicAddress()
@@ -99,8 +99,8 @@ func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.Err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				err = unit.SetPublicAddress(entity.Address)
@@ -126,8 +126,8 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResul
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PrivateAddress()
@@ -154,8 +154,8 @@ func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.Er
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				err = unit.SetPrivateAddress(entity.Address)
@@ -180,8 +180,8 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				err = unit.ClearResolved()
@@ -206,8 +206,8 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				principal, ok := unit.PrincipalName()
@@ -235,8 +235,8 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		var unit *state.Unit
 		if canAccess(entity.Tag) {
+			var unit *state.Unit
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				err = unit.Destroy()
@@ -260,14 +260,38 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResult
 		return params.StringsResults{}, err
 	}
 	for i, entity := range args.Entities {
+		err := common.ErrPerm
 		if canAccess(entity.Tag) {
-			unit, err := u.getUnit(entity.Tag)
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				result.Results[i].Result = unit.SubordinateNames()
 			}
 		}
+		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
 }
 
-// TODO(dimitern): Add the other needed API calls.
+// TODO(dimitern): Add the following needed calls:
+// OpenPort
+// ClosePort
+// SetCharmURL
+// CharmURL
+// WatchServiceConfig
+// WatchService
+// WatchServiceRelations
+// ServiceLife
+// ServiceCharmURL
+// GetCharmURL
+// GetCharmBundleURL
+// GetCharmBundleSha256
+// RelationSetDying
+// RelationIsImplicit
+// GetRelation
+// GetRelationSettings
+// RelationEnterScope
+// RelationLeaveScope
+// WatchRelation
+// EndpointImplementedBy
+// EnvironUUID

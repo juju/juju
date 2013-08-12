@@ -443,10 +443,10 @@ func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.StringsResults{
 		Results: []params.StringsResult{
-			{Result: nil},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Result: []string{"logging/0", "monitoring/0"}},
-			{Result: nil},
-			{Result: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
