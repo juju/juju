@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -16,6 +17,7 @@ import (
 	"launchpad.net/juju-core/state/apiserver/uniter"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 func Test(t *stdtesting.T) {
@@ -327,4 +329,147 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	address, ok = s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "4.4.2.2")
 	c.Assert(ok, gc.Equals, true)
+}
+
+func (s *uniterSuite) TestClearResolved(c *gc.C) {
+	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, gc.IsNil)
+	mode := s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.ClearResolved(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit's resolved mode has changed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	mode = s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedNone)
+}
+
+func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
+	// Add a subordinate to wordpressUnit.
+	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	subordinate, err := logging.Unit("logging/0")
+	c.Assert(err, gc.IsNil)
+
+	principal, ok := subordinate.PrincipalName()
+	c.Assert(principal, gc.Equals, "wordpress/0")
+	c.Assert(ok, gc.Equals, true)
+
+	// First try it as wordpressUnit's agent.
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-logging-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.GetPrincipal(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "", Ok: false, Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Now try as subordinate's agent.
+	subAuthorizer := s.authorizer
+	subAuthorizer.Tag = subordinate.Tag()
+	subUniter, err := uniter.NewUniterAPI(s.State, s.resources, subAuthorizer)
+	c.Assert(err, gc.IsNil)
+
+	result, err = subUniter.GetPrincipal(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: "wordpress/0", Ok: true, Error: nil},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
+	// Add two subordinates to wordpressUnit.
+	addRelatedService := func(firstSvc, relatedSvc string, unit *state.Unit) {
+		service, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
+		c.Assert(err, gc.IsNil)
+		eps, err := s.State.InferEndpoints([]string{firstSvc, relatedSvc})
+		c.Assert(err, gc.IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, gc.IsNil)
+		relUnit, err := rel.Unit(unit)
+		c.Assert(err, gc.IsNil)
+		err = relUnit.EnterScope(nil)
+		c.Assert(err, gc.IsNil)
+		_, err = service.Unit(relatedSvc + "/0")
+		c.Assert(err, gc.IsNil)
+	}
+	addRelatedService("wordpress", "logging", s.wordpressUnit)
+	addRelatedService("wordpress", "monitoring", s.wordpressUnit)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-logging-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.SubordinateNames(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringsResults{
+		Results: []params.StringsResult{
+			{Result: nil},
+			{Result: []string{"logging/0", "monitoring/0"}},
+			{Result: nil},
+			{Result: nil},
+		},
+	})
+}
+
+func (s *uniterSuite) TestDestroy(c *gc.C) {
+	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Alive)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.Destroy(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify wordpressUnit is destroyed and removed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }

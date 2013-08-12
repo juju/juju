@@ -20,9 +20,9 @@ type UniterAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 
-	st         *state.State
-	auth       common.Authorizer
-	getCanRead common.GetAuthFunc
+	st           *state.State
+	auth         common.Authorizer
+	getCanAccess common.GetAuthFunc
 }
 
 // NewUniterAPI creates a new instance of the Uniter API.
@@ -30,17 +30,17 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	getCanRead := func() (common.AuthFunc, error) {
+	getCanAccess := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
 	return &UniterAPI{
-		LifeGetter:         common.NewLifeGetter(st, getCanRead),
-		StatusSetter:       common.NewStatusSetter(st, getCanRead),
-		DeadEnsurer:        common.NewDeadEnsurer(st, getCanRead),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanRead),
+		LifeGetter:         common.NewLifeGetter(st, getCanAccess),
+		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
+		DeadEnsurer:        common.NewDeadEnsurer(st, getCanAccess),
+		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		st:                 st,
 		auth:               authorizer,
-		getCanRead:         getCanRead,
+		getCanAccess:       getCanAccess,
 	}, nil
 }
 
@@ -65,14 +65,14 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResult
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := u.getCanRead()
+	canAccess, err := u.getCanAccess()
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
-	var unit *state.Unit
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		if canRead(entity.Tag) {
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PublicAddress()
@@ -93,14 +93,14 @@ func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.Err
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canModify, err := u.getCanRead()
+	canAccess, err := u.getCanAccess()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	var unit *state.Unit
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		if canModify(entity.Tag) {
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				err = unit.SetPublicAddress(entity.Address)
@@ -120,14 +120,14 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResul
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canRead, err := u.getCanRead()
+	canAccess, err := u.getCanAccess()
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
-	var unit *state.Unit
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		if canRead(entity.Tag) {
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PrivateAddress()
@@ -148,20 +148,124 @@ func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.Er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canModify, err := u.getCanRead()
+	canAccess, err := u.getCanAccess()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
-	var unit *state.Unit
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
-		if canModify(entity.Tag) {
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				err = unit.SetPrivateAddress(entity.Address)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// ClearResolved removes any resolved setting from each given unit.
+func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				err = unit.ClearResolved()
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// GetPrincipal returns the result of calling PrincipalName() on each given unit.
+func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults, error) {
+	result := params.StringBoolResults{
+		Results: make([]params.StringBoolResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.StringBoolResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				principal, ok := unit.PrincipalName()
+				result.Results[i].Result = principal
+				result.Results[i].Ok = ok
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// Destroy advances all given Alive units' lifecycles as far as
+// possible. See state/Unit.Destroy().
+func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		var unit *state.Unit
+		if canAccess(entity.Tag) {
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				err = unit.Destroy()
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SubordinateNames returns the names of any subordinate units, for each given unit.
+func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResults, error) {
+	result := params.StringsResults{
+		Results: make([]params.StringsResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.StringsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		if canAccess(entity.Tag) {
+			unit, err := u.getUnit(entity.Tag)
+			if err == nil {
+				result.Results[i].Result = unit.SubordinateNames()
+			}
+		}
 	}
 	return result, nil
 }
