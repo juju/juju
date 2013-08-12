@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"bytes"
+	"fmt"
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -344,11 +345,16 @@ func (t *localServerSuite) TestAddresses(c *C) {
 	c.Assert(info, NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, IsNil)
-	c.Assert(addrs, NotNil)
+	c.Assert(addrs, DeepEquals, []instance.Address{{
+		Value:        fmt.Sprintf("%s.testing.invalid", inst.Id()),
+		Type:         instance.HostName,
+		NetworkName:  "",
+		NetworkScope: instance.NetworkPublic},
+	})
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *C) {

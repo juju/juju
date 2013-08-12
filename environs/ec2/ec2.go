@@ -86,27 +86,53 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
-func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("ec2Instance.Addresses not implemented")
-	return nil, nil
-}
-
-func (inst *ec2Instance) DNSName() (string, error) {
+func (inst *ec2Instance) getInstanceWithDNS() (*ec2.Instance, error) {
 	if inst.Instance.DNSName != "" {
-		return inst.Instance.DNSName, nil
+		return inst.Instance, nil
 	}
 	// Fetch the instance information again, in case
 	// the DNS information has become available.
 	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
 	if err != nil {
+		return nil, err
+	}
+	return insts[0].(*ec2Instance).Instance, nil
+}
+
+func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
+	var addresses []instance.Address
+	ec2Inst, err := inst.getInstanceWithDNS()
+	if err != nil {
+		return nil, err
+	}
+	addresses = append(addresses, instance.Address{
+		Value:        ec2Inst.DNSName,
+		Type:         instance.HostName,
+		NetworkName:  "",
+		NetworkScope: instance.NetworkPublic,
+	})
+	if ec2Inst.PrivateDNSName != "" {
+		addresses = append(addresses, instance.Address{
+			Value:        ec2Inst.PrivateDNSName,
+			Type:         instance.HostName,
+			NetworkName:  "",
+			NetworkScope: instance.NetworkCloudLocal,
+		})
+	}
+	return addresses, nil
+}
+
+func (inst *ec2Instance) DNSName() (string, error) {
+	addresses, err := inst.Addresses()
+	if err != nil {
 		return "", err
 	}
-	freshInst := insts[0].(*ec2Instance).Instance
-	if freshInst.DNSName == "" {
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
 		return "", instance.ErrNoDNSName
 	}
-	inst.Instance.DNSName = freshInst.DNSName
-	return freshInst.DNSName, nil
+	return addr, nil
+
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {
