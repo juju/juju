@@ -199,7 +199,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 }
 
-func (s *uniterSuite) assertNotifyWatcher(c *gc.C, result params.NotifyWatchResults, err error) {
+func (s *uniterSuite) assertOneNotifyWatcher(c *gc.C, result params.NotifyWatchResults, err error) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -230,7 +230,7 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 		{Tag: "unit-foo-42"},
 	}}
 	result, err := s.uniter.Watch(args)
-	s.assertNotifyWatcher(c, result, err)
+	s.assertOneNotifyWatcher(c, result, err)
 }
 
 func (s *uniterSuite) TestPublicAddress(c *gc.C) {
@@ -604,7 +604,7 @@ func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
 		{Tag: "unit-foo-42"},
 	}}
 	result, err := s.uniter.WatchConfigSettings(args)
-	s.assertNotifyWatcher(c, result, err)
+	s.assertOneNotifyWatcher(c, result, err)
 }
 
 func (s *uniterSuite) TestConfigSettings(c *gc.C) {
