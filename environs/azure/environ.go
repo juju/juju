@@ -854,14 +854,14 @@ type azureManagementContext struct {
 
 var (
 	retryPolicy = gwacl.RetryPolicy{
-		NbRetries: 5,
+		NbRetries: 6,
 		HttpStatusCodes: []int{
 			http.StatusConflict,
 			http.StatusRequestTimeout,
 			http.StatusInternalServerError,
 			http.StatusServiceUnavailable,
 		},
-		Delay: 30 * time.Second}
+		Delay: 10 * time.Second}
 )
 
 // getManagementAPI obtains a context object for interfacing with Azure's
