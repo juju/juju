@@ -1,7 +1,7 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The machiner package implements the API interface
+// The uniter package implements the API interface
 // used by the uniter worker.
 package uniter
 
