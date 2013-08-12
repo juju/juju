@@ -388,7 +388,8 @@ func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, e
 }
 
 // TODO(dimitern): Add the following needed calls:
-// WatchServiceConfig
+// WatchConfigSettings
+// ConfigSettings
 // WatchService
 // WatchServiceRelations
 // ServiceLife
