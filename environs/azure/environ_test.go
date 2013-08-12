@@ -105,6 +105,7 @@ func (*environSuite) TestGetManagementAPI(c *gc.C) {
 	c.Check(context, gc.NotNil)
 	c.Check(context.ManagementAPI, gc.NotNil)
 	c.Check(context.certFile, gc.NotNil)
+	c.Check(context.GetRetryPolicy(), gc.DeepEquals, retryPolicy)
 }
 
 func (*environSuite) TestReleaseManagementAPIAcceptsNil(c *gc.C) {
@@ -228,6 +229,7 @@ func (*environSuite) TestStorage(c *gc.C) {
 	context, err := storage.getStorageContext()
 	c.Assert(err, gc.IsNil)
 	c.Check(context.Account, gc.Equals, env.ecfg.storageAccountName())
+	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
 }
 
 func (*environSuite) TestPublicStorage(c *gc.C) {
@@ -241,6 +243,7 @@ func (*environSuite) TestPublicStorage(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Check(context.Account, gc.Equals, env.ecfg.publicStorageAccountName())
 	c.Check(context.Key, gc.Equals, "")
+	c.Check(context.RetryPolicy, gc.DeepEquals, retryPolicy)
 }
 
 func (*environSuite) TestPublicStorageReturnsEmptyStorageIfNoInfo(c *gc.C) {
