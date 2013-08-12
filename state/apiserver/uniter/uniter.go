@@ -8,6 +8,7 @@ package uniter
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -273,12 +274,122 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResult
 	return result, nil
 }
 
+// CharmURL returns the charm URL for all given units.
+func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, error) {
+	result := params.StringBoolResults{
+		Results: make([]params.StringBoolResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.StringBoolResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				curl, ok := unit.CharmURL()
+				result.Results[i].Result = curl.String()
+				result.Results[i].Ok = ok
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// SetCharmURL sets the charm URL for each given unit. An error will
+// be returned if a unit is dead, or the charm URL is not know.
+func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				var curl *charm.URL
+				curl, err = charm.ParseURL(entity.CharmURL)
+				if err == nil {
+					err = unit.SetCharmURL(curl)
+				}
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// OpenPort sets the policy of the port with protocol an number to be
+// opened, for all given units.
+func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				err = unit.OpenPort(entity.Protocol, entity.Port)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// ClosePort sets the policy of the port with protocol and number to
+// be closed, for all given units.
+func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				err = unit.ClosePort(entity.Protocol, entity.Port)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // TODO(dimitern): Add the following needed calls:
-// OpenPort
-// ClosePort
-// SetCharmURL
-// CharmURL
-// WatchServiceConfig
+// WatchConfigSettings
+// ConfigSettings
 // WatchService
 // WatchServiceRelations
 // ServiceLife
