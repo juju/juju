@@ -416,32 +416,22 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 
 func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
 	// Add two subordinates to wordpressUnit.
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
-	nrpe, err := s.State.AddService("monitoring", s.AddTestingCharm(c, "monitoring"))
-	c.Assert(err, gc.IsNil)
-
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
-	c.Assert(err, gc.IsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, gc.IsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
-	_, err = logging.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
-
-	eps, err = s.State.InferEndpoints([]string{"wordpress", "monitoring"})
-	c.Assert(err, gc.IsNil)
-	rel, err = s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-	relUnit, err = rel.Unit(s.wordpressUnit)
-	c.Assert(err, gc.IsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
-	_, err = nrpe.Unit("monitoring/0")
-	c.Assert(err, gc.IsNil)
+	addRelatedService := func(firstSvc, relatedSvc string, unit *state.Unit) {
+		service, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
+		c.Assert(err, gc.IsNil)
+		eps, err := s.State.InferEndpoints([]string{firstSvc, relatedSvc})
+		c.Assert(err, gc.IsNil)
+		rel, err := s.State.AddRelation(eps...)
+		c.Assert(err, gc.IsNil)
+		relUnit, err := rel.Unit(unit)
+		c.Assert(err, gc.IsNil)
+		err = relUnit.EnterScope(nil)
+		c.Assert(err, gc.IsNil)
+		_, err = service.Unit(relatedSvc + "/0")
+		c.Assert(err, gc.IsNil)
+	}
+	addRelatedService("wordpress", "logging", s.wordpressUnit)
+	addRelatedService("wordpress", "monitoring", s.wordpressUnit)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
