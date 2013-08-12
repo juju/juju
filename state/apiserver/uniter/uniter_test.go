@@ -8,6 +8,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -198,15 +199,7 @@ func (s *uniterSuite) TestEnsureDead(c *gc.C) {
 	c.Assert(s.wordpressUnit.Life(), gc.Equals, state.Dead)
 }
 
-func (s *uniterSuite) TestWatch(c *gc.C) {
-	c.Assert(s.resources.Count(), gc.Equals, 0)
-
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	result, err := s.uniter.Watch(args)
+func (s *uniterSuite) assertOneNotifyWatcher(c *gc.C, result params.NotifyWatchResults, err error) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.NotifyWatchResults{
 		Results: []params.NotifyWatchResult{
@@ -226,6 +219,18 @@ func (s *uniterSuite) TestWatch(c *gc.C) {
 	// the Watch call)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, resource.(state.NotifyWatcher))
 	wc.AssertNoChange()
+}
+
+func (s *uniterSuite) TestWatch(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.Watch(args)
+	s.assertOneNotifyWatcher(c, result, err)
 }
 
 func (s *uniterSuite) TestPublicAddress(c *gc.C) {
@@ -585,4 +590,42 @@ func (s *uniterSuite) TestClosePort(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	openedPorts = s.wordpressUnit.OpenedPorts()
 	c.Assert(openedPorts, gc.HasLen, 0)
+}
+
+func (s *uniterSuite) TestWatchConfigSettings(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.WatchConfigSettings(args)
+	s.assertOneNotifyWatcher(c, result, err)
+}
+
+func (s *uniterSuite) TestConfigSettings(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+	settings, err := s.wordpressUnit.ConfigSettings()
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{"blog-title": "My Title"})
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.ConfigSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Settings: params.Settings{"blog-title": "My Title"}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
 }

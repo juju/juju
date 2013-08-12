@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
+	"launchpad.net/juju-core/state/watcher"
 )
 
 // UniterAPI implements the API used by the uniter worker.
@@ -23,6 +24,7 @@ type UniterAPI struct {
 
 	st           *state.State
 	auth         common.Authorizer
+	resources    *common.Resources
 	getCanAccess common.GetAuthFunc
 }
 
@@ -41,6 +43,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
 		st:                 st,
 		auth:               authorizer,
+		resources:          resources,
 		getCanAccess:       getCanAccess,
 	}, nil
 }
@@ -387,9 +390,83 @@ func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, e
 	return result, nil
 }
 
+func (u *UniterAPI) watchOneUnitConfigSettings(tag string) (string, error) {
+	unit, err := u.getUnit(tag)
+	if err != nil {
+		return "", err
+	}
+	watch, err := unit.WatchConfigSettings()
+	if err != nil {
+		return "", err
+	}
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
+}
+
+// WatchConfigSettings returns a NotifyWatcher for observing changes
+// to each unit's service configuration settings. See also
+// state/watcher.go:Unit.WatchConfigSettings().
+func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.NotifyWatchResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		watcherId := ""
+		if canAccess(entity.Tag) {
+			watcherId, err = u.watchOneUnitConfigSettings(entity.Tag)
+		}
+		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// ConfigSettings returns the complete set of service charm config
+// settings available to each given unit.
+func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults, error) {
+	result := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	canAccess, err := u.getCanAccess()
+	if err != nil {
+		return params.SettingsResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				var settings charm.Settings
+				settings, err = unit.ConfigSettings()
+				if err == nil {
+					result.Results[i].Settings = params.Settings(settings)
+				}
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // TODO(dimitern): Add the following needed calls:
-// WatchConfigSettings
-// ConfigSettings
 // WatchService
 // WatchServiceRelations
 // ServiceLife

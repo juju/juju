@@ -44,6 +44,21 @@ type StringBoolResults struct {
 	Results []StringBoolResult
 }
 
+// Settings holds charm config options names and values.
+type Settings map[string]interface{}
+
+// SettingsResult holds a charm settings map or an error.
+type SettingsResult struct {
+	Error    *Error
+	Settings Settings
+}
+
+// SettingsResults holds the result of an API calls that returns
+// settings for multiple entities.
+type SettingsResults struct {
+	Results []SettingsResult
+}
+
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string
