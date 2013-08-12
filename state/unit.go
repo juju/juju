@@ -452,7 +452,7 @@ func (u *Unit) PrincipalName() (string, bool) {
 	return u.doc.Principal, u.doc.Principal != ""
 }
 
-//
+// addressesOfMachine returns Addresses of the related machine if present.
 func (u *Unit) addressesOfMachine() []instance.Address {
 	id := u.doc.MachineId
 	if id != "" {
