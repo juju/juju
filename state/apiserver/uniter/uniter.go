@@ -273,4 +273,23 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsErrorR
 	return result, nil
 }
 
+// CharmURL returns the charm URL for all given units.
+func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, error) {
+}
+
+// SetCharmURL sets the charm URL for each given unit. An error will
+// be returned if a unit is dead, or the charm URL is not know.
+func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResults, error) {
+}
+
+// OpenPort sets the policy of the port with protocol an number to be
+// opened, for all given units.
+func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, error) {
+}
+
+// ClosePort sets the policy of the port with protocol and number to
+// be closed, for all given units.
+func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, error) {
+}
+
 // TODO(dimitern): Add the other needed API calls.
