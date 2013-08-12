@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strings"
 
-	"launchpad.net/juju-core/log"
 	"launchpad.net/loggo"
 )
 
@@ -46,7 +45,7 @@ func AptGetInstall(packages ...string) error {
 	cmd.Env = append(os.Environ(), aptGetEnvOptions...)
 	out, err := commandOutput(cmd)
 	if err != nil {
-		log.Errorf("utils/apt: apt-get command failed: %v\nargs: %#v\n%s",
+		aptLogger.Errorf("utils/apt: apt-get command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
 		return fmt.Errorf("apt-get failed: %v", err)
 	}
@@ -67,7 +66,7 @@ func AptConfigProxy() (string, error) {
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	out, err := commandOutput(cmd)
 	if err != nil {
-		log.Errorf("utils/apt: apt-config command failed: %v\nargs: %#v\n%s",
+		aptLogger.Errorf("utils/apt: apt-config command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
 		return "", fmt.Errorf("apt-config failed: %v", err)
 	}
