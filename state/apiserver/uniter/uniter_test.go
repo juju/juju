@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -33,6 +34,7 @@ type uniterSuite struct {
 	machine0      *state.Machine
 	machine1      *state.Machine
 	wordpress     *state.Service
+	wpCharm       *state.Charm
 	mysql         *state.Service
 	wordpressUnit *state.Unit
 	mysqlUnit     *state.Unit
@@ -45,13 +47,14 @@ var _ = gc.Suite(&uniterSuite{})
 func (s *uniterSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
+	s.wpCharm = s.AddTestingCharm(c, "wordpress")
 	// Create two machines, two services and add a unit to each service.
 	var err error
 	s.machine0, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
 	s.machine1, err = s.State.AddMachine("series", state.JobHostUnits)
 	c.Assert(err, gc.IsNil)
-	s.wordpress, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	s.wordpress, err = s.State.AddService("wordpress", s.wpCharm)
 	c.Assert(err, gc.IsNil)
 	s.mysql, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
@@ -230,7 +233,7 @@ func (s *uniterSuite) TestPublicAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -253,7 +256,7 @@ func (s *uniterSuite) TestSetPublicAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	args := params.SetEntityAddresses{Entities: []params.SetEntityAddress{
 		{Tag: "unit-mysql-0", Address: "4.3.2.1"},
@@ -275,7 +278,7 @@ func (s *uniterSuite) TestSetPublicAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	address, ok = s.wordpressUnit.PublicAddress()
 	c.Assert(address, gc.Equals, "4.4.2.2")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
@@ -283,7 +286,7 @@ func (s *uniterSuite) TestPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -306,7 +309,7 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	address, ok := s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "1.2.3.4")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	args := params.SetEntityAddresses{Entities: []params.SetEntityAddress{
 		{Tag: "unit-mysql-0", Address: "4.3.2.1"},
@@ -328,7 +331,7 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	address, ok = s.wordpressUnit.PrivateAddress()
 	c.Assert(address, gc.Equals, "4.4.2.2")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 }
 
 func (s *uniterSuite) TestClearResolved(c *gc.C) {
@@ -376,7 +379,7 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 
 	principal, ok := subordinate.PrincipalName()
 	c.Assert(principal, gc.Equals, "wordpress/0")
-	c.Assert(ok, gc.Equals, true)
+	c.Assert(ok, jc.IsTrue)
 
 	// First try it as wordpressUnit's agent.
 	args := params.Entities{Entities: []params.Entity{
@@ -472,4 +475,114 @@ func (s *uniterSuite) TestDestroy(c *gc.C) {
 	// Verify wordpressUnit is destroyed and removed.
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+}
+
+func (s *uniterSuite) TestCharmURL(c *gc.C) {
+	err := s.wordpressUnit.SetCharmURL(s.wpCharm.URL())
+	c.Assert(err, gc.IsNil)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.CharmURL(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: s.wpCharm.String(), Ok: true},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestSetCharmURL(c *gc.C) {
+	charmUrl, ok := s.wordpressUnit.CharmURL()
+	c.Assert(charmUrl, gc.IsNil)
+	c.Assert(ok, jc.IsFalse)
+
+	args := params.EntitiesCharmURL{Entities: []params.EntityCharmURL{
+		{Tag: "unit-mysql-0", CharmURL: "cs:series/service-42"},
+		{Tag: "unit-wordpress-0", CharmURL: s.wpCharm.String()},
+		{Tag: "unit-foo-42", CharmURL: "cs:series/foo-321"},
+	}}
+	result, err := s.uniter.SetCharmURL(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the charm URL was set.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	charmUrl, ok = s.wordpressUnit.CharmURL()
+	c.Assert(charmUrl, gc.NotNil)
+	c.Assert(charmUrl.String(), gc.Equals, s.wpCharm.String())
+	c.Assert(ok, jc.IsTrue)
+}
+
+func (s *uniterSuite) TestOpenPort(c *gc.C) {
+	openedPorts := s.wordpressUnit.OpenedPorts()
+	c.Assert(openedPorts, gc.HasLen, 0)
+
+	args := params.EntitiesPorts{Entities: []params.EntityPort{
+		{Tag: "unit-mysql-0", Protocol: "tcp", Port: 1234},
+		{Tag: "unit-wordpress-0", Protocol: "udp", Port: 4321},
+		{Tag: "unit-foo-42", Protocol: "tcp", Port: 42},
+	}}
+	result, err := s.uniter.OpenPort(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the wordpressUnit's port is opened.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	openedPorts = s.wordpressUnit.OpenedPorts()
+	c.Assert(openedPorts, gc.DeepEquals, []instance.Port{
+		{Protocol: "udp", Number: 4321},
+	})
+}
+
+func (s *uniterSuite) TestClosePort(c *gc.C) {
+	// Open port udp:4321 in advance on wordpressUnit.
+	err := s.wordpressUnit.OpenPort("udp", 4321)
+	c.Assert(err, gc.IsNil)
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	openedPorts := s.wordpressUnit.OpenedPorts()
+	c.Assert(openedPorts, gc.DeepEquals, []instance.Port{
+		{Protocol: "udp", Number: 4321},
+	})
+
+	args := params.EntitiesPorts{Entities: []params.EntityPort{
+		{Tag: "unit-mysql-0", Protocol: "tcp", Port: 1234},
+		{Tag: "unit-wordpress-0", Protocol: "udp", Port: 4321},
+		{Tag: "unit-foo-42", Protocol: "tcp", Port: 42},
+	}}
+	result, err := s.uniter.ClosePort(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ErrorResults{
+		Results: []params.ErrorResult{
+			{apiservertesting.ErrUnauthorized},
+			{nil},
+			{apiservertesting.ErrUnauthorized},
+		},
+	})
+
+	// Verify the wordpressUnit's port is closed.
+	err = s.wordpressUnit.Refresh()
+	c.Assert(err, gc.IsNil)
+	openedPorts = s.wordpressUnit.OpenedPorts()
+	c.Assert(openedPorts, gc.HasLen, 0)
 }
