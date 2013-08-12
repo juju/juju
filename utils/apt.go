@@ -4,18 +4,18 @@
 package utils
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"regexp"
-	"strings"
 
 	"launchpad.net/loggo"
 )
 
 var (
 	aptLogger  = loggo.GetLogger("juju.utils.apt")
-	aptProxyRE = regexp.MustCompile(`(?i)^Acquire::[a-z]+::Proxy\s+"([^"]+)";$`)
+	aptProxyRE = regexp.MustCompile(`(?im)^\s*Acquire::[a-z]+::Proxy\s+"[^"]+";\s*$`)
 )
 
 // Some helpful functions for running apt in a sane way
@@ -45,7 +45,7 @@ func AptGetInstall(packages ...string) error {
 	cmd.Env = append(os.Environ(), aptGetEnvOptions...)
 	out, err := commandOutput(cmd)
 	if err != nil {
-		aptLogger.Errorf("utils/apt: apt-get command failed: %v\nargs: %#v\n%s",
+		aptLogger.Errorf("apt-get command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
 		return fmt.Errorf("apt-get failed: %v", err)
 	}
@@ -66,22 +66,9 @@ func AptConfigProxy() (string, error) {
 	cmd := exec.Command(cmdArgs[0], cmdArgs[1:]...)
 	out, err := commandOutput(cmd)
 	if err != nil {
-		aptLogger.Errorf("utils/apt: apt-config command failed: %v\nargs: %#v\n%s",
+		aptLogger.Errorf("apt-config command failed: %v\nargs: %#v\n%s",
 			err, cmdArgs, string(out))
 		return "", fmt.Errorf("apt-config failed: %v", err)
 	}
-	proxyConfig := strings.TrimSpace(string(out))
-	if proxyConfig != "" {
-		var proxyLines []string
-		for _, line := range strings.Split(proxyConfig, "\n") {
-			line = strings.TrimSpace(line)
-			if m := aptProxyRE.FindStringSubmatch(line); m != nil {
-				proxyLines = append(proxyLines, line)
-			}
-		}
-		if len(proxyLines) > 0 {
-			proxyConfig = strings.Join(proxyLines, "\n")
-		}
-	}
-	return proxyConfig, nil
+	return string(bytes.Join(aptProxyRE.FindAll(out, -1), []byte("\n"))), nil
 }

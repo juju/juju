@@ -92,9 +92,9 @@ Acquire::https::Proxy "false";`
 func (s *AptSuite) TestConfigProxyConfiguredFilterOutput(c *gc.C) {
 	const (
 		output = `CommandLine::AsString "apt-config dump";
-Acquire::http::Proxy "10.0.3.1:3142";
+Acquire::http::Proxy  "10.0.3.1:3142";
 Acquire::https::Proxy "false";`
-		expected = `Acquire::http::Proxy "10.0.3.1:3142";
+		expected = `Acquire::http::Proxy  "10.0.3.1:3142";
 Acquire::https::Proxy "false";`
 	)
 	cmdChan, cleanup := s.hookCommandOutput([]byte(output), nil)
