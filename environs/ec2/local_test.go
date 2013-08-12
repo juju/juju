@@ -335,6 +335,22 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	c.Assert(*hc.CpuPower, Equals, uint64(100))
 }
 
+func (t *localServerSuite) TestAddresses(c *C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	c.Assert(err, IsNil)
+	addrs, err := inst.Addresses()
+	c.Assert(err, IsNil)
+	c.Assert(addrs, NotNil)
+}
+
 func (t *localServerSuite) TestValidateImageMetadata(c *C) {
 	params, err := t.env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, IsNil)
