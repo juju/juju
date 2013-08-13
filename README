@@ -101,7 +101,7 @@ commands. You can verify this using
 
 You should be able to bootstrap a local environment now with the following
 (Note: the use of sudo for bootstrap here is only required for the local
-provider, as the local container is created in /var/lib/lxc):
+provider because it uses LXC, which requires root privileges)
 
     juju init
     juju switch local
@@ -121,5 +121,3 @@ a set of tools from source and upload them to the environment as part of the
 bootstrap process.
 
     juju bootstrap -e your-environment --upload-tools {--debug}
-
-

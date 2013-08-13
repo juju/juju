@@ -17,8 +17,8 @@ format:
 install-dependencies:
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository ppa:juju/golang
-	# XXX - this should be changed to devel?
-	@sudo apt-add-repository ppa:juju/experimental
+	# The stable PPA includes the required mongodb-server binaries.
+	@sudo apt-add-repository ppa:juju/stable
 	@sudo apt-get update
 	@echo Installing dependencies
 	@sudo apt-get install golang mongodb-server build-essential bzr \
