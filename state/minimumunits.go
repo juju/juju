@@ -176,7 +176,6 @@ func (s *Service) EnsureMinUnits() (err error) {
 			return err
 		}
 	}
-	panic("unreachable")
 }
 
 // aliveUnitsCount returns the number a alive units for the service.

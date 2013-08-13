@@ -15,7 +15,7 @@ import (
 	apiservertesting "launchpad.net/juju-core/state/apiserver/testing"
 	"launchpad.net/juju-core/state/apiserver/upgrader"
 	statetesting "launchpad.net/juju-core/state/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 )
 
@@ -95,6 +95,7 @@ func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
 func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
+	anAuthorizer.UnitAgent = false
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
 	c.Check(err, NotNil)
@@ -194,7 +195,7 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 func (s *upgraderSuite) TestSetTools(c *C) {
 	cur := version.Current
 	_, err := s.rawMachine.AgentTools()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	args := params.SetAgentsTools{
 		AgentTools: []params.SetAgentTools{{
 			Tag: s.rawMachine.Tag(),

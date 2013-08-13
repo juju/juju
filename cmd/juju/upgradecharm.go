@@ -18,7 +18,7 @@ import (
 
 // UpgradeCharm is responsible for upgrading a service's charm.
 type UpgradeCharmCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 	Force       bool
 	RepoPath    string // defaults to JUJU_REPOSITORY

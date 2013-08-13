@@ -39,64 +39,70 @@ func Main(args []string) {
 		os.Stdout.Write(x[2:])
 		os.Exit(0)
 	}
-	juju := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:            "juju",
 		Doc:             jujuDoc,
 		Log:             &cmd.Log{},
 		MissingCallback: RunPlugin,
 	})
-	juju.AddHelpTopic("basics", "Basic commands", helpBasics)
-	juju.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
+	jujucmd.AddHelpTopic("basics", "Basic commands", helpBasics)
+	jujucmd.AddHelpTopic("local", "How to configure a local (LXC) provider", helpLocalProvider)
+	jujucmd.AddHelpTopic("openstack", "How to configure an OpenStack provider", helpOpenstackProvider)
+	jujucmd.AddHelpTopic("aws", "How to configure an AWS (EC2) provider", helpEC2Provider)
+	jujucmd.AddHelpTopic("hpcloud", "How to configure an HP Cloud provider", helpHPCloud)
+	jujucmd.AddHelpTopic("glossary", "Glossary of terms", helpGlossary)
+
+	jujucmd.AddHelpTopicCallback("plugins", "Show Juju plugins", PluginHelpTopic)
 
 	// Creation commands.
-	juju.Register(wrap(&BootstrapCommand{}))
-	juju.Register(wrap(&AddMachineCommand{}))
-	juju.Register(wrap(&DeployCommand{}))
-	juju.Register(wrap(&AddRelationCommand{}))
-	juju.Register(wrap(&AddUnitCommand{}))
+	jujucmd.Register(wrap(&BootstrapCommand{}))
+	jujucmd.Register(wrap(&AddMachineCommand{}))
+	jujucmd.Register(wrap(&DeployCommand{}))
+	jujucmd.Register(wrap(&AddRelationCommand{}))
+	jujucmd.Register(wrap(&AddUnitCommand{}))
 
 	// Destruction commands.
-	juju.Register(wrap(&DestroyMachineCommand{}))
-	juju.Register(wrap(&DestroyRelationCommand{}))
-	juju.Register(wrap(&DestroyServiceCommand{}))
-	juju.Register(wrap(&DestroyUnitCommand{}))
-	juju.Register(wrap(&DestroyEnvironmentCommand{}))
+	jujucmd.Register(wrap(&DestroyMachineCommand{}))
+	jujucmd.Register(wrap(&DestroyRelationCommand{}))
+	jujucmd.Register(wrap(&DestroyServiceCommand{}))
+	jujucmd.Register(wrap(&DestroyUnitCommand{}))
+	jujucmd.Register(wrap(&DestroyEnvironmentCommand{}))
 
 	// Reporting commands.
-	juju.Register(wrap(&StatusCommand{}))
-	juju.Register(wrap(&SwitchCommand{}))
+	jujucmd.Register(wrap(&StatusCommand{}))
+	jujucmd.Register(wrap(&SwitchCommand{}))
 
-	// Error resolution commands.
-	juju.Register(wrap(&SCPCommand{}))
-	juju.Register(wrap(&SSHCommand{}))
-	juju.Register(wrap(&ResolvedCommand{}))
-	juju.Register(wrap(&DebugLogCommand{sshCmd: &SSHCommand{}}))
+	// Error resolution and debugging commands.
+	jujucmd.Register(wrap(&SCPCommand{}))
+	jujucmd.Register(wrap(&SSHCommand{}))
+	jujucmd.Register(wrap(&ResolvedCommand{}))
+	jujucmd.Register(wrap(&DebugLogCommand{sshCmd: &SSHCommand{}}))
+	jujucmd.Register(wrap(&DebugHooksCommand{}))
 
 	// Configuration commands.
-	juju.Register(wrap(&InitCommand{}))
-	juju.Register(wrap(&ImageMetadataCommand{}))
-	juju.Register(wrap(&GetCommand{}))
-	juju.Register(wrap(&SetCommand{}))
-	juju.Register(wrap(&GetConstraintsCommand{}))
-	juju.Register(wrap(&SetConstraintsCommand{}))
-	juju.Register(wrap(&GetEnvironmentCommand{}))
-	juju.Register(wrap(&SetEnvironmentCommand{}))
-	juju.Register(wrap(&ExposeCommand{}))
-	juju.Register(wrap(&SyncToolsCommand{}))
-	juju.Register(wrap(&UnexposeCommand{}))
-	juju.Register(wrap(&UpgradeJujuCommand{}))
-	juju.Register(wrap(&UpgradeCharmCommand{}))
+	jujucmd.Register(wrap(&InitCommand{}))
+	jujucmd.Register(wrap(&GetCommand{}))
+	jujucmd.Register(wrap(&SetCommand{}))
+	jujucmd.Register(wrap(&GetConstraintsCommand{}))
+	jujucmd.Register(wrap(&SetConstraintsCommand{}))
+	jujucmd.Register(wrap(&GetEnvironmentCommand{}))
+	jujucmd.Register(wrap(&SetEnvironmentCommand{}))
+	jujucmd.Register(wrap(&ExposeCommand{}))
+	jujucmd.Register(wrap(&SyncToolsCommand{}))
+	jujucmd.Register(wrap(&UnexposeCommand{}))
+	jujucmd.Register(wrap(&UpgradeJujuCommand{}))
+	jujucmd.Register(wrap(&UpgradeCharmCommand{}))
 
 	// Charm publishing commands.
-	juju.Register(wrap(&PublishCommand{}))
+	jujucmd.Register(wrap(&PublishCommand{}))
 
 	// Charm tool commands.
-	juju.Register(wrap(&HelpToolCommand{}))
+	jujucmd.Register(wrap(&HelpToolCommand{}))
 
 	// Common commands.
-	juju.Register(wrap(&cmd.VersionCommand{}))
+	jujucmd.Register(wrap(&cmd.VersionCommand{}))
 
-	os.Exit(cmd.Main(juju, cmd.DefaultContext(), args[1:]))
+	os.Exit(cmd.Main(jujucmd, cmd.DefaultContext(), args[1:]))
 }
 
 // wrap encapsulates code that wraps some of the commands in a helper class

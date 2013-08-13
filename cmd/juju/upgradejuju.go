@@ -21,7 +21,7 @@ import (
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	vers        string
 	Version     version.Number
 	Development bool

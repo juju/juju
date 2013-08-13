@@ -6,6 +6,8 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"path"
+	"regexp"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -23,15 +25,28 @@ import (
 )
 
 type StatusCommand struct {
-	EnvCommandBase
-	out cmd.Output
+	cmd.EnvCommandBase
+	out      cmd.Output
+	patterns []string
 }
 
-var statusDoc = "This command will report on the runtime state of various system entities."
+var statusDoc = `
+This command will report on the runtime state of various system entities.
+
+Service or unit names may be specified to filter the status to only those
+services and units that match, along with the related machines, services
+and units. If a subordinate unit is matched, then its principal unit will
+be displayed. If a principal unit is matched, then all of its subordinates
+will be displayed.
+
+Wildcards ('*') may be specified in service/unit names to match any sequence
+of characters. For example, 'nova-*' will match any service whose name begins
+with 'nova-': 'nova-compute', 'nova-volume', etc.`[1:]
 
 func (c *StatusCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "status",
+		Args:    "[pattern ...]",
 		Purpose: "output status information about an environment",
 		Doc:     statusDoc,
 		Aliases: []string{"stat"},
@@ -46,6 +61,11 @@ func (c *StatusCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+func (c *StatusCommand) Init(args []string) error {
+	c.patterns = args
+	return nil
+}
+
 type statusContext struct {
 	instances map[instance.Id]instance.Instance
 	machines  map[string][]*state.Machine
@@ -53,20 +73,130 @@ type statusContext struct {
 	units     map[string]map[string]*state.Unit
 }
 
+type unitMatcher struct {
+	patterns []string
+}
+
+// matchesAny returns true if the unitMatcher will
+// match any unit, regardless of its attributes.
+func (m unitMatcher) matchesAny() bool {
+	return len(m.patterns) == 0
+}
+
+// matchUnit attempts to match a state.Unit to one of
+// a set of patterns, taking into account subordinate
+// relationships.
+func (m unitMatcher) matchUnit(u *state.Unit) bool {
+	if m.matchesAny() {
+		return true
+	}
+
+	// Keep the unit if:
+	//  (a) its name matches a pattern, or
+	//  (b) it's a principal and one of its subordinates matches, or
+	//  (c) it's a subordinate and its principal matches.
+	//
+	// Note: do *not* include a second subordinate if the principal is
+	// only matched on account of a first subordinate matching.
+	if m.matchString(u.Name()) {
+		return true
+	}
+	if u.IsPrincipal() {
+		for _, s := range u.SubordinateNames() {
+			if m.matchString(s) {
+				return true
+			}
+		}
+		return false
+	}
+	principal, valid := u.PrincipalName()
+	if !valid {
+		panic("PrincipalName failed for subordinate unit")
+	}
+	return m.matchString(principal)
+}
+
+// matchString matches a string to one of the patterns in
+// the unit matcher, returning an error if a pattern with
+// invalid syntax is encountered.
+func (m unitMatcher) matchString(s string) bool {
+	for _, pattern := range m.patterns {
+		ok, err := path.Match(pattern, s)
+		if err != nil {
+			// We validate patterns, so should never get here.
+			panic(fmt.Errorf("pattern syntax error in %q", pattern))
+		} else if ok {
+			return true
+		}
+	}
+	return false
+}
+
+// validPattern must match the parts of a unit or service name
+// pattern either side of the '/' for it to be valid.
+var validPattern = regexp.MustCompile("^[a-z0-9-*]+$")
+
+// newUnitMatcher returns a unitMatcher that matches units
+// with one of the specified patterns, or all units if no
+// patterns are specified.
+//
+// An error will be returned if any of the specified patterns
+// is invalid. Patterns are valid if they contain only
+// alpha-numeric characters, hyphens, or asterisks (and one
+// optional '/' to separate service/unit).
+func newUnitMatcher(patterns []string) (unitMatcher, error) {
+	for i, pattern := range patterns {
+		fields := strings.Split(pattern, "/")
+		if len(fields) > 2 {
+			return unitMatcher{}, fmt.Errorf("pattern %q contains too many '/' characters", pattern)
+		}
+		for _, f := range fields {
+			if !validPattern.MatchString(f) {
+				return unitMatcher{}, fmt.Errorf("pattern %q contains invalid characters", pattern)
+			}
+		}
+		if len(fields) == 1 {
+			patterns[i] += "/*"
+		}
+	}
+	return unitMatcher{patterns}, nil
+}
+
+var connectionError = `Unable to connect to environment "%s".
+Please check your credentials or use 'juju bootstrap' to create a new environment.
+
+Error details:
+%v
+`
+
 func (c *StatusCommand) Run(ctx *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
-		return err
+		return fmt.Errorf(connectionError, c.EnvName, err)
 	}
 	defer conn.Close()
 
 	var context statusContext
-	if context.machines, err = fetchAllMachines(conn.State); err != nil {
+	unitMatcher, err := newUnitMatcher(c.patterns)
+	if err != nil {
 		return err
 	}
-	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State); err != nil {
+	if context.services, context.units, err = fetchAllServicesAndUnits(conn.State, unitMatcher); err != nil {
 		return err
 	}
+
+	// Filter machines by units in scope.
+	var machineIds *set.Strings
+	if !unitMatcher.matchesAny() {
+		machineIds, err = fetchUnitMachineIds(context.units)
+		if err != nil {
+			return err
+		}
+	}
+	if context.machines, err = fetchMachines(conn.State, machineIds); err != nil {
+		return err
+	}
+
 	context.instances, err = fetchAllInstances(conn.Environ)
 	if err != nil {
 		// We cannot see instances from the environment, but
@@ -74,11 +204,13 @@ func (c *StatusCommand) Run(ctx *cmd.Context) error {
 		fmt.Fprintf(ctx.Stderr, "cannot retrieve instances from the environment: %v\n", err)
 	}
 	result := struct {
-		Machines map[string]machineStatus `json:"machines"`
-		Services map[string]serviceStatus `json:"services"`
+		Environment string                   `json:"environment"`
+		Machines    map[string]machineStatus `json:"machines"`
+		Services    map[string]serviceStatus `json:"services"`
 	}{
-		Machines: context.processMachines(),
-		Services: context.processServices(),
+		Environment: conn.Environ.Name(),
+		Machines:    context.processMachines(),
+		Services:    context.processServices(),
 	}
 	return c.out.Write(ctx, result)
 }
@@ -96,9 +228,11 @@ func fetchAllInstances(env environs.Environ) (map[instance.Id]instance.Instance,
 	return m, nil
 }
 
-// fetchAllMachines returns a map from top level machine id to machines, where machines[0] is the host
+// fetchMachines returns a map from top level machine id to machines, where machines[0] is the host
 // machine and machines[1..n] are any containers (including nested ones).
-func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
+//
+// If machineIds is non-nil, only machines whose IDs are in the set are returned.
+func fetchMachines(st *state.State, machineIds *set.Strings) (map[string][]*state.Machine, error) {
 	v := make(map[string][]*state.Machine)
 	machines, err := st.AllMachines()
 	if err != nil {
@@ -106,6 +240,9 @@ func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
 	}
 	// AllMachines gives us machines sorted by id.
 	for _, m := range machines {
+		if machineIds != nil && !machineIds.Contains(m.Id()) {
+			continue
+		}
 		parentId, ok := m.ParentId()
 		if !ok {
 			// Only top level host machines go directly into the machine map.
@@ -125,7 +262,7 @@ func fetchAllMachines(st *state.State) (map[string][]*state.Machine, error) {
 
 // fetchAllServicesAndUnits returns a map from service name to service
 // and a map from service name to unit name to unit.
-func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
+func fetchAllServicesAndUnits(st *state.State, unitMatcher unitMatcher) (map[string]*state.Service, map[string]map[string]*state.Unit, error) {
 	svcMap := make(map[string]*state.Service)
 	unitMap := make(map[string]map[string]*state.Unit)
 	services, err := st.AllServices()
@@ -133,18 +270,45 @@ func fetchAllServicesAndUnits(st *state.State) (map[string]*state.Service, map[s
 		return nil, nil, err
 	}
 	for _, s := range services {
-		svcMap[s.Name()] = s
 		units, err := s.AllUnits()
 		if err != nil {
 			return nil, nil, err
 		}
 		svcUnitMap := make(map[string]*state.Unit)
 		for _, u := range units {
+			if !unitMatcher.matchUnit(u) {
+				continue
+			}
 			svcUnitMap[u.Name()] = u
 		}
-		unitMap[s.Name()] = svcUnitMap
+		if unitMatcher.matchesAny() || len(svcUnitMap) > 0 {
+			unitMap[s.Name()] = svcUnitMap
+			svcMap[s.Name()] = s
+		}
 	}
 	return svcMap, unitMap, nil
+}
+
+// fetchUnitMachineIds returns a set of IDs for machines that
+// the specified units reside on, and those machines' ancestors.
+func fetchUnitMachineIds(units map[string]map[string]*state.Unit) (*set.Strings, error) {
+	machineIds := new(set.Strings)
+	for _, svcUnitMap := range units {
+		for _, unit := range svcUnitMap {
+			if !unit.IsPrincipal() {
+				continue
+			}
+			mid, err := unit.AssignedMachineId()
+			if err != nil {
+				return nil, err
+			}
+			for mid != "" {
+				machineIds.Add(mid)
+				mid = state.ParentId(mid)
+			}
+		}
+	}
+	return machineIds, nil
 }
 
 func (context *statusContext) processMachines() map[string]machineStatus {
@@ -193,6 +357,7 @@ func (context *statusContext) makeMachineStatus(machine *state.Machine) (status 
 		inst, ok := context.instances[instid]
 		if ok {
 			status.DNSName, _ = inst.DNSName()
+			status.InstanceState = inst.Status()
 		} else {
 			// Double plus ungood.  There is an instance id recorded
 			// for this machine in the state, yet the environ cannot
@@ -273,7 +438,10 @@ func (context *statusContext) processUnit(unit *state.Unit) (status unitStatus) 
 		status.Subordinates = make(map[string]unitStatus)
 		for _, name := range subUnits {
 			subUnit := context.unitByName(name)
-			status.Subordinates[name] = context.processUnit(subUnit)
+			// subUnit may be nil if subordinate was filtered out.
+			if subUnit != nil {
+				status.Subordinates[name] = context.processUnit(subUnit)
+			}
 		}
 	}
 	return

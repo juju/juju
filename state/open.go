@@ -186,10 +186,10 @@ func maybeUnauthorized(err error, msg string) error {
 	// Unauthorized access errors have no error code,
 	// just a simple error string.
 	if err.Error() == "auth fails" {
-		return &errors.UnauthorizedError{err, msg}
+		return errors.NewUnauthorizedError(err, msg)
 	}
 	if err, ok := err.(*mgo.QueryError); ok && err.Code == 10057 {
-		return &errors.UnauthorizedError{err, msg}
+		return errors.NewUnauthorizedError(err, msg)
 	}
 	return fmt.Errorf("%s: %v", msg, err)
 }

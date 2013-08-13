@@ -6,13 +6,16 @@ package imagemetadata
 import (
 	"bytes"
 	"flag"
-	"launchpad.net/goamz/aws"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/jujutest"
-	coretesting "launchpad.net/juju-core/testing"
 	"net/http"
 	"reflect"
+	"strings"
 	"testing"
+
+	"launchpad.net/goamz/aws"
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/environs/jujutest"
+	coretesting "launchpad.net/juju-core/testing"
 )
 
 var live = flag.Bool("live", false, "Include live simplestreams tests")
@@ -55,8 +58,8 @@ func Test(t *testing.T) {
 		}, testData.requireSigned)
 	}
 	registerSimpleStreamsTests()
-	Suite(&signingSuite{})
-	TestingT(t)
+	gc.Suite(&signingSuite{})
+	gc.TestingT(t)
 }
 
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
@@ -211,7 +214,7 @@ var imageData = map[string]string{
 }
 
 func registerSimpleStreamsTests() {
-	Suite(&simplestreamsSuite{
+	gc.Suite(&simplestreamsSuite{
 		liveSimplestreamsSuite: liveSimplestreamsSuite{
 			baseURL:       "test:",
 			requireSigned: false,
@@ -228,7 +231,7 @@ func registerSimpleStreamsTests() {
 }
 
 func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint ImageConstraint, requireSigned bool) {
-	Suite(&liveSimplestreamsSuite{
+	gc.Suite(&liveSimplestreamsSuite{
 		baseURL:              baseURL,
 		requireSigned:        requireSigned,
 		validImageConstraint: validImageConstraint,
@@ -246,21 +249,21 @@ type liveSimplestreamsSuite struct {
 	validImageConstraint ImageConstraint
 }
 
-func (s *liveSimplestreamsSuite) SetUpSuite(c *C) {
+func (s *liveSimplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 }
 
-func (s *liveSimplestreamsSuite) TearDownSuite(c *C) {
+func (s *liveSimplestreamsSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *simplestreamsSuite) SetUpSuite(c *C) {
+func (s *simplestreamsSuite) SetUpSuite(c *gc.C) {
 	s.liveSimplestreamsSuite.SetUpSuite(c)
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(
 		imageData, map[string]int{"test://unauth": http.StatusUnauthorized})
 }
 
-func (s *simplestreamsSuite) TearDownSuite(c *C) {
+func (s *simplestreamsSuite) TearDownSuite(c *gc.C) {
 	testRoundTripper.Sub = nil
 	s.liveSimplestreamsSuite.TearDownSuite(c)
 }
@@ -277,40 +280,40 @@ func (s *liveSimplestreamsSuite) indexPath() string {
 	return DefaultIndexPath + unsignedSuffix
 }
 
-func (s *liveSimplestreamsSuite) TestGetIndex(c *C) {
+func (s *liveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, s.indexPath(), index_v1, s.requireSigned)
-	c.Assert(err, IsNil)
-	c.Assert(indexRef.Format, Equals, index_v1)
-	c.Assert(indexRef.baseURL, Equals, s.baseURL)
-	c.Assert(len(indexRef.Indexes) > 0, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(indexRef.Format, gc.Equals, index_v1)
+	c.Assert(indexRef.baseURL, gc.Equals, s.baseURL)
+	c.Assert(len(indexRef.Indexes) > 0, gc.Equals, true)
 }
 
-func (s *liveSimplestreamsSuite) TestGetIndexWrongFormat(c *C) {
+func (s *liveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
 	_, err := getIndexWithFormat(s.baseURL, s.indexPath(), "bad", s.requireSigned)
-	c.Assert(err, NotNil)
+	c.Assert(err, gc.NotNil)
 }
 
-func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *C) {
+func (s *liveSimplestreamsSuite) TestGetImageIdsPathExists(c *gc.C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, s.indexPath(), index_v1, s.requireSigned)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	path, err := indexRef.getImageIdsPath(&s.validImageConstraint)
-	c.Assert(err, IsNil)
-	c.Assert(path, Not(Equals), "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(path, gc.Not(gc.Equals), "")
 }
 
-func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *C) {
+func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidCloudSpec(c *gc.C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, s.indexPath(), index_v1, s.requireSigned)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ic := ImageConstraint{
 		CloudSpec: CloudSpec{"bad", "spec"},
 	}
 	_, err = indexRef.getImageIdsPath(&ic)
-	c.Assert(err, NotNil)
+	c.Assert(err, gc.NotNil)
 }
 
-func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
+func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *gc.C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, s.indexPath(), index_v1, s.requireSigned)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ic := ImageConstraint{
 		CloudSpec: s.validImageConstraint.CloudSpec,
 		Series:    "precise",
@@ -318,153 +321,375 @@ func (s *liveSimplestreamsSuite) TestGetImageIdsPathInvalidProductSpec(c *C) {
 		Stream:    "spec",
 	}
 	_, err = indexRef.getImageIdsPath(&ic)
-	c.Assert(err, NotNil)
+	c.Assert(err, gc.NotNil)
 }
 
-func (s *simplestreamsSuite) TestGetImageIdsPath(c *C) {
+func (s *simplestreamsSuite) TestGetImageIdsPath(c *gc.C) {
 	indexRef, err := getIndexWithFormat(s.baseURL, s.indexPath(), index_v1, s.requireSigned)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	path, err := indexRef.getImageIdsPath(&s.validImageConstraint)
-	c.Assert(err, IsNil)
-	c.Assert(path, Equals, "streams/v1/image_metadata.json")
+	c.Assert(err, gc.IsNil)
+	c.Assert(path, gc.Equals, "streams/v1/image_metadata.json")
 }
 
-func (s *simplestreamsSuite) TestFetchNoSignedMetadata(c *C) {
+func (*simplestreamsSuite) TestExtractCatalogsForProductsAcceptsNil(c *gc.C) {
+	empty := cloudImageMetadata{}
+	c.Check(empty.extractCatalogsForProducts(nil), gc.HasLen, 0)
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsReturnsMatch(c *gc.C) {
+	metadata := cloudImageMetadata{
+		Products: map[string]imageMetadataCatalog{
+			"foo": {},
+		},
+	}
+	c.Check(
+		metadata.extractCatalogsForProducts([]string{"foo"}),
+		gc.DeepEquals,
+		[]imageMetadataCatalog{metadata.Products["foo"]})
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsIgnoresNonMatches(c *gc.C) {
+	metadata := cloudImageMetadata{
+		Products: map[string]imageMetadataCatalog{
+			"one-product": {},
+		},
+	}
+	absentProducts := []string{"another-product"}
+	c.Check(metadata.extractCatalogsForProducts(absentProducts), gc.HasLen, 0)
+}
+
+func (*simplestreamsSuite) TestExtractCatalogsForProductsPreservesOrder(c *gc.C) {
+	products := map[string]imageMetadataCatalog{
+		"1": {},
+		"2": {},
+		"3": {},
+		"4": {},
+	}
+
+	metadata := cloudImageMetadata{Products: products}
+
+	c.Check(
+		metadata.extractCatalogsForProducts([]string{"1", "3", "4", "2"}),
+		gc.DeepEquals,
+		[]imageMetadataCatalog{
+			products["1"],
+			products["3"],
+			products["4"],
+			products["2"],
+		})
+}
+
+func (*simplestreamsSuite) TestExtractIndexesAcceptsNil(c *gc.C) {
+	ind := indices{}
+	c.Check(ind.extractIndexes(), gc.HasLen, 0)
+}
+
+func (*simplestreamsSuite) TestExtractIndexesReturnsIndex(c *gc.C) {
+	metadata := indexMetadata{}
+	ind := indices{Indexes: map[string]*indexMetadata{"foo": &metadata}}
+	c.Check(ind.extractIndexes(), gc.DeepEquals, indexMetadataSlice{&metadata})
+}
+
+func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
+	ind := indices{
+		Indexes: map[string]*indexMetadata{
+			"foo": {},
+			"bar": {},
+		},
+	}
+
+	array := ind.extractIndexes()
+
+	c.Assert(array, gc.HasLen, len(ind.Indexes))
+	c.Check(array[0], gc.NotNil)
+	c.Check(array[1], gc.NotNil)
+	c.Check(array[0], gc.Not(gc.Equals), array[1])
+	c.Check(
+		(array[0] == ind.Indexes["foo"]),
+		gc.Not(gc.Equals),
+		(array[1] == ind.Indexes["foo"]))
+	c.Check(
+		(array[0] == ind.Indexes["bar"]),
+		gc.Not(gc.Equals),
+		(array[1] == ind.Indexes["bar"]))
+}
+
+func (*simplestreamsSuite) TestHasCloudAcceptsNil(c *gc.C) {
+	metadata := indexMetadata{Clouds: nil}
+	c.Check(metadata.hasCloud(CloudSpec{}), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasCloudFindsMatch(c *gc.C) {
+	metadata := indexMetadata{
+		Clouds: []CloudSpec{
+			{Region: "r1", Endpoint: "http://e1"},
+			{Region: "r2", Endpoint: "http://e2"},
+		},
+	}
+	c.Check(metadata.hasCloud(metadata.Clouds[1]), gc.Equals, true)
+}
+
+func (*simplestreamsSuite) TestHasCloudReturnsFalseIfCloudsDoNotMatch(c *gc.C) {
+	metadata := indexMetadata{
+		Clouds: []CloudSpec{
+			{Region: "r1", Endpoint: "http://e1"},
+			{Region: "r2", Endpoint: "http://e2"},
+		},
+	}
+	otherCloud := CloudSpec{Region: "r9", Endpoint: "http://e9"}
+	c.Check(metadata.hasCloud(otherCloud), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasCloudRequiresIdenticalRegion(c *gc.C) {
+	metadata := indexMetadata{
+		Clouds: []CloudSpec{
+			{Region: "around", Endpoint: "http://nearby"},
+		},
+	}
+	similarCloud := metadata.Clouds[0]
+	similarCloud.Region = "elsewhere"
+	c.Assert(similarCloud, gc.Not(gc.Equals), metadata.Clouds[0])
+
+	c.Check(metadata.hasCloud(similarCloud), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasCloudRequiresIdenticalEndpoint(c *gc.C) {
+	metadata := indexMetadata{
+		Clouds: []CloudSpec{
+			{Region: "around", Endpoint: "http://nearby"},
+		},
+	}
+	similarCloud := metadata.Clouds[0]
+	similarCloud.Endpoint = "http://far"
+	c.Assert(similarCloud, gc.Not(gc.Equals), metadata.Clouds[0])
+
+	c.Check(metadata.hasCloud(similarCloud), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasProductAcceptsNils(c *gc.C) {
+	metadata := indexMetadata{}
+	c.Check(metadata.hasProduct(nil), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestHasProductFindsMatchingProduct(c *gc.C) {
+	metadata := indexMetadata{ProductIds: []string{"x", "y", "z"}}
+	c.Check(
+		metadata.hasProduct([]string{"a", "b", metadata.ProductIds[1]}),
+		gc.Equals,
+		true)
+}
+
+func (*simplestreamsSuite) TestHasProductReturnsFalseIfProductsDoNotMatch(c *gc.C) {
+	metadata := indexMetadata{ProductIds: []string{"x", "y", "z"}}
+	c.Check(metadata.hasProduct([]string{"a", "b", "c"}), gc.Equals, false)
+}
+
+func (*simplestreamsSuite) TestFilterReturnsNothingForEmptyArray(c *gc.C) {
+	empty := indexMetadataSlice{}
+	c.Check(
+		empty.filter(func(*indexMetadata) bool { return true }),
+		gc.HasLen,
+		0)
+}
+
+func (*simplestreamsSuite) TestFilterRemovesNonMatches(c *gc.C) {
+	array := indexMetadataSlice{&indexMetadata{}}
+	c.Check(
+		array.filter(func(*indexMetadata) bool { return false }),
+		gc.HasLen,
+		0)
+}
+
+func (*simplestreamsSuite) TestFilterIncludesMatches(c *gc.C) {
+	metadata := indexMetadata{}
+	array := indexMetadataSlice{&metadata}
+	c.Check(
+		array.filter(func(*indexMetadata) bool { return true }),
+		gc.DeepEquals,
+		indexMetadataSlice{&metadata})
+}
+
+func (*simplestreamsSuite) TestFilterLeavesOriginalUnchanged(c *gc.C) {
+	item1 := indexMetadata{CloudName: "aws"}
+	item2 := indexMetadata{CloudName: "openstack"}
+	array := indexMetadataSlice{&item1, &item2}
+
+	result := array.filter(func(metadata *indexMetadata) bool {
+		return metadata.CloudName == "aws"
+	})
+	// This exercises both the "leave out" and the "include" code paths.
+	c.Assert(result, gc.HasLen, 1)
+
+	// The original, however, has not changed.
+	c.Assert(array, gc.HasLen, 2)
+	c.Check(array, gc.DeepEquals, indexMetadataSlice{&item1, &item2})
+}
+
+func (*simplestreamsSuite) TestFilterPreservesOrder(c *gc.C) {
+	array := indexMetadataSlice{
+		&indexMetadata{CloudName: "aws"},
+		&indexMetadata{CloudName: "maas"},
+		&indexMetadata{CloudName: "openstack"},
+	}
+
+	c.Check(
+		array.filter(func(metadata *indexMetadata) bool { return true }),
+		gc.DeepEquals,
+		array)
+}
+
+func (*simplestreamsSuite) TestFilterCombinesMatchesAndNonMatches(c *gc.C) {
+	array := indexMetadataSlice{
+		&indexMetadata{Format: "1.0"},
+		&indexMetadata{Format: "1.1"},
+		&indexMetadata{Format: "2.0"},
+		&indexMetadata{Format: "2.1"},
+	}
+
+	dotOFormats := array.filter(func(metadata *indexMetadata) bool {
+		return strings.HasSuffix(metadata.Format, ".0")
+	})
+
+	c.Check(dotOFormats, gc.DeepEquals, indexMetadataSlice{array[0], array[2]})
+}
+
+func (s *simplestreamsSuite) TestFetchNoSignedMetadata(c *gc.C) {
 	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, true)
-	c.Assert(err, IsNil)
-	c.Assert(im, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(im, gc.HasLen, 0)
 }
 
-func (s *liveSimplestreamsSuite) assertGetMetadata(c *C) *cloudImageMetadata {
+func (s *liveSimplestreamsSuite) assertGetMetadata(c *gc.C) *cloudImageMetadata {
 	indexRef, err := getIndexWithFormat(s.baseURL, s.indexPath(), index_v1, s.requireSigned)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	metadata, err := indexRef.getCloudMetadataWithFormat(&s.validImageConstraint, product_v1, s.requireSigned)
-	c.Assert(err, IsNil)
-	c.Assert(metadata.Format, Equals, product_v1)
-	c.Assert(len(metadata.Products) > 0, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(metadata.Format, gc.Equals, product_v1)
+	c.Assert(len(metadata.Products) > 0, gc.Equals, true)
 	return metadata
 }
 
-func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *C) {
+func (s *liveSimplestreamsSuite) TestGetCloudMetadataWithFormat(c *gc.C) {
 	s.assertGetMetadata(c)
 }
 
-func (s *liveSimplestreamsSuite) TestFetchExists(c *C) {
+func (s *liveSimplestreamsSuite) TestFetchExists(c *gc.C) {
 	im, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
-	c.Assert(err, IsNil)
-	c.Assert(len(im) > 0, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(im) > 0, gc.Equals, true)
 }
 
-func (s *liveSimplestreamsSuite) TestFetchFirstURLNotFound(c *C) {
+func (s *liveSimplestreamsSuite) TestFetchFirstURLNotFound(c *gc.C) {
 	im, err := Fetch([]string{"test://notfound", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
-	c.Assert(err, IsNil)
-	c.Assert(len(im) > 0, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(im) > 0, gc.Equals, true)
 }
 
-func (s *liveSimplestreamsSuite) TestFetchFirstURLUnauthorised(c *C) {
+func (s *liveSimplestreamsSuite) TestFetchFirstURLUnauthorised(c *gc.C) {
 	im, err := Fetch([]string{"test://unauth", s.baseURL}, DefaultIndexPath, &s.validImageConstraint, s.requireSigned)
-	c.Assert(err, IsNil)
-	c.Assert(len(im) > 0, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(im) > 0, gc.Equals, true)
 }
 
-func (s *liveSimplestreamsSuite) assertGetImageCollections(c *C, version string) *imageCollection {
+func (s *liveSimplestreamsSuite) assertGetImageCollections(c *gc.C, version string) *imageCollection {
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Images[version]
 	return ic
 }
 
-func (s *simplestreamsSuite) TestMetadataCatalog(c *C) {
+func (s *simplestreamsSuite) TestMetadataCatalog(c *gc.C) {
 	metadata := s.assertGetMetadata(c)
-	c.Check(len(metadata.Products), Equals, 2)
-	c.Check(len(metadata.Aliases), Equals, 1)
+	c.Check(len(metadata.Products), gc.Equals, 2)
+	c.Check(len(metadata.Aliases), gc.Equals, 1)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
-	c.Check(len(metadataCatalog.Images), Equals, 2)
-	c.Check(metadataCatalog.Series, Equals, "precise")
-	c.Check(metadataCatalog.Version, Equals, "12.04")
-	c.Check(metadataCatalog.Arch, Equals, "amd64")
-	c.Check(metadataCatalog.RegionName, Equals, "au-east-1")
-	c.Check(metadataCatalog.Endpoint, Equals, "https://somewhere")
-	c.Check(len(metadataCatalog.Images) > 0, Equals, true)
+	c.Check(len(metadataCatalog.Images), gc.Equals, 2)
+	c.Check(metadataCatalog.Series, gc.Equals, "precise")
+	c.Check(metadataCatalog.Version, gc.Equals, "12.04")
+	c.Check(metadataCatalog.Arch, gc.Equals, "amd64")
+	c.Check(metadataCatalog.RegionName, gc.Equals, "au-east-1")
+	c.Check(metadataCatalog.Endpoint, gc.Equals, "https://somewhere")
+	c.Check(len(metadataCatalog.Images) > 0, gc.Equals, true)
 }
 
-func (s *simplestreamsSuite) TestImageCollection(c *C) {
+func (s *simplestreamsSuite) TestImageCollection(c *gc.C) {
 	ic := s.assertGetImageCollections(c, "20121218")
-	c.Check(ic.RegionName, Equals, "au-east-2")
-	c.Check(ic.Endpoint, Equals, "https://somewhere-else")
-	c.Assert(len(ic.Images) > 0, Equals, true)
+	c.Check(ic.RegionName, gc.Equals, "au-east-2")
+	c.Check(ic.Endpoint, gc.Equals, "https://somewhere-else")
+	c.Assert(len(ic.Images) > 0, gc.Equals, true)
 	im := ic.Images["usww2he"]
-	c.Check(im.Id, Equals, "ami-442ea674")
-	c.Check(im.Storage, Equals, "ebs")
-	c.Check(im.VType, Equals, "hvm")
-	c.Check(im.RegionName, Equals, "us-east-1")
-	c.Check(im.Endpoint, Equals, "https://ec2.us-east-1.amazonaws.com")
+	c.Check(im.Id, gc.Equals, "ami-442ea674")
+	c.Check(im.Storage, gc.Equals, "ebs")
+	c.Check(im.VType, gc.Equals, "hvm")
+	c.Check(im.RegionName, gc.Equals, "us-east-1")
+	c.Check(im.Endpoint, gc.Equals, "https://ec2.us-east-1.amazonaws.com")
 }
 
-func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *C) {
+func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCollection(c *gc.C) {
 	ic := s.assertGetImageCollections(c, "20121218")
 	im := ic.Images["usww1pe"]
-	c.Check(im.RegionName, Equals, ic.RegionName)
-	c.Check(im.Endpoint, Equals, ic.Endpoint)
+	c.Check(im.RegionName, gc.Equals, ic.RegionName)
+	c.Check(im.Endpoint, gc.Equals, ic.Endpoint)
 }
 
-func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCatalog(c *C) {
+func (s *simplestreamsSuite) TestImageMetadataDenormalisationFromCatalog(c *gc.C) {
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Images["20111111"]
 	im := ic.Images["usww3pe"]
-	c.Check(im.RegionName, Equals, metadataCatalog.RegionName)
-	c.Check(im.Endpoint, Equals, metadataCatalog.Endpoint)
+	c.Check(im.RegionName, gc.Equals, metadataCatalog.RegionName)
+	c.Check(im.Endpoint, gc.Equals, metadataCatalog.Endpoint)
 }
 
-func (s *simplestreamsSuite) TestImageMetadataDealiasing(c *C) {
+func (s *simplestreamsSuite) TestImageMetadataDealiasing(c *gc.C) {
 	metadata := s.assertGetMetadata(c)
 	metadataCatalog := metadata.Products["com.ubuntu.cloud:server:12.04:amd64"]
 	ic := metadataCatalog.Images["20121218"]
 	im := ic.Images["usww3he"]
-	c.Check(im.RegionName, Equals, "us-west-3")
-	c.Check(im.Endpoint, Equals, "https://ec2.us-west-3.amazonaws.com")
+	c.Check(im.RegionName, gc.Equals, "us-west-3")
+	c.Check(im.Endpoint, gc.Equals, "https://ec2.us-west-3.amazonaws.com")
 }
 
 type productSpecSuite struct{}
 
-var _ = Suite(&productSpecSuite{})
+var _ = gc.Suite(&productSpecSuite{})
 
-func (s *productSpecSuite) TestIdWithDefaultStream(c *C) {
+func (s *productSpecSuite) TestIdWithDefaultStream(c *gc.C) {
 	imageConstraint := ImageConstraint{
 		Series: "precise",
 		Arches: []string{"amd64"},
 	}
 	ids, err := imageConstraint.Ids()
-	c.Assert(err, IsNil)
-	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud:server:12.04:amd64"})
 }
 
-func (s *productSpecSuite) TestId(c *C) {
+func (s *productSpecSuite) TestId(c *gc.C) {
 	imageConstraint := ImageConstraint{
 		Series: "precise",
 		Arches: []string{"amd64"},
 		Stream: "daily",
 	}
 	ids, err := imageConstraint.Ids()
-	c.Assert(err, IsNil)
-	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:12.04:amd64"})
 }
 
-func (s *productSpecSuite) TestIdMultiArch(c *C) {
+func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	imageConstraint := ImageConstraint{
 		Series: "precise",
 		Arches: []string{"amd64", "i386"},
 		Stream: "daily",
 	}
 	ids, err := imageConstraint.Ids()
-	c.Assert(err, IsNil)
-	c.Assert(ids, DeepEquals, []string{
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{
 		"com.ubuntu.cloud.daily:server:12.04:amd64",
 		"com.ubuntu.cloud.daily:server:12.04:i386"})
 }
 
-func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
+func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 	imageConstraint := ImageConstraint{
 		Series: "lucid",
 		Arches: []string{"amd64"},
@@ -474,8 +699,8 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *C) {
 	if err != nil && err.Error() == `invalid series "lucid"` {
 		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
 	}
-	c.Assert(err, IsNil)
-	c.Assert(ids, DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.cloud.daily:server:10.04:amd64"})
 }
 
 var fetchTests = []struct {
@@ -578,7 +803,7 @@ var fetchTests = []struct {
 	},
 }
 
-func (s *simplestreamsSuite) TestFetch(c *C) {
+func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	for i, t := range fetchTests {
 		c.Logf("test %d", i)
 		imageConstraint := ImageConstraint{
@@ -587,10 +812,10 @@ func (s *simplestreamsSuite) TestFetch(c *C) {
 			Arches:    t.arches,
 		}
 		images, err := Fetch([]string{s.baseURL}, DefaultIndexPath, &imageConstraint, s.requireSigned)
-		if !c.Check(err, IsNil) {
+		if !c.Check(err, gc.IsNil) {
 			continue
 		}
-		c.Check(images, DeepEquals, t.images)
+		c.Check(images, gc.DeepEquals, t.images)
 	}
 }
 
@@ -659,32 +884,32 @@ var origKey = simpleStreamSigningKey
 
 type signingSuite struct{}
 
-func (s *signingSuite) SetUpSuite(c *C) {
+func (s *signingSuite) SetUpSuite(c *gc.C) {
 	simpleStreamSigningKey = testSigningKey
 }
 
-func (s *signingSuite) TearDownSuite(c *C) {
+func (s *signingSuite) TearDownSuite(c *gc.C) {
 	simpleStreamSigningKey = origKey
 }
 
-func (s *signingSuite) TestDecodeCheckValidSignature(c *C) {
+func (s *signingSuite) TestDecodeCheckValidSignature(c *gc.C) {
 	r := bytes.NewReader([]byte(validClearsignInput + testSig))
 	txt, err := DecodeCheckSignature(r)
-	c.Assert(err, IsNil)
-	c.Assert(txt, DeepEquals, []byte("Hello world\nline 2\n"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(txt, gc.DeepEquals, []byte("Hello world\nline 2\n"))
 }
 
-func (s *signingSuite) TestDecodeCheckInvalidSignature(c *C) {
+func (s *signingSuite) TestDecodeCheckInvalidSignature(c *gc.C) {
 	r := bytes.NewReader([]byte(invalidClearsignInput + testSig))
 	_, err := DecodeCheckSignature(r)
-	c.Assert(err, Not(IsNil))
+	c.Assert(err, gc.Not(gc.IsNil))
 	_, ok := err.(*NotPGPSignedError)
-	c.Assert(ok, Equals, false)
+	c.Assert(ok, gc.Equals, false)
 }
 
-func (s *signingSuite) TestDecodeCheckMissingSignature(c *C) {
+func (s *signingSuite) TestDecodeCheckMissingSignature(c *gc.C) {
 	r := bytes.NewReader([]byte("foo"))
 	_, err := DecodeCheckSignature(r)
 	_, ok := err.(*NotPGPSignedError)
-	c.Assert(ok, Equals, true)
+	c.Assert(ok, gc.Equals, true)
 }

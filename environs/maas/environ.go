@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
@@ -166,7 +167,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth(), apiVersion)
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
 	if err != nil {
 		return err
 	}
@@ -246,6 +247,23 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 	return err
 }
 
+// createBridgeNetwork returns a string representing the upstart command to
+// create a bridged eth0.
+func createBridgeNetwork() string {
+	return `cat > /etc/network/interfaces << EOF
+auto lo
+iface lo inet loopback
+
+auto eth0
+iface eth0 inet manual
+
+auto br0
+iface br0 inet dhcp
+  bridge_ports eth0
+EOF
+`
+}
+
 // internalStartInstance allocates and starts a MAAS node.  It is used both
 // for the implementation of StartInstance, and to initialize the bootstrap
 // node.
@@ -286,7 +304,14 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
 		return nil, err
 	}
-	userdata, err := environs.ComposeUserData(machineConfig, runCmd)
+	// Explicitly specify that the lxc containers use the network bridge defined above.
+	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
+	userdata, err := environs.ComposeUserData(
+		machineConfig,
+		runCmd,
+		createBridgeNetwork(),
+		"service networking restart",
+	)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
 		return nil, msg

@@ -18,7 +18,7 @@ import (
 )
 
 type PublishCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	URL       string
 	CharmPath string
 

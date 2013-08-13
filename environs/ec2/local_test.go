@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"regexp"
+	"sort"
 )
 
 type ProviderSuite struct{}
@@ -302,6 +303,21 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
+func (t *localServerSuite) TestInstanceStatus(c *C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	c.Assert(err, IsNil)
+	c.Assert(inst.Status(), Equals, "terminated")
+}
+
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
@@ -317,6 +333,17 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	c.Check(*hc.Mem, Equals, uint64(1740))
 	c.Check(*hc.CpuCores, Equals, uint64(1))
 	c.Assert(*hc.CpuPower, Equals, uint64(100))
+}
+
+func (t *localServerSuite) TestValidateImageMetadata(c *C) {
+	params, err := t.env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("test")
+	c.Assert(err, IsNil)
+	params.Series = "precise"
+	params.Endpoint = "https://ec2.endpoint.com"
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	c.Assert(err, IsNil)
+	sort.Strings(image_ids)
+	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
 }
 
 // If match is true, CheckScripts checks that at least one script started

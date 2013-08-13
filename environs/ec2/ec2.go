@@ -72,6 +72,10 @@ func (inst *ec2Instance) Id() instance.Id {
 	return instance.Id(inst.InstanceId)
 }
 
+func (inst *ec2Instance) Status() string {
+	return inst.State.Name
+}
+
 func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteristics {
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
@@ -138,6 +142,23 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	}
 	e.name = cfg.Name()
 	return e, nil
+}
+
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+	if region == "" {
+		fmt.Errorf("region must be specified")
+	}
+	ec2Region, ok := allRegions[region]
+	if !ok {
+		return nil, fmt.Errorf("unknown region %q", region)
+	}
+	return &imagemetadata.MetadataLookupParams{
+		Region:        region,
+		Endpoint:      ec2Region.EC2Endpoint,
+		Architectures: []string{"amd64", "i386", "arm"},
+	}, nil
 }
 
 func (environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
@@ -286,6 +307,29 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.
 	return []string{imagemetadata.DefaultBaseURL}, nil
+}
+
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+	baseURLs, err := e.getImageBaseURLs()
+	if err != nil {
+		return nil, err
+	}
+	if region == "" {
+		region = e.ecfg().region()
+	}
+	ec2Region, ok := allRegions[region]
+	if !ok {
+		return nil, fmt.Errorf("unknown region %q", region)
+	}
+	return &imagemetadata.MetadataLookupParams{
+		Series:        e.ecfg().DefaultSeries(),
+		Region:        region,
+		Endpoint:      ec2Region.EC2Endpoint,
+		BaseURLs:      baseURLs,
+		Architectures: []string{"amd64", "i386", "arm"},
+	}, nil
 }
 
 // TODO(bug 1199847): This work can be shared between providers.

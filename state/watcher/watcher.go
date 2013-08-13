@@ -249,7 +249,6 @@ func (w *Watcher) loop() error {
 			w.flush()
 		}
 	}
-	panic("not reached")
 }
 
 // flush sends all pending events to their respective channels.

@@ -54,7 +54,6 @@ func (s *FirewallerSuite) assertPorts(c *C, inst instance.Instance, machineId st
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
-	panic("unreachable")
 }
 
 // assertEnvironPorts retrieves the open ports of environment and compares them
@@ -80,7 +79,6 @@ func (s *FirewallerSuite) assertEnvironPorts(c *C, expected []instance.Port) {
 		}
 		time.Sleep(coretesting.ShortWait)
 	}
-	panic("unreachable")
 }
 
 var _ = Suite(&FirewallerSuite{})

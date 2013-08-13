@@ -330,6 +330,14 @@ var instanceGathering = []struct {
 	},
 }
 
+func (s *localServerSuite) TestInstanceStatus(c *C) {
+	// goose's test service always returns ACTIVE state.
+	inst, _ := testing.StartInstance(c, s.Env, "100")
+	c.Assert(inst.Status(), Equals, nova.StatusActive)
+	err := s.Env.StopInstances([]instance.Instance{inst})
+	c.Assert(err, IsNil)
+}
+
 func (s *localServerSuite) TestInstancesGathering(c *C) {
 	inst0, _ := testing.StartInstance(c, s.Env, "100")
 	id0 := inst0.Id()
@@ -435,6 +443,15 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *C) {
 	// An error occurs if no suitable image is found.
 	_, err := openstack.FindInstanceSpec(s.Env, "saucy", "amd64", "mem=8G")
 	c.Assert(err, ErrorMatches, `no "saucy" images in some-region with arches \[amd64\]`)
+}
+
+func (s *localServerSuite) TestValidateImageMetadata(c *C) {
+	params, err := s.Env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("some-region")
+	c.Assert(err, IsNil)
+	params.Series = "raring"
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	c.Assert(err, IsNil)
+	c.Assert(image_ids, DeepEquals, []string{"id-y"})
 }
 
 func (s *localServerSuite) TestRemoveAll(c *C) {

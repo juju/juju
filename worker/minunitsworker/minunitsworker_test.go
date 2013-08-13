@@ -11,7 +11,6 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/juju/testing"
-	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/minunitsworker"
@@ -29,11 +28,11 @@ type minUnitsWorkerSuite struct {
 
 var _ = gc.Suite(&minUnitsWorkerSuite{})
 
-var _ worker.Worker = (*minunitsworker.MinUnitsWorker)(nil)
+var _ worker.StringsWatchHandler = (*minunitsworker.MinUnitsWorker)(nil)
 
 func (s *minUnitsWorkerSuite) TestMinUnitsWorker(c *gc.C) {
 	mu := minunitsworker.NewMinUnitsWorker(s.State)
-	defer statetesting.AssertStop(c, mu)
+	defer func() { c.Assert(worker.Stop(mu), gc.IsNil) }()
 
 	// Set up services and units for later use.
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))

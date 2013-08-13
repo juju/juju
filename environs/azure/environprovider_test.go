@@ -6,49 +6,51 @@ package azure
 import (
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+
+	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs/config"
 )
 
-type EnvironProviderSuite struct {
-	ProviderSuite
+type environProviderSuite struct {
+	providerSuite
 }
 
-var _ = Suite(new(EnvironProviderSuite))
+var _ = gc.Suite(&environProviderSuite{})
 
-func (*EnvironProviderSuite) TestOpen(c *C) {
+func (*environProviderSuite) TestOpen(c *gc.C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	attrs["name"] = "my-shiny-new-env"
 	cfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	env, err := prov.Open(cfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Check(env.Name(), Equals, attrs["name"])
+	c.Check(env.Name(), gc.Equals, attrs["name"])
 }
 
-func (EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *C) {
+func (environProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.C) {
 	prov := azureEnvironProvider{}
 	attrs := makeAzureConfigMap(c)
 	// Make the config invalid.
 	attrs["public-storage-account-name"] = ""
 	cfg, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	env, err := prov.Open(cfg)
 	// When Open() fails (i.e. returns a non-nil error), it returns an
 	// environs.Environ interface object with a nil value and a nil
 	// type.
-	c.Check(env, Equals, nil)
-	c.Check(err, ErrorMatches, ".*must be specified both or none of them.*")
+	c.Check(env, gc.Equals, nil)
+	c.Check(err, gc.ErrorMatches, ".*must be specified both or none of them.*")
 }
 
 // writeWALASharedConfig creates a temporary file with a valid WALinux config
 // built using the given parameters. The file will be cleaned up at the end
 // of the test calling this method.
-func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, internalAddress string) string {
+func writeWALASharedConfig(c *gc.C, deploymentId string, deploymentName string, internalAddress string) string {
 	configTemplateXML := `
 	<SharedConfig version="1.0.0.0" goalStateIncarnation="1">
 	  <Deployment name="%s" guid="{495985a8-8e5a-49aa-826f-d1f7f51045b6}" incarnation="0">
@@ -62,10 +64,10 @@ func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, int
         </SharedConfig>`
 	config := fmt.Sprintf(configTemplateXML, deploymentId, deploymentName, deploymentId, internalAddress)
 	file, err := ioutil.TempFile(c.MkDir(), "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, []byte(config), 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return filename
 }
 
@@ -77,7 +79,7 @@ func writeWALASharedConfig(c *C, deploymentId string, deploymentName string, int
 // configuration file) so that it contains the path to the temporary file.
 // overrideWALASharedConfig returns a cleanup method that the caller *must*
 // call in order to restore the original value of '_WALAConfigPath'
-func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddress string) func() {
+func overrideWALASharedConfig(c *gc.C, deploymentId, deploymentName, internalAddress string) func() {
 	filename := writeWALASharedConfig(c, deploymentId, deploymentName,
 		internalAddress)
 	oldConfigPath := _WALAConfigPath
@@ -89,7 +91,7 @@ func overrideWALASharedConfig(c *C, deploymentId, deploymentName, internalAddres
 	}
 }
 
-func (*EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
+func (*environProviderSuite) TestParseWALASharedConfig(c *gc.C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	deploymentName := "gwaclmachineex95rsek"
 	internalAddress := "10.76.200.59"
@@ -98,13 +100,13 @@ func (*EnvironProviderSuite) TestParseWALASharedConfig(c *C) {
 	defer cleanup()
 
 	config, err := parseWALAConfig()
-	c.Assert(err, IsNil)
-	c.Check(config.Deployment.Name, Equals, deploymentId)
-	c.Check(config.Deployment.Service.Name, Equals, deploymentName)
-	c.Check(config.Instances[0].Address, Equals, internalAddress)
+	c.Assert(err, gc.IsNil)
+	c.Check(config.Deployment.Name, gc.Equals, deploymentId)
+	c.Check(config.Deployment.Service.Name, gc.Equals, deploymentName)
+	c.Check(config.Instances[0].Address, gc.Equals, internalAddress)
 }
 
-func (*EnvironProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
+func (*environProviderSuite) TestConfigGetDeploymentFQDN(c *gc.C) {
 	deploymentId := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	serviceName := "gwaclr12slechtstschrijvende5"
 	config := WALASharedConfig{
@@ -114,24 +116,24 @@ func (*EnvironProviderSuite) TestConfigGetDeploymentFQDN(c *C) {
 		},
 	}
 
-	c.Check(config.getDeploymentFQDN(), Equals, serviceName+".cloudapp.net")
+	c.Check(config.getDeploymentFQDN(), gc.Equals, serviceName+".cloudapp.net")
 }
 
-func (*EnvironProviderSuite) TestConfigGetDeploymentHostname(c *C) {
+func (*environProviderSuite) TestConfigGetDeploymentHostname(c *gc.C) {
 	deploymentName := "gwaclmachineex95rsek"
 	config := WALASharedConfig{Deployment: WALADeployment{Name: "id", Service: WALADeploymentService{Name: deploymentName}}}
 
-	c.Check(config.getDeploymentName(), Equals, deploymentName)
+	c.Check(config.getDeploymentName(), gc.Equals, deploymentName)
 }
 
-func (*EnvironProviderSuite) TestConfigGetInternalIP(c *C) {
+func (*environProviderSuite) TestConfigGetInternalIP(c *gc.C) {
 	internalAddress := "10.76.200.59"
 	config := WALASharedConfig{Instances: []WALAInstance{{Address: internalAddress}}}
 
-	c.Check(config.getInternalIP(), Equals, internalAddress)
+	c.Check(config.getInternalIP(), gc.Equals, internalAddress)
 }
 
-func (*EnvironProviderSuite) TestPublicAddress(c *C) {
+func (*environProviderSuite) TestPublicAddress(c *gc.C) {
 	deploymentName := "b6de4c4c7d4a49c39270e0c57481fd9b"
 	cleanup := overrideWALASharedConfig(c, "deploymentid", deploymentName, "10.76.200.59")
 	defer cleanup()
@@ -139,17 +141,17 @@ func (*EnvironProviderSuite) TestPublicAddress(c *C) {
 	expectedAddress := deploymentName + ".cloudapp.net"
 	prov := azureEnvironProvider{}
 	pubAddress, err := prov.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Check(pubAddress, Equals, expectedAddress)
+	c.Assert(err, gc.IsNil)
+	c.Check(pubAddress, gc.Equals, expectedAddress)
 }
 
-func (*EnvironProviderSuite) TestPrivateAddress(c *C) {
+func (*environProviderSuite) TestPrivateAddress(c *gc.C) {
 	internalAddress := "10.76.200.59"
 	cleanup := overrideWALASharedConfig(c, "deploy-id", "name", internalAddress)
 	defer cleanup()
 
 	prov := azureEnvironProvider{}
 	privAddress, err := prov.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Check(privAddress, Equals, internalAddress)
+	c.Assert(err, gc.IsNil)
+	c.Check(privAddress, gc.Equals, internalAddress)
 }

@@ -38,6 +38,10 @@ func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error
 			return nil, err
 		}
 	}
+	if err := VerifyPrerequisites(); err != nil {
+		logger.Errorf("failed verification of local provider prerequisites: %v", err)
+		return nil, err
+	}
 	environ := &localEnviron{name: cfg.Name()}
 	err = environ.SetConfig(cfg)
 	if err != nil {
@@ -84,8 +88,9 @@ func (provider environProvider) Validate(cfg, old *config.Config) (valid *config
 	dir := utils.NormalizePath(localConfig.rootDir())
 	if dir == "." {
 		dir = config.JujuHomePath(cfg.Name())
-		localConfig.attrs["root-dir"] = dir
 	}
+	// Always assign the normalized path.
+	localConfig.attrs["root-dir"] = dir
 
 	// Apply the coerced unknown values back into the config.
 	return cfg.Apply(localConfig.attrs)

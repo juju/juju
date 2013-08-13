@@ -96,7 +96,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")

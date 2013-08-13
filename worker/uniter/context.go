@@ -8,8 +8,8 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
+	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"os"
 	"os/exec"
@@ -148,32 +148,14 @@ func (ctx *HookContext) hookVars(charmDir, toolsDir, socketPath string) []string
 // RunHook executes a hook in an environment which allows it to to call back
 // into ctx to execute jujuc tools.
 func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string) error {
-	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
-	ps.Env = ctx.hookVars(charmDir, toolsDir, socketPath)
-	ps.Dir = charmDir
-	outReader, outWriter, err := os.Pipe()
-	if err != nil {
-		return fmt.Errorf("cannot make logging pipe: %v", err)
-	}
-	ps.Stdout = outWriter
-	ps.Stderr = outWriter
-	logger := &hookLogger{
-		r:    outReader,
-		done: make(chan struct{}),
-	}
-	go logger.run()
-	err = ps.Start()
-	outWriter.Close()
-	if err == nil {
-		err = ps.Wait()
-	}
-	logger.stop()
-	if ee, ok := err.(*exec.Error); ok && err != nil {
-		if os.IsNotExist(ee.Err) {
-			// Missing hook is perfectly valid, but worth mentioning.
-			log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
-			return nil
-		}
+	var err error
+	env := ctx.hookVars(charmDir, toolsDir, socketPath)
+	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
+	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
+		logger.Infof("executing %s via debug-hooks", hookName)
+		err = session.RunHook(hookName, charmDir, env)
+	} else {
+		err = runCharmHook(hookName, charmDir, env)
 	}
 	write := err == nil
 	for id, rctx := range ctx.relations {
@@ -183,13 +165,44 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 					"could not write settings from %q to relation %d: %v",
 					hookName, id, e,
 				)
-				log.Errorf("worker/uniter: %v", e)
+				logger.Errorf("%v", e)
 				if err == nil {
 					err = e
 				}
 			}
 		}
 		rctx.ClearCache()
+	}
+	return err
+}
+
+func runCharmHook(hookName, charmDir string, env []string) error {
+	ps := exec.Command(filepath.Join(charmDir, "hooks", hookName))
+	ps.Env = env
+	ps.Dir = charmDir
+	outReader, outWriter, err := os.Pipe()
+	if err != nil {
+		return fmt.Errorf("cannot make logging pipe: %v", err)
+	}
+	ps.Stdout = outWriter
+	ps.Stderr = outWriter
+	hookLogger := &hookLogger{
+		r:    outReader,
+		done: make(chan struct{}),
+	}
+	go hookLogger.run()
+	err = ps.Start()
+	outWriter.Close()
+	if err == nil {
+		err = ps.Wait()
+	}
+	hookLogger.stop()
+	if ee, ok := err.(*exec.Error); ok && err != nil {
+		if os.IsNotExist(ee.Err) {
+			// Missing hook is perfectly valid, but worth mentioning.
+			logger.Infof("skipped %q hook (not implemented)", hookName)
+			return nil
+		}
 	}
 	return err
 }
@@ -209,7 +222,7 @@ func (l *hookLogger) run() {
 		line, _, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				log.Errorf("worker/uniter: cannot read hook output: %v", err)
+				logger.Errorf("cannot read hook output: %v", err)
 			}
 			break
 		}
@@ -218,7 +231,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		log.Infof("worker/uniter: HOOK %s", line)
+		logger.Infof("HOOK %s", line)
 		l.mu.Unlock()
 	}
 }

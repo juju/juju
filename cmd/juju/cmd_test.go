@@ -4,12 +4,14 @@
 package main
 
 import (
+	"bytes"
 	"os"
 	"reflect"
 
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -106,18 +108,20 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 
 		// JUJU_ENV is the final place the environment can be overriden
 		com, args = cmdFunc()
-		oldenv := os.Getenv("JUJU_ENV")
-		os.Setenv("JUJU_ENV", "walthamstow")
+		oldenv := os.Getenv(osenv.JujuEnv)
+		os.Setenv(osenv.JujuEnv, "walthamstow")
 		testInit(c, com, args, "")
-		os.Setenv("JUJU_ENV", oldenv)
+		os.Setenv(osenv.JujuEnv, oldenv)
 		assertConnName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
+		if _, ok := com.(*StatusCommand); !ok {
+			testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
+		}
 	}
 }
 
-func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
+func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dummy.Operation, errc chan error) {
 	errc = make(chan error, 1)
 	opc = make(chan dummy.Operation, 200)
 	dummy.Listen(opc)
@@ -131,7 +135,10 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 			return
 		}
 
-		err = com.Run(cmd.DefaultContext())
+		if ctx == nil {
+			ctx = cmd.DefaultContext()
+		}
+		err = com.Run(ctx)
 		errc <- err
 	}()
 	return
@@ -139,15 +146,67 @@ func runCommand(com cmd.Command, args ...string) (opc chan dummy.Operation, errc
 
 func (*CmdSuite) TestDestroyEnvironmentCommand(c *C) {
 	// normal destroy
-	opc, errc := runCommand(new(DestroyEnvironmentCommand))
+	opc, errc := runCommand(nil, new(DestroyEnvironmentCommand), "--yes")
 	c.Check(<-errc, IsNil)
 	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
 
 	// destroy with broken environment
-	opc, errc = runCommand(new(DestroyEnvironmentCommand), "-e", "brokenenv")
+	opc, errc = runCommand(nil, new(DestroyEnvironmentCommand), "--yes", "-e", "brokenenv")
 	c.Check(<-opc, IsNil)
 	c.Check(<-errc, ErrorMatches, "dummy.Destroy is broken")
 	c.Check(<-opc, IsNil)
+}
+
+func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *C) {
+	com := new(DestroyEnvironmentCommand)
+	c.Check(coretesting.InitCommand(com, nil), IsNil)
+	c.Check(com.assumeYes, Equals, false)
+
+	com = new(DestroyEnvironmentCommand)
+	c.Check(coretesting.InitCommand(com, []string{"-y"}), IsNil)
+	c.Check(com.assumeYes, Equals, true)
+
+	com = new(DestroyEnvironmentCommand)
+	c.Check(coretesting.InitCommand(com, []string{"--yes"}), IsNil)
+	c.Check(com.assumeYes, Equals, true)
+
+	var stdin, stdout bytes.Buffer
+	ctx := cmd.DefaultContext()
+	ctx.Stdout = &stdout
+	ctx.Stdin = &stdin
+
+	// Ensure confirmation is requested if "-y" is not specified.
+	stdin.WriteString("n")
+	opc, errc := runCommand(ctx, new(DestroyEnvironmentCommand))
+	c.Check(<-errc, ErrorMatches, "Environment destruction aborted")
+	c.Check(<-opc, IsNil)
+	c.Check(stdout.String(), Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
+
+	// EOF on stdin: equivalent to answering no.
+	stdin.Reset()
+	stdout.Reset()
+	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
+	c.Check(<-opc, IsNil)
+	c.Check(<-errc, ErrorMatches, "Environment destruction aborted")
+
+	// "--yes" passed: no confirmation request.
+	stdin.Reset()
+	stdout.Reset()
+	opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand), "--yes")
+	c.Check(<-errc, IsNil)
+	c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
+	c.Check(stdout.String(), Equals, "")
+
+	// Any of casing of "y" and "yes" will confirm.
+	for _, answer := range []string{"y", "Y", "yes", "YES"} {
+		stdin.Reset()
+		stdout.Reset()
+		stdin.WriteString(answer)
+		opc, errc = runCommand(ctx, new(DestroyEnvironmentCommand))
+		c.Check(<-errc, IsNil)
+		c.Check((<-opc).(dummy.OpDestroy).Env, Equals, "peckham")
+		c.Check(stdout.String(), Matches, "WARNING:.*peckham.*\\(type: dummy\\)(.|\n)*")
+	}
 }
 
 var deployTests = []struct {
@@ -196,8 +255,8 @@ func initDeployCommand(args ...string) (*DeployCommand, error) {
 }
 
 func (*CmdSuite) TestDeployCommandInit(c *C) {
-	defer os.Setenv("JUJU_REPOSITORY", os.Getenv("JUJU_REPOSITORY"))
-	os.Setenv("JUJU_REPOSITORY", "/path/to/repo")
+	defer os.Setenv(osenv.JujuRepository, os.Getenv(osenv.JujuRepository))
+	os.Setenv(osenv.JujuRepository, "/path/to/repo")
 
 	for _, t := range deployTests {
 		initExpectations(t.com)

@@ -8,19 +8,22 @@ import (
 	"flag"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/gnuflag"
-	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/dummy"
-	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
-	"launchpad.net/loggo"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 	stdtesting "testing"
+
+	"launchpad.net/gnuflag"
+	. "launchpad.net/gocheck"
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs/config"
+	_ "launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/version"
 )
 
 func TestPackage(t *stdtesting.T) {
@@ -46,7 +49,7 @@ func TestRunMain(t *stdtesting.T) {
 func badrun(c *C, exit int, args ...string) string {
 	localArgs := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "juju"}, args...)
 	ps := exec.Command(os.Args[0], localArgs...)
-	ps.Env = append(os.Environ(), "JUJU_HOME="+config.JujuHome())
+	ps.Env = append(os.Environ(), osenv.JujuHome+"="+config.JujuHome())
 	output, err := ps.CombinedOutput()
 	if exit != 0 {
 		c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
@@ -215,6 +218,7 @@ var commandNames = []string{
 	"add-relation",
 	"add-unit",
 	"bootstrap",
+	"debug-hooks",
 	"debug-log",
 	"deploy",
 	"destroy-environment",
@@ -231,7 +235,6 @@ var commandNames = []string{
 	"get-environment",
 	"help",
 	"help-tool",
-	"image-metadata",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation
@@ -273,9 +276,14 @@ func (s *MainSuite) TestHelpCommands(c *C) {
 }
 
 var topicNames = []string{
+	"aws",
 	"basics",
 	"commands",
 	"global-options",
+	"glossary",
+	"hpcloud",
+	"local",
+	"openstack",
 	"plugins",
 	"topics",
 }
@@ -300,6 +308,7 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 
 var globalFlags = []string{
 	"--debug .*",
+	"--description .*",
 	"-h, --help .*",
 	"--log-config .*",
 	"--log-file .*",
