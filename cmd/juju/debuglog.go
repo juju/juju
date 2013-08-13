@@ -77,13 +77,9 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
-	if err := cmd.CheckEmpty(args); err != nil {
-		return err
-	}
-	args = []string{
-		"0", // machine 0
-		fmt.Sprintf("tail -n %s -f /var/log/juju/all-machines.log", &c.lines),
-	}
+	tailcmd := fmt.Sprintf("tail -n %s -f /var/log/juju/all-machines.log", &c.lines)
+	args = append([]string{"0"}, args...)
+	args = append(args, tailcmd)
 	return c.sshCmd.Init(args)
 }
 
