@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -531,8 +532,8 @@ func (u *UniterAPI) CharmBundleURL(args params.CharmURLs) (params.StringResults,
 	return result, nil
 }
 
-// CharmBundleURL returns the SHA256 digest, corresponding to the
-// charm bundle bytes, for each given charm URL.
+// CharmBundleURL returns the SHA256 digest of the charm bundle data
+// for each charm url in the given parameters.
 func (u *UniterAPI) CharmBundleSha256(args params.CharmURLs) (params.StringResults, error) {
 	result := params.StringResults{
 		Results: make([]params.StringResult, len(args.URLs)),
