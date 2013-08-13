@@ -101,10 +101,9 @@ func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []
 }
 
 func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
-	var notFoundError *errors.NotFoundError
 	r, err := storage.Get(name)
 	c.Assert(r, IsNil)
-	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte) {

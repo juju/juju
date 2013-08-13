@@ -176,7 +176,7 @@ func (s *storage) RemoveAll() error {
 // container not being found.
 func maybeNotFound(err error) (error, bool) {
 	if err != nil && gooseerrors.IsNotFound(err) {
-		return &coreerrors.NotFoundError{err, ""}, true
+		return coreerrors.NewNotFoundError(err, ""), true
 	}
 	return err, false
 }

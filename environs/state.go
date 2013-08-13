@@ -14,6 +14,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/environs/config"
+	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -76,6 +77,9 @@ func LoadStateFromURL(url string) (*BootstrapState, error) {
 func LoadState(storage StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(StateFile)
 	if err != nil {
+		if coreerrors.IsNotFoundError(err) {
+			return nil, coreerrors.NewNotBootstrappedError(err, "environment is not bootstrapped")
+		}
 		return nil, err
 	}
 	return loadState(r)

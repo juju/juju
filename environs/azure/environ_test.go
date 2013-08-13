@@ -469,7 +469,7 @@ func (*environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	_, _, err := env.StateInfo()
-	c.Check(errors.IsNotFoundError(err), gc.Equals, true)
+	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
 func (*environSuite) TestStateInfo(c *gc.C) {
