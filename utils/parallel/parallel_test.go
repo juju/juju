@@ -24,8 +24,8 @@ var _ = gc.Suite(&parallelSuite{})
 
 func (*parallelSuite) TestParallelMaxPar(c *gc.C) {
 	const (
-		totalDo = 10
-		maxConcurrentRunnersPar  = 3
+		totalDo                 = 10
+		maxConcurrentRunnersPar = 3
 	)
 	var mu sync.Mutex
 	maxConcurrentRunners := 0
@@ -41,7 +41,7 @@ func (*parallelSuite) TestParallelMaxPar(c *gc.C) {
 				maxConcurrentRunners = nbRunners
 			}
 			mu.Unlock()
-			time.Sleep(time.Second/10)
+			time.Sleep(time.Second / 10)
 			mu.Lock()
 			nbRunners--
 			mu.Unlock()
