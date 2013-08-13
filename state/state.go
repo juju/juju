@@ -18,7 +18,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -464,142 +463,23 @@ func (st *State) Machine(id string) (*Machine, error) {
 	return newMachine(st, mdoc), nil
 }
 
-// Tagger represents entities with a tag.
-type Tagger interface {
-	Tag() string
-}
-
-// Lifer represents entities with a life.
-type Lifer interface {
-	Tagger
-	Life() Life
-}
-
-// SetAgentTooler is implemented by entities
-// that have a SetAgentTools method.
-type SetAgentTooler interface {
-	SetAgentTools(*tools.Tools) error
-}
-
-// Remover represents entities with lifecycles, EnsureDead and Remove methods.
-type Remover interface {
-	Lifer
-	EnsureDead() error
-	Remove() error
-}
-
-// Authenticator represents entites capable of handling password
-// authentication.
-type Authenticator interface {
-	Refresh() error
-	SetPassword(pass string) error
-	PasswordValid(pass string) bool
-}
-
-// TaggedAuthenticator represents tagged entities capable of authentication.
-type TaggedAuthenticator interface {
-	Authenticator
-	Tagger
-}
-
-// Annotator represents entities capable of handling annotations.
-type Annotator interface {
-	Annotation(key string) (string, error)
-	Annotations() (map[string]string, error)
-	SetAnnotations(pairs map[string]string) error
-}
-
-// TaggedAnnotator represents tagged entities capable of handling annotations.
-type TaggedAnnotator interface {
-	Annotator
-	Tagger
-}
-
-// Authenticator attempts to return a TaggedAuthenticator with the given tag.
-func (st *State) Authenticator(tag string) (TaggedAuthenticator, error) {
-	e, err := st.entity(tag)
-	if err != nil {
-		return nil, err
-	}
-	if e, ok := e.(TaggedAuthenticator); ok {
-		return e, nil
-	}
-	return nil, fmt.Errorf("entity %q does not support authentication", tag)
-}
-
-// Annotator attempts to return aa TaggedAnnotator with the given tag.
-func (st *State) Annotator(tag string) (TaggedAnnotator, error) {
-	e, err := st.entity(tag)
-	if err != nil {
-		return nil, err
-	}
-	if e, ok := e.(TaggedAnnotator); ok {
-		return e, nil
-	}
-	return nil, fmt.Errorf("entity %q does not support annotations", tag)
-}
-
-// Lifer attempts to return a Lifer with the given tag.
-func (st *State) Lifer(tag string) (Lifer, error) {
-	e, err := st.entity(tag)
-	if err != nil {
-		return nil, err
-	}
-	if e, ok := e.(Lifer); ok {
-		return e, nil
-	}
-	return nil, fmt.Errorf("entity %q does not support lifecycles", tag)
-}
-
-// Remover attempts to return a Remover with the given tag.
-func (st *State) Remover(tag string) (Remover, error) {
-	e, err := st.entity(tag)
-	if err != nil {
-		return nil, err
-	}
-	if e, ok := e.(Remover); ok {
-		return e, nil
-	}
-	return nil, fmt.Errorf("entity %q does not support removal", tag)
-}
-
-// entity returns the entity for the given tag.
-func (st *State) entity(tag string) (interface{}, error) {
-	i := strings.Index(tag, "-")
-	if i <= 0 || i >= len(tag)-1 {
-		return nil, fmt.Errorf("invalid entity tag %q", tag)
-	}
-	id := tag[i+1:]
-	tagKind, err := names.TagKind(tag)
-	if err != nil {
-		return nil, fmt.Errorf("invalid entity tag %q", tag)
-	}
-	switch tagKind {
+// FindEntity returns the entity with the given tag.
+//
+// The returned value can be of type *Machine, *Unit,
+// *User, *Service or *Environment, depending
+// on the tag.
+func (st *State) FindEntity(tag string) (Entity, error) {
+	kind, id, err := names.ParseTag(tag, "")
+	// TODO(fwereade): when lp:1199352 (relation lacks Tag) is fixed, add
+	// support for relation entities here.
+	switch kind {
 	case names.MachineTagKind:
-		id, err := names.MachineFromTag(tag)
-		if err != nil {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
-		if !names.IsMachine(id) {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
 		return st.Machine(id)
 	case names.UnitTagKind:
-		i := strings.LastIndex(id, "-")
-		if i == -1 {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
-		name := id[:i] + "/" + id[i+1:]
-		if !names.IsUnit(name) {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
-		return st.Unit(name)
+		return st.Unit(id)
 	case names.UserTagKind:
 		return st.User(id)
 	case names.ServiceTagKind:
-		if !names.IsService(id) {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
-		}
 		return st.Service(id)
 	case names.EnvironTagKind:
 		conf, err := st.EnvironConfig()
@@ -609,44 +489,31 @@ func (st *State) entity(tag string) (interface{}, error) {
 		// Return an invalid entity error if the requested environment is not
 		// the current one.
 		if id != conf.Name() {
-			return nil, fmt.Errorf("invalid entity tag %q", tag)
+			return nil, errors.NotFoundf("environment %q", id)
 		}
 		return st.Environment()
 	}
-	return nil, fmt.Errorf("invalid entity tag %q", tag)
+	return nil, err
 }
 
 // parseTag, given an entity tag, returns the collection name and id
 // of the entity document.
-func (st *State) parseTag(tag string) (string, string, error) {
-	parts := strings.SplitN(tag, "-", 2)
-	if len(parts) != 2 {
-		return "", "", fmt.Errorf("invalid entity name %q", tag)
-	}
-	id := parts[1]
-	var coll string
-	tagKind, err := names.TagKind(tag)
+func (st *State) parseTag(tag string) (coll string, id string, err error) {
+	kind, id, err := names.ParseTag(tag, "")
 	if err != nil {
-		return "", "", fmt.Errorf("invalid entity name %q", tag)
+		return "", "", err
 	}
-	switch tagKind {
+	switch kind {
 	case names.MachineTagKind:
 		coll = st.machines.Name
 	case names.ServiceTagKind:
 		coll = st.services.Name
 	case names.UnitTagKind:
 		coll = st.units.Name
-		// Handle replacements occurring when an entity name is created
-		// for a unit.
-		idx := strings.LastIndex(id, "-")
-		if idx == -1 {
-			return "", "", fmt.Errorf("invalid entity name %q", tag)
-		}
-		id = id[:idx] + "/" + id[idx+1:]
 	case names.UserTagKind:
 		coll = st.users.Name
 	default:
-		return "", "", fmt.Errorf("invalid entity name %q", tag)
+		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
 	return coll, id, nil
 }

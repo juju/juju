@@ -23,25 +23,16 @@ func UnitTag(unitName string) string {
 	return makeTag(UnitTagKind, unitName)
 }
 
-// UnitFromTag returns the unit name that was used to create the tag,
-// or an error if the tag is not of a unit.
-func UnitFromTag(tag string) (string, error) {
-	kind, name, err := splitTag(tag)
-	if kind != UnitTagKind || err != nil {
-		return "", fmt.Errorf("%q is not a valid unit tag", tag)
-	}
-	// Replace only the last "-" with "/", as it is valid for service
-	// names to contain hyphens.
-	if i := strings.LastIndex(name, "-"); i > 0 {
-		name = name[:i] + "/" + name[i+1:]
-	}
-	if !IsUnit(name) {
-		return "", fmt.Errorf("%q is not a valid unit tag", tag)
-	}
-	return name, nil
-}
-
 // IsUnit returns whether name is a valid unit name.
 func IsUnit(name string) bool {
 	return validUnit.MatchString(name)
+}
+
+func unitTagSuffixToId(s string) string {
+	// Replace only the last "-" with "/", as it is valid for service
+	// names to contain hyphens.
+	if i := strings.LastIndex(s, "-"); i > 0 {
+		s = s[:i] + "/" + s[i+1:]
+	}
+	return s
 }

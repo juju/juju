@@ -81,7 +81,7 @@ func removeServiceAndUnits(c *C, service *state.Service) {
 // SetPassword and Tag methods.  This will fit types from both the state
 // and api packages, as those in the api package do not have PasswordValid().
 type apiAuthenticator interface {
-	state.Tagger
+	state.Entity
 	SetPassword(string) error
 }
 
@@ -192,7 +192,7 @@ var scenarioStatus = &api.Status{
 // environment manager (bootstrap machine), so is
 // hopefully easier to remember as such.
 func (s *baseSuite) setUpScenario(c *C) (entities []string) {
-	add := func(e state.Tagger) {
+	add := func(e state.Entity) {
 		entities = append(entities, e.Tag())
 	}
 	u, err := s.State.User("admin")

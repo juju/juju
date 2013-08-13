@@ -5,6 +5,7 @@ package azure
 
 import (
 	"io"
+	"net/http"
 	"sync"
 	"time"
 
@@ -67,6 +68,12 @@ func (storage *azureStorage) List(prefix string) ([]string, error) {
 	}
 	request := &gwacl.ListBlobsRequest{Container: storage.getContainer(), Prefix: prefix, Marker: ""}
 	blobList, err := context.ListAllBlobs(request)
+	httpErr, isHTTPErr := err.(gwacl.HTTPError)
+	if isHTTPErr && httpErr.StatusCode() == http.StatusNotFound {
+		// A 404 means the container doesn't exist.  There are no files so
+		// just return nothing.
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -132,19 +139,30 @@ func (storage *azureStorage) RemoveAll() error {
 // if it does.  To avoid unnecessary HTTP requests, we do this only once for
 // every PUT operation by using a mutex lock and boolean flag.
 func (storage *azureStorage) createContainer(name string) error {
-	storage.mutex.Lock()
-	defer storage.mutex.Unlock()
-	if storage.createdContainer {
-		return nil
-	}
+	// We must get our storage context before entering our critical
+	// section, because this may lock the environment.
 	context, err := storage.getStorageContext()
 	if err != nil {
 		return err
+	}
+
+	storage.mutex.Lock()
+	defer storage.mutex.Unlock()
+
+	if storage.createdContainer {
+		return nil
 	}
 	_, err = context.GetContainerProperties(name)
 	if err == nil {
 		// No error means it's already there, just return now.
 		return nil
+	}
+	httpErr, isHTTPErr := err.(gwacl.HTTPError)
+	if !isHTTPErr || httpErr.StatusCode() != http.StatusNotFound {
+		// We were hoping for a 404: Not Found.  That means we can go
+		// ahead and create the container.  But we got some other
+		// error.
+		return err
 	}
 	err = context.CreateContainer(name)
 	if err != nil {
@@ -173,7 +191,7 @@ type publicEnvironStorageContext struct {
 var _ storageContext = (*publicEnvironStorageContext)(nil)
 
 func (context *publicEnvironStorageContext) getContainer() string {
-	return context.environ.getSnapshot().ecfg.PublicStorageContainerName()
+	return context.environ.getSnapshot().ecfg.publicStorageContainerName()
 }
 
 func (context *publicEnvironStorageContext) getStorageContext() (*gwacl.StorageContext, error) {

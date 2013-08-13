@@ -77,6 +77,8 @@ func (s *UniterSuite) SetUpSuite(c *C) {
 
 func (s *UniterSuite) TearDownSuite(c *C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
+	s.HTTPSuite.TearDownSuite(c)
+	s.JujuConnSuite.TearDownSuite(c)
 }
 
 func (s *UniterSuite) SetUpTest(c *C) {
@@ -180,7 +182,7 @@ func (ctx *context) matchLogHooks(c *C) (match bool, overshoot bool) {
 		ctx.uuid,
 	)
 	// donePattern matches uniter logging that indicates a hook has run.
-	donePattern := `^.* (INFO|ERROR) juju worker/uniter: (ran "[a-z0-9-]+" hook|hook failed)`
+	donePattern := `^.* (INFO|ERROR) juju\.worker\.uniter (ran "[a-z0-9-]+" hook|hook failed)`
 	hookRegexp := regexp.MustCompile(hookPattern)
 	doneRegexp := regexp.MustCompile(donePattern)
 
@@ -1169,7 +1171,6 @@ func (s waitUniterDead) waitDead(c *C, ctx *context) error {
 			c.Fatalf("uniter still alive")
 		}
 	}
-	panic("unreachable")
 }
 
 type stopUniter struct {

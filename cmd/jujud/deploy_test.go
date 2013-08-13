@@ -77,7 +77,6 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 			}
 		}
 	}
-	panic("unreachable")
 }
 
 func patchDeployContext(c *C, st *state.State, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {

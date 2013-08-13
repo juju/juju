@@ -10,16 +10,16 @@ import (
 	"os"
 )
 
-type CertFileSuite struct{}
+type certFileSuite struct{}
 
-var _ = Suite(new(CertFileSuite))
+var _ = Suite(&certFileSuite{})
 
-func (*CertFileSuite) TestPathReturnsFullPath(c *C) {
+func (*certFileSuite) TestPathReturnsFullPath(c *C) {
 	certFile := tempCertFile{tempDir: "/tmp/dir", filename: "file"}
 	c.Check(certFile.Path(), Equals, "/tmp/dir/file")
 }
 
-func (*CertFileSuite) TestNewTempCertFileCreatesFile(c *C) {
+func (*certFileSuite) TestNewTempCertFileCreatesFile(c *C) {
 	certData := []byte("content")
 	certFile, err := newTempCertFile(certData)
 	c.Assert(err, IsNil)
@@ -31,7 +31,7 @@ func (*CertFileSuite) TestNewTempCertFileCreatesFile(c *C) {
 	c.Check(storedData, DeepEquals, certData)
 }
 
-func (*CertFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
+func (*certFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	defer certFile.Delete()
@@ -40,7 +40,7 @@ func (*CertFileSuite) TestNewTempCertFileRestrictsAccessToFile(c *C) {
 	c.Check(info.Mode().Perm(), Equals, os.FileMode(0600))
 }
 
-func (*CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
+func (*certFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	defer certFile.Delete()
@@ -49,7 +49,7 @@ func (*CertFileSuite) TestNewTempCertFileRestrictsAccessToDir(c *C) {
 	c.Check(info.Mode().Perm(), Equals, os.FileMode(0700))
 }
 
-func (*CertFileSuite) TestDeleteRemovesFile(c *C) {
+func (*certFileSuite) TestDeleteRemovesFile(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	certFile.Delete()
@@ -57,7 +57,7 @@ func (*CertFileSuite) TestDeleteRemovesFile(c *C) {
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
-func (*CertFileSuite) TestDeleteIsIdempotent(c *C) {
+func (*certFileSuite) TestDeleteIsIdempotent(c *C) {
 	certFile, err := newTempCertFile([]byte("content"))
 	c.Assert(err, IsNil)
 	certFile.Delete()
