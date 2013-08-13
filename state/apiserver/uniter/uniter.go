@@ -9,6 +9,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -58,6 +59,30 @@ func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
 		return nil, fmt.Errorf("entity %q is not a unit", tag)
 	}
 	return unit, nil
+}
+
+func (u *UniterAPI) getService(tag string) (*state.Service, error) {
+	entity, err := u.st.FindEntity(tag)
+	if errors.IsNotFoundError(err) {
+		return nil, common.ErrPerm
+	} else if err != nil {
+		return nil, err
+	}
+	service, ok := entity.(*state.Service)
+	if !ok {
+		return nil, fmt.Errorf("entity %q is not a service", tag)
+	}
+	// Make sure the service is our unit agent's unit's service.
+	authTag := u.auth.GetAuthTag()
+	unit, err := u.getUnit(authTag)
+	if err != nil {
+		// This should never happen, that's why we're obscuring the error.
+		return nil, common.ErrPerm
+	}
+	if unit.ServiceName() != service.Name() {
+		return nil, common.ErrPerm
+	}
+	return service, nil
 }
 
 // PublicAddress returns for each given unit, a pair of the public
@@ -466,11 +491,109 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults
 	return result, nil
 }
 
+func (u *UniterAPI) watchOneService(tag string) (string, error) {
+	service, err := u.getService(tag)
+	if err != nil {
+		return "", err
+	}
+	watch := service.Watch()
+	// Consume the initial event. Technically, API
+	// calls to Watch 'transmit' the initial event
+	// in the Watch response. But NotifyWatchers
+	// have no state to transmit.
+	if _, ok := <-watch.Changes(); ok {
+		return u.resources.Register(watch), nil
+	}
+	return "", watcher.MustErr(watch)
+}
+
+// WatchService returns a watcher for observing lifecycle changes to each given service.
+func (u *UniterAPI) WatchService(args params.Entities) (params.NotifyWatchResults, error) {
+	result := params.NotifyWatchResults{
+		Results: make([]params.NotifyWatchResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		watcherId, err := u.watchOneService(entity.Tag)
+		result.Results[i].NotifyWatcherId = watcherId
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (u *UniterAPI) watchOneServiceRelations(tag string) (params.StringsWatchResult, error) {
+	nothing := params.StringsWatchResult{}
+	service, err := u.getService(tag)
+	if err != nil {
+		return nothing, err
+	}
+	watch := service.WatchRelations()
+	// Consume the initial event and forward it to the result.
+	if changes, ok := <-watch.Changes(); ok {
+		return params.StringsWatchResult{
+			StringsWatcherId: u.resources.Register(watch),
+			Changes:          changes,
+		}, nil
+	}
+	return nothing, watcher.MustErr(watch)
+}
+
+// WatchServiceRelations returns a StringsWatcher, for each given
+// service, that notifies of changes to the lifecycles of relations
+// involving that service.
+func (u *UniterAPI) WatchServiceRelations(args params.Entities) (params.StringsWatchResults, error) {
+	result := params.StringsWatchResults{
+		Results: make([]params.StringsWatchResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		entityResult, err := u.watchOneServiceRelations(entity.Tag)
+		result.Results[i] = entityResult
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// ServiceLife returns the lifecycle state of each given service.
+func (u *UniterAPI) ServiceLife(args params.Entities) (params.LifeResults, error) {
+	result := params.LifeResults{
+		Results: make([]params.LifeResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		service, err := u.getService(entity.Tag)
+		if err == nil {
+			result.Results[i].Life = params.Life(service.Life().String())
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// ServiceCharmURL returns the charm URL used by each given service.
+func (u *UniterAPI) ServiceCharmURL(args params.Entities) (params.StringBoolResults, error) {
+	result := params.StringBoolResults{
+		Results: make([]params.StringBoolResult, len(args.Entities)),
+	}
+	if len(args.Entities) == 0 {
+		return result, nil
+	}
+	for i, entity := range args.Entities {
+		service, err := u.getService(entity.Tag)
+		if err == nil {
+			curl, ok := service.CharmURL()
+			result.Results[i].Result = curl.String()
+			result.Results[i].Ok = ok
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // TODO(dimitern): Add the following needed calls:
-// WatchService
-// WatchServiceRelations
-// ServiceLife
-// ServiceCharmURL
 // GetCharmURL
 // GetCharmBundleURL
 // GetCharmBundleSha256

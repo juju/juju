@@ -221,6 +221,26 @@ func (s *uniterSuite) assertOneNotifyWatcher(c *gc.C, result params.NotifyWatchR
 	wc.AssertNoChange()
 }
 
+func (s *uniterSuite) assertOneStringsWatcher(c *gc.C, result params.StringsWatchResults, err error) {
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, 3)
+	c.Assert(result.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(result.Results[1].StringsWatcherId, gc.Equals, "1")
+	c.Assert(result.Results[1].Changes, gc.NotNil)
+	c.Assert(result.Results[1].Error, gc.IsNil)
+	c.Assert(result.Results[2].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+
+	// Verify the resource was registered and stop when done
+	c.Assert(s.resources.Count(), gc.Equals, 1)
+	resource := s.resources.Get("1")
+	defer statetesting.AssertStop(c, resource)
+
+	// Check that the Watch has consumed the initial event ("returned" in
+	// the Watch call)
+	wc := statetesting.NewStringsWatcherC(c, s.State, resource.(state.StringsWatcher))
+	wc.AssertNoChange()
+}
+
 func (s *uniterSuite) TestWatch(c *gc.C) {
 	c.Assert(s.resources.Count(), gc.Equals, 0)
 
@@ -625,6 +645,74 @@ func (s *uniterSuite) TestConfigSettings(c *gc.C) {
 		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
 			{Settings: params.Settings{"blog-title": "My Title"}},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestWatchService(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "service-mysql"},
+		{Tag: "service-wordpress"},
+		{Tag: "service-foo"},
+	}}
+	result, err := s.uniter.WatchService(args)
+	s.assertOneNotifyWatcher(c, result, err)
+}
+
+func (s *uniterSuite) TestWatchServiceRelations(c *gc.C) {
+	c.Assert(s.resources.Count(), gc.Equals, 0)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "service-mysql"},
+		{Tag: "service-wordpress"},
+		{Tag: "service-foo"},
+	}}
+	result, err := s.uniter.WatchServiceRelations(args)
+	s.assertOneStringsWatcher(c, result, err)
+}
+
+func (s *uniterSuite) TestServiceLife(c *gc.C) {
+	err := s.wordpress.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = s.wordpress.Refresh()
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.wordpress.Life(), gc.Equals, state.Dying)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "service-mysql"},
+		{Tag: "service-wordpress"},
+		{Tag: "service-foo"},
+	}}
+	result, err := s.uniter.ServiceLife(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.LifeResults{
+		Results: []params.LifeResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Life: "dying"},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestServiceCharmURL(c *gc.C) {
+	curl, force := s.wordpress.CharmURL()
+	c.Assert(force, jc.IsFalse)
+	c.Assert(curl, gc.DeepEquals, s.wpCharm.URL())
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "service-mysql"},
+		{Tag: "service-wordpress"},
+		{Tag: "service-foo"},
+	}}
+	result, err := s.uniter.ServiceCharmURL(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringBoolResults{
+		Results: []params.StringBoolResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Result: s.wpCharm.String(), Ok: force},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
