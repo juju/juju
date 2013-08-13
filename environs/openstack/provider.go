@@ -791,8 +791,8 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 				out[id] = &openstackInstance{e: e, ServerDetail: &server}
+				continue
 			}
-			continue
 		}
 		missing = append(missing, id)
 	}
