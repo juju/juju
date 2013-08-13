@@ -5,8 +5,9 @@ package instances
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/constraints"
 	"sort"
+
+	"launchpad.net/juju-core/constraints"
 )
 
 // InstanceType holds all relevant attributes of the various instance types.
