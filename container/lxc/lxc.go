@@ -188,7 +188,7 @@ func (manager *containerManager) StartContainer(
 		return nil, err
 	}
 	logger.Tracef("container started")
-	return &lxcInstance{name}, nil
+	return &lxcInstance{container, name}, nil
 }
 
 func (manager *containerManager) StopContainer(instance instance.Instance) error {
@@ -240,7 +240,7 @@ func (manager *containerManager) ListContainers() (result []instance.Instance, e
 			continue
 		}
 		if container.IsRunning() {
-			result = append(result, &lxcInstance{name})
+			result = append(result, &lxcInstance{container, name})
 		}
 	}
 	return
@@ -355,17 +355,19 @@ func cloudInitUserData(
 		var proxyLines []string
 		for _, line := range strings.Split(proxyConfig, "\n") {
 			line = strings.TrimSpace(line)
-			if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
-				cloudConfig.SetAptProxy(m[1])
-			} else {
-				proxyLines = append(proxyLines, line)
+			if len(line) > 0 {
+				if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
+					cloudConfig.SetAptProxy(m[1])
+				} else {
+					proxyLines = append(proxyLines, line)
+				}
 			}
 		}
 		if len(proxyLines) > 0 {
 			cloudConfig.AddFile(
 				"/etc/apt/apt.conf.d/99proxy-extra",
 				strings.Join(proxyLines, "\n"),
-				0600)
+				0644)
 		}
 	}
 

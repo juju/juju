@@ -18,9 +18,70 @@ type Entities struct {
 }
 
 // StringsResult holds the result of an API call that returns a slice
-// of strings.
+// of strings or an error.
 type StringsResult struct {
+	Error  *Error
 	Result []string
+}
+
+// StringsResults holds the bulk operation result of an API call
+// that returns a slice of strings or an error.
+type StringsResults struct {
+	Results []StringsResult
+}
+
+// StringBoolResult holds the result of an API call that returns a
+// string and a boolean.
+type StringBoolResult struct {
+	Error  *Error
+	Result string
+	Ok     bool
+}
+
+// StringBoolResults holds multiple results with a string and a bool
+// each.
+type StringBoolResults struct {
+	Results []StringBoolResult
+}
+
+// Settings holds charm config options names and values.
+type Settings map[string]interface{}
+
+// SettingsResult holds a charm settings map or an error.
+type SettingsResult struct {
+	Error    *Error
+	Settings Settings
+}
+
+// SettingsResults holds the result of an API calls that returns
+// settings for multiple entities.
+type SettingsResults struct {
+	Results []SettingsResult
+}
+
+// EntityPort holds an entity's tag, a protocol and a port.
+type EntityPort struct {
+	Tag      string
+	Protocol string
+	Port     int
+}
+
+// EntitiesPorts holds the parameters for making an OpenPort or
+// ClosePort on some entities.
+type EntitiesPorts struct {
+	Entities []EntityPort
+}
+
+// EntityCharmURL holds an entity's tag and a charm URL.
+type EntityCharmURL struct {
+	Tag      string
+	CharmURL string
+}
+
+// EntitiesCharmURL holds the parameters for making a SetCharmURL API
+// call.
+type EntitiesCharmURL struct {
+	Entities []EntityCharmURL
 }
 
 // BytesResult holds the result of an API call that returns a slice
@@ -39,6 +100,18 @@ type LifeResult struct {
 // LifeResults holds the life or error status of multiple entities.
 type LifeResults struct {
 	Results []LifeResult
+}
+
+// SetEntityAddress holds an entity tag and an address.
+type SetEntityAddress struct {
+	Tag     string
+	Address string
+}
+
+// SetEntityAddresses holds the parameters for making a Set*Address
+// call, where the address can be a public or a private one.
+type SetEntityAddresses struct {
+	Entities []SetEntityAddress
 }
 
 // MachineSetStatus holds a machine tag, status and extra info.

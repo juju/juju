@@ -20,14 +20,14 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-type StorageSuite struct {
-	ProviderSuite
+type storageSuite struct {
+	providerSuite
 }
 
-var _ = gc.Suite(&StorageSuite{})
+var _ = gc.Suite(&storageSuite{})
 
 // makeStorage creates a MAAS storage object for the running test.
-func (s *StorageSuite) makeStorage(name string) *maasStorage {
+func (s *storageSuite) makeStorage(name string) *maasStorage {
 	maasobj := s.testMAASObject.MAASObject
 	env := maasEnviron{name: name, maasClientUnlocked: &maasobj}
 	return NewStorage(&env).(*maasStorage)
@@ -48,12 +48,12 @@ func makeRandomBytes(length int) []byte {
 //
 // If you want properly random data here, initialize the randomizer first.
 // Or don't, if you want consistent (and debuggable) results.
-func (s *StorageSuite) fakeStoredFile(storage environs.Storage, name string) gomaasapi.MAASObject {
+func (s *storageSuite) fakeStoredFile(storage environs.Storage, name string) gomaasapi.MAASObject {
 	data := makeRandomBytes(rand.Intn(10))
 	return s.testMAASObject.TestServer.NewFile(name, data)
 }
 
-func (s *StorageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
+func (s *storageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
 	original := s.makeStorage("storage-name")
 	snapshot := original.getSnapshot()
 	c.Check(snapshot.environUnlocked, gc.Equals, original.environUnlocked)
@@ -65,7 +65,7 @@ func (s *StorageSuite) TestGetSnapshotCreatesClone(c *gc.C) {
 	c.Check(snapshot.Mutex, gc.Equals, unlockedMutexValue)
 }
 
-func (s *StorageSuite) TestGetRetrievesFile(c *gc.C) {
+func (s *storageSuite) TestGetRetrievesFile(c *gc.C) {
 	const filename = "stored-data"
 	storage := s.makeStorage("get-retrieves-file")
 	file := s.fakeStoredFile(storage, filename)
@@ -84,7 +84,7 @@ func (s *StorageSuite) TestGetRetrievesFile(c *gc.C) {
 	c.Check(buf, gc.DeepEquals, content)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *gc.C) {
+func (s *storageSuite) TestRetrieveFileObjectReturnsFileObject(c *gc.C) {
 	const filename = "myfile"
 	stor := s.makeStorage("rfo-test")
 	file := s.fakeStoredFile(stor, filename)
@@ -103,14 +103,14 @@ func (s *StorageSuite) TestRetrieveFileObjectReturnsFileObject(c *gc.C) {
 	c.Check(content, gc.Equals, fileContent)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectReturnsNotFoundForMissingFile(c *gc.C) {
+func (s *storageSuite) TestRetrieveFileObjectReturnsNotFoundForMissingFile(c *gc.C) {
 	stor := s.makeStorage("rfo-test")
 	_, err := stor.retrieveFileObject("nonexistent-file")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *gc.C) {
+func (s *storageSuite) TestRetrieveFileObjectEscapesName(c *gc.C) {
 	const filename = "#a?b c&d%e!"
 	data := []byte("File contents here")
 	stor := s.makeStorage("rfo-test")
@@ -127,7 +127,7 @@ func (s *StorageSuite) TestRetrieveFileObjectEscapesName(c *gc.C) {
 	c.Check(content, gc.DeepEquals, data)
 }
 
-func (s *StorageSuite) TestFileContentsAreBinary(c *gc.C) {
+func (s *storageSuite) TestFileContentsAreBinary(c *gc.C) {
 	const filename = "myfile.bin"
 	data := []byte{0, 1, 255, 2, 254, 3}
 	stor := s.makeStorage("binary-test")
@@ -142,21 +142,21 @@ func (s *StorageSuite) TestFileContentsAreBinary(c *gc.C) {
 	c.Check(content, gc.DeepEquals, data)
 }
 
-func (s *StorageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *gc.C) {
+func (s *storageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *gc.C) {
 	const filename = "lost-data"
 	storage := NewStorage(s.environ)
 	_, err := storage.Get(filename)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *StorageSuite) TestListReturnsEmptyIfNoFilesStored(c *gc.C) {
+func (s *storageSuite) TestListReturnsEmptyIfNoFilesStored(c *gc.C) {
 	storage := NewStorage(s.environ)
 	listing, err := storage.List("")
 	c.Assert(err, gc.IsNil)
 	c.Check(listing, gc.DeepEquals, []string{})
 }
 
-func (s *StorageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
+func (s *storageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
 	storage := NewStorage(s.environ)
 	files := []string{"1a", "2b", "3c"}
 	for _, name := range files {
@@ -168,7 +168,7 @@ func (s *StorageSuite) TestListReturnsAllFilesIfPrefixEmpty(c *gc.C) {
 	c.Check(listing, gc.DeepEquals, files)
 }
 
-func (s *StorageSuite) TestListSortsResults(c *gc.C) {
+func (s *storageSuite) TestListSortsResults(c *gc.C) {
 	storage := NewStorage(s.environ)
 	files := []string{"4d", "1a", "3c", "2b"}
 	for _, name := range files {
@@ -180,7 +180,7 @@ func (s *StorageSuite) TestListSortsResults(c *gc.C) {
 	c.Check(listing, gc.DeepEquals, []string{"1a", "2b", "3c", "4d"})
 }
 
-func (s *StorageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
+func (s *storageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, "foo")
 
@@ -189,7 +189,7 @@ func (s *StorageSuite) TestListReturnsNoFilesIfNoFilesMatchPrefix(c *gc.C) {
 	c.Check(listing, gc.DeepEquals, []string{})
 }
 
-func (s *StorageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
+func (s *storageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, "abc")
 	s.fakeStoredFile(storage, "xyz")
@@ -199,7 +199,7 @@ func (s *StorageSuite) TestListReturnsOnlyFilesWithMatchingPrefix(c *gc.C) {
 	c.Check(listing, gc.DeepEquals, []string{"xyz"})
 }
 
-func (s *StorageSuite) TestListMatchesPrefixOnly(c *gc.C) {
+func (s *storageSuite) TestListMatchesPrefixOnly(c *gc.C) {
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, "abc")
 	s.fakeStoredFile(storage, "xabc")
@@ -209,7 +209,7 @@ func (s *StorageSuite) TestListMatchesPrefixOnly(c *gc.C) {
 	c.Check(listing, gc.DeepEquals, []string{"abc"})
 }
 
-func (s *StorageSuite) TestListOperatesOnFlatNamespace(c *gc.C) {
+func (s *storageSuite) TestListOperatesOnFlatNamespace(c *gc.C) {
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, "a/b/c/d")
 
@@ -231,7 +231,7 @@ func getFileAtURL(fileURL string) ([]byte, error) {
 	return body, nil
 }
 
-func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
+func (s *storageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	const filename = "my-file.txt"
 	storage := NewStorage(s.environ).(*maasStorage)
 	file := s.fakeStoredFile(storage, filename)
@@ -252,7 +252,7 @@ func (s *StorageSuite) TestURLReturnsURLCorrespondingToFile(c *gc.C) {
 	c.Check(fileURL, gc.Equals, anonURL.String())
 }
 
-func (s *StorageSuite) TestPutStoresRetrievableFile(c *gc.C) {
+func (s *storageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 	const filename = "broken-toaster.jpg"
 	contents := []byte("Contents here")
 	length := int64(len(contents))
@@ -269,7 +269,7 @@ func (s *StorageSuite) TestPutStoresRetrievableFile(c *gc.C) {
 	c.Check(buf, gc.DeepEquals, contents)
 }
 
-func (s *StorageSuite) TestPutOverwritesFile(c *gc.C) {
+func (s *storageSuite) TestPutOverwritesFile(c *gc.C) {
 	const filename = "foo.bar"
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, filename)
@@ -288,7 +288,7 @@ func (s *StorageSuite) TestPutOverwritesFile(c *gc.C) {
 	c.Check(buf, gc.DeepEquals, newContents)
 }
 
-func (s *StorageSuite) TestPutStopsAtGivenLength(c *gc.C) {
+func (s *storageSuite) TestPutStopsAtGivenLength(c *gc.C) {
 	const filename = "xyzzyz.2.xls"
 	const length = 5
 	contents := []byte("abcdefghijklmnopqrstuvwxyz")
@@ -306,7 +306,7 @@ func (s *StorageSuite) TestPutStopsAtGivenLength(c *gc.C) {
 	c.Check(len(buf), gc.Equals, length)
 }
 
-func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
+func (s *storageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 	const filename = "a-file-which-is-mine"
 	oldContents := []byte("abcdefghijklmnopqrstuvwxyz")
 	newContents := []byte("xyz")
@@ -327,7 +327,7 @@ func (s *StorageSuite) TestPutToExistingFileTruncatesAtGivenLength(c *gc.C) {
 	c.Check(buf, gc.DeepEquals, newContents)
 }
 
-func (s *StorageSuite) TestRemoveDeletesFile(c *gc.C) {
+func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 	const filename = "doomed.txt"
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, filename)
@@ -343,7 +343,7 @@ func (s *StorageSuite) TestRemoveDeletesFile(c *gc.C) {
 	c.Assert(listing, gc.DeepEquals, []string{})
 }
 
-func (s *StorageSuite) TestRemoveIsIdempotent(c *gc.C) {
+func (s *storageSuite) TestRemoveIsIdempotent(c *gc.C) {
 	const filename = "half-a-file"
 	storage := NewStorage(s.environ)
 	s.fakeStoredFile(storage, filename)
@@ -355,7 +355,7 @@ func (s *StorageSuite) TestRemoveIsIdempotent(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *StorageSuite) TestNamesMayHaveSlashes(c *gc.C) {
+func (s *storageSuite) TestNamesMayHaveSlashes(c *gc.C) {
 	const filename = "name/with/slashes"
 	content := []byte("File contents")
 	storage := NewStorage(s.environ)
@@ -377,7 +377,7 @@ func (s *StorageSuite) TestNamesMayHaveSlashes(c *gc.C) {
 	c.Check(data, gc.DeepEquals, content)
 }
 
-func (s *StorageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
+func (s *storageSuite) TestRemoveAllDeletesAllFiles(c *gc.C) {
 	storage := s.makeStorage("get-retrieves-file")
 	const filename1 = "stored-data1"
 	s.fakeStoredFile(storage, filename1)

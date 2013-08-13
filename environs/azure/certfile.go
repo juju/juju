@@ -3,10 +3,11 @@ package azure
 import (
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/utils"
 	"math/rand"
 	"os"
 	"path"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // tempCertFile is a temporary file containing an x509 certificate.

@@ -103,17 +103,21 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 	return nil, fmt.Errorf("no machine type matches constraints %v", constraint)
 }
 
-// baseURLs specifies where we look for simplestreams information.  It's just
-// the central database, but this may become more configurable.  This variable
-// is here as a placeholder, but also as an injection point for tests.
-var baseURLs = []string{imagemetadata.DefaultBaseURL}
+// baseURLs specifies where we look for simplestreams information.  It contains
+// the central databases for the released and daily streams, but this may
+// become more configurable.  This variable is here as a placeholder, but also
+// as an injection point for tests.
+var baseURLs = []string{
+	imagemetadata.DefaultBaseURL,
+	"http://cloud-images.ubuntu.com/daily",
+}
 
-// getEndpoint returns the endpoint to use for the given Azure location
-// (e.g. West Europe or China North).
-func getEndpoint(location string) (string, error) {
-	// TODO: Get actual proper endpoint information from Simplestreams, or
-	// at the very least, support the separate endpoint for China.
-	return "https://management.core.windows.net/", nil
+// getEndpoint returns the simplestreams endpoint to use for the given Azure
+// location (e.g. West Europe or China North).
+func getEndpoint(location string) string {
+	// Simplestreams uses the management-API endpoint for the image, not
+	// the base managent API URL.
+	return gwacl.GetEndpoint(location).ManagementAPI()
 }
 
 // As long as this code only supports the default simplestreams
@@ -132,15 +136,13 @@ var fetchImageMetadata = imagemetadata.Fetch
 // requirements.
 //
 // If it finds no matching images, that's an error.
-func findMatchingImages(location, series string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
-	endpoint, err := getEndpoint(location)
-	if err != nil {
-		return nil, err
-	}
+func findMatchingImages(location, series, stream string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
+	endpoint := getEndpoint(location)
 	constraint := imagemetadata.ImageConstraint{
 		CloudSpec: imagemetadata.CloudSpec{location, endpoint},
 		Series:    series,
 		Arches:    arches,
+		Stream:    stream,
 	}
 	indexPath := imagemetadata.DefaultIndexPath
 	images, err := fetchImageMetadata(baseURLs, indexPath, &constraint, signedImageDataOnly)
@@ -184,9 +186,9 @@ func listInstanceTypes(roleSizes []gwacl.RoleSize) []instances.InstanceType {
 
 // findInstanceSpec returns the InstanceSpec that best satisfies the supplied
 // InstanceConstraint.
-func findInstanceSpec(baseURLs []string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
+func findInstanceSpec(stream string, constraint instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	constraint.Constraints = defaultToBaselineSpec(constraint.Constraints)
-	imageData, err := findMatchingImages(constraint.Region, constraint.Series, constraint.Arches)
+	imageData, err := findMatchingImages(constraint.Region, constraint.Series, stream, constraint.Arches)
 	if err != nil {
 		return nil, err
 	}

@@ -46,5 +46,5 @@ func (*EnvironsCertSuite) TestGenerateCertificate(c *C) {
 	// Check the common name of the generated cert
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
 	c.Assert(err, IsNil)
-	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment `+testing.SampleEnvName)
+	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
 }

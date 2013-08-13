@@ -89,6 +89,26 @@ Acquire::https::Proxy "false";`
 	c.Assert(out, gc.Equals, expected)
 }
 
+func (s *AptSuite) TestConfigProxyConfiguredFilterOutput(c *gc.C) {
+	const (
+		output = `CommandLine::AsString "apt-config dump";
+Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";`
+		expected = `Acquire::http::Proxy  "10.0.3.1:3142";
+Acquire::https::Proxy "false";`
+	)
+	cmdChan, cleanup := s.hookCommandOutput([]byte(output), nil)
+	defer cleanup()
+	out, err := AptConfigProxy()
+	c.Assert(err, gc.IsNil)
+	cmd := <-cmdChan
+	c.Assert(cmd.Args, gc.DeepEquals, []string{
+		"apt-config", "dump", "Acquire::http::Proxy",
+		"Acquire::https::Proxy", "Acquire::ftp::Proxy",
+	})
+	c.Assert(out, gc.Equals, expected)
+}
+
 func (s *AptSuite) TestConfigProxyError(c *gc.C) {
 	const expected = `E: frobnicator failure detected`
 	cmdError := fmt.Errorf("error")

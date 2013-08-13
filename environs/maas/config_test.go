@@ -11,9 +11,9 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-type ConfigSuite struct{}
+type configSuite struct{}
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = gc.Suite(&configSuite{})
 
 // copyAttrs copies values from src into dest.  If src contains a key that was
 // already in dest, its value in dest will still be updated to the one from
@@ -47,7 +47,7 @@ func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
 	return env.(*maasEnviron).ecfg(), nil
 }
 
-func (*ConfigSuite) TestParsesMAASSettings(c *gc.C) {
+func (*configSuite) TestParsesMAASSettings(c *gc.C) {
 	server := "http://maas.testing.invalid/maas/"
 	oauth := "consumer-key:resource-token:resource-secret"
 	future := "futurama"
@@ -57,12 +57,12 @@ func (*ConfigSuite) TestParsesMAASSettings(c *gc.C) {
 		"future-key":  future,
 	})
 	c.Assert(err, gc.IsNil)
-	c.Check(ecfg.MAASServer(), gc.Equals, server)
-	c.Check(ecfg.MAASOAuth(), gc.DeepEquals, oauth)
+	c.Check(ecfg.maasServer(), gc.Equals, server)
+	c.Check(ecfg.maasOAuth(), gc.DeepEquals, oauth)
 	c.Check(ecfg.UnknownAttrs()["future-key"], gc.DeepEquals, future)
 }
 
-func (*ConfigSuite) TestChecksWellFormedMaasServer(c *gc.C) {
+func (*configSuite) TestChecksWellFormedMaasServer(c *gc.C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "This should have been a URL.",
 		"maas-oauth":  "consumer-key:resource-token:resource-secret",
@@ -71,7 +71,7 @@ func (*ConfigSuite) TestChecksWellFormedMaasServer(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*malformed maas-server.*")
 }
 
-func (*ConfigSuite) TestChecksWellFormedMaasOAuth(c *gc.C) {
+func (*configSuite) TestChecksWellFormedMaasOAuth(c *gc.C) {
 	_, err := newConfig(map[string]interface{}{
 		"maas-server": "http://maas.testing.invalid/maas/",
 		"maas-oauth":  "This should have been a 3-part token.",
@@ -80,7 +80,7 @@ func (*ConfigSuite) TestChecksWellFormedMaasOAuth(c *gc.C) {
 	c.Check(err, gc.ErrorMatches, ".*malformed maas-oauth.*")
 }
 
-func (*ConfigSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
+func (*configSuite) TestValidateUpcallsEnvironsConfigValidate(c *gc.C) {
 	// The base Validate() function will not allow an environment to
 	// change its name.  Trigger that error so as to prove that the
 	// environment provider's Validate() calls the base Validate().

@@ -5,7 +5,9 @@ package azure
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	"launchpad.net/gwacl"
 
@@ -380,7 +382,8 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
-	sourceImageName := env.getSnapshot().ecfg.forceImageName()
+	ecfg := env.getSnapshot().ecfg
+	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
 		// Configuration forces us to use a specific image.  There may
 		// not be a suitable image in the simplestreams database.
@@ -402,16 +405,13 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	//
 	// This should be the normal execution path.  The user is not expected
 	// to configure a source image name in normal use.
-
-	// TODO(jtv): Simplestreams for Azure aren't quite done yet.   The
-	// source image name is forced in the boilerplate config for the time
-	// being.
-	spec, err := findInstanceSpec(baseURLs, instances.InstanceConstraint{
+	constraint := instances.InstanceConstraint{
 		Region:      location,
 		Series:      series,
 		Arches:      architectures,
 		Constraints: cons,
-	})
+	}
+	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
@@ -551,6 +551,33 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 	return gwacl.NewOSVirtualHardDisk("", "", "", mediaLink, sourceImageName, "Linux")
 }
 
+// getInitialEndpoints returns a slice of the endpoints every instance should have open
+// (ssh port, etc).
+func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
+	config := env.Config()
+	return []gwacl.InputEndpoint{
+		{
+			LocalPort: 22,
+			Name:      "sshport",
+			Port:      22,
+			Protocol:  "tcp",
+		},
+		// TODO: Ought to have this only for state servers.
+		{
+			LocalPort: config.StatePort(),
+			Name:      "stateport",
+			Port:      config.StatePort(),
+			Protocol:  "tcp",
+		},
+		// TODO: Ought to have this only for API servers.
+		{
+			LocalPort: config.APIPort(),
+			Name:      "apiport",
+			Port:      config.APIPort(),
+			Protocol:  "tcp",
+		}}
+}
+
 // newRole creates a gwacl.Role object (an Azure Virtual Machine) which uses
 // the given Virtual Hard Drive.
 //
@@ -569,31 +596,9 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 	username := "ubuntu"
 	password := gwacl.MakeRandomPassword()
 	linuxConfigurationSet := gwacl.NewLinuxProvisioningConfigurationSet(hostname, username, password, userData, "true")
-	config := env.Config()
 	// Generate a Network Configuration with the initially required ports
 	// open.
-	networkConfigurationSet := gwacl.NewNetworkConfigurationSet([]gwacl.InputEndpoint{
-		{
-			LocalPort: 22,
-			Name:      "sshport",
-			Port:      22,
-			Protocol:  "TCP",
-		},
-		// TODO: Ought to have this only for state servers.
-		{
-			LocalPort: config.StatePort(),
-			Name:      "stateport",
-			Port:      config.StatePort(),
-			Protocol:  "TCP",
-		},
-		// TODO: Ought to have this only for API servers.
-		{
-			LocalPort: config.APIPort(),
-			Name:      "apiport",
-			Port:      config.APIPort(),
-			Protocol:  "TCP",
-		},
-	}, nil)
+	networkConfigurationSet := gwacl.NewNetworkConfigurationSet(env.getInitialEndpoints(), nil)
 	roleName := gwacl.MakeRandomRoleName("juju")
 	// The ordering of these configuration sets is significant for the tests.
 	return gwacl.NewRole(
@@ -626,6 +631,13 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	return inst, nil, err
 }
 
+// Spawn this many goroutines to issue requests for destroying services.
+// TODO: this is currently set to 1 because of a problem in Azure:
+// removing Services in the same affinity group concurrently causes a conflict.
+// This conflict is wrongly reported by Azure as a BadRequest (400).
+// This has been reported to Windows Azure.
+var maxConcurrentDeletes = 1
+
 // StopInstances is specified in the Environ interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
@@ -636,17 +648,44 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
-	// Shut down all the instances; if there are errors, return only the
-	// first one (but try to shut down all instances regardless).
-	var firstErr error
-	for _, instance := range instances {
-		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
-		err := context.DestroyHostedService(request)
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
+
+	// Destroy all the services in parallel.
+	servicesToDestroy := make(chan string)
+
+	// Spawn min(len(instances), maxConcurrentDeletes) goroutines to
+	// destroy the services.
+	nbRoutines := len(instances)
+	if maxConcurrentDeletes < nbRoutines {
+		nbRoutines = maxConcurrentDeletes
 	}
-	return firstErr
+
+	var wg sync.WaitGroup
+	wg.Add(nbRoutines)
+	errc := make(chan error, len(instances))
+	for i := 0; i < nbRoutines; i++ {
+		go func() {
+			defer wg.Done()
+			for serviceName := range servicesToDestroy {
+				request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
+				err := context.DestroyHostedService(request)
+				if err != nil {
+					errc <- err
+				}
+			}
+		}()
+	}
+	// Feed all the service names to servicesToDestroy.
+	for _, instance := range instances {
+		servicesToDestroy <- string(instance.Id())
+	}
+	close(servicesToDestroy)
+	wg.Wait()
+	select {
+	case err := <-errc:
+		return err
+	default:
+	}
+	return nil
 }
 
 // Instances is specified in the Environ interface.
@@ -813,6 +852,18 @@ type azureManagementContext struct {
 	certFile *tempCertFile
 }
 
+var (
+	retryPolicy = gwacl.RetryPolicy{
+		NbRetries: 6,
+		HttpStatusCodes: []int{
+			http.StatusConflict,
+			http.StatusRequestTimeout,
+			http.StatusInternalServerError,
+			http.StatusServiceUnavailable,
+		},
+		Delay: 10 * time.Second}
+)
+
 // getManagementAPI obtains a context object for interfacing with Azure's
 // management API.
 // For now, each invocation just returns a separate object.  This is probably
@@ -828,7 +879,8 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	}
 	// After this point, if we need to leave prematurely, we should clean
 	// up that certificate file.
-	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path())
+	location := snap.ecfg.location()
+	mgtAPI, err := gwacl.NewManagementAPIWithRetryPolicy(subscription, certFile.Path(), location, retryPolicy)
 	if err != nil {
 		certFile.Delete()
 		return nil, err
@@ -915,8 +967,10 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 		}
 	}
 	context := gwacl.StorageContext{
-		Account: snap.ecfg.storageAccountName(),
-		Key:     key,
+		Account:       snap.ecfg.storageAccountName(),
+		Key:           key,
+		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
+		RetryPolicy:   retryPolicy,
 	}
 	return &context, nil
 }
@@ -926,8 +980,10 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error) {
 	ecfg := env.getSnapshot().ecfg
 	context := gwacl.StorageContext{
-		Account: ecfg.publicStorageAccountName(),
-		Key:     "", // Empty string means anonymous access.
+		Account:       ecfg.publicStorageAccountName(),
+		Key:           "", // Empty string means anonymous access.
+		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
+		RetryPolicy:   retryPolicy,
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -939,15 +995,6 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	// Hard-coded to the central Simplestreams database for now.
 	return []string{imagemetadata.DefaultBaseURL}, nil
-}
-
-// getEndpoint returns the endpoint (as defined in Simplestreams) for the
-// given Azure region.
-func (env *azureEnviron) getEndpoint(region string) (string, error) {
-	// Hard-coded for now, but actually China has a different endpoint.
-	// TODO: Extract information from simplestreams, or hard-code the
-	// Chinese ones as well.
-	return "https://management.core.windows.net/", nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

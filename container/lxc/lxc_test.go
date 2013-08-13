@@ -11,6 +11,7 @@ import (
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
+	"launchpad.net/golxc"
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
@@ -123,7 +124,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 
 	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
-		"install -m 600 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
+		"install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
 		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra),
 		"ifconfig",
 	})
@@ -140,6 +141,20 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	location, err := os.Readlink(expectedLinkLocation)
 	c.Assert(err, gc.IsNil)
 	c.Assert(location, gc.Equals, expectedTarget)
+}
+
+func (s *LxcSuite) TestContainerState(c *gc.C) {
+	manager := lxc.NewContainerManager(lxc.ManagerConfig{})
+	instance := StartContainer(c, manager, "1/lxc/0")
+
+	// The mock container will be immediately "running".
+	c.Assert(instance.Status(), gc.Equals, string(golxc.StateRunning))
+
+	// StopContainer stops and then destroys the container, putting it
+	// into "unknown" state.
+	err := manager.StopContainer(instance)
+	c.Assert(err, gc.IsNil)
+	c.Assert(instance.Status(), gc.Equals, string(golxc.StateUnknown))
 }
 
 func (s *LxcSuite) TestStopContainer(c *gc.C) {

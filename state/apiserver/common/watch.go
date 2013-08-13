@@ -12,23 +12,15 @@ import (
 // AgentEntityWatcher implements a common Watch method for use by
 // various facades.
 type AgentEntityWatcher struct {
-	st          AgentEntityWatcherer
+	st          state.EntityFinder
 	resources   *Resources
 	getCanWatch GetAuthFunc
-}
-
-type AgentEntityWatcherer interface {
-	// state.State implements AgentEntityWatcher to provide ways for
-	// us to call object.Watch (for machines, units, etc). This is
-	// used to allow us to test with mocks without having to actually
-	// bring up state.
-	AgentEntityWatcher(tag string) (state.AgentEntityWatcher, error)
 }
 
 // NewAgentEntityWatcher returns a new AgentEntityWatcher. The
 // GetAuthFunc will be used on each invocation of Watch to determine
 // current permissions.
-func NewAgentEntityWatcher(st AgentEntityWatcherer, resources *Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
+func NewAgentEntityWatcher(st state.EntityFinder, resources *Resources, getCanWatch GetAuthFunc) *AgentEntityWatcher {
 	return &AgentEntityWatcher{
 		st:          st,
 		resources:   resources,
@@ -37,11 +29,15 @@ func NewAgentEntityWatcher(st AgentEntityWatcherer, resources *Resources, getCan
 }
 
 func (a *AgentEntityWatcher) watchEntity(tag string) (string, error) {
-	agentEntityWatcher, err := a.st.AgentEntityWatcher(tag)
+	entity0, err := a.st.FindEntity(tag)
 	if err != nil {
 		return "", err
 	}
-	watch := agentEntityWatcher.Watch()
+	entity, ok := entity0.(state.NotifyWatcherFactory)
+	if !ok {
+		return "", NotSupportedError(tag, "watching")
+	}
+	watch := entity.Watch()
 	// Consume the initial event. Technically, API
 	// calls to Watch 'transmit' the initial event
 	// in the Watch response. But NotifyWatchers

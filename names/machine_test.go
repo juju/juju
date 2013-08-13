@@ -25,32 +25,6 @@ func (s *machineSuite) TestMachineTag(c *gc.C) {
 	c.Assert(names.MachineTag("10/lxc/1"), gc.Equals, "machine-10-lxc-1")
 }
 
-func (s *machineSuite) TestMachineFromTag(c *gc.C) {
-	id, err := names.MachineFromTag("machine-10")
-	c.Assert(err, gc.IsNil)
-	c.Assert(id, gc.Equals, "10")
-
-	// Check a container id.
-	id, err = names.MachineFromTag("machine-10-lxc-1")
-	c.Assert(err, gc.IsNil)
-	c.Assert(id, gc.Equals, "10/lxc/1")
-
-	// Check reversability.
-	nested := "2/kvm/0/lxc/3"
-	id, err = names.MachineFromTag(names.MachineTag(nested))
-	c.Assert(err, gc.IsNil)
-	c.Assert(id, gc.Equals, nested)
-
-	// Try with an invalid tag formats.
-	id, err = names.MachineFromTag("foo")
-	c.Assert(err, gc.ErrorMatches, `"foo" is not a valid machine tag`)
-	c.Assert(id, gc.Equals, "")
-
-	id, err = names.MachineFromTag("machine-#")
-	c.Assert(err, gc.ErrorMatches, `"machine-#" is not a valid machine tag`)
-	c.Assert(id, gc.Equals, "")
-}
-
 var machineIdTests = []struct {
 	pattern string
 	valid   bool

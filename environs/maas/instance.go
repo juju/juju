@@ -22,6 +22,15 @@ func (mi *maasInstance) Id() instance.Id {
 	return instance.Id((*mi.maasObject).URI().String())
 }
 
+func (mi *maasInstance) Status() string {
+	// MAAS does not track node status once they're allocated.
+	// Since any instance that juju knows about will be an
+	// allocated one, it doesn't make sense to report any
+	// state unless we obtain it through some means other than
+	// through the MAAS API.
+	return ""
+}
+
 // refreshInstance refreshes the instance with the most up-to-date information
 // from the MAAS server.
 func (mi *maasInstance) refreshInstance() error {

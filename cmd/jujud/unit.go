@@ -70,14 +70,8 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentLogger.Infof("unit agent %v start", a.Tag())
-	a.runner.StartWorker("state", func() (worker.Worker, error) {
-		// TODO(rog) go1.1: use method expression
-		return a.StateWorkers()
-	})
-	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		// TODO(rog) go1.1: use method expression
-		return a.APIWorkers()
-	})
+	a.runner.StartWorker("state", a.StateWorkers)
+	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
 	return err

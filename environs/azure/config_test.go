@@ -5,15 +5,17 @@ package azure
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	"strings"
+
+	gc "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
-	"strings"
 )
 
 type configSuite struct{}
 
-var _ = Suite(&configSuite{})
+var _ = gc.Suite(&configSuite{})
 
 // makeBaseConfigMap creates a minimal map of standard configuration items.
 // It's just the bare minimum to produce a configuration object.
@@ -53,7 +55,7 @@ PI2fs3bw5bRH8tmGjrsJeEdp9crCBS8I3hKcxCkTTRTowdY=
 -----END CERTIFICATE-----
 `
 
-func makeAzureConfigMap(c *C) map[string]interface{} {
+func makeAzureConfigMap(c *gc.C) map[string]interface{} {
 	azureConfig := map[string]interface{}{
 		"location":                      "location",
 		"management-subscription-id":    "subscription-id",
@@ -67,51 +69,51 @@ func makeAzureConfigMap(c *C) map[string]interface{} {
 
 // createTempFile creates a temporary file.  The file will be cleaned
 // up at the end of the test calling this method.
-func createTempFile(c *C, content []byte) string {
+func createTempFile(c *gc.C, content []byte) string {
 	file, err := ioutil.TempFile(c.MkDir(), "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	filename := file.Name()
 	err = ioutil.WriteFile(filename, content, 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return filename
 }
 
-func (*configSuite) TestValidateAcceptsNilOldConfig(c *C) {
+func (*configSuite) TestValidateAcceptsNilOldConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
 	config, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	result, err := provider.Validate(config, nil)
-	c.Assert(err, IsNil)
-	c.Check(result.Name(), Equals, attrs["name"])
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Name(), gc.Equals, attrs["name"])
 }
 
-func (*configSuite) TestValidateAcceptsUnchangedConfig(c *C) {
+func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
 	oldConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	result, err := provider.Validate(newConfig, oldConfig)
-	c.Assert(err, IsNil)
-	c.Check(result.Name(), Equals, attrs["name"])
+	c.Assert(err, gc.IsNil)
+	c.Check(result.Name(), gc.Equals, attrs["name"])
 }
 
-func (*configSuite) TestValidateChecksConfigChanges(c *C) {
+func (*configSuite) TestValidateChecksConfigChanges(c *gc.C) {
 	provider := azureEnvironProvider{}
 	oldAttrs := makeBaseConfigMap()
 	oldConfig, err := config.New(oldAttrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	newAttrs := makeBaseConfigMap()
 	newAttrs["name"] = "different-name"
 	newConfig, err := config.New(newAttrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, oldConfig)
-	c.Check(err, NotNil)
+	c.Check(err, gc.NotNil)
 }
 
-func (*configSuite) TestValidateParsesAzureConfig(c *C) {
+func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	location := "location"
 	managementSubscriptionId := "subscription-id"
 	certificate := "certificate content"
@@ -133,21 +135,21 @@ func (*configSuite) TestValidateParsesAzureConfig(c *C) {
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
 	config, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(config)
-	c.Assert(err, IsNil)
-	c.Check(azConfig.Name(), Equals, attrs["name"])
-	c.Check(azConfig.location(), Equals, location)
-	c.Check(azConfig.managementSubscriptionId(), Equals, managementSubscriptionId)
-	c.Check(azConfig.managementCertificate(), Equals, certificate)
-	c.Check(azConfig.storageAccountName(), Equals, storageAccountName)
-	c.Check(azConfig.publicStorageAccountName(), Equals, publicStorageAccountName)
-	c.Check(azConfig.publicStorageContainerName(), Equals, publicStorageContainerName)
-	c.Check(azConfig.forceImageName(), Equals, forceImageName)
-	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], Equals, unknownFutureSetting)
+	c.Assert(err, gc.IsNil)
+	c.Check(azConfig.Name(), gc.Equals, attrs["name"])
+	c.Check(azConfig.location(), gc.Equals, location)
+	c.Check(azConfig.managementSubscriptionId(), gc.Equals, managementSubscriptionId)
+	c.Check(azConfig.managementCertificate(), gc.Equals, certificate)
+	c.Check(azConfig.storageAccountName(), gc.Equals, storageAccountName)
+	c.Check(azConfig.publicStorageAccountName(), gc.Equals, publicStorageAccountName)
+	c.Check(azConfig.publicStorageContainerName(), gc.Equals, publicStorageContainerName)
+	c.Check(azConfig.forceImageName(), gc.Equals, forceImageName)
+	c.Check(azConfig.UnknownAttrs()["unknown-future-setting"], gc.Equals, unknownFutureSetting)
 }
 
-func (*configSuite) TestValidateReadsCertFile(c *C) {
+func (*configSuite) TestValidateReadsCertFile(c *gc.C) {
 	certificate := "test certificate"
 	certFile := createTempFile(c, []byte(certificate))
 	attrs := makeAzureConfigMap(c)
@@ -155,73 +157,73 @@ func (*configSuite) TestValidateReadsCertFile(c *C) {
 	attrs["management-certificate-path"] = certFile
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(newConfig)
-	c.Assert(err, IsNil)
-	c.Check(azConfig.managementCertificate(), Equals, certificate)
+	c.Assert(err, gc.IsNil)
+	c.Check(azConfig.managementCertificate(), gc.Equals, certificate)
 }
 
-func (*configSuite) TestChecksExistingCertFile(c *C) {
+func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
 	nonExistingCertPath := "non-existing-cert-file"
 	attrs := makeAzureConfigMap(c)
 	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = nonExistingCertPath
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
+	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
 }
 
-func (*configSuite) TestChecksPublicStorageAccountNameCannotBeDefinedAlone(c *C) {
+func (*configSuite) TestChecksPublicStorageAccountNameCannotBeDefinedAlone(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-container-name"] = ""
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, ErrorMatches, ".*both or none of them.*")
+	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
 }
 
-func (*configSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *C) {
+func (*configSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-account-name"] = ""
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, ErrorMatches, ".*both or none of them.*")
+	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
 }
 
-func (*configSuite) TestChecksLocationIsRequired(c *C) {
+func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["location"] = ""
 	provider := azureEnvironProvider{}
 	newConfig, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
-	c.Check(err, ErrorMatches, ".*environment has no location.*")
+	c.Check(err, gc.ErrorMatches, ".*environment has no location.*")
 }
 
-func (*configSuite) TestBoilerplateConfigReturnsAzureConfig(c *C) {
+func (*configSuite) TestBoilerplateConfigReturnsAzureConfig(c *gc.C) {
 	provider := azureEnvironProvider{}
 	boilerPlateConfig := provider.BoilerplateConfig()
-	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), Equals, true)
+	c.Assert(strings.Contains(boilerPlateConfig, "type: azure"), gc.Equals, true)
 }
 
-func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *C) {
+func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	certificate := "certificate"
 	attrs["management-certificate"] = certificate
 	config, err := config.New(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	provider := azureEnvironProvider{}
 	secretAttrs, err := provider.SecretAttrs(config)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	expectedAttrs := map[string]interface{}{
 		"management-certificate": certificate,
 	}
-	c.Check(secretAttrs, DeepEquals, expectedAttrs)
+	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
 }

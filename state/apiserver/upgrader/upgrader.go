@@ -60,16 +60,20 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 	return result, nil
 }
 
-func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.Number, env environs.Environ) (*tools.Tools, error) {
-	if !u.authorizer.AuthOwner(entity.Tag) {
+func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env environs.Environ) (*tools.Tools, error) {
+	if !u.authorizer.AuthOwner(tag) {
 		return nil, common.ErrPerm
 	}
-	agentEntity, err := u.st.AgentEntity(entity.Tag)
+	entity0, err := u.findEntity(tag)
 	if err != nil {
 		return nil, err
 	}
+	entity, ok := entity0.(state.AgentTooler)
+	if !ok {
+		return nil, common.NotSupportedError(tag, "agent tools")
+	}
 
-	existingTools, err := agentEntity.AgentTools()
+	existingTools, err := entity.AgentTools()
 	if err != nil {
 		return nil, err
 	}
@@ -104,7 +108,7 @@ func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, err
 		return params.AgentToolsResults{}, err
 	}
 	for i, entity := range args.Entities {
-		agentTools, err := u.oneAgentTools(entity, agentVersion, env)
+		agentTools, err := u.oneAgentTools(entity.Tag, agentVersion, env)
 		if err == nil {
 			results[i].Tools = agentTools
 		}
@@ -129,12 +133,21 @@ func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
 	if !u.authorizer.AuthOwner(tag) {
 		return common.ErrPerm
 	}
-	// We assume that any entity that we can upgrade will
-	// have a Life, which is certainly true now, but is
-	// an assumption that may need revisiting at some point.
-	entity, err := u.st.AgentEntity(tag)
+	entity, err := u.findEntity(tag)
 	if err != nil {
 		return err
 	}
 	return entity.SetAgentTools(tools)
+}
+
+func (u *UpgraderAPI) findEntity(tag string) (state.AgentTooler, error) {
+	entity0, err := u.st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	entity, ok := entity0.(state.AgentTooler)
+	if !ok {
+		return nil, common.NotSupportedError(tag, "agent tools")
+	}
+	return entity, nil
 }
