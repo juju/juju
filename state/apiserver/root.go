@@ -233,6 +233,6 @@ func (r *srvRoot) GetAuthTag() string {
 }
 
 // GetAuthEntity returns the authenticated entity.
-func (r *srvRoot) GetAuthEntity() interface{} {
+func (r *srvRoot) GetAuthEntity() state.Entity {
 	return r.entity
 }

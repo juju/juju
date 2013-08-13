@@ -3,6 +3,10 @@
 
 package common
 
+import (
+	"launchpad.net/juju-core/state"
+)
+
 // AuthFunc returns whether the given entity is available to some operation.
 type AuthFunc func(tag string) bool
 
@@ -38,5 +42,5 @@ type Authorizer interface {
 	GetAuthTag() string
 
 	// GetAuthEntity returns the authenticated entity.
-	GetAuthEntity() interface{}
+	GetAuthEntity() state.Entity
 }
