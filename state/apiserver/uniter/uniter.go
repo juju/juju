@@ -6,8 +6,6 @@
 package uniter
 
 import (
-	"fmt"
-
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -73,20 +71,8 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 	}, nil
 }
 
-func (u *UniterAPI) getUnitOrService(tag string) (state.Entity, error) {
-	kind, err := names.TagKind(tag)
-	if err != nil {
-		// Invalid tags might indicate something security related.
-		return nil, common.ErrPerm
-	}
-	if kind != names.UnitTagKind && kind != names.ServiceTagKind {
-		return nil, fmt.Errorf("%q is not a unit or a service tag", tag)
-	}
-	return u.st.FindEntity(tag)
-}
-
 func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	entity, err := u.getUnitOrService(tag)
+	entity, err := u.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +80,7 @@ func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
 }
 
 func (u *UniterAPI) getService(tag string) (*state.Service, error) {
-	entity, err := u.getUnitOrService(tag)
+	entity, err := u.st.FindEntity(tag)
 	if err != nil {
 		return nil, err
 	}
@@ -307,7 +293,7 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 		err := common.ErrPerm
 		if canAccess(entity.Tag) {
 			var unitOrService interface{}
-			unitOrService, err = u.getUnitOrService(entity.Tag)
+			unitOrService, err = u.st.FindEntity(entity.Tag)
 			if err == nil {
 				charmURLer := unitOrService.(interface {
 					CharmURL() (*charm.URL, bool)
