@@ -51,10 +51,7 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 		canAccessService, _ := getCanAccessService()
 		canAccessUnit, _ := getCanAccessUnit()
 		return func(tag string) bool {
-			if !canAccessService(tag) {
-				return canAccessUnit(tag)
-			}
-			return true
+			return canAccessService(tag) || canAccessUnit(tag)
 		}, nil
 	}
 	return &UniterAPI{
@@ -292,7 +289,7 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
 		if canAccess(entity.Tag) {
-			var unitOrService interface{}
+			var unitOrService state.Entity
 			unitOrService, err = u.st.FindEntity(entity.Tag)
 			if err == nil {
 				charmURLer := unitOrService.(interface {
