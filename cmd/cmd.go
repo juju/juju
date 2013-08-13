@@ -34,6 +34,10 @@ type Command interface {
 	// Run will execute the Command as directed by the options and positional
 	// arguments passed to Init.
 	Run(ctx *Context) error
+
+	// Return whether the command should be run allowing interspersed
+	// flags or not.
+	AllowInterspersedFlags() bool
 }
 
 // CommandBase provides the default implementation for SetFlags, Init, and Help.
@@ -45,6 +49,12 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
 // Init in the simplest case makes sure there are no args.
 func (c *CommandBase) Init(args []string) error {
 	return CheckEmpty(args)
+}
+
+// AllowInterspersedFlags returns true by default. Some subcommands
+// may want to override this.
+func (c *CommandBase) AllowInterspersedFlags() bool {
+	return true
 }
 
 // Context represents the run context of a Command. Command implementations

@@ -31,6 +31,10 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.sshCmd.SetFlags(f)
 }
 
+func (c *DebugLogCommand) AllowInterspersedFlags() bool {
+	return c.sshCmd.AllowInterspersedFlags()
+}
+
 func (c *DebugLogCommand) Init(args []string) error {
 	args = append([]string{"0"}, args...)
 	args = append(args, "tail -f /var/log/juju/all-machines.log")

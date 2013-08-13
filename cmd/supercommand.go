@@ -239,7 +239,7 @@ func (c *SuperCommand) Init(args []string) error {
 	}
 	args = args[1:]
 	c.subcmd.SetFlags(c.commonflags)
-	if err := c.commonflags.Parse(false, args); err != nil {
+	if err := c.commonflags.Parse(c.subcmd.AllowInterspersedFlags(), args); err != nil {
 		return err
 	}
 	args = c.commonflags.Args()
