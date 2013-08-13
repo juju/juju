@@ -43,7 +43,7 @@ func (s *Strings) Add(value string) {
 
 // Remove takes a value out of the set.  If value wasn't in the set to start
 // with, this method silently succeeds.
-func (s Strings) Remove(value string) {
+func (s *Strings) Remove(value string) {
 	delete(s.values, value)
 }
 
