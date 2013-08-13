@@ -272,47 +272,43 @@ func (v *Value) setCpuPower(str string) (err error) {
 	return
 }
 
-func (v *Value) setMem(str string) error {
+func parseSize(str string) (*uint64, error) {
+	var value uint64
+	if str != "" {
+		mult := 1.0
+		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
+			str = str[:len(str)-1]
+			mult = m
+		}
+		val, err := strconv.ParseFloat(str, 64)
+		if err != nil || val < 0 {
+			return nil, fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+		}
+		val *= mult
+		value = uint64(math.Ceil(val))
+	}
+	return &value, nil
+}
+
+func (v *Value) setMem(str string) (err error) {
 	if v.Mem != nil {
 		return fmt.Errorf("already set")
 	}
-	var value uint64
-	if str != "" {
-		mult := 1.0
-		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
-			str = str[:len(str)-1]
-			mult = m
-		}
-		val, err := strconv.ParseFloat(str, 64)
-		if err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
-		}
-		val *= mult
-		value = uint64(math.Ceil(val))
+	v.Mem, err = parseSize(str)
+	if err != nil {
+		return err
 	}
-	v.Mem = &value
 	return nil
 }
 
-func (v *Value) setOsDisk(str string) error {
+func (v *Value) setOsDisk(str string) (err error) {
 	if v.OsDisk != nil {
 		return fmt.Errorf("already set")
 	}
-	var value uint64
-	if str != "" {
-		mult := 1.0
-		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
-			str = str[:len(str)-1]
-			mult = m
-		}
-		val, err := strconv.ParseFloat(str, 64)
-		if err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
-		}
-		val *= mult
-		value = uint64(math.Ceil(val))
+	v.OsDisk, err = parseSize(str)
+	if err != nil {
+		return err
 	}
-	v.OsDisk = &value
 	return nil
 }
 
