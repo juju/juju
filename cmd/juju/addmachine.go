@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"net/url"
 	"os"
 	"os/exec"
@@ -17,6 +18,7 @@ import (
 
 	"launchpad.net/gnuflag"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -26,6 +28,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/worker/provisioner"
 )
 
 // AddMachineCommand starts a new machine and registers it in the environment.
@@ -121,12 +124,43 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 	return err
 }
 
-func (c *AddMachineCommand) manuallyProvisionMachine(conn *juju.Conn) error {
+func sshHostAddresses(host string) ([]instance.Address, error) {
+	// Strip off the username, if any.
+	at := strings.Index(host, "@")
+	if at != -1 {
+		host = host[at+1:]
+	}
+	ipaddrs, err := net.LookupIP(host)
+	if err != nil {
+		return nil, err
+	}
+	addrs := make([]instance.Address, len(ipaddrs))
+	for i, ipaddr := range ipaddrs {
+		switch len(ipaddr) {
+		case 4:
+			addrs[i].Type = instance.Ipv4Address
+			addrs[i].Value = ipaddr.String()
+		case 16:
+			addrs[i].Type = instance.Ipv6Address
+			addrs[i].Value = ipaddr.String()
+		}
+	}
+	return addrs, err
+}
+
+func (c *AddMachineCommand) manuallyProvisionMachine(conn *juju.Conn) (resultErr error) {
+	addrs, err := sshHostAddresses(c.SSHHost)
+	if err != nil {
+		return fmt.Errorf("error resolving host: %v", err)
+	}
+
 	// 1. Detect series and hardware characteristics of remote machine.
 	// 2. Locate tools suitable for running on the remote machine,
 	//    based on above.
-	// 3. Set up remote port forwarding to the storage host/port.
-	// 4. mkdir, wget, etc.
+	// 3. Inject a "provisioned" machine into state.
+	// 4. Set up remote port forwarding to the storage host/port.
+	// 5. Remotely execute a script to mkdirs, wget tools, write agent conf,
+	//    install and start machine agent service.
 
 	cmd := exec.Command("ssh", c.SSHHost, "bash")
 	cmd.Stdin = bytes.NewBufferString(detectionScript)
@@ -161,12 +195,44 @@ func (c *AddMachineCommand) manuallyProvisionMachine(conn *juju.Conn) error {
 		toolsUrlHost += ":80"
 	}
 
+	// InjectMachine implicitly specifies the nonce as BootstrapNonce. Is that wrong?
+	instanceId := instance.Id("ssh:" + c.SSHHost)
+	m, err := conn.State.InjectMachine(series, c.Constraints, instanceId, hc, state.JobHostUnits)
+	if err != nil {
+		return fmt.Errorf("error creating machine entry: %v", err)
+	}
+	fmt.Println("Created machine:", m)
+	defer func() {
+		if resultErr != nil {
+			m.EnsureDead()
+			m.Remove()
+		} else {
+			log.Infof("created machine %v", m)
+		}
+	}()
+	if err = m.SetAgentTools(tools); err != nil {
+		return fmt.Errorf("error setting agent tools: %v", err)
+	}
+	if err = m.SetAddresses(addrs); err != nil {
+		return fmt.Errorf("error setting addresses: %v", err)
+	}
+
+	// Setup authentication.
+	auth, err := provisioner.NewSimpleAuthenticator(env)
+	if err != nil {
+		return fmt.Errorf("error creating authenticator: %v", err)
+	}
+	stateInfo, apiInfo, err := auth.SetupAuthentication(m)
+	if err != nil {
+		return fmt.Errorf("error setting up authentication for machine agent: %v", err)
+	}
+
 	// Generate upstart service installation commands.
 	const dataDir = "/var/lib/juju" // TODO(axw) make data/log dirs configurable
 	const logDir = "/var/log/juju"
-	const machineTag = "machine-123" // TODO(axw)
-	const machineId = "123"          // TODO(axw)
 	const logConfig = "--debug"
+	machineTag := m.Tag()
+	machineId := m.Id()
 	serviceEnv := map[string]string{"JUJU_PROVIDER_TYPE": env.Config().Type()}
 	upstartConf := upstart.MachineAgentUpstartService(
 		"jujud-machine-manual",
@@ -183,10 +249,28 @@ func (c *AddMachineCommand) manuallyProvisionMachine(conn *juju.Conn) error {
 		return fmt.Errorf("error generating upstart configuration: %v", err)
 	}
 
+	// Generate agent configuration installation commands.
+	stateInfo.Tag = machineTag
+	apiInfo.Tag = machineTag
+	envcfg := env.Config()
+	var agentConf = agent.Conf{
+		DataDir:      dataDir,
+		APIPort:      envcfg.APIPort(),
+		APIInfo:      apiInfo,
+		StatePort:    envcfg.StatePort(),
+		StateInfo:    stateInfo,
+		MachineNonce: state.BootstrapNonce,
+	}
+	agentConfCommands, err := agentConf.WriteCommands()
+	if err != nil {
+		return fmt.Errorf("error generating agent configuration: %v", err)
+	}
+
 	// Call the script, with a remote port forwarded
 	// to the storage URL host/port.
 	fmtargs := []interface{}{
 		toolsUrl.Scheme, toolsUrl.Path, tools.Version,
+		strings.Join(agentConfCommands, "\n"),
 		strings.Join(upstartCommands, "\n"),
 	}
 	script := fmt.Sprintf(provisioningScript, fmtargs...)
@@ -205,22 +289,6 @@ func (c *AddMachineCommand) manuallyProvisionMachine(conn *juju.Conn) error {
 	if err = cmd.Run(); err != nil {
 		return err
 	}
-	/*
-		out, err := cmd.CombinedOutput()
-		if err != nil {
-			return fmt.Errorf("error detecting hardware characteristics: %v", err)
-		}
-	*/
-
-	// TODO create machine agent job
-
-	/*
-		m, err := conn.State.InjectMachine(series, c.Constraints, instanceId, hc, state.JobHostUnits)
-		if err == nil {
-			log.Infof("created machine %v", m)
-		}
-		return err
-	*/
 	return nil
 }
 
@@ -311,6 +379,9 @@ tools_url="$storage_scheme://127.0.0.1:$forward_port$tools_path"
 mkdir -p /var/lib/juju
 mkdir -p /var/log/juju
 
+# Install pre-requisites.
+apt-get install git
+
 # Download and unpack tools into /var/lib/juju.
 mkdir -p /var/lib/juju/tools/$tools_version
 cd /var/lib/juju/tools/$tools_version
@@ -319,6 +390,8 @@ tar xf $(basename $tools_path)
 rm $(basename $tools_path)
 echo "$tools_url" > downloaded-url.txt
 
-# Install machine agent upstart service.
+# Install agent configuration.
 %s
-`
+
+# Install machine agent upstart service.
+%s`
