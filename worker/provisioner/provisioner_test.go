@@ -56,7 +56,7 @@ var _ worker.Worker = (*provisioner.Provisioner)(nil)
 
 func (s *CommonProvisionerSuite) SetUpSuite(c *C) {
 	s.JujuConnSuite.SetUpSuite(c)
-	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1")
+	s.defaultConstraints = constraints.MustParse("arch=amd64 mem=4G cpu-cores=1 os-disk=8G")
 }
 
 func (s *CommonProvisionerSuite) SetUpTest(c *C) {
@@ -156,6 +156,7 @@ func (s *CommonProvisionerSuite) checkStartInstanceCustom(c *C, m *state.Machine
 				c.Assert(*hc, DeepEquals, instance.HardwareCharacteristics{
 					Arch:     cons.Arch,
 					Mem:      cons.Mem,
+					OsDisk:   cons.OsDisk,
 					CpuCores: cons.CpuCores,
 					CpuPower: cons.CpuPower,
 				})
@@ -321,7 +322,7 @@ func (s *ProvisionerSuite) TestConstraints(c *C) {
 	// Create a machine with non-standard constraints.
 	m, err := s.addMachine()
 	c.Assert(err, IsNil)
-	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2")
+	cons := constraints.MustParse("mem=8G arch=amd64 cpu-cores=2 os-disk=10G")
 	err = m.SetConstraints(cons)
 	c.Assert(err, IsNil)
 
