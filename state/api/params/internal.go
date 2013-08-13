@@ -40,7 +40,7 @@ type StringsResults struct {
 	Results []StringsResult
 }
 
-// StringResult holds a string or a string.
+// StringResult holds a string or an error.
 type StringResult struct {
 	Error  *Error
 	Result string
