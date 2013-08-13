@@ -324,7 +324,7 @@ var byCostTests = []struct {
 		about: "when cpu cores is the same, pick the lowest os disk size",
 		itypesToUse: []InstanceType{
 			{Id: "2", Name: "it-2", CpuCores: 1, OsDisk: 8192},
-		        {Id: "1", Name: "it-1", CpuCores: 1, OsDisk: 4096},
+			{Id: "1", Name: "it-1", CpuCores: 1, OsDisk: 4096},
 		},
 		expectedItypes: []string{
 			"it-1", "it-2",
