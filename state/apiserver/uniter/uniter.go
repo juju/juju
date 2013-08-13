@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -23,10 +24,11 @@ type UniterAPI struct {
 	*common.DeadEnsurer
 	*common.AgentEntityWatcher
 
-	st           *state.State
-	auth         common.Authorizer
-	resources    *common.Resources
-	getCanAccess common.GetAuthFunc
+	st                        *state.State
+	auth                      common.Authorizer
+	resources                 *common.Resources
+	getCanAccessUnit          common.GetAuthFunc
+	getCanAccessUnitOrService common.GetAuthFunc
 }
 
 // NewUniterAPI creates a new instance of the Uniter API.
@@ -34,52 +36,68 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 	if !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
-	getCanAccess := func() (common.AuthFunc, error) {
+	getCanAccessUnit := func() (common.AuthFunc, error) {
 		return authorizer.AuthOwner, nil
 	}
+	getCanAccessUnitOrService := func() (common.AuthFunc, error) {
+		return func(tag string) bool {
+			unit, ok := authorizer.GetAuthEntity().(*state.Unit)
+			if !ok {
+				return false
+			}
+			if tag == names.ServiceTag(unit.ServiceName()) {
+				return true
+			}
+			return authorizer.AuthOwner(tag)
+		}, nil
+	}
 	return &UniterAPI{
-		LifeGetter:         common.NewLifeGetter(st, getCanAccess),
-		StatusSetter:       common.NewStatusSetter(st, getCanAccess),
-		DeadEnsurer:        common.NewDeadEnsurer(st, getCanAccess),
-		AgentEntityWatcher: common.NewAgentEntityWatcher(st, resources, getCanAccess),
-		st:                 st,
-		auth:               authorizer,
-		resources:          resources,
-		getCanAccess:       getCanAccess,
+		LifeGetter:                common.NewLifeGetter(st, getCanAccessUnitOrService),
+		StatusSetter:              common.NewStatusSetter(st, getCanAccessUnit),
+		DeadEnsurer:               common.NewDeadEnsurer(st, getCanAccessUnit),
+		AgentEntityWatcher:        common.NewAgentEntityWatcher(st, resources, getCanAccessUnitOrService),
+		st:                        st,
+		auth:                      authorizer,
+		resources:                 resources,
+		getCanAccessUnit:          getCanAccessUnit,
+		getCanAccessUnitOrService: getCanAccessUnitOrService,
 	}, nil
 }
 
-func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
-	entity, err := u.st.FindEntity(tag)
-	if err != nil {
-		return nil, err
-	}
-	unit, ok := entity.(*state.Unit)
-	if !ok {
-		return nil, fmt.Errorf("entity %q is not a unit", tag)
-	}
-	return unit, nil
-}
-
-func (u *UniterAPI) getService(tag string) (*state.Service, error) {
+func (u *UniterAPI) getUnitOrService(tag string) (interface{}, error) {
 	entity, err := u.st.FindEntity(tag)
 	if errors.IsNotFoundError(err) {
 		return nil, common.ErrPerm
 	} else if err != nil {
 		return nil, err
 	}
-	service, ok := entity.(*state.Service)
+	unit, ok := entity.(*state.Unit)
 	if !ok {
-		return nil, fmt.Errorf("entity %q is not a service", tag)
+		service, ok := entity.(*state.Service)
+		if !ok {
+			return nil, fmt.Errorf("entity %q must be a unit or service.", tag)
+		}
+		return service, nil
 	}
-	// Make sure the service is our unit agent's unit's service.
-	authTag := u.auth.GetAuthTag()
-	unit, err := u.getUnit(authTag)
+	return unit, nil
+}
+
+func (u *UniterAPI) getUnit(tag string) (*state.Unit, error) {
+	entity, err := u.getUnitOrService(tag)
 	if err != nil {
-		// This should never happen, that's why we're obscuring the error.
-		return nil, common.ErrPerm
+		return nil, err
 	}
-	if unit.ServiceName() != service.Name() {
+	return entity.(*state.Unit), nil
+}
+
+func (u *UniterAPI) getService(tag string) (*state.Service, error) {
+	entity, err := u.getUnitOrService(tag)
+	if err != nil {
+		return nil, err
+	}
+	service := entity.(*state.Service)
+	// Make sure our unit agent's unit's service matches what was asked for.
+	if service.Name() != u.auth.GetAuthEntity().(*state.Unit).ServiceName() {
 		return nil, common.ErrPerm
 	}
 	return service, nil
@@ -94,7 +112,7 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResult
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
@@ -122,7 +140,7 @@ func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.Err
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -149,7 +167,7 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResul
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
@@ -177,7 +195,7 @@ func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.Er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -203,7 +221,7 @@ func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -229,7 +247,7 @@ func (u *UniterAPI) GetPrincipal(args params.Entities) (params.StringBoolResults
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
@@ -258,7 +276,7 @@ func (u *UniterAPI) Destroy(args params.Entities) (params.ErrorResults, error) {
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -284,7 +302,7 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResult
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.StringsResults{}, err
 	}
@@ -302,7 +320,7 @@ func (u *UniterAPI) SubordinateNames(args params.Entities) (params.StringsResult
 	return result, nil
 }
 
-// CharmURL returns the charm URL for all given units.
+// CharmURL returns the charm URL for all given units or services.
 func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, error) {
 	result := params.StringBoolResults{
 		Results: make([]params.StringBoolResult, len(args.Entities)),
@@ -310,17 +328,20 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnitOrService()
 	if err != nil {
 		return params.StringBoolResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
 		if canAccess(entity.Tag) {
-			var unit *state.Unit
-			unit, err = u.getUnit(entity.Tag)
+			var unitOrService interface{}
+			unitOrService, err = u.getUnitOrService(entity.Tag)
 			if err == nil {
-				curl, ok := unit.CharmURL()
+				charmURLer := unitOrService.(interface {
+					CharmURL() (*charm.URL, bool)
+				})
+				curl, ok := charmURLer.CharmURL()
 				result.Results[i].Result = curl.String()
 				result.Results[i].Ok = ok
 			}
@@ -339,7 +360,7 @@ func (u *UniterAPI) SetCharmURL(args params.EntitiesCharmURL) (params.ErrorResul
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -370,7 +391,7 @@ func (u *UniterAPI) OpenPort(args params.EntitiesPorts) (params.ErrorResults, er
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -397,7 +418,7 @@ func (u *UniterAPI) ClosePort(args params.EntitiesPorts) (params.ErrorResults, e
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.ErrorResults{}, err
 	}
@@ -444,7 +465,7 @@ func (u *UniterAPI) WatchConfigSettings(args params.Entities) (params.NotifyWatc
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.NotifyWatchResults{}, err
 	}
@@ -469,7 +490,7 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults
 	if len(args.Entities) == 0 {
 		return result, nil
 	}
-	canAccess, err := u.getCanAccess()
+	canAccess, err := u.getCanAccessUnit()
 	if err != nil {
 		return params.SettingsResults{}, err
 	}
@@ -486,38 +507,6 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults
 				}
 			}
 		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-func (u *UniterAPI) watchOneService(tag string) (string, error) {
-	service, err := u.getService(tag)
-	if err != nil {
-		return "", err
-	}
-	watch := service.Watch()
-	// Consume the initial event. Technically, API
-	// calls to Watch 'transmit' the initial event
-	// in the Watch response. But NotifyWatchers
-	// have no state to transmit.
-	if _, ok := <-watch.Changes(); ok {
-		return u.resources.Register(watch), nil
-	}
-	return "", watcher.MustErr(watch)
-}
-
-// WatchService returns a watcher for observing lifecycle changes to each given service.
-func (u *UniterAPI) WatchService(args params.Entities) (params.NotifyWatchResults, error) {
-	result := params.NotifyWatchResults{
-		Results: make([]params.NotifyWatchResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	for i, entity := range args.Entities {
-		watcherId, err := u.watchOneService(entity.Tag)
-		result.Results[i].NotifyWatcherId = watcherId
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil
@@ -550,44 +539,6 @@ func (u *UniterAPI) WatchServiceRelations(args params.Entities) (params.StringsW
 	for i, entity := range args.Entities {
 		entityResult, err := u.watchOneServiceRelations(entity.Tag)
 		result.Results[i] = entityResult
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// ServiceLife returns the lifecycle state of each given service.
-func (u *UniterAPI) ServiceLife(args params.Entities) (params.LifeResults, error) {
-	result := params.LifeResults{
-		Results: make([]params.LifeResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	for i, entity := range args.Entities {
-		service, err := u.getService(entity.Tag)
-		if err == nil {
-			result.Results[i].Life = params.Life(service.Life().String())
-		}
-		result.Results[i].Error = common.ServerError(err)
-	}
-	return result, nil
-}
-
-// ServiceCharmURL returns the charm URL used by each given service.
-func (u *UniterAPI) ServiceCharmURL(args params.Entities) (params.StringBoolResults, error) {
-	result := params.StringBoolResults{
-		Results: make([]params.StringBoolResult, len(args.Entities)),
-	}
-	if len(args.Entities) == 0 {
-		return result, nil
-	}
-	for i, entity := range args.Entities {
-		service, err := u.getService(entity.Tag)
-		if err == nil {
-			curl, ok := service.CharmURL()
-			result.Results[i].Result = curl.String()
-			result.Results[i].Ok = ok
-		}
 		result.Results[i].Error = common.ServerError(err)
 	}
 	return result, nil

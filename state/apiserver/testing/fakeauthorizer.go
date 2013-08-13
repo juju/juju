@@ -11,6 +11,7 @@ type FakeAuthorizer struct {
 	MachineAgent bool
 	UnitAgent    bool
 	Client       bool
+	Entity       interface{}
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag string) bool {
@@ -35,4 +36,8 @@ func (fa FakeAuthorizer) AuthClient() bool {
 
 func (fa FakeAuthorizer) GetAuthTag() string {
 	return fa.Tag
+}
+
+func (fa FakeAuthorizer) GetAuthEntity() interface{} {
+	return fa.Entity
 }

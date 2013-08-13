@@ -36,4 +36,7 @@ type Authorizer interface {
 
 	// GetAuthTag returns the tag of the authenticated entity.
 	GetAuthTag() string
+
+	// GetAuthEntity returns the authenticated entity.
+	GetAuthEntity() interface{}
 }
