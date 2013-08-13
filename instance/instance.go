@@ -70,6 +70,7 @@ type Instance interface {
 type HardwareCharacteristics struct {
 	Arch     *string `yaml:"arch,omitempty"`
 	Mem      *uint64 `yaml:"mem,omitempty"`
+	OsDisk   *uint64 `yaml:"osdisk,omitempty"`
 	CpuCores *uint64 `yaml:"cpucores,omitempty"`
 	CpuPower *uint64 `yaml:"cpupower,omitempty"`
 }
@@ -98,6 +99,13 @@ func (hc HardwareCharacteristics) String() string {
 			s += "M"
 		}
 		strs = append(strs, "mem="+s)
+	}
+	if hc.OsDisk != nil {
+		s := uintStr(*hc.OsDisk)
+		if s != "" {
+			s += "M"
+		}
+		strs = append(strs, "os-disk="+s)
 	}
 	return strings.Join(strs, " ")
 }
@@ -148,6 +156,8 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setCpuPower(str)
 	case "mem":
 		err = hc.setMem(str)
+	case "os-disk":
+		err = hc.setOsDisk(str)
 	default:
 		return fmt.Errorf("unknown characteristic %q", name)
 	}
@@ -187,10 +197,7 @@ func (hc *HardwareCharacteristics) setCpuPower(str string) (err error) {
 	return
 }
 
-func (hc *HardwareCharacteristics) setMem(str string) error {
-	if hc.Mem != nil {
-		return fmt.Errorf("already set")
-	}
+func parseSize(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
 		mult := 1.0
@@ -200,12 +207,33 @@ func (hc *HardwareCharacteristics) setMem(str string) error {
 		}
 		val, err := strconv.ParseFloat(str, 64)
 		if err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+			return nil, fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
 		}
 		val *= mult
 		value = uint64(math.Ceil(val))
 	}
-	hc.Mem = &value
+	return &value, nil
+}
+
+func (hc *HardwareCharacteristics) setMem(str string) (err error) {
+	if hc.Mem != nil {
+		return fmt.Errorf("already set")
+	}
+	hc.Mem, err = parseSize(str)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func (hc *HardwareCharacteristics) setOsDisk(str string) (err error) {
+	if hc.OsDisk != nil {
+		return fmt.Errorf("already set")
+	}
+	hc.OsDisk, err = parseSize(str)
+	if err != nil {
+		return err
+	}
 	return nil
 }
 

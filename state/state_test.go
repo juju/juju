@@ -320,9 +320,11 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
 	arch := "amd64"
 	mem := uint64(1024)
+	disk := uint64(1024)
 	hc := instance.HardwareCharacteristics{
 		Arch: &arch,
 		Mem:  &mem,
+		OsDisk: &disk,
 	}
 	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)

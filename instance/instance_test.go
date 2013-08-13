@@ -172,13 +172,57 @@ var parseHardwareTests = []struct {
 		err:     `bad "mem" characteristic: already set`,
 	},
 
+	// "os-disk" in detail.
+	{
+		summary: "set os-disk empty",
+		args:    []string{"os-disk="},
+	}, {
+		summary: "set os-disk zero",
+		args:    []string{"os-disk=0"},
+	}, {
+		summary: "set os-disk without suffix",
+		args:    []string{"os-disk=512"},
+	}, {
+		summary: "set os-disk with M suffix",
+		args:    []string{"os-disk=512M"},
+	}, {
+		summary: "set os-disk with G suffix",
+		args:    []string{"os-disk=1.5G"},
+	}, {
+		summary: "set os-disk with T suffix",
+		args:    []string{"os-disk=36.2T"},
+	}, {
+		summary: "set os-disk with P suffix",
+		args:    []string{"os-disk=18.9P"},
+	}, {
+		summary: "set nonsense os-disk 1",
+		args:    []string{"os-disk=cheese"},
+		err:     `bad "os-disk" characteristic: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense os-disk 2",
+		args:    []string{"os-disk=-1"},
+		err:     `bad "os-disk" characteristic: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense os-disk 3",
+		args:    []string{"os-disk=32Y"},
+		err:     `bad "os-disk" characteristic: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "double set os-disk together",
+		args:    []string{"os-disk=1G  os-disk=2G"},
+		err:     `bad "os-disk" characteristic: already set`,
+	}, {
+		summary: "double set os-disk separately",
+		args:    []string{"os-disk=1G", "os-disk=2G"},
+		err:     `bad "os-disk" characteristic: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
+		args:    []string{" os-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
+		args:    []string{"os-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
 	},
 }
 

@@ -20,6 +20,7 @@ type constraintsDoc struct {
 	CpuCores  *uint64
 	CpuPower  *uint64
 	Mem       *uint64
+	OsDisk    *uint64
 	Container *instance.ContainerType
 }
 
@@ -29,6 +30,7 @@ func (doc constraintsDoc) value() constraints.Value {
 		CpuCores:  doc.CpuCores,
 		CpuPower:  doc.CpuPower,
 		Mem:       doc.Mem,
+		OsDisk:    doc.OsDisk,
 		Container: doc.Container,
 	}
 }
@@ -39,6 +41,7 @@ func newConstraintsDoc(cons constraints.Value) constraintsDoc {
 		CpuCores:  cons.CpuCores,
 		CpuPower:  cons.CpuPower,
 		Mem:       cons.Mem,
+		OsDisk:    cons.OsDisk,
 		Container: cons.Container,
 	}
 }

@@ -117,6 +117,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, NotNil)
 	c.Assert(hc.Mem, NotNil)
+	c.Assert(hc.OsDisk, NotNil)
 	c.Assert(hc.CpuCores, NotNil)
 	c.Assert(hc.CpuPower, NotNil)
 	dns, err := inst.WaitDNSName()

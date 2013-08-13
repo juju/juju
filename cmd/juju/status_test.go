@@ -97,35 +97,35 @@ var (
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	machine1WithContainers = M{
 		"agent-state": "started",
@@ -152,7 +152,7 @@ var (
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	machine1WithContainersScoped = M{
 		"agent-state": "started",
@@ -167,7 +167,7 @@ var (
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -191,7 +191,7 @@ var statusFormats = []outputFormat{
 	{"json", json.Marshal, json.Unmarshal},
 }
 
-var machineCons = constraints.MustParse("cpu-cores=2 mem=8G")
+var machineCons = constraints.MustParse("cpu-cores=2 mem=8G os-disk=8G")
 
 var statusTests = []testCase{
 	// Status tests
@@ -235,7 +235,7 @@ var statusTests = []testCase{
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
 						"series":      "series",
-						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 					},
 				},
 				"services": M{},
@@ -273,7 +273,7 @@ var statusTests = []testCase{
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
 						"series":        "series",
-						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 					},
 				},
 				"services": M{},
@@ -294,7 +294,7 @@ var statusTests = []testCase{
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
 						"series":      "series",
-						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M",
+						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M os-disk=8192M",
 					},
 				},
 				"services": M{},
@@ -328,7 +328,7 @@ var statusTests = []testCase{
 						"instance-id":    "i-missing",
 						"agent-state":    "pending",
 						"series":         "series",
-						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 					},
 				},
 				"services": M{},
@@ -467,7 +467,7 @@ var statusTests = []testCase{
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
 						"series":           "series",
-						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 					},
 					"4": M{
 						"dns-name":         "dummyenv-4.dns",
@@ -475,7 +475,7 @@ var statusTests = []testCase{
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
 						"series":           "series",
-						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M os-disk=1024M",
 					},
 					"5": M{
 						"life":        "dead",
