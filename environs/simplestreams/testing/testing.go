@@ -62,11 +62,86 @@ var imageData = map[string]string{
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
 		   "format": "products:1.0"
+		  },
+		  "com.ubuntu.juju:tools": {
+		   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
+		   "clouds": [
+		    {
+			  "region": "us-east-1",
+		 	  "endpoint": "https://ec2.us-east-1.amazonaws.com"
+		    }
+		   ],
+		   "cloudname": "aws",
+		   "datatype": "juju-tools",
+		   "format": "products:1.0",
+		   "products": [
+		     "com.ubuntu.juju:1.13.0:amd64",
+		     "com.ubuntu.juju:1.11.4:arm"
+		   ],
+		   "path": "streams/v1/tools_metadata.json"
 		  }
 		 },
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		 "format": "index:1.0"
 		}
+`,
+	"/streams/v1/tools_metadata.json": `
+{
+ "content_id": "com.ubuntu.juju:tools",
+ "datatype": "juju-tools",
+ "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
+ "format": "products:1.0",
+ "products": {
+  "com.ubuntu.juju:1.13.0:amd64": {
+   "version": "1.13.0",
+   "arch": "amd64",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130preciseamd64": {
+       "release": "precise",
+       "size": 2973595,
+       "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+       "ftype": "tar.gz",
+       "md5": "447aeb6a934a5eaec4f703eda4ef2dde"
+      },
+      "1130raringamd64": {
+       "release": "raring",
+       "size": 2973173,
+       "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
+       "ftype": "tar.gz",
+       "md5": "df07ac5e1fb4232d4e9aa2effa57918a"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:1.11.4:arm": {
+   "version": "1.11.4",
+   "arch": "arm",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1114preciseamd64": {
+       "release": "precise",
+       "size": 1951096,
+       "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "md5": "f65a92b3b41311bdf398663ee1c5cd0c"
+      },
+      "1114raringamd64": {
+       "release": "raring",
+       "size": 1950327,
+       "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
+       "ftype": "tar.gz",
+       "md5": "6472014e3255e3fe7fbd3550ef3f0a11"
+      }
+     }
+    }
+   }
+  }
+ }
+}
 `,
 	"/streams/v1/image_metadata.json": `
 {
@@ -179,6 +254,7 @@ type LocalLiveSimplestreamsSuite struct {
 	testing.LoggingSuite
 	BaseURL         string
 	RequireSigned   bool
+	DataType        string
 	ValidConstraint simplestreams.LookupConstraint
 }
 
@@ -247,7 +323,7 @@ func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 
 func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
 	params := simplestreams.ValueParams{
-		DataType:      "image-ids",
+		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
 	return simplestreams.GetIndexWithFormat(s.BaseURL, s.indexPath(), format, s.RequireSigned, params)

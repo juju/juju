@@ -109,7 +109,7 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
 var baseURLs = []string{
-	simplestreams.DefaultBaseURL,
+	imagemetadata.DefaultBaseURL,
 	"http://cloud-images.ubuntu.com/daily",
 }
 

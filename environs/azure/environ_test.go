@@ -1185,7 +1185,7 @@ func (*environSuite) TestGetImageBaseURLs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// At the moment this is not configurable.  It returns a fixed URL for
 	// the central simplestreams database.
-	c.Check(urls, gc.DeepEquals, []string{simplestreams.DefaultBaseURL})
+	c.Check(urls, gc.DeepEquals, []string{imagemetadata.DefaultBaseURL})
 	c.Check(urls, gc.DeepEquals, []string{imagemetadata.DefaultBaseURL})
 }
 

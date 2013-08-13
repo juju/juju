@@ -14,12 +14,13 @@ import (
 	"time"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
@@ -258,7 +259,7 @@ func (env *localEnviron) StartInstance(
 ) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	// We pretty much ignore the constraints.
 	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	possibleTools, err := environs.FindInstanceTools(env, series, cons)
+	possibleTools, err := tools.FindInstanceTools(env, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -434,7 +435,7 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 
 func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	dataDir := env.config.rootDir()
-	toolList, err := environs.FindBootstrapTools(env, cons)
+	toolList, err := tools.FindBootstrapTools(env, cons)
 	if err != nil {
 		return err
 	}
@@ -459,11 +460,11 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 	// looking based on the current series, so we need to override the series
 	// returned in the tools to be the current series.
 	agentTools.Version.Series = version.CurrentSeries()
-	err = tools.UnpackTools(dataDir, agentTools, toolsFile)
+	err = agenttools.UnpackTools(dataDir, agentTools, toolsFile)
 
 	machineId := "0" // Always machine 0
 	tag := names.MachineTag(machineId)
-	toolsDir := tools.SharedToolsDir(dataDir, agentTools.Version)
+	toolsDir := agenttools.SharedToolsDir(dataDir, agentTools.Version)
 	logDir := env.config.logDir()
 	logConfig := "--debug" // TODO(thumper): specify loggo config
 	machineEnvironment := map[string]string{

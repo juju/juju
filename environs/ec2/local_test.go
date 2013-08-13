@@ -337,7 +337,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *C) {
-	params, err := t.env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("test")
+	params, err := t.env.(imagemetadata.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
@@ -407,7 +407,7 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 	urls, err := ec2.GetImageURLs(s.env)
 	c.Assert(err, IsNil)
 	c.Assert(len(urls), Equals, 1)
-	c.Assert(urls[0], Equals, simplestreams.DefaultBaseURL)
+	c.Assert(urls[0], Equals, imagemetadata.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

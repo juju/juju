@@ -35,6 +35,8 @@ func Main(args []string) {
 	metadatacmd.Register(&ValidateImageMetadataCommand{})
 	metadatacmd.Register(&ImageMetadataCommand{})
 
+	metadatacmd.Register(&ValidateToolsMetadataCommand{})
+
 	os.Exit(cmd.Main(metadatacmd, cmd.DefaultContext(), args[1:]))
 }
 

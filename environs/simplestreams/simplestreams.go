@@ -157,6 +157,7 @@ type MetadataCatalog struct {
 type ItemCollection struct {
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch"`
+	Version    string                 `json:"version"`
 	RegionName string                 `json:"region"`
 	Endpoint   string                 `json:"endpoint"`
 }
@@ -243,9 +244,6 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	}
 	return result
 }
-
-// This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
 var httpClient *http.Client = http.DefaultClient
 

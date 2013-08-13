@@ -10,8 +10,8 @@ import (
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -56,19 +56,19 @@ func init() {
 
 // TODO: Apart from overriding different hardcoded hosts, these two test helpers are identical. Let's share.
 
-var origImagesUrl = simplestreams.DefaultBaseURL
+var origImagesUrl = imagemetadata.DefaultBaseURL
 
 // UseTestImageData causes the given content to be served
 // when the ec2 client asks for image data.
 func UseTestImageData(files map[string]string) {
 	if files != nil {
 		testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
-		simplestreams.DefaultBaseURL = "test:"
+		imagemetadata.DefaultBaseURL = "test:"
 		signedImageDataOnly = false
 	} else {
 		signedImageDataOnly = true
 		testRoundTripper.Sub = nil
-		simplestreams.DefaultBaseURL = origImagesUrl
+		imagemetadata.DefaultBaseURL = origImagesUrl
 	}
 }
 

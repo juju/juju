@@ -1,13 +1,14 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package tools
 
 import (
 	"fmt"
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
@@ -21,7 +22,7 @@ import (
 // storage are available.
 // If no *available* tools have the supplied major version number, the function
 // returns a *NotFoundError.
-func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err error) {
+func FindAvailableTools(environ environs.Environ, majorVersion int) (list tools.List, err error) {
 	log.Infof("environs: reading tools with major version %d", majorVersion)
 	defer convertToolsError(&err)
 	list, err = tools.ReadList(environ.Storage(), majorVersion)
@@ -38,7 +39,7 @@ func FindAvailableTools(environ Environ, majorVersion int) (list tools.List, err
 // If the environment was not already configured to use a specific agent
 // version, the newest available version will be chosen and set in the
 // environment's configuration.
-func FindBootstrapTools(environ Environ, cons constraints.Value) (list tools.List, err error) {
+func FindBootstrapTools(environ environs.Environ, cons constraints.Value) (list tools.List, err error) {
 	defer convertToolsError(&err)
 	// Collect all possible compatible tools.
 	cliVersion := version.Current.Number
@@ -90,7 +91,7 @@ func FindBootstrapTools(environ Environ, cons constraints.Value) (list tools.Lis
 // constraints.
 // It is an error to call it with an environment not already configured to use
 // a specific agent version.
-func FindInstanceTools(environ Environ, series string, cons constraints.Value) (list tools.List, err error) {
+func FindInstanceTools(environ environs.Environ, series string, cons constraints.Value) (list tools.List, err error) {
 	defer convertToolsError(&err)
 	// Collect all possible compatible tools.
 	agentVersion, ok := environ.Config().AgentVersion()
@@ -118,8 +119,8 @@ func FindInstanceTools(environ Environ, series string, cons constraints.Value) (
 // FindExactTools returns only the tools that match the supplied version.
 // TODO(fwereade) this should not exist: it's used by cmd/jujud/Upgrader,
 // which needs to run on every agent and must absolutely *not* in general
-// have access to an Environ.
-func FindExactTools(environ Environ, vers version.Binary) (t *tools.Tools, err error) {
+// have access to an environs.Environ.
+func FindExactTools(environ environs.Environ, vers version.Binary) (t *tools.Tools, err error) {
 	defer convertToolsError(&err)
 	list, err := FindAvailableTools(environ, vers.Major)
 	if err != nil {
@@ -139,8 +140,8 @@ func FindExactTools(environ Environ, vers version.Binary) (t *tools.Tools, err e
 
 // CheckToolsSeries verifies that all the given possible tools are for the
 // given OS series.
-func CheckToolsSeries(tools tools.List, series string) error {
-	toolsSeries := tools.Series()
+func CheckToolsSeries(toolsList tools.List, series string) error {
+	toolsSeries := toolsList.Series()
 	if len(toolsSeries) != 1 {
 		return fmt.Errorf("expected single series, got %v", toolsSeries)
 	}

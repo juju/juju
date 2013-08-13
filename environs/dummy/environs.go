@@ -36,6 +36,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
@@ -442,7 +443,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	possibleTools, err := environs.FindBootstrapTools(e, cons)
+	possibleTools, err := tools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
@@ -543,11 +544,11 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, err
 	}
-	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	possibleTools, err := tools.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, series)
+	err = tools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
