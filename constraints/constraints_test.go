@@ -206,13 +206,57 @@ var parseConstraintsTests = []struct {
 		err:     `bad "mem" constraint: already set`,
 	},
 
+	// "os-disk" in detail.
+	{
+		summary: "set os-disk empty",
+		args:    []string{"os-disk="},
+	}, {
+		summary: "set os-disk zero",
+		args:    []string{"os-disk=0"},
+	}, {
+		summary: "set os-disk without suffix",
+		args:    []string{"os-disk=512"},
+	}, {
+		summary: "set os-disk with M suffix",
+		args:    []string{"os-disk=512M"},
+	}, {
+		summary: "set os-disk with G suffix",
+		args:    []string{"os-disk=1.5G"},
+	}, {
+		summary: "set os-disk with T suffix",
+		args:    []string{"os-disk=36.2T"},
+	}, {
+		summary: "set os-disk with P suffix",
+		args:    []string{"os-disk=18.9P"},
+	}, {
+		summary: "set nonsense os-disk 1",
+		args:    []string{"os-disk=cheese"},
+		err:     `bad "os-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense os-disk 2",
+		args:    []string{"os-disk=-1"},
+		err:     `bad "os-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense os-disk 3",
+		args:    []string{"os-disk=32Y"},
+		err:     `bad "os-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "double set os-disk together",
+		args:    []string{"os-disk=1G  os-disk=2G"},
+		err:     `bad "os-disk" constraint: already set`,
+	}, {
+		summary: "double set os-disk separately",
+		args:    []string{"os-disk=1G", "os-disk=2G"},
+		err:     `bad "os-disk" constraint: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
+		args:    []string{" os-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
+		args:    []string{"os-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
 	},
 }
 
@@ -257,12 +301,14 @@ var constraintsRoundtripTests = []constraints.Value{
 	{CpuPower: uint64p(250)},
 	{Mem: uint64p(0)},
 	{Mem: uint64p(98765)},
+	{OsDisk: uint64p(98765)},
 	{
 		Arch:      strp("i386"),
 		Container: ctypep("lxc"),
 		CpuCores:  uint64p(4096),
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
+		OsDisk:    uint64p(18000000000),
 	},
 }
 
@@ -380,15 +426,28 @@ var withFallbacksTests = []struct {
 		fallbacks: "mem=8G",
 		final:     "mem=8G",
 	}, {
+		desc:    "os-disk with empty fallback",
+		initial: "os-disk=4G",
+		final:   "os-disk=4G",
+	}, {
+		desc:      "os-disk with ignored fallback",
+		initial:   "os-disk=4G",
+		fallbacks: "os-disk=8G",
+		final:     "os-disk=4G",
+	}, {
+		desc:      "os-disk from fallback",
+		fallbacks: "os-disk=8G",
+		final:     "os-disk=8G",
+	}, {
 		desc:      "non-overlapping mix",
-		initial:   "mem=4G arch=amd64",
+		initial:   "os-disk=8G mem=4G arch=amd64",
 		fallbacks: "cpu-power=1000 cpu-cores=4",
-		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		final:     "os-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	}, {
 		desc:      "overlapping mix",
-		initial:   "mem=4G arch=amd64",
+		initial:   "os-disk=8G mem=4G arch=amd64",
 		fallbacks: "cpu-power=1000 cpu-cores=4 mem=8G",
-		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		final:     "os-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	},
 }
 

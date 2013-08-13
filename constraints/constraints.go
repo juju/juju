@@ -37,6 +37,13 @@ type Value struct {
 	// Mem, if not nil, indicates that a machine must have at least that many
 	// megabytes of RAM.
 	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
+
+	// OsDisk, if not nil, indicates that a machine must have at least that
+	// amount of disk space available in the OS disk, aka root
+	// partition. In providers where the OS disk is configurable at
+	// instance startup time, an instance with the specified amount of disk
+	// space in the OS disk will be requested.
+	OsDisk *uint64 `json:"os-disk,omitempty" yaml:"os-disk,omitempty"`
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -61,6 +68,13 @@ func (v Value) String() string {
 		}
 		strs = append(strs, "mem="+s)
 	}
+	if v.OsDisk != nil {
+		s := uintStr(*v.OsDisk)
+		if s != "" {
+			s += "M"
+		}
+		strs = append(strs, "os-disk="+s)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -81,6 +95,9 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	}
 	if v.Mem != nil {
 		v1.Mem = v.Mem
+	}
+	if v.OsDisk != nil {
+		v1.OsDisk = v.OsDisk
 	}
 	return v1
 }
@@ -158,6 +175,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setCpuPower(str)
 	case "mem":
 		err = v.setMem(str)
+	case "os-disk":
+		err = v.setOsDisk(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -189,6 +208,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			v.CpuPower, err = parseUint64(vstr)
 		case "mem":
 			v.Mem, err = parseUint64(vstr)
+		case "os-disk":
+			v.OsDisk, err = parseUint64(vstr)
 		default:
 			return false
 		}
@@ -270,6 +291,28 @@ func (v *Value) setMem(str string) error {
 		value = uint64(math.Ceil(val))
 	}
 	v.Mem = &value
+	return nil
+}
+
+func (v *Value) setOsDisk(str string) error {
+	if v.OsDisk != nil {
+		return fmt.Errorf("already set")
+	}
+	var value uint64
+	if str != "" {
+		mult := 1.0
+		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
+			str = str[:len(str)-1]
+			mult = m
+		}
+		val, err := strconv.ParseFloat(str, 64)
+		if err != nil || val < 0 {
+			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+		}
+		val *= mult
+		value = uint64(math.Ceil(val))
+	}
+	v.OsDisk = &value
 	return nil
 }
 
