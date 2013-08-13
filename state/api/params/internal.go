@@ -17,6 +17,16 @@ type Entities struct {
 	Entities []Entity
 }
 
+// CharmURL identifies a single charm URL.
+type CharmURL struct {
+	URL string
+}
+
+// CharmURLs identifies multiple charm URLs.
+type CharmURLs struct {
+	URLs []CharmURL
+}
+
 // StringsResult holds the result of an API call that returns a slice
 // of strings or an error.
 type StringsResult struct {
@@ -28,6 +38,18 @@ type StringsResult struct {
 // that returns a slice of strings or an error.
 type StringsResults struct {
 	Results []StringsResult
+}
+
+// StringResult holds a string or an error.
+type StringResult struct {
+	Error  *Error
+	Result string
+}
+
+// StringResults holds the bulk operation result of an API call
+// that returns a string or an error.
+type StringResults struct {
+	Results []StringResult
 }
 
 // StringBoolResult holds the result of an API call that returns a
