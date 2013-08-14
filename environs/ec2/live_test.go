@@ -117,7 +117,7 @@ func (t *LiveTests) TestInstanceAttributes(c *C) {
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, NotNil)
 	c.Assert(hc.Mem, NotNil)
-	c.Assert(hc.OsDisk, NotNil)
+	c.Assert(hc.RootDisk, NotNil)
 	c.Assert(hc.CpuCores, NotNil)
 	c.Assert(hc.CpuPower, NotNil)
 	dns, err := inst.WaitDNSName()
@@ -143,7 +143,7 @@ func (t *LiveTests) TestStartInstanceConstraints(c *C) {
 	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
 	c.Assert(*hc.Arch, Equals, "amd64")
 	c.Assert(*hc.Mem, Equals, uint64(3840))
-	c.Assert(*hc.OsDisk, Equals, uint64(8192))
+	c.Assert(*hc.RootDisk, Equals, uint64(8192))
 	c.Assert(*hc.CpuCores, Equals, uint64(1))
 	c.Assert(*hc.CpuPower, Equals, uint64(200))
 }

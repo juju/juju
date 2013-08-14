@@ -38,12 +38,12 @@ type Value struct {
 	// megabytes of RAM.
 	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
 
-	// OsDisk, if not nil, indicates that a machine must have at least that
-	// many megabytes of disk space available in the OS disk, aka root
-	// partition. In providers where the OS disk is configurable at
-	// instance startup time, an instance with the specified amount of disk
-	// space in the OS disk might be requested.
-	OsDisk *uint64 `json:"os-disk,omitempty" yaml:"os-disk,omitempty"`
+	// RootDisk, if not nil, indicates that a machine must have at least
+	// that many megabytes of disk space available in the root disk. In
+	// providers where the root disk is configurable at instance startup
+	// time, an instance with the specified amount of disk space in the OS
+	// disk might be requested.
+	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"root-disk,omitempty"`
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -68,12 +68,12 @@ func (v Value) String() string {
 		}
 		strs = append(strs, "mem="+s)
 	}
-	if v.OsDisk != nil {
-		s := uintStr(*v.OsDisk)
+	if v.RootDisk != nil {
+		s := uintStr(*v.RootDisk)
 		if s != "" {
 			s += "M"
 		}
-		strs = append(strs, "os-disk="+s)
+		strs = append(strs, "root-disk="+s)
 	}
 	return strings.Join(strs, " ")
 }
@@ -96,8 +96,8 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	if v.Mem != nil {
 		v1.Mem = v.Mem
 	}
-	if v.OsDisk != nil {
-		v1.OsDisk = v.OsDisk
+	if v.RootDisk != nil {
+		v1.RootDisk = v.RootDisk
 	}
 	return v1
 }
@@ -175,8 +175,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setCpuPower(str)
 	case "mem":
 		err = v.setMem(str)
-	case "os-disk":
-		err = v.setOsDisk(str)
+	case "root-disk":
+		err = v.setRootDisk(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -208,8 +208,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			v.CpuPower, err = parseUint64(vstr)
 		case "mem":
 			v.Mem, err = parseUint64(vstr)
-		case "os-disk":
-			v.OsDisk, err = parseUint64(vstr)
+		case "root-disk":
+			v.RootDisk, err = parseUint64(vstr)
 		default:
 			return false
 		}
@@ -280,11 +280,11 @@ func (v *Value) setMem(str string) (err error) {
 	return
 }
 
-func (v *Value) setOsDisk(str string) (err error) {
-	if v.OsDisk != nil {
+func (v *Value) setRootDisk(str string) (err error) {
+	if v.RootDisk != nil {
 		return fmt.Errorf("already set")
 	}
-	v.OsDisk, err = parseSize(str)
+	v.RootDisk, err = parseSize(str)
 	return
 }
 

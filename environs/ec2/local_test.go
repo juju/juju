@@ -242,7 +242,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapState.StateInstances, HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M os-disk=8192M")
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M root-disk=8192M")
 	insts, err := t.env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)

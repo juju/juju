@@ -119,7 +119,7 @@ type instanceData struct {
 	InstanceId instance.Id `bson:"instanceid"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
-	OsDisk     *uint64     `bson:"osdisk,omitempty"`
+	RootDisk   *uint64     `bson:"osdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
@@ -134,7 +134,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	}
 	hc.Arch = instData.Arch
 	hc.Mem = instData.Mem
-	hc.OsDisk = instData.OsDisk
+	hc.RootDisk = instData.RootDisk
 	hc.CpuCores = instData.CpuCores
 	hc.CpuPower = instData.CpuPower
 	return hc, nil
@@ -538,7 +538,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		InstanceId: id,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
-		OsDisk:     characteristics.OsDisk,
+		RootDisk:   characteristics.RootDisk,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
 	}

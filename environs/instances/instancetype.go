@@ -18,7 +18,7 @@ type InstanceType struct {
 	CpuCores uint64
 	Mem      uint64
 	Cost     uint64
-	OsDisk   uint64
+	RootDisk uint64
 	// These attributes are not supported by all clouds.
 	VType    *string // The type of virtualisation used by the hypervisor, must match the image.
 	CpuPower *uint64
@@ -48,7 +48,7 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
 		return nothing, false
 	}
-	if cons.OsDisk != nil && itype.OsDisk < *cons.OsDisk {
+	if cons.RootDisk != nil && itype.RootDisk < *cons.RootDisk {
 		return nothing, false
 	}
 	return itype, true
@@ -149,7 +149,7 @@ func (bc byCost) Less(i, j int) bool {
 	if inst0.CpuCores != inst1.CpuCores {
 		return inst0.CpuCores < inst1.CpuCores
 	}
-	return inst0.OsDisk < inst1.OsDisk
+	return inst0.RootDisk < inst1.RootDisk
 }
 
 func (bc byCost) Swap(i, j int) {

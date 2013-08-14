@@ -25,7 +25,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 			Arches:   ic.Arches,
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
-			OsDisk:   uint64(flavor.Disk * 1024),
+			RootDisk: uint64(flavor.Disk * 1024),
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}

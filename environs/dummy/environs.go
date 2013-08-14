@@ -582,7 +582,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		hc = &instance.HardwareCharacteristics{
 			Arch:     cons.Arch,
 			Mem:      cons.Mem,
-			OsDisk:   cons.OsDisk,
+			RootDisk: cons.RootDisk,
 			CpuCores: cons.CpuCores,
 			CpuPower: cons.CpuPower,
 		}
@@ -595,9 +595,9 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 			mem := uint64(1024)
 			hc.Mem = &mem
 		}
-		if hc.OsDisk == nil {
+		if hc.RootDisk == nil {
 			disk := uint64(8192)
-			hc.OsDisk = &disk
+			hc.RootDisk = &disk
 		}
 		if hc.CpuCores == nil {
 			cores := uint64(1)

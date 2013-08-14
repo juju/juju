@@ -93,7 +93,7 @@ func (t *Tests) TestStartStop(c *C) {
 	// Sanity check for hardware characteristics.
 	c.Assert(hc.Arch, NotNil)
 	c.Assert(hc.Mem, NotNil)
-	c.Assert(hc.OsDisk, NotNil)
+	c.Assert(hc.RootDisk, NotNil)
 	c.Assert(hc.CpuCores, NotNil)
 
 	inst1, _ := testing.StartInstance(c, e, "1")

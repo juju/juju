@@ -80,7 +80,7 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
 		hc.Mem = &inst.instType.Mem
-		hc.OsDisk = &inst.instType.OsDisk
+		hc.RootDisk = &inst.instType.RootDisk
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
 	}

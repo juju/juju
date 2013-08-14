@@ -70,7 +70,7 @@ type Instance interface {
 type HardwareCharacteristics struct {
 	Arch     *string `yaml:"arch,omitempty"`
 	Mem      *uint64 `yaml:"mem,omitempty"`
-	OsDisk   *uint64 `yaml:"osdisk,omitempty"`
+	RootDisk *uint64 `yaml:"osdisk,omitempty"`
 	CpuCores *uint64 `yaml:"cpucores,omitempty"`
 	CpuPower *uint64 `yaml:"cpupower,omitempty"`
 }
@@ -96,8 +96,8 @@ func (hc HardwareCharacteristics) String() string {
 	if hc.Mem != nil {
 		strs = append(strs, fmt.Sprintf("mem=%dM", *hc.Mem))
 	}
-	if hc.OsDisk != nil {
-		strs = append(strs, fmt.Sprintf("os-disk=%dM", *hc.OsDisk))
+	if hc.RootDisk != nil {
+		strs = append(strs, fmt.Sprintf("root-disk=%dM", *hc.RootDisk))
 	}
 	return strings.Join(strs, " ")
 }
@@ -148,8 +148,8 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setCpuPower(str)
 	case "mem":
 		err = hc.setMem(str)
-	case "os-disk":
-		err = hc.setOsDisk(str)
+	case "root-disk":
+		err = hc.setRootDisk(str)
 	default:
 		return fmt.Errorf("unknown characteristic %q", name)
 	}
@@ -197,11 +197,11 @@ func (hc *HardwareCharacteristics) setMem(str string) (err error) {
 	return
 }
 
-func (hc *HardwareCharacteristics) setOsDisk(str string) (err error) {
-	if hc.OsDisk != nil {
+func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
+	if hc.RootDisk != nil {
 		return fmt.Errorf("already set")
 	}
-	hc.OsDisk, err = parseSize(str)
+	hc.RootDisk, err = parseSize(str)
 	return
 }
 

@@ -38,7 +38,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(100),
 		Mem:      1740,
 		Cost:     60,
-		OsDisk:   8192,
+		RootDisk: 8192,
 	}, {
 		Name:     "m1.medium",
 		Arches:   []string{"amd64", "arm"},
@@ -46,7 +46,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(200),
 		Mem:      3840,
 		Cost:     120,
-		OsDisk:   16384,
+		RootDisk: 16384,
 	}, {
 		Name:     "m1.large",
 		Arches:   []string{"amd64"},
@@ -54,7 +54,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(400),
 		Mem:      7680,
 		Cost:     240,
-		OsDisk:   32768,
+		RootDisk: 32768,
 	}, {
 		Name:     "m1.xlarge",
 		Arches:   []string{"amd64"},
@@ -62,7 +62,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(800),
 		Mem:      15360,
 		Cost:     480,
-		OsDisk:   65536,
+		RootDisk: 65536,
 	},
 	{
 		Name:     "t1.micro",
@@ -71,7 +71,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(20),
 		Mem:      613,
 		Cost:     20,
-		OsDisk:   4096,
+		RootDisk: 4096,
 	},
 	{
 		Name:     "c1.medium",
@@ -80,7 +80,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(500),
 		Mem:      1740,
 		Cost:     145,
-		OsDisk:   8192,
+		RootDisk: 8192,
 	}, {
 		Name:     "c1.xlarge",
 		Arches:   []string{"amd64"},
@@ -88,7 +88,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(2000),
 		Mem:      7168,
 		Cost:     580,
-		OsDisk:   32768,
+		RootDisk: 32768,
 	},
 	{
 		Name:     "cc1.4xlarge",
@@ -97,7 +97,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(3350),
 		Mem:      23552,
 		Cost:     1300,
-		OsDisk:   32768,
+		RootDisk: 32768,
 		VType:    &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
@@ -106,7 +106,7 @@ var instanceTypes = []InstanceType{
 		CpuPower: CpuPower(8800),
 		Mem:      61952,
 		Cost:     2400,
-		OsDisk:   131072,
+		RootDisk: 131072,
 		VType:    &hvm,
 	},
 }
@@ -136,8 +136,8 @@ var getInstanceTypesTest = []struct {
 			"m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
 	}, {
-		about: "os-disk",
-		cons:  "os-disk=16G",
+		about: "root-disk",
+		cons:  "root-disk=16G",
 		expectedItypes: []string{
 			"m1.medium", "m1.large", "m1.xlarge", "c1.xlarge", "cc1.4xlarge", "cc2.8xlarge",
 		},
@@ -321,10 +321,10 @@ var byCostTests = []struct {
 			"it-1", "it-2",
 		},
 	}, {
-		about: "when cpu cores is the same, pick the lowest os disk size",
+		about: "when cpu cores is the same, pick the lowest root disk size",
 		itypesToUse: []InstanceType{
-			{Id: "2", Name: "it-2", CpuCores: 1, OsDisk: 8192},
-			{Id: "1", Name: "it-1", CpuCores: 1, OsDisk: 4096},
+			{Id: "2", Name: "it-2", CpuCores: 1, RootDisk: 8192},
+			{Id: "1", Name: "it-1", CpuCores: 1, RootDisk: 4096},
 		},
 		expectedItypes: []string{
 			"it-1", "it-2",
