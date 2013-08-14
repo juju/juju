@@ -492,6 +492,12 @@ func (st *State) FindEntity(tag string) (Entity, error) {
 			return nil, errors.NotFoundf("environment %q", id)
 		}
 		return st.Environment()
+	case names.RelationTagKind:
+		relId, err := strconv.Atoi(id)
+		if err != nil {
+			return nil, errors.NotFoundf("relation %s", id)
+		}
+		return st.Relation(relId)
 	}
 	return nil, err
 }
@@ -512,6 +518,8 @@ func (st *State) parseTag(tag string) (coll string, id string, err error) {
 		coll = st.units.Name
 	case names.UserTagKind:
 		coll = st.users.Name
+	case names.RelationTagKind:
+		coll = st.relations.Name
 	default:
 		return "", "", fmt.Errorf("%q is not a valid collection tag", tag)
 	}
@@ -1181,6 +1189,7 @@ var tagPrefix = map[byte]string{
 	's': names.ServiceTagKind + "-",
 	'u': names.UnitTagKind + "-",
 	'e': names.EnvironTagKind + "-",
+	'r': names.RelationTagKind + "-",
 }
 
 func tagForGlobalKey(key string) (string, bool) {

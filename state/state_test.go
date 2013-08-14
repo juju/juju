@@ -1445,11 +1445,12 @@ var findEntityTests = []struct {
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind:    (*state.User)(nil),
-	names.EnvironTagKind: (*state.Environment)(nil),
-	names.ServiceTagKind: (*state.Service)(nil),
-	names.UnitTagKind:    (*state.Unit)(nil),
-	names.MachineTagKind: (*state.Machine)(nil),
+	names.UserTagKind:     (*state.User)(nil),
+	names.EnvironTagKind:  (*state.Environment)(nil),
+	names.ServiceTagKind:  (*state.Service)(nil),
+	names.UnitTagKind:     (*state.Unit)(nil),
+	names.MachineTagKind:  (*state.Machine)(nil),
+	names.RelationTagKind: (*state.Relation)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
