@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/testing"

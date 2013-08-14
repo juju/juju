@@ -12,7 +12,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/local"
+	"launchpad.net/juju-core/environs/provider/local"
 	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/testing"
 )

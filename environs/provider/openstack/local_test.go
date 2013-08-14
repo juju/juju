@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/openstack"
+	"launchpad.net/juju-core/environs/provider/openstack"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"

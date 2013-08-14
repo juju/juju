@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/environs/provider/ec2"
 	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"

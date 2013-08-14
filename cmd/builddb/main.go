@@ -19,7 +19,7 @@ import (
 
 // Import the providers.
 import (
-	_ "launchpad.net/juju-core/environs/all"
+	_ "launchpad.net/juju-core/environs/provider/all"
 )
 
 var logger = loggo.GetLogger("juju.builddb")
