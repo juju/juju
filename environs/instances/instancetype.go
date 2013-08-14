@@ -149,7 +149,10 @@ func (bc byCost) Less(i, j int) bool {
 	if inst0.CpuCores != inst1.CpuCores {
 		return inst0.CpuCores < inst1.CpuCores
 	}
-	return inst0.RootDisk < inst1.RootDisk
+	if inst0.RootDisk != inst1.RootDisk {
+		inst0.RootDisk < inst1.RootDisk
+	}
+	return false
 }
 
 func (bc byCost) Swap(i, j int) {
