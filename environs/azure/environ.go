@@ -264,7 +264,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 	// If we fail after this point, clean up the affinity group.
 	defer func() {
 		if err != nil {
-			//env.deleteAffinityGroup()
+			env.deleteAffinityGroup()
 		}
 	}()
 	err = env.createVirtualNetwork()
@@ -274,7 +274,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 	// If we fail after this point, clean up the virtual network.
 	defer func() {
 		if err != nil {
-			//env.deleteVirtualNetwork()
+			env.deleteVirtualNetwork()
 		}
 	}()
 
