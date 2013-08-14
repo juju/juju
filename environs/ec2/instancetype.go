@@ -32,6 +32,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(100),
 		Mem:      1740,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m1.medium",
@@ -39,6 +40,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(200),
 		Mem:      3840,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m1.large",
@@ -46,6 +48,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(400),
 		Mem:      7680,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m1.xlarge",
@@ -53,6 +56,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(800),
 		Mem:      15360,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 	{ // Second generation.
@@ -61,6 +65,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      15360,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m3.2xlarge",
@@ -68,6 +73,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      30720,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 	{ // Micro.
@@ -76,6 +82,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 1,
 		CpuPower: instances.CpuPower(20),
 		Mem:      613,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 	{ // High-Memory.
@@ -84,6 +91,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(650),
 		Mem:      17408,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m2.2xlarge",
@@ -91,6 +99,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 4,
 		CpuPower: instances.CpuPower(1300),
 		Mem:      34816,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "m2.4xlarge",
@@ -98,6 +107,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2600),
 		Mem:      69632,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 	{ // High-CPU.
@@ -106,6 +116,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 2,
 		CpuPower: instances.CpuPower(500),
 		Mem:      1740,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	}, {
 		Name:     "c1.xlarge",
@@ -113,6 +124,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(2000),
 		Mem:      7168,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 	{ // Cluster compute.
@@ -121,6 +133,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      23552,
+		OsDisk:   8192,
 		VType:    &hvm,
 	}, {
 		Name:     "cc2.8xlarge",
@@ -128,6 +141,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      61952,
+		OsDisk:   8192,
 		VType:    &hvm,
 	},
 	{ // High Memory cluster.
@@ -136,6 +150,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(8800),
 		Mem:      249856,
+		OsDisk:   8192,
 		VType:    &hvm,
 	},
 	{ // Cluster GPU.
@@ -144,6 +159,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 8,
 		CpuPower: instances.CpuPower(3350),
 		Mem:      22528,
+		OsDisk:   8192,
 		VType:    &hvm,
 	},
 	{ // High I/O.
@@ -152,6 +168,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      61952,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 	{ // High storage.
@@ -160,6 +177,7 @@ var allInstanceTypes = []instances.InstanceType{
 		CpuCores: 16,
 		CpuPower: instances.CpuPower(3500),
 		Mem:      119808,
+		OsDisk:   8192,
 		VType:    &paravirtual,
 	},
 }
