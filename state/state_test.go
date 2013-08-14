@@ -1412,6 +1412,12 @@ var findEntityTests = []struct {
 	tag: "unit-123",
 	err: `"unit-123" is not a valid unit tag`,
 }, {
+	tag: "relation-blah",
+	err: `"relation-blah" is not a valid relation tag`,
+}, {
+	tag: "relation-42",
+	err: "relation 42 not found",
+}, {
 	tag: "unit-foo",
 	err: `"unit-foo" is not a valid unit tag`,
 }, {
