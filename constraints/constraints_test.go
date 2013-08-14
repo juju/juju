@@ -301,14 +301,15 @@ var constraintsRoundtripTests = []constraints.Value{
 	{CpuPower: uint64p(250)},
 	{Mem: uint64p(0)},
 	{Mem: uint64p(98765)},
-	{OsDisk: uint64p(98765)},
+	{OsDisk: uint64p(0)},
+	{OsDisk: uint64p(109876)},
 	{
 		Arch:      strp("i386"),
 		Container: ctypep("lxc"),
 		CpuCores:  uint64p(4096),
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
-		OsDisk:    uint64p(18000000000),
+		OsDisk:    uint64p(24000000000),
 	},
 }
 
