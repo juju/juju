@@ -231,3 +231,8 @@ func (r *srvRoot) AuthClient() bool {
 func (r *srvRoot) GetAuthTag() string {
 	return r.entity.Tag()
 }
+
+// GetAuthEntity returns the authenticated entity.
+func (r *srvRoot) GetAuthEntity() state.Entity {
+	return r.entity
+}

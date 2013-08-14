@@ -355,10 +355,12 @@ func cloudInitUserData(
 		var proxyLines []string
 		for _, line := range strings.Split(proxyConfig, "\n") {
 			line = strings.TrimSpace(line)
-			if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
-				cloudConfig.SetAptProxy(m[1])
-			} else {
-				proxyLines = append(proxyLines, line)
+			if len(line) > 0 {
+				if m := aptHTTPProxyRE.FindStringSubmatch(line); m != nil {
+					cloudConfig.SetAptProxy(m[1])
+				} else {
+					proxyLines = append(proxyLines, line)
+				}
 			}
 		}
 		if len(proxyLines) > 0 {

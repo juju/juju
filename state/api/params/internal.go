@@ -17,10 +17,39 @@ type Entities struct {
 	Entities []Entity
 }
 
+// CharmURL identifies a single charm URL.
+type CharmURL struct {
+	URL string
+}
+
+// CharmURLs identifies multiple charm URLs.
+type CharmURLs struct {
+	URLs []CharmURL
+}
+
 // StringsResult holds the result of an API call that returns a slice
-// of strings.
+// of strings or an error.
 type StringsResult struct {
+	Error  *Error
 	Result []string
+}
+
+// StringsResults holds the bulk operation result of an API call
+// that returns a slice of strings or an error.
+type StringsResults struct {
+	Results []StringsResult
+}
+
+// StringResult holds a string or an error.
+type StringResult struct {
+	Error  *Error
+	Result string
+}
+
+// StringResults holds the bulk operation result of an API call
+// that returns a string or an error.
+type StringResults struct {
+	Results []StringResult
 }
 
 // StringBoolResult holds the result of an API call that returns a
@@ -35,6 +64,46 @@ type StringBoolResult struct {
 // each.
 type StringBoolResults struct {
 	Results []StringBoolResult
+}
+
+// Settings holds charm config options names and values.
+type Settings map[string]interface{}
+
+// SettingsResult holds a charm settings map or an error.
+type SettingsResult struct {
+	Error    *Error
+	Settings Settings
+}
+
+// SettingsResults holds the result of an API calls that returns
+// settings for multiple entities.
+type SettingsResults struct {
+	Results []SettingsResult
+}
+
+// EntityPort holds an entity's tag, a protocol and a port.
+type EntityPort struct {
+	Tag      string
+	Protocol string
+	Port     int
+}
+
+// EntitiesPorts holds the parameters for making an OpenPort or
+// ClosePort on some entities.
+type EntitiesPorts struct {
+	Entities []EntityPort
+}
+
+// EntityCharmURL holds an entity's tag and a charm URL.
+type EntityCharmURL struct {
+	Tag      string
+	CharmURL string
+}
+
+// EntitiesCharmURL holds the parameters for making a SetCharmURL API
+// call.
+type EntitiesCharmURL struct {
+	Entities []EntityCharmURL
 }
 
 // BytesResult holds the result of an API call that returns a slice

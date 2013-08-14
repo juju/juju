@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"

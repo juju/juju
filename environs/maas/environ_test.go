@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -291,7 +292,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	instance, _, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "no tools available")
-	c.Check(err, gc.FitsTypeOf, (*errors.NotFoundError)(nil))
+	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func uint64p(val uint64) *uint64 {
@@ -406,7 +407,7 @@ func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 
 	_, _, err := env.StateInfo()
 
-	c.Check(err, gc.FitsTypeOf, &errors.NotFoundError{})
+	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
 func (suite *environSuite) TestDestroy(c *gc.C) {
@@ -448,7 +449,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	envtesting.RemoveTools(c, env.Storage())
 	err := env.Bootstrap(constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "no tools available")
-	c.Check(err, gc.FitsTypeOf, (*errors.NotFoundError)(nil))
+	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
