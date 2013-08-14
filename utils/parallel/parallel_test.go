@@ -102,7 +102,7 @@ func (*parallelSuite) TestParallelError(c *gc.C) {
 func (*parallelSuite) TestZeroWorkerPanics(c *gc.C) {
 	defer func() {
 		r := recover()
-		c.Check(r, gc.Matches, "parameter maxPar must be >= 1")
+		c.Check(r, gc.Matches, "parameter maxParallel must be >= 1")
 	}()
 	parallel.NewRun(0)
 }

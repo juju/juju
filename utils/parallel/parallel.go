@@ -18,8 +18,7 @@ type Run struct {
 	wg      sync.WaitGroup
 }
 
-// Errors holds any errors encountered during
-// the parallel run.
+// Errors holds any errors encountered during the parallel run.
 type Errors []error
 
 func (errs Errors) Error() string {
@@ -32,14 +31,14 @@ func (errs Errors) Error() string {
 	return fmt.Sprintf("%s (and %d more)", errs[0].Error(), len(errs)-1)
 }
 
-// NewRun returns a new parallel instance.  It will run up to maxPar
+// NewRun returns a new parallel instance.  It will run up to maxParallel
 // functions concurrently.
-func NewRun(maxPar int) *Run {
-	if maxPar < 1 {
-		panic("parameter maxPar must be >= 1")
+func NewRun(maxParallel int) *Run {
+	if maxParallel < 1 {
+		panic("parameter maxParallel must be >= 1")
 	}
 	parallelRun := &Run{
-		limiter: make(chan struct{}, maxPar),
+		limiter: make(chan struct{}, maxParallel),
 		done:    make(chan error),
 		err:     make(chan error),
 	}
@@ -48,7 +47,7 @@ func NewRun(maxPar int) *Run {
 		for e := range parallelRun.done {
 			errs = append(errs, e)
 		}
-		// TODO sort errors by original order of Do request?
+		// TODO(rog) sort errors by original order of Do request?
 		if len(errs) > 0 {
 			parallelRun.err <- errs
 		} else {
@@ -59,8 +58,8 @@ func NewRun(maxPar int) *Run {
 }
 
 // Do requests that r run f concurrently.  If there are already the maximum
-// number of functions running concurrently, it will block until one of
-// them has completed. Do may itself be called concurrently.
+// number of functions running concurrently, it will block until one of them
+// has completed. Do may itself be called concurrently.
 func (parallelRun *Run) Do(f func() error) {
 	parallelRun.limiter <- struct{}{}
 	parallelRun.wg.Add(1)
@@ -75,9 +74,9 @@ func (parallelRun *Run) Do(f func() error) {
 	}()
 }
 
-// Wait marks the parallel instance as complete and waits for all the
-// functions to complete.  If any errors were encountered, it returns an
-// Errors value describing all the errors in arbitrary order.
+// Wait marks the parallel instance as complete and waits for all the functions
+// to complete.  If any errors were encountered, it returns an Errors value
+// describing all the errors in arbitrary order.
 func (parallelRun *Run) Wait() error {
 	parallelRun.wg.Wait()
 	close(parallelRun.done)
