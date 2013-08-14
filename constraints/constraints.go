@@ -39,10 +39,10 @@ type Value struct {
 	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
 
 	// OsDisk, if not nil, indicates that a machine must have at least that
-	// amount of disk space available in the OS disk, aka root
+	// many megabytes of disk space available in the OS disk, aka root
 	// partition. In providers where the OS disk is configurable at
 	// instance startup time, an instance with the specified amount of disk
-	// space in the OS disk will be requested.
+	// space in the OS disk might be requested.
 	OsDisk *uint64 `json:"os-disk,omitempty" yaml:"os-disk,omitempty"`
 }
 
@@ -272,6 +272,34 @@ func (v *Value) setCpuPower(str string) (err error) {
 	return
 }
 
+func (v *Value) setMem(str string) (err error) {
+	if v.Mem != nil {
+		return fmt.Errorf("already set")
+	}
+	v.Mem, err = parseSize(str)
+	return
+}
+
+func (v *Value) setOsDisk(str string) (err error) {
+	if v.OsDisk != nil {
+		return fmt.Errorf("already set")
+	}
+	v.OsDisk, err = parseSize(str)
+	return
+}
+
+func parseUint64(str string) (*uint64, error) {
+	var value uint64
+	if str != "" {
+		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
+			return nil, fmt.Errorf("must be a non-negative integer")
+		} else {
+			value = uint64(val)
+		}
+	}
+	return &value, nil
+}
+
 func parseSize(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
@@ -286,40 +314,6 @@ func parseSize(str string) (*uint64, error) {
 		}
 		val *= mult
 		value = uint64(math.Ceil(val))
-	}
-	return &value, nil
-}
-
-func (v *Value) setMem(str string) (err error) {
-	if v.Mem != nil {
-		return fmt.Errorf("already set")
-	}
-	v.Mem, err = parseSize(str)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (v *Value) setOsDisk(str string) (err error) {
-	if v.OsDisk != nil {
-		return fmt.Errorf("already set")
-	}
-	v.OsDisk, err = parseSize(str)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func parseUint64(str string) (*uint64, error) {
-	var value uint64
-	if str != "" {
-		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
-			return nil, fmt.Errorf("must be a non-negative integer")
-		} else {
-			value = uint64(val)
-		}
 	}
 	return &value, nil
 }

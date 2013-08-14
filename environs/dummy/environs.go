@@ -596,7 +596,7 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 			hc.Mem = &mem
 		}
 		if hc.OsDisk == nil {
-			disk := uint64(1024)
+			disk := uint64(8192)
 			hc.OsDisk = &disk
 		}
 		if hc.CpuCores == nil {

@@ -85,27 +85,19 @@ func uintStr(i uint64) string {
 func (hc HardwareCharacteristics) String() string {
 	var strs []string
 	if hc.Arch != nil {
-		strs = append(strs, "arch="+*hc.Arch)
+		strs = append(strs, fmt.Sprintf("arch=%s", *hc.Arch))
 	}
 	if hc.CpuCores != nil {
-		strs = append(strs, "cpu-cores="+uintStr(*hc.CpuCores))
+		strs = append(strs, fmt.Sprintf("cpu-cores=%d", *hc.CpuCores))
 	}
 	if hc.CpuPower != nil {
-		strs = append(strs, "cpu-power="+uintStr(*hc.CpuPower))
+		strs = append(strs, fmt.Sprintf("cpu-power=%d", *hc.CpuPower))
 	}
 	if hc.Mem != nil {
-		s := uintStr(*hc.Mem)
-		if s != "" {
-			s += "M"
-		}
-		strs = append(strs, "mem="+s)
+		strs = append(strs, fmt.Sprintf("mem=%dM", *hc.Mem))
 	}
 	if hc.OsDisk != nil {
-		s := uintStr(*hc.OsDisk)
-		if s != "" {
-			s += "M"
-		}
-		strs = append(strs, "os-disk="+s)
+		strs = append(strs, fmt.Sprintf("os-disk=%dM", *hc.OsDisk))
 	}
 	return strings.Join(strs, " ")
 }
@@ -197,6 +189,34 @@ func (hc *HardwareCharacteristics) setCpuPower(str string) (err error) {
 	return
 }
 
+func (hc *HardwareCharacteristics) setMem(str string) (err error) {
+	if hc.Mem != nil {
+		return fmt.Errorf("already set")
+	}
+	hc.Mem, err = parseSize(str)
+	return
+}
+
+func (hc *HardwareCharacteristics) setOsDisk(str string) (err error) {
+	if hc.OsDisk != nil {
+		return fmt.Errorf("already set")
+	}
+	hc.OsDisk, err = parseSize(str)
+	return
+}
+
+func parseUint64(str string) (*uint64, error) {
+	var value uint64
+	if str != "" {
+		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
+			return nil, fmt.Errorf("must be a non-negative integer")
+		} else {
+			value = uint64(val)
+		}
+	}
+	return &value, nil
+}
+
 func parseSize(str string) (*uint64, error) {
 	var value uint64
 	if str != "" {
@@ -211,40 +231,6 @@ func parseSize(str string) (*uint64, error) {
 		}
 		val *= mult
 		value = uint64(math.Ceil(val))
-	}
-	return &value, nil
-}
-
-func (hc *HardwareCharacteristics) setMem(str string) (err error) {
-	if hc.Mem != nil {
-		return fmt.Errorf("already set")
-	}
-	hc.Mem, err = parseSize(str)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func (hc *HardwareCharacteristics) setOsDisk(str string) (err error) {
-	if hc.OsDisk != nil {
-		return fmt.Errorf("already set")
-	}
-	hc.OsDisk, err = parseSize(str)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func parseUint64(str string) (*uint64, error) {
-	var value uint64
-	if str != "" {
-		if val, err := strconv.ParseUint(str, 10, 64); err != nil {
-			return nil, fmt.Errorf("must be a non-negative integer")
-		} else {
-			value = uint64(val)
-		}
 	}
 	return &value, nil
 }
