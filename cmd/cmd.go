@@ -35,8 +35,8 @@ type Command interface {
 	// arguments passed to Init.
 	Run(ctx *Context) error
 
-	// Return whether the command should be run allowing interspersed
-	// flags or not.
+	// AllowInterspersedFlags returns whether the command allows flag
+	// arguments to be interspersed with non-flag arguments.
 	AllowInterspersedFlags() bool
 }
 
@@ -126,18 +126,6 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	return buf.Bytes()
 }
 
-// ParseArgs encapsulate the parsing of the args so this function can be
-// called from the testing module too.
-func ParseArgs(c Command, f *gnuflag.FlagSet, args []string) error {
-	// If the command is a SuperCommand, we want to parse the args with
-	// allowIntersperse=false (i.e. the first parameter to Parse.  This will
-	// mean that the args may contain other options that haven't been defined
-	// yet, and that only options that relate to the SuperCommand itself can
-	// come prior to the subcommand name.
-	_, isSuperCommand := c.(*SuperCommand)
-	return f.Parse(!isSuperCommand, args)
-}
-
 // Errors from commands can be either ErrHelp, which means "show the help" or
 // some other error related to needed flags missing, or needed positional args
 // missing, in which case we should print the error and return a non-zero
@@ -161,7 +149,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	c.SetFlags(f)
-	if rc, done := handleCommandError(c, ctx, ParseArgs(c, f, args), f); done {
+	if rc, done := handleCommandError(c, ctx, f.Parse(c.AllowInterspersedFlags(), args), f); done {
 		return rc
 	}
 	// Since SuperCommands can also return gnuflag.ErrHelp errors, we need to

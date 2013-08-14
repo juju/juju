@@ -32,7 +32,7 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *DebugLogCommand) AllowInterspersedFlags() bool {
-	return c.sshCmd.AllowInterspersedFlags()
+	return true
 }
 
 func (c *DebugLogCommand) Init(args []string) error {
