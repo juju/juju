@@ -150,7 +150,7 @@ func (bc byCost) Less(i, j int) bool {
 		return inst0.CpuCores < inst1.CpuCores
 	}
 	if inst0.RootDisk != inst1.RootDisk {
-		inst0.RootDisk < inst1.RootDisk
+		return inst0.RootDisk < inst1.RootDisk
 	}
 	return false
 }
