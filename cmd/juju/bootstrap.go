@@ -5,7 +5,6 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -59,17 +58,9 @@ func (c *BootstrapCommand) Init(args []string) error {
 // Run connects to the environment specified on the command line and bootstraps
 // a juju in that environment if none already exists. If there is as yet no environments.yaml file,
 // the user is informed how to create one.
-func (c *BootstrapCommand) Run(context *cmd.Context) error {
+func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
-		if os.IsNotExist(err) {
-			out := context.Stderr
-			fmt.Fprintln(out, "No juju environment configuration file exists.")
-			fmt.Fprintln(out, "Please create a configuration by running:")
-			fmt.Fprintln(out, "    juju init -w")
-			fmt.Fprintln(out, "then edit the file to configure your juju environment.")
-			fmt.Fprintln(out, "You can then re-run bootstrap.")
-		}
 		return err
 	}
 	// TODO: if in verbose mode, write out to Stdout if a new cert was created.
@@ -101,7 +92,7 @@ func (c *BootstrapCommand) Run(context *cmd.Context) error {
 			return fmt.Errorf("failed to update environment configuration: %v", err)
 		}
 	}
-	err = c.ensureToolsAvailability(environ, context)
+	err = c.ensureToolsAvailability(environ, ctx)
 	if err != nil {
 		return err
 	}

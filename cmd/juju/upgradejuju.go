@@ -6,7 +6,9 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"

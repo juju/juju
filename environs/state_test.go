@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type StateSuite struct{}
@@ -102,13 +103,13 @@ func (suite *StateSuite) TestLoadStateFromURLReadsStateFile(c *C) {
 	c.Check(*storedState, DeepEquals, state)
 }
 
-func (suite *StateSuite) TestLoadStateReturnsNotFoundErrorForMissingFile(c *C) {
+func (suite *StateSuite) TestLoadStateMissingFile(c *C) {
 	storage, cleanup := makeDummyStorage(c)
 	defer cleanup()
 
 	_, err := environs.LoadState(storage)
 
-	c.Check(errors.IsNotFoundError(err), Equals, true)
+	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *C) {

@@ -161,6 +161,6 @@ func isToolsError(err error) bool {
 
 func convertToolsError(err *error) {
 	if isToolsError(*err) {
-		*err = &errors.NotFoundError{*err, ""}
+		*err = errors.NewNotFoundError(*err, "")
 	}
 }

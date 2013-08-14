@@ -212,6 +212,14 @@ func (c *SuperCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.flags = f
 }
 
+// For a SuperCommand, we want to parse the args with
+// allowIntersperse=false. This will mean that the args may contain other
+// options that haven't been defined yet, and that only options that relate
+// to the SuperCommand itself can come prior to the subcommand name.
+func (c *SuperCommand) AllowInterspersedFlags() bool {
+	return false
+}
+
 // Init initializes the command for running.
 func (c *SuperCommand) Init(args []string) error {
 	if c.showDescription {
@@ -239,7 +247,7 @@ func (c *SuperCommand) Init(args []string) error {
 	}
 	args = args[1:]
 	c.subcmd.SetFlags(c.commonflags)
-	if err := c.commonflags.Parse(true, args); err != nil {
+	if err := c.commonflags.Parse(c.subcmd.AllowInterspersedFlags(), args); err != nil {
 		return err
 	}
 	args = c.commonflags.Args()

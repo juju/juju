@@ -5,7 +5,9 @@ package azure
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	"launchpad.net/gwacl"
 
@@ -20,6 +22,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 const (
@@ -649,42 +652,15 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	defer env.releaseManagementAPI(context)
 
 	// Destroy all the services in parallel.
-	servicesToDestroy := make(chan string)
-
-	// Spawn min(len(instances), maxConcurrentDeletes) goroutines to
-	// destroy the services.
-	nbRoutines := len(instances)
-	if maxConcurrentDeletes < nbRoutines {
-		nbRoutines = maxConcurrentDeletes
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(nbRoutines)
-	errc := make(chan error, len(instances))
-	for i := 0; i < nbRoutines; i++ {
-		go func() {
-			defer wg.Done()
-			for serviceName := range servicesToDestroy {
-				request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
-				err := context.DestroyHostedService(request)
-				if err != nil {
-					errc <- err
-				}
-			}
-		}()
-	}
-	// Feed all the service names to servicesToDestroy.
+	run := parallel.NewRun(maxConcurrentDeletes)
 	for _, instance := range instances {
-		servicesToDestroy <- string(instance.Id())
+		serviceName := string(instance.Id())
+		run.Do(func() error {
+			request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
+			return context.DestroyHostedService(request)
+		})
 	}
-	close(servicesToDestroy)
-	wg.Wait()
-	select {
-	case err := <-errc:
-		return err
-	default:
-	}
-	return nil
+	return run.Wait()
 }
 
 // Instances is specified in the Environ interface.
@@ -851,6 +827,18 @@ type azureManagementContext struct {
 	certFile *tempCertFile
 }
 
+var (
+	retryPolicy = gwacl.RetryPolicy{
+		NbRetries: 6,
+		HttpStatusCodes: []int{
+			http.StatusConflict,
+			http.StatusRequestTimeout,
+			http.StatusInternalServerError,
+			http.StatusServiceUnavailable,
+		},
+		Delay: 10 * time.Second}
+)
+
 // getManagementAPI obtains a context object for interfacing with Azure's
 // management API.
 // For now, each invocation just returns a separate object.  This is probably
@@ -867,7 +855,7 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	// After this point, if we need to leave prematurely, we should clean
 	// up that certificate file.
 	location := snap.ecfg.location()
-	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path(), location)
+	mgtAPI, err := gwacl.NewManagementAPIWithRetryPolicy(subscription, certFile.Path(), location, retryPolicy)
 	if err != nil {
 		certFile.Delete()
 		return nil, err
@@ -957,6 +945,7 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 		Account:       snap.ecfg.storageAccountName(),
 		Key:           key,
 		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
+		RetryPolicy:   retryPolicy,
 	}
 	return &context, nil
 }
@@ -969,6 +958,7 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 		Account:       ecfg.publicStorageAccountName(),
 		Key:           "", // Empty string means anonymous access.
 		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
+		RetryPolicy:   retryPolicy,
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
