@@ -108,81 +108,76 @@ var fetchTests = []struct {
 	version string
 	arches  []string
 	tools   []*tools.ToolsMetadata
-}{
-	{
-		series:  "precise",
-		arches:  []string{"amd64", "arm"},
-		version: "1.13.0",
-		tools: []*tools.ToolsMetadata{
-			{
-				Release:  "precise",
-				Version:  "1.13.0",
-				Arch:     "amd64",
-				Size:     2973595,
-				Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
-				FileType: "tar.gz",
-				Hash:     "447aeb6a934a5eaec4f703eda4ef2dde",
-			},
+}{{
+	series:  "precise",
+	arches:  []string{"amd64", "arm"},
+	version: "1.13.0",
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "precise",
+			Version:  "1.13.0",
+			Arch:     "amd64",
+			Size:     2973595,
+			Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+			FileType: "tar.gz",
+			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
 		},
 	},
-	{
-		series:  "raring",
-		arches:  []string{"amd64", "arm"},
-		version: "1.13.0",
-		tools: []*tools.ToolsMetadata{
-			{
-				Release:  "raring",
-				Version:  "1.13.0",
-				Arch:     "amd64",
-				Size:     2973173,
-				Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
-				FileType: "tar.gz",
-				Hash:     "df07ac5e1fb4232d4e9aa2effa57918a",
-			},
+}, {
+	series:  "raring",
+	arches:  []string{"amd64", "arm"},
+	version: "1.13.0",
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "raring",
+			Version:  "1.13.0",
+			Arch:     "amd64",
+			Size:     2973173,
+			Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
+			FileType: "tar.gz",
+			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
 	},
-	{
-		series:  "",
-		arches:  []string{"amd64", "arm"},
-		version: "1.13.0",
-		tools: []*tools.ToolsMetadata{
-			{
-				Release:  "precise",
-				Version:  "1.13.0",
-				Arch:     "amd64",
-				Size:     2973595,
-				Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
-				FileType: "tar.gz",
-				Hash:     "447aeb6a934a5eaec4f703eda4ef2dde",
-			},
-			{
-				Release:  "raring",
-				Version:  "1.13.0",
-				Arch:     "amd64",
-				Size:     2973173,
-				Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
-				FileType: "tar.gz",
-				Hash:     "df07ac5e1fb4232d4e9aa2effa57918a",
-			},
+}, {
+	series:  "",
+	arches:  []string{"amd64", "arm"},
+	version: "1.13.0",
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "precise",
+			Version:  "1.13.0",
+			Arch:     "amd64",
+			Size:     2973595,
+			Path:     "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+			FileType: "tar.gz",
+			SHA256:   "447aeb6a934a5eaec4f703eda4ef2dde",
+		},
+		{
+			Release:  "raring",
+			Version:  "1.13.0",
+			Arch:     "amd64",
+			Size:     2973173,
+			Path:     "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
+			FileType: "tar.gz",
+			SHA256:   "df07ac5e1fb4232d4e9aa2effa57918a",
 		},
 	},
-	{
-		series:  "raring",
-		arches:  []string{"amd64", "arm"},
-		version: "1.11.4",
-		tools: []*tools.ToolsMetadata{
-			{
-				Release:  "raring",
-				Version:  "1.11.4",
-				Arch:     "arm",
-				Size:     1950327,
-				Path:     "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
-				FileType: "tar.gz",
-				Hash:     "6472014e3255e3fe7fbd3550ef3f0a11",
-			},
+}, {
+	series:  "raring",
+	arches:  []string{"amd64", "arm"},
+	version: "1.11.4",
+	tools: []*tools.ToolsMetadata{
+		{
+			Release:  "raring",
+			Version:  "1.11.4",
+			Arch:     "arm",
+			Size:     1950327,
+			Path:     "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
+			FileType: "tar.gz",
+			SHA256:   "6472014e3255e3fe7fbd3550ef3f0a11",
 		},
 	},
-}
+}}
 
 func (s *simplestreamsSuite) TestFetch(c *gc.C) {
 	for i, t := range fetchTests {

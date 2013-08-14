@@ -28,7 +28,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, version, region, series, endp
 		Path:     "/tools/tools.tar.gz",
 		Size:     1234,
 		FileType: "tar.gz",
-		Hash:     "f65a92b3b41311bdf398663ee1c5cd0c",
+		SHA256:   "f65a92b3b41311bdf398663ee1c5cd0c",
 	}
 	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
@@ -59,13 +59,15 @@ func (s *ValidateSuite) TearDownTest(c *gc.C) {
 func (s *ValidateSuite) TestMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
-	params := &MetadataLookupParams{
-		Version:       "1.11.2",
-		Region:        "region-2",
-		Series:        "raring",
-		Architectures: []string{"amd64"},
-		Endpoint:      "some-auth-url",
-		BaseURLs:      []string{"file://" + metadataDir},
+	params := &ToolsMetadataLookupParams{
+		Version: "1.11.2",
+		MetadataLookupParams: simplestreams.MetadataLookupParams{
+			Region:        "region-2",
+			Series:        "raring",
+			Architectures: []string{"amd64"},
+			Endpoint:      "some-auth-url",
+			BaseURLs:      []string{"file://" + metadataDir},
+		},
 	}
 	versions, err := ValidateToolsMetadata(params)
 	c.Assert(err, gc.IsNil)
@@ -75,13 +77,15 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1.11.2", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
-	params := &MetadataLookupParams{
-		Version:       "1.11.2",
-		Region:        "region-2",
-		Series:        "precise",
-		Architectures: []string{"amd64"},
-		Endpoint:      "some-auth-url",
-		BaseURLs:      []string{"file://" + metadataDir},
+	params := &ToolsMetadataLookupParams{
+		Version: "1.11.2",
+		MetadataLookupParams: simplestreams.MetadataLookupParams{
+			Region:        "region-2",
+			Series:        "precise",
+			Architectures: []string{"amd64"},
+			Endpoint:      "some-auth-url",
+			BaseURLs:      []string{"file://" + metadataDir},
+		},
 	}
 	_, err := ValidateToolsMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))

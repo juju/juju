@@ -39,18 +39,18 @@ func MakeBoilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplest
 	}
 	now := time.Now()
 	imparams := toolsMetadataParams{
-		ToolsBinarySize: tm.Size,
-		ToolsBinaryPath: tm.Path,
-		ToolsBinaryHash: tm.Hash,
-		Version:         tm.Version,
-		Arch:            tm.Arch,
-		Series:          tm.Release,
-		Region:          cloudSpec.Region,
-		URL:             cloudSpec.Endpoint,
-		Path:            streamsDir,
-		ToolsFileName:   toolsFileName,
-		Updated:         now.Format(time.RFC1123Z),
-		VersionKey:      now.Format("20060102"),
+		ToolsBinarySize:   tm.Size,
+		ToolsBinaryPath:   tm.Path,
+		ToolsBinarySHA256: tm.SHA256,
+		Version:           tm.Version,
+		Arch:              tm.Arch,
+		Series:            tm.Release,
+		Region:            cloudSpec.Region,
+		URL:               cloudSpec.Endpoint,
+		Path:              streamsDir,
+		ToolsFileName:     toolsFileName,
+		Updated:           now.Format(time.RFC1123Z),
+		VersionKey:        now.Format("20060102"),
 	}
 
 	if !flattenPath {
@@ -73,18 +73,18 @@ func MakeBoilerplate(name, series string, tm *ToolsMetadata, cloudSpec *simplest
 }
 
 type toolsMetadataParams struct {
-	ToolsBinaryPath string
-	ToolsBinarySize float64
-	ToolsBinaryHash string
-	Region          string
-	URL             string
-	Updated         string
-	Arch            string
-	Path            string
-	Series          string
-	Version         string
-	VersionKey      string
-	ToolsFileName   string
+	ToolsBinaryPath   string
+	ToolsBinarySize   float64
+	ToolsBinarySHA256 string
+	Region            string
+	URL               string
+	Updated           string
+	Arch              string
+	Path              string
+	Series            string
+	Version           string
+	VersionKey        string
+	ToolsFileName     string
 }
 
 func writeJsonFile(imparams toolsMetadataParams, filename, boilerplate string) error {
@@ -145,7 +145,7 @@ var productBoilerplate = `
               "size": {{.ToolsBinarySize}},
               "path": "{{.ToolsBinaryPath}}",
               "ftype": "tar.gz",
-              "md5": "{{.ToolsBinaryHash}}"
+              "SHA256": "{{.ToolsBinarySHA256}}"
             }
           },
           "pubname": "juju-{{.Version}}-{{.Series}}-{{.Arch}}-{{.VersionKey}}",

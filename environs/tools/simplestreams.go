@@ -51,7 +51,7 @@ type ToolsMetadata struct {
 	Size     float64 `json:"size"`
 	Path     string  `json:"path"`
 	FileType string  `json:"ftype"`
-	Hash     string  `json:"md5"`
+	SHA256   string  `json:"SHA256"`
 }
 
 // Fetch returns a list of tools for the specified cloud matching the constraint.
