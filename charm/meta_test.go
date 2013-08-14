@@ -417,3 +417,81 @@ func (s *MetaSuite) TestCodecRoundTrip(c *C) {
 		c.Assert(input, DeepEquals, output)
 	}
 }
+
+var implementedByTests = []struct {
+	ifce     string
+	name     string
+	role     charm.RelationRole
+	scope    charm.RelationScope
+	match    bool
+	implicit bool
+}{
+	{"ifce-pro", "pro", charm.RoleProvider, charm.ScopeGlobal, true, false},
+	{"blah", "pro", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "blah", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "pro", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "pro", charm.RoleProvider, charm.ScopeContainer, true, false},
+
+	{"juju-info", "juju-info", charm.RoleProvider, charm.ScopeGlobal, true, true},
+	{"blah", "juju-info", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"juju-info", "blah", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"juju-info", "juju-info", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"juju-info", "juju-info", charm.RoleProvider, charm.ScopeContainer, true, true},
+
+	{"ifce-req", "req", charm.RoleRequirer, charm.ScopeGlobal, true, false},
+	{"blah", "req", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "blah", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "req", charm.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "req", charm.RoleRequirer, charm.ScopeContainer, true, false},
+
+	{"juju-info", "info", charm.RoleRequirer, charm.ScopeContainer, true, false},
+	{"blah", "info", charm.RoleRequirer, charm.ScopeContainer, false, false},
+	{"juju-info", "blah", charm.RoleRequirer, charm.ScopeContainer, false, false},
+	{"juju-info", "info", charm.RolePeer, charm.ScopeContainer, false, false},
+	{"juju-info", "info", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+
+	{"ifce-peer", "peer", charm.RolePeer, charm.ScopeGlobal, true, false},
+	{"blah", "peer", charm.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "blah", charm.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "peer", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "peer", charm.RolePeer, charm.ScopeContainer, true, false},
+}
+
+func (s *MetaSuite) TestImplementedBy(c *C) {
+	for i, t := range implementedByTests {
+		c.Logf("test %d", i)
+		r := charm.Relation{
+			Interface: t.ifce,
+			Name:      t.name,
+			Role:      t.role,
+			Scope:     t.scope,
+		}
+		c.Assert(r.ImplementedBy(&dummyCharm{}), Equals, t.match)
+		c.Assert(r.IsImplicit(), Equals, t.implicit)
+	}
+}
+
+type dummyCharm struct{}
+
+func (c *dummyCharm) Config() *charm.Config {
+	panic("unused")
+}
+
+func (c *dummyCharm) Revision() int {
+	panic("unused")
+}
+
+func (c *dummyCharm) Meta() *charm.Meta {
+	return &charm.Meta{
+		Provides: map[string]charm.Relation{
+			"pro": {Interface: "ifce-pro", Scope: charm.ScopeGlobal},
+		},
+		Requires: map[string]charm.Relation{
+			"req":  {Interface: "ifce-req", Scope: charm.ScopeGlobal},
+			"info": {Interface: "juju-info", Scope: charm.ScopeContainer},
+		},
+		Peers: map[string]charm.Relation{
+			"peer": {Interface: "ifce-peer", Scope: charm.ScopeGlobal},
+		},
+	}
+}
