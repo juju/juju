@@ -23,6 +23,7 @@ var tagKindTests = []struct {
 	{tag: "service-foo", kind: names.ServiceTagKind},
 	{tag: "environment-42", kind: names.EnvironTagKind},
 	{tag: "user-admin", kind: names.UserTagKind},
+	{tag: "relation-42", kind: names.RelationTagKind},
 	{tag: "foo", err: `"foo" is not a valid tag`},
 	{tag: "unit", err: `"unit" is not a valid tag`},
 }
@@ -95,6 +96,10 @@ var parseTagTests = []struct {
 	expectKind: names.EnvironTagKind,
 	resultId:   "foo",
 }, {
+	tag:        "relation-42",
+	expectKind: names.RelationTagKind,
+	resultId:   "42",
+}, {
 	tag:        "environment-/",
 	expectKind: names.EnvironTagKind,
 	resultErr:  `"environment-/" is not a valid environment tag`,
@@ -113,9 +118,10 @@ var parseTagTests = []struct {
 }}
 
 var makeTag = map[string]func(id string) string{
-	names.MachineTagKind: names.MachineTag,
-	names.UnitTagKind:    names.UnitTag,
-	names.ServiceTagKind: names.ServiceTag,
+	names.MachineTagKind:  names.MachineTag,
+	names.UnitTagKind:     names.UnitTag,
+	names.ServiceTagKind:  names.ServiceTag,
+	names.RelationTagKind: names.RelationTag,
 	// TODO(rog) environment and user, when they have Tag functions.
 }
 
