@@ -4,6 +4,7 @@
 package names
 
 import (
+	"fmt"
 	"regexp"
 )
 
@@ -16,5 +17,8 @@ func IsRelation(id string) bool {
 
 // RelationTag returns the tag for the relation with the given id.
 func RelationTag(relationId string) string {
+	if !IsRelation(relationId) {
+		panic(fmt.Sprintf("%q is not a valid relation id", relationId))
+	}
 	return makeTag(RelationTagKind, relationId)
 }

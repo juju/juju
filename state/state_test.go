@@ -1437,6 +1437,8 @@ var findEntityTests = []struct {
 }, {
 	tag: "service-ser-vice2",
 }, {
+	tag: "relation-0",
+}, {
 	tag: "unit-ser-vice2-0",
 }, {
 	tag: "user-arble",
@@ -1462,6 +1464,13 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rel.Id(), gc.Equals, 0)
 
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)
