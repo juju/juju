@@ -217,6 +217,7 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
+	"api-endpoints",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
@@ -226,7 +227,6 @@ var commandNames = []string{
 	"destroy-relation",
 	"destroy-service",
 	"destroy-unit",
-	"endpoint",
 	"env", // alias for switch
 	"expose",
 	"generate-config", // alias for init

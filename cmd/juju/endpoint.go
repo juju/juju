@@ -1,24 +1,25 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package main
 
 import (
-	"fmt"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/gnuflag"
 )
 
-// EndpointCommand returns the api endpoint
+// EndpointCommand returns the API endpoints
 type EndpointCommand struct {
 	cmd.EnvCommandBase
+	out      cmd.Output
 }
 
 func (c *EndpointCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "endpoint",
+		Name:    "api-endpoints",
 		Args:    "",
-		Purpose: "Print the api server address",
+		Purpose: "Print the API server addresses",
 	}
 }
 
@@ -26,7 +27,12 @@ func (c *EndpointCommand) Init(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-// Print out the addresses of the api server endpoints.
+func (c *EndpointCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	c.out.AddFlags(f, "smart", cmd.DefaultFormatters)
+}
+
+// Print out the addresses of the API server endpoints.
 func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 	environ, err := environs.NewFromName(c.EnvName)
 	if err != nil {
@@ -38,13 +44,5 @@ func (c *EndpointCommand) Run(ctx *cmd.Context) error {
 		return err
 	}
 
-	for _, url := range api_info.Addrs {
-		url = fmt.Sprintf("%s\n", url)
-		_, err := ctx.Stdout.Write([]byte(url))
-		if err != nil {
-			return err
-		}
-
-	}
-	return nil
+	return c.out.Write(ctx, api_info.Addrs)
 }
