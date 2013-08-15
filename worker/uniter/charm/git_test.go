@@ -4,6 +4,7 @@
 package charm_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
 	corecharm "launchpad.net/juju-core/charm"
@@ -11,7 +12,9 @@ import (
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 )
 
 var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
@@ -35,6 +38,19 @@ func (s *GitDirSuite) TearDownTest(c *C) {
 	os.Setenv("LC_ALL", s.oldLcAll)
 	s.LoggingSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
+}
+
+func (s *GitDirSuite) TestInitConfig(c *C) {
+	base := c.MkDir()
+	repo := charm.NewGitDir(filepath.Join(base, "repo"))
+	err := repo.Init()
+	c.Assert(err, IsNil)
+
+	cmd := exec.Command("git", "config", "--list", "--local")
+	cmd.Dir = repo.Path()
+	out, err := cmd.Output()
+	c.Assert(err, IsNil)
+	c.Assert(string(out), Matches, "(.|\n)*user.email=juju@localhost.\nuser.name=juju(.|\n)*")
 }
 
 func (s *GitDirSuite) TestCreate(c *C) {
