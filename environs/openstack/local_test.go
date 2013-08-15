@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/openstack"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -429,7 +430,7 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), Equals, true)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), Equals, true)
-	c.Assert(urls[2], Equals, imagemetadata.DefaultBaseURL)
+	c.Assert(urls[2], Equals, simplestreams.DefaultBaseURL)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *C) {

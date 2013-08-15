@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // ValidateImageMetadataCommand
@@ -142,7 +143,7 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		t := &http.Transport{}
 		t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
 		c := &http.Client{Transport: t}
-		imagemetadata.SetHttpClient(c)
+		simplestreams.SetHttpClient(c)
 	}
 
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

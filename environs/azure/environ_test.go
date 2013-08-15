@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
@@ -1187,7 +1188,7 @@ func (*environSuite) TestGetImageBaseURLs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	// At the moment this is not configurable.  It returns a fixed URL for
 	// the central simplestreams database.
-	c.Check(urls, gc.DeepEquals, []string{imagemetadata.DefaultBaseURL})
+	c.Check(urls, gc.DeepEquals, []string{simplestreams.DefaultBaseURL})
 }
 
 func (*environSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
@@ -406,7 +407,7 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 	urls, err := ec2.GetImageURLs(s.env)
 	c.Assert(err, IsNil)
 	c.Assert(len(urls), Equals, 1)
-	c.Assert(urls[0], Equals, imagemetadata.DefaultBaseURL)
+	c.Assert(urls[0], Equals, simplestreams.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
