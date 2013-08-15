@@ -200,7 +200,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 	if cons.Mem != nil {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
 	}
-	// Ignore root-disk constraint for now. See https://bugs.launchpad.net/juju-core/+bug/1212689.
+	// TODO(bug 1212689): ignore root-disk constraint for now.
 	if cons.RootDisk != nil {
 		logger.Warningf("ignoring unsupported constraint 'root-disk'")
 	}

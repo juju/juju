@@ -23,6 +23,11 @@ var (
 // allRegions is defined here to allow tests to override the content.
 var allRegions = aws.Regions
 
+// TODO(bug 1212688): the RootDisk defaults to 8G currently until the
+// referenced bug is fixed, at which point RootDisk can be set to nil and the
+// specified constraint can be passed through via block device mapping to
+// request an appropriate resize of the root disk.
+
 // allInstanceTypes holds the relevant attributes of every known
 // instance type.
 var allInstanceTypes = []instances.InstanceType{
