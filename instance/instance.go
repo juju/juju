@@ -70,7 +70,7 @@ type Instance interface {
 type HardwareCharacteristics struct {
 	Arch     *string `yaml:"arch,omitempty"`
 	Mem      *uint64 `yaml:"mem,omitempty"`
-	RootDisk *uint64 `yaml:"osdisk,omitempty"`
+	RootDisk *uint64 `yaml:"rootdisk,omitempty"`
 	CpuCores *uint64 `yaml:"cpucores,omitempty"`
 	CpuPower *uint64 `yaml:"cpupower,omitempty"`
 }
