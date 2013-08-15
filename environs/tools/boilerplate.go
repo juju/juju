@@ -104,14 +104,8 @@ func writeJsonFile(imparams toolsMetadataParams, filename, boilerplate string) e
 var indexBoilerplate = `
 {
  "index": {
-   "com.ubuntu.tools:custom": {
+   "com.ubuntu.juju:custom": {
      "updated": "{{.Updated}}",
-     "clouds": [
-       {
-         "region": "{{.Region}}",
-         "endpoint": "{{.URL}}"
-       }
-     ],
      "cloudname": "custom",
      "datatype": "juju-tools",
      "format": "products:1.0",
@@ -128,7 +122,7 @@ var indexBoilerplate = `
 
 var productBoilerplate = `
 {
-  "content_id": "com.ubuntu.tools:custom",
+  "content_id": "com.ubuntu.juju:custom",
   "format": "products:1.0",
   "updated": "{{.Updated}}",
   "datatype": "juju-tools",
@@ -145,7 +139,7 @@ var productBoilerplate = `
               "size": {{.ToolsBinarySize}},
               "path": "{{.ToolsBinaryPath}}",
               "ftype": "tar.gz",
-              "SHA256": "{{.ToolsBinarySHA256}}"
+              "sha256": "{{.ToolsBinarySHA256}}"
             }
           },
           "pubname": "juju-{{.Version}}-{{.Series}}-{{.Arch}}-{{.VersionKey}}",

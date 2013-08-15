@@ -103,14 +103,14 @@ var imageData = map[string]string{
        "size": 2973595,
        "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
        "ftype": "tar.gz",
-       "SHA256": "447aeb6a934a5eaec4f703eda4ef2dde"
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
       },
       "1130raringamd64": {
        "release": "raring",
        "size": 2973173,
        "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
        "ftype": "tar.gz",
-       "SHA256": "df07ac5e1fb4232d4e9aa2effa57918a"
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
      }
     }
@@ -127,14 +127,14 @@ var imageData = map[string]string{
        "size": 1951096,
        "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
-       "SHA256": "f65a92b3b41311bdf398663ee1c5cd0c"
+       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       },
       "1114raringamd64": {
        "release": "raring",
        "size": 1950327,
        "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
        "ftype": "tar.gz",
-       "SHA256": "6472014e3255e3fe7fbd3550ef3f0a11"
+       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
       }
      }
     }

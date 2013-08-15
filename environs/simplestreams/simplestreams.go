@@ -210,14 +210,15 @@ func (ind *Indices) extractIndexes() IndexMetadataSlice {
 }
 
 // hasCloud tells you whether an IndexMetadata has the given cloud in its
-// Clouds list.
+// Clouds list. If IndexMetadata has no clouds defined, then hasCloud
+// returns true regardless.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
 		if metadataCloud == cloud {
 			return true
 		}
 	}
-	return false
+	return len(metadata.Clouds) == 0
 }
 
 // hasProduct tells you whether an IndexMetadata provides any of the given
