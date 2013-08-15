@@ -888,12 +888,24 @@ var assignUsingConstraintsTests = []struct {
 		hardwareCharacteristics: "mem=4G",
 		assignOk:                false,
 	}, {
-		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2",
-		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=2 cpu-power=50",
+		unitConstraints:         "root-disk=8192",
+		hardwareCharacteristics: "cpu-power=50",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "root-disk=8192",
+		hardwareCharacteristics: "root-disk=4096",
+		assignOk:                false,
+	}, {
+		unitConstraints:         "root-disk=8192",
+		hardwareCharacteristics: "root-disk=8192",
 		assignOk:                true,
 	}, {
-		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2",
-		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=1 cpu-power=50",
+		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=2 root-disk=8192 cpu-power=50",
+		assignOk:                true,
+	}, {
+		unitConstraints:         "arch=amd64 mem=4G cpu-cores=2 root-disk=8192",
+		hardwareCharacteristics: "arch=amd64 mem=8G cpu-cores=1 root-disk=4096 cpu-power=50",
 		assignOk:                false,
 	},
 }

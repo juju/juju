@@ -1089,6 +1089,9 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	if cons.Mem != nil && *cons.Mem > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"mem", D{{"$gte", *cons.Mem}}})
 	}
+	if cons.RootDisk != nil && *cons.RootDisk > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"rootdisk", D{{"$gte", *cons.RootDisk}}})
+	}
 	if cons.CpuCores != nil && *cons.CpuCores > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpucores", D{{"$gte", *cons.CpuCores}}})
 	}
