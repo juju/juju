@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
@@ -16,7 +17,7 @@ import (
 
 // SetCommand updates the configuration of a service
 type SetCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
 	SettingsYAML    cmd.FileVar

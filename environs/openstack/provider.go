@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
@@ -126,6 +127,18 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	}
 	e.name = cfg.Name()
 	return e, nil
+}
+
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+	if region == "" {
+		return nil, fmt.Errorf("region must be specified")
+	}
+	return &imagemetadata.MetadataLookupParams{
+		Region:        region,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
 }
 
 func (p environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
@@ -230,10 +243,24 @@ func (inst *openstackInstance) Id() instance.Id {
 	return instance.Id(inst.ServerDetail.Id)
 }
 
+func (inst *openstackInstance) Status() string {
+	return inst.ServerDetail.Status
+}
+
 func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareCharacteristics {
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
 		hc.Mem = &inst.instType.Mem
+		// openstack is special in that a 0-size root disk means that
+		// the root disk will result in an instance with a root disk
+		// the same size as the image that created it, so we just set
+		// the HardwareCharacteristics to nil to signal that we don't
+		// know what the correct size is.
+		if inst.instType.RootDisk == 0 {
+			hc.RootDisk = nil
+		} else {
+			hc.RootDisk = &inst.instType.RootDisk
+		}
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
 	}
@@ -567,7 +594,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
 	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
+	e.imageBaseURLs = append(e.imageBaseURLs, simplestreams.DefaultBaseURL)
 
 	return e.imageBaseURLs, nil
 }
@@ -1099,4 +1126,23 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 		}
 	}
 	return firstErr
+}
+
+// MetadataLookupParams returns parameters which are used to query image metadata to
+// find matching image information.
+func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+	baseURLs, err := e.getImageBaseURLs()
+	if err != nil {
+		return nil, err
+	}
+	if region == "" {
+		region = e.ecfg().region()
+	}
+	return &imagemetadata.MetadataLookupParams{
+		Series:        e.ecfg().DefaultSeries(),
+		Region:        region,
+		Endpoint:      e.ecfg().authURL(),
+		BaseURLs:      baseURLs,
+		Architectures: []string{"amd64", "arm"},
+	}, nil
 }

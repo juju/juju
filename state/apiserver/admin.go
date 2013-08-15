@@ -67,7 +67,7 @@ func (a *srvAdmin) Login(c params.Creds) error {
 		// This can only happen if Login is called concurrently.
 		return errAlreadyLoggedIn
 	}
-	entity, err := a.root.srv.state.Authenticator(c.AuthTag)
+	entity0, err := a.root.srv.state.FindEntity(c.AuthTag)
 	if err != nil && !errors.IsNotFoundError(err) {
 		return err
 	}
@@ -75,6 +75,10 @@ func (a *srvAdmin) Login(c params.Creds) error {
 	// does not exist as for a bad password, so that
 	// we don't allow unauthenticated users to find information
 	// about existing entities.
+	entity, ok := entity0.(taggedAuthenticator)
+	if !ok {
+		return common.ErrBadCreds
+	}
 	if err != nil || !entity.PasswordValid(c.Password) {
 		return common.ErrBadCreds
 	}
@@ -105,7 +109,7 @@ func (p *machinePinger) Stop() error {
 	return p.Pinger.Kill()
 }
 
-func (a *srvAdmin) apiRootForEntity(entity state.TaggedAuthenticator, c params.Creds) (interface{}, error) {
+func (a *srvAdmin) apiRootForEntity(entity taggedAuthenticator, c params.Creds) (interface{}, error) {
 	// TODO(rog) choose appropriate object to serve.
 	newRoot := newSrvRoot(a.root.srv, entity)
 

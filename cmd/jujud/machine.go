@@ -27,8 +27,10 @@ import (
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 const bootstrapMachineId = "0"
@@ -87,10 +89,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	if err := EnsureWeHaveLXC(a.Conf.DataDir, a.Tag()); err != nil {
-		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
-		return err
-	}
 	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
 
 	// ensureStateWorker ensures that there is a worker that
@@ -102,10 +100,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// called many times - StartWorker does nothing if there is
 	// already a worker started with the given name.
 	ensureStateWorker := func() {
-		a.runner.StartWorker("state", func() (worker.Worker, error) {
-			// TODO(rog) go1.1: use method expression
-			return a.StateWorker()
-		})
+		a.runner.StartWorker("state", a.StateWorker)
 	}
 	if a.MachineId == bootstrapMachineId {
 		// If we're bootstrapping, we don't have an API
@@ -120,7 +115,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		// TODO(rog) go1.1: use method expression
 		return a.APIWorker(ensureStateWorker)
 	})
 	err := agentDone(a.runner.Wait())
@@ -171,6 +165,10 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		// TODO(rog) use id instead of *Machine (or introduce Clone method)
+		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.DataDir), nil
+	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
@@ -200,21 +198,12 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	if err != nil {
 		return nil, err
 	}
-	// If this fails, other bits will fail, so we just log the error, and
-	// let the other failures actually restart runners
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		log.Warningf("failed to EnsureAPIInfo: %v", err)
-	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
 	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return NewUpgrader(st, m, dataDir), nil
-	})
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
@@ -269,6 +258,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		default:
 			log.Warningf("ignoring unknown job %q", job)

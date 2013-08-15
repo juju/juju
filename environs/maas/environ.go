@@ -167,7 +167,7 @@ func (env *maasEnviron) SetConfig(cfg *config.Config) error {
 
 	env.ecfgUnlocked = ecfg
 
-	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.MAASServer(), ecfg.MAASOAuth(), apiVersion)
+	authClient, err := gomaasapi.NewAuthenticatedClient(ecfg.maasServer(), ecfg.maasOAuth(), apiVersion)
 	if err != nil {
 		return err
 	}
@@ -199,6 +199,10 @@ func convertConstraints(cons constraints.Value) url.Values {
 	}
 	if cons.Mem != nil {
 		params.Add("mem", fmt.Sprintf("%d", *cons.Mem))
+	}
+	// TODO(bug 1212689): ignore root-disk constraint for now.
+	if cons.RootDisk != nil {
+		logger.Warningf("ignoring unsupported constraint 'root-disk'")
 	}
 	if cons.CpuPower != nil {
 		logger.Warningf("ignoring unsupported constraint 'cpu-power'")
@@ -250,11 +254,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // createBridgeNetwork returns a string representing the upstart command to
 // create a bridged eth0.
 func createBridgeNetwork() string {
-	return `cat > /etc/network/interfaces << EOF
-auto lo
-iface lo inet loopback
-
-auto eth0
+	return `cat > /etc/network/eth0.config << EOF
 iface eth0 inet manual
 
 auto br0
@@ -262,6 +262,12 @@ iface br0 inet dhcp
   bridge_ports eth0
 EOF
 `
+}
+
+// linkBridgeInInterfaces adds the file created by createBridgeNetwork to the
+// interfaces file.
+func linkBridgeInInterfaces() string {
+	return `sed -i "s/iface eth0 inet dhcp/include \/etc\/network\/eth0.config/" etc/network/interfaces`
 }
 
 // internalStartInstance allocates and starts a MAAS node.  It is used both
@@ -310,6 +316,7 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 		machineConfig,
 		runCmd,
 		createBridgeNetwork(),
+		linkBridgeInInterfaces(),
 		"service networking restart",
 	)
 	if err != nil {

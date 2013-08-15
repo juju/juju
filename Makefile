@@ -13,11 +13,20 @@ check:
 format:
 	go fmt $(PROJECT)/...
 
+# Install juju into $GOPATH/bin.
+install:
+	go install -v $(PROJECT)/...
+
 # Install packages required to develop Juju and run tests.
 install-dependencies:
-	sudo apt-get install build-essential bzr zip git-core mercurial distro-info-data golang-go
-	@echo
-	@echo "Make sure you have MongoDB installed.  See the README file."
+	@echo Adding juju PPAs for golang and mongodb-server
+	@sudo apt-add-repository ppa:juju/golang
+	# The stable PPA includes the required mongodb-server binaries.
+	@sudo apt-add-repository ppa:juju/stable
+	@sudo apt-get update
+	@echo Installing dependencies
+	@sudo apt-get install golang mongodb-server build-essential bzr \
+		zip git-core mercurial distro-info-data
 	@if [ -z "$(GOPATH)" ]; then \
 		echo; \
 		echo "You need to set up a GOPATH.  See the README file."; \

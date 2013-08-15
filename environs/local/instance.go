@@ -22,6 +22,11 @@ func (inst *localInstance) Id() instance.Id {
 	return inst.id
 }
 
+// Status implements instance.Instance.Status.
+func (inst *localInstance) Status() string {
+	return ""
+}
+
 func (inst *localInstance) Addresses() ([]instance.Address, error) {
 	logger.Errorf("localInstance.Addresses not implemented")
 	return nil, nil

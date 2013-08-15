@@ -58,6 +58,27 @@ func (s *MachineSuite) TestParentId(c *C) {
 	c.Assert(ok, Equals, true)
 }
 
+func (s *MachineSuite) TestMachineIsStateServer(c *C) {
+	tests := []struct {
+		isStateServer bool
+		jobs          []state.MachineJob
+	}{
+		{false, []state.MachineJob{state.JobHostUnits}},
+		{false, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobManageState}},
+	}
+	for _, test := range tests {
+		params := state.AddMachineParams{
+			Series: "series",
+			Jobs:   test.jobs,
+		}
+		m, err := s.State.AddMachineWithConstraints(&params)
+		c.Assert(err, IsNil)
+		c.Assert(m.IsStateServer(), Equals, test.isStateServer)
+	}
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
@@ -598,7 +619,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -668,7 +689,7 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *C) {
 	// Start a fresh watcher; check both principals reported.
 	w = s.machine.WatchPrincipalUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("mysql/0", "mysql/1")
 	wc.AssertNoChange()
 
@@ -693,7 +714,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc := testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc := testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange()
 	wc.AssertNoChange()
 
@@ -763,7 +784,7 @@ func (s *MachineSuite) TestWatchUnits(c *C) {
 	// Start a fresh watcher; check all units reported.
 	w = s.machine.WatchUnits()
 	defer testing.AssertStop(c, w)
-	wc = testing.NewLaxStringsWatcherC(c, s.State, w)
+	wc = testing.NewStringsWatcherC(c, s.State, w)
 	wc.AssertChange("mysql/0", "mysql/1", "logging/0")
 	wc.AssertNoChange()
 
@@ -933,4 +954,20 @@ func (s *MachineSuite) TestGetSetStatusWhileNotAlive(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set status of machine "0": not found or not alive`)
 	_, _, err = s.machine.Status()
 	c.Assert(err, ErrorMatches, "status not found")
+}
+
+func (s *MachineSuite) TestSetAddresses(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	c.Assert(machine.Addresses(), HasLen, 0)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetAddresses(addresses)
+	c.Assert(err, IsNil)
+	err = machine.Refresh()
+	c.Assert(err, IsNil)
+	c.Assert(machine.Addresses(), DeepEquals, addresses)
 }

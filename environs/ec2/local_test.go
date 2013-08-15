@@ -17,11 +17,13 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 	"regexp"
+	"sort"
 )
 
 type ProviderSuite struct{}
@@ -241,7 +243,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(bootstrapState.StateInstances, HasLen, 1)
 
-	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M")
+	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M root-disk=8192M")
 	insts, err := t.env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 1)
@@ -302,6 +304,21 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
+func (t *localServerSuite) TestInstanceStatus(c *C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	c.Assert(err, IsNil)
+	c.Assert(inst.Status(), Equals, "terminated")
+}
+
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
@@ -317,6 +334,17 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	c.Check(*hc.Mem, Equals, uint64(1740))
 	c.Check(*hc.CpuCores, Equals, uint64(1))
 	c.Assert(*hc.CpuPower, Equals, uint64(100))
+}
+
+func (t *localServerSuite) TestValidateImageMetadata(c *C) {
+	params, err := t.env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("test")
+	c.Assert(err, IsNil)
+	params.Series = "precise"
+	params.Endpoint = "https://ec2.endpoint.com"
+	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	c.Assert(err, IsNil)
+	sort.Strings(image_ids)
+	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
 }
 
 // If match is true, CheckScripts checks that at least one script started
@@ -379,7 +407,7 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 	urls, err := ec2.GetImageURLs(s.env)
 	c.Assert(err, IsNil)
 	c.Assert(len(urls), Equals, 1)
-	c.Assert(urls[0], Equals, imagemetadata.DefaultBaseURL)
+	c.Assert(urls[0], Equals, simplestreams.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

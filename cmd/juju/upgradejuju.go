@@ -6,7 +6,9 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -19,7 +21,7 @@ import (
 
 // UpgradeJujuCommand upgrades the agents in a juju installation.
 type UpgradeJujuCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	vers        string
 	Version     version.Number
 	Development bool

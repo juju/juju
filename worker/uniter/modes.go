@@ -10,7 +10,6 @@ import (
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -27,7 +26,7 @@ type Mode func(u *Uniter) (Mode, error)
 // ModeInit is the initial Uniter mode.
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
-	log.Infof("worker/uniter: updating unit addresses")
+	logger.Infof("updating unit addresses")
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err
@@ -46,7 +45,7 @@ func ModeInit(u *Uniter) (next Mode, err error) {
 	} else if err = u.unit.SetPublicAddress(public); err != nil {
 		return nil, err
 	}
-	log.Infof("reconciling relation state")
+	logger.Infof("reconciling relation state")
 	if err := u.restoreRelations(); err != nil {
 		return nil, err
 	}
@@ -59,10 +58,10 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 
 	// If we haven't yet loaded state, do so.
 	if u.s == nil {
-		log.Infof("loading uniter state")
+		logger.Infof("loading uniter state")
 		if u.s, err = u.sf.Read(); err == ErrNoStateFile {
 			// When no state exists, start from scratch.
-			log.Infof("worker/uniter: charm is not deployed")
+			logger.Infof("charm is not deployed")
 			curl, _ := u.service.CharmURL()
 			return ModeInstalling(curl), nil
 		} else if err != nil {
@@ -73,7 +72,7 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 	// Filter out states not related to charm deployment.
 	switch u.s.Op {
 	case Continue:
-		log.Infof("worker/uniter: continuing after %q hook", u.s.Hook.Kind)
+		logger.Infof("continuing after %q hook", u.s.Hook.Kind)
 		switch u.s.Hook.Kind {
 		case hooks.Stop:
 			return ModeTerminating, nil
@@ -90,30 +89,30 @@ func ModeContinue(u *Uniter) (next Mode, err error) {
 		return ModeAbide, nil
 	case RunHook:
 		if u.s.OpStep == Queued {
-			log.Infof("worker/uniter: found queued %q hook", u.s.Hook.Kind)
+			logger.Infof("found queued %q hook", u.s.Hook.Kind)
 			if err = u.runHook(*u.s.Hook); err != nil && err != errHookFailed {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
 		if u.s.OpStep == Done {
-			log.Infof("worker/uniter: found uncommitted %q hook", u.s.Hook.Kind)
+			logger.Infof("found uncommitted %q hook", u.s.Hook.Kind)
 			if err = u.commitHook(*u.s.Hook); err != nil {
 				return nil, err
 			}
 			return ModeContinue, nil
 		}
-		log.Infof("worker/uniter: awaiting error resolution for %q hook", u.s.Hook.Kind)
+		logger.Infof("awaiting error resolution for %q hook", u.s.Hook.Kind)
 		return ModeHookError, nil
 	}
 
 	// Resume interrupted deployment operations.
 	curl := u.s.CharmURL
 	if u.s.Op == Install {
-		log.Infof("worker/uniter: resuming charm install")
+		logger.Infof("resuming charm install")
 		return ModeInstalling(curl), nil
 	} else if u.s.Op == Upgrade {
-		log.Infof("worker/uniter: resuming charm upgrade")
+		logger.Infof("resuming charm upgrade")
 		return ModeUpgrading(curl), nil
 	}
 	panic(fmt.Errorf("unhandled uniter operation %q", u.s.Op))
@@ -214,7 +213,6 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			return nil, worker.ErrTerminateAgent
 		}
 	}
-	panic("unreachable")
 }
 
 // ModeAbide is the Uniter's usual steady state. It watches for and responds to:
@@ -280,7 +278,6 @@ func modeAbideAliveLoop(u *Uniter) (Mode, error) {
 			return nil, err
 		}
 	}
-	panic("unreachable")
 }
 
 // modeAbideDyingLoop handles the proper termination of all relations in
@@ -323,7 +320,6 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 			return nil, err
 		}
 	}
-	panic("unreachable")
 }
 
 // ModeHookError is responsible for watching and responding to:
@@ -366,7 +362,6 @@ func ModeHookError(u *Uniter) (next Mode, err error) {
 			return ModeUpgrading(curl), nil
 		}
 	}
-	panic("unreachable")
 }
 
 // ModeConflicted is responsible for watching and responding to:
@@ -400,16 +395,15 @@ func ModeConflicted(curl *charm.URL) Mode {
 				return ModeUpgrading(curl), nil
 			}
 		}
-		panic("unreachable")
 	}
 }
 
 // modeContext returns a function that implements logging and common error
 // manipulation for Mode funcs.
 func modeContext(name string, err *error) func() {
-	log.Infof("worker/uniter: %s starting", name)
+	logger.Infof("%s starting", name)
 	return func() {
-		log.Debugf("worker/uniter: %s exiting", name)
+		logger.Debugf("%s exiting", name)
 		switch *err {
 		case nil, tomb.ErrDying, worker.ErrTerminateAgent:
 		default:

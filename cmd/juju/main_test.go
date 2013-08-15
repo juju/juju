@@ -217,7 +217,9 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
+	"api-endpoints",
 	"bootstrap",
+	"debug-hooks",
 	"debug-log",
 	"deploy",
 	"destroy-environment",
@@ -234,7 +236,6 @@ var commandNames = []string{
 	"get-environment",
 	"help",
 	"help-tool",
-	"image-metadata",
 	"init",
 	"publish",
 	"remove-relation", // alias for destroy-relation
@@ -276,9 +277,14 @@ func (s *MainSuite) TestHelpCommands(c *C) {
 }
 
 var topicNames = []string{
+	"aws",
 	"basics",
 	"commands",
 	"global-options",
+	"glossary",
+	"hpcloud",
+	"local",
+	"openstack",
 	"plugins",
 	"topics",
 }
@@ -303,6 +309,7 @@ func (s *MainSuite) TestHelpTopics(c *C) {
 
 var globalFlags = []string{
 	"--debug .*",
+	"--description .*",
 	"-h, --help .*",
 	"--log-config .*",
 	"--log-file .*",

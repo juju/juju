@@ -4,11 +4,9 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -49,16 +47,6 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()
-}
-
-func (*BootstrapSuite) TestMissingEnvironment(c *gc.C) {
-	defer coretesting.MakeFakeHomeNoEnvironments(c, "empty").Restore()
-	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
-	c.Check(code, gc.Equals, 1)
-	errStr := ctx.Stderr.(*bytes.Buffer).String()
-	strippedErr := strings.Replace(errStr, "\n", "", -1)
-	c.Assert(strippedErr, gc.Matches, ".*No juju environment configuration file exists.*")
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {
@@ -108,7 +96,7 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")

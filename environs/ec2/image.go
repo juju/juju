@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/loggo"
 )
 
@@ -23,38 +24,40 @@ var signedImageDataOnly = true
 // the user has clearly indicated that they are willing to accept poor performance.
 const defaultCpuPower = 100
 
+// filterImages returns only that subset of the input (in the same order) that
+// this provider finds suitable.
+func filterImages(images []*imagemetadata.ImageMetadata) []*imagemetadata.ImageMetadata {
+	result := make([]*imagemetadata.ImageMetadata, 0, len(images))
+	for _, image := range images {
+		// For now, we only want images with "ebs" storage.
+		if image.Storage == ebsStorage {
+			result = append(result, image)
+		}
+	}
+	return result
+}
+
 // findInstanceSpec returns an InstanceSpec satisfying the supplied instanceConstraint.
 func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*instances.InstanceSpec, error) {
 	if ic.Constraints.CpuPower == nil {
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]
-	imageConstraint := imagemetadata.ImageConstraint{
-		CloudSpec: imagemetadata.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
 		Series:    ic.Series,
 		Arches:    ic.Arches,
-	}
+	})
 	matchingImages, err := imagemetadata.Fetch(
-		baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, signedImageDataOnly)
+		baseURLs, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
 	if len(matchingImages) == 0 {
 		logger.Warningf("no matching image meta data for constraints: %v", ic)
 	}
-	var images []instances.Image
-	for _, imageMetadata := range matchingImages {
-		// For now, we only want images with "ebs" storage.
-		if imageMetadata.Storage != ebsStorage {
-			continue
-		}
-		im := *imageMetadata
-		images = append(images, instances.Image{
-			Id:    im.Id,
-			VType: im.VType,
-			Arch:  im.Arch,
-		})
-	}
+	suitableImages := filterImages(matchingImages)
+	images := instances.ImageMetadataToImages(suitableImages)
 
 	// Make a copy of the known EC2 instance types, filling in the cost for the specified region.
 	regionCosts := allRegionCosts[ic.Region]

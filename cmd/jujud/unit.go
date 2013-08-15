@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/uniter"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 var agentLogger = loggo.GetLogger("juju.jujud")
@@ -69,34 +70,37 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 		return err
 	}
 	agentLogger.Infof("unit agent %v start", a.Tag())
-	a.runner.StartWorker("toplevel", func() (worker.Worker, error) {
-		// TODO(rog) go1.1: use method expression
-		return a.Workers()
-	})
+	a.runner.StartWorker("state", a.StateWorkers)
+	a.runner.StartWorker("api", a.APIWorkers)
 	err := agentDone(a.runner.Wait())
 	a.tomb.Kill(err)
 	return err
 }
 
-// Workers returns a worker that runs the unit agent workers.
-func (a *UnitAgent) Workers() (worker.Worker, error) {
+// StateWorkers returns a worker that runs the unit agent workers.
+func (a *UnitAgent) StateWorkers() (worker.Worker, error) {
 	st, entity, err := openState(a.Conf.Conf, a)
 	if err != nil {
 		return nil, err
 	}
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		// We suppress this error, because it is probably more interesting
-		// to see other failures, but we log it, in case it is a root cause
-		agentLogger.Warningf("error while calling EnsureAPIInfo: %v", err)
-	}
 	unit := entity.(*state.Unit)
 	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		return NewUpgrader(st, unit, dataDir), nil
-	})
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st, unit.Name(), dataDir), nil
+	})
+	return newCloseWorker(runner, st), nil
+}
+
+func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
+	st, entity, err := openAPIState(a.Conf.Conf, a)
+	if err != nil {
+		return nil, err
+	}
+	dataDir := a.Conf.DataDir
+	runner := worker.NewRunner(allFatal, moreImportant)
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		return upgrader.New(st.Upgrader(), entity.Tag(), dataDir), nil
 	})
 	return newCloseWorker(runner, st), nil
 }
