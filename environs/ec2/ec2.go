@@ -86,33 +86,37 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
-func (inst *ec2Instance) getInstanceWithDNS() (*ec2.Instance, error) {
-	if inst.Instance.DNSName != "" {
-		return inst.Instance, nil
-	}
-	// Fetch the instance information again, in case
-	// the DNS information has become available.
+// refreshInstance requeries the Instance details over the ec2 api
+func (inst *ec2Instance) refreshInstance() error {
 	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
 	if err != nil {
-		return nil, err
+		return err
 	}
-	return insts[0].(*ec2Instance).Instance, nil
+	inst.Instance = insts[0].(*ec2Instance).Instance
+	return nil
 }
 
+// Addresses implements instance.Addresses() returning generic address
+// details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 	var addresses []instance.Address
-	ec2Inst, err := inst.getInstanceWithDNS()
-	if err != nil {
-		return nil, err
+	// TODO(gz): Stop relying on this requerying logic, maybe remove error
+	if inst.Instance.DNSName == "" {
+		// Fetch the instance information again, in case
+		// the DNS information has become available.
+		err := inst.refreshInstance()
+		if err != nil {
+			return nil, err
+		}
 	}
 	possibleAddresses := []instance.Address{
 		{
-			Value:        ec2Inst.DNSName,
+			Value:        inst.Instance.DNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkPublic,
 		},
 		{
-			Value:        ec2Inst.PrivateDNSName,
+			Value:        inst.Instance.PrivateDNSName,
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
