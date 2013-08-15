@@ -15,11 +15,22 @@ type EndpointCommand struct {
 	out cmd.Output
 }
 
+const endpointDoc = `
+Returns a list of the API servers formatted as host:port
+Default output format returns an api server per line.
+
+Examples:
+  $ juju api-endpoints
+  10.0.3.1:17070
+  $
+`
+
 func (c *EndpointCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "api-endpoints",
 		Args:    "",
 		Purpose: "Print the API server addresses",
+		Doc:     endpointDoc,
 	}
 }
 
