@@ -23,6 +23,7 @@ var tagKindTests = []struct {
 	{tag: "service-foo", kind: names.ServiceTagKind},
 	{tag: "environment-42", kind: names.EnvironTagKind},
 	{tag: "user-admin", kind: names.UserTagKind},
+	{tag: "relation-42", kind: names.RelationTagKind},
 	{tag: "foo", err: `"foo" is not a valid tag`},
 	{tag: "unit", err: `"unit" is not a valid tag`},
 }
@@ -95,6 +96,10 @@ var parseTagTests = []struct {
 	expectKind: names.EnvironTagKind,
 	resultId:   "foo",
 }, {
+	tag:        "relation-42",
+	expectKind: names.RelationTagKind,
+	resultId:   "42",
+}, {
 	tag:        "environment-/",
 	expectKind: names.EnvironTagKind,
 	resultErr:  `"environment-/" is not a valid environment tag`,
@@ -113,9 +118,10 @@ var parseTagTests = []struct {
 }}
 
 var makeTag = map[string]func(id string) string{
-	names.MachineTagKind: names.MachineTag,
-	names.UnitTagKind:    names.UnitTag,
-	names.ServiceTagKind: names.ServiceTag,
+	names.MachineTagKind:  names.MachineTag,
+	names.UnitTagKind:     names.UnitTag,
+	names.ServiceTagKind:  names.ServiceTag,
+	names.RelationTagKind: names.RelationTag,
 	// TODO(rog) environment and user, when they have Tag functions.
 }
 
@@ -127,6 +133,16 @@ func (*tagSuite) TestParseTag(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.resultErr)
 			c.Assert(kind, gc.Equals, "")
 			c.Assert(id, gc.Equals, "")
+
+			// If the tag has a valid kind which matches the
+			// expected kind, test that using an empty
+			// expectKind does not change the error message.
+			if tagKind, err := names.TagKind(test.tag); err == nil && tagKind == test.expectKind {
+				kind, id, err := names.ParseTag(test.tag, "")
+				c.Assert(err, gc.ErrorMatches, test.resultErr)
+				c.Assert(kind, gc.Equals, "")
+				c.Assert(id, gc.Equals, "")
+			}
 		} else {
 			c.Assert(err, gc.IsNil)
 			c.Assert(id, gc.Equals, test.resultId)

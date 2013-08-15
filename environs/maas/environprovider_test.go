@@ -13,7 +13,7 @@ import (
 )
 
 type EnvironProviderSuite struct {
-	ProviderSuite
+	providerSuite
 }
 
 var _ = gc.Suite(&EnvironProviderSuite{})

@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
@@ -303,6 +304,21 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	c.Assert(err, NotNil)
 }
 
+func (t *localServerSuite) TestInstanceStatus(c *C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, IsNil)
+	c.Assert(info, NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	c.Assert(err, IsNil)
+	c.Assert(inst.Status(), Equals, "terminated")
+}
+
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
 	err := environs.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, IsNil)
@@ -391,7 +407,7 @@ func (s *localServerSuite) TestGetImageURLs(c *C) {
 	urls, err := ec2.GetImageURLs(s.env)
 	c.Assert(err, IsNil)
 	c.Assert(len(urls), Equals, 1)
-	c.Assert(urls[0], Equals, imagemetadata.DefaultBaseURL)
+	c.Assert(urls[0], Equals, simplestreams.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

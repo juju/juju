@@ -32,6 +32,9 @@ type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
 	Id() Id
 
+	// Status returns the provider-specific status for the instance.
+	Status() string
+
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance. This will supercede DNSName
 	// which can be implemented by selecting a preferred address.

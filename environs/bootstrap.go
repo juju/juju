@@ -75,7 +75,7 @@ func verifyBootstrapInit(env Environ) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if !errors.IsNotFoundError(err) {
+	if !errors.IsNotBootstrapped(err) {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 

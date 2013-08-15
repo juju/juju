@@ -58,7 +58,7 @@ func (prov maasEnvironProvider) SecretAttrs(cfg *config.Config) (map[string]inte
 	if err != nil {
 		return nil, err
 	}
-	secretAttrs["maas-oauth"] = maasCfg.MAASOAuth()
+	secretAttrs["maas-oauth"] = maasCfg.maasOAuth()
 	return secretAttrs, nil
 }
 

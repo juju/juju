@@ -13,6 +13,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // ImageMetadataCommand is used to write out a boilerplate environments.yaml file.
@@ -70,7 +71,7 @@ func (c *ImageMetadataCommand) Run(context *cmd.Context) error {
 		Id:   c.ImageId,
 		Arch: c.Arch,
 	}
-	cloudSpec := imagemetadata.CloudSpec{
+	cloudSpec := simplestreams.CloudSpec{
 		Region:   c.Region,
 		Endpoint: c.Endpoint,
 	}

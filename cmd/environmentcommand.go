@@ -11,6 +11,7 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 )
@@ -66,4 +67,9 @@ func (c *EnvCommandBase) SetFlags(f *gnuflag.FlagSet) {
 	defaultEnv := getDefaultEnvironment()
 	f.StringVar(&c.EnvName, "e", defaultEnv, "juju environment to operate in")
 	f.StringVar(&c.EnvName, "environment", defaultEnv, "")
+}
+
+// EnvironName returns the name of the environment for this command
+func (c *EnvCommandBase) EnvironName() string {
+	return c.EnvName
 }

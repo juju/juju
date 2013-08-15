@@ -5,6 +5,8 @@ package imagemetadata
 
 import (
 	"fmt"
+
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // ImageMetadataValidator instances can provide parameters used to query image
@@ -41,12 +43,12 @@ func ValidateImageMetadata(params *MetadataLookupParams) ([]string, error) {
 	if len(params.BaseURLs) == 0 {
 		return nil, fmt.Errorf("required parameter baseURLs not specified")
 	}
-	imageConstraint := ImageConstraint{
-		CloudSpec: CloudSpec{params.Region, params.Endpoint},
+	imageConstraint := NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{params.Region, params.Endpoint},
 		Series:    params.Series,
 		Arches:    params.Architectures,
-	}
-	matchingImages, err := Fetch(params.BaseURLs, DefaultIndexPath, &imageConstraint, false)
+	})
+	matchingImages, err := Fetch(params.BaseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

@@ -4,11 +4,13 @@
 package imagemetadata
 
 import (
+	"net/http"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
-	"net/http"
 )
 
 type ValidateSuite struct {
@@ -23,7 +25,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 		Id:   id,
 		Arch: "amd64",
 	}
-	cloudSpec := CloudSpec{
+	cloudSpec := simplestreams.CloudSpec{
 		Region:   region,
 		Endpoint: endpoint,
 	}
@@ -34,7 +36,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 
 	t := &http.Transport{}
 	t.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	s.oldClient = SetHttpClient(&http.Client{Transport: t})
+	s.oldClient = simplestreams.SetHttpClient(&http.Client{Transport: t})
 	return nil
 }
 
@@ -45,7 +47,7 @@ func (s *ValidateSuite) SetUpTest(c *gc.C) {
 func (s *ValidateSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 	if s.oldClient != nil {
-		SetHttpClient(s.oldClient)
+		simplestreams.SetHttpClient(s.oldClient)
 	}
 }
 

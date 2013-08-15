@@ -16,9 +16,9 @@ import (
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 )
 
@@ -225,13 +225,13 @@ func UseTestImageData(e environs.Environ, cred *identity.Credentials) {
 		panic(fmt.Errorf("cannot generate index metdata: %v", err))
 	}
 	data := metadata.Bytes()
-	WritablePublicStorage(e).Put(imagemetadata.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
+	WritablePublicStorage(e).Put(simplestreams.DefaultIndexPath+".json", bytes.NewReader(data), int64(len(data)))
 	WritablePublicStorage(e).Put(
 		productMetadatafile, strings.NewReader(publicBucketImagesData), int64(len(publicBucketImagesData)))
 }
 
 func RemoveTestImageData(e environs.Environ) {
-	WritablePublicStorage(e).Remove(imagemetadata.DefaultIndexPath + ".json")
+	WritablePublicStorage(e).Remove(simplestreams.DefaultIndexPath + ".json")
 	WritablePublicStorage(e).Remove(productMetadatafile)
 }
 

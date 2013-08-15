@@ -9,19 +9,21 @@ import (
 )
 
 const (
-	UnitTagKind    = "unit"
-	MachineTagKind = "machine"
-	ServiceTagKind = "service"
-	EnvironTagKind = "environment"
-	UserTagKind    = "user"
+	UnitTagKind     = "unit"
+	MachineTagKind  = "machine"
+	ServiceTagKind  = "service"
+	EnvironTagKind  = "environment"
+	UserTagKind     = "user"
+	RelationTagKind = "relation"
 )
 
 var validKinds = map[string]bool{
-	UnitTagKind:    true,
-	MachineTagKind: true,
-	ServiceTagKind: true,
-	EnvironTagKind: true,
-	UserTagKind:    true,
+	UnitTagKind:     true,
+	MachineTagKind:  true,
+	ServiceTagKind:  true,
+	EnvironTagKind:  true,
+	UserTagKind:     true,
+	RelationTagKind: true,
 }
 
 var tagSuffixToId = map[string]func(string) string{
@@ -30,11 +32,12 @@ var tagSuffixToId = map[string]func(string) string{
 }
 
 var verifyId = map[string]func(string) bool{
-	UnitTagKind:    IsUnit,
-	MachineTagKind: IsMachine,
-	ServiceTagKind: IsService,
-	UserTagKind:    IsUser,
-	EnvironTagKind: IsEnvironment,
+	UnitTagKind:     IsUnit,
+	MachineTagKind:  IsMachine,
+	ServiceTagKind:  IsService,
+	UserTagKind:     IsUser,
+	EnvironTagKind:  IsEnvironment,
+	RelationTagKind: IsRelation,
 }
 
 // TagKind returns one of the *TagKind constants for the given tag, or
@@ -75,7 +78,7 @@ func ParseTag(tag, expectKind string) (kind, id string, err error) {
 		id = toId(id)
 	}
 	if verify := verifyId[kind]; verify != nil && !verify(id) {
-		return "", "", invalidTagError(tag, expectKind)
+		return "", "", invalidTagError(tag, kind)
 	}
 	return kind, id, nil
 }

@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
@@ -19,22 +18,9 @@ type agentEntityWatcherSuite struct{}
 
 var _ = gc.Suite(&agentEntityWatcherSuite{})
 
-type fakeAgentEntityWatcherState struct {
-	entities map[string]*fakeAgentEntityWatcher
-}
-
-func (st *fakeAgentEntityWatcherState) AgentEntityWatcher(tag string) (state.AgentEntityWatcher, error) {
-	if agentEntityWatcher, ok := st.entities[tag]; ok {
-		if agentEntityWatcher.err != nil {
-			return nil, agentEntityWatcher.err
-		}
-		return agentEntityWatcher, nil
-	}
-	return nil, errors.NotFoundf("entity %q", tag)
-}
-
 type fakeAgentEntityWatcher struct {
-	err error
+	state.Entity
+	fetchError
 }
 
 func (a *fakeAgentEntityWatcher) Watch() state.NotifyWatcher {
@@ -61,18 +47,17 @@ func (w *fakeNotifyWatcher) Changes() <-chan struct{} {
 }
 
 func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
-	st := &fakeAgentEntityWatcherState{
-		entities: map[string]*fakeAgentEntityWatcher{
-			"x0": {err: fmt.Errorf("x0 fails")},
-			"x1": {},
-			"x2": {},
-			"x3": {err: fmt.Errorf("x3 error")},
+	st := &fakeState{
+		entities: map[string]entityWithError{
+			"x0": &fakeAgentEntityWatcher{fetchError: "x0 fails"},
+			"x1": &fakeAgentEntityWatcher{},
+			"x2": &fakeAgentEntityWatcher{},
 		},
 	}
 	getCanWatch := func() (common.AuthFunc, error) {
 		return func(tag string) bool {
 			switch tag {
-			case "x0", "x1", "x3":
+			case "x0", "x1":
 				return true
 			}
 			return false
@@ -81,7 +66,7 @@ func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
 	resources := common.NewResources()
 	a := common.NewAgentEntityWatcher(st, resources, getCanWatch)
 	entities := params.Entities{[]params.Entity{
-		{"x0"}, {"x1"}, {"x2"}, {"x3"}, {"x4"},
+		{"x0"}, {"x1"}, {"x2"}, {"x3"},
 	}}
 	result, err := a.Watch(entities)
 	c.Assert(err, gc.IsNil)
@@ -90,7 +75,6 @@ func (*agentEntityWatcherSuite) TestWatch(c *gc.C) {
 			{Error: &params.Error{Message: "x0 fails"}},
 			{"1", nil},
 			{Error: apiservertesting.ErrUnauthorized},
-			{Error: &params.Error{Message: "x3 error"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -102,7 +86,7 @@ func (*agentEntityWatcherSuite) TestWatchError(c *gc.C) {
 	}
 	resources := common.NewResources()
 	a := common.NewAgentEntityWatcher(
-		&fakeAgentEntityWatcherState{},
+		&fakeState{},
 		resources,
 		getCanWatch,
 	)
@@ -116,7 +100,7 @@ func (*agentEntityWatcherSuite) TestWatchNoArgsNoError(c *gc.C) {
 	}
 	resources := common.NewResources()
 	a := common.NewAgentEntityWatcher(
-		&fakeAgentEntityWatcherState{},
+		&fakeState{},
 		resources,
 		getCanWatch,
 	)

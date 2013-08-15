@@ -5,7 +5,9 @@ package azure
 
 import (
 	"fmt"
+	"net/http"
 	"sync"
+	"time"
 
 	"launchpad.net/gwacl"
 
@@ -14,11 +16,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 const (
@@ -380,7 +383,8 @@ func newHostedService(azure *gwacl.ManagementAPI, prefix string, affinityGroupNa
 // selectInstanceTypeAndImage returns the appropriate instance-type name and
 // the OS image name for launching a virtual machine with the given parameters.
 func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, series, location string) (string, string, error) {
-	sourceImageName := env.getSnapshot().ecfg.forceImageName()
+	ecfg := env.getSnapshot().ecfg
+	sourceImageName := ecfg.forceImageName()
 	if sourceImageName != "" {
 		// Configuration forces us to use a specific image.  There may
 		// not be a suitable image in the simplestreams database.
@@ -402,16 +406,13 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	//
 	// This should be the normal execution path.  The user is not expected
 	// to configure a source image name in normal use.
-
-	// TODO(jtv): Simplestreams for Azure aren't quite done yet.   The
-	// source image name is forced in the boilerplate config for the time
-	// being.
-	spec, err := findInstanceSpec(baseURLs, instances.InstanceConstraint{
+	constraint := instances.InstanceConstraint{
 		Region:      location,
 		Series:      series,
 		Arches:      architectures,
 		Constraints: cons,
-	})
+	}
+	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
@@ -631,6 +632,13 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 	return inst, nil, err
 }
 
+// Spawn this many goroutines to issue requests for destroying services.
+// TODO: this is currently set to 1 because of a problem in Azure:
+// removing Services in the same affinity group concurrently causes a conflict.
+// This conflict is wrongly reported by Azure as a BadRequest (400).
+// This has been reported to Windows Azure.
+var maxConcurrentDeletes = 1
+
 // StopInstances is specified in the Environ interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
@@ -641,17 +649,17 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 		return err
 	}
 	defer env.releaseManagementAPI(context)
-	// Shut down all the instances; if there are errors, return only the
-	// first one (but try to shut down all instances regardless).
-	var firstErr error
+
+	// Destroy all the services in parallel.
+	run := parallel.NewRun(maxConcurrentDeletes)
 	for _, instance := range instances {
-		request := &gwacl.DestroyHostedServiceRequest{ServiceName: string(instance.Id())}
-		err := context.DestroyHostedService(request)
-		if err != nil && firstErr == nil {
-			firstErr = err
-		}
+		serviceName := string(instance.Id())
+		run.Do(func() error {
+			request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
+			return context.DestroyHostedService(request)
+		})
 	}
-	return firstErr
+	return run.Wait()
 }
 
 // Instances is specified in the Environ interface.
@@ -818,6 +826,18 @@ type azureManagementContext struct {
 	certFile *tempCertFile
 }
 
+var (
+	retryPolicy = gwacl.RetryPolicy{
+		NbRetries: 6,
+		HttpStatusCodes: []int{
+			http.StatusConflict,
+			http.StatusRequestTimeout,
+			http.StatusInternalServerError,
+			http.StatusServiceUnavailable,
+		},
+		Delay: 10 * time.Second}
+)
+
 // getManagementAPI obtains a context object for interfacing with Azure's
 // management API.
 // For now, each invocation just returns a separate object.  This is probably
@@ -834,7 +854,7 @@ func (env *azureEnviron) getManagementAPI() (*azureManagementContext, error) {
 	// After this point, if we need to leave prematurely, we should clean
 	// up that certificate file.
 	location := snap.ecfg.location()
-	mgtAPI, err := gwacl.NewManagementAPI(subscription, certFile.Path(), location)
+	mgtAPI, err := gwacl.NewManagementAPIWithRetryPolicy(subscription, certFile.Path(), location, retryPolicy)
 	if err != nil {
 		certFile.Delete()
 		return nil, err
@@ -924,6 +944,7 @@ func (env *azureEnviron) getStorageContext() (*gwacl.StorageContext, error) {
 		Account:       snap.ecfg.storageAccountName(),
 		Key:           key,
 		AzureEndpoint: gwacl.GetEndpoint(snap.ecfg.location()),
+		RetryPolicy:   retryPolicy,
 	}
 	return &context, nil
 }
@@ -936,6 +957,7 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 		Account:       ecfg.publicStorageAccountName(),
 		Key:           "", // Empty string means anonymous access.
 		AzureEndpoint: gwacl.GetEndpoint(ecfg.location()),
+		RetryPolicy:   retryPolicy,
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
@@ -946,7 +968,7 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 // available images.
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	// Hard-coded to the central Simplestreams database for now.
-	return []string{imagemetadata.DefaultBaseURL}, nil
+	return []string{simplestreams.DefaultBaseURL}, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

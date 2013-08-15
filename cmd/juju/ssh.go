@@ -130,3 +130,10 @@ func (c *SSHCommon) machinePublicAddress(id string) (string, error) {
 	// oops, watcher closed before we could get an answer
 	return "", w.Stop()
 }
+
+// AllowInterspersedFlags for ssh/scp is set to false so that
+// flags after the unit name are passed through to ssh, for eg.
+// `juju ssh -v service-name/0 uname -a`.
+func (c *SSHCommon) AllowInterspersedFlags() bool {
+	return false
+}

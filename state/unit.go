@@ -13,6 +13,8 @@ import (
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
@@ -23,6 +25,8 @@ import (
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/utils"
 )
+
+var unitLogger = loggo.GetLogger("juju.state.unit")
 
 // AssignmentPolicy controls what machine a unit will be assigned to.
 type AssignmentPolicy string
@@ -92,8 +96,6 @@ type Unit struct {
 	doc unitDoc
 	annotator
 }
-
-var _ AgentEntity = (*Unit)(nil)
 
 func newUnit(st *State, udoc *unitDoc) *Unit {
 	unit := &Unit{
@@ -444,14 +446,43 @@ func (u *Unit) DeployerTag() (string, bool) {
 	return "", false
 }
 
+// PrincipalName returns the name of the unit's principal.
+// If the unit is not a subordinate, false is returned.
+func (u *Unit) PrincipalName() (string, bool) {
+	return u.doc.Principal, u.doc.Principal != ""
+}
+
+// addressesOfMachine returns Addresses of the related machine if present.
+func (u *Unit) addressesOfMachine() []instance.Address {
+	id := u.doc.MachineId
+	if id != "" {
+		m, err := u.st.Machine(id)
+		if err == nil {
+			return m.Addresses()
+		}
+		unitLogger.Errorf("unit %v misses machine id %v", u, id)
+	}
+	return nil
+}
+
 // PublicAddress returns the public address of the unit and whether it is valid.
 func (u *Unit) PublicAddress() (string, bool) {
-	return u.doc.PublicAddress, u.doc.PublicAddress != ""
+	publicAddress := u.doc.PublicAddress
+	addresses := u.addressesOfMachine()
+	if len(addresses) > 0 {
+		publicAddress = instance.SelectPublicAddress(addresses)
+	}
+	return publicAddress, publicAddress != ""
 }
 
 // PrivateAddress returns the private address of the unit and whether it is valid.
 func (u *Unit) PrivateAddress() (string, bool) {
-	return u.doc.PrivateAddress, u.doc.PrivateAddress != ""
+	privateAddress := u.doc.PrivateAddress
+	addresses := u.addressesOfMachine()
+	if len(addresses) > 0 {
+		privateAddress = instance.SelectInternalAddress(addresses, false)
+	}
+	return privateAddress, privateAddress != ""
 }
 
 // Refresh refreshes the contents of the Unit from the underlying

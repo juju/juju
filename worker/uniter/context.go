@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	unitdebug "launchpad.net/juju-core/worker/uniter/debug"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -153,7 +152,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 	env := ctx.hookVars(charmDir, toolsDir, socketPath)
 	debugctx := unitdebug.NewHooksContext(ctx.unit.Name())
 	if session, _ := debugctx.FindSession(); session != nil && session.MatchHook(hookName) {
-		log.Infof("worker/uniter: executing %s via debug-hooks", hookName)
+		logger.Infof("executing %s via debug-hooks", hookName)
 		err = session.RunHook(hookName, charmDir, env)
 	} else {
 		err = runCharmHook(hookName, charmDir, env)
@@ -166,7 +165,7 @@ func (ctx *HookContext) RunHook(hookName, charmDir, toolsDir, socketPath string)
 					"could not write settings from %q to relation %d: %v",
 					hookName, id, e,
 				)
-				log.Errorf("worker/uniter: %v", e)
+				logger.Errorf("%v", e)
 				if err == nil {
 					err = e
 				}
@@ -187,21 +186,21 @@ func runCharmHook(hookName, charmDir string, env []string) error {
 	}
 	ps.Stdout = outWriter
 	ps.Stderr = outWriter
-	logger := &hookLogger{
+	hookLogger := &hookLogger{
 		r:    outReader,
 		done: make(chan struct{}),
 	}
-	go logger.run()
+	go hookLogger.run()
 	err = ps.Start()
 	outWriter.Close()
 	if err == nil {
 		err = ps.Wait()
 	}
-	logger.stop()
+	hookLogger.stop()
 	if ee, ok := err.(*exec.Error); ok && err != nil {
 		if os.IsNotExist(ee.Err) {
 			// Missing hook is perfectly valid, but worth mentioning.
-			log.Infof("worker/uniter: skipped %q hook (not implemented)", hookName)
+			logger.Infof("skipped %q hook (not implemented)", hookName)
 			return nil
 		}
 	}
@@ -223,7 +222,7 @@ func (l *hookLogger) run() {
 		line, _, err := br.ReadLine()
 		if err != nil {
 			if err != io.EOF {
-				log.Errorf("worker/uniter: cannot read hook output: %v", err)
+				logger.Errorf("cannot read hook output: %v", err)
 			}
 			break
 		}
@@ -232,7 +231,7 @@ func (l *hookLogger) run() {
 			l.mu.Unlock()
 			return
 		}
-		log.Infof("worker/uniter: HOOK %s", line)
+		logger.Infof("HOOK %s", line)
 		l.mu.Unlock()
 	}
 }

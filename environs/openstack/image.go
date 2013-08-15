@@ -6,6 +6,7 @@ package openstack
 import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // findInstanceSpec returns an image and instance type satisfying the constraint.
@@ -25,22 +26,21 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 			Arches:   ic.Arches,
 			Mem:      uint64(flavor.RAM),
 			CpuCores: uint64(flavor.VCPUs),
-			Cost:     uint64(flavor.RAM),
 		}
 		allInstanceTypes = append(allInstanceTypes, instanceType)
 	}
 
-	imageConstraint := imagemetadata.ImageConstraint{
-		CloudSpec: imagemetadata.CloudSpec{ic.Region, e.ecfg().authURL()},
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{ic.Region, e.ecfg().authURL()},
 		Series:    ic.Series,
 		Arches:    ic.Arches,
-	}
+	})
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
 	}
 	// TODO (wallyworld): use an env parameter (default true) to mandate use of only signed image metadata.
-	matchingImages, err := imagemetadata.Fetch(baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, false)
+	matchingImages, err := imagemetadata.Fetch(baseURLs, simplestreams.DefaultIndexPath, imageConstraint, false)
 	if err != nil {
 		return nil, err
 	}

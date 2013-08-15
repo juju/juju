@@ -66,25 +66,30 @@ var sshTests = []struct {
 	result string
 }{
 	{
-		[]string{"0"},
+		[]string{"ssh", "0"},
 		sshArgs + "dummyenv-0.dns\n",
 	},
 	// juju ssh 0 'uname -a'
 	{
-		[]string{"0", "uname -a"},
+		[]string{"ssh", "0", "uname -a"},
 		sshArgs + "dummyenv-0.dns uname -a\n",
 	},
 	// juju ssh 0 -- uname -a
 	{
-		[]string{"0", "--", "uname", "-a"},
+		[]string{"ssh", "0", "--", "uname", "-a"},
+		sshArgs + "dummyenv-0.dns -- uname -a\n",
+	},
+	// juju ssh 0 uname -a
+	{
+		[]string{"ssh", "0", "uname", "-a"},
 		sshArgs + "dummyenv-0.dns uname -a\n",
 	},
 	{
-		[]string{"mysql/0"},
+		[]string{"ssh", "mysql/0"},
 		sshArgs + "dummyenv-0.dns\n",
 	},
 	{
-		[]string{"mongodb/1"},
+		[]string{"ssh", "mongodb/1"},
 		sshArgs + "dummyenv-2.dns\n",
 	},
 }
@@ -111,7 +116,10 @@ func (s *SSHSuite) TestSSHCommand(c *C) {
 	for _, t := range sshTests {
 		c.Logf("testing juju ssh %s", t.args)
 		ctx := coretesting.Context(c)
-		code := cmd.Main(&SSHCommand{}, ctx, t.args)
+		jujucmd := cmd.NewSuperCommand(cmd.SuperCommandParams{})
+		jujucmd.Register(&SSHCommand{})
+
+		code := cmd.Main(jujucmd, ctx, t.args)
 		c.Check(code, Equals, 0)
 		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Equals, "")
 		c.Check(ctx.Stdout.(*bytes.Buffer).String(), Equals, t.result)

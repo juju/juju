@@ -6,7 +6,7 @@ package azure
 import (
 	"encoding/base64"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
 	"fmt"
@@ -16,7 +16,7 @@ import (
 
 type instanceSuite struct{}
 
-var _ = Suite(&instanceSuite{})
+var _ = gc.Suite(&instanceSuite{})
 
 // makeHostedServiceDescriptor creates a HostedServiceDescriptor with the
 // given service name.
@@ -25,32 +25,40 @@ func makeHostedServiceDescriptor(name string) *gwacl.HostedServiceDescriptor {
 	return &gwacl.HostedServiceDescriptor{ServiceName: name, Label: labelBase64}
 }
 
-func (*instanceSuite) TestId(c *C) {
+func (*instanceSuite) TestId(c *gc.C) {
 	serviceName := "test-name"
 	testService := makeHostedServiceDescriptor(serviceName)
 	azInstance := azureInstance{*testService, nil}
-	c.Check(azInstance.Id(), Equals, instance.Id(serviceName))
+	c.Check(azInstance.Id(), gc.Equals, instance.Id(serviceName))
 }
 
-func (*instanceSuite) TestDNSName(c *C) {
+func (*instanceSuite) TestStatus(c *gc.C) {
+	serviceName := "test-name"
+	testService := makeHostedServiceDescriptor(serviceName)
+	testService.Status = "something"
+	azInstance := azureInstance{*testService, nil}
+	c.Check(azInstance.Status(), gc.Equals, testService.Status)
+}
+
+func (*instanceSuite) TestDNSName(c *gc.C) {
 	// An instance's DNS name is computed from its hosted-service name.
 	host := "hostname"
 	testService := makeHostedServiceDescriptor(host)
 	azInstance := azureInstance{*testService, nil}
 	dnsName, err := azInstance.DNSName()
-	c.Assert(err, IsNil)
-	c.Check(dnsName, Equals, host+"."+AZURE_DOMAIN_NAME)
+	c.Assert(err, gc.IsNil)
+	c.Check(dnsName, gc.Equals, host+"."+AZURE_DOMAIN_NAME)
 }
 
-func (*instanceSuite) TestWaitDNSName(c *C) {
+func (*instanceSuite) TestWaitDNSName(c *gc.C) {
 	// An Azure instance gets its DNS name immediately, so there's no
 	// waiting involved.
 	host := "hostname"
 	testService := makeHostedServiceDescriptor(host)
 	azInstance := azureInstance{*testService, nil}
 	dnsName, err := azInstance.WaitDNSName()
-	c.Assert(err, IsNil)
-	c.Check(dnsName, Equals, host+"."+AZURE_DOMAIN_NAME)
+	c.Assert(err, gc.IsNil)
+	c.Check(dnsName, gc.Equals, host+"."+AZURE_DOMAIN_NAME)
 }
 
 func makeRole(name string, endpoints ...gwacl.InputEndpoint) gwacl.Role {
@@ -81,14 +89,14 @@ func makeInputEndpoint(port int, protocol string) gwacl.InputEndpoint {
 	}
 }
 
-func serialize(c *C, object gwacl.AzureObject) []byte {
+func serialize(c *gc.C, object gwacl.AzureObject) []byte {
 	xml, err := object.Serialize()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return []byte(xml)
 }
 
 func preparePortChangeConversation(
-	c *C, service *gwacl.HostedServiceDescriptor,
+	c *gc.C, service *gwacl.HostedServiceDescriptor,
 	deployments ...gwacl.Deployment) []gwacl.DispatcherResponse {
 	// Construct the series of responses to expected requests.
 	responses := []gwacl.DispatcherResponse{
@@ -130,15 +138,15 @@ type expectedRequest struct {
 	urlpattern string
 }
 
-func assertPortChangeConversation(c *C, record []*gwacl.X509Request, expected []expectedRequest) {
-	c.Assert(record, HasLen, len(expected))
+func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected []expectedRequest) {
+	c.Assert(record, gc.HasLen, len(expected))
 	for index, request := range record {
-		c.Check(request.Method, Equals, expected[index].method)
-		c.Check(request.URL, Matches, expected[index].urlpattern)
+		c.Check(request.Method, gc.Equals, expected[index].method)
+		c.Check(request.URL, gc.Matches, expected[index].urlpattern)
 	}
 }
 
-func (*instanceSuite) TestOpenPorts(c *C) {
+func (*instanceSuite) TestOpenPorts(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
@@ -152,7 +160,7 @@ func (*instanceSuite) TestOpenPorts(c *C) {
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/services/hostedservices/service-name[?].*"},   // GetHostedServiceProperties
 		{"GET", ".*/deployments/deployment-one/roles/role-one"},   // GetRole
@@ -167,17 +175,17 @@ func (*instanceSuite) TestOpenPorts(c *C) {
 	// ports requested.
 	role := &gwacl.PersistentVMRole{}
 	err = role.Deserialize((*record)[2].Payload)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Check(
 		*(role.ConfigurationSets[0].InputEndpoints),
-		DeepEquals, []gwacl.InputEndpoint{
+		gc.DeepEquals, []gwacl.InputEndpoint{
 			makeInputEndpoint(79, "tcp"),
 			makeInputEndpoint(587, "tcp"),
 			makeInputEndpoint(9, "udp"),
 		})
 }
 
-func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
+func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := []gwacl.DispatcherResponse{
 		// GetHostedServiceProperties breaks.
@@ -190,11 +198,11 @@ func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetServiceProperties(c *C) {
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, HasLen, 1)
+	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, gc.HasLen, 1)
 }
 
-func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
+func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one", makeRole("role-one")))
@@ -206,11 +214,11 @@ func (*instanceSuite) TestOpenPortsFailsWhenUnableToGetRole(c *C) {
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, HasLen, 2)
+	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, gc.HasLen, 2)
 }
 
-func (*instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
+func (*instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one", makeRole("role-one")))
@@ -222,11 +230,11 @@ func (*instanceSuite) TestOpenPortsFailsWhenUnableToUpdateRole(c *C) {
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Check(err, ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, HasLen, 3)
+	c.Check(err, gc.ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, gc.HasLen, 3)
 }
 
-func (*instanceSuite) TestClosePorts(c *C) {
+func (*instanceSuite) TestClosePorts(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
@@ -248,7 +256,7 @@ func (*instanceSuite) TestClosePorts(c *C) {
 	err := azInstance.ClosePorts("machine-id",
 		[]instance.Port{{"tcp", 587}, {"udp", 9}})
 
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/services/hostedservices/service-name[?].*"},   // GetHostedServiceProperties
 		{"GET", ".*/deployments/deployment-one/roles/role-one"},   // GetRole
@@ -263,25 +271,29 @@ func (*instanceSuite) TestClosePorts(c *C) {
 	// configuration.
 	roleOne := &gwacl.PersistentVMRole{}
 	err = roleOne.Deserialize((*record)[2].Payload)
-	c.Assert(err, IsNil)
-	c.Check(roleOne.ConfigurationSets[0].InputEndpoints, IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Check(roleOne.ConfigurationSets[0].InputEndpoints, gc.IsNil)
 
 	// The second UpdateRole removes all but 79/TCP.
 	roleTwo := &gwacl.PersistentVMRole{}
 	err = roleTwo.Deserialize((*record)[4].Payload)
-	c.Assert(err, IsNil)
-	c.Check(roleTwo.ConfigurationSets[0].InputEndpoints, DeepEquals,
+	c.Assert(err, gc.IsNil)
+	c.Check(
+		roleTwo.ConfigurationSets[0].InputEndpoints,
+		gc.DeepEquals,
 		&[]gwacl.InputEndpoint{makeInputEndpoint(79, "tcp")})
 
 	// The third UpdateRole removes all but 9/TCP.
 	roleThree := &gwacl.PersistentVMRole{}
 	err = roleThree.Deserialize((*record)[6].Payload)
-	c.Assert(err, IsNil)
-	c.Check(roleThree.ConfigurationSets[0].InputEndpoints, DeepEquals,
+	c.Assert(err, gc.IsNil)
+	c.Check(
+		roleThree.ConfigurationSets[0].InputEndpoints,
+		gc.DeepEquals,
 		&[]gwacl.InputEndpoint{makeInputEndpoint(9, "tcp")})
 }
 
-func (*instanceSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) {
+func (*instanceSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := []gwacl.DispatcherResponse{
 		// GetHostedServiceProperties breaks.
@@ -294,11 +306,11 @@ func (*instanceSuite) TestClosePortsFailsWhenUnableToGetServiceProperties(c *C) 
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, HasLen, 1)
+	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, gc.HasLen, 1)
 }
 
-func (*instanceSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
+func (*instanceSuite) TestClosePortsFailsWhenUnableToGetRole(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one", makeRole("role-one")))
@@ -310,11 +322,11 @@ func (*instanceSuite) TestClosePortsFailsWhenUnableToGetRole(c *C) {
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Check(err, ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, HasLen, 2)
+	c.Check(err, gc.ErrorMatches, "GET request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, gc.HasLen, 2)
 }
 
-func (*instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
+func (*instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one", makeRole("role-one")))
@@ -326,11 +338,11 @@ func (*instanceSuite) TestClosePortsFailsWhenUnableToUpdateRole(c *C) {
 		{"tcp", 79}, {"tcp", 587}, {"udp", 9},
 	})
 
-	c.Check(err, ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
-	c.Check(*record, HasLen, 3)
+	c.Check(err, gc.ErrorMatches, "PUT request failed [(]500: Internal Server Error[)]")
+	c.Check(*record, gc.HasLen, 3)
 }
 
-func (*instanceSuite) TestConvertAndFilterEndpoints(c *C) {
+func (*instanceSuite) TestConvertAndFilterEndpoints(c *gc.C) {
 	env := makeEnviron(c)
 	endpoints := []gwacl.InputEndpoint{
 		{
@@ -355,16 +367,16 @@ func (*instanceSuite) TestConvertAndFilterEndpoints(c *C) {
 			Number:   44,
 			Protocol: "tcp",
 		}}
-	c.Check(convertAndFilterEndpoints(endpoints, env), DeepEquals, expectedPorts)
+	c.Check(convertAndFilterEndpoints(endpoints, env), gc.DeepEquals, expectedPorts)
 }
 
-func (*instanceSuite) TestConvertAndFilterEndpointsEmptySlice(c *C) {
+func (*instanceSuite) TestConvertAndFilterEndpointsEmptySlice(c *gc.C) {
 	env := makeEnviron(c)
 	ports := convertAndFilterEndpoints([]gwacl.InputEndpoint{}, env)
-	c.Check(ports, HasLen, 0)
+	c.Check(ports, gc.HasLen, 0)
 }
 
-func (*instanceSuite) TestPorts(c *C) {
+func (*instanceSuite) TestPorts(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	endpoints := []gwacl.InputEndpoint{
 		{
@@ -394,7 +406,7 @@ func (*instanceSuite) TestPorts(c *C) {
 
 	ports, err := azInstance.Ports("machine-id")
 
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertPortChangeConversation(c, *record, []expectedRequest{
 		{"GET", ".*/services/hostedservices/service-name[?].*"}, // GetHostedServiceProperties
 		{"GET", ".*/deployments/deployment-one/roles/role-one"}, // GetRole
@@ -402,17 +414,17 @@ func (*instanceSuite) TestPorts(c *C) {
 
 	c.Check(
 		ports,
-		DeepEquals,
+		gc.DeepEquals,
 		// The result is sorted using state.SortPorts() (i.e. first by protocol,
 		// then by number).
 		[]instance.Port{
-			instance.Port{Number: 4456, Protocol: "tcp"},
-			instance.Port{Number: 1123, Protocol: "udp"},
-			instance.Port{Number: 2123, Protocol: "udp"},
+			{Number: 4456, Protocol: "tcp"},
+			{Number: 1123, Protocol: "udp"},
+			{Number: 2123, Protocol: "udp"},
 		})
 }
 
-func (*instanceSuite) TestPortsErrorsIfMoreThanOneRole(c *C) {
+func (*instanceSuite) TestPortsErrorsIfMoreThanOneRole(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
@@ -422,10 +434,10 @@ func (*instanceSuite) TestPortsErrorsIfMoreThanOneRole(c *C) {
 
 	_, err := azInstance.Ports("machine-id")
 
-	c.Check(err, ErrorMatches, ".*more than one Azure role inside the deployment.*")
+	c.Check(err, gc.ErrorMatches, ".*more than one Azure role inside the deployment.*")
 }
 
-func (*instanceSuite) TestPortsErrorsIfMoreThanOneDeployment(c *C) {
+func (*instanceSuite) TestPortsErrorsIfMoreThanOneDeployment(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
 		makeDeployment("deployment-one",
@@ -437,10 +449,10 @@ func (*instanceSuite) TestPortsErrorsIfMoreThanOneDeployment(c *C) {
 
 	_, err := azInstance.Ports("machine-id")
 
-	c.Check(err, ErrorMatches, ".*more than one Azure deployment inside the service.*")
+	c.Check(err, gc.ErrorMatches, ".*more than one Azure deployment inside the service.*")
 }
 
-func (*instanceSuite) TestPortsReturnsEmptySliceIfNoDeployment(c *C) {
+func (*instanceSuite) TestPortsReturnsEmptySliceIfNoDeployment(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service)
 	gwacl.PatchManagementAPIResponses(responses)
@@ -448,6 +460,6 @@ func (*instanceSuite) TestPortsReturnsEmptySliceIfNoDeployment(c *C) {
 
 	ports, err := azInstance.Ports("machine-id")
 
-	c.Assert(err, IsNil)
-	c.Check(ports, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Check(ports, gc.HasLen, 0)
 }
