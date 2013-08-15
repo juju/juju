@@ -47,7 +47,7 @@ var providerInstance environProvider
 // EC2.  But storage delays are handled separately now, and perhaps other
 // polling attempts can time out faster.
 var shortAttempt = utils.AttemptStrategy{
-	Total: 10 * time.Second,
+	Total: 20 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
