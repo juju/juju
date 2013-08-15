@@ -85,7 +85,7 @@ type SettingsResults struct {
 // single relation or an error.
 type RelationResult struct {
 	Error     *Error
-	Id        string
+	Id        int
 	Key       string
 	Endpoints []Endpoint
 }

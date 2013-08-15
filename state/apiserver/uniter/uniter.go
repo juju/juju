@@ -49,6 +49,12 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			return tag == names.ServiceTag(unit.ServiceName())
 		}, nil
 	}
+	getCanAccessRelation := func() (common.AuthFunc, error) {
+		return func(tag string) bool {
+			_, _, err := names.ParseTag(tag, names.RelationTagKind)
+			return err == nil
+		}, nil
+	}
 	getCanAccessUnitOrService := func() (common.AuthFunc, error) {
 		// These errors here are ignored: they're always nil.
 		canAccessService, _ := getCanAccessService()
@@ -59,9 +65,9 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 	}
 	getCanAccessUnitServiceOrRelation := func() (common.AuthFunc, error) {
 		canAccessUnitOrService, _ := getCanAccessUnitOrService()
+		canAccessRelation, _ := getCanAccessRelation()
 		return func(tag string) bool {
-			_, _, err := names.ParseTag(tag, names.RelationTagKind)
-			return canAccessUnitOrService(tag) || err == nil
+			return canAccessUnitOrService(tag) || canAccessRelation(tag)
 		}, nil
 	}
 	return &UniterAPI{
@@ -570,20 +576,10 @@ func (u *UniterAPI) getOneRelation(tag string) (*state.Relation, error) {
 	return rel, nil
 }
 
-func stateEndpointToParams(ep *state.Endpoint) *params.Endpoint {
-	if ep == nil {
-		return nil
-	}
-	return &params.Endpoint{
+func stateEndpointToParams(ep state.Endpoint) params.Endpoint {
+	return params.Endpoint{
 		ServiceName: ep.ServiceName,
-		Relation: charm.Relation{
-			Name:      ep.Name,
-			Role:      ep.Role,
-			Interface: ep.Interface,
-			Optional:  ep.Optional,
-			Limit:     ep.Limit,
-			Scope:     ep.Scope,
-		},
+		Relation:    ep.Relation,
 	}
 }
 
@@ -596,12 +592,13 @@ func (u *UniterAPI) Relation(args params.Entities) (params.RelationResults, erro
 	for i, entity := range args.Entities {
 		rel, err := u.getOneRelation(entity.Tag)
 		if err == nil {
-			result.Results[i].Id = strconv.Itoa(rel.Id())
-			result.Results[i].Key = rel.String()
+			r := &result.Results[i]
+			r.Id = rel.Id()
+			r.Key = rel.String()
 			relEps := rel.Endpoints()
-			result.Results[i].Endpoints = make([]params.Endpoint, len(relEps))
+			r.Endpoints = make([]params.Endpoint, len(relEps))
 			for j, relEp := range relEps {
-				result.Results[i].Endpoints[j] = *stateEndpointToParams(&relEp)
+				r.Endpoints[j] = stateEndpointToParams(relEp)
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -609,32 +606,16 @@ func (u *UniterAPI) Relation(args params.Entities) (params.RelationResults, erro
 	return result, nil
 }
 
-// EnvironUUID returns the UUID for each given environment
-// entity. Only environment entities are supported.
-func (u *UniterAPI) EnvironUUID(args params.Entities) (params.StringResults, error) {
-	result := params.StringResults{
-		Results: make([]params.StringResult, len(args.Entities)),
-	}
-	// TODO(dimitern): Once we have a way to get more than the current environment
-	// from state, change this call here to use it. For now we only return the
-	// current environment's UUID.
+// EnvironUUID returns the UUID for the current juju environment.
+func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
+	result := params.StringResult{}
 	env, err := u.st.Environment()
 	if err != nil {
 		err = common.ErrPerm
+	} else {
+		result.Result = env.UUID()
 	}
-	for i, entity := range args.Entities {
-		if err == nil {
-			_, _, err = names.ParseTag(entity.Tag, names.EnvironTagKind)
-			if err == nil && entity.Tag == env.Tag() {
-				result.Results[i].Result = env.UUID()
-			} else {
-				// Mask not found error with ErrPerm for security reasons.
-				err = common.ErrPerm
-			}
-		}
-		result.Results[i].Error = common.ServerError(err)
-		err = nil
-	}
+	result.Error = common.ServerError(err)
 	return result, nil
 }
 

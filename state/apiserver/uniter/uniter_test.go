@@ -4,7 +4,6 @@
 package uniter_test
 
 import (
-	"strconv"
 	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
@@ -779,28 +778,13 @@ func (s *uniterSuite) TestCharmBundleSha256(c *gc.C) {
 	})
 }
 
-func (s *uniterSuite) TestEnvironUUID(c *gc.C) {
+func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
 	env, err := s.State.Environment()
 	c.Assert(err, gc.IsNil)
 
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "environment-foo"},
-		{Tag: env.Tag()},
-		{Tag: "foo-bar"},
-		{Tag: "service-foo"},
-		{Tag: "unit-foo-0"},
-	}}
-	result, err := s.uniter.EnvironUUID(args)
+	result, err := s.uniter.CurrentEnvironUUID()
 	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: env.UUID()},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
+	c.Assert(result, gc.DeepEquals, params.StringResult{Result: env.UUID()})
 }
 
 func (s *uniterSuite) TestRelation(c *gc.C) {
@@ -812,14 +796,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	for i, ep := range relEps {
 		eps[i] = params.Endpoint{
 			ServiceName: ep.ServiceName,
-			Relation: charm.Relation{
-				Name:      ep.Name,
-				Role:      ep.Role,
-				Interface: ep.Interface,
-				Optional:  ep.Optional,
-				Limit:     ep.Limit,
-				Scope:     ep.Scope,
-			},
+			Relation:    ep.Relation,
 		}
 	}
 
@@ -836,7 +813,7 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Id: strconv.Itoa(rel.Id()), Key: rel.String(), Endpoints: eps},
+			{Id: rel.Id(), Key: rel.String(), Endpoints: eps},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
