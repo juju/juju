@@ -788,32 +788,40 @@ func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
 }
 
 func (s *uniterSuite) TestRelation(c *gc.C) {
-	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
-	rel, err := s.State.Relation(0)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
 	c.Assert(err, gc.IsNil)
-	relEps := rel.Endpoints()
-	eps := make([]params.Endpoint, len(relEps))
-	for i, ep := range relEps {
-		eps[i] = params.Endpoint{
-			ServiceName: ep.ServiceName,
-			Relation:    ep.Relation,
-		}
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rel.Id(), gc.Equals, 0)
+	relEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, gc.IsNil)
+	wordpressEps := []params.Endpoint{
+		{ServiceName: "wordpress", Relation: relEp.Relation},
 	}
 
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "relation-42"},
-		{Tag: "relation-0"},
-		{Tag: "relation-blah"},
-		{Tag: "service-foo"},
-		{Tag: "foo"},
-		{Tag: "unit-wordpress-0"},
+	args := params.Relations{Relations: []params.Relation{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: "relation-0", Unit: "unit-wordpress-0"},
+		{Relation: "relation-0", Unit: "unit-mysql-0"},
+		{Relation: "relation-0", Unit: "unit-foo-0"},
+		{Relation: "relation-blah", Unit: "unit-wordpress-0"},
+		{Relation: "service-foo", Unit: "user-admin"},
+		{Relation: "foo", Unit: "bar"},
+		{Relation: "unit-wordpress-0", Unit: "relation-0"},
 	}}
 	result, err := s.uniter.Relation(args)
 	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, len(args.Relations))
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Id: rel.Id(), Key: rel.String(), Endpoints: eps},
+			{RelationInfo: params.RelationInfo{
+				Id:        rel.Id(),
+				Key:       rel.String(),
+				Endpoints: wordpressEps,
+			}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

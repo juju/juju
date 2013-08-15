@@ -55,21 +55,14 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			return err == nil
 		}, nil
 	}
-	getCanAccessUnitOrService := func() (common.AuthFunc, error) {
-		// These errors here are ignored: they're always nil.
-		canAccessService, _ := getCanAccessService()
-		canAccessUnit, _ := getCanAccessUnit()
-		return func(tag string) bool {
-			return canAccessService(tag) || canAccessUnit(tag)
-		}, nil
-	}
-	getCanAccessUnitServiceOrRelation := func() (common.AuthFunc, error) {
-		canAccessUnitOrService, _ := getCanAccessUnitOrService()
-		canAccessRelation, _ := getCanAccessRelation()
-		return func(tag string) bool {
-			return canAccessUnitOrService(tag) || canAccessRelation(tag)
-		}, nil
-	}
+	getCanAccessUnitOrService := common.Either(
+		getCanAccessUnit,
+		getCanAccessService,
+	)
+	getCanAccessUnitServiceOrRelation := common.Either(
+		getCanAccessUnitOrService,
+		getCanAccessRelation,
+	)
 	return &UniterAPI{
 		LifeGetter:                common.NewLifeGetter(st, getCanAccessUnitServiceOrRelation),
 		StatusSetter:              common.NewStatusSetter(st, getCanAccessUnit),
@@ -555,51 +548,64 @@ func (u *UniterAPI) CharmBundleSha256(args params.CharmURLs) (params.StringResul
 	return result, nil
 }
 
-func (u *UniterAPI) getOneRelation(tag string) (*state.Relation, error) {
-	_, id, err := names.ParseTag(tag, names.RelationTagKind)
+func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	_, id, err := names.ParseTag(relTag, names.RelationTagKind)
 	if err != nil {
-		return nil, common.ErrPerm
+		return nothing, common.ErrPerm
 	}
 	// TODO(dimitern): Once the relation tags have a different format
 	// (e.g. "relation-service1@name1+service2@name2"), change the
 	// following code accordingly.
 	relId, err := strconv.Atoi(id)
 	if err != nil {
-		return nil, common.ErrPerm
+		return nothing, common.ErrPerm
 	}
 	rel, err := u.st.Relation(relId)
 	if errors.IsNotFoundError(err) {
-		return nil, common.ErrPerm
+		return nothing, common.ErrPerm
 	} else if err != nil {
-		return nil, err
+		return nothing, err
 	}
-	return rel, nil
-}
-
-func stateEndpointToParams(ep state.Endpoint) params.Endpoint {
-	return params.Endpoint{
-		ServiceName: ep.ServiceName,
-		Relation:    ep.Relation,
+	if !canAccess(unitTag) {
+		return nothing, common.ErrPerm
 	}
+	unit, err := u.getUnit(unitTag)
+	if err != nil {
+		return nothing, err
+	}
+	ep, err := rel.Endpoint(unit.ServiceName())
+	if err != nil {
+		return nothing, err
+	}
+	return params.RelationResult{
+		RelationInfo: params.RelationInfo{
+			Id:  rel.Id(),
+			Key: rel.String(),
+			Endpoints: []params.Endpoint{
+				params.Endpoint{
+					ServiceName: ep.ServiceName,
+					Relation:    ep.Relation,
+				},
+			},
+		},
+	}, nil
 }
 
 // Relation returns information about all given relations, including
 // their id, key and endpoints.
-func (u *UniterAPI) Relation(args params.Entities) (params.RelationResults, error) {
+func (u *UniterAPI) Relation(args params.Relations) (params.RelationResults, error) {
 	result := params.RelationResults{
-		Results: make([]params.RelationResult, len(args.Entities)),
+		Results: make([]params.RelationResult, len(args.Relations)),
 	}
-	for i, entity := range args.Entities {
-		rel, err := u.getOneRelation(entity.Tag)
+	canAccess, err := u.getCanAccessUnit()
+	if err != nil {
+		return params.RelationResults{}, err
+	}
+	for i, rel := range args.Relations {
+		relParams, err := u.getOneRelation(canAccess, rel.Relation, rel.Unit)
 		if err == nil {
-			r := &result.Results[i]
-			r.Id = rel.Id()
-			r.Key = rel.String()
-			relEps := rel.Endpoints()
-			r.Endpoints = make([]params.Endpoint, len(relEps))
-			for j, relEp := range relEps {
-				r.Endpoints[j] = stateEndpointToParams(relEp)
-			}
+			result.Results[i] = relParams
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}

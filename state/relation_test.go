@@ -295,24 +295,3 @@ func assertOneRelation(c *C, srv *state.Service, relId int, endpoints ...state.E
 	c.Assert(eps, DeepEquals, []state.Endpoint{expectEp})
 	return rel
 }
-
-func (s *RelationSuite) TestEndpoints(c *C) {
-	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
-	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
-	ep0, err := rel.Endpoint("wordpress")
-	c.Assert(err, IsNil)
-	ep1, err := rel.Endpoint("mysql")
-	c.Assert(err, IsNil)
-	allEps := rel.Endpoints()
-	c.Assert(allEps, DeepEquals, []state.Endpoint{ep0, ep1})
-	// Make sure Endpoints returns a copy and does not change the original.
-	allEps[0] = state.Endpoint{}
-	c.Assert(allEps, DeepEquals, []state.Endpoint{state.Endpoint{}, ep1})
-	c.Assert(rel.Endpoints(), DeepEquals, []state.Endpoint{ep0, ep1})
-}
