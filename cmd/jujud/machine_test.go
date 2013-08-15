@@ -65,14 +65,15 @@ func (s *MachineSuite) TearDownTest(c *C) {
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *tools.Tools) {
-	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", instance.HardwareCharacteristics{}, jobs...)
+	nonce := state.BootstrapNonce
+	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", instance.HardwareCharacteristics{}, nonce, jobs...)
 	c.Assert(err, IsNil)
 	err = m.SetMongoPassword("machine-password")
 	c.Assert(err, IsNil)
 	err = m.SetPassword("machine-password")
 	c.Assert(err, IsNil)
 	conf, tools := s.agentSuite.primeAgent(c, names.MachineTag(m.Id()), "machine-password")
-	conf.MachineNonce = state.BootstrapNonce
+	conf.MachineNonce = nonce
 	conf.APIInfo.Nonce = conf.MachineNonce
 	err = conf.Write()
 	c.Assert(err, IsNil)

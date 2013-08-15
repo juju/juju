@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/worker/provisioner"
 )
 
@@ -98,6 +99,13 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		return nil, err
 	}
 
+	// Generate a unique nonce for the new instance.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+	nonce := fmt.Sprintf("%s:%s", m.Tag(), uuid.String())
+
 	// Finally, provision the machine agent.
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:      args.Host,
@@ -105,7 +113,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		logDir:    args.LogDir,
 		envcfg:    args.Env.Config(),
 		machine:   m,
-		nonce:     state.BootstrapNonce, // FIXME
+		nonce:     nonce,
 		stateInfo: stateInfo,
 		apiInfo:   apiInfo,
 	})
@@ -126,6 +134,7 @@ type injectMachineArgs struct {
 	hc         instance.HardwareCharacteristics
 	cons       constraints.Value
 	tools      *tools.Tools
+	nonce      string
 }
 
 // injectMachine injects a machine into state with provisioned status.
@@ -142,6 +151,7 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 		args.cons,
 		args.instanceId,
 		args.hc,
+		args.nonce,
 		state.JobHostUnits,
 	)
 	if err != nil {

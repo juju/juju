@@ -308,12 +308,14 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 
 func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
 	hc := instance.HardwareCharacteristics{}
-	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), hc, state.JobHostUnits)
+	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), hc, state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), hc, state.JobHostUnits)
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), hc, state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"), hc)
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"), hc, state.BootstrapNonce)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
+	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"), hc, "", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without a nonce")
 }
 
 func (s *StateSuite) TestInjectMachine(c *gc.C) {
@@ -324,7 +326,8 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 		Arch: &arch,
 		Mem:  &mem,
 	}
-	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
+	const nonce = "icantbelieveitsnotrandom"
+	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, nonce, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
 	instanceId, err := m.InstanceId()
@@ -338,13 +341,14 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	c.Assert(*characteristics, gc.DeepEquals, hc)
 
 	// Make sure the bootstrap nonce value is set.
-	c.Assert(m.CheckProvisioned(state.BootstrapNonce), gc.Equals, true)
+	c.Assert(m.CheckProvisioned(nonce), gc.Equals, true)
 }
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
 	hc := instance.HardwareCharacteristics{}
-	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
+	nonce := state.BootstrapNonce
+	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), hc, nonce, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.

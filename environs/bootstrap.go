@@ -124,7 +124,7 @@ func ConfigureBootstrapMachine(
 	}
 
 	logger.Debugf("create bootstrap machine in state")
-	m, err := st.InjectMachine(version.Current.Series, cons, instId, characteristics, jobs...)
+	m, err := st.InjectMachine(version.Current.Series, cons, instId, characteristics, state.BootstrapNonce, jobs...)
 	if err != nil {
 		return err
 	}

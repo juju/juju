@@ -180,16 +180,19 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 // InjectMachine adds a new machine, corresponding to an existing provider
 // instance, configured to run the supplied jobs on the supplied series, using
 // the specified constraints.
-func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, hc instance.HardwareCharacteristics, jobs ...MachineJob) (m *Machine, err error) {
+func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, hc instance.HardwareCharacteristics, nonce string, jobs ...MachineJob) (m *Machine, err error) {
 	if instanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
+	}
+	if nonce == "" {
+		return nil, fmt.Errorf("cannot inject a machine without a nonce")
 	}
 	return st.addMachine(&AddMachineParams{
 		Series:          series,
 		Constraints:     cons,
 		instanceId:      instanceId,
 		characteristics: hc,
-		nonce:           BootstrapNonce,
+		nonce:           nonce,
 		Jobs:            jobs,
 	})
 }
