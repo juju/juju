@@ -239,6 +239,11 @@ func (r *Relation) Endpoint(serviceName string) (Endpoint, error) {
 	return Endpoint{}, fmt.Errorf("service %q is not a member of %q", serviceName, r)
 }
 
+// Endpoints returns all of the relation's endpoints.
+func (r *Relation) Endpoints() []Endpoint {
+	return r.doc.Endpoints
+}
+
 // RelatedEndpoints returns the endpoints of the relation r with which
 // units of the named service will establish relations. If the service
 // is not part of the relation r, an error will be returned.

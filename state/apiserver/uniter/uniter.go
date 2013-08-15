@@ -6,6 +6,8 @@
 package uniter
 
 import (
+	"strconv"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
@@ -55,8 +57,15 @@ func NewUniterAPI(st *state.State, resources *common.Resources, authorizer commo
 			return canAccessService(tag) || canAccessUnit(tag)
 		}, nil
 	}
+	getCanAccessUnitServiceOrRelation := func() (common.AuthFunc, error) {
+		canAccessUnitOrService, _ := getCanAccessUnitOrService()
+		return func(tag string) bool {
+			_, _, err := names.ParseTag(tag, names.RelationTagKind)
+			return canAccessUnitOrService(tag) || err == nil
+		}, nil
+	}
 	return &UniterAPI{
-		LifeGetter:                common.NewLifeGetter(st, getCanAccessUnitOrService),
+		LifeGetter:                common.NewLifeGetter(st, getCanAccessUnitServiceOrRelation),
 		StatusSetter:              common.NewStatusSetter(st, getCanAccessUnit),
 		DeadEnsurer:               common.NewDeadEnsurer(st, getCanAccessUnit),
 		AgentEntityWatcher:        common.NewAgentEntityWatcher(st, resources, getCanAccessUnitOrService),
@@ -540,15 +549,100 @@ func (u *UniterAPI) CharmBundleSha256(args params.CharmURLs) (params.StringResul
 	return result, nil
 }
 
+func (u *UniterAPI) getOneRelation(tag string) (*state.Relation, error) {
+	_, id, err := names.ParseTag(tag, names.RelationTagKind)
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	// TODO(dimitern): Once the relation tags have a different format
+	// (e.g. "relation-service1@name1+service2@name2"), change the
+	// following code accordingly.
+	relId, err := strconv.Atoi(id)
+	if err != nil {
+		return nil, common.ErrPerm
+	}
+	rel, err := u.st.Relation(relId)
+	if errors.IsNotFoundError(err) {
+		return nil, common.ErrPerm
+	} else if err != nil {
+		return nil, err
+	}
+	return rel, nil
+}
+
+func stateEndpointToParams(ep *state.Endpoint) *params.Endpoint {
+	if ep == nil {
+		return nil
+	}
+	return &params.Endpoint{
+		ServiceName: ep.ServiceName,
+		Relation: charm.Relation{
+			Name:      ep.Name,
+			Role:      ep.Role,
+			Interface: ep.Interface,
+			Optional:  ep.Optional,
+			Limit:     ep.Limit,
+			Scope:     ep.Scope,
+		},
+	}
+}
+
+// Relation returns information about all given relations, including
+// their id, key and endpoints.
+func (u *UniterAPI) Relation(args params.Entities) (params.RelationResults, error) {
+	result := params.RelationResults{
+		Results: make([]params.RelationResult, len(args.Entities)),
+	}
+	for i, entity := range args.Entities {
+		rel, err := u.getOneRelation(entity.Tag)
+		if err == nil {
+			result.Results[i].Id = strconv.Itoa(rel.Id())
+			result.Results[i].Key = rel.String()
+			relEps := rel.Endpoints()
+			result.Results[i].Endpoints = make([]params.Endpoint, len(relEps))
+			for j, relEp := range relEps {
+				result.Results[i].Endpoints[j] = *stateEndpointToParams(&relEp)
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// EnvironUUID returns the UUID for each given environment
+// entity. Only environment entities are supported.
+func (u *UniterAPI) EnvironUUID(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	// TODO(dimitern): Once we have a way to get more than the current environment
+	// from state, change this call here to use it. For now we only return the
+	// current environment's UUID.
+	env, err := u.st.Environment()
+	if err != nil {
+		err = common.ErrPerm
+	}
+	for i, entity := range args.Entities {
+		if err == nil {
+			_, _, err = names.ParseTag(entity.Tag, names.EnvironTagKind)
+			if err == nil && entity.Tag == env.Tag() {
+				result.Results[i].Result = env.UUID()
+			} else {
+				// Mask not found error with ErrPerm for security reasons.
+				err = common.ErrPerm
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+		err = nil
+	}
+	return result, nil
+}
+
 // TODO(dimitern): Add the following needed calls:
-// RelationSetDying
-// RelationIsImplicit
-// RelationDestroy
-// RelationRelationUnit
-// RelationUnitRelation
-// RelationUnitSettings
-// RelationUnitEnterScope
-// RelationUnitLeaveScope
-// RelationUnitEndpoint
-// EndpointImplementedBy
-// EnvironUUID
+// EnterScope (rel-id, unit-tag)
+// LeaveScope (rel-id, unit-tag)
+// Settings (rel-id, unit-tag)
+// ReadSettings (rel-id, (remote)unit-tag)
+// WriteSettings (rel-id, unit-tag, settings)
+//
+// RelationUnitsWatcher
