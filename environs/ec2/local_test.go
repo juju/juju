@@ -354,7 +354,7 @@ func (t *localServerSuite) TestAddresses(c *C) {
 		Value:        fmt.Sprintf("%s.testing.invalid", instId),
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkPublic,
-		}, {
+	}, {
 		Value:        fmt.Sprintf("%s.internal.invalid", instId),
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkCloudLocal,
