@@ -616,9 +616,7 @@ func (u *UniterAPI) Relation(args params.Relations) (params.RelationResults, err
 func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	result := params.StringResult{}
 	env, err := u.st.Environment()
-	if err != nil {
-		err = common.ErrPerm
-	} else {
+	if err == nil {
 		result.Result = env.UUID()
 	}
 	result.Error = common.ServerError(err)
