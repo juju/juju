@@ -58,6 +58,27 @@ func (s *MachineSuite) TestParentId(c *C) {
 	c.Assert(ok, Equals, true)
 }
 
+func (s *MachineSuite) TestMachineIsStateServer(c *C) {
+	tests := []struct {
+		isStateServer bool
+		jobs          []state.MachineJob
+	}{
+		{false, []state.MachineJob{state.JobHostUnits}},
+		{false, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobHostUnits, state.JobManageState, state.JobManageEnviron}},
+		{true, []state.MachineJob{state.JobManageState}},
+	}
+	for _, test := range tests {
+		params := state.AddMachineParams{
+			Series: "series",
+			Jobs:   test.jobs,
+		}
+		m, err := s.State.AddMachineWithConstraints(&params)
+		c.Assert(err, IsNil)
+		c.Assert(m.IsStateServer(), Equals, test.isStateServer)
+	}
+}
+
 func (s *MachineSuite) TestLifeJobManageEnviron(c *C) {
 	// A JobManageEnviron machine must never advance lifecycle.
 	m, err := s.State.AddMachine("series", state.JobManageEnviron)
