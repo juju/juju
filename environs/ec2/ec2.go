@@ -105,19 +105,22 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 	if err != nil {
 		return nil, err
 	}
-	addresses = append(addresses, instance.Address{
-		Value:        ec2Inst.DNSName,
-		Type:         instance.HostName,
-		NetworkName:  "",
-		NetworkScope: instance.NetworkPublic,
-	})
-	if ec2Inst.PrivateDNSName != "" {
-		addresses = append(addresses, instance.Address{
-			Value:        ec2Inst.PrivateDNSName,
-			Type:         instance.HostName,
-			NetworkName:  "",
-			NetworkScope: instance.NetworkCloudLocal,
-		})
+	possibleAddresses := []struct {
+		value        string
+		addressType  instance.AddressType
+		networkScope instance.NetworkScope
+	}{
+		{ec2Inst.DNSName, instance.HostName, instance.NetworkPublic},
+		{ec2Inst.PrivateDNSName, instance.HostName, instance.NetworkCloudLocal},
+	}
+	for _, addr := range possibleAddresses {
+		if addr.value != "" {
+			addresses = append(addresses, instance.Address{
+				Value:        addr.value,
+				Type:         addr.addressType,
+				NetworkScope: addr.networkScope,
+			})
+		}
 	}
 	return addresses, nil
 }

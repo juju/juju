@@ -347,14 +347,18 @@ func (t *localServerSuite) TestAddresses(c *C) {
 	apiInfo.Tag = "machine-1"
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, IsNil)
+	instId := inst.Id()
 	addrs, err := inst.Addresses()
 	c.Assert(err, IsNil)
 	c.Assert(addrs, DeepEquals, []instance.Address{{
-		Value:        fmt.Sprintf("%s.testing.invalid", inst.Id()),
+		Value:        fmt.Sprintf("%s.testing.invalid", instId),
 		Type:         instance.HostName,
-		NetworkName:  "",
-		NetworkScope: instance.NetworkPublic},
-	})
+		NetworkScope: instance.NetworkPublic,
+		}, {
+		Value:        fmt.Sprintf("%s.internal.invalid", instId),
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkCloudLocal,
+	}})
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *C) {
