@@ -11,12 +11,15 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 )
+
+const sshHostPrefix = "ssh:"
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
@@ -27,6 +30,7 @@ type AddMachineCommand struct {
 	Constraints   constraints.Value
 	MachineId     string
 	ContainerType instance.ContainerType
+	SSHHost       string
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
@@ -55,14 +59,18 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if containerSpec == "" {
 		return nil
 	}
-	// container arg can either be 'type:machine' or 'type'
-	if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
-		if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
-			return fmt.Errorf("malformed container argument %q", containerSpec)
+	if strings.HasPrefix(containerSpec, sshHostPrefix) {
+		c.SSHHost = containerSpec[len(sshHostPrefix):]
+	} else {
+		// container arg can either be 'type:machine' or 'type'
+		if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
+			if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
+				return fmt.Errorf("malformed container argument %q", containerSpec)
+			}
+			sep := strings.Index(containerSpec, ":")
+			c.MachineId = containerSpec[sep+1:]
+			c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
 		}
-		sep := strings.Index(containerSpec, ":")
-		c.MachineId = containerSpec[sep+1:]
-		c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
 	}
 	return err
 }
@@ -73,6 +81,17 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
+
+	if c.SSHHost != "" {
+		args := manual.ProvisionMachineArgs{
+			Host:        c.SSHHost,
+			Env:         conn.Environ,
+			State:       conn.State,
+			Constraints: c.Constraints,
+		}
+		_, err = manual.ProvisionMachine(args)
+		return err
+	}
 
 	series := c.Series
 	if series == "" {
