@@ -167,6 +167,16 @@ func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
 }
 
+// IsStateServer returns true if the machine has a JobManageState job.
+func (m *Machine) IsStateServer() bool {
+	for _, job := range m.doc.Jobs {
+		if job == JobManageState {
+			return true
+		}
+	}
+	return false
+}
+
 // AgentTools returns the tools that the agent is currently running.
 // It returns an error that satisfies IsNotFound if the tools have not yet been set.
 func (m *Machine) AgentTools() (*tools.Tools, error) {
