@@ -13,6 +13,10 @@ check:
 format:
 	go fmt $(PROJECT)/...
 
+# Install juju into $GOPATH/bin.
+install:
+	go install -v $(PROJECT)/...
+
 # Install packages required to develop Juju and run tests.
 install-dependencies:
 	@echo Adding juju PPAs for golang and mongodb-server

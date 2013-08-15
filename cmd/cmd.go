@@ -34,6 +34,10 @@ type Command interface {
 	// Run will execute the Command as directed by the options and positional
 	// arguments passed to Init.
 	Run(ctx *Context) error
+
+	// AllowInterspersedFlags returns whether the command allows flag
+	// arguments to be interspersed with non-flag arguments.
+	AllowInterspersedFlags() bool
 }
 
 // CommandBase provides the default implementation for SetFlags, Init, and Help.
@@ -45,6 +49,12 @@ func (c *CommandBase) SetFlags(f *gnuflag.FlagSet) {}
 // Init in the simplest case makes sure there are no args.
 func (c *CommandBase) Init(args []string) error {
 	return CheckEmpty(args)
+}
+
+// AllowInterspersedFlags returns true by default. Some subcommands
+// may want to override this.
+func (c *CommandBase) AllowInterspersedFlags() bool {
+	return true
 }
 
 // Context represents the run context of a Command. Command implementations
@@ -116,18 +126,6 @@ func (i *Info) Help(f *gnuflag.FlagSet) []byte {
 	return buf.Bytes()
 }
 
-// ParseArgs encapsulate the parsing of the args so this function can be
-// called from the testing module too.
-func ParseArgs(c Command, f *gnuflag.FlagSet, args []string) error {
-	// If the command is a SuperCommand, we want to parse the args with
-	// allowIntersperse=false (i.e. the first parameter to Parse.  This will
-	// mean that the args may contain other options that haven't been defined
-	// yet, and that only options that relate to the SuperCommand itself can
-	// come prior to the subcommand name.
-	_, isSuperCommand := c.(*SuperCommand)
-	return f.Parse(!isSuperCommand, args)
-}
-
 // Errors from commands can be either ErrHelp, which means "show the help" or
 // some other error related to needed flags missing, or needed positional args
 // missing, in which case we should print the error and return a non-zero
@@ -151,7 +149,7 @@ func Main(c Command, ctx *Context, args []string) int {
 	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
 	f.SetOutput(ioutil.Discard)
 	c.SetFlags(f)
-	if rc, done := handleCommandError(c, ctx, ParseArgs(c, f, args), f); done {
+	if rc, done := handleCommandError(c, ctx, f.Parse(c.AllowInterspersedFlags(), args), f); done {
 		return rc
 	}
 	// Since SuperCommands can also return gnuflag.ErrHelp errors, we need to

@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/loggo"
 )
 
@@ -42,13 +43,13 @@ func findInstanceSpec(baseURLs []string, ic *instances.InstanceConstraint) (*ins
 		ic.Constraints.CpuPower = instances.CpuPower(defaultCpuPower)
 	}
 	ec2Region := allRegions[ic.Region]
-	imageConstraint := imagemetadata.ImageConstraint{
-		CloudSpec: imagemetadata.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
+	imageConstraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{ic.Region, ec2Region.EC2Endpoint},
 		Series:    ic.Series,
 		Arches:    ic.Arches,
-	}
+	})
 	matchingImages, err := imagemetadata.Fetch(
-		baseURLs, imagemetadata.DefaultIndexPath, &imageConstraint, signedImageDataOnly)
+		baseURLs, simplestreams.DefaultIndexPath, imageConstraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}

@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
@@ -583,7 +584,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
 	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
+	e.imageBaseURLs = append(e.imageBaseURLs, simplestreams.DefaultBaseURL)
 
 	return e.imageBaseURLs, nil
 }

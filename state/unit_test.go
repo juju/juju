@@ -208,6 +208,28 @@ func (s *UnitSuite) TestGetSetPrivateAddress(c *C) {
 	c.Assert(err, ErrorMatches, `cannot set private address of unit "wordpress/0": unit not found`)
 }
 
+func (s *UnitSuite) TestGetPrivateAddressFromMachine(c *C) {
+	machine, err := s.State.AddMachine("series", state.JobHostUnits)
+	c.Assert(err, IsNil)
+	err = s.unit.AssignToMachine(machine)
+	c.Assert(err, IsNil)
+
+	address, ok := s.unit.PrivateAddress()
+	c.Check(address, Equals, "")
+	c.Assert(ok, Equals, false)
+
+	addresses := []instance.Address{
+		instance.NewAddress("127.0.0.1"),
+		instance.NewAddress("8.8.8.8"),
+	}
+	err = machine.SetAddresses(addresses)
+	c.Assert(err, IsNil)
+
+	address, ok = s.unit.PrivateAddress()
+	c.Check(address, Equals, "127.0.0.1")
+	c.Assert(ok, Equals, true)
+}
+
 func (s *UnitSuite) TestRefresh(c *C) {
 	unit1, err := s.State.Unit(s.unit.Name())
 	c.Assert(err, IsNil)

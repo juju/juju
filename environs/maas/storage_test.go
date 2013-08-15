@@ -17,6 +17,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type storageSuite struct {
@@ -106,7 +107,7 @@ func (s *storageSuite) TestRetrieveFileObjectReturnsNotFoundForMissingFile(c *gc
 	stor := s.makeStorage("rfo-test")
 	_, err := stor.retrieveFileObject("nonexistent-file")
 	c.Assert(err, gc.NotNil)
-	c.Check(err, gc.FitsTypeOf, &errors.NotFoundError{})
+	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestRetrieveFileObjectEscapesName(c *gc.C) {
@@ -145,7 +146,7 @@ func (s *storageSuite) TestGetReturnsNotFoundErrorIfNotFound(c *gc.C) {
 	const filename = "lost-data"
 	storage := NewStorage(s.environ)
 	_, err := storage.Get(filename)
-	c.Assert(err, gc.FitsTypeOf, &errors.NotFoundError{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *storageSuite) TestListReturnsEmptyIfNoFilesStored(c *gc.C) {
@@ -335,7 +336,7 @@ func (s *storageSuite) TestRemoveDeletesFile(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	_, err = storage.Get(filename)
-	c.Assert(err, gc.FitsTypeOf, &errors.NotFoundError{})
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	listing, err := storage.List(filename)
 	c.Assert(err, gc.IsNil)
