@@ -129,6 +129,11 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment
+	return p.Open(cfg)
+}
+
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {

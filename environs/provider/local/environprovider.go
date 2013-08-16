@@ -28,9 +28,10 @@ func init() {
 }
 
 // Open implements environs.EnvironProvider.Open.
-func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error) {
+func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	if _, ok := cfg.AgentVersion(); !ok {
+		var err error
 		cfg, err = cfg.Apply(map[string]interface{}{
 			"agent-version": version.CurrentNumber().String(),
 		})
@@ -43,12 +44,17 @@ func (environProvider) Open(cfg *config.Config) (env environs.Environ, err error
 		return nil, err
 	}
 	environ := &localEnviron{name: cfg.Name()}
-	err = environ.SetConfig(cfg)
-	if err != nil {
+	if err := environ.SetConfig(cfg); err != nil {
 		logger.Errorf("failure setting config: %v", err)
 		return nil, err
 	}
 	return environ, nil
+}
+
+// Prepare implements environs.EnvironProvider.Prepare.
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment
+	return p.Open(cfg)
 }
 
 // Validate implements environs.EnvironProvider.Validate.
