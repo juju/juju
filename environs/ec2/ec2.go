@@ -142,7 +142,24 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	e.name = cfg.Name()
+	if err := e.verifyAllConfig(); err != nil {
+		return nil, err
+	}
+	// Make sure that external clients can't get access to
+	// methods provided to bootstrapper only.
 	return e, nil
+}
+
+func (e *environ) verifyAllConfig() error {
+	// TODO: verify that we have all the configuration data
+	// created by Prepare.
+	return nil
+}
+
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	log.Infof("environs/ec2: preparing environment %q", cfg.Name())
+	// TODO create/verify control bucket if necessary.
+	return p.Open(cfg)
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to

@@ -17,7 +17,17 @@ import (
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
+	// Prepare prepares an environment for use.
+	// Any additional configuration attributes in the
+	// returned environment should be saved to be
+	// used later.
+	// If the environment is already prepared, this
+	// call is equivalent to Open.
+	Prepare(cfg *config.Config) (Environ, error)
+	
 	// Open opens the environment and returns it.
+	// The configuration must have come from a previously
+	// prepared environment.
 	Open(cfg *config.Config) (Environ, error)
 
 	// Validate ensures that config is a valid configuration for this
