@@ -15,8 +15,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/sync"
-	"launchpad.net/juju-core/environs/tools"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
