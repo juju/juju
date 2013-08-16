@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 // preferredTypes is a list of machine types, in order of preference so that
@@ -108,7 +109,7 @@ func selectMachineType(availableTypes []gwacl.RoleSize, constraint constraints.V
 // become more configurable.  This variable is here as a placeholder, but also
 // as an injection point for tests.
 var baseURLs = []string{
-	imagemetadata.DefaultBaseURL,
+	simplestreams.DefaultBaseURL,
 	"http://cloud-images.ubuntu.com/daily",
 }
 
@@ -138,14 +139,14 @@ var fetchImageMetadata = imagemetadata.Fetch
 // If it finds no matching images, that's an error.
 func findMatchingImages(location, series, stream string, arches []string) ([]*imagemetadata.ImageMetadata, error) {
 	endpoint := getEndpoint(location)
-	constraint := imagemetadata.ImageConstraint{
-		CloudSpec: imagemetadata.CloudSpec{location, endpoint},
+	constraint := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+		CloudSpec: simplestreams.CloudSpec{location, endpoint},
 		Series:    series,
 		Arches:    arches,
 		Stream:    stream,
-	}
-	indexPath := imagemetadata.DefaultIndexPath
-	images, err := fetchImageMetadata(baseURLs, indexPath, &constraint, signedImageDataOnly)
+	})
+	indexPath := simplestreams.DefaultIndexPath
+	images, err := fetchImageMetadata(baseURLs, indexPath, constraint, signedImageDataOnly)
 	if err != nil {
 		return nil, err
 	}
@@ -168,6 +169,7 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 		Arches:   architectures,
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
+		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
 		VType:    &vtype,
 		CpuPower: &cpuPower,

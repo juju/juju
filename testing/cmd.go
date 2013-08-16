@@ -26,7 +26,7 @@ func NewFlagSet() *gnuflag.FlagSet {
 func InitCommand(c cmd.Command, args []string) error {
 	f := NewFlagSet()
 	c.SetFlags(f)
-	if err := cmd.ParseArgs(c, f, args); err != nil {
+	if err := f.Parse(c.AllowInterspersedFlags(), args); err != nil {
 		return err
 	}
 	return c.Init(f.Args())

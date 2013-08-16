@@ -5,10 +5,12 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"strings"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or

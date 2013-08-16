@@ -217,6 +217,7 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
+	"api-endpoints",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",

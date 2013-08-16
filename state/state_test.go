@@ -320,9 +320,11 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
 	arch := "amd64"
 	mem := uint64(1024)
+	disk := uint64(1024)
 	hc := instance.HardwareCharacteristics{
-		Arch: &arch,
-		Mem:  &mem,
+		Arch:     &arch,
+		Mem:      &mem,
+		RootDisk: &disk,
 	}
 	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
@@ -1412,6 +1414,12 @@ var findEntityTests = []struct {
 	tag: "unit-123",
 	err: `"unit-123" is not a valid unit tag`,
 }, {
+	tag: "relation-blah",
+	err: `"relation-blah" is not a valid relation tag`,
+}, {
+	tag: "relation-42",
+	err: "relation 42 not found",
+}, {
 	tag: "unit-foo",
 	err: `"unit-foo" is not a valid unit tag`,
 }, {
@@ -1437,6 +1445,8 @@ var findEntityTests = []struct {
 }, {
 	tag: "service-ser-vice2",
 }, {
+	tag: "relation-0",
+}, {
 	tag: "unit-ser-vice2-0",
 }, {
 	tag: "user-arble",
@@ -1445,11 +1455,12 @@ var findEntityTests = []struct {
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind:    (*state.User)(nil),
-	names.EnvironTagKind: (*state.Environment)(nil),
-	names.ServiceTagKind: (*state.Service)(nil),
-	names.UnitTagKind:    (*state.Unit)(nil),
-	names.MachineTagKind: (*state.Machine)(nil),
+	names.UserTagKind:     (*state.User)(nil),
+	names.EnvironTagKind:  (*state.Environment)(nil),
+	names.ServiceTagKind:  (*state.Service)(nil),
+	names.UnitTagKind:     (*state.Unit)(nil),
+	names.MachineTagKind:  (*state.Machine)(nil),
+	names.RelationTagKind: (*state.Relation)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -1461,6 +1472,13 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rel.Id(), gc.Equals, 0)
 
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)

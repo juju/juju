@@ -16,11 +16,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils/parallel"
 )
 
 const (
@@ -650,42 +651,15 @@ func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	defer env.releaseManagementAPI(context)
 
 	// Destroy all the services in parallel.
-	servicesToDestroy := make(chan string)
-
-	// Spawn min(len(instances), maxConcurrentDeletes) goroutines to
-	// destroy the services.
-	nbRoutines := len(instances)
-	if maxConcurrentDeletes < nbRoutines {
-		nbRoutines = maxConcurrentDeletes
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(nbRoutines)
-	errc := make(chan error, len(instances))
-	for i := 0; i < nbRoutines; i++ {
-		go func() {
-			defer wg.Done()
-			for serviceName := range servicesToDestroy {
-				request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
-				err := context.DestroyHostedService(request)
-				if err != nil {
-					errc <- err
-				}
-			}
-		}()
-	}
-	// Feed all the service names to servicesToDestroy.
+	run := parallel.NewRun(maxConcurrentDeletes)
 	for _, instance := range instances {
-		servicesToDestroy <- string(instance.Id())
+		serviceName := string(instance.Id())
+		run.Do(func() error {
+			request := &gwacl.DestroyHostedServiceRequest{ServiceName: serviceName}
+			return context.DestroyHostedService(request)
+		})
 	}
-	close(servicesToDestroy)
-	wg.Wait()
-	select {
-	case err := <-errc:
-		return err
-	default:
-	}
-	return nil
+	return run.Wait()
 }
 
 // Instances is specified in the Environ interface.
@@ -775,12 +749,6 @@ func (env *azureEnviron) PublicStorage() environs.StorageReader {
 func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	logger.Debugf("destroying environment %q", env.name)
 
-	// Delete storage.
-	err := env.Storage().RemoveAll()
-	if err != nil {
-		return fmt.Errorf("cannot clean up storage: %v", err)
-	}
-
 	// Stop all instances.
 	insts, err := env.AllInstances()
 	if err != nil {
@@ -813,6 +781,16 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	err = env.deleteAffinityGroup()
 	if err != nil {
 		return fmt.Errorf("cannot delete the environment's affinity group: %v", err)
+	}
+
+	// Delete storage.
+	// Deleting the storage is done last so that if something fails
+	// half way through the Destroy() method, the storage won't be cleaned
+	// up and thus an attempt to re-boostrap the environment will lead to
+	// a "error: environment is already bootstrapped" error.
+	err = env.Storage().RemoveAll()
+	if err != nil {
+		return fmt.Errorf("cannot clean up storage: %v", err)
 	}
 	return nil
 }
@@ -994,7 +972,7 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 // available images.
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	// Hard-coded to the central Simplestreams database for now.
-	return []string{imagemetadata.DefaultBaseURL}, nil
+	return []string{simplestreams.DefaultBaseURL}, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

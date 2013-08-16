@@ -76,6 +76,10 @@ func (c *DebugLogCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.lines, "lines", "")
 }
 
+func (c *DebugLogCommand) AllowInterspersedFlags() bool {
+	return true
+}
+
 func (c *DebugLogCommand) Init(args []string) error {
 	tailcmd := fmt.Sprintf("tail -n %s -f /var/log/juju/all-machines.log", &c.lines)
 	args = append([]string{"0"}, args...)

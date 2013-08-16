@@ -5,7 +5,6 @@ package common_test
 
 import (
 	"fmt"
-	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -17,10 +16,6 @@ import (
 )
 
 type passwordSuite struct{}
-
-func TestAll(t *stdtesting.T) {
-	gc.TestingT(t)
-}
 
 var _ = gc.Suite(&passwordSuite{})
 

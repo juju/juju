@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -80,6 +81,7 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
 		hc.Mem = &inst.instType.Mem
+		hc.RootDisk = &inst.instType.RootDisk
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
 	}
@@ -306,7 +308,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.
-	return []string{imagemetadata.DefaultBaseURL}, nil
+	return []string{simplestreams.DefaultBaseURL}, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to

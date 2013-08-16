@@ -27,6 +27,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
@@ -250,6 +251,16 @@ func (inst *openstackInstance) hardwareCharacteristics() *instance.HardwareChara
 	hc := &instance.HardwareCharacteristics{Arch: inst.arch}
 	if inst.instType != nil {
 		hc.Mem = &inst.instType.Mem
+		// openstack is special in that a 0-size root disk means that
+		// the root disk will result in an instance with a root disk
+		// the same size as the image that created it, so we just set
+		// the HardwareCharacteristics to nil to signal that we don't
+		// know what the correct size is.
+		if inst.instType.RootDisk == 0 {
+			hc.RootDisk = nil
+		} else {
+			hc.RootDisk = &inst.instType.RootDisk
+		}
 		hc.CpuCores = &inst.instType.CpuCores
 		hc.CpuPower = inst.instType.CpuPower
 	}
@@ -583,7 +594,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
 	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
+	e.imageBaseURLs = append(e.imageBaseURLs, simplestreams.DefaultBaseURL)
 
 	return e.imageBaseURLs, nil
 }

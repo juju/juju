@@ -81,6 +81,33 @@ type SettingsResults struct {
 	Results []SettingsResult
 }
 
+// Relation holds a relation and a unit tag.
+type Relation struct {
+	Relation string
+	Unit     string
+}
+
+// Relations holds the parameters for API calls expecting a pair of
+// tags: a relation and a unit.
+type Relations struct {
+	Relations []Relation
+}
+
+// RelationResult holds the relation id, key and the local endpoint
+// for a single relation or an error.
+type RelationResult struct {
+	Error    *Error
+	Id       int
+	Key      string
+	Endpoint Endpoint
+}
+
+// RelationResults holds the result of an API call that returns
+// information about multiple relations.
+type RelationResults struct {
+	Results []RelationResult
+}
+
 // EntityPort holds an entity's tag, a protocol and a port.
 type EntityPort struct {
 	Tag      string

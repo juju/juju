@@ -428,6 +428,7 @@ func (*instanceTypeSuite) TestNewInstanceTypeConvertsRoleSize(c *gc.C) {
 		Arches:   []string{"amd64", "i386"},
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
+		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
 		VType:    &vtype,
 		CpuPower: &cpupower,

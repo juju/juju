@@ -7,11 +7,13 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"launchpad.net/juju-core/environs/config"
 	"os"
 	"path/filepath"
 	"text/template"
 	"time"
+
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/simplestreams"
 )
 
 const (
@@ -22,13 +24,13 @@ const (
 
 // Boilerplate generates some basic simplestreams metadata using the specified cloud and image details.
 // If name is non-empty, it will be used as a prefix for the names of the generated index and image files.
-func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec) ([]string, error) {
+func Boilerplate(name, series string, im *ImageMetadata, cloudSpec *simplestreams.CloudSpec) ([]string, error) {
 	return MakeBoilerplate(name, series, im, cloudSpec, true)
 }
 
 // MakeBoilerplate exists so it can be called by tests. See Boilerplate above. It provides an option to retain
 // the streams directories when writing the generated metadata files.
-func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpec, flattenPath bool) ([]string, error) {
+func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *simplestreams.CloudSpec, flattenPath bool) ([]string, error) {
 	indexFileName := defaultIndexFileName
 	imageFileName := defaultImageFileName
 	if name != "" {
@@ -48,7 +50,7 @@ func MakeBoilerplate(name, series string, im *ImageMetadata, cloudSpec *CloudSpe
 	}
 
 	var err error
-	imparams.Version, err = seriesVersion(series)
+	imparams.Version, err = simplestreams.SeriesVersion(series)
 	if err != nil {
 		return nil, fmt.Errorf("invalid series %q", series)
 	}
