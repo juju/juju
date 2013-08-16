@@ -79,8 +79,15 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		return nil, err
 	}
 
+	// Generate a unique nonce for the machine.
+	uuid, err := utils.NewUUID()
+	if err != nil {
+		return nil, err
+	}
+
 	// Inject a new machine into state.
 	instanceId := instance.Id(manualInstancePrefix + sshHostWithoutUser)
+	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	m, err = injectMachine(injectMachineArgs{
 		env:        args.Env,
 		st:         args.State,
@@ -90,6 +97,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		hc:         hc,
 		cons:       args.Constraints,
 		tools:      args.Tools,
+		nonce:      nonce,
 	})
 	if err != nil {
 		return nil, err
@@ -98,13 +106,6 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	if err != nil {
 		return nil, err
 	}
-
-	// Generate a unique nonce for the new instance.
-	uuid, err := utils.NewUUID()
-	if err != nil {
-		return nil, err
-	}
-	nonce := fmt.Sprintf("%s:%s", m.Tag(), uuid.String())
 
 	// Finally, provision the machine agent.
 	err = provisionMachineAgent(provisionMachineAgentArgs{
@@ -158,7 +159,7 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 		return nil, err
 	}
 	if err = m.SetAddresses(args.addrs); err != nil {
-		return nil, fmt.Errorf("error setting addresses: %v", err)
+		return nil, err
 	}
 
 	// We can't use environs.FindInstanceTools, as it chooses the tools based
@@ -169,14 +170,14 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 	if tools == nil {
 		bootstrapMachine, err := args.st.Machine("0")
 		if err != nil {
-			return nil, fmt.Errorf("error looking up bootstrap machine: %v", err)
+			return nil, err
 		}
 		tools, err = bootstrapMachine.AgentTools()
 		if err != nil {
-			return nil, fmt.Errorf("error looking up bootstrap tools: %v", err)
+			return nil, err
 		}
 		if err = m.SetAgentTools(tools); err != nil {
-			return nil, fmt.Errorf("error setting agent tools: %v", err)
+			return nil, err
 		}
 	}
 

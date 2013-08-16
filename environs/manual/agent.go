@@ -40,8 +40,7 @@ type provisionMachineAgentArgs struct {
 func provisionMachineAgent(args provisionMachineAgentArgs) error {
 	tools, err := args.machine.AgentTools()
 	if err != nil {
-		// We just set them, so there had better be no error.
-		panic(err)
+		return fmt.Errorf("machine %v has no associated agent tools", args.machine)
 	}
 
 	dataDir := args.dataDir

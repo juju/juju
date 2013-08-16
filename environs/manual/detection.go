@@ -23,7 +23,7 @@ func detectSeriesAndHardwareCharacteristics(sshHost string) (hc instance.Hardwar
 	out, err := cmd.CombinedOutput()
 	if err != nil {
 		if len(out) != 0 {
-			err = fmt.Errorf("%v (%v)", strings.TrimSpace(string(out)))
+			err = fmt.Errorf("%v (%v)", err, strings.TrimSpace(string(out)))
 		}
 		return hc, "", err
 	}
@@ -93,8 +93,7 @@ var archREs = []struct {
 }
 
 const detectionScript = `#!/bin/bash
-#lsb_release -cs
-echo precise
+lsb_release -cs
 uname -m
 grep MemTotal /proc/meminfo
 cat /proc/cpuinfo`
