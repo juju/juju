@@ -304,7 +304,8 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsErrorIfNoneFound(c *gc.C)
 	cleanup := prepareSimpleStreamsResponse("released", "West US", "precise", "12.04", "amd64", emptyResponse)
 	defer cleanup()
 
-	_, err := findMatchingImages("West US", "precise", "", []string{"amd64"})
+	env := makeEnviron(c)
+	_, err := findMatchingImages(env, "West US", "lucid", "", []string{"amd64"})
 	c.Assert(err, gc.NotNil)
 
 	c.Check(err, gc.ErrorMatches, "no OS images found for location .*")
@@ -353,7 +354,8 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsReleasedImages(c *gc.C) {
 	cleanup := prepareSimpleStreamsResponse("released", "West Europe", "precise", "12.04", "amd64", response)
 	defer cleanup()
 
-	images, err := findMatchingImages("West Europe", "precise", "", []string{"amd64"})
+	env := makeEnviron(c)
+	images, err := findMatchingImages(env, "West Europe", "precise", "", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(images, gc.HasLen, 1)
@@ -403,7 +405,8 @@ func (*instanceTypeSuite) TestFindMatchingImagesReturnsDailyImages(c *gc.C) {
 	cleanup := prepareSimpleStreamsResponse("daily", "West Europe", "precise", "12.04", "amd64", response)
 	defer cleanup()
 
-	images, err := findMatchingImages("West Europe", "precise", "daily", []string{"amd64"})
+	env := makeEnviron(c)
+	images, err := findMatchingImages(env, "West Europe", "precise", "daily", []string{"amd64"})
 	c.Assert(err, gc.IsNil)
 
 	c.Assert(images, gc.HasLen, 1)
@@ -462,7 +465,8 @@ func (*instanceTypeSuite) TestFindInstanceSpecFailsImpossibleRequest(c *gc.C) {
 		Arches: []string{"axp"},
 	}
 
-	_, err := findInstanceSpec("daily", impossibleConstraint)
+	env := makeEnviron(c)
+	_, err := findInstanceSpec(env, "daily", impossibleConstraint)
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "no OS images found for .*")
 }
@@ -507,7 +511,8 @@ func (*instanceTypeSuite) TestFindInstanceSpecFindsMatch(c *gc.C) {
 	}
 
 	// Find a matching instance type and image.
-	spec, err := findInstanceSpec("released", constraints)
+	env := makeEnviron(c)
+	spec, err := findInstanceSpec(env, "released", constraints)
 	c.Assert(err, gc.IsNil)
 
 	// We got the instance type we described in our constraints, and
@@ -539,7 +544,8 @@ func (*instanceTypeSuite) TestFindInstanceSpecSetsBaseline(c *gc.C) {
 		Arches: []string{"amd64"},
 	}
 
-	spec, err := findInstanceSpec("", anyInstanceType)
+	env := makeEnviron(c)
+	spec, err := findInstanceSpec(env, "", anyInstanceType)
 	c.Assert(err, gc.IsNil)
 
 	c.Check(spec.InstanceType.Name, gc.Equals, "Small")

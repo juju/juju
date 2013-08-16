@@ -412,7 +412,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		Arches:      architectures,
 		Constraints: cons,
 	}
-	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
+	spec, err := findInstanceSpec(env, ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
@@ -961,6 +961,19 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
+}
+
+// baseURLs specifies an Azure specific location where we look for simplestreams information.
+// It contains the central databases for the released and daily streams, but this may
+// become more configurable.  This variable is here as a placeholder, but also
+// as an injection point for tests.
+var baseURLs = []string{
+	"http://cloud-images.ubuntu.com/daily",
+}
+
+// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *azureEnviron) GetImageBaseURLs() ([]string, error) {
+	return baseURLs, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which
