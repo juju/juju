@@ -378,6 +378,11 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return env, nil
 }
 
+func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO(rog) add an attribute which is required for Open.
+	return p.Open(cfg)
+}
+
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
 	m := make(map[string]interface{})
 	ecfg, err := providerInstance.newConfig(cfg)
