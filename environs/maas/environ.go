@@ -267,7 +267,7 @@ EOF
 // linkBridgeInInterfaces adds the file created by createBridgeNetwork to the
 // interfaces file.
 func linkBridgeInInterfaces() string {
-	return `sed -i "s/iface eth0 inet dhcp/include \/etc\/network\/eth0.config/" etc/network/interfaces`
+	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" etc/network/interfaces`
 }
 
 // internalStartInstance allocates and starts a MAAS node.  It is used both
