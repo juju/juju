@@ -22,7 +22,7 @@ var curl = corecharm.MustParseURL("cs:series/blah-blah-123")
 type GitDirSuite struct {
 	testing.GitSuite
 	LoggingSuite testing.LoggingSuite
-	oldLcAll     string
+	resetLcAll   func()
 }
 
 var _ = gc.Suite(&GitDirSuite{})
@@ -30,12 +30,11 @@ var _ = gc.Suite(&GitDirSuite{})
 func (s *GitDirSuite) SetUpTest(c *gc.C) {
 	s.GitSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
-	s.oldLcAll = os.Getenv("LC_ALL")
-	os.Setenv("LC_ALL", "en_US")
+	s.resetLcAll = testing.PatchEnvironment("LC_ALL", "en_US")
 }
 
 func (s *GitDirSuite) TearDownTest(c *gc.C) {
-	os.Setenv("LC_ALL", s.oldLcAll)
+	s.resetLcAll()
 	s.LoggingSuite.TearDownTest(c)
 	s.GitSuite.TearDownTest(c)
 }
@@ -50,7 +49,9 @@ func (s *GitDirSuite) TestInitConfig(c *gc.C) {
 	cmd.Dir = repo.Path()
 	out, err := cmd.Output()
 	c.Assert(err, gc.IsNil)
-	c.Assert(string(out), gc.Matches, "(.|\n)*user.email=juju@localhost.\nuser.name=juju(.|\n)*")
+	outstr := string(out)
+	c.Assert(outstr, checkers.Contains, "user.email=juju@localhost")
+	c.Assert(outstr, checkers.Contains, "user.name=juju")
 }
 
 func (s *GitDirSuite) TestCreate(c *gc.C) {
@@ -58,7 +59,7 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	repo := charm.NewGitDir(filepath.Join(base, "repo"))
 	exists, err := repo.Exists()
 	c.Assert(err, gc.IsNil)
-	c.Assert(exists, gc.Equals, false)
+	c.Assert(exists, checkers.IsFalse)
 
 	err = ioutil.WriteFile(repo.Path(), nil, 0644)
 	c.Assert(err, gc.IsNil)
@@ -74,7 +75,7 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".* permission denied")
 	exists, err = repo.Exists()
 	c.Assert(err, gc.IsNil)
-	c.Assert(exists, gc.Equals, false)
+	c.Assert(exists, checkers.IsFalse)
 
 	err = os.Chmod(base, 0755)
 	c.Assert(err, gc.IsNil)
@@ -82,7 +83,7 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	exists, err = repo.Exists()
 	c.Assert(err, gc.IsNil)
-	c.Assert(exists, gc.Equals, true)
+	c.Assert(exists, checkers.IsTrue)
 
 	_, err = charm.ReadCharmURL(repo)
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
@@ -103,12 +104,12 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	dirty, err := target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, checkers.IsTrue)
 	err = target.Commitf("initial")
 	c.Assert(err, gc.IsNil)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, checkers.IsFalse)
 
 	source := newRepo(c)
 	err = target.Pull(source)
@@ -124,18 +125,18 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "hello")
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, checkers.IsFalse)
 
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "another-file"), []byte("blah"), 0644)
 	c.Assert(err, gc.IsNil)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, checkers.IsTrue)
 	err = source.AddAll()
 	c.Assert(err, gc.IsNil)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, checkers.IsTrue)
 
 	err = target.Revert()
 	c.Assert(err, gc.IsNil)
@@ -148,7 +149,7 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	c.Assert(string(data), gc.Equals, "initial")
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, checkers.IsFalse)
 }
 
 func (s *GitDirSuite) TestClone(c *gc.C) {
@@ -160,18 +161,18 @@ func (s *GitDirSuite) TestClone(c *gc.C) {
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	dirty, err := repo.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, checkers.IsTrue)
 
 	err = repo.AddAll()
 	c.Assert(err, gc.IsNil)
 	dirty, err = repo.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, checkers.IsTrue)
 	err = repo.Commitf("blank overwrite")
 	c.Assert(err, gc.IsNil)
 	dirty, err = repo.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, checkers.IsFalse)
 
 	lines, err := repo.Log()
 	c.Assert(err, gc.IsNil)
@@ -190,7 +191,7 @@ func (s *GitDirSuite) TestConflictRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	conflicted, err := updated.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, gc.Equals, false)
+	c.Assert(conflicted, checkers.IsFalse)
 
 	target := charm.NewGitDir(c.MkDir())
 	err = target.Init()
@@ -203,25 +204,25 @@ func (s *GitDirSuite) TestConflictRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, gc.Equals, false)
+	c.Assert(conflicted, checkers.IsFalse)
 
 	err = target.Pull(updated)
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, gc.Equals, true)
+	c.Assert(conflicted, checkers.IsTrue)
 	dirty, err := target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, true)
+	c.Assert(dirty, checkers.IsTrue)
 
 	err = target.Revert()
 	c.Assert(err, gc.IsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, gc.Equals, false)
+	c.Assert(conflicted, checkers.IsFalse)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, gc.Equals, false)
+	c.Assert(dirty, checkers.IsFalse)
 }
 
 func newRepo(c *gc.C) *charm.GitDir {

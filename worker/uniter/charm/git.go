@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 var ErrConflict = errors.New("charm upgrade has conflicts")
@@ -56,7 +57,7 @@ func (d *GitDir) Init() error {
 	}
 	commands := [][]string{
 		{"init"},
-		{"config", "user.email", "juju@localhost."},
+		{"config", "user.email", "juju@localhost"},
 		{"config", "user.name", "juju"},
 	}
 	for _, args := range commands {
