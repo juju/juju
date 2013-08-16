@@ -829,10 +829,37 @@ func getVnetAndAffinityGroupCleanupResponses(c *gc.C) []gwacl.DispatcherResponse
 	return cleanupResponses
 }
 
+func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
+	env := makeEnviron(c)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	// Populate storage.
+	err := environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+	c.Assert(err, gc.IsNil)
+	responses := []gwacl.DispatcherResponse{
+		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
+	}
+	gwacl.PatchManagementAPIResponses(responses)
+
+	err = env.Destroy([]instance.Instance{})
+	c.Check(err, gc.NotNil)
+
+	files, err := env.Storage().List("")
+	c.Assert(err, gc.IsNil)
+	c.Check(files, gc.HasLen, 1)
+}
+
 func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
+	// Populate storage.
+	err := environs.SaveState(
+		env.Storage(),
+		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)
 	cleanupResponses := getVnetAndAffinityGroupCleanupResponses(c)
@@ -840,7 +867,7 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	gwacl.PatchManagementAPIResponses(responses)
 	instances := convertToInstances([]gwacl.HostedServiceDescriptor{}, env)
 
-	err := env.Destroy(instances)
+	err = env.Destroy(instances)
 	c.Check(err, gc.IsNil)
 
 	files, err := env.Storage().List("")

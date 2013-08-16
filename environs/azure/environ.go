@@ -749,12 +749,6 @@ func (env *azureEnviron) PublicStorage() environs.StorageReader {
 func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	logger.Debugf("destroying environment %q", env.name)
 
-	// Delete storage.
-	err := env.Storage().RemoveAll()
-	if err != nil {
-		return fmt.Errorf("cannot clean up storage: %v", err)
-	}
-
 	// Stop all instances.
 	insts, err := env.AllInstances()
 	if err != nil {
@@ -787,6 +781,16 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	err = env.deleteAffinityGroup()
 	if err != nil {
 		return fmt.Errorf("cannot delete the environment's affinity group: %v", err)
+	}
+
+	// Delete storage.
+	// Deleting the storage is done last so that if something fails
+	// half way through the Destroy() method, the storage won't be cleaned
+	// up and thus an attempt to re-boostrap the environment will lead to
+	// a "error: environment is already bootstrapped" error.
+	err = env.Storage().RemoveAll()
+	if err != nil {
+		return fmt.Errorf("cannot clean up storage: %v", err)
 	}
 	return nil
 }
