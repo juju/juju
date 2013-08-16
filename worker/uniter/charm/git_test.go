@@ -13,7 +13,7 @@ import (
 
 	corecharm "launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/charm"
 )
 
@@ -50,8 +50,8 @@ func (s *GitDirSuite) TestInitConfig(c *gc.C) {
 	out, err := cmd.Output()
 	c.Assert(err, gc.IsNil)
 	outstr := string(out)
-	c.Assert(outstr, checkers.Contains, "user.email=juju@localhost")
-	c.Assert(outstr, checkers.Contains, "user.name=juju")
+	c.Assert(outstr, jc.Contains, "user.email=juju@localhost")
+	c.Assert(outstr, jc.Contains, "user.name=juju")
 }
 
 func (s *GitDirSuite) TestCreate(c *gc.C) {
@@ -59,7 +59,7 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	repo := charm.NewGitDir(filepath.Join(base, "repo"))
 	exists, err := repo.Exists()
 	c.Assert(err, gc.IsNil)
-	c.Assert(exists, checkers.IsFalse)
+	c.Assert(exists, jc.IsFalse)
 
 	err = ioutil.WriteFile(repo.Path(), nil, 0644)
 	c.Assert(err, gc.IsNil)
@@ -75,7 +75,7 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, ".* permission denied")
 	exists, err = repo.Exists()
 	c.Assert(err, gc.IsNil)
-	c.Assert(exists, checkers.IsFalse)
+	c.Assert(exists, jc.IsFalse)
 
 	err = os.Chmod(base, 0755)
 	c.Assert(err, gc.IsNil)
@@ -83,10 +83,10 @@ func (s *GitDirSuite) TestCreate(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	exists, err = repo.Exists()
 	c.Assert(err, gc.IsNil)
-	c.Assert(exists, checkers.IsTrue)
+	c.Assert(exists, jc.IsTrue)
 
 	_, err = charm.ReadCharmURL(repo)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	err = repo.Init()
 	c.Assert(err, gc.IsNil)
@@ -104,12 +104,12 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	dirty, err := target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsTrue)
+	c.Assert(dirty, jc.IsTrue)
 	err = target.Commitf("initial")
 	c.Assert(err, gc.IsNil)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsFalse)
+	c.Assert(dirty, jc.IsFalse)
 
 	source := newRepo(c)
 	err = target.Pull(source)
@@ -119,60 +119,60 @@ func (s *GitDirSuite) TestAddCommitPullRevert(c *gc.C) {
 	c.Assert(url, gc.DeepEquals, curl)
 	fi, err := os.Stat(filepath.Join(target.Path(), "some-dir"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(fi, checkers.Satisfies, os.FileInfo.IsDir)
+	c.Assert(fi, jc.Satisfies, os.FileInfo.IsDir)
 	data, err := ioutil.ReadFile(filepath.Join(target.Path(), "some-file"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "hello")
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsFalse)
+	c.Assert(dirty, jc.IsFalse)
 
 	err = ioutil.WriteFile(filepath.Join(target.Path(), "another-file"), []byte("blah"), 0644)
 	c.Assert(err, gc.IsNil)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsTrue)
+	c.Assert(dirty, jc.IsTrue)
 	err = source.AddAll()
 	c.Assert(err, gc.IsNil)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsTrue)
+	c.Assert(dirty, jc.IsTrue)
 
 	err = target.Revert()
 	c.Assert(err, gc.IsNil)
 	_, err = os.Stat(filepath.Join(target.Path(), "some-file"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	_, err = os.Stat(filepath.Join(target.Path(), "some-dir"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	data, err = ioutil.ReadFile(filepath.Join(target.Path(), "initial"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(string(data), gc.Equals, "initial")
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsFalse)
+	c.Assert(dirty, jc.IsFalse)
 }
 
 func (s *GitDirSuite) TestClone(c *gc.C) {
 	repo, err := newRepo(c).Clone(c.MkDir())
 	c.Assert(err, gc.IsNil)
 	_, err = os.Stat(filepath.Join(repo.Path(), "some-file"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	_, err = os.Stat(filepath.Join(repo.Path(), "some-dir"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 	dirty, err := repo.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsTrue)
+	c.Assert(dirty, jc.IsTrue)
 
 	err = repo.AddAll()
 	c.Assert(err, gc.IsNil)
 	dirty, err = repo.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsTrue)
+	c.Assert(dirty, jc.IsTrue)
 	err = repo.Commitf("blank overwrite")
 	c.Assert(err, gc.IsNil)
 	dirty, err = repo.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsFalse)
+	c.Assert(dirty, jc.IsFalse)
 
 	lines, err := repo.Log()
 	c.Assert(err, gc.IsNil)
@@ -191,7 +191,7 @@ func (s *GitDirSuite) TestConflictRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	conflicted, err := updated.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, checkers.IsFalse)
+	c.Assert(conflicted, jc.IsFalse)
 
 	target := charm.NewGitDir(c.MkDir())
 	err = target.Init()
@@ -204,25 +204,25 @@ func (s *GitDirSuite) TestConflictRevert(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, checkers.IsFalse)
+	c.Assert(conflicted, jc.IsFalse)
 
 	err = target.Pull(updated)
 	c.Assert(err, gc.Equals, charm.ErrConflict)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, checkers.IsTrue)
+	c.Assert(conflicted, jc.IsTrue)
 	dirty, err := target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsTrue)
+	c.Assert(dirty, jc.IsTrue)
 
 	err = target.Revert()
 	c.Assert(err, gc.IsNil)
 	conflicted, err = target.Conflicted()
 	c.Assert(err, gc.IsNil)
-	c.Assert(conflicted, checkers.IsFalse)
+	c.Assert(conflicted, jc.IsFalse)
 	dirty, err = target.Dirty()
 	c.Assert(err, gc.IsNil)
-	c.Assert(dirty, checkers.IsFalse)
+	c.Assert(dirty, jc.IsFalse)
 }
 
 func newRepo(c *gc.C) *charm.GitDir {
