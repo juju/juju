@@ -169,6 +169,7 @@ func newInstanceType(roleSize gwacl.RoleSize) instances.InstanceType {
 		Arches:   architectures,
 		CpuCores: roleSize.CpuCores,
 		Mem:      roleSize.Mem,
+		RootDisk: roleSize.OSDiskSpaceVirt,
 		Cost:     roleSize.Cost,
 		VType:    &vtype,
 		CpuPower: &cpuPower,
