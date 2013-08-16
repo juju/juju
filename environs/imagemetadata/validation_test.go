@@ -54,7 +54,7 @@ func (s *ValidateSuite) TearDownTest(c *gc.C) {
 func (s *ValidateSuite) TestMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
-	params := &MetadataLookupParams{
+	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "raring",
 		Architectures: []string{"amd64"},
@@ -69,7 +69,7 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	metadataDir := config.JujuHomePath("")
-	params := &MetadataLookupParams{
+	params := &simplestreams.MetadataLookupParams{
 		Region:        "region-2",
 		Series:        "precise",
 		Architectures: []string{"amd64"},

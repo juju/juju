@@ -22,7 +22,6 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/localstorage"
-	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
