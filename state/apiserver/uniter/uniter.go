@@ -572,21 +572,17 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 		return nothing, err
 	}
 	return params.RelationResult{
-		RelationInfo: params.RelationInfo{
-			Id:  rel.Id(),
-			Key: rel.String(),
-			Endpoints: []params.Endpoint{
-				params.Endpoint{
-					ServiceName: ep.ServiceName,
-					Relation:    ep.Relation,
-				},
-			},
+		Id:  rel.Id(),
+		Key: rel.String(),
+		Endpoint: params.Endpoint{
+			ServiceName: ep.ServiceName,
+			Relation:    ep.Relation,
 		},
 	}, nil
 }
 
-// Relation returns information about all given relations, including
-// their id, key and endpoints.
+// Relation returns information about all given relation/unit pairs,
+// including their id, key and the local endpoint.
 func (u *UniterAPI) Relation(args params.Relations) (params.RelationResults, error) {
 	result := params.RelationResults{
 		Results: make([]params.RelationResult, len(args.Relations)),

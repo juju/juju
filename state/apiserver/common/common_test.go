@@ -20,21 +20,21 @@ type commonSuite struct{}
 
 var _ = gc.Suite(&commonSuite{})
 
-var (
-	errorAuth = func() (common.AuthFunc, error) {
-		return nil, fmt.Errorf("pow")
-	}
-	fooAuth = func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return tag == "foo"
-		}, nil
-	}
-	barAuth = func() (common.AuthFunc, error) {
-		return func(tag string) bool {
-			return tag == "bar"
-		}, nil
-	}
-)
+func errorAuth() (common.AuthFunc, error) {
+	return nil, fmt.Errorf("pow")
+}
+
+func fooAuth() (common.AuthFunc, error) {
+	return func(tag string) bool {
+		return tag == "foo"
+	}, nil
+}
+
+func barAuth() (common.AuthFunc, error) {
+	return func(tag string) bool {
+		return tag == "bar"
+	}, nil
+}
 
 var authEitherTests = []struct {
 	about  string

@@ -793,11 +793,8 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	rel, err := s.State.AddRelation(eps...)
 	c.Assert(err, gc.IsNil)
 	c.Assert(rel.Id(), gc.Equals, 0)
-	relEp, err := rel.Endpoint("wordpress")
+	wpEp, err := rel.Endpoint("wordpress")
 	c.Assert(err, gc.IsNil)
-	wordpressEps := []params.Endpoint{
-		{ServiceName: "wordpress", Relation: relEp.Relation},
-	}
 
 	args := params.Relations{Relations: []params.Relation{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
@@ -815,11 +812,14 @@ func (s *uniterSuite) TestRelation(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.RelationResults{
 		Results: []params.RelationResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{RelationInfo: params.RelationInfo{
-				Id:        rel.Id(),
-				Key:       rel.String(),
-				Endpoints: wordpressEps,
-			}},
+			{
+				Id:  rel.Id(),
+				Key: rel.String(),
+				Endpoint: params.Endpoint{
+					ServiceName: wpEp.ServiceName,
+					Relation:    wpEp.Relation,
+				},
+			},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},

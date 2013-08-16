@@ -93,11 +93,13 @@ type Relations struct {
 	Relations []Relation
 }
 
-// RelationResult holds the relation id, key and endpoints for a
-// single relation or an error.
+// RelationResult holds the relation id, key and the local endpoint
+// for a single relation or an error.
 type RelationResult struct {
-	Error *Error
-	RelationInfo
+	Error    *Error
+	Id       int
+	Key      string
+	Endpoint Endpoint
 }
 
 // RelationResults holds the result of an API call that returns
