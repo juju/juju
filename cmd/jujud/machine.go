@@ -14,8 +14,8 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	localstorage "launchpad.net/juju-core/environs/provider/local/storage"
 	"launchpad.net/juju-core/environs/provider"
+	localstorage "launchpad.net/juju-core/environs/provider/local/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
