@@ -9,6 +9,7 @@ import (
 	"reflect"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/juju/osenv"

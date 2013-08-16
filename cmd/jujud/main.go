@@ -5,11 +5,12 @@ package main
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/worker/uniter/jujuc"
 	"net/rpc"
 	"os"
 	"path/filepath"
+
+	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/worker/uniter/jujuc"
 )
 
 // Import the providers.

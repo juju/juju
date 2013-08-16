@@ -4,11 +4,13 @@
 package dummy_test
 
 import (
+	stdtesting "testing"
+
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs/jujutest"
 	_ "launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	stdtesting "testing"
 )
 
 func init() {

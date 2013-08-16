@@ -5,6 +5,7 @@ package dummy_test
 
 import (
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	_ "launchpad.net/juju-core/environs/provider/dummy"

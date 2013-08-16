@@ -5,11 +5,13 @@ package openstack_test
 
 import (
 	"flag"
+	"testing"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
+
 	"launchpad.net/juju-core/environs/provider/openstack"
-	"testing"
 )
 
 var live = flag.Bool("live", false, "Include live OpenStack tests")
