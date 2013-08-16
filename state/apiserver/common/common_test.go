@@ -42,61 +42,52 @@ var authEitherTests = []struct {
 	tag    string
 	expect bool
 	err    string
-}{
-	{
-		about: "a returns an error",
-		a:     errorAuth,
-		b:     fooAuth,
-		err:   "pow",
-	},
-	{
-		about: "b returns an error",
-		a:     fooAuth,
-		b:     errorAuth,
-		err:   "pow",
-	},
-	{
-		about: "both a and b return an error",
-		a:     errorAuth,
-		b:     errorAuth,
-		err:   "pow",
-	},
-	{
-		about:  "tag foo - a returns true",
-		a:      fooAuth,
-		b:      barAuth,
-		tag:    "foo",
-		expect: true,
-	},
-	{
-		about:  "tag foo - b returns true",
-		a:      barAuth,
-		b:      fooAuth,
-		tag:    "foo",
-		expect: true,
-	},
-	{
-		about:  "tag bar - b returns true",
-		a:      fooAuth,
-		b:      barAuth,
-		tag:    "bar",
-		expect: true,
-	},
-	{
-		about:  "tag foo - both return true",
-		a:      fooAuth,
-		b:      fooAuth,
-		tag:    "foo",
-		expect: true,
-	},
-	{
-		about:  "tag baz - both return false",
-		a:      fooAuth,
-		b:      barAuth,
-		tag:    "baz",
-		expect: false,
-	},
-}
+}{{
+	about: "a returns an error",
+	a:     errorAuth,
+	b:     fooAuth,
+	err:   "pow",
+}, {
+	about: "b returns an error",
+	a:     fooAuth,
+	b:     errorAuth,
+	err:   "pow",
+}, {
+	about: "both a and b return an error",
+	a:     errorAuth,
+	b:     errorAuth,
+	err:   "pow",
+}, {
+	about:  "tag foo - a returns true",
+	a:      fooAuth,
+	b:      barAuth,
+	tag:    "foo",
+	expect: true,
+}, {
+	about:  "tag foo - b returns true",
+	a:      barAuth,
+	b:      fooAuth,
+	tag:    "foo",
+	expect: true,
+}, {
+	about:  "tag bar - b returns true",
+	a:      fooAuth,
+	b:      barAuth,
+	tag:    "bar",
+	expect: true,
+}, {
+	about:  "tag foo - both return true",
+	a:      fooAuth,
+	b:      fooAuth,
+	tag:    "foo",
+	expect: true,
+}, {
+	about:  "tag baz - both return false",
+	a:      fooAuth,
+	b:      barAuth,
+	tag:    "baz",
+	expect: false,
+}}
 
 func (s *commonSuite) TestAuthEither(c *gc.C) {
 	for i, test := range authEitherTests {

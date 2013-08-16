@@ -541,29 +541,34 @@ func (u *UniterAPI) CharmBundleSha256(args params.CharmURLs) (params.StringResul
 	return result, nil
 }
 
-func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
-	nothing := params.RelationResult{}
+func (u *UniterAPI) getRelationAndUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.Relation, *state.Unit, error) {
 	_, id, err := names.ParseTag(relTag, names.RelationTagKind)
 	if err != nil {
-		return nothing, common.ErrPerm
+		return nil, nil, common.ErrPerm
 	}
 	// TODO(dimitern): Once the relation tags have a different format
 	// (e.g. "relation-service1@name1+service2@name2"), change the
 	// following code accordingly.
 	relId, err := strconv.Atoi(id)
 	if err != nil {
-		return nothing, common.ErrPerm
+		return nil, nil, common.ErrPerm
 	}
 	rel, err := u.st.Relation(relId)
 	if errors.IsNotFoundError(err) {
-		return nothing, common.ErrPerm
+		return nil, nil, common.ErrPerm
 	} else if err != nil {
-		return nothing, err
+		return nil, nil, err
 	}
 	if !canAccess(unitTag) {
-		return nothing, common.ErrPerm
+		return nil, nil, common.ErrPerm
 	}
 	unit, err := u.getUnit(unitTag)
+	return rel, unit, err
+}
+
+func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag string) (params.RelationResult, error) {
+	nothing := params.RelationResult{}
+	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
 	if err != nil {
 		return nothing, err
 	}
@@ -581,17 +586,25 @@ func (u *UniterAPI) getOneRelation(canAccess common.AuthFunc, relTag, unitTag st
 	}, nil
 }
 
+func (u *UniterAPI) getRelationUnit(canAccess common.AuthFunc, relTag, unitTag string) (*state.RelationUnit, error) {
+	rel, unit, err := u.getRelationAndUnit(canAccess, relTag, unitTag)
+	if err != nil {
+		return nil, err
+	}
+	return rel.Unit(unit)
+}
+
 // Relation returns information about all given relation/unit pairs,
 // including their id, key and the local endpoint.
-func (u *UniterAPI) Relation(args params.Relations) (params.RelationResults, error) {
+func (u *UniterAPI) Relation(args params.RelationUnits) (params.RelationResults, error) {
 	result := params.RelationResults{
-		Results: make([]params.RelationResult, len(args.Relations)),
+		Results: make([]params.RelationResult, len(args.RelationUnits)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
 		return params.RelationResults{}, err
 	}
-	for i, rel := range args.Relations {
+	for i, rel := range args.RelationUnits {
 		relParams, err := u.getOneRelation(canAccess, rel.Relation, rel.Unit)
 		if err == nil {
 			result.Results[i] = relParams
@@ -601,7 +614,7 @@ func (u *UniterAPI) Relation(args params.Relations) (params.RelationResults, err
 	return result, nil
 }
 
-// EnvironUUID returns the UUID for the current juju environment.
+// CurrentEnvironUUID returns the UUID for the current juju environment.
 func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	result := params.StringResult{}
 	env, err := u.st.Environment()
@@ -611,11 +624,114 @@ func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 	return result, err
 }
 
-// TODO(dimitern): Add the following needed calls:
-// EnterScope (rel-id, unit-tag)
-// LeaveScope (rel-id, unit-tag)
-// Settings (rel-id, unit-tag)
-// ReadSettings (rel-id, (remote)unit-tag)
-// WriteSettings (rel-id, unit-tag, settings)
+// ProviderType returns the provider type used by the current juju
+// environment.
 //
+// TODO(dimitern): Refactor the uniter to call this instead of calling
+// EnvironConfig() just to get the provider type.
+func (u *UniterAPI) ProviderType() (params.StringResult, error) {
+	result := params.StringResult{}
+	cfg, err := u.st.EnvironConfig()
+	if err == nil {
+		result.Result = cfg.Type()
+	}
+	return result, err
+}
+
+// EnterScope ensures each unit has entered its scope in the relation,
+// for all of the given relation/unit pairs. See also
+// state.RelationUnit.EnterScope().
+func (u *UniterAPI) EnterScope(args params.RelationUnitsSettings) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.RelationUnits)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.RelationUnits {
+		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
+		if err == nil {
+			err = relUnit.EnterScope(arg.Settings)
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// LeaveScope signals each unit has left its scope in the relation,
+// for all of the given relation/unit pairs. See also
+// state.RelationUnit.LeaveScope().
+func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.RelationUnits)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.RelationUnits {
+		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
+		if err == nil {
+			err = relUnit.LeaveScope()
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// ReadSettings returns the settings of each given set of
+// relation/local unit/remote unit.
+func (u *UniterAPI) ReadSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
+	result := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(args.RelationUnitPairs)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.SettingsResults{}, err
+	}
+	for i, arg := range args.RelationUnitPairs {
+		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.LocalUnit)
+		if err == nil {
+			remoteUnit := ""
+			_, remoteUnit, err = names.ParseTag(arg.RemoteUnit, names.UnitTagKind)
+			if err == nil {
+				var settings params.Settings
+				settings, err = relUnit.ReadSettings(remoteUnit)
+				if err == nil {
+					result.Results[i].Settings = settings
+				}
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// WriteSettings persists all changes made to the local settings of
+// all given pairs of relation and unit.
+func (u *UniterAPI) WriteSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
+	result := params.ErrorResults{
+		Results: make([]params.ErrorResult, len(args.RelationUnits)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ErrorResults{}, err
+	}
+	for i, arg := range args.RelationUnits {
+		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
+		if err == nil {
+			var settings *state.Settings
+			settings, err = relUnit.Settings()
+			if err == nil {
+				settings.Update(arg.Settings)
+				_, err = settings.Write()
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// TODO(dimitern): Add the following needed calls/features:
 // RelationUnitsWatcher
