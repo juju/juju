@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -962,14 +961,6 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 	}
 	// There is currently no way for this to fail.
 	return &context, nil
-}
-
-// getImageBaseURLs returns the base URLs for this environment's simplestreams
-// database.  In other words, where it should look for information on the
-// available images.
-func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
-	// Hard-coded to the central Simplestreams database for now.
-	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

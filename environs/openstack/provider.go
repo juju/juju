@@ -226,6 +226,7 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
+var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
 
 type openstackInstance struct {
 	*nova.ServerDetail
@@ -570,8 +571,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) getImageBaseURLs() ([]string, error) {
+// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) GetImageBaseURLs() ([]string, error) {
 	e.imageBaseMutex.Lock()
 	defer e.imageBaseMutex.Unlock()
 
@@ -594,9 +595,6 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	if err == nil {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
-	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
-
 	return e.imageBaseURLs, nil
 }
 
@@ -1132,7 +1130,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
 	}

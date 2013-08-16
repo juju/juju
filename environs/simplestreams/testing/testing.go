@@ -165,6 +165,7 @@ var imageData = map[string]string{
       {
         "mirror": "http://some-mirror/",
         "path": "com.ubuntu.juju:download.json",
+        "format": "products:1.0",
         "clouds": [
           {
             "endpoint": "https://ec2.us-east-1.amazonaws.com",
@@ -175,6 +176,7 @@ var imageData = map[string]string{
       {
         "mirror": "http://another-mirror/",
         "path": "com.ubuntu.juju:download.json",
+        "format": "products:1.0",
         "clouds": [
           {
             "endpoint": "https://ec2.us-west-1.amazonaws.com",

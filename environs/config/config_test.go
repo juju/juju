@@ -44,6 +44,14 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
+		about: "Metadata URLs",
+		attrs: attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			"tools-metadata-url": "tools-url",
+		},
+	}, {
 		about: "Explicit series",
 		attrs: attrs{
 			"type":           "my-type",
@@ -562,6 +570,17 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
+
+	if v, ok := test.attrs["image-metadata-url"]; ok {
+		c.Assert(cfg.ImageMetadataURL(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ImageMetadataURL(), gc.Equals, "")
+	}
+	if v, ok := test.attrs["tools-metadata-url"]; ok {
+		c.Assert(cfg.ToolsMetadataURL(), gc.Equals, v)
+	} else {
+		c.Assert(cfg.ToolsMetadataURL(), gc.Equals, "")
+	}
 }
 
 func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
@@ -575,6 +594,8 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-private-key":            "",
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
+		"image-metadata-url":        "",
+		"tools-metadata-url":        "",
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, gc.IsNil)

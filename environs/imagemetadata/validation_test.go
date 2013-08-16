@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package imagemetadata
+package imagemetadata_test
 
 import (
 	"net/http"
@@ -9,6 +9,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -21,7 +22,7 @@ type ValidateSuite struct {
 var _ = gc.Suite(&ValidateSuite{})
 
 func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
-	im := ImageMetadata{
+	im := imagemetadata.ImageMetadata{
 		Id:   id,
 		Arch: "amd64",
 	}
@@ -29,7 +30,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 		Region:   region,
 		Endpoint: endpoint,
 	}
-	_, err := MakeBoilerplate("", series, &im, &cloudSpec, false)
+	_, err := imagemetadata.MakeBoilerplate("", series, &im, &cloudSpec, false)
 	if err != nil {
 		return err
 	}
@@ -61,7 +62,7 @@ func (s *ValidateSuite) TestMatch(c *gc.C) {
 		Endpoint:      "some-auth-url",
 		BaseURLs:      []string{"file://" + metadataDir},
 	}
-	imageIds, err := ValidateImageMetadata(params)
+	imageIds, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(imageIds, gc.DeepEquals, []string{"1234"})
 }
@@ -76,6 +77,6 @@ func (s *ValidateSuite) TestNoMatch(c *gc.C) {
 		Endpoint:      "some-auth-url",
 		BaseURLs:      []string{"file://" + metadataDir},
 	}
-	_, err := ValidateImageMetadata(params)
+	_, err := imagemetadata.ValidateImageMetadata(params)
 	c.Assert(err, gc.Not(gc.IsNil))
 }

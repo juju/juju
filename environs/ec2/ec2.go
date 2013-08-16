@@ -306,16 +306,10 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return environs.StateInfo(e)
 }
 
-// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) getImageBaseURLs() ([]string, error) {
-	// Use the default simplestreams base URL.
-	return []string{imagemetadata.DefaultBaseURL}, nil
-}
-
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
 	}
@@ -363,7 +357,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	}
 	arches := possibleTools.Arches()
 	storage := ebsStorage
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, nil, err
 	}
