@@ -786,8 +786,8 @@ func (env *azureEnviron) Destroy(ensureInsts []instance.Instance) error {
 	// Delete storage.
 	// Deleting the storage is done last so that if something fails
 	// half way through the Destroy() method, the storage won't be cleaned
-	// up and thus a tentative to re-boostrap the environment will lead to
-	// a meaningful error.
+	// up and thus an attempt to re-boostrap the environment will lead to
+	// a "error: environment is already bootstrapped" error.
 	err = env.Storage().RemoveAll()
 	if err != nil {
 		return fmt.Errorf("cannot clean up storage: %v", err)
