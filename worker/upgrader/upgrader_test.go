@@ -15,7 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"

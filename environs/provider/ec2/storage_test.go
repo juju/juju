@@ -8,7 +8,8 @@ import (
 	"io"
 
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/environs/ec2"
+
+	"launchpad.net/juju-core/environs/provider/ec2"
 	"launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/version"
 )

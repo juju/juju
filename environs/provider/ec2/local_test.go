@@ -5,6 +5,9 @@ package ec2_test
 
 import (
 	"bytes"
+	"regexp"
+	"sort"
+
 	"launchpad.net/goamz/aws"
 	amzec2 "launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/ec2/ec2test"
@@ -12,18 +15,17 @@ import (
 	"launchpad.net/goamz/s3/s3test"
 	. "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/ec2"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
+	"launchpad.net/juju-core/environs/provider/ec2"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
-	"regexp"
-	"sort"
 )
 
 type ProviderSuite struct{}

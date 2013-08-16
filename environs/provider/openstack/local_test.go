@@ -7,25 +7,27 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+
 	. "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/testservices/hook"
 	"launchpad.net/goose/testservices/openstackservice"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/openstack"
+	"launchpad.net/juju-core/environs/provider/openstack"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
-	"net/http"
-	"net/http/httptest"
-	"strings"
 )
 
 type ProviderSuite struct {
