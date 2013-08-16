@@ -334,6 +334,98 @@ func (s *simplestreamsSuite) TestDealiasing(c *gc.C) {
 	c.Check(ti.Endpoint, gc.Equals, "https://ec2.us-west-3.amazonaws.com")
 }
 
+func (s *simplestreamsSuite) TestGetMirror(c *gc.C) {
+	mirrorRefs, err := s.getMirrorRefs(sstesting.Index_v1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mirrorRefs.Format, gc.Equals, sstesting.Index_v1)
+	c.Assert(len(mirrorRefs.Mirrors) > 0, gc.Equals, true)
+}
+
+func (s *simplestreamsSuite) getMirrorRefs(format string) (*simplestreams.MirrorRefs, error) {
+	return simplestreams.GetMirrorRefsWithFormat(s.BaseURL, s.IndexPath(), format, s.RequireSigned)
+}
+
+func (s *simplestreamsSuite) TestGetMirrorRefsWrongFormat(c *gc.C) {
+	_, err := s.getMirrorRefs("bad")
+	c.Assert(err, gc.NotNil)
+}
+
+func (s *simplestreamsSuite) TestGetMirrorRef(c *gc.C) {
+	mirrorRefs, err := s.getMirrorRefs(sstesting.Index_v1)
+	c.Assert(err, gc.IsNil)
+	cloud := simplestreams.CloudSpec{"us-east-1", "https://ec2.us-east-1.amazonaws.com"}
+	mirrorRef, err := mirrorRefs.GetMirrorReference("com.ubuntu.juju:released:tools", cloud)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mirrorRef.Format, gc.Equals, sstesting.Mirror_v1)
+	c.Assert(mirrorRef.Path, gc.Equals, "streams/v1/tools_metadata:public-mirrors.json")
+	c.Assert(mirrorRef.DataType, gc.Equals, "content-download")
+}
+
+func (s *simplestreamsSuite) TestGetMirrorRefDefaultCloud(c *gc.C) {
+	mirrorRefs, err := s.getMirrorRefs(sstesting.Index_v1)
+	c.Assert(err, gc.IsNil)
+	cloud := simplestreams.CloudSpec{"some-region", "https://some-endpoint.com"}
+	mirrorRef, err := mirrorRefs.GetMirrorReference("com.ubuntu.juju:released:tools", cloud)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mirrorRef.Format, gc.Equals, sstesting.Mirror_v1)
+	c.Assert(mirrorRef.Path, gc.Equals, "streams/v1/tools_metadata:more-mirrors.json")
+	c.Assert(mirrorRef.DataType, gc.Equals, "content-download")
+}
+
+var getMirrorTests = []struct {
+	region    string
+	endpoint  string
+	contentId string
+	err       string
+	mirrorURL string
+	path      string
+}{{
+	// defaults
+	mirrorURL: "http://some-mirror/",
+	path:      "com.ubuntu.juju:download.json",
+}, {
+	// default mirror index entry
+	region:    "some-region",
+	endpoint:  "https://some-endpoint.com",
+	mirrorURL: "http://big-mirror/",
+	path:      "big:download.json",
+}, {
+	// cloud spec in mirror file but missing from index
+	region:   "us-west-1",
+	endpoint: "https://ec2.us-west-1.amazonaws.com",
+	err:      `mirror info with cloud {us-west-1 https://ec2.us-west-1.amazonaws.com} not found`,
+}, {
+	// invalid content id
+	contentId: "invalid",
+	err:       `mirror metadata for "invalid".* not found`,
+}}
+
+func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
+	for i, t := range getMirrorTests {
+		c.Logf("test %d", i)
+		if t.region == "" {
+			t.region = "us-east-1"
+		}
+		if t.endpoint == "" {
+			t.endpoint = "https://ec2.us-east-1.amazonaws.com"
+		}
+		if t.contentId == "" {
+			t.contentId = "com.ubuntu.juju:released:tools"
+		}
+		cloud := simplestreams.CloudSpec{t.region, t.endpoint}
+		mirrorInfo, err := simplestreams.GetMaybeSignedMirror([]string{s.BaseURL}, s.IndexPath(), false, t.contentId, cloud)
+		if t.err != "" {
+			c.Check(err, gc.ErrorMatches, t.err)
+			continue
+		}
+		if !c.Check(err, gc.IsNil) {
+			continue
+		}
+		c.Check(mirrorInfo.MirrorURL, gc.Equals, t.mirrorURL)
+		c.Check(mirrorInfo.Path, gc.Equals, t.path)
+	}
+}
+
 var testSigningKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
 Version: GnuPG v1.4.10 (GNU/Linux)
 
