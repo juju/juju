@@ -315,7 +315,7 @@ func (ru *RelationUnit) InScope() bool {
 	if err != nil {
 		return false
 	}
-	return count != 0
+	return count > 0
 }
 
 // WatchScope returns a watcher which notifies of counterpart units
