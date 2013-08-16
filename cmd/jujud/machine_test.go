@@ -17,7 +17,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"

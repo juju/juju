@@ -7,7 +7,7 @@ import (
 	. "launchpad.net/gocheck"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/dummy"
+	_ "launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
