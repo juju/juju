@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -291,7 +292,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 	var metadata []*ImageMetadata
 	for _, baseURL := range baseURLs {
 		indexRef, err := getIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
-		indexURL := urlJoin(baseURL, indexPath)
+		indexURL := path.Join(baseURL, indexPath)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
 				logger.Debugf("cannot load index %q: %v", indexURL, err)
@@ -303,7 +304,7 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 		metadata, err = indexRef.getLatestImageIdMetadataWithFormat(ic, "products:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", baseURL+"/"+indexPath, err)
+				logger.Debugf("skipping index because of error getting latest metadata %q: %v", indexURL, err)
 				continue
 			}
 			return nil, err
@@ -315,19 +316,10 @@ func getMaybeSignedImageIdMetadata(baseURLs []string, indexPath string, ic *Imag
 	return metadata, nil
 }
 
-func urlJoin(base, relpath string) string {
-	result := base
-	if !strings.HasSuffix(result, "/") {
-		result += "/"
-	}
-	result += relpath
-	return result
-}
-
 // fetchData gets all the data from the given path relative to the given base URL.
 // It returns the data found and the full URL used.
-func fetchData(baseURL, path string, requireSigned bool) (data []byte, dataURL string, err error) {
-	dataURL = urlJoin(baseURL, path)
+func fetchData(baseURL, relpath string, requireSigned bool) (data []byte, dataURL string, err error) {
+	dataURL = path.Join(baseURL, relpath)
 	resp, err := httpClient.Get(dataURL)
 	if err != nil {
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
