@@ -38,8 +38,34 @@ var AZURE_DOMAIN_NAME = "cloudapp.net"
 
 // Addresses is specified in the Instance interface.
 func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("azureInstance.Addresses not implemented")
-	return nil, nil
+	addrs := []instance.Address{}
+	err := azInstance.apiCall(func(c *azureManagementContext) error {
+		d, err := c.GetDeployment(&gwacl.GetDeploymentRequest{ServiceName: azInstance.ServiceName})
+		if err != nil {
+			return err
+		}
+		if len(d.RoleInstanceList) > 0 {
+			priv := instance.Address{
+				d.RoleInstanceList[0].IPAddress,
+				instance.Ipv4Address,
+				d.VirtualNetworkName,
+				instance.NetworkCloudLocal}
+			addrs = append(addrs, priv)
+			return nil
+		}
+
+		name, err := azInstance.DNSName()
+		if err != nil {
+			return err
+		}
+		host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
+		addrs = append(addrs, host)
+		return nil
+	}, false)
+	if err != nil {
+		return nil, err
+	}
+	return addrs, nil
 }
 
 // DNSName is specified in the Instance interface.
@@ -60,6 +86,14 @@ func (azInstance *azureInstance) WaitDNSName() (string, error) {
 
 // OpenPorts is specified in the Instance interface.
 func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Port) error {
+	return azInstance.apiCall(func(context *azureManagementContext) error {
+		return azInstance.openEndpoints(context, ports)
+	}, true)
+}
+
+// apiCall wraps a call to the azure API to ensure it is properly disposed, optionally locking
+// the environment
+func (azInstance *azureInstance) apiCall(f func(*azureManagementContext) error, lock bool) error {
 	env := azInstance.environ
 
 	context, err := env.getManagementAPI()
@@ -68,10 +102,11 @@ func (azInstance *azureInstance) OpenPorts(machineId string, ports []instance.Po
 	}
 	defer env.releaseManagementAPI(context)
 
-	env.Lock()
-	defer env.Unlock()
-
-	return azInstance.openEndpoints(context, ports)
+	if lock {
+		env.Lock()
+		defer env.Unlock()
+	}
+	return f(context)
 }
 
 // openEndpoints opens the endpoints in the Azure deployment. The caller is
@@ -113,18 +148,9 @@ func (azInstance *azureInstance) openEndpoints(context *azureManagementContext, 
 
 // ClosePorts is specified in the Instance interface.
 func (azInstance *azureInstance) ClosePorts(machineId string, ports []instance.Port) error {
-	env := azInstance.environ
-
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return err
-	}
-	defer env.releaseManagementAPI(context)
-
-	env.Lock()
-	defer env.Unlock()
-
-	return azInstance.closeEndpoints(context, ports)
+	return azInstance.apiCall(func(context *azureManagementContext) error {
+		return azInstance.closeEndpoints(context, ports)
+	}, true)
 }
 
 // closeEndpoints closes the endpoints in the Azure deployment. The caller is
@@ -185,20 +211,15 @@ func convertAndFilterEndpoints(endpoints []gwacl.InputEndpoint, env *azureEnviro
 }
 
 // Ports is specified in the Instance interface.
-func (azInstance *azureInstance) Ports(machineId string) ([]instance.Port, error) {
-	env := azInstance.environ
-	context, err := env.getManagementAPI()
-	if err != nil {
-		return nil, err
+func (azInstance *azureInstance) Ports(machineId string) (ports []instance.Port, err error) {
+	err = azInstance.apiCall(func(context *azureManagementContext) error {
+		ports, err = azInstance.listPorts(context)
+		return err
+	}, false)
+	if ports != nil {
+		state.SortPorts(ports)
 	}
-	defer env.releaseManagementAPI(context)
-
-	ports, err := azInstance.listPorts(context)
-	if err != nil {
-		return nil, err
-	}
-	state.SortPorts(ports)
-	return ports, nil
+	return ports, err
 }
 
 // listPorts returns the slice of ports (instance.Port) that this machine

@@ -5,13 +5,14 @@ package azure
 
 import (
 	"encoding/base64"
+	"fmt"
+	"net/http"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/gwacl"
 
-	"fmt"
 	"launchpad.net/juju-core/instance"
-	"net/http"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceSuite struct{}
@@ -95,6 +96,21 @@ func serialize(c *gc.C, object gwacl.AzureObject) []byte {
 	return []byte(xml)
 }
 
+func prepareDeploymentInfoResponse(
+	c *gc.C, service *gwacl.HostedServiceDescriptor,
+	deployments ...gwacl.Deployment) []gwacl.DispatcherResponse {
+	return []gwacl.DispatcherResponse{
+		// GetHostedServiceProperties
+		gwacl.NewDispatcherResponse(
+			serialize(c, &gwacl.HostedService{
+				Deployments:             deployments,
+				HostedServiceDescriptor: *service,
+				XMLNS: gwacl.XMLNS,
+			}),
+			http.StatusOK, nil),
+	}
+}
+
 func preparePortChangeConversation(
 	c *gc.C, service *gwacl.HostedServiceDescriptor,
 	deployments ...gwacl.Deployment) []gwacl.DispatcherResponse {
@@ -143,6 +159,27 @@ func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected
 	for index, request := range record {
 		c.Check(request.Method, gc.Equals, expected[index].method)
 		c.Check(request.URL, gc.Matches, expected[index].urlpattern)
+	}
+}
+
+func (*instanceSuite) TestAddresses(c *gc.C) {
+	service := makeHostedServiceDescriptor("service-name")
+	responses := prepareDeploymentInfoResponse(c, service,
+		gwacl.Deployment{
+			RoleInstanceList: []gwacl.RoleInstance{
+				gwacl.RoleInstance{IPAddress: "1.2.3.4"},
+			},
+		})
+
+	record := gwacl.PatchManagementAPIResponses(responses)
+	inst := azureInstance{*service, makeEnviron(c)}
+
+	addrs, err := inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(addrs), gc.Equals, 2)
+	a := addrs[0]
+	if a.Type == instance.HostName {
+
 	}
 }
 

@@ -19,7 +19,7 @@ var _ instance.Instance = (*maasInstance)(nil)
 
 func (mi *maasInstance) Id() instance.Id {
 	// Use the node's 'resource_uri' value.
-	return instance.Id((*mi.maasObject).URI().String())
+	return instance.Id(mi.maasObject.URI().String())
 }
 
 func (mi *maasInstance) Status() string {
@@ -38,23 +38,50 @@ func (mi *maasInstance) refreshInstance() error {
 	if err != nil {
 		return err
 	}
-	newMaasObject := insts[0].(*maasInstance).maasObject
-	mi.maasObject = newMaasObject
+	mi.maasObject = insts[0].(*maasInstance).maasObject
 	return nil
 }
 
 func (mi *maasInstance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("maasInstance.Address not implemented")
-	return nil, nil
+	name, err := mi.DNSName()
+	if err != nil {
+		return nil, err
+	}
+	host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
+	addrs := []instance.Address{host}
+
+	ips, err := mi.ipAddresses()
+	if err != nil {
+		return nil, err
+	}
+	for _, ip := range ips {
+		a := instance.Address{ip, instance.DeriveAddressType(ip), "", instance.NetworkUnknown}
+		addrs = append(addrs, a)
+	}
+
+	return addrs, nil
+}
+
+func (mi *maasInstance) ipAddresses() ([]string, error) {
+	objs, err := mi.maasObject.GetMap()["ip_addresses"].GetArray()
+	if err != nil {
+		return nil, err
+	}
+
+	ips := make([]string, len(objs))
+	for i, obj := range objs {
+		s, err := obj.GetString()
+		if err != nil {
+			return nil, err
+		}
+		ips[i] = s
+	}
+	return ips, nil
 }
 
 func (mi *maasInstance) DNSName() (string, error) {
 	// A MAAS instance has its DNS name immediately.
-	hostname, err := (*mi.maasObject).GetField("hostname")
-	if err != nil {
-		return "", err
-	}
-	return hostname, nil
+	return mi.maasObject.GetField("hostname")
 }
 
 func (mi *maasInstance) WaitDNSName() (string, error) {
