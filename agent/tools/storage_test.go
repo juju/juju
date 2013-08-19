@@ -18,8 +18,8 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/provider/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )

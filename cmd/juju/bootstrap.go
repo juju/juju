@@ -15,9 +15,9 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
