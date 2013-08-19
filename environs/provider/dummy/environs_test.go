@@ -6,7 +6,7 @@ package dummy_test
 import (
 	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/jujutest"
 	_ "launchpad.net/juju-core/environs/provider/dummy"
@@ -24,12 +24,12 @@ func init() {
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  testing.CAKey,
 	}
-	Suite(&jujutest.LiveTests{
+	gc.Suite(&jujutest.LiveTests{
 		TestConfig:     jujutest.TestConfig{attrs},
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
-	Suite(&jujutest.Tests{
+	gc.Suite(&jujutest.Tests{
 		TestConfig: jujutest.TestConfig{attrs},
 	})
 }

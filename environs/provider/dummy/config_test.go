@@ -4,7 +4,7 @@
 package dummy_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -12,11 +12,11 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-var _ = Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 type ConfigSuite struct{}
 
-func (*ConfigSuite) TestSecretAttrs(c *C) {
+func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "only", // must match the name in environs_test.go
 		"type":            "dummy",
@@ -25,15 +25,15 @@ func (*ConfigSuite) TestSecretAttrs(c *C) {
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	expected := map[string]interface{}{
 		"secret": "pork",
 	}
 	actual, err := env.Provider().SecretAttrs(cfg)
-	c.Assert(err, IsNil)
-	c.Assert(expected, DeepEquals, actual)
+	c.Assert(err, gc.IsNil)
+	c.Assert(expected, gc.DeepEquals, actual)
 }
 
 var firewallModeTests = []struct {
@@ -63,7 +63,7 @@ var firewallModeTests = []struct {
 	},
 }
 
-func (*ConfigSuite) TestFirewallMode(c *C) {
+func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 	for _, test := range firewallModeTests {
 		c.Logf("test firewall mode %q", test.configFirewallMode)
 		cfgMap := map[string]interface{}{
@@ -79,17 +79,17 @@ func (*ConfigSuite) TestFirewallMode(c *C) {
 		}
 		cfg, err := config.New(cfgMap)
 		if err != nil {
-			c.Assert(err, ErrorMatches, test.errorMsg)
+			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
 
 		env, err := environs.New(cfg)
 		if err != nil {
-			c.Assert(err, ErrorMatches, test.errorMsg)
+			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
 
 		firewallMode := env.Config().FirewallMode()
-		c.Assert(firewallMode, Equals, test.firewallMode)
+		c.Assert(firewallMode, gc.Equals, test.firewallMode)
 	}
 }

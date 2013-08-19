@@ -4,7 +4,7 @@
 package ec2
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
@@ -16,14 +16,14 @@ type imageSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&imageSuite{})
+var _ = gc.Suite(&imageSuite{})
 
-func (s *imageSuite) SetUpSuite(c *C) {
+func (s *imageSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	UseTestImageData(TestImagesData)
 }
 
-func (s *imageSuite) TearDownSuite(c *C) {
+func (s *imageSuite) TearDownSuite(c *gc.C) {
 	UseTestImageData(nil)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -32,16 +32,16 @@ type specSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&specSuite{})
+var _ = gc.Suite(&specSuite{})
 
-func (s *specSuite) SetUpSuite(c *C) {
+func (s *specSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	UseTestImageData(TestImagesData)
 	UseTestInstanceTypeData(TestInstanceTypeCosts)
 	UseTestRegionData(TestRegions)
 }
 
-func (s *specSuite) TearDownSuite(c *C) {
+func (s *specSuite) TearDownSuite(c *gc.C) {
 	UseTestInstanceTypeData(nil)
 	UseTestImageData(nil)
 	UseTestRegionData(nil)
@@ -122,7 +122,7 @@ var findInstanceSpecTests = []struct {
 	},
 }
 
-func (s *specSuite) TestFindInstanceSpec(c *C) {
+func (s *specSuite) TestFindInstanceSpec(c *gc.C) {
 	for i, t := range findInstanceSpecTests {
 		c.Logf("test %d", i)
 		storage := ebsStorage
@@ -133,9 +133,9 @@ func (s *specSuite) TestFindInstanceSpec(c *C) {
 			Constraints: constraints.MustParse(t.cons),
 			Storage:     &storage,
 		})
-		c.Assert(err, IsNil)
-		c.Check(spec.InstanceType.Name, Equals, t.itype)
-		c.Check(spec.Image.Id, Equals, t.image)
+		c.Assert(err, gc.IsNil)
+		c.Check(spec.InstanceType.Name, gc.Equals, t.itype)
+		c.Check(spec.Image.Id, gc.Equals, t.image)
 	}
 }
 
@@ -161,7 +161,7 @@ var findInstanceSpecErrorTests = []struct {
 	},
 }
 
-func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
+func (s *specSuite) TestFindInstanceSpecErrors(c *gc.C) {
 	for i, t := range findInstanceSpecErrorTests {
 		c.Logf("test %d", i)
 		_, err := findInstanceSpec([]string{"test:"}, &instances.InstanceConstraint{
@@ -170,37 +170,37 @@ func (s *specSuite) TestFindInstanceSpecErrors(c *C) {
 			Arches:      t.arches,
 			Constraints: constraints.MustParse(t.cons),
 		})
-		c.Check(err, ErrorMatches, t.err)
+		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
-func (*specSuite) TestFilterImagesAcceptsNil(c *C) {
-	c.Check(filterImages(nil), HasLen, 0)
+func (*specSuite) TestFilterImagesAcceptsNil(c *gc.C) {
+	c.Check(filterImages(nil), gc.HasLen, 0)
 }
 
-func (*specSuite) TestFilterImagesAcceptsImageWithEBSStorage(c *C) {
+func (*specSuite) TestFilterImagesAcceptsImageWithEBSStorage(c *gc.C) {
 	input := []*imagemetadata.ImageMetadata{{Id: "yay", Storage: "ebs"}}
-	c.Check(filterImages(input), DeepEquals, input)
+	c.Check(filterImages(input), gc.DeepEquals, input)
 }
 
-func (*specSuite) TestFilterImagesRejectsImageWithoutEBSStorage(c *C) {
+func (*specSuite) TestFilterImagesRejectsImageWithoutEBSStorage(c *gc.C) {
 	input := []*imagemetadata.ImageMetadata{{Id: "boo", Storage: "ftp"}}
-	c.Check(filterImages(input), HasLen, 0)
+	c.Check(filterImages(input), gc.HasLen, 0)
 }
 
-func (*specSuite) TestFilterImagesReturnsSelectively(c *C) {
+func (*specSuite) TestFilterImagesReturnsSelectively(c *gc.C) {
 	good := imagemetadata.ImageMetadata{Id: "good", Storage: "ebs"}
 	bad := imagemetadata.ImageMetadata{Id: "bad", Storage: "ftp"}
 	input := []*imagemetadata.ImageMetadata{&good, &bad}
 	expectation := []*imagemetadata.ImageMetadata{&good}
-	c.Check(filterImages(input), DeepEquals, expectation)
+	c.Check(filterImages(input), gc.DeepEquals, expectation)
 }
 
-func (*specSuite) TestFilterImagesMaintainsOrdering(c *C) {
+func (*specSuite) TestFilterImagesMaintainsOrdering(c *gc.C) {
 	input := []*imagemetadata.ImageMetadata{
 		{Id: "one", Storage: "ebs"},
 		{Id: "two", Storage: "ebs"},
 		{Id: "three", Storage: "ebs"},
 	}
-	c.Check(filterImages(input), DeepEquals, input)
+	c.Check(filterImages(input), gc.DeepEquals, input)
 }

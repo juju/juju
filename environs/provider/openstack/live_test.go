@@ -7,7 +7,7 @@ import (
 	"crypto/rand"
 	"fmt"
 	"io"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/client"
 	"launchpad.net/goose/identity"
 	"launchpad.net/juju-core/environs"
@@ -58,7 +58,7 @@ func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 // Register tests to run against a real Openstack instance.
 func registerLiveTests(cred *identity.Credentials) {
 	config := makeTestConfig(cred)
-	Suite(&LiveTests{
+	gc.Suite(&LiveTests{
 		cred: cred,
 		LiveTests: jujutest.LiveTests{
 			TestConfig:     jujutest.TestConfig{config},
@@ -79,16 +79,16 @@ type LiveTests struct {
 	writeablePublicStorage environs.Storage
 }
 
-func (t *LiveTests) SetUpSuite(c *C) {
+func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// Update some Config items now that we have services running.
 	// This is setting the public-bucket-url and auth-url because that
 	// information is set during startup of the localLiveSuite
 	cl := client.NewClient(t.cred, identity.AuthUserPass, nil)
 	err := cl.Authenticate()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	t.TestConfig.UpdateConfig(map[string]interface{}{
 		"public-bucket-url": publicBucketURL,
 		"auth-url":          t.cred.URL,
@@ -105,7 +105,7 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	envtesting.UploadFakeTools(c, t.writeablePublicStorage)
 }
 
-func (t *LiveTests) TearDownSuite(c *C) {
+func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env == nil {
 		// This can happen if SetUpSuite fails.
 		return
@@ -118,12 +118,12 @@ func (t *LiveTests) TearDownSuite(c *C) {
 	t.LoggingSuite.TearDownSuite(c)
 }
 
-func (t *LiveTests) SetUpTest(c *C) {
+func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
-func (t *LiveTests) TearDownTest(c *C) {
+func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
