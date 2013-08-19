@@ -58,7 +58,9 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	cfg, err := config.New(t.TestConfig.Config)
+	c.Assert(err, IsNil)
+	e, err := environs.Prepare(cfg)
 	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
 	c.Assert(e, NotNil)
 	t.Env = e
@@ -239,13 +241,13 @@ func (t *LiveTests) TestPorts(c *C) {
 
 	// Check errors when acting on environment.
 	err = t.Env.OpenPorts([]instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "instance" for opening ports on environment`)
 
 	err = t.Env.ClosePorts([]instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "instance" for closing ports on environment`)
 
 	_, err = t.Env.Ports()
-	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from environment: "instance"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "instance" for retrieving ports from environment`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
@@ -301,13 +303,13 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 
 	// Check errors when acting on instances.
 	err = inst1.OpenPorts("1", []instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
 	err = inst1.ClosePorts("1", []instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
 	_, err = inst1.Ports("1")
-	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "global" for retrieving ports from instance`)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *C) {

@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -64,7 +65,10 @@ func (t *Tests) Open(c *C) environs.Environ {
 
 func (t *Tests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	t.Env = t.Open(c)
+	cfg, err := config.New(t.TestConfig.Config)
+	c.Assert(err, IsNil)
+	t.Env, err = environs.Prepare(cfg)
+	c.Assert(err, IsNil)
 }
 
 func (t *Tests) TearDownTest(c *C) {

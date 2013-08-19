@@ -50,7 +50,7 @@ func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *C) {
 	ioutil.WriteFile(keyPath, []byte(testing.CACert), 0600)
 
 	// Need to create the environment after the cert has been written.
-	env, err := environs.NewFromName(envName)
+	env, err := environs.PrepareFromName(envName)
 	c.Assert(err, IsNil)
 
 	writeCalled := false
@@ -64,7 +64,7 @@ func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *C) {
 
 func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *C) {
 	defer testing.MakeSampleHome(c).Restore()
-	env, err := environs.NewFromName(testing.SampleEnvName)
+	env, err := environs.PrepareFromName(testing.SampleEnvName)
 	c.Assert(err, IsNil)
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
@@ -78,7 +78,7 @@ func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *C) {
 
 func (*EnvironsCertSuite) TestEnsureCertificate(c *C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig).Restore()
-	env, err := environs.NewFromName(testing.SampleEnvName)
+	env, err := environs.PrepareFromName(testing.SampleEnvName)
 	c.Assert(err, IsNil)
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {

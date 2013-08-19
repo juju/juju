@@ -211,7 +211,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	err = ioutil.WriteFile(config.JujuHomePath("dummyenv-private-key.pem"), []byte(testing.CAKey), 0600)
 	c.Assert(err, IsNil)
 
-	environ, err := environs.NewFromName("dummyenv")
+	environ, err := environs.PrepareFromName("dummyenv")
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")

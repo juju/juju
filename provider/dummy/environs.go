@@ -129,7 +129,6 @@ type environState struct {
 	maxId         int // maximum instance id allocated so far.
 	insts         map[instance.Id]*dummyInstance
 	globalPorts   map[instance.Port]bool
-	firewallMode  config.FirewallMode
 	bootstrapped  bool
 	storageDelay  time.Duration
 	storage       *storage
@@ -142,7 +141,7 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	state        *environState
+	name string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 }
@@ -196,11 +195,6 @@ func Reset() {
 	}
 }
 
-// ResetPublicStorage clears the contents of the specified environment's public storage.
-func ResetPublicStorage(e environs.Environ) {
-	e.(*environ).state.publicStorage.files = make(map[string][]byte)
-}
-
 func (state *environState) destroy() {
 	state.storage.files = make(map[string][]byte)
 	if !state.bootstrapped {
@@ -226,22 +220,18 @@ func (state *environState) destroy() {
 // This is so code in the test suite can trigger Syncs, etc that the API server
 // will see, which will then trigger API watchers, etc.
 func (e *environ) GetStateInAPIServer() *state.State {
-	if e.state == nil {
-		return nil
-	}
-	return e.state.apiState
+	return e.state().apiState
 }
 
 // newState creates the state for a new environment with the
 // given name and starts an http server listening for
 // storage requests.
-func newState(name string, ops chan<- Operation, fwmode config.FirewallMode) *environState {
+func newState(name string, ops chan<- Operation) *environState {
 	s := &environState{
 		name:         name,
 		ops:          ops,
 		insts:        make(map[instance.Id]*dummyInstance),
 		globalPorts:  make(map[instance.Port]bool),
-		firewallMode: fwmode,
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -347,14 +337,40 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	return cfg.Apply(validated)
 }
 
+func (e *environ) state() *environState {
+	p := &providerInstance
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if state := p.state[e.name]; state != nil {
+		return state
+	}
+	panic(fmt.Errorf("environment %q is not prepared", e.name))
+}
+
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	name := cfg.Name()
 	ecfg, err := p.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
+	env := &environ{
+		name: ecfg.Name(),
+		ecfgUnlocked: ecfg,
+	}
+	if err := env.checkBroken("Open"); err != nil {
+		return nil, err
+	}
+	return env, nil
+}
+
+func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	ecfg, err := p.newConfig(cfg)
+	if err != nil {
+		return nil, err
+	}
+	p.mu.Lock()
+	name := cfg.Name()
 	state := p.state[name]
 	if state == nil {
 		if ecfg.stateServer() && len(p.state) != 0 {
@@ -365,21 +381,11 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 			}
 			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old, name))
 		}
-		state = newState(name, p.ops, ecfg.FirewallMode())
+		state = newState(name, p.ops)
 		p.state[name] = state
 	}
-	env := &environ{
-		state:        state,
-		ecfgUnlocked: ecfg,
-	}
-	if err := env.checkBroken("Open"); err != nil {
-		return nil, err
-	}
-	return env, nil
-}
-
-func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
-	// TODO(rog) add an attribute which is required for Open.
+	// TODO(rog) add an attribute to the configuration which is required for Open?
+	p.mu.Unlock()
 	return p.Open(cfg)
 }
 
@@ -431,7 +437,7 @@ func (e *environ) checkBroken(method string) error {
 }
 
 func (e *environ) Name() string {
-	return e.state.name
+	return e.name
 }
 
 func (e *environ) Bootstrap(cons constraints.Value) error {
@@ -457,9 +463,10 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("cannot make bootstrap config: %v", err)
 	}
 
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	if e.state.bootstrapped {
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	if estate.bootstrapped {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
 	if e.ecfg().stateServer() {
@@ -481,31 +488,32 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		if err != nil {
 			panic(err)
 		}
-		e.state.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
+		estate.apiServer, err = apiserver.NewServer(st, "localhost:0", []byte(testing.ServerCert), []byte(testing.ServerKey))
 		if err != nil {
 			panic(err)
 		}
-		e.state.apiState = st
+		estate.apiState = st
 	}
-	e.state.bootstrapped = true
-	e.state.ops <- OpBootstrap{Env: e.state.name, Constraints: cons}
+	estate.bootstrapped = true
+	estate.ops <- OpBootstrap{Env: e.name, Constraints: cons}
 	return nil
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
 	if err := e.checkBroken("StateInfo"); err != nil {
 		return nil, nil, err
 	}
 	if !e.ecfg().stateServer() {
 		return nil, nil, errors.New("dummy environment has no state configured")
 	}
-	if !e.state.bootstrapped {
+	if !estate.bootstrapped {
 		return nil, nil, errors.New("dummy environment not bootstrapped")
 	}
 	return stateInfo(), &api.Info{
-		Addrs:  []string{e.state.apiServer.Addr()},
+		Addrs:  []string{estate.apiServer.Addr()},
 		CACert: []byte(testing.CACert),
 	}, nil
 }
@@ -524,7 +532,6 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	}
 	e.ecfgMutex.Lock()
 	e.ecfgUnlocked = ecfg
-	e.state.firewallMode = ecfg.FirewallMode()
 	e.ecfgMutex.Unlock()
 	return nil
 }
@@ -534,10 +541,11 @@ func (e *environ) Destroy([]instance.Instance) error {
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	e.state.ops <- OpDestroy{Env: e.state.name}
-	e.state.destroy()
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	estate.ops <- OpDestroy{Env: estate.name}
+	estate.destroy()
 	return nil
 }
 
@@ -557,8 +565,9 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		return nil, nil, err
 	}
 	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
 	if machineNonce == "" {
 		return nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
@@ -572,11 +581,12 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	i := &dummyInstance{
-		state:     e.state,
-		id:        instance.Id(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
+		id:        instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
 		ports:     make(map[instance.Port]bool),
 		machineId: machineId,
 		series:    series,
+		firewallMode: e.Config().FirewallMode(),
+		state: estate,
 	}
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
@@ -609,10 +619,10 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 			hc.CpuCores = &cores
 		}
 	}
-	e.state.insts[i.id] = i
-	e.state.maxId++
-	e.state.ops <- OpStartInstance{
-		Env:          e.state.name,
+	estate.insts[i.id] = i
+	estate.maxId++
+	estate.ops <- OpStartInstance{
+		Env:          e.name,
 		MachineId:    machineId,
 		MachineNonce: machineNonce,
 		Constraints:  cons,
@@ -629,13 +639,14 @@ func (e *environ) StopInstances(is []instance.Instance) error {
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
 	}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
 	for _, i := range is {
-		delete(e.state.insts, i.(*dummyInstance).id)
+		delete(estate.insts, i.(*dummyInstance).id)
 	}
-	e.state.ops <- OpStopInstances{
-		Env:       e.state.name,
+	estate.ops <- OpStopInstances{
+		Env:       e.name,
 		Instances: is,
 	}
 	return nil
@@ -649,11 +660,12 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
 	notFound := 0
 	for _, id := range ids {
-		inst := e.state.insts[id]
+		inst := estate.insts[id]
 		if inst == nil {
 			err = environs.ErrPartialInstances
 			notFound++
@@ -672,48 +684,49 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 		return nil, err
 	}
 	var insts []instance.Instance
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	for _, v := range e.state.insts {
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	for _, v := range estate.insts {
 		insts = append(insts, v)
 	}
 	return insts, nil
 }
 
 func (e *environ) OpenPorts(ports []instance.Port) error {
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	if e.state.firewallMode != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
-			e.state.firewallMode)
+	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
 	}
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
 	for _, p := range ports {
-		e.state.globalPorts[p] = true
+		estate.globalPorts[p] = true
 	}
 	return nil
 }
 
 func (e *environ) ClosePorts(ports []instance.Port) error {
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	if e.state.firewallMode != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
-			e.state.firewallMode)
+	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
+		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
 	}
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
 	for _, p := range ports {
-		delete(e.state.globalPorts, p)
+		delete(estate.globalPorts, p)
 	}
 	return nil
 }
 
 func (e *environ) Ports() (ports []instance.Port, err error) {
-	e.state.mu.Lock()
-	defer e.state.mu.Unlock()
-	if e.state.firewallMode != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
-			e.state.firewallMode)
+	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
 	}
-	for p := range e.state.globalPorts {
+	estate := e.state()
+	estate.mu.Lock()
+	defer estate.mu.Unlock()
+	for p := range estate.globalPorts {
 		ports = append(ports, p)
 	}
 	state.SortPorts(ports)
@@ -730,6 +743,7 @@ type dummyInstance struct {
 	id        instance.Id
 	machineId string
 	series    string
+	firewallMode config.FirewallMode
 }
 
 func (inst *dummyInstance) Id() instance.Id {
@@ -757,9 +771,9 @@ func (inst *dummyInstance) WaitDNSName() (string, error) {
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	defer delay()
 	log.Infof("environs/dummy: openPorts %s, %#v", machineId, ports)
-	if inst.state.firewallMode != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
-			inst.state.firewallMode)
+	if inst.firewallMode != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
+			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("OpenPorts with mismatched machine id, expected %q got %q", inst.machineId, machineId))
@@ -780,9 +794,9 @@ func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) er
 
 func (inst *dummyInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	defer delay()
-	if inst.state.firewallMode != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
-			inst.state.firewallMode)
+	if inst.firewallMode != config.FwInstance {
+		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
+			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("ClosePorts with mismatched machine id, expected %s got %s", inst.machineId, machineId))
@@ -803,9 +817,9 @@ func (inst *dummyInstance) ClosePorts(machineId string, ports []instance.Port) e
 
 func (inst *dummyInstance) Ports(machineId string) (ports []instance.Port, err error) {
 	defer delay()
-	if inst.state.firewallMode != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
-			inst.state.firewallMode)
+	if inst.firewallMode != config.FwInstance {
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
+			inst.firewallMode)
 	}
 	if inst.machineId != machineId {
 		panic(fmt.Errorf("Ports with mismatched machine id, expected %q got %q", inst.machineId, machineId))
