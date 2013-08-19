@@ -201,7 +201,6 @@ func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
 	var doc lifeDoc
 	iter := w.coll.Find(w.members).Select(lifeFields).Iter()
 	for iter.Next(&doc) {
-		watchLogger.Debugf("xxx %v", doc)
 		ids.Add(doc.Id)
 		if doc.Life != Dead {
 			w.life[doc.Id] = doc.Life
