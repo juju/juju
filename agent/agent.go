@@ -71,7 +71,7 @@ func ReadConf(dataDir, tag string) (*Conf, error) {
 		return nil, err
 	}
 	c.DataDir = dataDir
-	if err := c.Check(); err != nil {
+	if err := c.check(); err != nil {
 		return nil, err
 	}
 	if c.StateInfo != nil {
@@ -111,7 +111,7 @@ func (c *Conf) Dir() string {
 }
 
 // Check checks that the configuration has all the required elements.
-func (c *Conf) Check() error {
+func (c *Conf) check() error {
 	if c.DataDir == "" {
 		return requiredError("data directory")
 	}
@@ -163,7 +163,7 @@ func checkAddrs(addrs []string, what string) error {
 
 // Write writes the agent configuration.
 func (c *Conf) Write() error {
-	if err := c.Check(); err != nil {
+	if err := c.check(); err != nil {
 		return err
 	}
 	data, err := goyaml.Marshal(c)
@@ -187,7 +187,7 @@ func (c *Conf) Write() error {
 // configuration.  It returns an error if the configuration does not
 // have all the right elements.
 func (c *Conf) WriteCommands() ([]string, error) {
-	if err := c.Check(); err != nil {
+	if err := c.check(); err != nil {
 		return nil, err
 	}
 	data, err := goyaml.Marshal(c)
