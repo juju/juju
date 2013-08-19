@@ -3,10 +3,6 @@
 
 package uniter
 
-import (
-	"errors"
-)
-
 // This module implements a subset of the interface provided by
 // state.RelationUnit, as needed by the uniter API.
 // Most of this is pretty much a verbatim copy of the code in
