@@ -64,13 +64,8 @@ func (*EnvironsCertSuite) TestEnsureCertificateMissingKey(c *gc.C) {
 
 func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
-<<<<<<< TREE
 	env, err := environs.PrepareFromName(testing.SampleEnvName)
-	c.Assert(err, IsNil)
-=======
-	env, err := environs.NewFromName(testing.SampleEnvName)
 	c.Assert(err, gc.IsNil)
->>>>>>> MERGE-SOURCE
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
 		writeCalled = true
@@ -83,13 +78,8 @@ func (*EnvironsCertSuite) TestEnsureCertificateExisting(c *gc.C) {
 
 func (*EnvironsCertSuite) TestEnsureCertificate(c *gc.C) {
 	defer testing.MakeFakeHome(c, testing.SingleEnvConfig).Restore()
-<<<<<<< TREE
 	env, err := environs.PrepareFromName(testing.SampleEnvName)
-	c.Assert(err, IsNil)
-=======
-	env, err := environs.NewFromName(testing.SampleEnvName)
 	c.Assert(err, gc.IsNil)
->>>>>>> MERGE-SOURCE
 	writeCalled := false
 	created, err := environs.EnsureCertificate(env, func(name string, cert, key []byte) error {
 		writeCalled = true
