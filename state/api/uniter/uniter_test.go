@@ -1,7 +1,10 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter_test
+
+// TODO: Possibly split this into multiple *_test.go modules with
+// separate suites, because it'll grow quite large.
 
 import (
 	stdtesting "testing"
