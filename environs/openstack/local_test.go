@@ -377,6 +377,29 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 	}
 }
 
+func (s *localServerSuite) TestCollectInstances(c *C) {
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			details := args[0].(*nova.ServerDetail)
+			details.Status = "BUILD(networking)"
+			return nil
+		},
+	)
+	defer cleanup()
+	stateInst, _ := testing.StartInstance(c, s.Env, "100")
+	defer func() {
+		err := s.Env.StopInstances([]instance.Instance{stateInst})
+		c.Assert(err, IsNil)
+	}()
+	found := make(map[instance.Id]instance.Instance)
+	missing := []instance.Id{stateInst.Id()}
+
+	resultMissing := openstack.CollectInstances(s.Env, missing, found)
+
+	c.Assert(resultMissing, DeepEquals, missing)
+}
+
 // HP servers are available once they are BUILD(spawning).
 func (s *localServerSuite) TestInstancesBuildSpawning(c *C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
