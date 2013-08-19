@@ -400,8 +400,8 @@ func (s *localServerSuite) TestCollectInstances(c *C) {
 	c.Assert(resultMissing, DeepEquals, missing)
 }
 
-// HP servers are available once they are BUILD(spawning).
 func (s *localServerSuite) TestInstancesBuildSpawning(c *C) {
+	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -420,7 +420,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *C) {
 	instances, err := s.Env.Instances([]instance.Id{stateInst.Id()})
 
 	c.Assert(err, IsNil)
-	c.Assert(len(instances), Equals, 1)
+	c.Assert(instances, HasLen, 1)
 	c.Assert(instances[0].Status(), Equals, nova.StatusBuildSpawning)
 }
 
