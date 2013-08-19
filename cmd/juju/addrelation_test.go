@@ -4,7 +4,7 @@
 package main
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 )
@@ -13,9 +13,9 @@ type AddRelationSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = Suite(&AddRelationSuite{})
+var _ = gc.Suite(&AddRelationSuite{})
 
-func runAddRelation(c *C, args ...string) error {
+func runAddRelation(c *gc.C, args ...string) error {
 	_, err := testing.RunCommand(c, &AddRelationCommand{}, args)
 	return err
 }
@@ -126,25 +126,25 @@ var addRelationTests = []struct {
 	},
 }
 
-func (s *AddRelationSuite) TestAddRelation(c *C) {
+func (s *AddRelationSuite) TestAddRelation(c *gc.C) {
 	testing.Charms.BundlePath(s.SeriesPath, "wordpress")
 	err := runDeploy(c, "local:wordpress", "wp")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	testing.Charms.BundlePath(s.SeriesPath, "mysql")
 	err = runDeploy(c, "local:mysql", "ms")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	testing.Charms.BundlePath(s.SeriesPath, "riak")
 	err = runDeploy(c, "local:riak", "rk")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	testing.Charms.BundlePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "local:logging", "lg")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for i, t := range addRelationTests {
 		c.Logf("test %d: %v", i, t.args)
 		err := runAddRelation(c, t.args...)
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
 }

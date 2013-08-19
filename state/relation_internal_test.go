@@ -4,19 +4,19 @@
 package state
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 )
 
 type RelationSuite struct{}
 
-var _ = Suite(&RelationSuite{})
+var _ = gc.Suite(&RelationSuite{})
 
 // TestRelatedEndpoints verifies the behaviour of RelatedEndpoints in
 // multi-endpoint peer relations, which are currently not constructable
 // by normal means.
-func (s *RelationSuite) TestRelatedEndpoints(c *C) {
+func (s *RelationSuite) TestRelatedEndpoints(c *gc.C) {
 	rel := charm.Relation{
 		Interface: "ifce",
 		Name:      "group",
@@ -35,6 +35,6 @@ func (s *RelationSuite) TestRelatedEndpoints(c *C) {
 	}}
 	r := &Relation{nil, relationDoc{Endpoints: eps}}
 	relatedEps, err := r.RelatedEndpoints("mike")
-	c.Assert(err, IsNil)
-	c.Assert(relatedEps, DeepEquals, eps)
+	c.Assert(err, gc.IsNil)
+	c.Assert(relatedEps, gc.DeepEquals, eps)
 }

@@ -4,15 +4,15 @@
 package tools_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
@@ -24,21 +24,21 @@ type ToolsSuite struct {
 	origCurrentVersion version.Binary
 }
 
-var _ = Suite(&ToolsSuite{})
+var _ = gc.Suite(&ToolsSuite{})
 
-func (s *ToolsSuite) SetUpTest(c *C) {
+func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.origCurrentVersion = version.Current
 	s.Reset(c, nil)
 }
 
-func (s *ToolsSuite) TearDownTest(c *C) {
+func (s *ToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	version.Current = s.origCurrentVersion
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ToolsSuite) Reset(c *C, attrs map[string]interface{}) {
+func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
 	version.Current = s.origCurrentVersion
 	dummy.Reset()
 	final := map[string]interface{}{
@@ -53,7 +53,7 @@ func (s *ToolsSuite) Reset(c *C, attrs map[string]interface{}) {
 		final[k] = v
 	}
 	env, err := environs.NewFromAttrs(final)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)
 }
@@ -103,7 +103,7 @@ var (
 	vAll    = append(v1all, v220all...)
 )
 
-func (s *ToolsSuite) uploadVersions(c *C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+func (s *ToolsSuite) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	for _, vers := range verses {
 		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
@@ -111,11 +111,11 @@ func (s *ToolsSuite) uploadVersions(c *C, storage environs.Storage, verses ...ve
 	return uploaded
 }
 
-func (s *ToolsSuite) uploadPrivate(c *C, verses ...version.Binary) map[version.Binary]string {
+func (s *ToolsSuite) uploadPrivate(c *gc.C, verses ...version.Binary) map[version.Binary]string {
 	return s.uploadVersions(c, s.env.Storage(), verses...)
 }
 
-func (s *ToolsSuite) uploadPublic(c *C, verses ...version.Binary) map[version.Binary]string {
+func (s *ToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
 	storage := s.env.PublicStorage().(environs.Storage)
 	return s.uploadVersions(c, storage, verses...)
 }
@@ -160,7 +160,7 @@ var findAvailableToolsTests = []struct {
 	err:     agenttools.ErrNoMatches,
 }}
 
-func (s *ToolsSuite) TestFindAvailableTools(c *C) {
+func (s *ToolsSuite) TestFindAvailableTools(c *gc.C) {
 	for i, test := range findAvailableToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.Reset(c, nil)
@@ -183,7 +183,7 @@ func (s *ToolsSuite) TestFindAvailableTools(c *C) {
 		for _, expected := range test.expect {
 			expect[expected] = source[expected]
 		}
-		c.Check(actual.URLs(), DeepEquals, expect)
+		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}
 }
 
@@ -368,7 +368,7 @@ var findBootstrapToolsTests = []struct {
 	expect:        []version.Binary{v1001p64},
 }}
 
-func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
+func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 	for i, test := range findBootstrapToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		attrs := map[string]interface{}{
@@ -401,11 +401,11 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *C) {
 			expect[expected] = available[expected]
 			unique[expected.Number] = true
 		}
-		c.Check(actual.URLs(), DeepEquals, expect)
+		c.Check(actual.URLs(), gc.DeepEquals, expect)
 		for expectAgentVersion := range unique {
 			agentVersion, ok := s.env.Config().AgentVersion()
-			c.Check(ok, Equals, true)
-			c.Check(agentVersion, Equals, expectAgentVersion)
+			c.Check(ok, gc.Equals, true)
+			c.Check(agentVersion, gc.Equals, expectAgentVersion)
 		}
 	}
 }
@@ -469,7 +469,7 @@ var findInstanceToolsTests = []struct {
 	expect:       []version.Binary{v110q32},
 }}
 
-func (s *ToolsSuite) TestFindInstanceTools(c *C) {
+func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 	for i, test := range findInstanceToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.Reset(c, map[string]interface{}{
@@ -494,7 +494,7 @@ func (s *ToolsSuite) TestFindInstanceTools(c *C) {
 		for _, expected := range test.expect {
 			expect[expected] = available[expected]
 		}
-		c.Check(actual.URLs(), DeepEquals, expect)
+		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}
 }
 
@@ -534,7 +534,7 @@ var findExactToolsTests = []struct {
 	err:     agenttools.ErrNoMatches,
 }}
 
-func (s *ToolsSuite) TestFindExactTools(c *C) {
+func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 	for i, test := range findExactToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.Reset(c, nil)
@@ -542,14 +542,14 @@ func (s *ToolsSuite) TestFindExactTools(c *C) {
 		public := s.uploadPublic(c, test.public...)
 		actual, err := tools.FindExactTools(s.env, test.seek)
 		if test.err == nil {
-			c.Check(err, IsNil)
-			c.Check(actual.Version, Equals, test.seek)
+			c.Check(err, gc.IsNil)
+			c.Check(actual.Version, gc.Equals, test.seek)
 			source := private
 			if len(source) == 0 {
 				// We only use the public bucket if the private one has *no* agenttools.
 				source = public
 			}
-			c.Check(actual.URL, DeepEquals, source[actual.Version])
+			c.Check(actual.URL, gc.DeepEquals, source[actual.Version])
 		} else {
 			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 		}
@@ -572,38 +572,38 @@ func fakeToolsList(series ...string) agenttools.List {
 	return list
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesRequiresTools(c *C) {
+func (s *ToolsSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
 	err := tools.CheckToolsSeries(fakeToolsList(), "precise")
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, "expected single series, got \\[\\]")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "expected single series, got \\[\\]")
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *C) {
+func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	names := []string{"precise", "raring"}
 	for _, series := range names {
 		list := fakeToolsList(series)
 		err := tools.CheckToolsSeries(list, series)
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *C) {
+func (s *ToolsSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.C) {
 	series := "quantal"
 	list := fakeToolsList(series, series, series)
 	err := tools.CheckToolsSeries(list, series)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *C) {
+func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {
 	list := fakeToolsList("hoary")
 	err := tools.CheckToolsSeries(list, "warty")
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, "tools mismatch: expected series warty, got hoary")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "tools mismatch: expected series warty, got hoary")
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *C) {
+func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
 	list := fakeToolsList("precise", "raring")
 	err := tools.CheckToolsSeries(list, "precise")
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, "expected single series, got .*")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, "expected single series, got .*")
 }

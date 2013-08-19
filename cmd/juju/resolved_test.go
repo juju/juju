@@ -4,7 +4,7 @@
 package main
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -15,9 +15,9 @@ type ResolvedSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = Suite(&ResolvedSuite{})
+var _ = gc.Suite(&ResolvedSuite{})
 
-func runResolved(c *C, args []string) error {
+func runResolved(c *gc.C, args []string) error {
 	_, err := testing.RunCommand(c, &ResolvedCommand{}, args)
 	return err
 }
@@ -70,30 +70,30 @@ var resolvedTests = []struct {
 	},
 }
 
-func (s *ResolvedSuite) TestResolved(c *C) {
+func (s *ResolvedSuite) TestResolved(c *gc.C) {
 	testing.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "5", "local:dummy", "dummy")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for _, name := range []string{"dummy/2", "dummy/3", "dummy/4"} {
 		u, err := s.State.Unit(name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = u.SetStatus(params.StatusError, "lol borken")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	for i, t := range resolvedTests {
 		c.Logf("test %d: %v", i, t.args)
 		err := runResolved(c, t.args)
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		}
 		if t.unit != "" {
 			unit, err := s.State.Unit(t.unit)
-			c.Assert(err, IsNil)
-			c.Assert(unit.Resolved(), Equals, t.mode)
+			c.Assert(err, gc.IsNil)
+			c.Assert(unit.Resolved(), gc.Equals, t.mode)
 		}
 	}
 }

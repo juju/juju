@@ -6,7 +6,7 @@ package worker_test
 import (
 	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
 	"launchpad.net/juju-core/environs"
@@ -21,50 +21,50 @@ type suite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&suite{})
+var _ = gc.Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-func (s *suite) TestStop(c *C) {
+func (s *suite) TestStop(c *gc.C) {
 	w := s.State.WatchEnvironConfig()
 	defer stopWatcher(c, w)
 	stop := make(chan struct{})
 	done := make(chan error)
 	go func() {
 		env, err := worker.WaitForEnviron(w, stop)
-		c.Check(env, IsNil)
+		c.Check(env, gc.IsNil)
 		done <- err
 	}()
 	close(stop)
-	c.Assert(<-done, Equals, tomb.ErrDying)
+	c.Assert(<-done, gc.Equals, tomb.ErrDying)
 }
 
-func stopWatcher(c *C, w *state.EnvironConfigWatcher) {
+func stopWatcher(c *gc.C, w *state.EnvironConfigWatcher) {
 	err := w.Stop()
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 }
 
-func (s *suite) TestInvalidConfig(c *C) {
+func (s *suite) TestInvalidConfig(c *gc.C) {
 	// Create an invalid config by taking the current config and
 	// tweaking the provider type.
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	m := cfg.AllAttrs()
 	m["type"] = "unknown"
 	invalidCfg, err := config.New(m)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetEnvironConfig(invalidCfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	w := s.State.WatchEnvironConfig()
 	defer stopWatcher(c, w)
 	done := make(chan environs.Environ)
 	go func() {
 		env, err := worker.WaitForEnviron(w, nil)
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 		done <- env
 	}()
 	// Wait for the loop to process the invalid configuratrion
@@ -74,13 +74,13 @@ func (s *suite) TestInvalidConfig(c *C) {
 	m = cfg.AllAttrs()
 	m["secret"] = "environ_test"
 	validCfg, err := config.New(m)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = s.State.SetEnvironConfig(validCfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.State.StartSync()
 
 	env := <-done
-	c.Assert(env, NotNil)
-	c.Assert(env.Config().AllAttrs()["secret"], Equals, "environ_test")
+	c.Assert(env, gc.NotNil)
+	c.Assert(env.Config().AllAttrs()["secret"], gc.Equals, "environ_test")
 }

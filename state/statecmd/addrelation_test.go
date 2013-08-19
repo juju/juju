@@ -4,7 +4,7 @@
 package statecmd_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
@@ -15,20 +15,20 @@ type AddRelationSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&AddRelationSuite{})
+var _ = gc.Suite(&AddRelationSuite{})
 
-func (s *AddRelationSuite) setUpAddRelationScenario(c *C) {
+func (s *AddRelationSuite) setUpAddRelationScenario(c *gc.C) {
 	// Create some services.
 	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *AddRelationSuite) checkEndpoints(c *C, res params.AddRelationResults) {
-	c.Assert(res.Endpoints["wordpress"], DeepEquals, charm.Relation{
+func (s *AddRelationSuite) checkEndpoints(c *gc.C, res params.AddRelationResults) {
+	c.Assert(res.Endpoints["wordpress"], gc.DeepEquals, charm.Relation{
 		Name:      "db",
 		Role:      charm.RelationRole("requirer"),
 		Interface: "mysql",
@@ -36,7 +36,7 @@ func (s *AddRelationSuite) checkEndpoints(c *C, res params.AddRelationResults) {
 		Limit:     1,
 		Scope:     charm.RelationScope("global"),
 	})
-	c.Assert(res.Endpoints["mysql"], DeepEquals, charm.Relation{
+	c.Assert(res.Endpoints["mysql"], gc.DeepEquals, charm.Relation{
 		Name:      "server",
 		Role:      charm.RelationRole("provider"),
 		Interface: "mysql",
@@ -46,68 +46,68 @@ func (s *AddRelationSuite) checkEndpoints(c *C, res params.AddRelationResults) {
 	})
 }
 
-func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *C) {
+func (s *AddRelationSuite) TestSuccessfullyAddRelation(c *gc.C) {
 	s.setUpAddRelationScenario(c)
 	res, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.checkEndpoints(c, res)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rels, err := wpSvc.Relations()
-	c.Assert(len(rels), Equals, 1)
+	c.Assert(len(rels), gc.Equals, 1)
 	mySvc, err := s.State.Service("mysql")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rels, err = mySvc.Relations()
-	c.Assert(len(rels), Equals, 1)
+	c.Assert(len(rels), gc.Equals, 1)
 }
 
-func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *C) {
+func (s *AddRelationSuite) TestSuccessfullyAddRelationSwapped(c *gc.C) {
 	s.setUpAddRelationScenario(c)
 	res, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"mysql", "wordpress"},
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.checkEndpoints(c, res)
 	// Show that the relation was added.
 	wpSvc, err := s.State.Service("wordpress")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rels, err := wpSvc.Relations()
-	c.Assert(len(rels), Equals, 1)
+	c.Assert(len(rels), gc.Equals, 1)
 	mySvc, err := s.State.Service("mysql")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rels, err = mySvc.Relations()
-	c.Assert(len(rels), Equals, 1)
+	c.Assert(len(rels), gc.Equals, 1)
 }
 
-func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *C) {
+func (s *AddRelationSuite) TestCallWithOnlyOneEndpoint(c *gc.C) {
 	s.setUpAddRelationScenario(c)
 	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress"},
 	})
-	c.Assert(err, ErrorMatches, "no relations found")
+	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
-func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *C) {
+func (s *AddRelationSuite) TestCallWithOneEndpointTooMany(c *gc.C) {
 	s.setUpAddRelationScenario(c)
 	_, err := statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql", "logging"},
 	})
-	c.Assert(err, ErrorMatches, "cannot relate 3 endpoints")
+	c.Assert(err, gc.ErrorMatches, "cannot relate 3 endpoints")
 }
 
-func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *C) {
+func (s *AddRelationSuite) TestAddAlreadyAddedRelation(c *gc.C) {
 	s.setUpAddRelationScenario(c)
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	// And try to add it again.
 	_, err = statecmd.AddRelation(s.State, params.AddRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
 }
