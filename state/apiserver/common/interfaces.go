@@ -47,7 +47,7 @@ type Authorizer interface {
 
 // AuthEither returns an AuthFunc generator that returns and AuthFunc
 // that accepts any tag authorized by either of its arguments.
-func AuthEither(a, b func() (AuthFunc, error)) func() (AuthFunc, error) {
+func AuthEither(a, b GetAuthFunc) GetAuthFunc {
 	return func() (AuthFunc, error) {
 		f1, err := a()
 		if err != nil {
