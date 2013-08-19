@@ -11,7 +11,7 @@ import (
 	"strings"
 
 	amzec2 "launchpad.net/goamz/ec2"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -56,7 +56,7 @@ func registerAmazonTests() {
 		"ca-cert":        coretesting.CACert,
 		"ca-private-key": coretesting.CAKey,
 	}
-	Suite(&LiveTests{
+	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
 			TestConfig:     jujutest.TestConfig{attrs},
 			Attempt:        *ec2.ShortAttempt,
@@ -74,11 +74,11 @@ type LiveTests struct {
 	writablePublicStorage environs.Storage
 }
 
-func (t *LiveTests) SetUpSuite(c *C) {
+func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// TODO: Share code from jujutest.LiveTests for creating environment
 	e, err := environs.NewFromAttrs(t.TestConfig.Config)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Environ.PublicStorage() is read only.
 	// For testing, we create a specific storage instance which is authorised to write to
@@ -91,67 +91,67 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	t.LiveTests.SetUpSuite(c)
 }
 
-func (t *LiveTests) TearDownSuite(c *C) {
+func (t *LiveTests) TearDownSuite(c *gc.C) {
 	if t.Env == nil {
 		// This can happen if SetUpSuite fails.
 		return
 	}
 	err := t.writablePublicStorage.RemoveAll()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	t.LiveTests.TearDownSuite(c)
 	t.LoggingSuite.TearDownSuite(c)
 }
 
-func (t *LiveTests) SetUpTest(c *C) {
+func (t *LiveTests) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
-func (t *LiveTests) TearDownTest(c *C) {
+func (t *LiveTests) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
 // TODO(niemeyer): Looks like many of those tests should be moved to jujutest.LiveTests.
 
-func (t *LiveTests) TestInstanceAttributes(c *C) {
+func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 	inst, hc := testing.StartInstance(c, t.Env, "30")
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	// Sanity check for hardware characteristics.
-	c.Assert(hc.Arch, NotNil)
-	c.Assert(hc.Mem, NotNil)
-	c.Assert(hc.RootDisk, NotNil)
-	c.Assert(hc.CpuCores, NotNil)
-	c.Assert(hc.CpuPower, NotNil)
+	c.Assert(hc.Arch, gc.NotNil)
+	c.Assert(hc.Mem, gc.NotNil)
+	c.Assert(hc.RootDisk, gc.NotNil)
+	c.Assert(hc.CpuCores, gc.NotNil)
+	c.Assert(hc.CpuPower, gc.NotNil)
 	dns, err := inst.WaitDNSName()
 	// TODO(niemeyer): This assert sometimes fails with "no instances found"
-	c.Assert(err, IsNil)
-	c.Assert(dns, Not(Equals), "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(dns, gc.Not(gc.Equals), "")
 
 	insts, err := t.Env.Instances([]instance.Id{inst.Id()})
-	c.Assert(err, IsNil)
-	c.Assert(len(insts), Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(insts), gc.Equals, 1)
 
 	ec2inst := ec2.InstanceEC2(insts[0])
-	c.Assert(ec2inst.DNSName, Equals, dns)
-	c.Assert(ec2inst.InstanceType, Equals, "m1.small")
+	c.Assert(ec2inst.DNSName, gc.Equals, dns)
+	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.small")
 }
 
-func (t *LiveTests) TestStartInstanceConstraints(c *C) {
+func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
 	inst, hc, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)
-	c.Assert(ec2inst.InstanceType, Equals, "m1.medium")
-	c.Assert(*hc.Arch, Equals, "amd64")
-	c.Assert(*hc.Mem, Equals, uint64(3840))
-	c.Assert(*hc.RootDisk, Equals, uint64(8192))
-	c.Assert(*hc.CpuCores, Equals, uint64(1))
-	c.Assert(*hc.CpuPower, Equals, uint64(200))
+	c.Assert(ec2inst.InstanceType, gc.Equals, "m1.medium")
+	c.Assert(*hc.Arch, gc.Equals, "amd64")
+	c.Assert(*hc.Mem, gc.Equals, uint64(3840))
+	c.Assert(*hc.RootDisk, gc.Equals, uint64(8192))
+	c.Assert(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(200))
 }
 
-func (t *LiveTests) TestInstanceGroups(c *C) {
+func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	ec2conn := ec2.EnvironEC2(t.Env)
 
 	groups := amzec2.SecurityGroupNames(
@@ -184,7 +184,7 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 				SourceIPs: []string{"3.4.5.6/32"},
 			},
 		})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	inst0, _ := testing.StartInstance(c, t.Env, "98")
 	defer t.Env.StopInstances([]instance.Instance{inst0})
@@ -197,8 +197,8 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	defer t.Env.StopInstances([]instance.Instance{inst1})
 
 	groupsResp, err := ec2conn.SecurityGroups(groups, nil)
-	c.Assert(err, IsNil)
-	c.Assert(groupsResp.Groups, HasLen, len(groups))
+	c.Assert(err, gc.IsNil)
+	c.Assert(groupsResp.Groups, gc.HasLen, len(groups))
 
 	// For each group, check that it exists and record its id.
 	for i, group := range groups {
@@ -217,57 +217,57 @@ func (t *LiveTests) TestInstanceGroups(c *C) {
 	}
 
 	// The old juju group should have been reused.
-	c.Check(groups[0].Id, Equals, oldJujuGroup.Id)
+	c.Check(groups[0].Id, gc.Equals, oldJujuGroup.Id)
 
 	// Check that it authorizes the correct ports and there
 	// are no extra permissions (in particular we are checking
 	// that the unneeded permission that we added earlier
 	// has been deleted).
 	perms := info[0].IPPerms
-	c.Assert(perms, HasLen, 6)
+	c.Assert(perms, gc.HasLen, 6)
 	checkPortAllowed(c, perms, 22)    // SSH
 	checkPortAllowed(c, perms, 37017) // MongoDB
 	checkPortAllowed(c, perms, 17070) // API
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
-	c.Check(groups[2].Id, Equals, oldMachineGroup.Id)
+	c.Check(groups[2].Id, gc.Equals, oldMachineGroup.Id)
 
 	// Check that each instance is part of the correct groups.
 	resp, err := ec2conn.Instances([]string{string(inst0.Id()), string(inst1.Id())}, nil)
-	c.Assert(err, IsNil)
-	c.Assert(resp.Reservations, HasLen, 2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.Reservations, gc.HasLen, 2)
 	for _, r := range resp.Reservations {
-		c.Assert(r.Instances, HasLen, 1)
+		c.Assert(r.Instances, gc.HasLen, 1)
 		// each instance must be part of the general juju group.
-		msg := Commentf("reservation %#v", r)
-		c.Assert(hasSecurityGroup(r, groups[0]), Equals, true, msg)
+		msg := gc.Commentf("reservation %#v", r)
+		c.Assert(hasSecurityGroup(r, groups[0]), gc.Equals, true, msg)
 		inst := r.Instances[0]
 		switch instance.Id(inst.InstanceId) {
 		case inst0.Id():
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, false, msg)
+			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, false, msg)
 		case inst1.Id():
-			c.Assert(hasSecurityGroup(r, groups[2]), Equals, true, msg)
-			c.Assert(hasSecurityGroup(r, groups[1]), Equals, false, msg)
+			c.Assert(hasSecurityGroup(r, groups[2]), gc.Equals, true, msg)
+			c.Assert(hasSecurityGroup(r, groups[1]), gc.Equals, false, msg)
 		default:
 			c.Errorf("unknown instance found: %v", inst)
 		}
 	}
 }
 
-func (t *LiveTests) TestDestroy(c *C) {
+func (t *LiveTests) TestDestroy(c *gc.C) {
 	s := t.Env.Storage()
 	err := s.Put("foo", strings.NewReader("foo"), 3)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.Put("bar", strings.NewReader("bar"), 3)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Check that the bucket exists, so we can be sure
 	// we have checked correctly that it's been destroyed.
 	names, err := s.List("")
-	c.Assert(err, IsNil)
-	c.Assert(len(names) >= 2, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(names) >= 2, gc.Equals, true)
 
 	t.Destroy(c)
 	for a := ec2.ShortAttempt.Start(); a.Next(); {
@@ -276,23 +276,23 @@ func (t *LiveTests) TestDestroy(c *C) {
 			break
 		}
 	}
-	c.Assert(names, HasLen, 0)
+	c.Assert(names, gc.HasLen, 0)
 }
 
-func checkPortAllowed(c *C, perms []amzec2.IPPerm, port int) {
+func checkPortAllowed(c *gc.C, perms []amzec2.IPPerm, port int) {
 	for _, perm := range perms {
 		if perm.FromPort == port {
-			c.Check(perm.Protocol, Equals, "tcp")
-			c.Check(perm.ToPort, Equals, port)
-			c.Check(perm.SourceIPs, DeepEquals, []string{"0.0.0.0/0"})
-			c.Check(perm.SourceGroups, HasLen, 0)
+			c.Check(perm.Protocol, gc.Equals, "tcp")
+			c.Check(perm.ToPort, gc.Equals, port)
+			c.Check(perm.SourceIPs, gc.DeepEquals, []string{"0.0.0.0/0"})
+			c.Check(perm.SourceGroups, gc.HasLen, 0)
 			return
 		}
 	}
 	c.Errorf("ip port permission not found for %d in %#v", port, perms)
 }
 
-func checkSecurityGroupAllowed(c *C, perms []amzec2.IPPerm, g amzec2.SecurityGroup) {
+func checkSecurityGroupAllowed(c *gc.C, perms []amzec2.IPPerm, g amzec2.SecurityGroup) {
 	protos := map[string]struct {
 		fromPort int
 		toPort   int
@@ -303,16 +303,16 @@ func checkSecurityGroupAllowed(c *C, perms []amzec2.IPPerm, g amzec2.SecurityGro
 	}
 	for _, perm := range perms {
 		if len(perm.SourceGroups) > 0 {
-			c.Check(perm.SourceGroups, HasLen, 1)
-			c.Check(perm.SourceGroups[0].Id, Equals, g.Id)
+			c.Check(perm.SourceGroups, gc.HasLen, 1)
+			c.Check(perm.SourceGroups[0].Id, gc.Equals, g.Id)
 			ports, ok := protos[perm.Protocol]
 			if !ok {
 				c.Errorf("unexpected protocol in security group: %q", perm.Protocol)
 				continue
 			}
 			delete(protos, perm.Protocol)
-			c.Check(perm.FromPort, Equals, ports.fromPort)
-			c.Check(perm.ToPort, Equals, ports.toPort)
+			c.Check(perm.FromPort, gc.Equals, ports.fromPort)
+			c.Check(perm.ToPort, gc.Equals, ports.toPort)
 		}
 	}
 	if len(protos) > 0 {
@@ -320,7 +320,7 @@ func checkSecurityGroupAllowed(c *C, perms []amzec2.IPPerm, g amzec2.SecurityGro
 	}
 }
 
-func (t *LiveTests) TestStopInstances(c *C) {
+func (t *LiveTests) TestStopInstances(c *gc.C) {
 	// It would be nice if this test was in jujutest, but
 	// there's no way for jujutest to fabricate a valid-looking
 	// instance id.
@@ -329,7 +329,7 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	inst2, _ := testing.StartInstance(c, t.Env, "41")
 
 	err := t.Env.StopInstances([]instance.Instance{inst0, inst1, inst2})
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	var insts []instance.Instance
 
@@ -354,27 +354,27 @@ func (t *LiveTests) TestStopInstances(c *C) {
 	}
 }
 
-func (t *LiveTests) TestPublicStorage(c *C) {
+func (t *LiveTests) TestPublicStorage(c *gc.C) {
 	s := ec2.WritablePublicStorage(t.Env)
 
 	contents := "test"
 	err := s.Put("test-object", strings.NewReader(contents), int64(len(contents)))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	r, err := s.Get("test-object")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer r.Close()
 
 	data, err := ioutil.ReadAll(r)
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, contents)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, contents)
 
 	// Check that the public storage isn't aliased to the private storage.
 	r, err = t.Env.Storage().Get("test-object")
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func (t *LiveTests) TestPutBucketOnlyOnce(c *C) {
+func (t *LiveTests) TestPutBucketOnlyOnce(c *gc.C) {
 	s3inst := ec2.EnvironS3(t.Env)
 	b := s3inst.Bucket("test-once-" + uniqueName)
 	s := ec2.BucketStorage(b)
@@ -386,21 +386,21 @@ func (t *LiveTests) TestPutBucketOnlyOnce(c *C) {
 	// the PutBucket again.
 
 	err := s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = s.Remove("test-object")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = b.DelBucket()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = s.Put("test-object", strings.NewReader("test"), 4)
-	c.Assert(err, ErrorMatches, ".*The specified bucket does not exist")
+	c.Assert(err, gc.ErrorMatches, ".*The specified bucket does not exist")
 }
 
 // createGroup creates a new EC2 group and returns it. If it already exists,
 // it revokes all its permissions and returns the existing group.
-func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
+func createGroup(c *gc.C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityGroup {
 	resp, err := ec2conn.CreateSecurityGroup(name, descr)
 	if err == nil {
 		return resp.SecurityGroup
@@ -411,12 +411,12 @@ func createGroup(c *C, ec2conn *amzec2.EC2, name, descr string) amzec2.SecurityG
 
 	// Found duplicate group, so revoke its permissions and return it.
 	gresp, err := ec2conn.SecurityGroups(amzec2.SecurityGroupNames(name), nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	gi := gresp.Groups[0]
 	if len(gi.IPPerms) > 0 {
 		_, err = ec2conn.RevokeSecurityGroup(gi.SecurityGroup, gi.IPPerms)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	return gi.SecurityGroup
 }

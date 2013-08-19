@@ -7,7 +7,7 @@ import (
 	"flag"
 	"testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 
@@ -25,13 +25,13 @@ func Test(t *testing.T) {
 		registerLiveTests(cred)
 	}
 	registerLocalTests()
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 // localTests contains tests which do not require a live service or test double to run.
 type localTests struct{}
 
-var _ = Suite(&localTests{})
+var _ = gc.Suite(&localTests{})
 
 // ported from lp:juju/juju/providers/openstack/tests/test_machine.py
 var addressTests = []struct {
@@ -105,7 +105,7 @@ var addressTests = []struct {
 	},
 }
 
-func (t *localTests) TestGetServerAddresses(c *C) {
+func (t *localTests) TestGetServerAddresses(c *gc.C) {
 	for i, t := range addressTests {
 		c.Logf("#%d. %s -> %s (%v)", i, t.summary, t.expected, t.failure)
 		addresses := make(map[string][]nova.IPAddress)
@@ -124,6 +124,6 @@ func (t *localTests) TestGetServerAddresses(c *C) {
 			}
 		}
 		addr := openstack.InstanceAddress(addresses)
-		c.Assert(addr, Equals, t.expected)
+		c.Assert(addr, gc.Equals, t.expected)
 	}
 }
