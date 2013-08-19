@@ -13,14 +13,14 @@ import (
 	"testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/fslock"
 	"launchpad.net/tomb"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type fslockSuite struct {
@@ -28,21 +28,21 @@ type fslockSuite struct {
 	lockDelay time.Duration
 }
 
-var _ = Suite(&fslockSuite{})
+var _ = gc.Suite(&fslockSuite{})
 
-func (s *fslockSuite) SetUpSuite(c *C) {
+func (s *fslockSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.lockDelay = fslock.SetLockWaitDelay(1 * time.Millisecond)
 }
 
-func (s *fslockSuite) TearDownSuite(c *C) {
+func (s *fslockSuite) TearDownSuite(c *gc.C) {
 	fslock.SetLockWaitDelay(s.lockDelay)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
 // This test also happens to test that locks can get created when the parent
 // lock directory doesn't exist.
-func (s *fslockSuite) TestValidNamesLockDir(c *C) {
+func (s *fslockSuite) TestValidNamesLockDir(c *gc.C) {
 
 	for _, name := range []string{
 		"a",
@@ -51,11 +51,11 @@ func (s *fslockSuite) TestValidNamesLockDir(c *C) {
 	} {
 		dir := c.MkDir()
 		_, err := fslock.NewLock(dir, name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
-func (s *fslockSuite) TestInvalidNames(c *C) {
+func (s *fslockSuite) TestInvalidNames(c *gc.C) {
 
 	for _, name := range []string{
 		".start",
@@ -69,68 +69,68 @@ func (s *fslockSuite) TestInvalidNames(c *C) {
 	} {
 		dir := c.MkDir()
 		_, err := fslock.NewLock(dir, name)
-		c.Assert(err, ErrorMatches, "Invalid lock name .*")
+		c.Assert(err, gc.ErrorMatches, "Invalid lock name .*")
 	}
 }
 
-func (s *fslockSuite) TestNewLockWithExistingDir(c *C) {
+func (s *fslockSuite) TestNewLockWithExistingDir(c *gc.C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = fslock.NewLock(dir, "special")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *fslockSuite) TestNewLockWithExistingFileInPlace(c *C) {
+func (s *fslockSuite) TestNewLockWithExistingFileInPlace(c *gc.C) {
 	dir := c.MkDir()
 	err := os.MkdirAll(dir, 0755)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	path := path.Join(dir, "locks")
 	err = ioutil.WriteFile(path, []byte("foo"), 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	_, err = fslock.NewLock(path, "special")
-	c.Assert(err, ErrorMatches, `.* not a directory`)
+	c.Assert(err, gc.ErrorMatches, `.* not a directory`)
 }
 
-func (s *fslockSuite) TestIsLockHeldBasics(c *C) {
+func (s *fslockSuite) TestIsLockHeldBasics(c *gc.C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
-	c.Assert(lock.IsLockHeld(), Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.IsLockHeld(), gc.Equals, false)
 
 	err = lock.Lock("")
-	c.Assert(err, IsNil)
-	c.Assert(lock.IsLockHeld(), Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.IsLockHeld(), gc.Equals, true)
 
 	err = lock.Unlock()
-	c.Assert(err, IsNil)
-	c.Assert(lock.IsLockHeld(), Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.IsLockHeld(), gc.Equals, false)
 }
 
-func (s *fslockSuite) TestIsLockHeldTwoLocks(c *C) {
+func (s *fslockSuite) TestIsLockHeldTwoLocks(c *gc.C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock2, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock1.Lock("")
-	c.Assert(err, IsNil)
-	c.Assert(lock2.IsLockHeld(), Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock2.IsLockHeld(), gc.Equals, false)
 }
 
-func (s *fslockSuite) TestLockBlocks(c *C) {
+func (s *fslockSuite) TestLockBlocks(c *gc.C) {
 
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock2, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	acquired := make(chan struct{})
 	err = lock1.Lock("")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	go func() {
 		lock2.Lock("")
@@ -147,7 +147,7 @@ func (s *fslockSuite) TestLockBlocks(c *C) {
 	}
 
 	err = lock1.Unlock()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	select {
 	case <-acquired:
@@ -156,124 +156,124 @@ func (s *fslockSuite) TestLockBlocks(c *C) {
 		c.Fatalf("Expected lock acquisition")
 	}
 
-	c.Assert(lock2.IsLockHeld(), Equals, true)
+	c.Assert(lock2.IsLockHeld(), gc.Equals, true)
 }
 
-func (s *fslockSuite) TestLockWithTimeoutUnlocked(c *C) {
+func (s *fslockSuite) TestLockWithTimeoutUnlocked(c *gc.C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock.LockWithTimeout(10*time.Millisecond, "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *fslockSuite) TestLockWithTimeoutLocked(c *C) {
+func (s *fslockSuite) TestLockWithTimeoutLocked(c *gc.C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock2, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock1.Lock("")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock2.LockWithTimeout(10*time.Millisecond, "")
-	c.Assert(err, Equals, fslock.ErrTimeout)
+	c.Assert(err, gc.Equals, fslock.ErrTimeout)
 }
 
-func (s *fslockSuite) TestUnlock(c *C) {
+func (s *fslockSuite) TestUnlock(c *gc.C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock.Unlock()
-	c.Assert(err, Equals, fslock.ErrLockNotHeld)
+	c.Assert(err, gc.Equals, fslock.ErrLockNotHeld)
 }
 
-func (s *fslockSuite) TestIsLocked(c *C) {
+func (s *fslockSuite) TestIsLocked(c *gc.C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock2, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock1.Lock("")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(lock1.IsLocked(), Equals, true)
-	c.Assert(lock2.IsLocked(), Equals, true)
+	c.Assert(lock1.IsLocked(), gc.Equals, true)
+	c.Assert(lock2.IsLocked(), gc.Equals, true)
 }
 
-func (s *fslockSuite) TestBreakLock(c *C) {
+func (s *fslockSuite) TestBreakLock(c *gc.C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock2, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock1.Lock("")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock2.BreakLock()
-	c.Assert(err, IsNil)
-	c.Assert(lock2.IsLocked(), Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock2.IsLocked(), gc.Equals, false)
 
 	// Normally locks are broken due to client crashes, not duration.
 	err = lock1.Unlock()
-	c.Assert(err, Equals, fslock.ErrLockNotHeld)
+	c.Assert(err, gc.Equals, fslock.ErrLockNotHeld)
 
 	// Breaking a non-existant isn't an error
 	err = lock2.BreakLock()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *fslockSuite) TestMessage(c *C) {
+func (s *fslockSuite) TestMessage(c *gc.C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
-	c.Assert(lock.Message(), Equals, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.Message(), gc.Equals, "")
 
 	err = lock.Lock("my message")
-	c.Assert(err, IsNil)
-	c.Assert(lock.Message(), Equals, "my message")
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.Message(), gc.Equals, "my message")
 
 	// Unlocking removes the message.
 	err = lock.Unlock()
-	c.Assert(err, IsNil)
-	c.Assert(lock.Message(), Equals, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.Message(), gc.Equals, "")
 }
 
-func (s *fslockSuite) TestMessageAcrossLocks(c *C) {
+func (s *fslockSuite) TestMessageAcrossLocks(c *gc.C) {
 	dir := c.MkDir()
 	lock1, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock2, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock1.Lock("very busy")
-	c.Assert(err, IsNil)
-	c.Assert(lock2.Message(), Equals, "very busy")
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock2.Message(), gc.Equals, "very busy")
 }
 
-func (s *fslockSuite) TestInitialMessageWhenLocking(c *C) {
+func (s *fslockSuite) TestInitialMessageWhenLocking(c *gc.C) {
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock.Lock("initial message")
-	c.Assert(err, IsNil)
-	c.Assert(lock.Message(), Equals, "initial message")
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.Message(), gc.Equals, "initial message")
 
 	err = lock.Unlock()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = lock.LockWithTimeout(10*time.Millisecond, "initial timeout message")
-	c.Assert(err, IsNil)
-	c.Assert(lock.Message(), Equals, "initial timeout message")
+	c.Assert(err, gc.IsNil)
+	c.Assert(lock.Message(), gc.Equals, "initial timeout message")
 }
 
-func (s *fslockSuite) TestStress(c *C) {
+func (s *fslockSuite) TestStress(c *gc.C) {
 	const lockAttempts = 200
 	const concurrentLocks = 10
 
@@ -295,9 +295,9 @@ func (s *fslockSuite) TestStress(c *C) {
 		}
 		for i := 0; i < lockAttempts; i++ {
 			err = lock.Lock(name)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			state := atomic.AddInt32(lockState, 1)
-			c.Assert(state, Equals, int32(1))
+			c.Assert(state, gc.Equals, int32(1))
 			// Tell the go routine scheduler to give a slice to someone else
 			// while we have this locked.
 			runtime.Gosched()
@@ -305,7 +305,7 @@ func (s *fslockSuite) TestStress(c *C) {
 			// else grabbing the lock before we decrement the state.
 			atomic.AddInt32(lockState, -1)
 			err = lock.Unlock()
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			// increment the general counter
 			atomic.AddInt64(counter, 1)
 		}
@@ -317,19 +317,19 @@ func (s *fslockSuite) TestStress(c *C) {
 	for i := 0; i < concurrentLocks; i++ {
 		<-done
 	}
-	c.Assert(*counter, Equals, int64(lockAttempts*concurrentLocks))
+	c.Assert(*counter, gc.Equals, int64(lockAttempts*concurrentLocks))
 }
 
-func (s *fslockSuite) TestTomb(c *C) {
+func (s *fslockSuite) TestTomb(c *gc.C) {
 	const timeToDie = 200 * time.Millisecond
 	die := tomb.Tomb{}
 
 	dir := c.MkDir()
 	lock, err := fslock.NewLock(dir, "testing")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	// Just use one lock, and try to lock it twice.
 	err = lock.Lock("very busy")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	checkTomb := func() error {
 		select {
@@ -347,7 +347,7 @@ func (s *fslockSuite) TestTomb(c *C) {
 	}()
 
 	err = lock.LockWithFunc("won't happen", checkTomb)
-	c.Assert(err, Equals, tomb.ErrDying)
-	c.Assert(lock.Message(), Equals, "very busy")
+	c.Assert(err, gc.Equals, tomb.ErrDying)
+	c.Assert(lock.Message(), gc.Equals, "very busy")
 
 }

@@ -7,7 +7,7 @@ import (
 	"errors"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
@@ -18,9 +18,9 @@ type pollingSuite struct {
 	originalLongAttempt utils.AttemptStrategy
 }
 
-var _ = Suite(&pollingSuite{})
+var _ = gc.Suite(&pollingSuite{})
 
-func (s *pollingSuite) SetUpSuite(c *C) {
+func (s *pollingSuite) SetUpSuite(c *gc.C) {
 	s.originalLongAttempt = environs.LongAttempt
 	// The implementation of AttemptStrategy does not yield at all for a
 	// delay that's already expired.  So while this setting must be short
@@ -34,7 +34,7 @@ func (s *pollingSuite) SetUpSuite(c *C) {
 	}
 }
 
-func (s *pollingSuite) TearDownSuite(c *C) {
+func (s *pollingSuite) TearDownSuite(c *gc.C) {
 	environs.LongAttempt = s.originalLongAttempt
 }
 
@@ -60,31 +60,31 @@ func (inst *dnsNameFakeInstance) WaitDNSName() (string, error) {
 
 func (*dnsNameFakeInstance) Id() instance.Id { return "" }
 
-func (pollingSuite) TestWaitDNSNameReturnsDNSNameIfAvailable(c *C) {
+func (pollingSuite) TestWaitDNSNameReturnsDNSNameIfAvailable(c *gc.C) {
 	inst := dnsNameFakeInstance{name: "anansi"}
 	name, err := environs.WaitDNSName(&inst)
-	c.Assert(err, IsNil)
-	c.Check(name, Equals, "anansi")
+	c.Assert(err, gc.IsNil)
+	c.Check(name, gc.Equals, "anansi")
 }
 
-func (pollingSuite) TestWaitDNSNamePollsOnErrNoDNSName(c *C) {
+func (pollingSuite) TestWaitDNSNamePollsOnErrNoDNSName(c *gc.C) {
 	inst := dnsNameFakeInstance{err: instance.ErrNoDNSName}
 	_, err := environs.WaitDNSName(&inst)
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, ".*timed out trying to get DNS address.*")
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, ".*timed out trying to get DNS address.*")
 }
 
-func (pollingSuite) TestWaitDNSNamePropagatesFailure(c *C) {
+func (pollingSuite) TestWaitDNSNamePropagatesFailure(c *gc.C) {
 	failure := errors.New("deliberate failure")
 	inst := dnsNameFakeInstance{err: failure}
 	_, err := environs.WaitDNSName(&inst)
-	c.Assert(err, NotNil)
-	c.Check(err, Equals, failure)
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.Equals, failure)
 }
 
-func (pollingSuite) TestInstanceWaitDNSDelegatesToSharedWaitDNS(c *C) {
+func (pollingSuite) TestInstanceWaitDNSDelegatesToSharedWaitDNS(c *gc.C) {
 	inst := dnsNameFakeInstance{name: "anansi"}
 	name, err := inst.WaitDNSName()
-	c.Assert(err, IsNil)
-	c.Check(name, Equals, "anansi")
+	c.Assert(err, gc.IsNil)
+	c.Check(name, gc.Equals, "anansi")
 }

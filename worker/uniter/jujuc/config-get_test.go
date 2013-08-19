@@ -8,7 +8,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
@@ -19,7 +19,7 @@ type ConfigGetSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&ConfigGetSuite{})
+var _ = gc.Suite(&ConfigGetSuite{})
 
 var configGetKeyTests = []struct {
 	args []string
@@ -36,17 +36,17 @@ var configGetKeyTests = []struct {
 	{[]string{"--format", "json", "missing"}, "null\n"},
 }
 
-func (s *ConfigGetSuite) TestOutputFormatKey(c *C) {
+func (s *ConfigGetSuite) TestOutputFormatKey(c *gc.C) {
 	for i, t := range configGetKeyTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "config-get")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Matches, t.out)
 	}
 }
 
@@ -98,36 +98,36 @@ var configGetAllTests = []struct {
 	{[]string{"-a", "--format", "json"}, formatJson, configGetJsonMapAll},
 }
 
-func (s *ConfigGetSuite) TestOutputFormatAll(c *C) {
+func (s *ConfigGetSuite) TestOutputFormatAll(c *gc.C) {
 	for i, t := range configGetAllTests {
 		c.Logf("test %d: %#v", i, t.args)
 		hctx := s.GetHookContext(c, -1, "")
 		com, err := jujuc.NewCommand(hctx, "config-get")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 
 		out := map[string]interface{}{}
 		switch t.format {
 		case formatYaml:
-			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), IsNil)
+			c.Assert(goyaml.Unmarshal(bufferBytes(ctx.Stdout), &out), gc.IsNil)
 		case formatJson:
-			c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &out), IsNil)
+			c.Assert(json.Unmarshal(bufferBytes(ctx.Stdout), &out), gc.IsNil)
 		}
-		c.Assert(out, DeepEquals, t.out)
+		c.Assert(out, gc.DeepEquals, t.out)
 	}
 }
 
-func (s *ConfigGetSuite) TestHelp(c *C) {
+func (s *ConfigGetSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
-	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, `usage: config-get [options] [<key>]
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: config-get [options] [<key>]
 purpose: print service configuration
 
 options:
@@ -142,36 +142,36 @@ When no <key> is supplied, all keys with values or defaults are printed. If
 --all is set, all known keys are printed; those without defaults or values are
 reported as null. <key> and --all are mutually exclusive.
 `)
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-func (s *ConfigGetSuite) TestOutputPath(c *C) {
+func (s *ConfigGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "monsters"})
-	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
-	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "False\n")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, "False\n")
 }
 
-func (s *ConfigGetSuite) TestUnknownArg(c *C) {
+func (s *ConfigGetSuite) TestUnknownArg(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	testing.TestInit(c, com, []string{"multiple", "keys"}, `unrecognized args: \["keys"\]`)
 }
 
-func (s *ConfigGetSuite) TestAllPlusKey(c *C) {
+func (s *ConfigGetSuite) TestAllPlusKey(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "config-get")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--all", "--format", "json", "monsters"})
-	c.Assert(code, Equals, 2)
-	c.Assert(bufferString(ctx.Stderr), Equals, "error: cannot use argument --all together with key \"monsters\"\n")
+	c.Assert(code, gc.Equals, 2)
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "error: cannot use argument --all together with key \"monsters\"\n")
 }

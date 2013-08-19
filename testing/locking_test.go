@@ -7,14 +7,14 @@ import (
 	"errors"
 	"sync"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 )
 
 type LockingSuite struct{}
 
-var _ = Suite(&LockingSuite{})
+var _ = gc.Suite(&LockingSuite{})
 
-func (LockingSuite) TestTestLockingFunctionPassesCorrectLock(c *C) {
+func (LockingSuite) TestTestLockingFunctionPassesCorrectLock(c *gc.C) {
 	lock := sync.Mutex{}
 	function := func() {
 		lock.Lock()
@@ -24,16 +24,16 @@ func (LockingSuite) TestTestLockingFunctionPassesCorrectLock(c *C) {
 	TestLockingFunction(&lock, function)
 }
 
-func (LockingSuite) TestTestLockingFunctionDetectsDisobeyedLock(c *C) {
+func (LockingSuite) TestTestLockingFunctionDetectsDisobeyedLock(c *gc.C) {
 	lock := sync.Mutex{}
 	function := func() {}
 	c.Check(
 		func() { TestLockingFunction(&lock, function) },
-		Panics,
+		gc.Panics,
 		errors.New("function did not obey lock"))
 }
 
-func (LockingSuite) TestTestLockingFunctionDetectsFailureToReleaseLock(c *C) {
+func (LockingSuite) TestTestLockingFunctionDetectsFailureToReleaseLock(c *gc.C) {
 	lock := sync.Mutex{}
 	defer lock.Unlock()
 	function := func() {
@@ -41,6 +41,6 @@ func (LockingSuite) TestTestLockingFunctionDetectsFailureToReleaseLock(c *C) {
 	}
 	c.Check(
 		func() { TestLockingFunction(&lock, function) },
-		Panics,
+		gc.Panics,
 		errors.New("function did not release lock"))
 }

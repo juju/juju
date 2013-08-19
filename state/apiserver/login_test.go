@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/params"
@@ -16,7 +16,7 @@ type loginSuite struct {
 	jujutesting.JujuConnSuite
 }
 
-var _ = Suite(&loginSuite{})
+var _ = gc.Suite(&loginSuite{})
 
 var badLoginTests = []struct {
 	tag      string
@@ -39,7 +39,7 @@ var badLoginTests = []struct {
 	err:      `"bar" is not a valid tag`,
 }}
 
-func (s *loginSuite) TestBadLogin(c *C) {
+func (s *loginSuite) TestBadLogin(c *gc.C) {
 	// Start our own server so we can control when the first login
 	// happens. Otherwise in JujuConnSuite.SetUpTest api.Open is
 	// called with user-admin permissions automatically.
@@ -49,10 +49,10 @@ func (s *loginSuite) TestBadLogin(c *C) {
 		[]byte(coretesting.ServerCert),
 		[]byte(coretesting.ServerKey),
 	)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer func() {
 		err := srv.Stop()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}()
 
 	info := &api.Info{
@@ -71,19 +71,19 @@ func (s *loginSuite) TestBadLogin(c *C) {
 		info.Password = ""
 		func() {
 			st, err := api.Open(info, fastDialOpts)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			defer st.Close()
 
 			_, err = st.Machiner().Machine("0")
-			c.Assert(err, ErrorMatches, `unknown object type "Machiner"`)
+			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 
 			// Since these are user login tests, the nonce is empty.
 			err = st.Login(t.tag, t.password, "")
-			c.Assert(err, ErrorMatches, t.err)
-			c.Assert(params.ErrCode(err), Equals, t.code)
+			c.Assert(err, gc.ErrorMatches, t.err)
+			c.Assert(params.ErrCode(err), gc.Equals, t.code)
 
 			_, err = st.Machiner().Machine("0")
-			c.Assert(err, ErrorMatches, `unknown object type "Machiner"`)
+			c.Assert(err, gc.ErrorMatches, `unknown object type "Machiner"`)
 		}()
 	}
 }

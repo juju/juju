@@ -5,7 +5,7 @@ package apiserver_test
 
 import (
 	stderrors "errors"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -17,7 +17,7 @@ type errorsSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&errorsSuite{})
+var _ = gc.Suite(&errorsSuite{})
 
 var errorTransformTests = []struct {
 	err  error
@@ -75,14 +75,14 @@ var errorTransformTests = []struct {
 	code: "",
 }}
 
-func (s *errorsSuite) TestErrorTransform(c *C) {
+func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	for _, t := range errorTransformTests {
 		err1 := common.ServerError(t.err)
 		if t.err == nil {
-			c.Assert(err1, IsNil)
+			c.Assert(err1, gc.IsNil)
 		} else {
-			c.Assert(err1.Message, Equals, t.err.Error())
-			c.Assert(err1.Code, Equals, t.code)
+			c.Assert(err1.Message, gc.Equals, t.err.Error())
+			c.Assert(err1.Code, gc.Equals, t.code)
 		}
 	}
 }

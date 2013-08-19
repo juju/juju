@@ -4,7 +4,7 @@
 package statecmd_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -15,7 +15,7 @@ type DestroySuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&DestroySuite{})
+var _ = gc.Suite(&DestroySuite{})
 
 var serviceDestroyTests = []struct {
 	about   string
@@ -38,11 +38,11 @@ var serviceDestroyTests = []struct {
 	},
 }
 
-func (s *DestroySuite) TestServiceDestroy(c *C) {
+func (s *DestroySuite) TestServiceDestroy(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", charm)
-	c.Assert(err, IsNil)
-	c.Assert(svc.Life(), Equals, state.Alive)
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.Life(), gc.Equals, state.Alive)
 	c.Logf("Svc: %+v", svc)
 
 	for i, t := range serviceDestroyTests {
@@ -51,9 +51,9 @@ func (s *DestroySuite) TestServiceDestroy(c *C) {
 			ServiceName: t.service,
 		})
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		}
 	}
 }
