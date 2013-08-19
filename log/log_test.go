@@ -9,14 +9,14 @@ import (
 	"testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/log"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type testWriter struct {
@@ -29,56 +29,56 @@ type suite struct {
 	oldLevel  loggo.Level
 }
 
-var _ = Suite(&suite{})
+var _ = gc.Suite(&suite{})
 
 func (t *testWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
 	t.Buffer.WriteString(fmt.Sprintf("%s %s %s", level, module, message))
 }
 
-func (s *suite) SetUpTest(c *C) {
+func (s *suite) SetUpTest(c *gc.C) {
 	var err error
 	s.writer = &testWriter{}
 	s.oldWriter, s.oldLevel, err = loggo.RemoveWriter("default")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = loggo.RegisterWriter("test", s.writer, loggo.TRACE)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	logger := loggo.GetLogger("juju")
 	logger.SetLogLevel(loggo.TRACE)
 }
 
-func (s *suite) TearDownTest(c *C) {
+func (s *suite) TearDownTest(c *gc.C) {
 	_, _, err := loggo.RemoveWriter("test")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *suite) TestLoggerDebug(c *C) {
+func (s *suite) TestLoggerDebug(c *gc.C) {
 	input := "Hello World"
 	log.Debugf(input)
-	c.Assert(s.writer.String(), Equals, "DEBUG juju "+input)
+	c.Assert(s.writer.String(), gc.Equals, "DEBUG juju "+input)
 }
 
-func (s *suite) TestInfoLogger(c *C) {
+func (s *suite) TestInfoLogger(c *gc.C) {
 	input := "Hello World"
 	log.Infof(input)
-	c.Assert(s.writer.String(), Equals, "INFO juju "+input)
+	c.Assert(s.writer.String(), gc.Equals, "INFO juju "+input)
 }
 
-func (s *suite) TestErrorLogger(c *C) {
+func (s *suite) TestErrorLogger(c *gc.C) {
 	input := "Hello World"
 	log.Errorf(input)
-	c.Assert(s.writer.String(), Equals, "ERROR juju "+input)
+	c.Assert(s.writer.String(), gc.Equals, "ERROR juju "+input)
 }
 
-func (s *suite) TestWarningLogger(c *C) {
+func (s *suite) TestWarningLogger(c *gc.C) {
 	input := "Hello World"
 	log.Warningf(input)
-	c.Assert(s.writer.String(), Equals, "WARNING juju "+input)
+	c.Assert(s.writer.String(), gc.Equals, "WARNING juju "+input)
 }
 
-func (s *suite) TestNoticeLogger(c *C) {
+func (s *suite) TestNoticeLogger(c *gc.C) {
 	input := "Hello World"
 	log.Noticef(input)
-	c.Assert(s.writer.String(), Equals, "INFO juju "+input)
+	c.Assert(s.writer.String(), gc.Equals, "INFO juju "+input)
 }

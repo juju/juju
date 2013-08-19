@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
@@ -18,9 +18,9 @@ type TestingEnvironSuite struct {
 	jujuHome string
 }
 
-var _ = Suite(&TestingEnvironSuite{})
+var _ = gc.Suite(&TestingEnvironSuite{})
 
-func (s *TestingEnvironSuite) SetUpTest(c *C) {
+func (s *TestingEnvironSuite) SetUpTest(c *gc.C) {
 	s.home = os.Getenv("HOME")
 	s.jujuHome = os.Getenv("JUJU_HOME")
 
@@ -29,28 +29,28 @@ func (s *TestingEnvironSuite) SetUpTest(c *C) {
 	config.SetJujuHome("/home/eric/juju")
 }
 
-func (s *TestingEnvironSuite) TearDownTest(c *C) {
+func (s *TestingEnvironSuite) TearDownTest(c *gc.C) {
 	os.Setenv("HOME", s.home)
 	os.Setenv("JUJU_HOME", s.jujuHome)
 }
 
-func (s *TestingEnvironSuite) TestFakeHomeReplacesEnvironment(c *C) {
+func (s *TestingEnvironSuite) TestFakeHomeReplacesEnvironment(c *gc.C) {
 	_ = testing.MakeEmptyFakeHome(c)
-	c.Assert(os.Getenv("HOME"), Not(Equals), "/home/eric")
-	c.Assert(os.Getenv("JUJU_HOME"), Equals, "")
-	c.Assert(config.JujuHome(), Not(Equals), "/home/eric/juju")
+	c.Assert(os.Getenv("HOME"), gc.Not(gc.Equals), "/home/eric")
+	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, "")
+	c.Assert(config.JujuHome(), gc.Not(gc.Equals), "/home/eric/juju")
 }
 
-func (s *TestingEnvironSuite) TestFakeHomeRestoresEnvironment(c *C) {
+func (s *TestingEnvironSuite) TestFakeHomeRestoresEnvironment(c *gc.C) {
 	fake := testing.MakeEmptyFakeHome(c)
 	fake.Restore()
-	c.Assert(os.Getenv("HOME"), Equals, "/home/eric")
-	c.Assert(os.Getenv("JUJU_HOME"), Equals, "/home/eric/juju")
-	c.Assert(config.JujuHome(), Equals, "/home/eric/juju")
+	c.Assert(os.Getenv("HOME"), gc.Equals, "/home/eric")
+	c.Assert(os.Getenv("JUJU_HOME"), gc.Equals, "/home/eric/juju")
+	c.Assert(config.JujuHome(), gc.Equals, "/home/eric/juju")
 }
 
-func (s *TestingEnvironSuite) TestFakeHomeSetsConfigJujuHome(c *C) {
+func (s *TestingEnvironSuite) TestFakeHomeSetsConfigJujuHome(c *gc.C) {
 	_ = testing.MakeEmptyFakeHome(c)
 	expected := filepath.Join(os.Getenv("HOME"), ".juju")
-	c.Assert(config.JujuHome(), Equals, expected)
+	c.Assert(config.JujuHome(), gc.Equals, expected)
 }

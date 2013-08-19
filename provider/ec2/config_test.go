@@ -8,7 +8,7 @@ package ec2
 import (
 	"io/ioutil"
 	"launchpad.net/goamz/aws"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -24,7 +24,7 @@ type ConfigSuite struct {
 	savedHome, savedAccessKey, savedSecretKey string
 }
 
-var _ = Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 var configTestRegion = aws.Region{
 	Name:        "configtest",
@@ -53,7 +53,7 @@ type configTest struct {
 
 type attrs map[string]interface{}
 
-func (t configTest) check(c *C) {
+func (t configTest) check(c *gc.C) {
 	envs := attrs{
 		"environments": attrs{
 			"testenv": attrs{
@@ -71,21 +71,21 @@ func (t configTest) check(c *C) {
 		testenv["control-bucket"] = "x"
 	}
 	data, err := goyaml.Marshal(envs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	es, err := environs.ReadEnvironsBytes(data)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	e, err := es.Open("testenv")
 	if t.change != nil {
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Testing a change in configuration.
 		var old, changed, valid *config.Config
 		ec2env := e.(*environ)
 		old = ec2env.ecfg().Config
 		changed, err = old.Apply(t.change)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Keep err for validation below.
 		valid, err = providerInstance.Validate(changed, old)
@@ -94,48 +94,48 @@ func (t configTest) check(c *C) {
 		}
 	}
 	if t.err != "" {
-		c.Check(err, ErrorMatches, t.err)
+		c.Check(err, gc.ErrorMatches, t.err)
 		return
 	}
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	ecfg := e.(*environ).ecfg()
-	c.Assert(ecfg.Name(), Equals, "testenv")
-	c.Assert(ecfg.controlBucket(), Equals, "x")
+	c.Assert(ecfg.Name(), gc.Equals, "testenv")
+	c.Assert(ecfg.controlBucket(), gc.Equals, "x")
 	if t.region != "" {
-		c.Assert(ecfg.region(), Equals, t.region)
+		c.Assert(ecfg.region(), gc.Equals, t.region)
 	}
 	if t.pbucket != "" {
-		c.Assert(ecfg.publicBucket(), Equals, t.pbucket)
+		c.Assert(ecfg.publicBucket(), gc.Equals, t.pbucket)
 	}
 	if t.accessKey != "" {
-		c.Assert(ecfg.accessKey(), Equals, t.accessKey)
-		c.Assert(ecfg.secretKey(), Equals, t.secretKey)
+		c.Assert(ecfg.accessKey(), gc.Equals, t.accessKey)
+		c.Assert(ecfg.secretKey(), gc.Equals, t.secretKey)
 		expected := map[string]interface{}{
 			"access-key": t.accessKey,
 			"secret-key": t.secretKey,
 		}
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		actual, err := e.Provider().SecretAttrs(ecfg.Config)
-		c.Assert(err, IsNil)
-		c.Assert(expected, DeepEquals, actual)
+		c.Assert(err, gc.IsNil)
+		c.Assert(expected, gc.DeepEquals, actual)
 	} else {
-		c.Assert(ecfg.accessKey(), DeepEquals, testAuth.AccessKey)
-		c.Assert(ecfg.secretKey(), DeepEquals, testAuth.SecretKey)
+		c.Assert(ecfg.accessKey(), gc.DeepEquals, testAuth.AccessKey)
+		c.Assert(ecfg.secretKey(), gc.DeepEquals, testAuth.SecretKey)
 	}
 	if t.firewallMode != "" {
-		c.Assert(ecfg.FirewallMode(), Equals, t.firewallMode)
+		c.Assert(ecfg.FirewallMode(), gc.Equals, t.firewallMode)
 	}
 	for name, expect := range t.expect {
 		actual, found := ecfg.UnknownAttrs()[name]
-		c.Check(found, Equals, true)
-		c.Check(actual, Equals, expect)
+		c.Check(found, gc.Equals, true)
+		c.Check(actual, gc.Equals, expect)
 	}
 
 	// check storage buckets are configured correctly
 	env := e.(*environ)
-	c.Assert(env.Storage().(*storage).bucket.Region.Name, Equals, ecfg.region())
-	c.Assert(env.PublicStorage().(*storage).bucket.Region.Name, Equals, ecfg.publicBucketRegion())
+	c.Assert(env.Storage().(*storage).bucket.Region.Name, gc.Equals, ecfg.region())
+	c.Assert(env.PublicStorage().(*storage).bucket.Region.Name, gc.Equals, ecfg.publicBucketRegion())
 }
 
 var configTests = []configTest{
@@ -300,7 +300,7 @@ func indent(s string, with string) string {
 	return r
 }
 
-func (s *ConfigSuite) SetUpTest(c *C) {
+func (s *ConfigSuite) SetUpTest(c *gc.C) {
 	s.savedHome = os.Getenv("HOME")
 	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -308,9 +308,9 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 	home := c.MkDir()
 	sshDir := filepath.Join(home, ".ssh")
 	err := os.Mkdir(sshDir, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = ioutil.WriteFile(filepath.Join(sshDir, "id_rsa.pub"), []byte("sshkey\n"), 0666)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	os.Setenv("HOME", home)
 	os.Setenv("AWS_ACCESS_KEY_ID", testAuth.AccessKey)
@@ -318,21 +318,21 @@ func (s *ConfigSuite) SetUpTest(c *C) {
 	aws.Regions["configtest"] = configTestRegion
 }
 
-func (s *ConfigSuite) TearDownTest(c *C) {
+func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	os.Setenv("HOME", s.savedHome)
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")
 }
 
-func (s *ConfigSuite) TestConfig(c *C) {
+func (s *ConfigSuite) TestConfig(c *gc.C) {
 	for i, t := range configTests {
 		c.Logf("test %d: %v", i, t.config)
 		t.check(c)
 	}
 }
 
-func (s *ConfigSuite) TestMissingAuth(c *C) {
+func (s *ConfigSuite) TestMissingAuth(c *gc.C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", "")
 	os.Setenv("AWS_SECRET_ACCESS_KEY", "")
 	// Since r37 goamz uses these as fallbacks, so unset them too.

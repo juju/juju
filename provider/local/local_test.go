@@ -6,7 +6,7 @@ package local_test
 import (
 	stdtesting "testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/provider"
@@ -15,17 +15,17 @@ import (
 )
 
 func TestLocal(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type localSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&localSuite{})
+var _ = gc.Suite(&localSuite{})
 
-func (*localSuite) TestProviderRegistered(c *C) {
+func (*localSuite) TestProviderRegistered(c *gc.C) {
 	provider, error := environs.Provider(provider.Local)
-	c.Assert(error, IsNil)
-	c.Assert(provider, DeepEquals, &local.Provider)
+	c.Assert(error, gc.IsNil)
+	c.Assert(provider, gc.DeepEquals, &local.Provider)
 }

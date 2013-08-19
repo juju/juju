@@ -4,7 +4,7 @@
 package environs_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/provider/dummy"
@@ -18,7 +18,7 @@ type MongoToolsSuite struct {
 	dataDir string
 }
 
-func (t *MongoToolsSuite) SetUpTest(c *C) {
+func (t *MongoToolsSuite) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	env, err := environs.NewFromAttrs(map[string]interface{}{
 		"name":            "test",
@@ -28,12 +28,12 @@ func (t *MongoToolsSuite) SetUpTest(c *C) {
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	t.env = env
 	t.dataDir = c.MkDir()
 }
 
-func (t *MongoToolsSuite) TearDownTest(c *C) {
+func (t *MongoToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	t.LoggingSuite.TearDownTest(c)
 }

@@ -4,7 +4,7 @@
 package environs
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/testing"
@@ -15,17 +15,17 @@ type EnvironsCertSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&EnvironsCertSuite{})
+var _ = gc.Suite(&EnvironsCertSuite{})
 
 type testCerts struct {
 	cert []byte
 	key  []byte
 }
 
-func (*EnvironsCertSuite) TestGenerateCertificate(c *C) {
+func (*EnvironsCertSuite) TestGenerateCertificate(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
 	env, err := PrepareFromName(testing.SampleEnvName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	var savedCerts testCerts
 	writeFunc := func(name string, cert, key []byte) error {
@@ -38,13 +38,13 @@ func (*EnvironsCertSuite) TestGenerateCertificate(c *C) {
 	// Check that the cert and key have been set correctly in the configuration
 	cfgCertPEM, cfgCertOK := env.Config().CACert()
 	cfgKeyPEM, cfgKeyOK := env.Config().CAPrivateKey()
-	c.Assert(cfgCertOK, Equals, true)
-	c.Assert(cfgKeyOK, Equals, true)
-	c.Assert(cfgCertPEM, DeepEquals, savedCerts.cert)
-	c.Assert(cfgKeyPEM, DeepEquals, savedCerts.key)
+	c.Assert(cfgCertOK, gc.Equals, true)
+	c.Assert(cfgKeyOK, gc.Equals, true)
+	c.Assert(cfgCertPEM, gc.DeepEquals, savedCerts.cert)
+	c.Assert(cfgKeyPEM, gc.DeepEquals, savedCerts.key)
 
 	// Check the common name of the generated cert
 	caCert, _, err := cert.ParseCertAndKey(cfgCertPEM, cfgKeyPEM)
-	c.Assert(err, IsNil)
-	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
+	c.Assert(err, gc.IsNil)
+	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "`+testing.SampleEnvName+`"`)
 }

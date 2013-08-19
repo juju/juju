@@ -4,7 +4,7 @@
 package statecmd_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
@@ -16,50 +16,50 @@ type DestroyRelationSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&DestroyRelationSuite{})
+var _ = gc.Suite(&DestroyRelationSuite{})
 
-func (s *DestroyRelationSuite) setUpDestroyRelationScenario(c *C) {
+func (s *DestroyRelationSuite) setUpDestroyRelationScenario(c *gc.C) {
 	// Create some services.
 	_, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	_, err = s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *DestroyRelationSuite) TestAttemptDestroyingNonExistentRelation(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingNonExistentRelation(c *gc.C) {
 	s.setUpDestroyRelationScenario(c)
 	err := statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"riak", "wordpress"},
 	})
-	c.Assert(err, ErrorMatches, "no relations found")
+	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
-func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelation(c *C) {
+func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelation(c *gc.C) {
 	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Show that the relation was removed.
 	c.Assert(rel.Refresh(), checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
+func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *gc.C) {
 	// Show that the order of the services listed in the DestroyRelation call
 	// does not matter.  This is a repeat of the previous test with the service
 	// names swapped.
@@ -67,56 +67,56 @@ func (s *DestroyRelationSuite) TestSuccessfullyDestroyRelationSwapped(c *C) {
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"mysql", "wordpress"},
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Show that the relation was removed.
 	c.Assert(rel.Refresh(), checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *DestroyRelationSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingWithOnlyOneEndpoint(c *gc.C) {
 	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress"},
 	})
-	c.Assert(err, ErrorMatches, "no relations found")
+	c.Assert(err, gc.ErrorMatches, "no relations found")
 }
 
-func (s *DestroyRelationSuite) TestAttemptDestroyingPeerRelation(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingPeerRelation(c *gc.C) {
 	s.setUpDestroyRelationScenario(c)
 
 	err := statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"riak:ring"},
 	})
-	c.Assert(err, ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
 }
 
-func (s *DestroyRelationSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *C) {
+func (s *DestroyRelationSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *gc.C) {
 	s.setUpDestroyRelationScenario(c)
 
 	// Add a relation between wordpress and mysql.
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Show that the relation was removed.
 	c.Assert(rel.Refresh(), checkers.Satisfies, errors.IsNotFoundError)
@@ -125,5 +125,5 @@ func (s *DestroyRelationSuite) TestAttemptDestroyingAlreadyDestroyedRelation(c *
 	err = statecmd.DestroyRelation(s.State, params.DestroyRelation{
 		Endpoints: []string{"wordpress", "mysql"},
 	})
-	c.Assert(err, ErrorMatches, `relation "wordpress:db mysql:server" not found`)
+	c.Assert(err, gc.ErrorMatches, `relation "wordpress:db mysql:server" not found`)
 }

@@ -13,7 +13,7 @@ import (
 	"launchpad.net/goamz/ec2/ec2test"
 	"launchpad.net/goamz/s3"
 	"launchpad.net/goamz/s3/s3test"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/constraints"
@@ -30,9 +30,9 @@ import (
 
 type ProviderSuite struct{}
 
-var _ = Suite(&ProviderSuite{})
+var _ = gc.Suite(&ProviderSuite{})
 
-func (s *ProviderSuite) TestMetadata(c *C) {
+func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	metadataContent := map[string]string{
 		"/2011-01-01/meta-data/public-hostname": "public.dummy.address.invalid",
 		"/2011-01-01/meta-data/local-hostname":  "private.dummy.address.invalid",
@@ -41,15 +41,15 @@ func (s *ProviderSuite) TestMetadata(c *C) {
 	defer ec2.UseTestMetadata(nil)
 
 	p, err := environs.Provider("ec2")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	addr, err := p.PublicAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "public.dummy.address.invalid")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "public.dummy.address.invalid")
 
 	addr, err = p.PrivateAddress()
-	c.Assert(err, IsNil)
-	c.Assert(addr, Equals, "private.dummy.address.invalid")
+	c.Assert(err, gc.IsNil)
+	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
 }
 
 func registerLocalTests() {
@@ -73,19 +73,19 @@ func registerLocalTests() {
 		"ca-private-key":       testing.CAKey,
 	}
 
-	Suite(&localServerSuite{
+	gc.Suite(&localServerSuite{
 		Tests: jujutest.Tests{
 			TestConfig: jujutest.TestConfig{attrs},
 		},
 	})
-	Suite(&localLiveSuite{
+	gc.Suite(&localLiveSuite{
 		LiveTests: LiveTests{
 			LiveTests: jujutest.LiveTests{
 				TestConfig: jujutest.TestConfig{attrs},
 			},
 		},
 	})
-	Suite(&localNonUSEastSuite{
+	gc.Suite(&localNonUSEastSuite{
 		tests: jujutest.Tests{
 			TestConfig: jujutest.TestConfig{attrs},
 		},
@@ -107,7 +107,7 @@ type localLiveSuite struct {
 	restoreTimeouts func()
 }
 
-func (t *localLiveSuite) SetUpSuite(c *C) {
+func (t *localLiveSuite) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
@@ -118,7 +118,7 @@ func (t *localLiveSuite) SetUpSuite(c *C) {
 	t.restoreTimeouts = envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
 }
 
-func (t *localLiveSuite) TearDownSuite(c *C) {
+func (t *localLiveSuite) TearDownSuite(c *gc.C) {
 	t.LiveTests.TearDownSuite(c)
 	t.srv.stopServer(c)
 	t.env = nil
@@ -129,12 +129,12 @@ func (t *localLiveSuite) TearDownSuite(c *C) {
 	t.LoggingSuite.TearDownSuite(c)
 }
 
-func (t *localLiveSuite) SetUpTest(c *C) {
+func (t *localLiveSuite) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.LiveTests.SetUpTest(c)
 }
 
-func (t *localLiveSuite) TearDownTest(c *C) {
+func (t *localLiveSuite) TearDownTest(c *gc.C) {
 	t.LiveTests.TearDownTest(c)
 	t.LoggingSuite.TearDownTest(c)
 }
@@ -147,7 +147,7 @@ type localServer struct {
 	config *s3test.Config
 }
 
-func (srv *localServer) startServer(c *C) {
+func (srv *localServer) startServer(c *gc.C) {
 	var err error
 	srv.ec2srv, err = ec2test.NewServer()
 	if err != nil {
@@ -171,7 +171,7 @@ func (srv *localServer) startServer(c *C) {
 
 // addSpice adds some "spice" to the local server
 // by adding state that may cause tests to fail.
-func (srv *localServer) addSpice(c *C) {
+func (srv *localServer) addSpice(c *gc.C) {
 	states := []amzec2.InstanceState{
 		ec2test.ShuttingDown,
 		ec2test.Terminated,
@@ -182,7 +182,7 @@ func (srv *localServer) addSpice(c *C) {
 	}
 }
 
-func (srv *localServer) stopServer(c *C) {
+func (srv *localServer) stopServer(c *gc.C) {
 	srv.ec2srv.Quit()
 	srv.s3srv.Quit()
 	// Clear out the region because the server address is
@@ -204,7 +204,7 @@ type localServerSuite struct {
 	restoreTimeouts func()
 }
 
-func (t *localServerSuite) SetUpSuite(c *C) {
+func (t *localServerSuite) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
@@ -213,7 +213,7 @@ func (t *localServerSuite) SetUpSuite(c *C) {
 	t.restoreTimeouts = envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
 }
 
-func (t *localServerSuite) TearDownSuite(c *C) {
+func (t *localServerSuite) TearDownSuite(c *gc.C) {
 	t.Tests.TearDownSuite(c)
 	t.restoreTimeouts()
 	ec2.UseTestImageData(nil)
@@ -222,54 +222,54 @@ func (t *localServerSuite) TearDownSuite(c *C) {
 	t.LoggingSuite.TearDownSuite(c)
 }
 
-func (t *localServerSuite) SetUpTest(c *C) {
+func (t *localServerSuite) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	t.Tests.SetUpTest(c)
 	t.env = t.Tests.Env
 }
 
-func (t *localServerSuite) TearDownTest(c *C) {
+func (t *localServerSuite) TearDownTest(c *gc.C) {
 	t.Tests.TearDownTest(c)
 	t.srv.stopServer(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
+func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.env.Storage())
 	err := environs.Bootstrap(t.env, constraints.Value{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
 	bootstrapState, err := environs.LoadState(t.env.Storage())
-	c.Assert(err, IsNil)
-	c.Assert(bootstrapState.StateInstances, HasLen, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(bootstrapState.StateInstances, gc.HasLen, 1)
 
 	expectedHardware := instance.MustParseHardware("arch=amd64 cpu-cores=1 cpu-power=100 mem=1740M root-disk=8192M")
 	insts, err := t.env.AllInstances()
-	c.Assert(err, IsNil)
-	c.Assert(insts, HasLen, 1)
-	c.Check(insts[0].Id(), Equals, bootstrapState.StateInstances[0])
-	c.Check(expectedHardware, DeepEquals, bootstrapState.Characteristics[0])
+	c.Assert(err, gc.IsNil)
+	c.Assert(insts, gc.HasLen, 1)
+	c.Check(insts[0].Id(), gc.Equals, bootstrapState.StateInstances[0])
+	c.Check(expectedHardware, gc.DeepEquals, bootstrapState.Characteristics[0])
 
 	info, apiInfo, err := t.env.StateInfo()
-	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
 
 	// check that the user data is configured to start zookeeper
 	// and the machine and provisioning agents.
 	inst := t.srv.ec2srv.Instance(string(insts[0].Id()))
-	c.Assert(inst, NotNil)
+	c.Assert(inst, gc.NotNil)
 	bootstrapDNS, err := insts[0].DNSName()
-	c.Assert(err, IsNil)
-	c.Assert(bootstrapDNS, Not(Equals), "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(bootstrapDNS, gc.Not(gc.Equals), "")
 
 	userData, err := utils.Gunzip(inst.UserData)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Logf("first instance: UserData: %q", userData)
 	var x map[interface{}]interface{}
 	err = goyaml.Unmarshal(userData, &x)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	CheckPackage(c, x, "git", true)
 	CheckScripts(c, x, "jujud bootstrap-state", true)
 	// TODO check for provisioning agent
@@ -282,78 +282,78 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	inst1, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
-	c.Assert(err, IsNil)
-	c.Check(*hc.Arch, Equals, "amd64")
-	c.Check(*hc.Mem, Equals, uint64(1740))
-	c.Check(*hc.CpuCores, Equals, uint64(1))
-	c.Assert(*hc.CpuPower, Equals, uint64(100))
+	c.Assert(err, gc.IsNil)
+	c.Check(*hc.Arch, gc.Equals, "amd64")
+	c.Check(*hc.Mem, gc.Equals, uint64(1740))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
 	inst = t.srv.ec2srv.Instance(string(inst1.Id()))
-	c.Assert(inst, NotNil)
+	c.Assert(inst, gc.NotNil)
 	userData, err = utils.Gunzip(inst.UserData)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Logf("second instance: UserData: %q", userData)
 	x = nil
 	err = goyaml.Unmarshal(userData, &x)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	CheckPackage(c, x, "zookeeperd", false)
 	// TODO check for provisioning agent
 	// TODO check for machine agent
 
 	err = t.env.Destroy(append(insts, inst1))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	_, err = environs.LoadState(t.env.Storage())
-	c.Assert(err, NotNil)
+	c.Assert(err, gc.NotNil)
 }
 
-func (t *localServerSuite) TestInstanceStatus(c *C) {
+func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	err := environs.Bootstrap(t.env, constraints.Value{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
-	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
-	c.Assert(err, IsNil)
-	c.Assert(inst.Status(), Equals, "terminated")
+	c.Assert(err, gc.IsNil)
+	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
 
-func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *C) {
+func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	err := environs.Bootstrap(t.env, constraints.Value{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
-	c.Assert(err, IsNil)
-	c.Assert(info, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	_, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
-	c.Assert(err, IsNil)
-	c.Check(*hc.Arch, Equals, "amd64")
-	c.Check(*hc.Mem, Equals, uint64(1740))
-	c.Check(*hc.CpuCores, Equals, uint64(1))
-	c.Assert(*hc.CpuPower, Equals, uint64(100))
+	c.Assert(err, gc.IsNil)
+	c.Check(*hc.Arch, gc.Equals, "amd64")
+	c.Check(*hc.Mem, gc.Equals, uint64(1740))
+	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
+	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
 }
 
-func (t *localServerSuite) TestValidateImageMetadata(c *C) {
+func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	params, err := t.env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("test")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	sort.Strings(image_ids)
-	c.Assert(image_ids, DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
+	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
 }
 
 // If match is true, CheckScripts checks that at least one script started
 // by the cloudinit data matches the given regexp pattern, otherwise it
 // checks that no script matches.  It's exported so it can be used by tests
 // defined in ec2_test.
-func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match bool) {
+func CheckScripts(c *gc.C, x map[interface{}]interface{}, pattern string, match bool) {
 	scripts0 := x["runcmd"]
 	if scripts0 == nil {
 		c.Errorf("cloudinit has no entry for runcmd")
@@ -379,7 +379,7 @@ func CheckScripts(c *C, x map[interface{}]interface{}, pattern string, match boo
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.  It's exported so it can be
 // used by tests defined outside the ec2 package.
-func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
+func CheckPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		if match {
@@ -405,11 +405,11 @@ func CheckPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 	}
 }
 
-func (s *localServerSuite) TestGetImageURLs(c *C) {
+func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
 	urls, err := ec2.GetImageURLs(s.env)
-	c.Assert(err, IsNil)
-	c.Assert(len(urls), Equals, 1)
-	c.Assert(urls[0], Equals, simplestreams.DefaultBaseURL)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(urls), gc.Equals, 1)
+	c.Assert(urls[0], gc.Equals, simplestreams.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
@@ -422,7 +422,7 @@ type localNonUSEastSuite struct {
 	restoreTimeouts func()
 }
 
-func (t *localNonUSEastSuite) SetUpSuite(c *C) {
+func (t *localNonUSEastSuite) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	ec2.UseTestImageData(ec2.TestImagesData)
 	ec2.UseTestInstanceTypeData(ec2.TestInstanceTypeCosts)
@@ -431,7 +431,7 @@ func (t *localNonUSEastSuite) SetUpSuite(c *C) {
 	t.restoreTimeouts = envtesting.PatchAttemptStrategies(ec2.ShortAttempt, ec2.StorageAttempt)
 }
 
-func (t *localNonUSEastSuite) TearDownSuite(c *C) {
+func (t *localNonUSEastSuite) TearDownSuite(c *gc.C) {
 	t.restoreTimeouts()
 	ec2.UseTestImageData(nil)
 	ec2.UseTestInstanceTypeData(nil)
@@ -439,25 +439,25 @@ func (t *localNonUSEastSuite) TearDownSuite(c *C) {
 	t.LoggingSuite.TearDownSuite(c)
 }
 
-func (t *localNonUSEastSuite) SetUpTest(c *C) {
+func (t *localNonUSEastSuite) SetUpTest(c *gc.C) {
 	t.LoggingSuite.SetUpTest(c)
 	t.srv.startServer(c)
 	t.tests.SetUpTest(c)
 	t.env = t.tests.Env
 }
 
-func (t *localNonUSEastSuite) TearDownTest(c *C) {
+func (t *localNonUSEastSuite) TearDownTest(c *gc.C) {
 	t.tests.TearDownTest(c)
 	t.srv.stopServer(c)
 	t.LoggingSuite.TearDownTest(c)
 }
 
-func (t *localNonUSEastSuite) TestPutBucket(c *C) {
+func (t *localNonUSEastSuite) TestPutBucket(c *gc.C) {
 	p := ec2.WritablePublicStorage(t.env).(ec2.Storage)
 	for i := 0; i < 5; i++ {
 		p.ResetMadeBucket()
 		var buf bytes.Buffer
 		err := p.Put("test-file", &buf, 0)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"io"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/ec2"
@@ -18,41 +18,41 @@ type storageSuite struct {
 	storage *testing.EC2HTTPTestStorage
 }
 
-var _ = Suite(&storageSuite{})
+var _ = gc.Suite(&storageSuite{})
 
-func (s *storageSuite) SetUpTest(c *C) {
+func (s *storageSuite) SetUpTest(c *gc.C) {
 	var err error
 
 	s.storage, err = testing.NewEC2HTTPTestStorage("127.0.0.1")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for _, v := range versions {
 		s.storage.PutBinary(v)
 	}
 }
 
-func (s *storageSuite) TearDownTest(c *C) {
-	c.Assert(s.storage.Stop(), IsNil)
+func (s *storageSuite) TearDownTest(c *gc.C) {
+	c.Assert(s.storage.Stop(), gc.IsNil)
 }
 
-func (s *storageSuite) TestHTTPStorage(c *C) {
+func (s *storageSuite) TestHTTPStorage(c *gc.C) {
 	sr := ec2.NewHTTPStorageReader(s.storage.Location())
 	list, err := sr.List("tools/juju-")
-	c.Assert(err, IsNil)
-	c.Assert(len(list), Equals, 6)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(list), gc.Equals, 6)
 
 	url, err := sr.URL(list[0])
-	c.Assert(err, IsNil)
-	c.Assert(url, Matches, "http://127.0.0.1:.*/tools/juju-1.0.0-precise-amd64.tgz")
+	c.Assert(err, gc.IsNil)
+	c.Assert(url, gc.Matches, "http://127.0.0.1:.*/tools/juju-1.0.0-precise-amd64.tgz")
 
 	rc, err := sr.Get(list[0])
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer rc.Close()
 
 	buf := &bytes.Buffer{}
 	_, err = io.Copy(buf, rc)
-	c.Assert(err, IsNil)
-	c.Assert(buf.String(), Equals, "1.0.0-precise-amd64")
+	c.Assert(err, gc.IsNil)
+	c.Assert(buf.String(), gc.Equals, "1.0.0-precise-amd64")
 }
 
 var versions = []version.Binary{

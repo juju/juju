@@ -7,23 +7,23 @@ import (
 	"strings"
 	"testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/utils"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type utilsSuite struct{}
 
-var _ = Suite(utilsSuite{})
+var _ = gc.Suite(utilsSuite{})
 
-func (utilsSuite) TestRandomBytes(c *C) {
+func (utilsSuite) TestRandomBytes(c *gc.C) {
 	b, err := utils.RandomBytes(16)
-	c.Assert(err, IsNil)
-	c.Assert(b, HasLen, 16)
+	c.Assert(err, gc.IsNil)
+	c.Assert(b, gc.HasLen, 16)
 	x0 := b[0]
 	for _, x := range b {
 		if x != x0 {
@@ -33,31 +33,31 @@ func (utilsSuite) TestRandomBytes(c *C) {
 	c.Errorf("all same bytes in result of RandomBytes")
 }
 
-func (utilsSuite) TestRandomPassword(c *C) {
+func (utilsSuite) TestRandomPassword(c *gc.C) {
 	p, err := utils.RandomPassword()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	if len(p) < 18 {
 		c.Errorf("password too short: %q", p)
 	}
 	// check we're not adding base64 padding.
-	c.Assert(p[len(p)-1], Not(Equals), '=')
+	c.Assert(p[len(p)-1], gc.Not(gc.Equals), '=')
 }
 
-func (utilsSuite) TestPasswordHash(c *C) {
+func (utilsSuite) TestPasswordHash(c *gc.C) {
 	tests := []string{"", "a", "a longer password than i would usually bother with"}
 	hs := make(map[string]bool)
 	for i, t := range tests {
 		c.Logf("test %d", i)
 		h := utils.PasswordHash(t)
 		c.Logf("hash %q", h)
-		c.Assert(len(h), Equals, 24)
-		c.Assert(hs[h], Equals, false)
+		c.Assert(len(h), gc.Equals, 24)
+		c.Assert(hs[h], gc.Equals, false)
 		// check we're not adding base64 padding.
-		c.Assert(h[len(h)-1], Not(Equals), '=')
+		c.Assert(h[len(h)-1], gc.Not(gc.Equals), '=')
 		hs[h] = true
 		// check it's deterministic
 		h1 := utils.PasswordHash(t)
-		c.Assert(h1, Equals, h)
+		c.Assert(h1, gc.Equals, h)
 	}
 }
 
@@ -77,14 +77,14 @@ var (
 	}
 )
 
-func (utilsSuite) TestCompression(c *C) {
+func (utilsSuite) TestCompression(c *gc.C) {
 	cdata := utils.Gzip(data)
-	c.Assert(len(cdata) < len(data), Equals, true)
+	c.Assert(len(cdata) < len(data), gc.Equals, true)
 	data1, err := utils.Gunzip(cdata)
-	c.Assert(err, IsNil)
-	c.Assert(data1, DeepEquals, data)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data1, gc.DeepEquals, data)
 
 	data1, err = utils.Gunzip(compressedData)
-	c.Assert(err, IsNil)
-	c.Assert(data1, DeepEquals, data)
+	c.Assert(err, gc.IsNil)
+	c.Assert(data1, gc.DeepEquals, data)
 }

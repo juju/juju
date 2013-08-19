@@ -5,7 +5,7 @@ package ec2_test
 
 import (
 	"flag"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"testing"
 )
 
@@ -16,5 +16,5 @@ func TestEC2(t *testing.T) {
 		registerAmazonTests()
 	}
 	registerLocalTests()
-	TestingT(t)
+	gc.TestingT(t)
 }
