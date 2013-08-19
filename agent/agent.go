@@ -20,6 +20,40 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+type Config interface {
+	// DataDir returns the data directory. Each agent has a subdirectory
+	// containing the configuration files.
+	// DO we need this???
+	// DataDir() string
+
+	// Tag returns the tag of the entity on whose behalf the state connection
+	// will be made.
+	Tag() string
+
+	// Dir returns the agent's directory.
+	Dir() string
+
+	// OpenAPI tries to connect to an API end-point.  If a non-empty
+	// newPassword is returned, the password used to connect to the state
+	// should be changed accordingly - the caller should write the
+	// configuration with StateInfo.Password set to newPassword, then set the
+	// entity's password accordingly.
+	// TODO(thumper): handle password changes internally.
+	OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error)
+
+	// OpenState tries to open a direct connection to the state database using
+	// the given Conf.
+	OpenState() (*state.State, error)
+
+	// Write writes the agent configuration.
+	Write() error
+
+	// WriteCommands returns shell commands to write the agent configuration.
+	// It returns an error if the configuration does not have all the right
+	// elements.
+	WriteCommands() ([]string, error)
+}
+
 // Conf holds information for a given agent.
 type Conf struct {
 	// DataDir specifies the path of the data directory used by all
@@ -60,7 +94,7 @@ type Conf struct {
 
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
-func ReadConf(dataDir, tag string) (*Conf, error) {
+func ReadConf(dataDir, tag string) (Config, error) {
 	dir := tools.Dir(dataDir, tag)
 	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
 	if err != nil {
