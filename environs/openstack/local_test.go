@@ -377,6 +377,30 @@ func (s *localServerSuite) TestInstancesGathering(c *C) {
 	}
 }
 
+// HP servers are available once they are BUILD(spawning).
+func (s *localServerSuite) TestInstancesBuildSpawning(c *C) {
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			details := args[0].(*nova.ServerDetail)
+			details.Status = nova.StatusBuildSpawning
+			return nil
+		},
+	)
+	defer cleanup()
+	stateInst, _ := testing.StartInstance(c, s.Env, "100")
+	defer func() {
+		err := s.Env.StopInstances([]instance.Instance{stateInst})
+		c.Assert(err, IsNil)
+	}()
+
+	instances, err := s.Env.Instances([]instance.Id{stateInst.Id()})
+
+	c.Assert(err, IsNil)
+	c.Assert(len(instances), Equals, 1)
+	c.Assert(instances[0].Status(), Equals, nova.StatusBuildSpawning)
+}
+
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *C) {

@@ -47,7 +47,7 @@ var providerInstance environProvider
 // EC2.  But storage delays are handled separately now, and perhaps other
 // polling attempts can time out faster.
 var shortAttempt = utils.AttemptStrategy{
-	Total: 20 * time.Second,
+	Total: 10 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
@@ -789,6 +789,8 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 	var missing []instance.Id
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
+			// HPCloud uses "BUILD(networking)" and "BUILD(spawning)" as
+			// intermediate BUILD states.
 			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 				out[id] = &openstackInstance{e: e, ServerDetail: &server}
