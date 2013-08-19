@@ -8,7 +8,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/juju"
 	coretesting "launchpad.net/juju-core/testing"
 )

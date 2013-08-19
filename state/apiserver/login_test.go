@@ -36,7 +36,7 @@ var badLoginTests = []struct {
 }, {
 	tag:      "bar",
 	password: "password",
-	err:      `invalid entity tag "bar"`,
+	err:      `"bar" is not a valid tag`,
 }}
 
 func (s *loginSuite) TestBadLogin(c *C) {

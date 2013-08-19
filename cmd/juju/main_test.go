@@ -20,7 +20,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/dummy"
+	_ "launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -217,6 +217,7 @@ var commandNames = []string{
 	"add-machine",
 	"add-relation",
 	"add-unit",
+	"api-endpoints",
 	"bootstrap",
 	"debug-hooks",
 	"debug-log",
@@ -276,9 +277,14 @@ func (s *MainSuite) TestHelpCommands(c *C) {
 }
 
 var topicNames = []string{
+	"aws",
 	"basics",
 	"commands",
 	"global-options",
+	"glossary",
+	"hpcloud",
+	"local",
+	"openstack",
 	"plugins",
 	"topics",
 }

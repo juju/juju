@@ -8,8 +8,8 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/ec2"
-	_ "launchpad.net/juju-core/environs/openstack"
+	_ "launchpad.net/juju-core/environs/provider/ec2"
+	_ "launchpad.net/juju-core/environs/provider/openstack"
 )
 
 type BoilerplateConfigSuite struct {

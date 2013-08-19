@@ -26,10 +26,7 @@ func NewAgentAPI(st *state.State, auth common.Authorizer) (*AgentAPI, error) {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
-		// TODO(go1.1): method expression
-		return func(tag string) bool {
-			return auth.AuthOwner(tag)
-		}, nil
+		return auth.AuthOwner, nil
 	}
 	return &AgentAPI{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
@@ -58,7 +55,7 @@ func (api *AgentAPI) getMachine(tag string) (result params.MachineAgentGetMachin
 		err = common.ErrPerm
 		return
 	}
-	id, err := names.MachineFromTag(tag)
+	_, id, err := names.ParseTag(tag, names.MachineTagKind)
 	if err != nil {
 		return
 	}

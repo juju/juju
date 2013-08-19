@@ -4,11 +4,9 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	gc "launchpad.net/gocheck"
 
@@ -16,7 +14,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -49,16 +47,6 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()
-}
-
-func (*BootstrapSuite) TestMissingEnvironment(c *gc.C) {
-	defer coretesting.MakeFakeHomeNoEnvironments(c, "empty").Restore()
-	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
-	c.Check(code, gc.Equals, 1)
-	errStr := ctx.Stderr.(*bytes.Buffer).String()
-	strippedErr := strings.Replace(errStr, "\n", "", -1)
-	c.Assert(strippedErr, gc.Matches, ".*No juju environment configuration file exists.*")
 }
 
 func (s *BootstrapSuite) TestTest(c *gc.C) {

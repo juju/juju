@@ -9,8 +9,9 @@ import (
 	"reflect"
 
 	. "launchpad.net/gocheck"
+
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -115,7 +116,9 @@ func (*CmdSuite) TestEnvironmentInit(c *C) {
 		assertConnName(c, com, "walthamstow")
 
 		com, args = cmdFunc()
-		testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
+		if _, ok := com.(*StatusCommand); !ok {
+			testInit(c, com, append(args, "hotdog"), "unrecognized args.*")
+		}
 	}
 }
 

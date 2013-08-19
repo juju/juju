@@ -62,26 +62,7 @@ func (suite *PluginSuite) TestRunPluginExising(c *C) {
 	ctx := testing.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
 	c.Assert(err, IsNil)
-	c.Assert(testing.Stdout(ctx), Equals, "foo erewhemos some params\n")
-	c.Assert(testing.Stderr(ctx), Equals, "")
-}
-
-func (suite *PluginSuite) TestRunPluginExisingJujuEnv(c *C) {
-	suite.makePlugin("foo", 0755)
-	os.Setenv("JUJU_ENV", "omg")
-	ctx := testing.Context(c)
-	err := RunPlugin(ctx, "foo", []string{"some params"})
-	c.Assert(err, IsNil)
-	c.Assert(testing.Stdout(ctx), Equals, "foo omg some params\n")
-	c.Assert(testing.Stderr(ctx), Equals, "")
-}
-
-func (suite *PluginSuite) TestRunPluginExisingDashE(c *C) {
-	suite.makePlugin("foo", 0755)
-	ctx := testing.Context(c)
-	err := RunPlugin(ctx, "foo", []string{"-e plugins-rock some params"})
-	c.Assert(err, IsNil)
-	c.Assert(testing.Stdout(ctx), Equals, "foo plugins-rock some params\n")
+	c.Assert(testing.Stdout(ctx), Equals, "foo some params\n")
 	c.Assert(testing.Stderr(ctx), Equals, "")
 }
 
@@ -167,8 +148,25 @@ func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *C) {
 	c.Assert(output, Matches, expectedHelp)
 }
 
+func (suite *PluginSuite) TestHelpAsArg(c *C) {
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	output := badrun(c, 0, "foo", "--help")
+	expectedHelp := `foo longer help
+
+something useful
+`
+	c.Assert(output, Matches, expectedHelp)
+}
+
+func (suite *PluginSuite) TestDebugAsArg(c *C) {
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	output := badrun(c, 0, "foo", "--debug")
+	expectedDebug := "some debug\n"
+	c.Assert(output, Matches, expectedDebug)
+}
+
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
-	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
+	content := fmt.Sprintf("#!/bin/bash\necho %s $*", name)
 	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
@@ -204,6 +202,11 @@ if [ "$1" = "--help" ]; then
   echo "{{.Name}} longer help"
   echo ""
   echo "something useful"
+  exit {{.ExitStatus}}
+fi
+
+if [ "$1" = "--debug" ]; then
+  echo "some debug"
   exit {{.ExitStatus}}
 fi
 

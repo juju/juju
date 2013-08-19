@@ -8,7 +8,7 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/cmd"
-	_ "launchpad.net/juju-core/environs/all"
+	_ "launchpad.net/juju-core/environs/provider/all"
 	"launchpad.net/juju-core/juju"
 )
 

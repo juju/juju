@@ -14,8 +14,8 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	localstorage "launchpad.net/juju-core/environs/local/storage"
 	"launchpad.net/juju-core/environs/provider"
+	localstorage "launchpad.net/juju-core/environs/provider/local/storage"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
@@ -100,10 +100,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// called many times - StartWorker does nothing if there is
 	// already a worker started with the given name.
 	ensureStateWorker := func() {
-		a.runner.StartWorker("state", func() (worker.Worker, error) {
-			// TODO(rog) go1.1: use method expression
-			return a.StateWorker()
-		})
+		a.runner.StartWorker("state", a.StateWorker)
 	}
 	if a.MachineId == bootstrapMachineId {
 		// If we're bootstrapping, we don't have an API
@@ -118,7 +115,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		// TODO(rog) go1.1: use method expression
 		return a.APIWorker(ensureStateWorker)
 	})
 	err := agentDone(a.runner.Wait())

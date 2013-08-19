@@ -8,13 +8,14 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"launchpad.net/juju-core/charm"
-	"launchpad.net/juju-core/log"
-	"launchpad.net/juju-core/utils"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/utils"
 )
 
 var ErrConflict = errors.New("charm upgrade has conflicts")
@@ -54,7 +55,17 @@ func (d *GitDir) Init() error {
 	if err := os.MkdirAll(d.path, 0755); err != nil {
 		return err
 	}
-	return d.cmd("init")
+	commands := [][]string{
+		{"init"},
+		{"config", "user.email", "juju@localhost"},
+		{"config", "user.name", "juju"},
+	}
+	for _, args := range commands {
+		if err := d.cmd(args...); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 // AddAll ensures that the next commit will reflect the current contents of
