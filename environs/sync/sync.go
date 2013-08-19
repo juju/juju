@@ -61,7 +61,7 @@ func SyncTools(ctx *SyncContext) error {
 	if err != nil {
 		return fmt.Errorf("unable to select source: %v", err)
 	}
-	targetEnv, err := environs.NewFromName(ctx.EnvName)
+	targetEnv, err := environs.PrepareFromName(ctx.EnvName)
 	if err != nil {
 		return fmt.Errorf("unable to read %q from environment", ctx.EnvName)
 	}

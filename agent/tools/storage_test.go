@@ -18,6 +18,7 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -34,7 +35,7 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	env, err := environs.NewFromAttrs(map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "test",
 		"type":            "dummy",
 		"state-server":    false,
@@ -43,7 +44,8 @@ func (s *StorageSuite) SetUpTest(c *gc.C) {
 		"ca-private-key":  "",
 	})
 	c.Assert(err, gc.IsNil)
-	s.env = env
+	s.env, err = environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
 	s.dataDir = c.MkDir()
 }
 
