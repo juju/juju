@@ -15,7 +15,7 @@ import (
 
 // Import the providers.
 import (
-	_ "launchpad.net/juju-core/environs/provider/all"
+	_ "launchpad.net/juju-core/provider/all"
 )
 
 var jujudDoc = `

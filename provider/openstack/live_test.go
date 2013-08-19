@@ -12,8 +12,8 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/provider/openstack"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 )
 

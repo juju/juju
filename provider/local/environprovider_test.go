@@ -8,7 +8,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/container/lxc"
-	"launchpad.net/juju-core/environs/provider/local"
+	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
 )
 

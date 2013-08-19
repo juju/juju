@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/jujutest"
-	"launchpad.net/juju-core/environs/provider/local"
+	"launchpad.net/juju-core/provider/local"
 )
 
 type environSuite struct {

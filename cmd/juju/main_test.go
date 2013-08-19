@@ -20,8 +20,8 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/juju/osenv"
+	_ "launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
