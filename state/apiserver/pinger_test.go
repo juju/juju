@@ -4,7 +4,7 @@
 package apiserver_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -15,17 +15,17 @@ type stateSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&stateSuite{})
+var _ = gc.Suite(&stateSuite{})
 
 var testPingPeriod = 100 * time.Millisecond
 
-func (s *stateSuite) TestConnectionBrokenDetection(c *C) {
+func (s *stateSuite) TestConnectionBrokenDetection(c *gc.C) {
 	stm, err := s.State.AddMachine("series", state.JobManageEnviron)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = stm.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = stm.SetPassword("password")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	origPingPeriod := api.PingPeriod
 	api.PingPeriod = testPingPeriod

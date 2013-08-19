@@ -11,7 +11,7 @@ import (
 	"regexp"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/debug"
@@ -24,7 +24,7 @@ type DebugHooksServerSuite struct {
 	oldenv  []string
 }
 
-var _ = Suite(&DebugHooksServerSuite{})
+var _ = gc.Suite(&DebugHooksServerSuite{})
 
 // echocommand outputs its name and arguments to stdout for verification,
 // and exits with the value of $EXIT_CODE
@@ -40,7 +40,7 @@ func (s *DebugHooksServerSuite) setenv(key, value string) {
 	os.Setenv(key, value)
 }
 
-func (s *DebugHooksServerSuite) SetUpTest(c *C) {
+func (s *DebugHooksServerSuite) SetUpTest(c *gc.C) {
 	s.fakebin = c.MkDir()
 	s.tmpdir = c.MkDir()
 	s.setenv("PATH", s.fakebin+":"+os.Getenv("PATH"))
@@ -48,14 +48,14 @@ func (s *DebugHooksServerSuite) SetUpTest(c *C) {
 	s.setenv("TEST_RESULT", "")
 	for _, name := range fakecommands {
 		err := ioutil.WriteFile(filepath.Join(s.fakebin, name), []byte(echocommand), 0777)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	s.ctx = debug.NewHooksContext("foo/8")
 	s.ctx.FlockDir = s.tmpdir
 	s.setenv("JUJU_UNIT_NAME", s.ctx.Unit)
 }
 
-func (s *DebugHooksServerSuite) TearDownTest(c *C) {
+func (s *DebugHooksServerSuite) TearDownTest(c *gc.C) {
 	if len(s.oldenv) > 0 {
 		for i := len(s.oldenv) - 2; i >= 0; i = i - 2 {
 			os.Setenv(s.oldenv[i], s.oldenv[i+1])
@@ -64,86 +64,86 @@ func (s *DebugHooksServerSuite) TearDownTest(c *C) {
 	}
 }
 
-func (s *DebugHooksServerSuite) TestFindSession(c *C) {
+func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	// Test "tmux has-session" failure. The error
 	// message is the output of tmux has-session.
 	os.Setenv("EXIT_CODE", "1")
 	session, err := s.ctx.FindSession()
-	c.Assert(session, IsNil)
-	c.Assert(err, ErrorMatches, regexp.QuoteMeta("tmux has-session -t "+s.ctx.Unit+"\n"))
+	c.Assert(session, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, regexp.QuoteMeta("tmux has-session -t "+s.ctx.Unit+"\n"))
 	os.Setenv("EXIT_CODE", "")
 
 	// tmux session exists, but missing debug-hooks file: error.
 	session, err = s.ctx.FindSession()
-	c.Assert(session, IsNil)
-	c.Assert(err, NotNil)
+	c.Assert(session, gc.IsNil)
+	c.Assert(err, gc.NotNil)
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 
 	// Hooks file is present, empty.
 	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	session, err = s.ctx.FindSession()
-	c.Assert(session, NotNil)
-	c.Assert(err, IsNil)
+	c.Assert(session, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 	// If session.hooks is empty, it'll match anything.
-	c.Assert(session.MatchHook(""), Equals, true)
-	c.Assert(session.MatchHook("something"), Equals, true)
+	c.Assert(session.MatchHook(""), gc.Equals, true)
+	c.Assert(session.MatchHook("something"), gc.Equals, true)
 
 	// Hooks file is present, non-empty
 	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	session, err = s.ctx.FindSession()
-	c.Assert(session, NotNil)
-	c.Assert(err, IsNil)
+	c.Assert(session, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 	// session should only match "foo", "bar" or "baz".
-	c.Assert(session.MatchHook(""), Equals, false)
-	c.Assert(session.MatchHook("something"), Equals, false)
-	c.Assert(session.MatchHook("foo"), Equals, true)
-	c.Assert(session.MatchHook("bar"), Equals, true)
-	c.Assert(session.MatchHook("baz"), Equals, true)
-	c.Assert(session.MatchHook("foo bar baz"), Equals, false)
+	c.Assert(session.MatchHook(""), gc.Equals, false)
+	c.Assert(session.MatchHook("something"), gc.Equals, false)
+	c.Assert(session.MatchHook("foo"), gc.Equals, true)
+	c.Assert(session.MatchHook("bar"), gc.Equals, true)
+	c.Assert(session.MatchHook("baz"), gc.Equals, true)
+	c.Assert(session.MatchHook("foo bar baz"), gc.Equals, false)
 }
 
-func (s *DebugHooksServerSuite) TestRunHookExceptional(c *C) {
+func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	session, err := s.ctx.FindSession()
-	c.Assert(session, NotNil)
-	c.Assert(err, IsNil)
+	c.Assert(session, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 
 	// Run the hook in debug mode with no exit flock held.
 	// The exit flock will be acquired immediately, and the
 	// debug-hooks server process killed.
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
-	c.Assert(err, ErrorMatches, "signal: killed")
+	c.Assert(err, gc.ErrorMatches, "signal: killed")
 
 	// Run the hook in debug mode with the exit flock held.
 	// This simulates the client process starting but not
 	// cleanly exiting (normally the .pid file is updated,
 	// and the server waits on the client process' death).
 	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 1s")
-	c.Assert(cmd.Start(), IsNil)
+	c.Assert(cmd.Start(), gc.IsNil)
 	expected := time.Now().Add(time.Second)
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
 	after := time.Now()
 	c.Assert(after, checkers.TimeBetween(expected.Add(-100*time.Millisecond), expected.Add(100*time.Millisecond)))
-	c.Assert(err, ErrorMatches, "signal: killed")
-	c.Assert(cmd.Wait(), IsNil)
+	c.Assert(err, gc.ErrorMatches, "signal: killed")
+	c.Assert(cmd.Wait(), gc.IsNil)
 }
 
-func (s *DebugHooksServerSuite) TestRunHook(c *C) {
+func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	err := ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	session, err := s.ctx.FindSession()
-	c.Assert(session, NotNil)
-	c.Assert(err, IsNil)
+	c.Assert(session, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 
 	// Run the hook in debug mode with the exit flock held,
 	// and also create the .pid file. We'll populate it with
 	// an invalid PID; this will cause the server process to
 	// exit cleanly (as if the PID were real and no longer running).
 	cmd := exec.Command("flock", s.ctx.ClientExitFileLock(), "-c", "sleep 5s")
-	c.Assert(cmd.Start(), IsNil)
+	c.Assert(cmd.Start(), gc.IsNil)
 	ch := make(chan error)
 	go func() {
 		ch <- session.RunHook("myhook", s.tmpdir, os.Environ())
@@ -178,12 +178,12 @@ func (s *DebugHooksServerSuite) TestRunHook(c *C) {
 	} else {
 		hookpid := filepath.Join(s.tmpdir, debugdir.Name(), "hook.pid")
 		err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// RunHook should complete without waiting to be
 		// killed, and despite the exit lock being held.
 		err = <-ch
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	cmd.Process.Kill() // kill flock
 }

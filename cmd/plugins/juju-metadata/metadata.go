@@ -8,8 +8,8 @@ import (
 	"os"
 
 	"launchpad.net/juju-core/cmd"
-	_ "launchpad.net/juju-core/environs/all"
 	"launchpad.net/juju-core/juju"
+	_ "launchpad.net/juju-core/provider/all"
 )
 
 var metadataDoc = `

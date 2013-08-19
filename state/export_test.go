@@ -10,7 +10,7 @@ import (
 	"path/filepath"
 
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/environs/config"
@@ -39,7 +39,7 @@ func (c TransactionChecker) Check() {
 // any that have not. It is an error to set transaction hooks when any are
 // already queued; and setting transaction hooks renders the *State goroutine-
 // unsafe.
-func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) TransactionChecker {
+func SetTransactionHooks(c *gc.C, st *State, transactionHooks ...TransactionHook) TransactionChecker {
 	converted := make([]transactionHook, len(transactionHooks))
 	for i, hook := range transactionHooks {
 		converted[i] = transactionHook(hook)
@@ -47,11 +47,11 @@ func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) T
 	}
 	original := <-st.transactionHooks
 	st.transactionHooks <- converted
-	c.Assert(original, HasLen, 0)
+	c.Assert(original, gc.HasLen, 0)
 	return func() {
 		remaining := <-st.transactionHooks
 		st.transactionHooks <- nil
-		c.Assert(remaining, HasLen, 0)
+		c.Assert(remaining, gc.HasLen, 0)
 	}
 }
 
@@ -61,7 +61,7 @@ func SetTransactionHooks(c *C, st *State, transactionHooks ...TransactionHook) T
 // transaction and so on. Nil values are accepted, and useful, in that they can
 // be used to ensure that a transaction is run at the expected time, without
 // having to make any changes or assert any state.
-func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
+func SetBeforeHooks(c *gc.C, st *State, fs ...func()) TransactionChecker {
 	transactionHooks := make([]TransactionHook, len(fs))
 	for i, f := range fs {
 		transactionHooks[i] = TransactionHook{Before: f}
@@ -73,7 +73,7 @@ func SetBeforeHooks(c *C, st *State, fs ...func()) TransactionChecker {
 // immediately after the next N transactions. The first function is executed
 // after the first transaction, the second function after the second
 // transaction and so on.
-func SetAfterHooks(c *C, st *State, fs ...func()) TransactionChecker {
+func SetAfterHooks(c *gc.C, st *State, fs ...func()) TransactionChecker {
 	transactionHooks := make([]TransactionHook, len(fs))
 	for i, f := range fs {
 		transactionHooks[i] = TransactionHook{After: f}
@@ -85,7 +85,7 @@ func SetAfterHooks(c *C, st *State, fs ...func()) TransactionChecker {
 // to disrupt a transaction built against recent state, and a check function
 // designed to verify that the replacement transaction against the new state
 // has been applied as expected.
-func SetRetryHooks(c *C, st *State, block, check func()) TransactionChecker {
+func SetRetryHooks(c *gc.C, st *State, block, check func()) TransactionChecker {
 	return SetTransactionHooks(c, st, TransactionHook{
 		Before: block,
 	}, TransactionHook{
@@ -96,12 +96,12 @@ func SetRetryHooks(c *C, st *State, block, check func()) TransactionChecker {
 // TestingInitialize initializes the state and returns it. If state was not
 // already initialized, and cfg is nil, the minimal default environment
 // configuration will be used.
-func TestingInitialize(c *C, cfg *config.Config) *State {
+func TestingInitialize(c *gc.C, cfg *config.Config) *State {
 	if cfg == nil {
 		cfg = testing.EnvironConfig(c)
 	}
 	st, err := Initialize(TestingStateInfo(), cfg, TestingDialOpts())
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return st
 }
 
@@ -127,32 +127,32 @@ func ServiceSettingsRefCount(st *State, serviceName string, curl *charm.URL) (in
 	return 0, mgo.ErrNotFound
 }
 
-func AddTestingCharm(c *C, st *State, name string) *Charm {
+func AddTestingCharm(c *gc.C, st *State, name string) *Charm {
 	return addCharm(c, st, "series", testing.Charms.Dir(name))
 }
 
-func AddCustomCharm(c *C, st *State, name, filename, content, series string, revision int) *Charm {
+func AddCustomCharm(c *gc.C, st *State, name, filename, content, series string, revision int) *Charm {
 	path := testing.Charms.ClonedDirPath(c.MkDir(), name)
 	if filename != "" {
 		config := filepath.Join(path, filename)
 		err := ioutil.WriteFile(config, []byte(content), 0644)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	ch, err := charm.ReadDir(path)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	if revision != -1 {
 		ch.SetRevision(revision)
 	}
 	return addCharm(c, st, series, ch)
 }
 
-func addCharm(c *C, st *State, series string, ch charm.Charm) *Charm {
+func addCharm(c *gc.C, st *State, series string, ch charm.Charm) *Charm {
 	ident := fmt.Sprintf("%s-%s-%d", series, ch.Meta().Name, ch.Revision())
 	curl := charm.MustParseURL("local:" + series + "/" + ident)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/" + ident)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	sch, err := st.AddCharm(ch, curl, bundleURL, ident+"-sha256")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return sch
 }
 

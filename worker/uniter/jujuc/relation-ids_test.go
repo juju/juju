@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -15,16 +15,16 @@ type RelationIdsSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&RelationIdsSuite{})
+var _ = gc.Suite(&RelationIdsSuite{})
 
-func (s *RelationIdsSuite) SetUpTest(c *C) {
+func (s *RelationIdsSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 	s.rels = map[int]*ContextRelation{}
 	s.AddRelatedServices(c, "x", 3)
 	s.AddRelatedServices(c, "y", 1)
 }
 
-func (s *RelationIdsSuite) AddRelatedServices(c *C, relname string, count int) {
+func (s *RelationIdsSuite) AddRelatedServices(c *gc.C, relname string, count int) {
 	for i := 0; i < count; i++ {
 		id := len(s.rels)
 		s.rels[id] = &ContextRelation{id, relname, nil}
@@ -99,30 +99,30 @@ var relationIdsTests = []struct {
 	},
 }
 
-func (s *RelationIdsSuite) TestRelationIds(c *C) {
+func (s *RelationIdsSuite) TestRelationIds(c *gc.C) {
 	for i, t := range relationIdsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-ids")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, Equals, t.code)
+		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
-			c.Assert(bufferString(ctx.Stderr), Equals, "")
+			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
 			if expect != "" {
 				expect += "\n"
 			}
-			c.Assert(bufferString(ctx.Stdout), Equals, expect)
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
-			c.Assert(bufferString(ctx.Stdout), Equals, "")
-			c.Assert(bufferString(ctx.Stderr), Matches, t.out)
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+			c.Assert(bufferString(ctx.Stderr), gc.Matches, t.out)
 		}
 	}
 }
 
-func (s *RelationIdsSuite) TestHelp(c *C) {
+func (s *RelationIdsSuite) TestHelp(c *gc.C) {
 	template := `
 usage: %s
 purpose: list all relation ids with the given relation name
@@ -144,12 +144,12 @@ options:
 		c.Logf("relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-ids")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
-		c.Assert(code, Equals, 0)
+		c.Assert(code, gc.Equals, 0)
 		expect := fmt.Sprintf(template, t.usage, t.doc)
-		c.Assert(bufferString(ctx.Stdout), Equals, expect)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
 }

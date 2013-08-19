@@ -305,6 +305,19 @@ func (ru *RelationUnit) LeaveScope() error {
 	return fmt.Errorf("cannot leave scope for %s: inconsistent state", desc)
 }
 
+// InScope returns whether the relation unit has entered scope or not.
+func (ru *RelationUnit) InScope() bool {
+	key, err := ru.key(ru.unit.Name())
+	if err != nil {
+		return false
+	}
+	count, err := ru.st.relationScopes.FindId(key).Count()
+	if err != nil {
+		return false
+	}
+	return count > 0
+}
+
 // WatchScope returns a watcher which notifies of counterpart units
 // entering and leaving the unit's scope.
 func (ru *RelationUnit) WatchScope() *RelationScopeWatcher {
