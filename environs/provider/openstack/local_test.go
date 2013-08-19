@@ -379,7 +379,7 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	}
 }
 
-func (s *localServerSuite) TestCollectInstances(c *C) {
+func (s *localServerSuite) TestCollectInstances(c *gc.C) {
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
 		func(sc hook.ServiceControl, args ...interface{}) error {
@@ -392,17 +392,17 @@ func (s *localServerSuite) TestCollectInstances(c *C) {
 	stateInst, _ := testing.StartInstance(c, s.Env, "100")
 	defer func() {
 		err := s.Env.StopInstances([]instance.Instance{stateInst})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}()
 	found := make(map[instance.Id]instance.Instance)
 	missing := []instance.Id{stateInst.Id()}
 
 	resultMissing := openstack.CollectInstances(s.Env, missing, found)
 
-	c.Assert(resultMissing, DeepEquals, missing)
+	c.Assert(resultMissing, gc.DeepEquals, missing)
 }
 
-func (s *localServerSuite) TestInstancesBuildSpawning(c *C) {
+func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 	// HP servers are available once they are BUILD(spawning).
 	cleanup := s.srv.Service.Nova.RegisterControlPoint(
 		"addServer",
@@ -416,14 +416,14 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *C) {
 	stateInst, _ := testing.StartInstance(c, s.Env, "100")
 	defer func() {
 		err := s.Env.StopInstances([]instance.Instance{stateInst})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}()
 
 	instances, err := s.Env.Instances([]instance.Id{stateInst.Id()})
 
-	c.Assert(err, IsNil)
-	c.Assert(instances, HasLen, 1)
-	c.Assert(instances[0].Status(), Equals, nova.StatusBuildSpawning)
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Status(), gc.Equals, nova.StatusBuildSpawning)
 }
 
 // TODO (wallyworld) - this test was copied from the ec2 provider.
