@@ -57,7 +57,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	if err := c.Conf.read("bootstrap"); err != nil {
 		return err
 	}
-	cfg, err := config.New(c.EnvConfig)
+	cfg, err := config.Prepare(c.EnvConfig)
 	if err != nil {
 		return err
 	}

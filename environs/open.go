@@ -63,6 +63,15 @@ func New(config *config.Config) (Environ, error) {
 	return p.Open(config)
 }
 
+// Prepare prepares a new environment based on the provided configuration.
+func Prepare(config *config.Config) (Environ, error) {
+	p, err := Provider(config.Type())
+	if err != nil {
+		return nil, err
+	}
+	return p.Prepare(config)
+}
+
 // CheckEnvironment checks if an environment has a bootstrap-verify
 // that is written by juju-core commands (as compared to one being
 // written by Python juju).
