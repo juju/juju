@@ -52,6 +52,10 @@ type Config interface {
 	// It returns an error if the configuration does not have all the right
 	// elements.
 	WriteCommands() ([]string, error)
+
+	// SetPassword changes the password that is used to connect to the API and
+	// state database.
+	SetPassword(password string)
 }
 
 // Conf holds information for a given agent.
@@ -193,6 +197,12 @@ func checkAddrs(addrs []string, what string) error {
 		}
 	}
 	return nil
+}
+
+func (c *Conf) SetPassword(password string) {
+	c.StateInfo.Password = password
+	c.APIInfo.Password = password
+	c.OldPassword = ""
 }
 
 // Write writes the agent configuration.

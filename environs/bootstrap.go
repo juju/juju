@@ -140,10 +140,7 @@ func ConfigureBootstrapMachine(
 	if err != nil {
 		return err
 	}
-	mconf.StateInfo.Password = newPassword
-	mconf.APIInfo.Password = newPassword
-	mconf.OldPassword = ""
-
+	mconf.SetPassword(newPassword)
 	if err := mconf.Write(); err != nil {
 		return err
 	}
