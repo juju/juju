@@ -43,6 +43,13 @@ const (
 	CodeStopped             = "stopped"
 	CodeHasAssignedUnits    = "machine has assigned units"
 	CodeNotProvisioned      = "not provisioned"
+	// TODO: Make sure the following two codes are returned
+	// as a result of receiving ErrCannotEnterScope and
+	// ErrCannotEnterScopeYet errors from UniterAPI.EnterScope.
+	// Also, as the content of the message, add the text after
+	// the code, as given in the comment.
+	CodeCannotEnterScope    = "cannot enter scope"     // "unit or relation is not alive"
+	CodeCannotEnterScopeYet = "cannot enter scope yet" // "non-alive subordinate unit has not been removed"
 )
 
 // ErrCode returns the error code associated with

@@ -154,12 +154,18 @@ func (u *Unit) SubordinateNames() ([]string, error) {
 //
 // NOTE: This differs from state.Unit.PublicAddres() by returning
 // an error as well, because it needs to make an API call.
+//
+// TODO: We might be able to drop this, once we have machine
+// addresses implemented fully.
 func (u *Unit) PublicAddress() (string, bool, error) {
 	// TODO: Call Uniter.PublicAddress()
 	panic("not implemented")
 }
 
 // SetPublicAddress sets the public address of the unit.
+//
+// TODO: We might be able to drop this, once we have machine
+// addresses implemented fully.
 func (u *Unit) SetPublicAddress(address string) (err error) {
 	// TODO: Call Uniter.SetPublicAddress()
 	panic("not implemented")
@@ -170,12 +176,18 @@ func (u *Unit) SetPublicAddress(address string) (err error) {
 //
 // NOTE: This differs from state.Unit.PrivateAddress() by returning
 // an error as well, because it needs to make an API call.
+//
+// TODO: We might be able to drop this, once we have machine
+// addresses implemented fully.
 func (u *Unit) PrivateAddress() (string, bool, error) {
 	// TODO: Call Uniter.PrivateAddress()
 	panic("not implemented")
 }
 
 // SetPrivateAddress sets the private address of the unit.
+//
+// TODO: We might be able to drop this, once we have machine
+// addresses implemented fully.
 func (u *Unit) SetPrivateAddress(address string) error {
 	// TODO: Call Uniter.SetPrivateAddress()
 	panic("not implemented")
@@ -183,6 +195,9 @@ func (u *Unit) SetPrivateAddress(address string) error {
 
 // OpenPort sets the policy of the port with protocol and number to be
 // opened.
+//
+// TODO: We should really be opening and closing ports on machines,
+// rather than units.
 func (u *Unit) OpenPort(protocol string, number int) (err error) {
 	// TODO: Call Uniter.OpenPort()
 	panic("not implemented")
@@ -190,6 +205,9 @@ func (u *Unit) OpenPort(protocol string, number int) (err error) {
 
 // ClosePort sets the policy of the port with protocol and number to
 // be closed.
+//
+// TODO: We should really be opening and closing ports on machines,
+// rather than units.
 func (u *Unit) ClosePort(protocol string, number int) (err error) {
 	// TODO: Call Uniter.ClosePort()
 	panic("not implemented")

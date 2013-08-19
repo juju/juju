@@ -7,11 +7,9 @@ import (
 	"launchpad.net/juju-core/charm"
 )
 
-// An Endpoint is just a wrapper around charm.Relation. No API calls
-// to the server-side are needed to support the interface needed by
-// the uniter worker.
-
-// Endpoint represents one endpoint of a relation.
+// Endpoint represents one endpoint of a relation. It is just a wrapper
+// around charm.Relation. No API calls to the server-side are needed to
+// support the interface needed by the uniter worker.
 type Endpoint struct {
 	charm.Relation
 }

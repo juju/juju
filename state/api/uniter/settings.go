@@ -21,6 +21,7 @@ func (s *Settings) Map() map[string]interface{} {
 }
 
 // Set sets key to value.
+// TODO: value must be a string. Change the code accordingy.
 func (s *Settings) Set(key string, value interface{}) {
 	panic("not implemented")
 }

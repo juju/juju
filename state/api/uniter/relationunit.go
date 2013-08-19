@@ -47,14 +47,9 @@ func (ru *RelationUnit) PrivateAddress() (string, bool, error) {
 	return ru.unit.PrivateAddress()
 }
 
-// ErrCannotEnterScope indicates that a relation unit failed to enter its scope
-// due to either the unit or the relation not being Alive.
-var ErrCannotEnterScope = errors.New("cannot enter scope: unit or relation is not alive")
-
-// ErrCannotEnterScopeYet indicates that a relation unit failed to enter its
-// scope due to a required and pre-existing subordinate unit that is not Alive.
-// Once that subordinate has been removed, a new one can be created.
-var ErrCannotEnterScopeYet = errors.New("cannot enter scope yet: non-alive subordinate unit has not been removed")
+// TODO: Translate ErrCannotEnterScope and ErrCannotEnterScopeYet errors from
+// EnterScope() into their api/params equivalents with the respective codes (
+// CodeCannotEnterScope and CodeCannotEnterScopeYet) and message contents.
 
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
