@@ -789,9 +789,9 @@ func (e *environ) collectInstances(ids []instance.Id, out map[instance.Id]instan
 	var missing []instance.Id
 	for _, id := range ids {
 		if server, found := serversById[string(id)]; found {
-			// HPCloud uses "BUILD(networking)" and "BUILD(spawning)" as
-			// intermediate BUILD states.
-			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild {
+			// HPCloud uses "BUILD(spawning)" as an intermediate BUILD states once networking is available.
+			if server.Status == nova.StatusActive || server.Status == nova.StatusBuild ||
+				server.Status == nova.StatusBuildSpawning {
 				// TODO(wallyworld): lookup the flavor details to fill in the instance type data
 				out[id] = &openstackInstance{e: e, ServerDetail: &server}
 				continue
