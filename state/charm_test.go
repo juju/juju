@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"net/url"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
@@ -21,27 +21,27 @@ type CharmSuite struct {
 	curl *charm.URL
 }
 
-var _ = Suite(&CharmSuite{})
+var _ = gc.Suite(&CharmSuite{})
 
-func (s *CharmSuite) SetUpTest(c *C) {
+func (s *CharmSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	added := s.AddTestingCharm(c, "dummy")
 	s.curl = added.URL()
 }
 
-func (s *CharmSuite) TestCharm(c *C) {
+func (s *CharmSuite) TestCharm(c *gc.C) {
 	dummy, err := s.State.Charm(s.curl)
-	c.Assert(err, IsNil)
-	c.Assert(dummy.URL().String(), Equals, s.curl.String())
-	c.Assert(dummy.Revision(), Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummy.URL().String(), gc.Equals, s.curl.String())
+	c.Assert(dummy.Revision(), gc.Equals, 1)
 	bundleURL, err := url.Parse("http://bundles.testing.invalid/series-dummy-1")
-	c.Assert(err, IsNil)
-	c.Assert(dummy.BundleURL(), DeepEquals, bundleURL)
-	c.Assert(dummy.BundleSha256(), Equals, "series-dummy-1-sha256")
+	c.Assert(err, gc.IsNil)
+	c.Assert(dummy.BundleURL(), gc.DeepEquals, bundleURL)
+	c.Assert(dummy.BundleSha256(), gc.Equals, "series-dummy-1-sha256")
 	meta := dummy.Meta()
-	c.Assert(meta.Name, Equals, "dummy")
+	c.Assert(meta.Name, gc.Equals, "dummy")
 	config := dummy.Config()
-	c.Assert(config.Options["title"], Equals,
+	c.Assert(config.Options["title"], gc.Equals,
 		charm.Option{
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
@@ -50,10 +50,10 @@ func (s *CharmSuite) TestCharm(c *C) {
 	)
 }
 
-func (s *CharmSuite) TestCharmNotFound(c *C) {
+func (s *CharmSuite) TestCharmNotFound(c *gc.C) {
 	curl := charm.MustParseURL("local:anotherseries/dummy-1")
 	_, err := s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
+	c.Assert(err, gc.ErrorMatches, `charm "local:anotherseries/dummy-1" not found`)
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
@@ -61,28 +61,28 @@ type CharmTestHelperSuite struct {
 	ConnSuite
 }
 
-var _ = Suite(&CharmTestHelperSuite{})
+var _ = gc.Suite(&CharmTestHelperSuite{})
 
-func assertCustomCharm(c *C, ch *state.Charm, series string, meta *charm.Meta, config *charm.Config, revision int) {
+func assertCustomCharm(c *gc.C, ch *state.Charm, series string, meta *charm.Meta, config *charm.Config, revision int) {
 	// Check Charm interface method results.
-	c.Assert(ch.Meta(), DeepEquals, meta)
-	c.Assert(ch.Config(), DeepEquals, config)
-	c.Assert(ch.Revision(), DeepEquals, revision)
+	c.Assert(ch.Meta(), gc.DeepEquals, meta)
+	c.Assert(ch.Config(), gc.DeepEquals, config)
+	c.Assert(ch.Revision(), gc.DeepEquals, revision)
 
 	// Test URL matches charm and expected series.
 	url := ch.URL()
-	c.Assert(url.Series, Equals, series)
-	c.Assert(url.Revision, Equals, ch.Revision())
+	c.Assert(url.Series, gc.Equals, series)
+	c.Assert(url.Revision, gc.Equals, ch.Revision())
 
 	// Ignore the BundleURL and BundleSHA256 methods, they're irrelevant.
 }
 
-func assertStandardCharm(c *C, ch *state.Charm, series string) {
+func assertStandardCharm(c *gc.C, ch *state.Charm, series string) {
 	chd := testing.Charms.Dir(ch.Meta().Name)
 	assertCustomCharm(c, ch, series, chd.Meta(), chd.Config(), chd.Revision())
 }
 
-func forEachStandardCharm(c *C, f func(name string)) {
+func forEachStandardCharm(c *gc.C, f func(name string)) {
 	for _, name := range []string{
 		"logging", "mysql", "riak", "wordpress",
 	} {
@@ -91,7 +91,7 @@ func forEachStandardCharm(c *C, f func(name string)) {
 	}
 }
 
-func (s *CharmTestHelperSuite) TestSimple(c *C) {
+func (s *CharmTestHelperSuite) TestSimple(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
 		chd := testing.Charms.Dir(name)
 		meta := chd.Meta()
@@ -114,9 +114,9 @@ options:
     type: boolean
 `
 
-func (s *CharmTestHelperSuite) TestConfigCharm(c *C) {
+func (s *CharmTestHelperSuite) TestConfigCharm(c *gc.C) {
 	config, err := charm.ReadConfig(bytes.NewBuffer([]byte(configYaml)))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	forEachStandardCharm(c, func(name string) {
 		chd := testing.Charms.Dir(name)
@@ -132,13 +132,13 @@ summary: blah
 description: blah blah
 `
 
-func (s *CharmTestHelperSuite) TestMetaCharm(c *C) {
+func (s *CharmTestHelperSuite) TestMetaCharm(c *gc.C) {
 	forEachStandardCharm(c, func(name string) {
 		chd := testing.Charms.Dir(name)
 		config := chd.Config()
 		metaYaml := "name: " + name + metaYamlSnippet
 		meta, err := charm.ReadMeta(bytes.NewBuffer([]byte(metaYaml)))
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		ch := s.AddMetaCharm(c, name, metaYaml, 123)
 		assertCustomCharm(c, ch, "series", meta, config, 123)
