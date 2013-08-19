@@ -27,8 +27,10 @@ type Mode func(u *Uniter) (Mode, error)
 func ModeInit(u *Uniter) (next Mode, err error) {
 	defer modeContext("ModeInit", &err)()
 	logger.Infof("updating unit addresses")
-	// TODO(dimitern): Once the uniter is using the API, change the following
-	// block to use st.ProviderType() instead of calling st.EnvironConfig.
+	// TODO(dimitern): Once the uniter is using the API, change the
+	// following block to use st.ProviderType() instead of calling
+	// st.EnvironConfig. Also, We might be able to drop all this
+	// address stuff entirely once we have machine addresses.
 	cfg, err := u.st.EnvironConfig()
 	if err != nil {
 		return nil, err

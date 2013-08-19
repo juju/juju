@@ -838,26 +838,27 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 }
 
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
+	// Set wordpressUnit's private address first.
+	err := s.wordpressUnit.SetPrivateAddress("1.2.3.4")
+	c.Assert(err, gc.IsNil)
+
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, gc.IsNil)
 	c.Assert(relUnit.InScope(), jc.IsFalse)
 
-	settings := params.Settings{
-		"some": "settings",
-	}
-	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{
-		{Relation: "relation-42", Unit: "unit-foo-0", Settings: nil},
-		{Relation: "relation-0", Unit: "unit-wordpress-0", Settings: settings},
-		{Relation: "relation-0", Unit: "unit-wordpress-0", Settings: nil},
-		{Relation: "relation-42", Unit: "unit-wordpress-0", Settings: nil},
-		{Relation: "relation-foo", Unit: "unit-wordpress-0", Settings: nil},
-		{Relation: "service-wordpress", Unit: "unit-foo-0", Settings: nil},
-		{Relation: "foo", Unit: "bar", Settings: nil},
-		{Relation: "relation-0", Unit: "unit-mysql-0", Settings: nil},
-		{Relation: "relation-0", Unit: "service-wordpress", Settings: nil},
-		{Relation: "relation-0", Unit: "service-mysql", Settings: nil},
-		{Relation: "relation-0", Unit: "user-admin", Settings: nil},
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: "relation-0", Unit: "unit-wordpress-0"},
+		{Relation: "relation-0", Unit: "unit-wordpress-0"},
+		{Relation: "relation-42", Unit: "unit-wordpress-0"},
+		{Relation: "relation-foo", Unit: "unit-wordpress-0"},
+		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "foo", Unit: "bar"},
+		{Relation: "relation-0", Unit: "unit-mysql-0"},
+		{Relation: "relation-0", Unit: "service-wordpress"},
+		{Relation: "relation-0", Unit: "service-mysql"},
+		{Relation: "relation-0", Unit: "user-admin"},
 	}}
 	result, err := s.uniter.EnterScope(args)
 	c.Assert(err, gc.IsNil)
@@ -881,14 +882,16 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	c.Assert(relUnit.InScope(), jc.IsTrue)
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, gc.IsNil)
-	c.Assert(params.Settings(readSettings), gc.DeepEquals, settings)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"private-address": "1.2.3.4",
+	})
 }
 
 func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, gc.IsNil)
-	settings := params.Settings{
+	settings := map[string]interface{}{
 		"some": "settings",
 	}
 	err = relUnit.EnterScope(settings)
@@ -930,23 +933,67 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	c.Assert(relUnit.InScope(), jc.IsFalse)
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, gc.IsNil)
-	c.Assert(params.Settings(readSettings), gc.DeepEquals, settings)
+	c.Assert(readSettings, gc.DeepEquals, settings)
 }
 
 func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, gc.IsNil)
-	settings := params.Settings{
+	settings := map[string]interface{}{
 		"some": "settings",
 	}
 	err = relUnit.EnterScope(settings)
 	c.Assert(err, gc.IsNil)
 	c.Assert(relUnit.InScope(), jc.IsTrue)
 
-	// First test most of the invalid args tests and two valid:
-	// 1. Reading local unit settings successfully;
-	// 2. Trying to read the (unset) remote unit settings.
+	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: "relation-0", Unit: "unit-wordpress-0"},
+		{Relation: "relation-0", Unit: "unit-mysql-0"},
+		{Relation: "relation-42", Unit: "unit-wordpress-0"},
+		{Relation: "relation-foo", Unit: ""},
+		{Relation: "service-wordpress", Unit: "unit-foo-0"},
+		{Relation: "foo", Unit: "bar"},
+		{Relation: "relation-0", Unit: "unit-mysql-0"},
+		{Relation: "relation-0", Unit: "service-wordpress"},
+		{Relation: "relation-0", Unit: "service-mysql"},
+		{Relation: "relation-0", Unit: "user-admin"},
+	}}
+	result, err := s.uniter.ReadSettings(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.SettingsResults{
+		Results: []params.SettingsResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Settings: params.Settings{
+				"some": "settings",
+			}},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
+func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
+	rel := s.addRelation(c, "wordpress", "mysql")
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	settings := map[string]interface{}{
+		"some": "settings",
+	}
+	err = relUnit.EnterScope(settings)
+	c.Assert(err, gc.IsNil)
+	c.Assert(relUnit.InScope(), jc.IsTrue)
+
+	// First test most of the invalid args tests and try to read the
+	// (unset) remote unit settings.
 	args := params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{
 		{Relation: "relation-42", LocalUnit: "unit-foo-0", RemoteUnit: "foo"},
 		{Relation: "relation-0", LocalUnit: "unit-wordpress-0", RemoteUnit: "unit-wordpress-0"},
@@ -960,14 +1007,14 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 		{Relation: "relation-0", LocalUnit: "service-mysql", RemoteUnit: "foo"},
 		{Relation: "relation-0", LocalUnit: "user-admin", RemoteUnit: "unit-wordpress-0"},
 	}}
-	result, err := s.uniter.ReadSettings(args)
+	result, err := s.uniter.ReadRemoteSettings(args)
 	// We don't set the remote unit settings on purpose to test the error.
 	expectErr := `cannot read settings for unit "mysql/0" in relation "wordpress:db mysql:server": settings not found`
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
 			{Error: apiservertesting.ErrUnauthorized},
-			{Settings: settings},
+			{Error: apiservertesting.ErrUnauthorized},
 			{Error: &params.Error{Message: expectErr}},
 			{Error: apiservertesting.ErrUnauthorized},
 			{Error: apiservertesting.ErrUnauthorized},
@@ -982,7 +1029,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	// Now leave the mysqlUnit and re-enter with new settings.
 	relUnit, err = rel.Unit(s.mysqlUnit)
 	c.Assert(err, gc.IsNil)
-	settings = params.Settings{
+	settings = map[string]interface{}{
 		"other": "things",
 	}
 	err = relUnit.LeaveScope()
@@ -998,28 +1045,36 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 		LocalUnit:  "unit-wordpress-0",
 		RemoteUnit: "unit-mysql-0",
 	}}}
-	result, err = s.uniter.ReadSettings(args)
+	result, err = s.uniter.ReadRemoteSettings(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.SettingsResults{
 		Results: []params.SettingsResult{
-			{Settings: settings},
+			{Settings: params.Settings{
+				"other": "things",
+			}},
 		},
 	})
 }
 
-func (s *uniterSuite) TestWriteSettings(c *gc.C) {
+func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, gc.IsNil)
-	err = relUnit.EnterScope(nil)
+	settings := map[string]interface{}{
+		"some":  "settings",
+		"other": "stuff",
+	}
+	err = relUnit.EnterScope(settings)
 	c.Assert(relUnit.InScope(), jc.IsTrue)
-	settings := params.Settings{
-		"some": "settings",
+
+	newSettings := params.Settings{
+		"some":  "different",
+		"other": "",
 	}
 
 	args := params.RelationUnitsSettings{RelationUnits: []params.RelationUnitSettings{
 		{Relation: "relation-42", Unit: "unit-foo-0", Settings: nil},
-		{Relation: "relation-0", Unit: "unit-wordpress-0", Settings: settings},
+		{Relation: "relation-0", Unit: "unit-wordpress-0", Settings: newSettings},
 		{Relation: "relation-42", Unit: "unit-wordpress-0", Settings: nil},
 		{Relation: "relation-foo", Unit: "unit-wordpress-0", Settings: nil},
 		{Relation: "service-wordpress", Unit: "unit-foo-0", Settings: nil},
@@ -1029,7 +1084,7 @@ func (s *uniterSuite) TestWriteSettings(c *gc.C) {
 		{Relation: "relation-0", Unit: "service-mysql", Settings: nil},
 		{Relation: "relation-0", Unit: "user-admin", Settings: nil},
 	}}
-	result, err := s.uniter.WriteSettings(args)
+	result, err := s.uniter.UpdateSettings(args)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result, gc.DeepEquals, params.ErrorResults{
 		Results: []params.ErrorResult{
@@ -1050,5 +1105,7 @@ func (s *uniterSuite) TestWriteSettings(c *gc.C) {
 	c.Assert(relUnit.InScope(), jc.IsTrue)
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, gc.IsNil)
-	c.Assert(params.Settings(readSettings), gc.DeepEquals, settings)
+	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
+		"some": "different",
+	})
 }

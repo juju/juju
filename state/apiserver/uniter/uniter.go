@@ -444,7 +444,7 @@ func (u *UniterAPI) ConfigSettings(args params.Entities) (params.SettingsResults
 				var settings charm.Settings
 				settings, err = unit.ConfigSettings()
 				if err == nil {
-					result.Results[i].Settings = params.Settings(settings)
+					result.Results[i].Settings = convertSettings(settings)
 				}
 			}
 		}
@@ -628,7 +628,8 @@ func (u *UniterAPI) CurrentEnvironUUID() (params.StringResult, error) {
 // environment.
 //
 // TODO(dimitern): Refactor the uniter to call this instead of calling
-// EnvironConfig() just to get the provider type.
+// EnvironConfig() just to get the provider type. Once we have machine
+// addresses, this might be completely unnecessary though.
 func (u *UniterAPI) ProviderType() (params.StringResult, error) {
 	result := params.StringResult{}
 	cfg, err := u.st.EnvironConfig()
@@ -641,7 +642,7 @@ func (u *UniterAPI) ProviderType() (params.StringResult, error) {
 // EnterScope ensures each unit has entered its scope in the relation,
 // for all of the given relation/unit pairs. See also
 // state.RelationUnit.EnterScope().
-func (u *UniterAPI) EnterScope(args params.RelationUnitsSettings) (params.ErrorResults, error) {
+func (u *UniterAPI) EnterScope(args params.RelationUnits) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
@@ -652,7 +653,13 @@ func (u *UniterAPI) EnterScope(args params.RelationUnitsSettings) (params.ErrorR
 	for i, arg := range args.RelationUnits {
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
 		if err == nil {
-			err = relUnit.EnterScope(arg.Settings)
+			// Construct the settings, passing the unit's
+			// private address (we already know it).
+			privateAddress, _ := relUnit.PrivateAddress()
+			settings := map[string]interface{}{
+				"private-address": privateAddress,
+			}
+			err = relUnit.EnterScope(settings)
 		}
 		result.Results[i].Error = common.ServerError(err)
 	}
@@ -680,9 +687,61 @@ func (u *UniterAPI) LeaveScope(args params.RelationUnits) (params.ErrorResults, 
 	return result, nil
 }
 
-// ReadSettings returns the settings of each given set of
+func convertSettings(settings map[string]interface{}) params.Settings {
+	result := make(params.Settings)
+	for k, v := range settings {
+		// All relation settings should be strings.
+		sval, _ := v.(string)
+		result[k] = sval
+	}
+	return result
+}
+
+// ReadSettings returns the local settings of each given set of
+// relation/unit.
+func (u *UniterAPI) ReadSettings(args params.RelationUnits) (params.SettingsResults, error) {
+	result := params.SettingsResults{
+		Results: make([]params.SettingsResult, len(args.RelationUnits)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.SettingsResults{}, err
+	}
+	for i, arg := range args.RelationUnits {
+		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.Unit)
+		if err == nil {
+			var settings *state.Settings
+			settings, err = relUnit.Settings()
+			if err == nil {
+				result.Results[i].Settings = convertSettings(settings.Map())
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+func (u *UniterAPI) checkRemoteUnit(relUnit *state.RelationUnit, remoteUnitTag string) (string, error) {
+	// Make sure the unit is indeed remote.
+	if remoteUnitTag == u.auth.GetAuthTag() {
+		return "", common.ErrPerm
+	}
+	remoteUnit, err := u.getUnit(remoteUnitTag)
+	if err != nil {
+		return "", common.ErrPerm
+	}
+	// Check remoteUnit is indeed related.
+	rel := relUnit.Relation()
+	_, err = rel.RelatedEndpoints(remoteUnit.ServiceName())
+	if err != nil {
+		return "", common.ErrPerm
+	}
+	return remoteUnit.Name(), nil
+}
+
+// ReadRemoteSettings returns the remote settings of each given set of
 // relation/local unit/remote unit.
-func (u *UniterAPI) ReadSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
+func (u *UniterAPI) ReadRemoteSettings(args params.RelationUnitPairs) (params.SettingsResults, error) {
 	result := params.SettingsResults{
 		Results: make([]params.SettingsResult, len(args.RelationUnitPairs)),
 	}
@@ -694,12 +753,12 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnitPairs) (params.Settings
 		relUnit, err := u.getRelationUnit(canAccess, arg.Relation, arg.LocalUnit)
 		if err == nil {
 			remoteUnit := ""
-			_, remoteUnit, err = names.ParseTag(arg.RemoteUnit, names.UnitTagKind)
+			remoteUnit, err = u.checkRemoteUnit(relUnit, arg.RemoteUnit)
 			if err == nil {
-				var settings params.Settings
+				var settings map[string]interface{}
 				settings, err = relUnit.ReadSettings(remoteUnit)
 				if err == nil {
-					result.Results[i].Settings = settings
+					result.Results[i].Settings = convertSettings(settings)
 				}
 			}
 		}
@@ -708,9 +767,10 @@ func (u *UniterAPI) ReadSettings(args params.RelationUnitPairs) (params.Settings
 	return result, nil
 }
 
-// WriteSettings persists all changes made to the local settings of
-// all given pairs of relation and unit.
-func (u *UniterAPI) WriteSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
+// UpdateSettings persists all changes made to the local settings of
+// all given pairs of relation and unit. Keys with empty values are
+// considered a signal to delete these values.
+func (u *UniterAPI) UpdateSettings(args params.RelationUnitsSettings) (params.ErrorResults, error) {
 	result := params.ErrorResults{
 		Results: make([]params.ErrorResult, len(args.RelationUnits)),
 	}
@@ -724,7 +784,16 @@ func (u *UniterAPI) WriteSettings(args params.RelationUnitsSettings) (params.Err
 			var settings *state.Settings
 			settings, err = relUnit.Settings()
 			if err == nil {
-				settings.Update(arg.Settings)
+				mapSettings := make(map[string]interface{})
+				for _, k := range settings.Keys() {
+					if v, ok := arg.Settings[k]; ok && v == "" {
+						settings.Delete(k)
+						delete(arg.Settings, k)
+					} else {
+						mapSettings[k] = arg.Settings[k]
+					}
+				}
+				settings.Update(mapSettings)
 				_, err = settings.Write()
 			}
 		}

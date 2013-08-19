@@ -67,7 +67,7 @@ type StringBoolResults struct {
 }
 
 // Settings holds charm config options names and values.
-type Settings map[string]interface{}
+type Settings map[string]string
 
 // SettingsResult holds a charm settings map or an error.
 type SettingsResult struct {
@@ -106,8 +106,8 @@ type RelationUnitPairs struct {
 	RelationUnitPairs []RelationUnitPair
 }
 
-// RelationUnitSettings holds a relation tag, a unit tag and (optional
-// for EnterScope, mandatory for WriteSettings) local unit settings.
+// RelationUnitSettings holds a relation tag, a unit tag and local
+// unit settings.
 type RelationUnitSettings struct {
 	Relation string
 	Unit     string
