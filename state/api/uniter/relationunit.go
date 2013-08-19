@@ -47,9 +47,11 @@ func (ru *RelationUnit) PrivateAddress() (string, bool, error) {
 	return ru.unit.PrivateAddress()
 }
 
-// TODO: Translate ErrCannotEnterScope and ErrCannotEnterScopeYet errors from
-// EnterScope() into their api/params equivalents with the respective codes (
-// CodeCannotEnterScope and CodeCannotEnterScopeYet) and message contents.
+// TODO: Translate ErrCannotEnterScope and ErrCannotEnterScopeYet
+// errors from EnterScope() into their api/params equivalents with the
+// respective codes ( CodeCannotEnterScope and
+// CodeCannotEnterScopeYet) and message contents, matching the part of
+// the error message after the colon.
 
 // EnterScope ensures that the unit has entered its scope in the relation.
 // When the unit has already entered its relation scope, EnterScope will report
