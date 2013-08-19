@@ -43,11 +43,12 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 var providerInstance environProvider
 
 // Use shortAttempt to poll for short-term events.
-// TODO: This was kept to a long timeout because Nova needs more time than
-// EC2.  But storage delays are handled separately now, and perhaps other
-// polling attempts can time out faster.
+// TODO: This was kept to a long timeout because Nova needs more time than EC2.
+// For example, HP Cloud takes around 9.1 seconds (10 samples) to return a
+// BUILD(spawning) status. But storage delays are handled separately now, and
+// perhaps other polling attempts can time out faster.
 var shortAttempt = utils.AttemptStrategy{
-	Total: 10 * time.Second,
+	Total: 15 * time.Second,
 	Delay: 200 * time.Millisecond,
 }
 
