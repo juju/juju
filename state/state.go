@@ -294,6 +294,7 @@ func (st *State) addMachineContainerOps(params *AddMachineParams, cons constrain
 			InstanceId: params.instanceId,
 			Arch:       params.characteristics.Arch,
 			Mem:        params.characteristics.Mem,
+			RootDisk:   params.characteristics.RootDisk,
 			CpuCores:   params.characteristics.CpuCores,
 			CpuPower:   params.characteristics.CpuPower,
 		}

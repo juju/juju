@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -16,7 +16,7 @@ type UnitGetSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&UnitGetSuite{})
+var _ = gc.Suite(&UnitGetSuite{})
 
 var unitGetTests = []struct {
 	args []string
@@ -30,30 +30,30 @@ var unitGetTests = []struct {
 	{[]string{"public-address", "--format", "json"}, `"gimli.minecraft.testing.invalid"` + "\n"},
 }
 
-func (s *UnitGetSuite) createCommand(c *C) cmd.Command {
+func (s *UnitGetSuite) createCommand(c *gc.C) cmd.Command {
 	hctx := s.GetHookContext(c, -1, "")
 	com, err := jujuc.NewCommand(hctx, "unit-get")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return com
 }
 
-func (s *UnitGetSuite) TestOutputFormat(c *C) {
+func (s *UnitGetSuite) TestOutputFormat(c *gc.C) {
 	for _, t := range unitGetTests {
 		com := s.createCommand(c)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		c.Assert(bufferString(ctx.Stdout), Matches, t.out)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Matches, t.out)
 	}
 }
 
-func (s *UnitGetSuite) TestHelp(c *C) {
+func (s *UnitGetSuite) TestHelp(c *gc.C) {
 	com := s.createCommand(c)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--help"})
-	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, `usage: unit-get [options] <setting>
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, `usage: unit-get [options] <setting>
 purpose: print public-address or private-address
 
 options:
@@ -62,29 +62,29 @@ options:
 -o, --output (= "")
     specify an output file
 `)
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 }
 
-func (s *UnitGetSuite) TestOutputPath(c *C) {
+func (s *UnitGetSuite) TestOutputPath(c *gc.C) {
 	com := s.createCommand(c)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "private-address"})
-	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
-	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "192.168.0.99\n")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, "192.168.0.99\n")
 }
 
-func (s *UnitGetSuite) TestUnknownSetting(c *C) {
+func (s *UnitGetSuite) TestUnknownSetting(c *gc.C) {
 	com := s.createCommand(c)
 	err := testing.InitCommand(com, []string{"protected-address"})
-	c.Assert(err, ErrorMatches, `unknown setting "protected-address"`)
+	c.Assert(err, gc.ErrorMatches, `unknown setting "protected-address"`)
 }
 
-func (s *UnitGetSuite) TestUnknownArg(c *C) {
+func (s *UnitGetSuite) TestUnknownArg(c *gc.C) {
 	com := s.createCommand(c)
 	err := testing.InitCommand(com, []string{"private-address", "blah"})
-	c.Assert(err, ErrorMatches, `unrecognized args: \["blah"\]`)
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["blah"\]`)
 }

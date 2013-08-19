@@ -4,22 +4,22 @@
 package environs_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	_ "launchpad.net/juju-core/environs/ec2"
-	_ "launchpad.net/juju-core/environs/openstack"
+	_ "launchpad.net/juju-core/environs/provider/ec2"
+	_ "launchpad.net/juju-core/environs/provider/openstack"
 )
 
 type BoilerplateConfigSuite struct {
 }
 
-var _ = Suite(&BoilerplateConfigSuite{})
+var _ = gc.Suite(&BoilerplateConfigSuite{})
 
-func (*BoilerplateConfigSuite) TestBoilerPlateGeneration(c *C) {
+func (*BoilerplateConfigSuite) TestBoilerPlateGeneration(c *gc.C) {
 	defer config.SetJujuHome(config.SetJujuHome(c.MkDir()))
 	boilerplate_text := environs.BoilerplateConfig()
 	_, err := environs.ReadEnvironsBytes([]byte(boilerplate_text))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }

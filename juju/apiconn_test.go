@@ -4,11 +4,11 @@
 package juju_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/juju"
 	coretesting "launchpad.net/juju-core/testing"
 )
@@ -17,14 +17,14 @@ type NewAPIConnSuite struct {
 	coretesting.LoggingSuite
 }
 
-var _ = Suite(&NewAPIConnSuite{})
+var _ = gc.Suite(&NewAPIConnSuite{})
 
-func (cs *NewAPIConnSuite) TearDownTest(c *C) {
+func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (*NewAPIConnSuite) TestNewConn(c *C) {
+func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	attrs := map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
@@ -36,15 +36,15 @@ func (*NewAPIConnSuite) TestNewConn(c *C) {
 		"ca-private-key":  coretesting.CAKey,
 	}
 	env, err := environs.NewFromAttrs(attrs)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	conn, err := juju.NewConn(env)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(conn.Environ, Equals, env)
-	c.Assert(conn.State, NotNil)
+	c.Assert(conn.Environ, gc.Equals, env)
+	c.Assert(conn.State, gc.NotNil)
 
-	c.Assert(conn.Close(), IsNil)
+	c.Assert(conn.Close(), gc.IsNil)
 }

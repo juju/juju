@@ -5,7 +5,7 @@ package jujuc_test
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -15,7 +15,7 @@ type RelationListSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&RelationListSuite{})
+var _ = gc.Suite(&RelationListSuite{})
 
 var relationListTests = []struct {
 	summary            string
@@ -103,34 +103,34 @@ var relationListTests = []struct {
 	},
 }
 
-func (s *RelationListSuite) TestRelationList(c *C) {
+func (s *RelationListSuite) TestRelationList(c *gc.C) {
 	for i, t := range relationListTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, "")
 		setMembers(hctx.rels[0], t.members0)
 		setMembers(hctx.rels[1], t.members1)
 		com, err := jujuc.NewCommand(hctx, "relation-list")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
 		c.Logf(bufferString(ctx.Stderr))
-		c.Assert(code, Equals, t.code)
+		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
-			c.Assert(bufferString(ctx.Stderr), Equals, "")
+			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
 			if expect != "" {
 				expect = expect + "\n"
 			}
-			c.Assert(bufferString(ctx.Stdout), Equals, expect)
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
-			c.Assert(bufferString(ctx.Stdout), Equals, "")
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
-			c.Assert(bufferString(ctx.Stderr), Matches, expect)
+			c.Assert(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
 }
 
-func (s *RelationListSuite) TestRelationListHelp(c *C) {
+func (s *RelationListSuite) TestRelationListHelp(c *gc.C) {
 	template := `
 usage: relation-list [options]
 purpose: list relation units
@@ -153,13 +153,13 @@ options:
 		c.Logf("test relid %d", relid)
 		hctx := s.GetHookContext(c, relid, "")
 		com, err := jujuc.NewCommand(hctx, "relation-list")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
-		c.Assert(code, Equals, 0)
+		c.Assert(code, gc.Equals, 0)
 		expect := fmt.Sprintf(template, t.usage, t.doc)
-		c.Assert(bufferString(ctx.Stdout), Equals, expect)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
 }
 

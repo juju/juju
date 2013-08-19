@@ -5,7 +5,7 @@ package main
 
 import (
 	"bytes"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
@@ -16,9 +16,9 @@ type ConstraintsCommandsSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&ConstraintsCommandsSuite{})
+var _ = gc.Suite(&ConstraintsCommandsSuite{})
 
-func runCmdLine(c *C, com cmd.Command, args ...string) (code int, stdout, stderr string) {
+func runCmdLine(c *gc.C, com cmd.Command, args ...string) (code int, stdout, stderr string) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(com, ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).String()
@@ -31,19 +31,19 @@ func uint64p(val uint64) *uint64 {
 	return &val
 }
 
-func assertSet(c *C, args ...string) {
+func assertSet(c *gc.C, args ...string) {
 	rcode, rstdout, rstderr := runCmdLine(c, &SetConstraintsCommand{}, args...)
-	c.Assert(rcode, Equals, 0)
-	c.Assert(rstdout, Equals, "")
-	c.Assert(rstderr, Equals, "")
+	c.Assert(rcode, gc.Equals, 0)
+	c.Assert(rstdout, gc.Equals, "")
+	c.Assert(rstderr, gc.Equals, "")
 }
 
-func (s *ConstraintsCommandsSuite) TestSetEnviron(c *C) {
+func (s *ConstraintsCommandsSuite) TestSetEnviron(c *gc.C) {
 	// Set constraints.
 	assertSet(c, "mem=4G", "cpu-power=250")
 	cons, err := s.State.EnvironConstraints()
-	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, constraints.Value{
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
 		Mem:      uint64p(4096),
 	})
@@ -51,19 +51,19 @@ func (s *ConstraintsCommandsSuite) TestSetEnviron(c *C) {
 	// Clear constraints.
 	assertSet(c)
 	cons, err = s.State.EnvironConstraints()
-	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.Value{})
 }
 
-func (s *ConstraintsCommandsSuite) TestSetService(c *C) {
+func (s *ConstraintsCommandsSuite) TestSetService(c *gc.C) {
 	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Set constraints.
 	assertSet(c, "-s", "svc", "mem=4G", "cpu-power=250")
 	cons, err := svc.Constraints()
-	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, constraints.Value{
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.Value{
 		CpuPower: uint64p(250),
 		Mem:      uint64p(4096),
 	})
@@ -71,73 +71,73 @@ func (s *ConstraintsCommandsSuite) TestSetService(c *C) {
 	// Clear constraints.
 	assertSet(c, "-s", "svc")
 	cons, err = svc.Constraints()
-	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.Value{})
 }
 
-func assertSetError(c *C, code int, stderr string, args ...string) {
+func assertSetError(c *gc.C, code int, stderr string, args ...string) {
 	rcode, rstdout, rstderr := runCmdLine(c, &SetConstraintsCommand{}, args...)
-	c.Assert(rcode, Equals, code)
-	c.Assert(rstdout, Equals, "")
-	c.Assert(rstderr, Matches, "error: "+stderr+"\n")
+	c.Assert(rcode, gc.Equals, code)
+	c.Assert(rstdout, gc.Equals, "")
+	c.Assert(rstderr, gc.Matches, "error: "+stderr+"\n")
 }
 
-func (s *ConstraintsCommandsSuite) TestSetErrors(c *C) {
+func (s *ConstraintsCommandsSuite) TestSetErrors(c *gc.C) {
 	assertSetError(c, 2, `invalid service name "badname-0"`, "-s", "badname-0")
 	assertSetError(c, 2, `malformed constraint "="`, "=")
 	assertSetError(c, 2, `malformed constraint "="`, "-s", "s", "=")
 	assertSetError(c, 1, `service "missing" not found`, "-s", "missing")
 }
 
-func assertGet(c *C, stdout string, args ...string) {
+func assertGet(c *gc.C, stdout string, args ...string) {
 	rcode, rstdout, rstderr := runCmdLine(c, &GetConstraintsCommand{}, args...)
-	c.Assert(rcode, Equals, 0)
-	c.Assert(rstdout, Equals, stdout)
-	c.Assert(rstderr, Equals, "")
+	c.Assert(rcode, gc.Equals, 0)
+	c.Assert(rstdout, gc.Equals, stdout)
+	c.Assert(rstderr, gc.Equals, "")
 }
 
-func (s *ConstraintsCommandsSuite) TestGetEnvironEmpty(c *C) {
+func (s *ConstraintsCommandsSuite) TestGetEnvironEmpty(c *gc.C) {
 	assertGet(c, "")
 }
 
-func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *C) {
+func (s *ConstraintsCommandsSuite) TestGetEnvironValues(c *gc.C) {
 	cons := constraints.Value{CpuCores: uint64p(64)}
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertGet(c, "cpu-cores=64\n")
 }
 
-func (s *ConstraintsCommandsSuite) TestGetServiceEmpty(c *C) {
+func (s *ConstraintsCommandsSuite) TestGetServiceEmpty(c *gc.C) {
 	_, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertGet(c, "", "svc")
 }
 
-func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *C) {
+func (s *ConstraintsCommandsSuite) TestGetServiceValues(c *gc.C) {
 	svc, err := s.State.AddService("svc", s.AddTestingCharm(c, "dummy"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = svc.SetConstraints(constraints.Value{CpuCores: uint64p(64)})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertGet(c, "cpu-cores=64\n", "svc")
 }
 
-func (s *ConstraintsCommandsSuite) TestGetFormats(c *C) {
+func (s *ConstraintsCommandsSuite) TestGetFormats(c *gc.C) {
 	cons := constraints.Value{CpuCores: uint64p(64), CpuPower: uint64p(0)}
 	err := s.State.SetEnvironConstraints(cons)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertGet(c, "cpu-cores=64 cpu-power=\n", "--format", "constraints")
 	assertGet(c, "cpu-cores: 64\ncpu-power: 0\n", "--format", "yaml")
 	assertGet(c, `{"cpu-cores":64,"cpu-power":0}`+"\n", "--format", "json")
 }
 
-func assertGetError(c *C, code int, stderr string, args ...string) {
+func assertGetError(c *gc.C, code int, stderr string, args ...string) {
 	rcode, rstdout, rstderr := runCmdLine(c, &GetConstraintsCommand{}, args...)
-	c.Assert(rcode, Equals, code)
-	c.Assert(rstdout, Equals, "")
-	c.Assert(rstderr, Matches, "error: "+stderr+"\n")
+	c.Assert(rcode, gc.Equals, code)
+	c.Assert(rstdout, gc.Equals, "")
+	c.Assert(rstderr, gc.Matches, "error: "+stderr+"\n")
 }
 
-func (s *ConstraintsCommandsSuite) TestGetErrors(c *C) {
+func (s *ConstraintsCommandsSuite) TestGetErrors(c *gc.C) {
 	assertGetError(c, 2, `invalid service name "badname-0"`, "badname-0")
 	assertGetError(c, 2, `unrecognized args: \["blether"\]`, "goodname", "blether")
 	assertGetError(c, 1, `service "missing" not found`, "missing")

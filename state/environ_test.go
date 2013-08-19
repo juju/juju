@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 )
@@ -14,25 +14,25 @@ type EnvironSuite struct {
 	env *state.Environment
 }
 
-var _ = Suite(&EnvironSuite{})
+var _ = gc.Suite(&EnvironSuite{})
 
-func (s *EnvironSuite) SetUpTest(c *C) {
+func (s *EnvironSuite) SetUpTest(c *gc.C) {
 	s.ConnSuite.SetUpTest(c)
 	env, err := s.State.Environment()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.env = env
 }
 
-func (s *EnvironSuite) TestTag(c *C) {
+func (s *EnvironSuite) TestTag(c *gc.C) {
 	cfg, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	expected := "environment-" + cfg.Name()
-	c.Assert(s.env.Tag(), Equals, expected)
+	c.Assert(s.env.Tag(), gc.Equals, expected)
 }
 
-func (s *EnvironSuite) TestUUID(c *C) {
+func (s *EnvironSuite) TestUUID(c *gc.C) {
 	uuidA := s.env.UUID()
-	c.Assert(uuidA, HasLen, 36)
+	c.Assert(uuidA, gc.HasLen, 36)
 
 	// Check that two environments have different UUIDs.
 	s.State.Close()
@@ -40,12 +40,12 @@ func (s *EnvironSuite) TestUUID(c *C) {
 	s.MgoSuite.SetUpTest(c)
 	s.State = state.TestingInitialize(c, nil)
 	env, err := s.State.Environment()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	uuidB := env.UUID()
-	c.Assert(uuidA, Not(Equals), uuidB)
+	c.Assert(uuidA, gc.Not(gc.Equals), uuidB)
 }
 
-func (s *EnvironSuite) TestAnnotatorForEnvironment(c *C) {
+func (s *EnvironSuite) TestAnnotatorForEnvironment(c *gc.C) {
 	testAnnotator(c, func() (state.Annotator, error) {
 		return s.State.Environment()
 	})

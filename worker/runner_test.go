@@ -9,7 +9,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
 	coretesting "launchpad.net/juju-core/testing"
@@ -21,7 +21,7 @@ type runnerSuite struct {
 	restartDelay time.Duration
 }
 
-var _ = Suite(&runnerSuite{})
+var _ = gc.Suite(&runnerSuite{})
 
 func noneFatal(error) bool {
 	return false
@@ -35,33 +35,33 @@ func noImportance(err0, err1 error) bool {
 	return false
 }
 
-func (s *runnerSuite) SetUpTest(c *C) {
+func (s *runnerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.restartDelay = worker.RestartDelay
 	worker.RestartDelay = 0
 }
 
-func (s *runnerSuite) TearDownTest(c *C) {
+func (s *runnerSuite) TearDownTest(c *gc.C) {
 	worker.RestartDelay = s.restartDelay
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (*runnerSuite) TestOneWorkerStart(c *C) {
+func (*runnerSuite) TestOneWorkerStart(c *gc.C) {
 	runner := worker.NewRunner(noneFatal, noImportance)
 	starter := newTestWorkerStarter()
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 
-	c.Assert(worker.Stop(runner), IsNil)
+	c.Assert(worker.Stop(runner), gc.IsNil)
 	starter.assertStarted(c, false)
 }
 
-func (*runnerSuite) TestOneWorkerRestart(c *C) {
+func (*runnerSuite) TestOneWorkerRestart(c *gc.C) {
 	runner := worker.NewRunner(noneFatal, noImportance)
 	starter := newTestWorkerStarter()
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 
 	// Check it restarts a few times time.
@@ -71,71 +71,71 @@ func (*runnerSuite) TestOneWorkerRestart(c *C) {
 		starter.assertStarted(c, true)
 	}
 
-	c.Assert(worker.Stop(runner), IsNil)
+	c.Assert(worker.Stop(runner), gc.IsNil)
 	starter.assertStarted(c, false)
 }
 
-func (*runnerSuite) TestOneWorkerStartFatalError(c *C) {
+func (*runnerSuite) TestOneWorkerStartFatalError(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	starter := newTestWorkerStarter()
 	starter.startErr = errors.New("cannot start test task")
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runner.Wait()
-	c.Assert(err, Equals, starter.startErr)
+	c.Assert(err, gc.Equals, starter.startErr)
 }
 
-func (*runnerSuite) TestOneWorkerDieFatalError(c *C) {
+func (*runnerSuite) TestOneWorkerDieFatalError(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	starter := newTestWorkerStarter()
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 	dieErr := errors.New("error when running")
 	starter.die <- dieErr
 	err = runner.Wait()
-	c.Assert(err, Equals, dieErr)
+	c.Assert(err, gc.Equals, dieErr)
 	starter.assertStarted(c, false)
 }
 
-func (*runnerSuite) TestOneWorkerStartStop(c *C) {
+func (*runnerSuite) TestOneWorkerStartStop(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	starter := newTestWorkerStarter()
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 	err = runner.StopWorker("id")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, false)
-	c.Assert(worker.Stop(runner), IsNil)
+	c.Assert(worker.Stop(runner), gc.IsNil)
 }
 
-func (*runnerSuite) TestOneWorkerStopFatalError(c *C) {
+func (*runnerSuite) TestOneWorkerStopFatalError(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	starter := newTestWorkerStarter()
 	starter.stopErr = errors.New("stop error")
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 	err = runner.StopWorker("id")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runner.Wait()
-	c.Assert(err, Equals, starter.stopErr)
+	c.Assert(err, gc.Equals, starter.stopErr)
 }
 
-func (*runnerSuite) TestOneWorkerStartWhenStopping(c *C) {
+func (*runnerSuite) TestOneWorkerStartWhenStopping(c *gc.C) {
 	worker.RestartDelay = 3 * time.Second
 	runner := worker.NewRunner(allFatal, noImportance)
 	starter := newTestWorkerStarter()
 	starter.stopWait = make(chan struct{})
 
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 	err = runner.StopWorker("id")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	close(starter.stopWait)
 	starter.assertStarted(c, false)
@@ -147,15 +147,15 @@ func (*runnerSuite) TestOneWorkerStartWhenStopping(c *C) {
 	if restartDuration > 1*time.Second {
 		c.Fatalf("task did not restart immediately")
 	}
-	c.Assert(worker.Stop(runner), IsNil)
+	c.Assert(worker.Stop(runner), gc.IsNil)
 }
 
-func (*runnerSuite) TestOneWorkerRestartDelay(c *C) {
+func (*runnerSuite) TestOneWorkerRestartDelay(c *gc.C) {
 	worker.RestartDelay = 100 * time.Millisecond
 	runner := worker.NewRunner(noneFatal, noImportance)
 	starter := newTestWorkerStarter()
 	err := runner.StartWorker("id", testWorkerStart(starter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	starter.assertStarted(c, true)
 	starter.die <- fmt.Errorf("non-fatal error")
 	starter.assertStarted(c, false)
@@ -173,7 +173,7 @@ func (e errorLevel) Error() string {
 	return fmt.Sprintf("error with importance %d", e)
 }
 
-func (*runnerSuite) TestErrorImportance(c *C) {
+func (*runnerSuite) TestErrorImportance(c *gc.C) {
 	moreImportant := func(err0, err1 error) bool {
 		return err0.(errorLevel) > err1.(errorLevel)
 	}
@@ -183,33 +183,33 @@ func (*runnerSuite) TestErrorImportance(c *C) {
 		starter := newTestWorkerStarter()
 		starter.stopErr = errorLevel(i)
 		err := runner.StartWorker(id(i), testWorkerStart(starter))
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	err := runner.StopWorker(id(4))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runner.Wait()
-	c.Assert(err, Equals, errorLevel(9))
+	c.Assert(err, gc.Equals, errorLevel(9))
 }
 
-func (*runnerSuite) TestStartWorkerWhenDead(c *C) {
+func (*runnerSuite) TestStartWorkerWhenDead(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
-	c.Assert(worker.Stop(runner), IsNil)
-	c.Assert(runner.StartWorker("foo", nil), Equals, worker.ErrDead)
+	c.Assert(worker.Stop(runner), gc.IsNil)
+	c.Assert(runner.StartWorker("foo", nil), gc.Equals, worker.ErrDead)
 }
 
-func (*runnerSuite) TestStopWorkerWhenDead(c *C) {
+func (*runnerSuite) TestStopWorkerWhenDead(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
-	c.Assert(worker.Stop(runner), IsNil)
-	c.Assert(runner.StopWorker("foo"), Equals, worker.ErrDead)
+	c.Assert(worker.Stop(runner), gc.IsNil)
+	c.Assert(runner.StopWorker("foo"), gc.Equals, worker.ErrDead)
 }
 
-func (*runnerSuite) TestAllWorkersStoppedWhenOneDiesWithFatalError(c *C) {
+func (*runnerSuite) TestAllWorkersStoppedWhenOneDiesWithFatalError(c *gc.C) {
 	runner := worker.NewRunner(allFatal, noImportance)
 	var starters []*testWorkerStarter
 	for i := 0; i < 10; i++ {
 		starter := newTestWorkerStarter()
 		err := runner.StartWorker(fmt.Sprint(i), testWorkerStart(starter))
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		starters = append(starters, starter)
 	}
 	for _, starter := range starters {
@@ -218,13 +218,13 @@ func (*runnerSuite) TestAllWorkersStoppedWhenOneDiesWithFatalError(c *C) {
 	dieErr := errors.New("fatal error")
 	starters[4].die <- dieErr
 	err := runner.Wait()
-	c.Assert(err, Equals, dieErr)
+	c.Assert(err, gc.Equals, dieErr)
 	for _, starter := range starters {
 		starter.assertStarted(c, false)
 	}
 }
 
-func (*runnerSuite) TestFatalErrorWhileStarting(c *C) {
+func (*runnerSuite) TestFatalErrorWhileStarting(c *gc.C) {
 	// Original deadlock problem that this tests for:
 	// A worker dies with fatal error while another worker
 	// is inside start(). runWorker can't send startInfo on startedc.
@@ -236,13 +236,13 @@ func (*runnerSuite) TestFatalErrorWhileStarting(c *C) {
 	slowStarter.startNotify = make(chan bool)
 
 	err := runner.StartWorker("slow starter", testWorkerStart(slowStarter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	fatalStarter := newTestWorkerStarter()
 	fatalStarter.startErr = fmt.Errorf("a fatal error")
 
 	err = runner.StartWorker("fatal worker", testWorkerStart(fatalStarter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Wait for the runner loop to react to the fatal
 	// error and go into final shutdown mode.
@@ -258,10 +258,10 @@ func (*runnerSuite) TestFatalErrorWhileStarting(c *C) {
 	slowStarter.assertStarted(c, true)
 	slowStarter.assertStarted(c, false)
 	err = runner.Wait()
-	c.Assert(err, Equals, fatalStarter.startErr)
+	c.Assert(err, gc.Equals, fatalStarter.startErr)
 }
 
-func (*runnerSuite) TestFatalErrorWhileSelfStartWorker(c *C) {
+func (*runnerSuite) TestFatalErrorWhileSelfStartWorker(c *gc.C) {
 	// Original deadlock problem that this tests for:
 	// A worker tries to call StartWorker in its start function
 	// at the same time another worker dies with a fatal error.
@@ -278,13 +278,13 @@ func (*runnerSuite) TestFatalErrorWhileSelfStartWorker(c *C) {
 		})
 	}
 	err := runner.StartWorker("self starter", testWorkerStart(selfStarter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	fatalStarter := newTestWorkerStarter()
 	fatalStarter.startErr = fmt.Errorf("a fatal error")
 
 	err = runner.StartWorker("fatal worker", testWorkerStart(fatalStarter))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Wait for the runner loop to react to the fatal
 	// error and go into final shutdown mode.
@@ -300,7 +300,7 @@ func (*runnerSuite) TestFatalErrorWhileSelfStartWorker(c *C) {
 	selfStarter.assertStarted(c, true)
 	selfStarter.assertStarted(c, false)
 	err = runner.Wait()
-	c.Assert(err, Equals, fatalStarter.startErr)
+	c.Assert(err, gc.Equals, fatalStarter.startErr)
 }
 
 type testWorkerStarter struct {
@@ -340,10 +340,10 @@ func newTestWorkerStarter() *testWorkerStarter {
 	}
 }
 
-func (starter *testWorkerStarter) assertStarted(c *C, started bool) {
+func (starter *testWorkerStarter) assertStarted(c *gc.C, started bool) {
 	select {
 	case isStarted := <-starter.startNotify:
-		c.Assert(isStarted, Equals, started)
+		c.Assert(isStarted, gc.Equals, started)
 	case <-time.After(1 * time.Second):
 		c.Fatalf("timed out waiting for start notification")
 	}

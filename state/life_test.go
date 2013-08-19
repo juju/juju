@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 )
@@ -15,15 +15,15 @@ type LifeSuite struct {
 	svc   *state.Service
 }
 
-func (s *LifeSuite) SetUpTest(c *C) {
+func (s *LifeSuite) SetUpTest(c *gc.C) {
 	var err error
 	s.ConnSuite.SetUpTest(c)
 	s.charm = s.AddTestingCharm(c, "dummy")
 	s.svc, err = s.State.AddService("dummysvc", s.charm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-var _ = Suite(&LifeSuite{})
+var _ = gc.Suite(&LifeSuite{})
 
 var stateChanges = []struct {
 	cached, desired    state.Life
@@ -81,8 +81,8 @@ var stateChanges = []struct {
 
 type lifeFixture interface {
 	id() (coll string, id interface{})
-	setup(s *LifeSuite, c *C) state.Living
-	teardown(s *LifeSuite, c *C)
+	setup(s *LifeSuite, c *gc.C) state.Living
+	teardown(s *LifeSuite, c *gc.C)
 }
 
 type unitLife struct {
@@ -93,17 +93,17 @@ func (l *unitLife) id() (coll string, id interface{}) {
 	return "units", l.unit.Name()
 }
 
-func (l *unitLife) setup(s *LifeSuite, c *C) state.Living {
+func (l *unitLife) setup(s *LifeSuite, c *gc.C) state.Living {
 	unit, err := s.svc.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	preventUnitDestroyRemove(c, unit)
 	l.unit = unit
 	return l.unit
 }
 
-func (l *unitLife) teardown(s *LifeSuite, c *C) {
+func (l *unitLife) teardown(s *LifeSuite, c *gc.C) {
 	err := l.unit.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type machineLife struct {
@@ -114,36 +114,36 @@ func (l *machineLife) id() (coll string, id interface{}) {
 	return "machines", l.machine.Id()
 }
 
-func (l *machineLife) setup(s *LifeSuite, c *C) state.Living {
+func (l *machineLife) setup(s *LifeSuite, c *gc.C) state.Living {
 	var err error
 	l.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return l.machine
 }
 
-func (l *machineLife) teardown(s *LifeSuite, c *C) {
+func (l *machineLife) teardown(s *LifeSuite, c *gc.C) {
 	err := l.machine.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *C) {
+func (s *LifeSuite) prepareFixture(living state.Living, lfix lifeFixture, cached, dbinitial state.Life, c *gc.C) {
 	collName, id := lfix.id()
 	coll := s.MgoSuite.Session.DB("juju").C(collName)
 
 	err := coll.UpdateId(id, D{{"$set", D{
 		{"life", cached},
 	}}})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = living.Refresh()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = coll.UpdateId(id, D{{"$set", D{
 		{"life", dbinitial},
 	}}})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
+func (s *LifeSuite) TestLifecycleStateChanges(c *gc.C) {
 	for i, lfix := range []lifeFixture{&unitLife{}, &machineLife{}} {
 		c.Logf("fixture %d", i)
 		for j, v := range stateChanges {
@@ -153,18 +153,18 @@ func (s *LifeSuite) TestLifecycleStateChanges(c *C) {
 			switch v.desired {
 			case state.Dying:
 				err := living.Destroy()
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 			case state.Dead:
 				err := living.EnsureDead()
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 			default:
 				panic("desired lifecycle can only be dying or dead")
 			}
 			err := living.Refresh()
-			c.Assert(err, IsNil)
-			c.Assert(living.Life(), Equals, v.dbfinal)
+			c.Assert(err, gc.IsNil)
+			c.Assert(living.Life(), gc.Equals, v.dbfinal)
 			err = living.EnsureDead()
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			lfix.teardown(s, c)
 		}
 	}
@@ -182,14 +182,14 @@ type lifer interface {
 	Life() state.Life
 }
 
-func runLifeChecks(c *C, obj lifer, expectErr string, checks []func() error) {
+func runLifeChecks(c *gc.C, obj lifer, expectErr string, checks []func() error) {
 	for i, check := range checks {
 		c.Logf("check %d when %v", i, obj.Life())
 		err := check()
 		if expectErr == noErr {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		} else {
-			c.Assert(err, ErrorMatches, expectErr)
+			c.Assert(err, gc.ErrorMatches, expectErr)
 		}
 	}
 }
@@ -197,12 +197,12 @@ func runLifeChecks(c *C, obj lifer, expectErr string, checks []func() error) {
 // testWhenDying sets obj to Dying and Dead in turn, and asserts
 // that the errors from the given checks match aliveErr, dyingErr and deadErr
 // in each respective life state.
-func testWhenDying(c *C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
+func testWhenDying(c *gc.C, obj lifer, dyingErr, deadErr string, checks ...func() error) {
 	c.Logf("checking life of %v (%T)", obj, obj)
 	err := obj.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	runLifeChecks(c, obj, dyingErr, checks)
 	err = obj.EnsureDead()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	runLifeChecks(c, obj, deadErr, checks)
 }

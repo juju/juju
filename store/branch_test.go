@@ -13,19 +13,19 @@ import (
 	"strings"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
 	"launchpad.net/juju-core/testing"
 )
 
-func (s *StoreSuite) dummyBranch(c *C, suffix string) bzrDir {
+func (s *StoreSuite) dummyBranch(c *gc.C, suffix string) bzrDir {
 	tmpDir := c.MkDir()
 	if suffix != "" {
 		tmpDir = filepath.Join(tmpDir, suffix)
 		err := os.MkdirAll(tmpDir, 0755)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	branch := bzrDir(tmpDir)
 	branch.init()
@@ -58,7 +58,7 @@ func (p *fakePlugin) uninstall() {
 	os.Setenv("BZR_PLUGINS_AT", p.oldEnv)
 }
 
-func (s *StoreSuite) TestPublish(c *C) {
+func (s *StoreSuite) TestPublish(c *gc.C) {
 	branch := s.dummyBranch(c, "")
 
 	// Ensure that the streams are parsed separately by inserting
@@ -68,29 +68,29 @@ func (s *StoreSuite) TestPublish(c *C) {
 	defer plugin.uninstall()
 
 	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for _, url := range urls {
 		info, rc, err := s.store.OpenCharm(url)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		defer rc.Close()
-		c.Assert(info.Revision(), Equals, 0)
-		c.Assert(info.Meta().Name, Equals, "dummy")
+		c.Assert(info.Revision(), gc.Equals, 0)
+		c.Assert(info.Meta().Name, gc.Equals, "dummy")
 
 		data, err := ioutil.ReadAll(rc)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		bundle, err := charm.ReadBundleBytes(data)
-		c.Assert(err, IsNil)
-		c.Assert(bundle.Revision(), Equals, 0)
-		c.Assert(bundle.Meta().Name, Equals, "dummy")
+		c.Assert(err, gc.IsNil)
+		c.Assert(bundle.Revision(), gc.Equals, 0)
+		c.Assert(bundle.Meta().Name, gc.Equals, "dummy")
 	}
 
 	// Attempt to publish the same content again while providing the wrong
 	// tip revision. It must pick the real revision from the branch and
 	// note this was previously published.
 	err = store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
-	c.Assert(err, Equals, store.ErrRedundantUpdate)
+	c.Assert(err, gc.Equals, store.ErrRedundantUpdate)
 
 	// Bump the content revision and lie again about the known tip revision.
 	// This time, though, pretend it's the same as the real branch revision
@@ -102,34 +102,34 @@ func (s *StoreSuite) TestPublish(c *C) {
 	digest1 := branch.digest()
 	branch.change()
 	err = store.PublishBazaarBranch(s.store, urls, branch.path(), digest1)
-	c.Assert(err, Equals, store.ErrRedundantUpdate)
+	c.Assert(err, gc.Equals, store.ErrRedundantUpdate)
 
 	// Now allow it to publish the new content by providing an unseen revision.
 	err = store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	digest2 := branch.digest()
 
 	info, err := s.store.CharmInfo(urls[0])
-	c.Assert(err, IsNil)
-	c.Assert(info.Revision(), Equals, 1)
-	c.Assert(info.Meta().Name, Equals, "dummy")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Revision(), gc.Equals, 1)
+	c.Assert(info.Meta().Name, gc.Equals, "dummy")
 
 	// There are two events published, for each of the successful attempts.
 	// The failures are ignored given that they are artifacts of the
 	// publishing mechanism rather than actual problems.
 	_, err = s.store.CharmEvent(urls[0], "wrong-rev")
-	c.Assert(err, Equals, store.ErrNotFound)
+	c.Assert(err, gc.Equals, store.ErrNotFound)
 	for i, digest := range []string{digest1, digest2} {
 		event, err := s.store.CharmEvent(urls[0], digest)
-		c.Assert(err, IsNil)
-		c.Assert(event.Kind, Equals, store.EventPublished)
-		c.Assert(event.Revision, Equals, i)
-		c.Assert(event.Errors, IsNil)
-		c.Assert(event.Warnings, IsNil)
+		c.Assert(err, gc.IsNil)
+		c.Assert(event.Kind, gc.Equals, store.EventPublished)
+		c.Assert(event.Revision, gc.Equals, i)
+		c.Assert(event.Errors, gc.IsNil)
+		c.Assert(event.Warnings, gc.IsNil)
 	}
 }
 
-func (s *StoreSuite) TestPublishErrorFromBzr(c *C) {
+func (s *StoreSuite) TestPublishErrorFromBzr(c *gc.C) {
 	branch := s.dummyBranch(c, "")
 
 	// In TestPublish we ensure that the streams are parsed
@@ -141,10 +141,10 @@ func (s *StoreSuite) TestPublishErrorFromBzr(c *C) {
 	defer plugin.uninstall()
 
 	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
-	c.Assert(err, ErrorMatches, "(?s).*STDERR STUFF.*")
+	c.Assert(err, gc.ErrorMatches, "(?s).*STDERR STUFF.*")
 }
 
-func (s *StoreSuite) TestPublishErrorInCharm(c *C) {
+func (s *StoreSuite) TestPublishErrorInCharm(c *gc.C) {
 	branch := s.dummyBranch(c, "")
 
 	// Corrupt the charm.
@@ -153,17 +153,17 @@ func (s *StoreSuite) TestPublishErrorInCharm(c *C) {
 
 	// Attempt to publish the erroneous content.
 	err := store.PublishBazaarBranch(s.store, urls, branch.path(), "wrong-rev")
-	c.Assert(err, ErrorMatches, ".*/metadata.yaml: no such file or directory")
+	c.Assert(err, gc.ErrorMatches, ".*/metadata.yaml: no such file or directory")
 
 	// The event should be logged as well, since this was an error in the charm
 	// that won't go away and must be communicated to the author.
 	event, err := s.store.CharmEvent(urls[0], branch.digest())
-	c.Assert(err, IsNil)
-	c.Assert(event.Kind, Equals, store.EventPublishError)
-	c.Assert(event.Revision, Equals, 0)
-	c.Assert(event.Errors, NotNil)
-	c.Assert(event.Errors[0], Matches, ".*/metadata.yaml: no such file or directory")
-	c.Assert(event.Warnings, IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(event.Kind, gc.Equals, store.EventPublishError)
+	c.Assert(event.Revision, gc.Equals, 0)
+	c.Assert(event.Errors, gc.NotNil)
+	c.Assert(event.Errors[0], gc.Matches, ".*/metadata.yaml: no such file or directory")
+	c.Assert(event.Warnings, gc.IsNil)
 }
 
 type bzrDir string

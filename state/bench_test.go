@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 )
@@ -12,9 +12,9 @@ import (
 type BenchmarkSuite struct {
 }
 
-var _ = Suite(&BenchmarkSuite{})
+var _ = gc.Suite(&BenchmarkSuite{})
 
-func (*BenchmarkSuite) BenchmarkAddUnit(c *C) {
+func (*BenchmarkSuite) BenchmarkAddUnit(c *gc.C) {
 	// TODO(rog) embed ConnSuite in BenchmarkSuite when
 	// gocheck calls appropriate fixture methods for benchmark
 	// functions.
@@ -25,15 +25,15 @@ func (*BenchmarkSuite) BenchmarkAddUnit(c *C) {
 	defer s.TearDownTest(c)
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		_, err := svc.AddUnit()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
-func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *C) {
+func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *gc.C) {
 	var s ConnSuite
 	s.SetUpSuite(c)
 	defer s.TearDownSuite(c)
@@ -41,12 +41,12 @@ func (*BenchmarkSuite) BenchmarkAddAndAssignUnit(c *C) {
 	defer s.TearDownTest(c)
 	charm := s.AddTestingCharm(c, "wordpress")
 	svc, err := s.State.AddService("wordpress", charm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		unit, err := svc.AddUnit()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = s.State.AssignUnit(unit, state.AssignClean)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }

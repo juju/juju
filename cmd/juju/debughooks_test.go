@@ -7,13 +7,13 @@ import (
 	"bytes"
 	"regexp"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
-var _ = Suite(&DebugHooksSuite{})
+var _ = gc.Suite(&DebugHooksSuite{})
 
 type DebugHooksSuite struct {
 	SSHCommonSuite
@@ -66,15 +66,15 @@ var debugHooksTests = []struct {
 	stderr: `error: unit "mysql/0" does not contain hook "invalid-hook"` + "\n",
 }}
 
-func (s *DebugHooksSuite) TestDebugHooksCommand(c *C) {
+func (s *DebugHooksSuite) TestDebugHooksCommand(c *gc.C) {
 	machines := s.makeMachines(3, c)
 	dummy := s.AddTestingCharm(c, "dummy")
 	srv, err := s.State.AddService("mysql", dummy)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.addUnit(srv, machines[0], c)
 
 	srv, err = s.State.AddService("mongodb", dummy)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.addUnit(srv, machines[1], c)
 	s.addUnit(srv, machines[2], c)
 
@@ -82,8 +82,8 @@ func (s *DebugHooksSuite) TestDebugHooksCommand(c *C) {
 		c.Logf("test %d: %s\n\t%s\n", i, t.info, t.args)
 		ctx := coretesting.Context(c)
 		code := cmd.Main(&DebugHooksCommand{}, ctx, t.args)
-		c.Check(code, Equals, t.code)
-		c.Check(ctx.Stderr.(*bytes.Buffer).String(), Matches, t.stderr)
-		c.Check(ctx.Stdout.(*bytes.Buffer).String(), Matches, t.result)
+		c.Check(code, gc.Equals, t.code)
+		c.Check(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, t.stderr)
+		c.Check(ctx.Stdout.(*bytes.Buffer).String(), gc.Matches, t.result)
 	}
 }

@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/errors"
@@ -16,27 +16,27 @@ type RelationSuite struct {
 	ConnSuite
 }
 
-var _ = Suite(&RelationSuite{})
+var _ = gc.Suite(&RelationSuite{})
 
-func (s *RelationSuite) TestAddRelationErrors(c *C) {
+func (s *RelationSuite) TestAddRelationErrors(c *gc.C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	riakEP, err := riak.Endpoint("ring")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Check we can't add a relation with services that don't exist.
 	yoursqlEP := mysqlEP
 	yoursqlEP.ServiceName = "yoursql"
 	_, err = s.State.AddRelation(yoursqlEP, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db yoursql:server": service "yoursql" does not exist`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db yoursql:server": service "yoursql" does not exist`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
@@ -44,59 +44,59 @@ func (s *RelationSuite) TestAddRelationErrors(c *C) {
 	msep3 := mysqlEP
 	msep3.Interface = "roflcopter"
 	_, err = s.State.AddRelation(msep3, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": endpoints do not relate`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": endpoints do not relate`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
 	// Check a variety of surprising endpoint combinations.
 	_, err = s.State.AddRelation(wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db": relation must have two endpoints`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db": relation must have two endpoints`)
 	assertNoRelations(c, wordpress)
 
 	_, err = s.State.AddRelation(riakEP, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db riak:ring": endpoints do not relate`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db riak:ring": endpoints do not relate`)
 	assertOneRelation(c, riak, 0, riakEP)
 	assertNoRelations(c, wordpress)
 
 	_, err = s.State.AddRelation(riakEP, riakEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "riak:ring riak:ring": endpoints do not relate`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "riak:ring riak:ring": endpoints do not relate`)
 	assertOneRelation(c, riak, 0, riakEP)
 
 	_, err = s.State.AddRelation()
-	c.Assert(err, ErrorMatches, `cannot add relation "": relation must have two endpoints`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "": relation must have two endpoints`)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP, riakEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": relation must have two endpoints`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server riak:ring": relation must have two endpoints`)
 	assertOneRelation(c, riak, 0, riakEP)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 
 	// Check that a relation can't be added to a Dying service.
 	_, err = wordpress.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = wordpress.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": service "wordpress" is not alive`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": service "wordpress" is not alive`)
 	assertNoRelations(c, wordpress)
 	assertNoRelations(c, mysql)
 }
 
-func (s *RelationSuite) TestRetrieveSuccess(c *C) {
+func (s *RelationSuite) TestRetrieveSuccess(c *gc.C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	expect, err := s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := s.State.EndpointsRelation(wordpressEP, mysqlEP)
 	check := func() {
-		c.Assert(err, IsNil)
-		c.Assert(rel.Id(), Equals, expect.Id())
-		c.Assert(rel.String(), Equals, expect.String())
+		c.Assert(err, gc.IsNil)
+		c.Assert(rel.Id(), gc.Equals, expect.Id())
+		c.Assert(rel.String(), gc.Equals, expect.String())
 	}
 	check()
 	rel, err = s.State.EndpointsRelation(mysqlEP, wordpressEP)
@@ -105,7 +105,7 @@ func (s *RelationSuite) TestRetrieveSuccess(c *C) {
 	check()
 }
 
-func (s *RelationSuite) TestRetrieveNotFound(c *C) {
+func (s *RelationSuite) TestRetrieveNotFound(c *gc.C) {
 	subway := state.Endpoint{
 		ServiceName: "subway",
 		Relation: charm.Relation{
@@ -125,65 +125,65 @@ func (s *RelationSuite) TestRetrieveNotFound(c *C) {
 		},
 	}
 	_, err := s.State.EndpointsRelation(subway, mongo)
-	c.Assert(err, ErrorMatches, `relation "subway:db mongo:server" not found`)
+	c.Assert(err, gc.ErrorMatches, `relation "subway:db mongo:server" not found`)
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 
 	_, err = s.State.Relation(999)
-	c.Assert(err, ErrorMatches, `relation 999 not found`)
+	c.Assert(err, gc.ErrorMatches, `relation 999 not found`)
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *RelationSuite) TestAddRelation(c *C) {
+func (s *RelationSuite) TestAddRelation(c *gc.C) {
 	// Add a relation.
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 
 	// Check we cannot re-add the same relation, regardless of endpoint ordering.
 	_, err = s.State.AddRelation(mysqlEP, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "wordpress:db mysql:server": relation already exists`)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 }
 
-func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *C) {
+func (s *RelationSuite) TestAddRelationSeriesNeedNotMatch(c *gc.C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wordpressEP, err := wordpress.Endpoint("db")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysql, err := s.State.AddService("mysql", s.AddSeriesCharm(c, "mysql", "otherseries"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysqlEP, err := mysql.Endpoint("server")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, mysqlEP)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertOneRelation(c, mysql, 0, mysqlEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, mysqlEP)
 }
 
-func (s *RelationSuite) TestAddContainerRelation(c *C) {
+func (s *RelationSuite) TestAddContainerRelation(c *gc.C) {
 	// Add a relation.
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wordpressEP, err := wordpress.Endpoint("juju-info")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	loggingEP, err := logging.Endpoint("info")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Check that the endpoints both have container scope.
 	wordpressEP.Scope = charm.ScopeContainer
@@ -192,39 +192,39 @@ func (s *RelationSuite) TestAddContainerRelation(c *C) {
 
 	// Check we cannot re-add the same relation, regardless of endpoint ordering.
 	_, err = s.State.AddRelation(loggingEP, wordpressEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation already exists`)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation already exists`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": relation already exists`)
 	assertOneRelation(c, logging, 0, loggingEP, wordpressEP)
 	assertOneRelation(c, wordpress, 0, wordpressEP, loggingEP)
 }
 
-func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *C) {
+func (s *RelationSuite) TestAddContainerRelationSeriesMustMatch(c *gc.C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wordpressEP, err := wordpress.Endpoint("juju-info")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	logging, err := s.State.AddService("logging", s.AddSeriesCharm(c, "logging", "otherseries"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	loggingEP, err := logging.Endpoint("info")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddRelation(wordpressEP, loggingEP)
-	c.Assert(err, ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate services' series must match`)
+	c.Assert(err, gc.ErrorMatches, `cannot add relation "logging:info wordpress:juju-info": principal and subordinate services' series must match`)
 }
 
-func (s *RelationSuite) TestDestroyRelation(c *C) {
+func (s *RelationSuite) TestDestroyRelation(c *gc.C) {
 	wordpress, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Test that the relation can be destroyed.
 	err = rel.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = rel.Refresh()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	assertNoRelations(c, wordpress)
@@ -232,31 +232,31 @@ func (s *RelationSuite) TestDestroyRelation(c *C) {
 
 	// Check that a second destroy is a no-op.
 	err = rel.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Create a new relation and check that refreshing the old does not find
 	// the new.
 	_, err = s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = rel.Refresh()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *RelationSuite) TestDestroyPeerRelation(c *C) {
+func (s *RelationSuite) TestDestroyPeerRelation(c *gc.C) {
 	// Check that a peer relation cannot be destroyed directly.
 	riakch := s.AddTestingCharm(c, "riak")
 	riak, err := s.State.AddService("riak", riakch)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	riakEP, err := riak.Endpoint("ring")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel := assertOneRelation(c, riak, 0, riakEP)
 	err = rel.Destroy()
-	c.Assert(err, ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
+	c.Assert(err, gc.ErrorMatches, `cannot destroy relation "riak:ring": is a peer relation`)
 	assertOneRelation(c, riak, 0, riakEP)
 
 	// Check that it is destroyed when the service is destroyed.
 	err = riak.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertNoRelations(c, riak)
 	err = rel.Refresh()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
@@ -264,34 +264,34 @@ func (s *RelationSuite) TestDestroyPeerRelation(c *C) {
 	// Create a new service (and hence a new relation in the background); check
 	// that refreshing the old one does not accidentally get the new one.
 	newriak, err := s.State.AddService("riak", riakch)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	assertOneRelation(c, newriak, 1, riakEP)
 	err = rel.Refresh()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func assertNoRelations(c *C, srv *state.Service) {
+func assertNoRelations(c *gc.C, srv *state.Service) {
 	rels, err := srv.Relations()
-	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rels, gc.HasLen, 0)
 }
 
-func assertOneRelation(c *C, srv *state.Service, relId int, endpoints ...state.Endpoint) *state.Relation {
+func assertOneRelation(c *gc.C, srv *state.Service, relId int, endpoints ...state.Endpoint) *state.Relation {
 	rels, err := srv.Relations()
-	c.Assert(err, IsNil)
-	c.Assert(rels, HasLen, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rels, gc.HasLen, 1)
 	rel := rels[0]
-	c.Assert(rel.Id(), Equals, relId)
+	c.Assert(rel.Id(), gc.Equals, relId)
 	name := srv.Name()
 	expectEp := endpoints[0]
 	ep, err := rel.Endpoint(name)
-	c.Assert(err, IsNil)
-	c.Assert(ep, DeepEquals, expectEp)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ep, gc.DeepEquals, expectEp)
 	if len(endpoints) == 2 {
 		expectEp = endpoints[1]
 	}
 	eps, err := rel.RelatedEndpoints(name)
-	c.Assert(err, IsNil)
-	c.Assert(eps, DeepEquals, []state.Endpoint{expectEp})
+	c.Assert(err, gc.IsNil)
+	c.Assert(eps, gc.DeepEquals, []state.Endpoint{expectEp})
 	return rel
 }

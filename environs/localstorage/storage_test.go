@@ -10,7 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/localstorage"
@@ -20,11 +20,11 @@ import (
 
 type storageSuite struct{}
 
-var _ = Suite(&storageSuite{})
+var _ = gc.Suite(&storageSuite{})
 
 // TestPersistence tests the adding, reading, listing and removing
 // of files from the local storage.
-func (s *storageSuite) TestPersistence(c *C) {
+func (s *storageSuite) TestPersistence(c *gc.C) {
 	listener, _, _ := startServer(c)
 	defer listener.Close()
 
@@ -49,11 +49,11 @@ func (s *storageSuite) TestPersistence(c *C) {
 
 	// remove the first file and check that the others remain.
 	err := storage2.Remove(names[0])
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	// check that it's ok to remove a file twice.
 	err = storage2.Remove(names[0])
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	// ... and check it's been removed in the other environment
 	checkFileDoesNotExist(c, storage, names[0])
@@ -63,7 +63,7 @@ func (s *storageSuite) TestPersistence(c *C) {
 
 	for _, name := range names[1:] {
 		err := storage2.Remove(name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	// check they've all gone
@@ -73,10 +73,10 @@ func (s *storageSuite) TestPersistence(c *C) {
 	checkRemoveAll(c, storage2)
 }
 
-func checkList(c *C, storage environs.StorageReader, prefix string, names []string) {
+func checkList(c *gc.C, storage environs.StorageReader, prefix string, names []string) {
 	lnames, err := storage.List(prefix)
-	c.Assert(err, IsNil)
-	c.Assert(lnames, DeepEquals, names)
+	c.Assert(err, gc.IsNil)
+	c.Assert(lnames, gc.DeepEquals, names)
 }
 
 type readerWithClose struct {
@@ -92,58 +92,58 @@ func (r *readerWithClose) Close() error {
 	return nil
 }
 
-func checkPutFile(c *C, storage environs.StorageWriter, name string, contents []byte) {
+func checkPutFile(c *gc.C, storage environs.StorageWriter, name string, contents []byte) {
 	c.Logf("check putting file %s ...", name)
 	reader := &readerWithClose{bytes.NewBuffer(contents), false}
 	err := storage.Put(name, reader, int64(len(contents)))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(reader.closeCalled, jc.IsFalse)
 }
 
-func checkFileDoesNotExist(c *C, storage environs.StorageReader, name string) {
+func checkFileDoesNotExist(c *gc.C, storage environs.StorageReader, name string) {
 	r, err := storage.Get(name)
-	c.Assert(r, IsNil)
+	c.Assert(r, gc.IsNil)
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
-func checkFileHasContents(c *C, storage environs.StorageReader, name string, contents []byte) {
+func checkFileHasContents(c *gc.C, storage environs.StorageReader, name string, contents []byte) {
 	r, err := storage.Get(name)
-	c.Assert(err, IsNil)
-	c.Check(r, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Check(r, gc.NotNil)
 	defer r.Close()
 
 	data, err := ioutil.ReadAll(r)
-	c.Check(err, IsNil)
-	c.Check(data, DeepEquals, contents)
+	c.Check(err, gc.IsNil)
+	c.Check(data, gc.DeepEquals, contents)
 
 	url, err := storage.URL(name)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	resp, err := http.Get(url)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	data, err = ioutil.ReadAll(resp.Body)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	c.Assert(resp.StatusCode, Equals, http.StatusOK, Commentf("error response: %s", data))
-	c.Check(data, DeepEquals, contents)
+	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK, gc.Commentf("error response: %s", data))
+	c.Check(data, gc.DeepEquals, contents)
 }
 
-func checkRemoveAll(c *C, storage environs.Storage) {
+func checkRemoveAll(c *gc.C, storage environs.Storage) {
 	contents := []byte("File contents.")
 	aFile := "a-file.txt"
 	err := storage.Put(aFile, bytes.NewBuffer(contents), int64(len(contents)))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = storage.Put("empty-file", bytes.NewBuffer(nil), 0)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = storage.RemoveAll()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	files, err := storage.List("")
-	c.Assert(err, IsNil)
-	c.Check(files, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Check(files, gc.HasLen, 0)
 
 	_, err = storage.Get(aFile)
-	c.Assert(err, NotNil)
-	c.Check(err, ErrorMatches, fmt.Sprintf("file %q not found", aFile))
+	c.Assert(err, gc.NotNil)
+	c.Check(err, gc.ErrorMatches, fmt.Sprintf("file %q not found", aFile))
 }

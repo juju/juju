@@ -4,14 +4,14 @@
 package cloudinit_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"testing"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type suite struct{}
 
-var _ = Suite(suite{})
+var _ = gc.Suite(suite{})
