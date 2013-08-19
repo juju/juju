@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
@@ -13,7 +13,7 @@ import (
 type EndpointSuite struct {
 }
 
-var _ = Suite(&EndpointSuite{})
+var _ = gc.Suite(&EndpointSuite{})
 
 var canRelateTests = []struct {
 	role1, role2 charm.RelationRole
@@ -27,7 +27,7 @@ var canRelateTests = []struct {
 	{charm.RolePeer, charm.RolePeer, false},
 }
 
-func (s *EndpointSuite) TestCanRelate(c *C) {
+func (s *EndpointSuite) TestCanRelate(c *gc.C) {
 	for i, t := range canRelateTests {
 		c.Logf("test %d", i)
 		ep1 := state.Endpoint{
@@ -49,12 +49,12 @@ func (s *EndpointSuite) TestCanRelate(c *C) {
 			},
 		}
 		if t.success {
-			c.Assert(ep1.CanRelateTo(ep2), Equals, true)
-			c.Assert(ep2.CanRelateTo(ep1), Equals, true)
+			c.Assert(ep1.CanRelateTo(ep2), gc.Equals, true)
+			c.Assert(ep2.CanRelateTo(ep1), gc.Equals, true)
 			ep1.Interface = "different"
 		}
-		c.Assert(ep1.CanRelateTo(ep2), Equals, false)
-		c.Assert(ep2.CanRelateTo(ep1), Equals, false)
+		c.Assert(ep1.CanRelateTo(ep2), gc.Equals, false)
+		c.Assert(ep2.CanRelateTo(ep1), gc.Equals, false)
 	}
 	ep1 := state.Endpoint{
 		ServiceName: "same-service",
@@ -74,6 +74,6 @@ func (s *EndpointSuite) TestCanRelate(c *C) {
 			Scope:     charm.ScopeGlobal,
 		},
 	}
-	c.Assert(ep1.CanRelateTo(ep2), Equals, false)
-	c.Assert(ep2.CanRelateTo(ep1), Equals, false)
+	c.Assert(ep1.CanRelateTo(ep2), gc.Equals, false)
+	c.Assert(ep2.CanRelateTo(ep1), gc.Equals, false)
 }

@@ -4,7 +4,7 @@
 package machiner_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -36,38 +36,38 @@ type MachinerSuite struct {
 	apiMachine    *apimachiner.Machine
 }
 
-var _ = Suite(&MachinerSuite{})
+var _ = gc.Suite(&MachinerSuite{})
 
-func (s *MachinerSuite) SetUpTest(c *C) {
+func (s *MachinerSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 
 	// Create a machine so we can log in as its agent.
 	var err error
 	s.machine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.SetProvisioned("foo", "fake_nonce", nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.machine.SetPassword("password")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.st = s.OpenAPIAsMachine(c, s.machine.Tag(), "password", "fake_nonce")
 
 	// Create the machiner API facade.
 	s.machinerState = s.st.Machiner()
-	c.Assert(s.machinerState, NotNil)
+	c.Assert(s.machinerState, gc.NotNil)
 
 	// Get the machine through the facade.
 	s.apiMachine, err = s.machinerState.Machine(s.machine.Tag())
-	c.Assert(err, IsNil)
-	c.Assert(s.apiMachine.Tag(), Equals, s.machine.Tag())
+	c.Assert(err, gc.IsNil)
+	c.Assert(s.apiMachine.Tag(), gc.Equals, s.machine.Tag())
 }
 
-func (s *MachinerSuite) TearDownTest(c *C) {
+func (s *MachinerSuite) TearDownTest(c *gc.C) {
 	err := s.st.Close()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus params.Status) {
+func (s *MachinerSuite) waitMachineStatus(c *gc.C, m *state.Machine, expectStatus params.Status) {
 	timeout := time.After(worstCase)
 	for {
 		select {
@@ -75,7 +75,7 @@ func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus p
 			c.Fatalf("timeout while waiting for machine status to change")
 		case <-time.After(10 * time.Millisecond):
 			status, _, err := m.Status()
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			if status != expectStatus {
 				c.Logf("machine %q status is %s, still waiting", m, status)
 				continue
@@ -87,23 +87,23 @@ func (s *MachinerSuite) waitMachineStatus(c *C, m *state.Machine, expectStatus p
 
 var _ worker.NotifyWatchHandler = (*machiner.Machiner)(nil)
 
-func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *C) {
+func (s *MachinerSuite) TestNotFoundOrUnauthorized(c *gc.C) {
 	mr := machiner.NewMachiner(s.machinerState, "eleventy-one")
-	c.Assert(mr.Wait(), Equals, worker.ErrTerminateAgent)
+	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
 }
 
-func (s *MachinerSuite) TestRunStop(c *C) {
+func (s *MachinerSuite) TestRunStop(c *gc.C) {
 	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
-	c.Assert(worker.Stop(mr), IsNil)
-	c.Assert(s.apiMachine.Refresh(), IsNil)
-	c.Assert(s.apiMachine.Life(), Equals, params.Alive)
+	c.Assert(worker.Stop(mr), gc.IsNil)
+	c.Assert(s.apiMachine.Refresh(), gc.IsNil)
+	c.Assert(s.apiMachine.Life(), gc.Equals, params.Alive)
 }
 
-func (s *MachinerSuite) TestStartSetsStatus(c *C) {
+func (s *MachinerSuite) TestStartSetsStatus(c *gc.C) {
 	status, info, err := s.machine.Status()
-	c.Assert(err, IsNil)
-	c.Assert(status, Equals, params.StatusPending)
-	c.Assert(info, Equals, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(status, gc.Equals, params.StatusPending)
+	c.Assert(info, gc.Equals, "")
 
 	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
 	defer worker.Stop(mr)
@@ -111,19 +111,19 @@ func (s *MachinerSuite) TestStartSetsStatus(c *C) {
 	s.waitMachineStatus(c, s.machine, params.StatusStarted)
 }
 
-func (s *MachinerSuite) TestSetsStatusWhenDying(c *C) {
+func (s *MachinerSuite) TestSetsStatusWhenDying(c *gc.C) {
 	mr := machiner.NewMachiner(s.machinerState, s.apiMachine.Tag())
 	defer worker.Stop(mr)
-	c.Assert(s.machine.Destroy(), IsNil)
+	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.waitMachineStatus(c, s.machine, params.StatusStopped)
 }
 
-func (s *MachinerSuite) TestSetDead(c *C) {
+func (s *MachinerSuite) TestSetDead(c *gc.C) {
 	mr := machiner.NewMachiner(s.machinerState, s.machine.Tag())
 	defer worker.Stop(mr)
-	c.Assert(s.machine.Destroy(), IsNil)
+	c.Assert(s.machine.Destroy(), gc.IsNil)
 	s.State.StartSync()
-	c.Assert(mr.Wait(), Equals, worker.ErrTerminateAgent)
-	c.Assert(s.machine.Refresh(), IsNil)
-	c.Assert(s.machine.Life(), Equals, state.Dead)
+	c.Assert(mr.Wait(), gc.Equals, worker.ErrTerminateAgent)
+	c.Assert(s.machine.Refresh(), gc.IsNil)
+	c.Assert(s.machine.Life(), gc.Equals, state.Dead)
 }
