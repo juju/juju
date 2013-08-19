@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"launchpad.net/gnuflag"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
@@ -42,7 +42,7 @@ func TestPackage(t *stdtesting.T) {
 
 type MainSuite struct{}
 
-var _ = Suite(&MainSuite{})
+var _ = gc.Suite(&MainSuite{})
 
 var flagRunMain = flag.Bool("run-main", false, "Run the application's main function for recursive testing")
 
@@ -54,18 +54,18 @@ func TestRunMain(t *stdtesting.T) {
 	}
 }
 
-func checkMessage(c *C, msg string, cmd ...string) {
+func checkMessage(c *gc.C, msg string, cmd ...string) {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--", "jujud"}, cmd...)
 	c.Logf("check %#v", args)
 	ps := exec.Command(os.Args[0], args...)
 	output, err := ps.CombinedOutput()
 	c.Logf(string(output))
-	c.Assert(err, ErrorMatches, "exit status 2")
+	c.Assert(err, gc.ErrorMatches, "exit status 2")
 	lines := strings.Split(string(output), "\n")
-	c.Assert(lines[len(lines)-2], Equals, "error: "+msg)
+	c.Assert(lines[len(lines)-2], gc.Equals, "error: "+msg)
 }
 
-func (s *MainSuite) TestParseErrors(c *C) {
+func (s *MainSuite) TestParseErrors(c *gc.C) {
 	// Check all the obvious parse errors
 	checkMessage(c, "unrecognized command: jujud cavitate", "cavitate")
 	msgf := "flag provided but not defined: --cheese"
@@ -95,11 +95,11 @@ var expectedProviders = []string{
 	"openstack",
 }
 
-func (s *MainSuite) TestProvidersAreRegistered(c *C) {
+func (s *MainSuite) TestProvidersAreRegistered(c *gc.C) {
 	// check that all the expected providers are registered
 	for _, name := range expectedProviders {
 		_, err := environs.Provider(name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
@@ -142,7 +142,7 @@ func (c *RemoteCommand) Run(ctx *cmd.Context) error {
 	return nil
 }
 
-func run(c *C, sockPath string, contextId string, exit int, cmd ...string) string {
+func run(c *gc.C, sockPath string, contextId string, exit int, cmd ...string) string {
 	args := append([]string{"-test.run", "TestRunMain", "-run-main", "--"}, cmd...)
 	c.Logf("check %v %#v", os.Args[0], args)
 	ps := exec.Command(os.Args[0], args...)
@@ -157,9 +157,9 @@ func run(c *C, sockPath string, contextId string, exit int, cmd ...string) strin
 	}
 	output, err := ps.CombinedOutput()
 	if exit == 0 {
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	} else {
-		c.Assert(err, ErrorMatches, fmt.Sprintf("exit status %d", exit))
+		c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", exit))
 	}
 	return string(output)
 }
@@ -169,9 +169,9 @@ type JujuCMainSuite struct {
 	server   *jujuc.Server
 }
 
-var _ = Suite(&JujuCMainSuite{})
+var _ = gc.Suite(&JujuCMainSuite{})
 
-func (s *JujuCMainSuite) SetUpSuite(c *C) {
+func (s *JujuCMainSuite) SetUpSuite(c *gc.C) {
 	factory := func(contextId, cmdName string) (cmd.Command, error) {
 		if contextId != "bill" {
 			return nil, fmt.Errorf("bad context: %s", contextId)
@@ -183,7 +183,7 @@ func (s *JujuCMainSuite) SetUpSuite(c *C) {
 	}
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
 	srv, err := jujuc.NewServer(factory, s.sockPath)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.server = srv
 	go func() {
 		if err := s.server.Run(); err != nil {
@@ -192,7 +192,7 @@ func (s *JujuCMainSuite) SetUpSuite(c *C) {
 	}()
 }
 
-func (s *JujuCMainSuite) TearDownSuite(c *C) {
+func (s *JujuCMainSuite) TearDownSuite(c *gc.C) {
 	s.server.Close()
 }
 
@@ -211,32 +211,32 @@ var argsTests = []struct {
 	{[]string{"remote", "unwanted"}, 2, `error: unrecognized args: ["unwanted"]` + "\n"},
 }
 
-func (s *JujuCMainSuite) TestArgs(c *C) {
+func (s *JujuCMainSuite) TestArgs(c *gc.C) {
 	for _, t := range argsTests {
 		fmt.Println(t.args)
 		output := run(c, s.sockPath, "bill", t.code, t.args...)
-		c.Assert(output, Equals, t.output)
+		c.Assert(output, gc.Equals, t.output)
 	}
 }
 
-func (s *JujuCMainSuite) TestNoClientId(c *C) {
+func (s *JujuCMainSuite) TestNoClientId(c *gc.C) {
 	output := run(c, s.sockPath, "", 1, "remote")
-	c.Assert(output, Equals, "error: JUJU_CONTEXT_ID not set\n")
+	c.Assert(output, gc.Equals, "error: JUJU_CONTEXT_ID not set\n")
 }
 
-func (s *JujuCMainSuite) TestBadClientId(c *C) {
+func (s *JujuCMainSuite) TestBadClientId(c *gc.C) {
 	output := run(c, s.sockPath, "ben", 1, "remote")
-	c.Assert(output, Equals, "error: bad request: bad context: ben\n")
+	c.Assert(output, gc.Equals, "error: bad request: bad context: ben\n")
 }
 
-func (s *JujuCMainSuite) TestNoSockPath(c *C) {
+func (s *JujuCMainSuite) TestNoSockPath(c *gc.C) {
 	output := run(c, "", "bill", 1, "remote")
-	c.Assert(output, Equals, "error: JUJU_AGENT_SOCKET not set\n")
+	c.Assert(output, gc.Equals, "error: JUJU_AGENT_SOCKET not set\n")
 }
 
-func (s *JujuCMainSuite) TestBadSockPath(c *C) {
+func (s *JujuCMainSuite) TestBadSockPath(c *gc.C) {
 	badSock := filepath.Join(c.MkDir(), "bad.sock")
 	output := run(c, badSock, "bill", 1, "remote")
 	err := fmt.Sprintf("error: dial unix %s: .*\n", badSock)
-	c.Assert(output, Matches, err)
+	c.Assert(output, gc.Matches, err)
 }

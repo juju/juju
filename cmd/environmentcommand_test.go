@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"os"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju/osenv"
@@ -18,65 +18,65 @@ type EnvironmentCommandSuite struct {
 	home *testing.FakeHome
 }
 
-var _ = Suite(&EnvironmentCommandSuite{})
+var _ = gc.Suite(&EnvironmentCommandSuite{})
 
-func (s *EnvironmentCommandSuite) SetUpTest(c *C) {
+func (s *EnvironmentCommandSuite) SetUpTest(c *gc.C) {
 	s.home = testing.MakeEmptyFakeHome(c)
 }
 
-func (s *EnvironmentCommandSuite) TearDownTest(c *C) {
+func (s *EnvironmentCommandSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 }
 
-func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *C) {
+func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentUnset(c *gc.C) {
 	env := cmd.ReadCurrentEnvironment()
-	c.Assert(env, Equals, "")
+	c.Assert(env, gc.Equals, "")
 }
 
-func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *C) {
+func (s *EnvironmentCommandSuite) TestReadCurrentEnvironmentSet(c *gc.C) {
 	err := cmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	env := cmd.ReadCurrentEnvironment()
-	c.Assert(env, Equals, "fubar")
+	c.Assert(env, gc.Equals, "fubar")
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *C) {
+func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentNothingSet(c *gc.C) {
 	env := cmd.GetDefaultEnvironment()
-	c.Assert(env, Equals, "")
+	c.Assert(env, gc.Equals, "")
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *C) {
+func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentCurrentEnvironmentSet(c *gc.C) {
 	err := cmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	env := cmd.GetDefaultEnvironment()
-	c.Assert(env, Equals, "fubar")
+	c.Assert(env, gc.Equals, "fubar")
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *C) {
+func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentJujuEnvSet(c *gc.C) {
 	os.Setenv(osenv.JujuEnv, "magic")
 	env := cmd.GetDefaultEnvironment()
-	c.Assert(env, Equals, "magic")
+	c.Assert(env, gc.Equals, "magic")
 }
 
-func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *C) {
+func (s *EnvironmentCommandSuite) TestGetDefaultEnvironmentBothSet(c *gc.C) {
 	os.Setenv(osenv.JujuEnv, "magic")
 	err := cmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	env := cmd.GetDefaultEnvironment()
-	c.Assert(env, Equals, "magic")
+	c.Assert(env, gc.Equals, "magic")
 }
 
-func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *C) {
+func (s *EnvironmentCommandSuite) TestWriteAddsNewline(c *gc.C) {
 	err := cmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	current, err := ioutil.ReadFile(cmd.GetCurrentEnvironmentFilePath())
-	c.Assert(err, IsNil)
-	c.Assert(string(current), Equals, "fubar\n")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(current), gc.Equals, "fubar\n")
 }
 
-func (*EnvironmentCommandSuite) TestErrorWritingFile(c *C) {
+func (*EnvironmentCommandSuite) TestErrorWritingFile(c *gc.C) {
 	// Can't write a file over a directory.
 	os.MkdirAll(cmd.GetCurrentEnvironmentFilePath(), 0777)
 	err := cmd.WriteCurrentEnvironment("fubar")
-	c.Assert(err, ErrorMatches, "unable to write to the environment file: .*")
+	c.Assert(err, gc.ErrorMatches, "unable to write to the environment file: .*")
 }
