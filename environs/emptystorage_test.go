@@ -9,8 +9,8 @@ import (
 	. "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/provider/dummy"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 

@@ -136,8 +136,19 @@ func (s *uniterSuite) TestSetStatus(c *gc.C) {
 }
 
 func (s *uniterSuite) TestLife(c *gc.C) {
+	// Add a relation wordpress-mysql.
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	relUnit, err := rel.Unit(s.wordpressUnit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Alive)
+
 	// Make the wordpressUnit dead.
-	err := s.wordpressUnit.EnsureDead()
+	err = s.wordpressUnit.EnsureDead()
 	c.Assert(err, gc.IsNil)
 	err = s.wordpressUnit.Refresh()
 	c.Assert(err, gc.IsNil)
@@ -156,6 +167,10 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(s.wordpress.Life(), gc.Equals, state.Dying)
 
+	// Check relation life as well.
+	c.Assert(rel.Refresh(), gc.IsNil)
+	c.Assert(rel.Life(), gc.Equals, state.Dying)
+
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
@@ -164,6 +179,9 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 		{Tag: "service-wordpress"},
 		{Tag: "service-foo"},
 		{Tag: "just-foo"},
+		{Tag: rel.Tag()},
+		{Tag: "relation-42"},
+		{Tag: "relation-blah"},
 	}}
 	result, err := s.uniter.Life(args)
 	c.Assert(err, gc.IsNil)
@@ -175,6 +193,11 @@ func (s *uniterSuite) TestLife(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Life: "dying"},
 			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Life: "dying"},
+			{Error: &params.Error{
+				Code:    "not found",
+				Message: "relation 42 not found"}},
 			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
@@ -419,28 +442,17 @@ func (s *uniterSuite) TestClearResolved(c *gc.C) {
 
 func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	// Add a subordinate to wordpressUnit.
-	logging, err := s.State.AddService("logging", s.AddTestingCharm(c, "logging"))
-	c.Assert(err, gc.IsNil)
-	eps, err := s.State.InferEndpoints([]string{"wordpress", "logging"})
-	c.Assert(err, gc.IsNil)
-	rel, err := s.State.AddRelation(eps...)
-	c.Assert(err, gc.IsNil)
-	relUnit, err := rel.Unit(s.wordpressUnit)
-	c.Assert(err, gc.IsNil)
-	err = relUnit.EnterScope(nil)
-	c.Assert(err, gc.IsNil)
-	subordinate, err := logging.Unit("logging/0")
-	c.Assert(err, gc.IsNil)
+	_, subordinate := s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
 
 	principal, ok := subordinate.PrincipalName()
-	c.Assert(principal, gc.Equals, "wordpress/0")
+	c.Assert(principal, gc.Equals, s.wordpressUnit.Name())
 	c.Assert(ok, jc.IsTrue)
 
 	// First try it as wordpressUnit's agent.
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
 		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-logging-0"},
+		{Tag: subordinate.Tag()},
 		{Tag: "unit-foo-42"},
 	}}
 	result, err := s.uniter.GetPrincipal(args)
@@ -472,24 +484,26 @@ func (s *uniterSuite) TestGetPrincipal(c *gc.C) {
 	})
 }
 
+func (s *uniterSuite) addRelatedService(c *gc.C, firstSvc, relatedSvc string, unit *state.Unit) (*state.Service, *state.Unit) {
+	relatedService, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{firstSvc, relatedSvc})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	relUnit, err := rel.Unit(unit)
+	c.Assert(err, gc.IsNil)
+	err = relUnit.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	relatedUnit, err := relatedService.Unit(relatedSvc + "/0")
+	c.Assert(err, gc.IsNil)
+	return relatedService, relatedUnit
+}
+
 func (s *uniterSuite) TestSubordinateNames(c *gc.C) {
 	// Add two subordinates to wordpressUnit.
-	addRelatedService := func(firstSvc, relatedSvc string, unit *state.Unit) {
-		service, err := s.State.AddService(relatedSvc, s.AddTestingCharm(c, relatedSvc))
-		c.Assert(err, gc.IsNil)
-		eps, err := s.State.InferEndpoints([]string{firstSvc, relatedSvc})
-		c.Assert(err, gc.IsNil)
-		rel, err := s.State.AddRelation(eps...)
-		c.Assert(err, gc.IsNil)
-		relUnit, err := rel.Unit(unit)
-		c.Assert(err, gc.IsNil)
-		err = relUnit.EnterScope(nil)
-		c.Assert(err, gc.IsNil)
-		_, err = service.Unit(relatedSvc + "/0")
-		c.Assert(err, gc.IsNil)
-	}
-	addRelatedService("wordpress", "logging", s.wordpressUnit)
-	addRelatedService("wordpress", "monitoring", s.wordpressUnit)
+	s.addRelatedService(c, "wordpress", "logging", s.wordpressUnit)
+	s.addRelatedService(c, "wordpress", "monitoring", s.wordpressUnit)
 
 	args := params.Entities{Entities: []params.Entity{
 		{Tag: "unit-mysql-0"},
@@ -760,6 +774,58 @@ func (s *uniterSuite) TestCharmBundleSha256(c *gc.C) {
 			{Error: apiservertesting.ErrUnauthorized},
 			{Result: s.wpCharm.BundleSha256()},
 			{Result: dummyCharm.BundleSha256()},
+		},
+	})
+}
+
+func (s *uniterSuite) TestCurrentEnvironUUID(c *gc.C) {
+	env, err := s.State.Environment()
+	c.Assert(err, gc.IsNil)
+
+	result, err := s.uniter.CurrentEnvironUUID()
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.StringResult{Result: env.UUID()})
+}
+
+func (s *uniterSuite) TestRelation(c *gc.C) {
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rel.Id(), gc.Equals, 0)
+	wpEp, err := rel.Endpoint("wordpress")
+	c.Assert(err, gc.IsNil)
+
+	args := params.Relations{Relations: []params.Relation{
+		{Relation: "relation-42", Unit: "unit-foo-0"},
+		{Relation: "relation-0", Unit: "unit-wordpress-0"},
+		{Relation: "relation-0", Unit: "unit-mysql-0"},
+		{Relation: "relation-0", Unit: "unit-foo-0"},
+		{Relation: "relation-blah", Unit: "unit-wordpress-0"},
+		{Relation: "service-foo", Unit: "user-admin"},
+		{Relation: "foo", Unit: "bar"},
+		{Relation: "unit-wordpress-0", Unit: "relation-0"},
+	}}
+	result, err := s.uniter.Relation(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result.Results, gc.HasLen, len(args.Relations))
+	c.Assert(result, gc.DeepEquals, params.RelationResults{
+		Results: []params.RelationResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{
+				Id:  rel.Id(),
+				Key: rel.String(),
+				Endpoint: params.Endpoint{
+					ServiceName: wpEp.ServiceName,
+					Relation:    wpEp.Relation,
+				},
+			},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
+			{Error: apiservertesting.ErrUnauthorized},
 		},
 	})
 }
