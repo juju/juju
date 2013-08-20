@@ -162,6 +162,47 @@ func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected
 	}
 }
 
+<<<<<<< TREE
+<<<<<<< TREE
+func (*instanceSuite) TestAddresses(c *gc.C) {
+	name := "service-name"
+	vnn := "Virt Net Name"
+	service := makeHostedServiceDescriptor(name)
+	responses := prepareDeploymentInfoResponse(c, service,
+		gwacl.Deployment{
+			RoleInstanceList: []gwacl.RoleInstance{
+				gwacl.RoleInstance{IPAddress: "1.2.3.4"},
+			},
+			VirtualNetworkName: vnn,
+		})
+
+	gwacl.PatchManagementAPIResponses(responses)
+	inst := azureInstance{*service, makeEnviron(c)}
+
+	expected := []instance.Address{
+		instance.Address{
+			"1.2.3.4",
+			instance.Ipv4Address,
+			vnn,
+			instance.NetworkCloudLocal,
+		},
+		instance.Address{
+			name + "." + AZURE_DOMAIN_NAME,
+			instance.HostName,
+			"",
+			instance.NetworkPublic,
+		},
+	}
+
+	addrs, err := inst.Addresses()
+	c.Check(err, gc.IsNil)
+
+	c.Check(addrs, jc.SameContents, expected)
+}
+
+=======
+>>>>>>> MERGE-SOURCE
+=======
 func (*instanceSuite) TestAddresses(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := prepareDeploymentInfoResponse(c, service,
@@ -183,6 +224,7 @@ func (*instanceSuite) TestAddresses(c *gc.C) {
 	}
 }
 
+>>>>>>> MERGE-SOURCE
 func (*instanceSuite) TestOpenPorts(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,

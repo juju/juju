@@ -5,6 +5,9 @@ package maas
 
 import (
 	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/instance"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type instanceTest struct {
@@ -51,4 +54,40 @@ func (s *instanceTest) TestDNSName(c *gc.C) {
 
 	c.Check(err, gc.IsNil)
 	c.Check(dnsName, gc.Equals, "DNS name")
+}
+
+func (s *instanceTest) TestAddresses(c *gc.C) {
+	jsonValue := `{
+			"hostname": "DNS name", 
+			"system_id": "system_id", 
+			"ip_addresses": [ "1.2.3.4", "fe80::d806:dbff:fe23:1199" ]
+		}`
+	obj := s.testMAASObject.TestServer.NewNode(jsonValue)
+	inst := maasInstance{&obj, s.environ}
+
+	expected := []instance.Address{
+		instance.Address{
+			"1.2.3.4",
+			instance.Ipv4Address,
+			"",
+			instance.NetworkUnknown,
+		},
+		instance.Address{
+			"fe80::d806:dbff:fe23:1199",
+			instance.Ipv6Address,
+			"",
+			instance.NetworkUnknown,
+		},
+		instance.Address{
+			"DNS name",
+			instance.HostName,
+			"",
+			instance.NetworkPublic,
+		},
+	}
+
+	addr, err := inst.Addresses()
+
+	c.Check(err, gc.IsNil)
+	c.Check(addr, jc.SameContents, expected)
 }

@@ -54,6 +54,7 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 	if err != nil {
 		return nil, err
 	}
+
 	for _, ip := range ips {
 		a := instance.Address{ip, instance.DeriveAddressType(ip), "", instance.NetworkUnknown}
 		addrs = append(addrs, a)
@@ -63,11 +64,11 @@ func (mi *maasInstance) Addresses() ([]instance.Address, error) {
 }
 
 func (mi *maasInstance) ipAddresses() ([]string, error) {
+	// we have to do this the hard way, since maasObject doesn't have this built-in yet
 	objs, err := mi.maasObject.GetMap()["ip_addresses"].GetArray()
 	if err != nil {
 		return nil, err
 	}
-
 	ips := make([]string, len(objs))
 	for i, obj := range objs {
 		s, err := obj.GetString()
