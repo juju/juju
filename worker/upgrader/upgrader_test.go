@@ -189,7 +189,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	done := make(chan error)
 	go func() {
 		done <- u.Wait()

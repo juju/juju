@@ -346,7 +346,7 @@ func (s *FastPeriodSuite) TestRemove(c *gc.C) {
 func (s *FastPeriodSuite) TestWatchKnownRemove(c *gc.C) {
 	revno1 := s.insert(c, "test", "a")
 	revno2 := s.remove(c, "test", "a")
-	s.w.Sync()
+	s.w.StartSync()
 
 	s.w.Watch("test", "a", revno1, s.ch)
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno2})
@@ -400,7 +400,7 @@ func (s *FastPeriodSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	for i := 0; i < N; i++ {
 		s.insert(c, "test", i)
 	}
-	s.w.Sync()
+	s.w.StartSync()
 	for i := 0; i < N; i++ {
 		s.w.Watch("test", i, -1, s.ch)
 	}
@@ -441,35 +441,6 @@ func (s *FastPeriodSuite) TestStartSync(c *gc.C) {
 	}
 
 	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
-}
-
-func (s *FastPeriodSuite) TestSync(c *gc.C) {
-	s.w.Watch("test", "a", -1, s.ch)
-
-	// Nothing to do here.
-	s.w.Sync()
-
-	revno := s.insert(c, "test", "a")
-
-	done := make(chan bool)
-	go func() {
-		s.w.Sync()
-		done <- true
-	}()
-
-	select {
-	case <-done:
-		c.Fatalf("Sync returned too early")
-	case <-time.After(justLongEnough):
-	}
-
-	assertChange(c, s.ch, watcher.Change{"test", "a", revno})
-
-	select {
-	case <-done:
-	case <-time.After(justLongEnough):
-		c.Fatalf("Sync failed to return")
-	}
 }
 
 func (s *FastPeriodSuite) TestWatchCollection(c *gc.C) {
@@ -619,7 +590,7 @@ func (s *FastPeriodSuite) TestNonMutatingTxn(c *gc.C) {
 
 	revno1 := s.insert(c, "test", "a")
 
-	s.w.Sync()
+	s.w.StartSync()
 
 	s.w.Watch("test", 1, revno1, chA1)
 	s.w.WatchCollection("test", chA)
@@ -650,7 +621,7 @@ var _ = gc.Suite(&SlowPeriodSuite{})
 
 func (s *SlowPeriodSuite) TestWatchBeforeRemoveKnown(c *gc.C) {
 	revno1 := s.insert(c, "test", "a")
-	s.w.Sync()
+	s.w.StartSync()
 	revno2 := s.remove(c, "test", "a")
 
 	s.w.Watch("test", "a", -1, s.ch)
@@ -682,7 +653,7 @@ func (s *SlowPeriodSuite) TestDoubleUpdate(c *gc.C) {
 
 func (s *SlowPeriodSuite) TestWatchPeriod(c *gc.C) {
 	revno1 := s.insert(c, "test", "a")
-	s.w.Sync()
+	s.w.StartSync()
 	t0 := time.Now()
 	s.w.Watch("test", "a", revno1, s.ch)
 	revno2 := s.update(c, "test", "a")
@@ -701,4 +672,31 @@ func (s *SlowPeriodSuite) TestWatchPeriod(c *gc.C) {
 	}
 
 	assertOrder(c, -1, revno1, revno2)
+}
+
+func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
+	// Ensure we're at the start of a sync cycle.
+	s.w.StartSync()
+	time.Sleep(justLongEnough)
+
+	// Watching after StartSync should see the current state of affairs.
+	revno := s.insert(c, "test", "a")
+	s.w.StartSync()
+	s.w.Watch("test", "a", -1, s.ch)
+	select {
+	case got := <-s.ch:
+		c.Assert(got.Revno, gc.Equals, revno)
+	case <-time.After(watcher.Period / 2):
+		c.Fatalf("watch after StartSync is still using old info")
+	}
+	
+	s.remove(c, "test", "a")
+	s.w.StartSync()
+	ch := make(chan watcher.Change)
+	s.w.Watch("test", "a", -1, ch)
+	select {
+	case got := <-ch:
+		c.Fatalf("got event %#v when starting watcher after doc was removed", got)
+	case <-time.After(justLongEnough):
+	}
 }

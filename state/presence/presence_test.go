@@ -148,7 +148,7 @@ func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	w.Unwatch("a", cha)
 	assertNoChange(c, cha)
 	pa.Kill()
-	w.Sync()
+	w.StartSync()
 	pa = presence.NewPinger(s.presence, "a")
 	pa.Start()
 	w.StartSync()
@@ -210,7 +210,7 @@ func (s *PresenceSuite) TestScale(c *gc.C) {
 	c.Logf("Checking who's still alive...")
 	w := presence.NewWatcher(s.presence)
 	defer w.Stop()
-	w.Sync()
+	w.StartSync()
 	ch := make(chan presence.Change)
 	for i := 0; i < N; i++ {
 		k := strconv.Itoa(i)
@@ -326,7 +326,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
 		stop := false
 		for !stop {
 			w := presence.NewWatcher(s.presence)
-			w.Sync()
+			w.StartSync()
 			alive, err := w.Alive("a")
 			c.Check(w.Stop(), gc.IsNil)
 			if !c.Check(err, gc.IsNil) || !c.Check(alive, gc.Equals, true) {
@@ -365,7 +365,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	// Start p1 and let it go on.
 	c.Assert(p1.Start(), gc.IsNil)
 
-	w.Sync()
+	w.StartSync()
 	assertAlive(c, w, "a", true)
 
 	// Start and kill p2, which will temporarily
@@ -373,7 +373,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	c.Assert(p2.Start(), gc.IsNil)
 	c.Assert(p2.Kill(), gc.IsNil)
 
-	w.Sync()
+	w.StartSync()
 	assertAlive(c, w, "a", false)
 
 	// Wait for two periods, and check again. Since
@@ -381,7 +381,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	// the key will come back.
 	time.Sleep(period * 2 * time.Second)
 
-	w.Sync()
+	w.StartSync()
 	assertAlive(c, w, "a", true)
 }
 
@@ -425,13 +425,13 @@ func (s *PresenceSuite) TestSync(c *gc.C) {
 	assertChange(c, ch, presence.Change{"a", false})
 
 	// Nothing to do here.
-	w.Sync()
+	w.StartSync()
 
 	c.Assert(p.Start(), gc.IsNil)
 
 	done := make(chan bool)
 	go func() {
-		w.Sync()
+		w.StartSync()
 		done <- true
 	}()
 
@@ -465,7 +465,7 @@ func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
 	c.Assert(p.Start(), gc.IsNil)
 	done := make(chan bool)
 	go func() {
-		w.Sync()
+		w.StartSync()
 		done <- true
 	}()
 	assertChange(c, ch, presence.Change{"a", true})

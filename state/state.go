@@ -1042,8 +1042,8 @@ func (st *State) StartSync() {
 // Sync forces watchers to resynchronize their state with the
 // database immediately, and waits until all events are known.
 func (st *State) Sync() {
-	st.watcher.Sync()
-	st.pwatcher.Sync()
+	st.watcher.StartSync()
+	st.pwatcher.StartSync()
 }
 
 // SetAdminMongoPassword sets the administrative password
