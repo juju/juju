@@ -6,7 +6,7 @@ package main
 import (
 	"strings"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -14,24 +14,24 @@ type HelpToolSuite struct {
 	home *testing.FakeHome
 }
 
-var _ = Suite(&HelpToolSuite{})
+var _ = gc.Suite(&HelpToolSuite{})
 
-func (suite *HelpToolSuite) SetUpTest(c *C) {
+func (suite *HelpToolSuite) SetUpTest(c *gc.C) {
 	suite.home = testing.MakeSampleHome(c)
 }
 
-func (suite *HelpToolSuite) TearDownTest(c *C) {
+func (suite *HelpToolSuite) TearDownTest(c *gc.C) {
 	suite.home.Restore()
 }
 
-func (suite *HelpToolSuite) TestHelpToolHelp(c *C) {
+func (suite *HelpToolSuite) TestHelpToolHelp(c *gc.C) {
 	output := badrun(c, 0, "help", "help-tool")
-	c.Assert(output, Equals, `usage: juju help-tool [tool]
+	c.Assert(output, gc.Equals, `usage: juju help-tool [tool]
 purpose: show help on a juju charm tool
 `)
 }
 
-func (suite *HelpToolSuite) TestHelpTool(c *C) {
+func (suite *HelpToolSuite) TestHelpTool(c *gc.C) {
 	expectedNames := []string{
 		"close-port",
 		"config-get",
@@ -48,10 +48,10 @@ func (suite *HelpToolSuite) TestHelpTool(c *C) {
 	for i, line := range lines {
 		lines[i] = strings.Fields(line)[0]
 	}
-	c.Assert(lines, DeepEquals, expectedNames)
+	c.Assert(lines, gc.DeepEquals, expectedNames)
 }
 
-func (suite *HelpToolSuite) TestHelpToolName(c *C) {
+func (suite *HelpToolSuite) TestHelpToolName(c *gc.C) {
 	output := badrun(c, 0, "help-tool", "relation-get")
 	expectedHelp := `usage: relation-get \[options\] <key> <unit id>
 purpose: get relation settings
@@ -59,5 +59,5 @@ purpose: get relation settings
 options:
 (.|\n)*
 relation-get prints the value(.|\n)*`
-	c.Assert(output, Matches, expectedHelp)
+	c.Assert(output, gc.Matches, expectedHelp)
 }

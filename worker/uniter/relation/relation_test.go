@@ -6,7 +6,7 @@ package relation_test
 import (
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/hook"
@@ -18,30 +18,30 @@ import (
 
 type StateDirSuite struct{}
 
-var _ = Suite(&StateDirSuite{})
+var _ = gc.Suite(&StateDirSuite{})
 
-func (s *StateDirSuite) TestReadStateDirEmpty(c *C) {
+func (s *StateDirSuite) TestReadStateDirEmpty(c *gc.C) {
 	basedir := c.MkDir()
 	reldir := filepath.Join(basedir, "123")
 
 	dir, err := relation.ReadStateDir(basedir, 123)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	state := dir.State()
-	c.Assert(state.RelationId, Equals, 123)
-	c.Assert(msi(state.Members), DeepEquals, msi{})
-	c.Assert(state.ChangedPending, Equals, "")
+	c.Assert(state.RelationId, gc.Equals, 123)
+	c.Assert(msi(state.Members), gc.DeepEquals, msi{})
+	c.Assert(state.ChangedPending, gc.Equals, "")
 
 	_, err = os.Stat(reldir)
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 
 	err = dir.Ensure()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	fi, err := os.Stat(reldir)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Assert(fi, checkers.Satisfies, os.FileInfo.IsDir)
 }
 
-func (s *StateDirSuite) TestReadStateDirValid(c *C) {
+func (s *StateDirSuite) TestReadStateDirValid(c *gc.C) {
 	basedir := c.MkDir()
 	reldir := setUpDir(c, basedir, "123", map[string]string{
 		"foo-bar-1":           "change-version: 99\n",
@@ -53,11 +53,11 @@ func (s *StateDirSuite) TestReadStateDirValid(c *C) {
 	setUpDir(c, reldir, "ignored", nil)
 
 	dir, err := relation.ReadStateDir(basedir, 123)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	state := dir.State()
-	c.Assert(state.RelationId, Equals, 123)
-	c.Assert(msi(state.Members), DeepEquals, msi{"foo-bar/1": 99, "baz-qux/7": 101})
-	c.Assert(state.ChangedPending, Equals, "baz-qux/7")
+	c.Assert(state.RelationId, gc.Equals, 123)
+	c.Assert(msi(state.Members), gc.DeepEquals, msi{"foo-bar/1": 99, "baz-qux/7": 101})
+	c.Assert(state.ChangedPending, gc.Equals, "baz-qux/7")
 }
 
 var badRelationsTests = []struct {
@@ -83,7 +83,7 @@ var badRelationsTests = []struct {
 	},
 }
 
-func (s *StateDirSuite) TestBadRelations(c *C) {
+func (s *StateDirSuite) TestBadRelations(c *gc.C) {
 	for i, t := range badRelationsTests {
 		c.Logf("test %d", i)
 		basedir := c.MkDir()
@@ -93,7 +93,7 @@ func (s *StateDirSuite) TestBadRelations(c *C) {
 		}
 		_, err := relation.ReadStateDir(basedir, 123)
 		expect := `cannot load relation state from ".*": ` + t.err
-		c.Assert(err, ErrorMatches, expect)
+		c.Assert(err, gc.ErrorMatches, expect)
 	}
 }
 
@@ -207,7 +207,7 @@ var writeTests = []struct {
 	},
 }
 
-func (s *StateDirSuite) TestWrite(c *C) {
+func (s *StateDirSuite) TestWrite(c *gc.C) {
 	for i, t := range writeTests {
 		c.Logf("test %d", i)
 		basedir := c.MkDir()
@@ -216,21 +216,21 @@ func (s *StateDirSuite) TestWrite(c *C) {
 			"foo-2": "change-version: 0\n",
 		})
 		dir, err := relation.ReadStateDir(basedir, 123)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		for i, hi := range t.hooks {
 			c.Logf("  hook %d", i)
 			if i == len(t.hooks)-1 && t.err != "" {
 				err = dir.State().Validate(hi)
 				expect := fmt.Sprintf(`inappropriate %q for %q: %s`, hi.Kind, hi.RemoteUnit, t.err)
-				c.Assert(err, ErrorMatches, expect)
+				c.Assert(err, gc.ErrorMatches, expect)
 			} else {
 				err = dir.State().Validate(hi)
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 				err = dir.Write(hi)
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 				// Check that writing the same change again is OK.
 				err = dir.Write(hi)
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 			}
 		}
 		members := t.members
@@ -241,53 +241,53 @@ func (s *StateDirSuite) TestWrite(c *C) {
 	}
 }
 
-func (s *StateDirSuite) TestRemove(c *C) {
+func (s *StateDirSuite) TestRemove(c *gc.C) {
 	basedir := c.MkDir()
 	dir, err := relation.ReadStateDir(basedir, 1)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = dir.Ensure()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = dir.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = dir.Remove()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	setUpDir(c, basedir, "99", map[string]string{
 		"foo-1": "change-version: 0\n",
 	})
 	dir, err = relation.ReadStateDir(basedir, 99)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = dir.Remove()
-	c.Assert(err, ErrorMatches, ".*: directory not empty")
+	c.Assert(err, gc.ErrorMatches, ".*: directory not empty")
 }
 
 type ReadAllStateDirsSuite struct{}
 
-var _ = Suite(&ReadAllStateDirsSuite{})
+var _ = gc.Suite(&ReadAllStateDirsSuite{})
 
-func (s *ReadAllStateDirsSuite) TestNoDir(c *C) {
+func (s *ReadAllStateDirsSuite) TestNoDir(c *gc.C) {
 	basedir := c.MkDir()
 	relsdir := filepath.Join(basedir, "relations")
 
 	dirs, err := relation.ReadAllStateDirs(relsdir)
-	c.Assert(err, IsNil)
-	c.Assert(dirs, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(dirs, gc.HasLen, 0)
 
 	_, err = os.Stat(relsdir)
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
 
-func (s *ReadAllStateDirsSuite) TestBadStateDir(c *C) {
+func (s *ReadAllStateDirsSuite) TestBadStateDir(c *gc.C) {
 	basedir := c.MkDir()
 	relsdir := setUpDir(c, basedir, "relations", nil)
 	setUpDir(c, relsdir, "123", map[string]string{
 		"bad-0": "blah: blah\n",
 	})
 	_, err := relation.ReadAllStateDirs(relsdir)
-	c.Assert(err, ErrorMatches, `cannot load relations state from .*: cannot load relation state from .*: invalid unit file "bad-0": "changed-version" not set`)
+	c.Assert(err, gc.ErrorMatches, `cannot load relations state from .*: cannot load relation state from .*: invalid unit file "bad-0": "changed-version" not set`)
 }
 
-func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *C) {
+func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *gc.C) {
 	basedir := c.MkDir()
 	relsdir := setUpDir(c, basedir, "relations", map[string]string{
 		"ignored":     "blah",
@@ -309,41 +309,41 @@ func (s *ReadAllStateDirsSuite) TestReadAllStateDirs(c *C) {
 	})
 
 	dirs, err := relation.ReadAllStateDirs(relsdir)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	for id, dir := range dirs {
 		c.Logf("%d: %#v", id, dir)
 	}
 	assertState(c, dirs[123], relsdir, 123, msi{"foo/0": 1, "foo/1": 2}, "foo/1", false)
 	assertState(c, dirs[456], relsdir, 456, msi{"bar/0": 3, "bar/1": 4}, "", false)
 	assertState(c, dirs[789], relsdir, 789, msi{}, "", false)
-	c.Assert(dirs, HasLen, 3)
+	c.Assert(dirs, gc.HasLen, 3)
 }
 
-func setUpDir(c *C, basedir, name string, contents map[string]string) string {
+func setUpDir(c *gc.C, basedir, name string, contents map[string]string) string {
 	reldir := filepath.Join(basedir, name)
 	err := os.Mkdir(reldir, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	for name, content := range contents {
 		path := filepath.Join(reldir, name)
 		err := ioutil.WriteFile(path, []byte(content), 0777)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	return reldir
 }
 
-func assertState(c *C, dir *relation.StateDir, relsdir string, relationId int, members msi, pending string, deleted bool) {
+func assertState(c *gc.C, dir *relation.StateDir, relsdir string, relationId int, members msi, pending string, deleted bool) {
 	expect := &relation.State{
 		RelationId:     relationId,
 		Members:        map[string]int64(members),
 		ChangedPending: pending,
 	}
-	c.Assert(dir.State(), DeepEquals, expect)
+	c.Assert(dir.State(), gc.DeepEquals, expect)
 	if deleted {
 		_, err := os.Stat(filepath.Join(relsdir, strconv.Itoa(relationId)))
 		c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	} else {
 		fresh, err := relation.ReadStateDir(relsdir, relationId)
-		c.Assert(err, IsNil)
-		c.Assert(fresh.State(), DeepEquals, expect)
+		c.Assert(err, gc.IsNil)
+		c.Assert(fresh.State(), gc.DeepEquals, expect)
 	}
 }

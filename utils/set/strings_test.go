@@ -4,22 +4,22 @@
 package set_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/utils/set"
 	"sort"
 	"testing"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type stringSetSuite struct{}
 
-var _ = Suite(stringSetSuite{})
+var _ = gc.Suite(stringSetSuite{})
 
 // Helper methods for the tests.
-func AssertValues(c *C, s set.Strings, expected ...string) {
+func AssertValues(c *gc.C, s set.Strings, expected ...string) {
 	values := s.Values()
 	// Expect an empty slice, not a nil slice for values.
 	if expected == nil {
@@ -27,50 +27,50 @@ func AssertValues(c *C, s set.Strings, expected ...string) {
 	}
 	sort.Strings(expected)
 	sort.Strings(values)
-	c.Assert(values, DeepEquals, expected)
-	c.Assert(s.Size(), Equals, len(expected))
+	c.Assert(values, gc.DeepEquals, expected)
+	c.Assert(s.Size(), gc.Equals, len(expected))
 	// Check the sorted values too.
 	sorted := s.SortedValues()
-	c.Assert(sorted, DeepEquals, expected)
+	c.Assert(sorted, gc.DeepEquals, expected)
 }
 
 // Actual tests start here.
 
-func (stringSetSuite) TestEmpty(c *C) {
+func (stringSetSuite) TestEmpty(c *gc.C) {
 	s := set.NewStrings()
 	AssertValues(c, s)
 }
 
-func (stringSetSuite) TestInitialValues(c *C) {
+func (stringSetSuite) TestInitialValues(c *gc.C) {
 	values := []string{"foo", "bar", "baz"}
 	s := set.NewStrings(values...)
 	AssertValues(c, s, values...)
 }
 
-func (stringSetSuite) TestSize(c *C) {
+func (stringSetSuite) TestSize(c *gc.C) {
 	// Empty sets are empty.
 	s := set.NewStrings()
-	c.Assert(s.Size(), Equals, 0)
+	c.Assert(s.Size(), gc.Equals, 0)
 
 	// Size returns number of unique values.
 	s = set.NewStrings("foo", "foo", "bar")
-	c.Assert(s.Size(), Equals, 2)
+	c.Assert(s.Size(), gc.Equals, 2)
 }
 
-func (stringSetSuite) TestIsEmpty(c *C) {
+func (stringSetSuite) TestIsEmpty(c *gc.C) {
 	// Empty sets are empty.
 	s := set.NewStrings()
-	c.Assert(s.IsEmpty(), Equals, true)
+	c.Assert(s.IsEmpty(), gc.Equals, true)
 
 	// Non-empty sets are not empty.
 	s = set.NewStrings("foo")
-	c.Assert(s.IsEmpty(), Equals, false)
+	c.Assert(s.IsEmpty(), gc.Equals, false)
 	// Newly empty sets work too.
 	s.Remove("foo")
-	c.Assert(s.IsEmpty(), Equals, true)
+	c.Assert(s.IsEmpty(), gc.Equals, true)
 }
 
-func (stringSetSuite) TestAdd(c *C) {
+func (stringSetSuite) TestAdd(c *gc.C) {
 	s := set.NewStrings()
 	s.Add("foo")
 	s.Add("foo")
@@ -78,26 +78,26 @@ func (stringSetSuite) TestAdd(c *C) {
 	AssertValues(c, s, "foo", "bar")
 }
 
-func (stringSetSuite) TestRemove(c *C) {
+func (stringSetSuite) TestRemove(c *gc.C) {
 	s := set.NewStrings("foo", "bar")
 	s.Remove("foo")
 	AssertValues(c, s, "bar")
 }
 
-func (stringSetSuite) TestContains(c *C) {
+func (stringSetSuite) TestContains(c *gc.C) {
 	s := set.NewStrings("foo", "bar")
-	c.Assert(s.Contains("foo"), Equals, true)
-	c.Assert(s.Contains("bar"), Equals, true)
-	c.Assert(s.Contains("baz"), Equals, false)
+	c.Assert(s.Contains("foo"), gc.Equals, true)
+	c.Assert(s.Contains("bar"), gc.Equals, true)
+	c.Assert(s.Contains("baz"), gc.Equals, false)
 }
 
-func (stringSetSuite) TestRemoveNonExistent(c *C) {
+func (stringSetSuite) TestRemoveNonExistent(c *gc.C) {
 	s := set.NewStrings()
 	s.Remove("foo")
 	AssertValues(c, s)
 }
 
-func (stringSetSuite) TestUnion(c *C) {
+func (stringSetSuite) TestUnion(c *gc.C) {
 	s1 := set.NewStrings("foo", "bar")
 	s2 := set.NewStrings("foo", "baz", "bang")
 	union1 := s1.Union(s2)
@@ -107,7 +107,7 @@ func (stringSetSuite) TestUnion(c *C) {
 	AssertValues(c, union2, "foo", "bar", "baz", "bang")
 }
 
-func (stringSetSuite) TestIntersection(c *C) {
+func (stringSetSuite) TestIntersection(c *gc.C) {
 	s1 := set.NewStrings("foo", "bar")
 	s2 := set.NewStrings("foo", "baz", "bang")
 	int1 := s1.Intersection(s2)
@@ -117,7 +117,7 @@ func (stringSetSuite) TestIntersection(c *C) {
 	AssertValues(c, int2, "foo")
 }
 
-func (stringSetSuite) TestDifference(c *C) {
+func (stringSetSuite) TestDifference(c *gc.C) {
 	s1 := set.NewStrings("foo", "bar")
 	s2 := set.NewStrings("foo", "baz", "bang")
 	diff1 := s1.Difference(s2)
@@ -127,30 +127,30 @@ func (stringSetSuite) TestDifference(c *C) {
 	AssertValues(c, diff2, "baz", "bang")
 }
 
-func (stringSetSuite) TestUninitialized(c *C) {
+func (stringSetSuite) TestUninitialized(c *gc.C) {
 	var uninitialized set.Strings
-	c.Assert(uninitialized.Size(), Equals, 0)
-	c.Assert(uninitialized.IsEmpty(), Equals, true)
+	c.Assert(uninitialized.Size(), gc.Equals, 0)
+	c.Assert(uninitialized.IsEmpty(), gc.Equals, true)
 	// You can get values and sorted values from an unitialized set.
 	AssertValues(c, uninitialized)
 	// All contains checks are false
-	c.Assert(uninitialized.Contains("foo"), Equals, false)
+	c.Assert(uninitialized.Contains("foo"), gc.Equals, false)
 	// Remove works on an uninitialized Strings
 	uninitialized.Remove("foo")
 
 	var other set.Strings
 	// Union returns a new set that is empty but initialized.
-	c.Assert(uninitialized.Union(other), DeepEquals, set.NewStrings())
-	c.Assert(uninitialized.Intersection(other), DeepEquals, set.NewStrings())
-	c.Assert(uninitialized.Difference(other), DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Union(other), gc.DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Intersection(other), gc.DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Difference(other), gc.DeepEquals, set.NewStrings())
 
 	other = set.NewStrings("foo", "bar")
-	c.Assert(uninitialized.Union(other), DeepEquals, other)
-	c.Assert(uninitialized.Intersection(other), DeepEquals, set.NewStrings())
-	c.Assert(uninitialized.Difference(other), DeepEquals, set.NewStrings())
-	c.Assert(other.Union(uninitialized), DeepEquals, other)
-	c.Assert(other.Intersection(uninitialized), DeepEquals, set.NewStrings())
-	c.Assert(other.Difference(uninitialized), DeepEquals, other)
+	c.Assert(uninitialized.Union(other), gc.DeepEquals, other)
+	c.Assert(uninitialized.Intersection(other), gc.DeepEquals, set.NewStrings())
+	c.Assert(uninitialized.Difference(other), gc.DeepEquals, set.NewStrings())
+	c.Assert(other.Union(uninitialized), gc.DeepEquals, other)
+	c.Assert(other.Intersection(uninitialized), gc.DeepEquals, set.NewStrings())
+	c.Assert(other.Difference(uninitialized), gc.DeepEquals, other)
 
 	// Once something is added, the set becomes initialized.
 	uninitialized.Add("foo")
