@@ -13,12 +13,9 @@ import (
 
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
-	st         *State
-	tag        string
-	life       params.Life
-	serviceTag string
-	// TODO: Uncomment after added to params. See Resolved()
-	//resolvedMode params.ResolvedMode
+	st   *State
+	tag  string
+	life params.Life
 }
 
 // Tag returns the unit's tag.
@@ -38,7 +35,6 @@ func (u *Unit) Refresh() error {
 		return err
 	}
 	u.life = life
-	// TODO: Update resolvedMode as well
 	return nil
 }
 
@@ -94,7 +90,9 @@ func (u *Unit) Watch() (*watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	return u.st.Service(u.serviceTag)
+	// TODO: Call Uniter.GetService(), then construct and return
+	// a uniter.Service proxy object from the received tag.
+	panic("not implemented")
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -107,8 +105,12 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 }
 
 // ServiceName returns the service name.
-func (u *Unit) ServiceName() string {
-	// TODO: Convert u.serviceTag to a service name and return it.
+//
+// NOTE: This differs from state.Unit.ServiceName() by returning an
+// error as well, because it needs to make an API call
+func (u *Unit) ServiceName() (string, error) {
+	// TODO: Call Uniter.GetService(), then convert the received
+	// tag to a service name and return it.
 	panic("not implemented")
 }
 
@@ -123,12 +125,13 @@ func (u *Unit) Destroy() (err error) {
 }
 
 // Resolved returns the resolved mode for the unit.
-// TODO: Copy state.ResolvedMode type and constants in
-// state/api/params/constants.go, then uncomment this.
-//func (u *Unit) Resolved() params.ResolvedMode {
-//	// TODO: Update u.resolvedMode on Refresh() as well as u.life.
-//	return u.resolvedMode
-//}
+//
+// NOTE: This differs from state.Unit.Resolved() by returning an
+// error as well, because it needs to make an API call
+func (u *Unit) Resolved() (params.ResolvedMode, error) {
+	// TODO: Call Uniter.Resolved()
+	panic("not implemented")
+}
 
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.

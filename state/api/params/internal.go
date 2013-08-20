@@ -52,6 +52,18 @@ type StringResults struct {
 	Results []StringResult
 }
 
+// ResolvedModeResult holds a resolved mode or an error.
+type ResolvedModeResult struct {
+	Error *Error
+	Mode  ResolvedMode
+}
+
+// ResolvedModeResults holds the bulk operation result of an API call
+// that returns a resolved mode or an error.
+type ResolvedModeResults struct {
+	Results []ResolvedModeResult
+}
+
 // StringBoolResult holds the result of an API call that returns a
 // string and a boolean.
 type StringBoolResult struct {
