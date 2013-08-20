@@ -9,6 +9,7 @@ type SupportsCustomURLs interface {
 	GetImageBaseURLs() ([]string, error)
 }
 
+// GetMetadataURLs returns the URLs to use when looking for simplestreams image id metadata.
 func GetMetadataURLs(e environs.Environ) ([]string, error) {
 	var urls []string
 	userURL := e.Config().ImageMetadataURL()
@@ -23,6 +24,8 @@ func GetMetadataURLs(e environs.Environ) ([]string, error) {
 		urls = append(urls, customURLs...)
 	}
 
-	urls = append(urls, DefaultBaseURL)
+	if DefaultBaseURL != "" {
+		urls = append(urls, DefaultBaseURL)
+	}
 	return urls, nil
 }

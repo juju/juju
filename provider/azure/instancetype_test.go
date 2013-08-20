@@ -234,8 +234,10 @@ func init() {
 // done.
 func prepareSimpleStreamsResponse(stream, location, series, release, arch, json string) func() {
 	fakeURL := fakeSimpleStreamsScheme + "://"
-	originalURLs := baseURLs
+	originalAzureURLs := baseURLs
+	originalDefaultURL := imagemetadata.DefaultBaseURL
 	baseURLs = []string{fakeURL}
+	imagemetadata.DefaultBaseURL = ""
 
 	originalSignedOnly := signedImageDataOnly
 	signedImageDataOnly = false
@@ -278,7 +280,8 @@ func prepareSimpleStreamsResponse(stream, location, series, release, arch, json 
 	}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(files, nil)
 	return func() {
-		baseURLs = originalURLs
+		baseURLs = originalAzureURLs
+		imagemetadata.DefaultBaseURL = originalDefaultURL
 		signedImageDataOnly = originalSignedOnly
 		testRoundTripper.Sub = nil
 	}

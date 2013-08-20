@@ -9,6 +9,7 @@ type SupportsCustomURLs interface {
 	GetToolsBaseURLs() ([]string, error)
 }
 
+// GetMetadataURLs returns the URLs to use when looking for simplestreams tools metadata.
 func GetMetadataURLs(e environs.Environ) ([]string, error) {
 	var urls []string
 	userURL := e.Config().ToolsMetadataURL()
@@ -23,6 +24,8 @@ func GetMetadataURLs(e environs.Environ) ([]string, error) {
 		urls = append(urls, customURLs...)
 	}
 
-	urls = append(urls, DefaultBaseURL)
+	if DefaultBaseURL != "" {
+		urls = append(urls, DefaultBaseURL)
+	}
 	return urls, nil
 }
