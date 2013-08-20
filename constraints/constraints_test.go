@@ -7,7 +7,7 @@ import (
 	"encoding/json"
 	"testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/constraints"
@@ -15,12 +15,12 @@ import (
 )
 
 func TestPackage(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type ConstraintsSuite struct{}
 
-var _ = Suite(&ConstraintsSuite{})
+var _ = gc.Suite(&ConstraintsSuite{})
 
 var parseConstraintsTests = []struct {
 	summary string
@@ -206,29 +206,73 @@ var parseConstraintsTests = []struct {
 		err:     `bad "mem" constraint: already set`,
 	},
 
+	// "root-disk" in detail.
+	{
+		summary: "set root-disk empty",
+		args:    []string{"root-disk="},
+	}, {
+		summary: "set root-disk zero",
+		args:    []string{"root-disk=0"},
+	}, {
+		summary: "set root-disk without suffix",
+		args:    []string{"root-disk=512"},
+	}, {
+		summary: "set root-disk with M suffix",
+		args:    []string{"root-disk=512M"},
+	}, {
+		summary: "set root-disk with G suffix",
+		args:    []string{"root-disk=1.5G"},
+	}, {
+		summary: "set root-disk with T suffix",
+		args:    []string{"root-disk=36.2T"},
+	}, {
+		summary: "set root-disk with P suffix",
+		args:    []string{"root-disk=18.9P"},
+	}, {
+		summary: "set nonsense root-disk 1",
+		args:    []string{"root-disk=cheese"},
+		err:     `bad "root-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense root-disk 2",
+		args:    []string{"root-disk=-1"},
+		err:     `bad "root-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense root-disk 3",
+		args:    []string{"root-disk=32Y"},
+		err:     `bad "root-disk" constraint: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "double set root-disk together",
+		args:    []string{"root-disk=1G  root-disk=2G"},
+		err:     `bad "root-disk" constraint: already set`,
+	}, {
+		summary: "double set root-disk separately",
+		args:    []string{"root-disk=1G", "root-disk=2G"},
+		err:     `bad "root-disk" constraint: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
+		args:    []string{" root-disk=8G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001 container=lxc"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
+		args:    []string{"root-disk=8G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm", "container=lxc"},
 	},
 }
 
-func (s *ConstraintsSuite) TestParseConstraints(c *C) {
+func (s *ConstraintsSuite) TestParseConstraints(c *gc.C) {
 	for i, t := range parseConstraintsTests {
 		c.Logf("test %d: %s", i, t.summary)
 		cons0, err := constraints.Parse(t.args...)
 		if t.err == "" {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		} else {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		cons1, err := constraints.Parse(cons0.String())
-		c.Assert(err, IsNil)
-		c.Assert(cons1, DeepEquals, cons0)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons1, gc.DeepEquals, cons0)
 	}
 }
 
@@ -257,57 +301,60 @@ var constraintsRoundtripTests = []constraints.Value{
 	{CpuPower: uint64p(250)},
 	{Mem: uint64p(0)},
 	{Mem: uint64p(98765)},
+	{RootDisk: uint64p(0)},
+	{RootDisk: uint64p(109876)},
 	{
 		Arch:      strp("i386"),
 		Container: ctypep("lxc"),
 		CpuCores:  uint64p(4096),
 		CpuPower:  uint64p(9001),
 		Mem:       uint64p(18000000000),
+		RootDisk:  uint64p(24000000000),
 	},
 }
 
-func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *C) {
+func (s *ConstraintsSuite) TestRoundtripGnuflagValue(c *gc.C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
 		var cons constraints.Value
 		val := constraints.ConstraintsValue{&cons}
 		err := val.Set(t.String())
-		c.Assert(err, IsNil)
-		c.Assert(cons, DeepEquals, t)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons, gc.DeepEquals, t)
 	}
 }
 
-func (s *ConstraintsSuite) TestRoundtripString(c *C) {
+func (s *ConstraintsSuite) TestRoundtripString(c *gc.C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
 		cons, err := constraints.Parse(t.String())
-		c.Assert(err, IsNil)
-		c.Assert(cons, DeepEquals, t)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons, gc.DeepEquals, t)
 	}
 }
 
-func (s *ConstraintsSuite) TestRoundtripJson(c *C) {
+func (s *ConstraintsSuite) TestRoundtripJson(c *gc.C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
 		data, err := json.Marshal(t)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var cons constraints.Value
 		err = json.Unmarshal(data, &cons)
-		c.Assert(err, IsNil)
-		c.Assert(cons, DeepEquals, t)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons, gc.DeepEquals, t)
 	}
 }
 
-func (s *ConstraintsSuite) TestRoundtripYaml(c *C) {
+func (s *ConstraintsSuite) TestRoundtripYaml(c *gc.C) {
 	for i, t := range constraintsRoundtripTests {
 		c.Logf("test %d", i)
 		data, err := goyaml.Marshal(t)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		c.Logf("%s", data)
 		var cons constraints.Value
 		err = goyaml.Unmarshal(data, &cons)
-		c.Assert(err, IsNil)
-		c.Assert(cons, DeepEquals, t)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons, gc.DeepEquals, t)
 	}
 }
 
@@ -380,25 +427,38 @@ var withFallbacksTests = []struct {
 		fallbacks: "mem=8G",
 		final:     "mem=8G",
 	}, {
+		desc:    "root-disk with empty fallback",
+		initial: "root-disk=4G",
+		final:   "root-disk=4G",
+	}, {
+		desc:      "root-disk with ignored fallback",
+		initial:   "root-disk=4G",
+		fallbacks: "root-disk=8G",
+		final:     "root-disk=4G",
+	}, {
+		desc:      "root-disk from fallback",
+		fallbacks: "root-disk=8G",
+		final:     "root-disk=8G",
+	}, {
 		desc:      "non-overlapping mix",
-		initial:   "mem=4G arch=amd64",
+		initial:   "root-disk=8G mem=4G arch=amd64",
 		fallbacks: "cpu-power=1000 cpu-cores=4",
-		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		final:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	}, {
 		desc:      "overlapping mix",
-		initial:   "mem=4G arch=amd64",
+		initial:   "root-disk=8G mem=4G arch=amd64",
 		fallbacks: "cpu-power=1000 cpu-cores=4 mem=8G",
-		final:     "mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
+		final:     "root-disk=8G mem=4G arch=amd64 cpu-power=1000 cpu-cores=4",
 	},
 }
 
-func (s *ConstraintsSuite) TestWithFallbacks(c *C) {
+func (s *ConstraintsSuite) TestWithFallbacks(c *gc.C) {
 	for i, t := range withFallbacksTests {
 		c.Logf("test %d", i)
 		initial := constraints.MustParse(t.initial)
 		fallbacks := constraints.MustParse(t.fallbacks)
 		final := constraints.MustParse(t.final)
-		c.Assert(initial.WithFallbacks(fallbacks), DeepEquals, final)
+		c.Assert(initial.WithFallbacks(fallbacks), gc.DeepEquals, final)
 	}
 }
 
@@ -417,10 +477,10 @@ var hasContainerTests = []struct {
 	},
 }
 
-func (s *ConstraintsSuite) TestHasContainer(c *C) {
+func (s *ConstraintsSuite) TestHasContainer(c *gc.C) {
 	for i, t := range hasContainerTests {
 		c.Logf("test %d", i)
 		cons := constraints.MustParse(t.constraints)
-		c.Assert(cons.HasContainer(), Equals, t.hasContainer)
+		c.Assert(cons.HasContainer(), gc.Equals, t.hasContainer)
 	}
 }

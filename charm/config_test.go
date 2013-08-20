@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 )
@@ -16,9 +16,9 @@ type ConfigSuite struct {
 	config *charm.Config
 }
 
-var _ = Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
-func (s *ConfigSuite) SetUpSuite(c *C) {
+func (s *ConfigSuite) SetUpSuite(c *gc.C) {
 	// Just use a single shared config for the whole suite. There's no use case
 	// for mutating a config, we we assume that nobody will do so here.
 	var err error
@@ -48,11 +48,11 @@ options:
     description: Whether to reticulate splines on launch, or not.
     type: boolean
 `)))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *ConfigSuite) TestReadSample(c *C) {
-	c.Assert(s.config.Options, DeepEquals, map[string]charm.Option{
+func (s *ConfigSuite) TestReadSample(c *gc.C) {
+	c.Assert(s.config.Options, gc.DeepEquals, map[string]charm.Option{
 		"title": {
 			Default:     "My Title",
 			Description: "A descriptive title used for the service.",
@@ -87,8 +87,8 @@ func (s *ConfigSuite) TestReadSample(c *C) {
 	})
 }
 
-func (s *ConfigSuite) TestDefaultSettings(c *C) {
-	c.Assert(s.config.DefaultSettings(), DeepEquals, charm.Settings{
+func (s *ConfigSuite) TestDefaultSettings(c *gc.C) {
+	c.Assert(s.config.DefaultSettings(), gc.DeepEquals, charm.Settings{
 		"title":              "My Title",
 		"subtitle":           "",
 		"username":           "admin001",
@@ -99,7 +99,7 @@ func (s *ConfigSuite) TestDefaultSettings(c *C) {
 	})
 }
 
-func (s *ConfigSuite) TestFilterSettings(c *C) {
+func (s *ConfigSuite) TestFilterSettings(c *gc.C) {
 	settings := s.config.FilterSettings(charm.Settings{
 		"title":              "something valid",
 		"username":           nil,
@@ -109,14 +109,14 @@ func (s *ConfigSuite) TestFilterSettings(c *C) {
 		"agility-ratio":      true,
 		"reticulate-splines": "hullo",
 	})
-	c.Assert(settings, DeepEquals, charm.Settings{
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "something valid",
 		"username": nil,
 		"outlook":  nil,
 	})
 }
 
-func (s *ConfigSuite) TestValidateSettings(c *C) {
+func (s *ConfigSuite) TestValidateSettings(c *gc.C) {
 	for i, test := range []struct {
 		info   string
 		input  charm.Settings
@@ -182,13 +182,13 @@ func (s *ConfigSuite) TestValidateSettings(c *C) {
 		c.Logf("test %d: %s", i, test.info)
 		result, err := s.config.ValidateSettings(test.input)
 		if test.err != "" {
-			c.Check(err, ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, IsNil)
+			c.Check(err, gc.IsNil)
 			if test.expect == nil {
-				c.Check(result, DeepEquals, test.input)
+				c.Check(result, gc.DeepEquals, test.input)
 			} else {
-				c.Check(result, DeepEquals, test.expect)
+				c.Check(result, gc.DeepEquals, test.expect)
 			}
 		}
 	}
@@ -208,7 +208,7 @@ var settingsWithValues = charm.Settings{
 	"reticulate-splines": true,
 }
 
-func (s *ConfigSuite) TestParseSettingsYAML(c *C) {
+func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
 	for i, test := range []struct {
 		info   string
 		yaml   string
@@ -309,15 +309,15 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *C) {
 		c.Logf("test %d: %s", i, test.info)
 		result, err := s.config.ParseSettingsYAML([]byte(test.yaml), test.key)
 		if test.err != "" {
-			c.Check(err, ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, IsNil)
-			c.Check(result, DeepEquals, test.expect)
+			c.Check(err, gc.IsNil)
+			c.Check(result, gc.DeepEquals, test.expect)
 		}
 	}
 }
 
-func (s *ConfigSuite) TestParseSettingsStrings(c *C) {
+func (s *ConfigSuite) TestParseSettingsStrings(c *gc.C) {
 	for i, test := range []struct {
 		info   string
 		input  map[string]string
@@ -364,25 +364,25 @@ func (s *ConfigSuite) TestParseSettingsStrings(c *C) {
 		c.Logf("test %d: %s", i, test.info)
 		result, err := s.config.ParseSettingsStrings(test.input)
 		if test.err != "" {
-			c.Check(err, ErrorMatches, test.err)
+			c.Check(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Check(err, IsNil)
-			c.Check(result, DeepEquals, test.expect)
+			c.Check(err, gc.IsNil)
+			c.Check(result, gc.DeepEquals, test.expect)
 		}
 	}
 }
 
-func (s *ConfigSuite) TestConfigError(c *C) {
+func (s *ConfigSuite) TestConfigError(c *gc.C) {
 	_, err := charm.ReadConfig(bytes.NewBuffer([]byte(`options: {t: {type: foo}}`)))
-	c.Assert(err, ErrorMatches, `invalid config: option "t" has unknown type "foo"`)
+	c.Assert(err, gc.ErrorMatches, `invalid config: option "t" has unknown type "foo"`)
 }
 
-func (s *ConfigSuite) TestDefaultType(c *C) {
+func (s *ConfigSuite) TestDefaultType(c *gc.C) {
 	assertDefault := func(type_ string, value string, expected interface{}) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, value)
 		result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
-		c.Assert(err, IsNil)
-		c.Assert(result.Options["t"].Default, Equals, expected)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result.Options["t"].Default, gc.Equals, expected)
 	}
 
 	assertDefault("boolean", "true", true)
@@ -395,7 +395,7 @@ func (s *ConfigSuite) TestDefaultType(c *C) {
 		config := fmt.Sprintf(`options: {t: {type: %s, default: %s}}`, type_, str)
 		_, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
 		expected := fmt.Sprintf(`invalid config default: option "t" expected %s, got %s`, type_, value)
-		c.Assert(err, ErrorMatches, expected)
+		c.Assert(err, gc.ErrorMatches, expected)
 	}
 
 	assertTypeError("boolean", "henry", `"henry"`)
@@ -405,9 +405,9 @@ func (s *ConfigSuite) TestDefaultType(c *C) {
 }
 
 // When an empty config is supplied an error should be returned
-func (s *ConfigSuite) TestEmptyConfigReturnsError(c *C) {
+func (s *ConfigSuite) TestEmptyConfigReturnsError(c *gc.C) {
 	config := ""
 	result, err := charm.ReadConfig(bytes.NewBuffer([]byte(config)))
-	c.Assert(result, IsNil)
-	c.Assert(err, ErrorMatches, "invalid config: empty configuration")
+	c.Assert(result, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "invalid config: empty configuration")
 }

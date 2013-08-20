@@ -37,6 +37,13 @@ type Value struct {
 	// Mem, if not nil, indicates that a machine must have at least that many
 	// megabytes of RAM.
 	Mem *uint64 `json:"mem,omitempty" yaml:"mem,omitempty"`
+
+	// RootDisk, if not nil, indicates that a machine must have at least
+	// that many megabytes of disk space available in the root disk. In
+	// providers where the root disk is configurable at instance startup
+	// time, an instance with the specified amount of disk space in the OS
+	// disk might be requested.
+	RootDisk *uint64 `json:"root-disk,omitempty" yaml:"root-disk,omitempty"`
 }
 
 // String expresses a constraints.Value in the language in which it was specified.
@@ -61,6 +68,13 @@ func (v Value) String() string {
 		}
 		strs = append(strs, "mem="+s)
 	}
+	if v.RootDisk != nil {
+		s := uintStr(*v.RootDisk)
+		if s != "" {
+			s += "M"
+		}
+		strs = append(strs, "root-disk="+s)
+	}
 	return strings.Join(strs, " ")
 }
 
@@ -81,6 +95,9 @@ func (v Value) WithFallbacks(v0 Value) Value {
 	}
 	if v.Mem != nil {
 		v1.Mem = v.Mem
+	}
+	if v.RootDisk != nil {
+		v1.RootDisk = v.RootDisk
 	}
 	return v1
 }
@@ -158,6 +175,8 @@ func (v *Value) setRaw(raw string) error {
 		err = v.setCpuPower(str)
 	case "mem":
 		err = v.setMem(str)
+	case "root-disk":
+		err = v.setRootDisk(str)
 	default:
 		return fmt.Errorf("unknown constraint %q", name)
 	}
@@ -189,6 +208,8 @@ func (v *Value) SetYAML(tag string, value interface{}) bool {
 			v.CpuPower, err = parseUint64(vstr)
 		case "mem":
 			v.Mem, err = parseUint64(vstr)
+		case "root-disk":
+			v.RootDisk, err = parseUint64(vstr)
 		default:
 			return false
 		}
@@ -251,26 +272,20 @@ func (v *Value) setCpuPower(str string) (err error) {
 	return
 }
 
-func (v *Value) setMem(str string) error {
+func (v *Value) setMem(str string) (err error) {
 	if v.Mem != nil {
 		return fmt.Errorf("already set")
 	}
-	var value uint64
-	if str != "" {
-		mult := 1.0
-		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
-			str = str[:len(str)-1]
-			mult = m
-		}
-		val, err := strconv.ParseFloat(str, 64)
-		if err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
-		}
-		val *= mult
-		value = uint64(math.Ceil(val))
+	v.Mem, err = parseSize(str)
+	return
+}
+
+func (v *Value) setRootDisk(str string) (err error) {
+	if v.RootDisk != nil {
+		return fmt.Errorf("already set")
 	}
-	v.Mem = &value
-	return nil
+	v.RootDisk, err = parseSize(str)
+	return
 }
 
 func parseUint64(str string) (*uint64, error) {
@@ -281,6 +296,24 @@ func parseUint64(str string) (*uint64, error) {
 		} else {
 			value = uint64(val)
 		}
+	}
+	return &value, nil
+}
+
+func parseSize(str string) (*uint64, error) {
+	var value uint64
+	if str != "" {
+		mult := 1.0
+		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
+			str = str[:len(str)-1]
+			mult = m
+		}
+		val, err := strconv.ParseFloat(str, 64)
+		if err != nil || val < 0 {
+			return nil, fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+		}
+		val *= mult
+		value = uint64(math.Ceil(val))
 	}
 	return &value, nil
 }

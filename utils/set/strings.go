@@ -24,12 +24,12 @@ func NewStrings(initial ...string) Strings {
 }
 
 // Size returns the number of elements in the set.
-func (s *Strings) Size() int {
+func (s Strings) Size() int {
 	return len(s.values)
 }
 
 // IsEmpty is true for empty or uninitialized sets.
-func (s *Strings) IsEmpty() bool {
+func (s Strings) IsEmpty() bool {
 	return len(s.values) == 0
 }
 
@@ -44,23 +44,17 @@ func (s *Strings) Add(value string) {
 // Remove takes a value out of the set.  If value wasn't in the set to start
 // with, this method silently succeeds.
 func (s *Strings) Remove(value string) {
-	if s.values == nil {
-		return
-	}
 	delete(s.values, value)
 }
 
 // Contains returns true if the value is in the set, and false otherwise.
-func (s *Strings) Contains(value string) bool {
-	if s.values == nil {
-		return false
-	}
+func (s Strings) Contains(value string) bool {
 	_, exists := s.values[value]
 	return exists
 }
 
 // Values returns an unordered slice containing all the values in the set.
-func (s *Strings) Values() []string {
+func (s Strings) Values() []string {
 	result := make([]string, len(s.values))
 	i := 0
 	for key := range s.values {
@@ -71,7 +65,7 @@ func (s *Strings) Values() []string {
 }
 
 // SortedValues returns an ordered slice containing all the values in the set.
-func (s *Strings) SortedValues() []string {
+func (s Strings) SortedValues() []string {
 	values := s.Values()
 	sort.Strings(values)
 	return values
@@ -79,7 +73,7 @@ func (s *Strings) SortedValues() []string {
 
 // Union returns a new Strings representing a union of the elments in the
 // method target and the parameter.
-func (s *Strings) Union(other Strings) Strings {
+func (s Strings) Union(other Strings) Strings {
 	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
@@ -94,7 +88,7 @@ func (s *Strings) Union(other Strings) Strings {
 
 // Intersection returns a new Strings representing a intersection of the elments in the
 // method target and the parameter.
-func (s *Strings) Intersection(other Strings) Strings {
+func (s Strings) Intersection(other Strings) Strings {
 	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.
@@ -108,7 +102,7 @@ func (s *Strings) Intersection(other Strings) Strings {
 
 // Difference returns a new Strings representing all the values in the
 // target that are not in the parameter.
-func (s *Strings) Difference(other Strings) Strings {
+func (s Strings) Difference(other Strings) Strings {
 	result := NewStrings()
 	// Use the internal map rather than going through the friendlier functions
 	// to avoid extra allocation of slices.

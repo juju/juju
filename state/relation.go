@@ -15,6 +15,7 @@ import (
 
 	"launchpad.net/juju-core/charm"
 	errors "launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -58,6 +59,12 @@ func newRelation(st *State, doc *relationDoc) *Relation {
 
 func (r *Relation) String() string {
 	return r.doc.Key
+}
+
+// Tag returns a name identifying the relation that is safe to use
+// as a file name.
+func (r *Relation) Tag() string {
+	return names.RelationTag(strconv.Itoa(r.doc.Id))
 }
 
 // Refresh refreshes the contents of the relation from the underlying

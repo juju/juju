@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent/tools"
@@ -30,7 +30,7 @@ type cloudinitSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&cloudinitSuite{})
+var _ = gc.Suite(&cloudinitSuite{})
 
 var envConstraints = constraints.MustParse("mem=2G")
 
@@ -40,7 +40,7 @@ type cloudinitTest struct {
 	expectScripts string
 }
 
-func minimalConfig(c *C) *config.Config {
+func minimalConfig(c *gc.C) *config.Config {
 	cfg, err := config.New(map[string]interface{}{
 		"type":            "test",
 		"name":            "test-name",
@@ -49,7 +49,7 @@ func minimalConfig(c *C) *config.Config {
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return cfg
 }
 
@@ -92,7 +92,7 @@ mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-precise-amd64\.tgz' > \$bin/downloaded-url\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-echo '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+echo '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0\.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines\.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines\.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
@@ -151,7 +151,7 @@ mkdir -p \$bin
 wget --no-verbose -O - 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' \| tar xz -C \$bin
 echo -n 'http://foo\.com/tools/juju1\.2\.3-raring-amd64\.tgz' > \$bin/downloaded-url\.txt
 install -m 600 /dev/null '/etc/rsyslog\.d/25-juju\.conf'
-echo '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
+echo '\\n\$ModLoad imfile\\n\\n\$InputFileStateFile /var/spool/rsyslog/juju-machine-0-state\\n\$InputFilePersistStateInterval 50\\n\$InputFilePollInterval 5\\n\$InputFileName /var/log/juju/machine-0.log\\n\$InputFileTag local-juju-machine-0:\\n\$InputFileStateFile machine-0\\n\$InputRunFileMonitor\\n\\n\$ModLoad imudp\\n\$UDPServerRun 514\\n\\n# Messages received from remote rsyslog machines contain a leading space so we\\n# need to account for that.\\n\$template JujuLogFormatLocal,\"%HOSTNAME%:%msg:::drop-last-lf%\\n\"\\n\$template JujuLogFormat,\"%HOSTNAME%:%msg:2:2048:drop-last-lf%\\n\"\\n\\n:syslogtag, startswith, \"juju-\" /var/log/juju/all-machines.log;JujuLogFormat\\n& ~\\n:syslogtag, startswith, \"local-juju-\" /var/log/juju/all-machines.log;JujuLogFormatLocal\\n& ~\\n' > '/etc/rsyslog\.d/25-juju\.conf'
 restart rsyslog
 mkdir -p '/var/lib/juju/agents/machine-0'
 install -m 600 /dev/null '/var/lib/juju/agents/machine-0/agent\.conf'
@@ -266,7 +266,7 @@ func newSimpleTools(vers string) *tools.Tools {
 }
 
 // check that any --env-config $base64 is valid and matches t.cfg.Config
-func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
+func checkEnvConfig(c *gc.C, cfg *config.Config, x map[interface{}]interface{}, scripts []string) {
 	re := regexp.MustCompile(`--env-config '([\w,=]+)'`)
 	found := false
 	for _, s := range scripts {
@@ -276,39 +276,39 @@ func checkEnvConfig(c *C, cfg *config.Config, x map[interface{}]interface{}, scr
 		}
 		found = true
 		buf, err := base64.StdEncoding.DecodeString(m[1])
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var actual map[string]interface{}
 		err = goyaml.Unmarshal(buf, &actual)
-		c.Assert(err, IsNil)
-		c.Assert(cfg.AllAttrs(), DeepEquals, actual)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cfg.AllAttrs(), gc.DeepEquals, actual)
 	}
-	c.Assert(found, Equals, true)
+	c.Assert(found, gc.Equals, true)
 }
 
 // TestCloudInit checks that the output from the various tests
 // in cloudinitTests is well formed.
-func (*cloudinitSuite) TestCloudInit(c *C) {
+func (*cloudinitSuite) TestCloudInit(c *gc.C) {
 	for i, test := range cloudinitTests {
 		c.Logf("test %d", i)
 		if test.setEnvConfig {
 			test.cfg.Config = minimalConfig(c)
 		}
 		ci, err := cloudinit.New(&test.cfg)
-		c.Assert(err, IsNil)
-		c.Check(ci, NotNil)
+		c.Assert(err, gc.IsNil)
+		c.Check(ci, gc.NotNil)
 		// render the cloudinit config to bytes, and then
 		// back to a map so we can introspect it without
 		// worrying about internal details of the cloudinit
 		// package.
 		data, err := ci.Render()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		x := make(map[interface{}]interface{})
 		err = goyaml.Unmarshal(data, &x)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
-		c.Check(x["apt_upgrade"], Equals, true)
-		c.Check(x["apt_update"], Equals, true)
+		c.Check(x["apt_upgrade"], gc.Equals, true)
+		c.Check(x["apt_update"], gc.Equals, true)
 
 		scripts := getScripts(x)
 		scriptDiff(c, scripts, test.expectScripts)
@@ -330,36 +330,36 @@ func (*cloudinitSuite) TestCloudInit(c *C) {
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitConfigure(c *C) {
+func (*cloudinitSuite) TestCloudInitConfigure(c *gc.C) {
 	for i, test := range cloudinitTests {
 		test.cfg.Config = minimalConfig(c)
 		c.Logf("test %d (Configure)", i)
 		cloudcfg := coreCloudinit.New()
 		ci, err := cloudinit.Configure(&test.cfg, cloudcfg)
-		c.Assert(err, IsNil)
-		c.Check(ci, NotNil)
+		c.Assert(err, gc.IsNil)
+		c.Check(ci, gc.NotNil)
 	}
 }
 
-func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *C) {
+func (*cloudinitSuite) TestCloudInitConfigureUsesGivenConfig(c *gc.C) {
 	// Create a simple cloudinit config with a 'runcmd' statement.
 	cloudcfg := coreCloudinit.New()
 	script := "test script"
 	cloudcfg.AddRunCmd(script)
 	cloudinitTests[0].cfg.Config = minimalConfig(c)
 	ci, err := cloudinit.Configure(&cloudinitTests[0].cfg, cloudcfg)
-	c.Assert(err, IsNil)
-	c.Check(ci, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Check(ci, gc.NotNil)
 	data, err := ci.Render()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	ciContent := make(map[interface{}]interface{})
 	err = goyaml.Unmarshal(data, &ciContent)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	// The 'runcmd' statement is at the beginning of the list
 	// of 'runcmd' statements.
 	runCmd := ciContent["runcmd"].([]interface{})
-	c.Check(runCmd[0], Equals, script)
+	c.Check(runCmd[0], gc.Equals, script)
 }
 
 func getScripts(x map[interface{}]interface{}) []string {
@@ -370,7 +370,7 @@ func getScripts(x map[interface{}]interface{}) []string {
 	return scripts
 }
 
-func scriptDiff(c *C, got []string, expect string) {
+func scriptDiff(c *gc.C, got []string, expect string) {
 	for _, s := range got {
 		c.Logf("script: %s", regexp.QuoteMeta(strings.Replace(s, "\n", "\\n", -1)))
 	}
@@ -385,13 +385,13 @@ func scriptDiff(c *C, got []string, expect string) {
 			c.Fatalf("too many scripts found (got %q at line %d)", got[i], i)
 		}
 		script := strings.Replace(got[i], "\n", "\\n", -1) // make .* work
-		c.Assert(script, Matches, pats[i], Commentf("line %d", i))
+		c.Assert(script, gc.Matches, pats[i], gc.Commentf("line %d", i))
 	}
 }
 
 // CheckPackage checks that the cloudinit will or won't install the given
 // package, depending on the value of match.
-func checkPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
+func checkPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool) {
 	pkgs0 := x["packages"]
 	if pkgs0 == nil {
 		if match {
@@ -419,7 +419,7 @@ func checkPackage(c *C, x map[interface{}]interface{}, pkg string, match bool) {
 
 // CheckAptSources checks that the cloudinit will or won't install the given
 // source, depending on the value of match.
-func checkAptSource(c *C, x map[interface{}]interface{}, source struct{ source, key string }, match bool) {
+func checkAptSource(c *gc.C, x map[interface{}]interface{}, source struct{ source, key string }, match bool) {
 	sources0 := x["apt_sources"]
 	if sources0 == nil {
 		if match {
@@ -560,7 +560,7 @@ var verifyTests = []struct {
 
 // TestCloudInitVerify checks that required fields are appropriately
 // checked for by NewCloudInit.
-func (*cloudinitSuite) TestCloudInitVerify(c *C) {
+func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 	cfg := &cloudinit.MachineConfig{
 		StateServer:        true,
 		StateServerCert:    serverCert,
@@ -585,15 +585,15 @@ func (*cloudinitSuite) TestCloudInitVerify(c *C) {
 	}
 	// check that the base configuration does not give an error
 	_, err := cloudinit.New(cfg)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for i, test := range verifyTests {
 		c.Logf("test %d. %s", i, test.err)
 		cfg1 := *cfg
 		test.mutate(&cfg1)
 		t, err := cloudinit.New(&cfg1)
-		c.Assert(err, ErrorMatches, "invalid machine configuration: "+test.err)
-		c.Assert(t, IsNil)
+		c.Assert(err, gc.ErrorMatches, "invalid machine configuration: "+test.err)
+		c.Assert(t, gc.IsNil)
 	}
 }
 

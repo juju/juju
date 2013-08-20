@@ -4,7 +4,7 @@
 package main
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -15,25 +15,25 @@ type DestroyUnitSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = Suite(&DestroyUnitSuite{})
+var _ = gc.Suite(&DestroyUnitSuite{})
 
-func runDestroyUnit(c *C, args ...string) error {
+func runDestroyUnit(c *gc.C, args ...string) error {
 	_, err := testing.RunCommand(c, &DestroyUnitCommand{}, args)
 	return err
 }
 
-func (s *DestroyUnitSuite) TestDestroyUnit(c *C) {
+func (s *DestroyUnitSuite) TestDestroyUnit(c *gc.C) {
 	testing.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "-n", "2", "local:dummy", "dummy")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	svc, _ := s.AssertService(c, "dummy", curl, 2, 0)
 
 	err = runDestroyUnit(c, "dummy/0", "dummy/1", "dummy/2", "sillybilly/17")
-	c.Assert(err, ErrorMatches, `some units were not destroyed: unit "dummy/2" does not exist; unit "sillybilly/17" does not exist`)
+	c.Assert(err, gc.ErrorMatches, `some units were not destroyed: unit "dummy/2" does not exist; unit "sillybilly/17" does not exist`)
 	units, err := svc.AllUnits()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	for _, u := range units {
-		c.Assert(u.Life(), Equals, state.Dying)
+		c.Assert(u.Life(), gc.Equals, state.Dying)
 	}
 }
