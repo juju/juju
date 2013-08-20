@@ -496,7 +496,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := s.Env.(simplestreams.ImageMetadataValidator).MetadataLookupParams("some-region")
+	params, err := s.Env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

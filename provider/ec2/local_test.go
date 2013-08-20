@@ -339,7 +339,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := t.env.(simplestreams.ImageMetadataValidator).MetadataLookupParams("test")
+	params, err := t.env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
