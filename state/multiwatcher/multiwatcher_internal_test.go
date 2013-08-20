@@ -8,7 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
@@ -18,14 +18,14 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type storeSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&storeSuite{})
+var _ = gc.Suite(&storeSuite{})
 
 var StoreChangeMethodTests = []struct {
 	about          string
@@ -191,7 +191,7 @@ var StoreChangeMethodTests = []struct {
 },
 }
 
-func (s *storeSuite) TestStoreChangeMethods(c *C) {
+func (s *storeSuite) TestStoreChangeMethods(c *gc.C) {
 	for i, test := range StoreChangeMethodTests {
 		all := NewStore()
 		c.Logf("test %d. %s", i, test.about)
@@ -200,7 +200,7 @@ func (s *storeSuite) TestStoreChangeMethods(c *C) {
 	}
 }
 
-func (s *storeSuite) TestChangesSince(c *C) {
+func (s *storeSuite) TestChangesSince(c *gc.C) {
 	a := NewStore()
 	// Add three entries.
 	var deltas []params.Delta
@@ -212,12 +212,12 @@ func (s *storeSuite) TestChangesSince(c *C) {
 	// Check that the deltas from each revno are as expected.
 	for i := 0; i < 3; i++ {
 		c.Logf("test %d", i)
-		c.Assert(a.ChangesSince(int64(i)), DeepEquals, deltas[i:])
+		c.Assert(a.ChangesSince(int64(i)), gc.DeepEquals, deltas[i:])
 	}
 
 	// Check boundary cases.
-	c.Assert(a.ChangesSince(-1), DeepEquals, deltas)
-	c.Assert(a.ChangesSince(99), HasLen, 0)
+	c.Assert(a.ChangesSince(-1), gc.DeepEquals, deltas)
+	c.Assert(a.ChangesSince(99), gc.HasLen, 0)
 
 	// Update one machine and check we see the changes.
 	rev := a.latestRevno
@@ -226,7 +226,7 @@ func (s *storeSuite) TestChangesSince(c *C) {
 		InstanceId: "foo",
 	}
 	a.Update(m1)
-	c.Assert(a.ChangesSince(rev), DeepEquals, []params.Delta{{Entity: m1}})
+	c.Assert(a.ChangesSince(rev), gc.DeepEquals, []params.Delta{{Entity: m1}})
 
 	// Make sure the machine isn't simply removed from
 	// the list when it's marked as removed.
@@ -239,41 +239,41 @@ func (s *storeSuite) TestChangesSince(c *C) {
 	// Check that something that never saw m0 does not get
 	// informed of its removal (even those the removed entity
 	// is still in the list.
-	c.Assert(a.ChangesSince(0), DeepEquals, []params.Delta{{
+	c.Assert(a.ChangesSince(0), gc.DeepEquals, []params.Delta{{
 		Entity: &MachineInfo{Id: "2"},
 	}, {
 		Entity: m1,
 	}})
 
-	c.Assert(a.ChangesSince(rev), DeepEquals, []params.Delta{{
+	c.Assert(a.ChangesSince(rev), gc.DeepEquals, []params.Delta{{
 		Entity: m1,
 	}, {
 		Removed: true,
 		Entity:  m0,
 	}})
 
-	c.Assert(a.ChangesSince(rev+1), DeepEquals, []params.Delta{{
+	c.Assert(a.ChangesSince(rev+1), gc.DeepEquals, []params.Delta{{
 		Removed: true,
 		Entity:  m0,
 	}})
 }
 
-func (s *storeSuite) TestGet(c *C) {
+func (s *storeSuite) TestGet(c *gc.C) {
 	a := NewStore()
 	m := &MachineInfo{Id: "0"}
 	a.Update(m)
 
-	c.Assert(a.Get(m.EntityId()), Equals, m)
-	c.Assert(a.Get(params.EntityId{"machine", "1"}), IsNil)
+	c.Assert(a.Get(m.EntityId()), gc.Equals, m)
+	c.Assert(a.Get(params.EntityId{"machine", "1"}), gc.IsNil)
 }
 
 type storeManagerSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&storeManagerSuite{})
+var _ = gc.Suite(&storeManagerSuite{})
 
-func (*storeManagerSuite) TestHandle(c *C) {
+func (*storeManagerSuite) TestHandle(c *gc.C) {
 	sm := newStoreManagerNoRun(newTestBacking(nil))
 
 	// Add request from first watcher.
@@ -327,7 +327,7 @@ func (*storeManagerSuite) TestHandle(c *C) {
 	assertReplied(c, false, req2)
 }
 
-func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
+func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *gc.C) {
 	// If the Watcher hasn't seen the item, then we shouldn't
 	// decrement its ref count when it is stopped.
 	sm := NewStoreManager(newTestBacking(nil))
@@ -347,7 +347,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfMoreRecentlyCreated(c *C) {
 	}})
 }
 
-func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
+func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *gc.C) {
 	// If the Watcher has already seen the item removed, then
 	// we shouldn't decrement its ref count when it is stopped.
 	sm := NewStoreManager(newTestBacking(nil))
@@ -368,7 +368,7 @@ func (s *storeManagerSuite) TestHandleStopNoDecRefIfAlreadySeenRemoved(c *C) {
 	}})
 }
 
-func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C) {
+func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *gc.C) {
 	// If the Watcher has already seen the item removed, then
 	// we should decrement its ref count when it is stopped.
 	sm := NewStoreManager(newTestBacking(nil))
@@ -387,7 +387,7 @@ func (s *storeManagerSuite) TestHandleStopDecRefIfAlreadySeenAndNotRemoved(c *C)
 	}})
 }
 
-func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *C) {
+func (s *storeManagerSuite) TestHandleStopNoDecRefIfNotSeen(c *gc.C) {
 	// If the Watcher hasn't seen the item at all, it should
 	// leave the ref count untouched.
 	sm := NewStoreManager(newTestBacking(nil))
@@ -441,7 +441,7 @@ var (
 	respondTestFinalRevno = int64(len(respondTestChanges))
 )
 
-func (s *storeManagerSuite) TestRespondResults(c *C) {
+func (s *storeManagerSuite) TestRespondResults(c *gc.C) {
 	// We test the response results for a pair of watchers by
 	// interleaving notional Next requests in all possible
 	// combinations after each change in respondTestChanges and
@@ -508,8 +508,8 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 					}
 					select {
 					case ok := <-req.reply:
-						c.Assert(ok, Equals, true)
-						c.Assert(len(req.changes) > 0, Equals, true)
+						c.Assert(ok, gc.Equals, true)
+						c.Assert(len(req.changes) > 0, gc.Equals, true)
 						wstates[wi].update(req.changes)
 						reqs[wi] = nil
 					default:
@@ -531,7 +531,7 @@ func (s *storeManagerSuite) TestRespondResults(c *C) {
 	}
 }
 
-func (*storeManagerSuite) TestRespondMultiple(c *C) {
+func (*storeManagerSuite) TestRespondMultiple(c *gc.C) {
 	sm := NewStoreManager(newTestBacking(nil))
 	sm.all.Update(&MachineInfo{Id: "0"})
 
@@ -545,7 +545,7 @@ func (*storeManagerSuite) TestRespondMultiple(c *C) {
 	sm.handle(req0)
 	sm.respond()
 	assertReplied(c, true, req0)
-	c.Assert(req0.changes, DeepEquals, []params.Delta{{Entity: &MachineInfo{Id: "0"}}})
+	c.Assert(req0.changes, gc.DeepEquals, []params.Delta{{Entity: &MachineInfo{Id: "0"}}})
 	assertWaitingRequests(c, sm, nil)
 
 	// Add another request from the same watcher and respond.
@@ -581,7 +581,7 @@ func (*storeManagerSuite) TestRespondMultiple(c *C) {
 	assertNotReplied(c, req0)
 	assertNotReplied(c, req1)
 	assertReplied(c, true, req2)
-	c.Assert(req2.changes, DeepEquals, []params.Delta{{Entity: &MachineInfo{Id: "0"}}})
+	c.Assert(req2.changes, gc.DeepEquals, []params.Delta{{Entity: &MachineInfo{Id: "0"}}})
 	assertWaitingRequests(c, sm, map[*Watcher][]*request{
 		w0: {req0},
 		w1: {req1},
@@ -601,21 +601,21 @@ func (*storeManagerSuite) TestRespondMultiple(c *C) {
 	assertWaitingRequests(c, sm, nil)
 
 	deltas := []params.Delta{{Entity: &MachineInfo{Id: "1"}}}
-	c.Assert(req0.changes, DeepEquals, deltas)
-	c.Assert(req1.changes, DeepEquals, deltas)
+	c.Assert(req0.changes, gc.DeepEquals, deltas)
+	c.Assert(req1.changes, gc.DeepEquals, deltas)
 }
 
-func (*storeManagerSuite) TestRunStop(c *C) {
+func (*storeManagerSuite) TestRunStop(c *gc.C) {
 	sm := NewStoreManager(newTestBacking(nil))
 	w := &Watcher{all: sm}
 	err := sm.Stop()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	d, err := w.Next()
-	c.Assert(err, ErrorMatches, "state watcher was stopped")
-	c.Assert(d, HasLen, 0)
+	c.Assert(err, gc.ErrorMatches, "state watcher was stopped")
+	c.Assert(d, gc.HasLen, 0)
 }
 
-func (*storeManagerSuite) TestRun(c *C) {
+func (*storeManagerSuite) TestRun(c *gc.C) {
 	b := newTestBacking([]params.EntityInfo{
 		&MachineInfo{Id: "0"},
 		&ServiceInfo{Name: "logging"},
@@ -623,7 +623,7 @@ func (*storeManagerSuite) TestRun(c *C) {
 	})
 	sm := NewStoreManager(b)
 	defer func() {
-		c.Check(sm.Stop(), IsNil)
+		c.Check(sm.Stop(), gc.IsNil)
 	}()
 	w := &Watcher{all: sm}
 	checkNext(c, w, []params.Delta{
@@ -641,10 +641,10 @@ func (*storeManagerSuite) TestRun(c *C) {
 	}, "")
 }
 
-func (*storeManagerSuite) TestWatcherStop(c *C) {
+func (*storeManagerSuite) TestWatcherStop(c *gc.C) {
 	sm := NewStoreManager(newTestBacking(nil))
 	defer func() {
-		c.Check(sm.Stop(), IsNil)
+		c.Check(sm.Stop(), gc.IsNil)
 	}()
 	w := &Watcher{all: sm}
 	done := make(chan struct{})
@@ -653,15 +653,15 @@ func (*storeManagerSuite) TestWatcherStop(c *C) {
 		done <- struct{}{}
 	}()
 	err := w.Stop()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	<-done
 }
 
-func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *C) {
+func (*storeManagerSuite) TestWatcherStopBecauseStoreManagerError(c *gc.C) {
 	b := newTestBacking([]params.EntityInfo{&MachineInfo{Id: "0"}})
 	sm := NewStoreManager(b)
 	defer func() {
-		c.Check(sm.Stop(), ErrorMatches, "some error")
+		c.Check(sm.Stop(), gc.ErrorMatches, "some error")
 	}()
 	w := &Watcher{all: sm}
 	// Receive one delta to make sure that the storeManager
@@ -679,25 +679,25 @@ func StoreIncRef(a *Store, id InfoId) {
 	entry.refCount++
 }
 
-func assertStoreContents(c *C, a *Store, latestRevno int64, entries []entityEntry) {
+func assertStoreContents(c *gc.C, a *Store, latestRevno int64, entries []entityEntry) {
 	var gotEntries []entityEntry
 	var gotElems []*list.Element
-	c.Check(a.list.Len(), Equals, len(entries))
+	c.Check(a.list.Len(), gc.Equals, len(entries))
 	for e := a.list.Back(); e != nil; e = e.Prev() {
 		gotEntries = append(gotEntries, *e.Value.(*entityEntry))
 		gotElems = append(gotElems, e)
 	}
-	c.Assert(gotEntries, DeepEquals, entries)
+	c.Assert(gotEntries, gc.DeepEquals, entries)
 	for i, ent := range entries {
-		c.Assert(a.entities[ent.info.EntityId()], Equals, gotElems[i])
+		c.Assert(a.entities[ent.info.EntityId()], gc.Equals, gotElems[i])
 	}
-	c.Assert(a.entities, HasLen, len(entries))
-	c.Assert(a.latestRevno, Equals, latestRevno)
+	c.Assert(a.entities, gc.HasLen, len(entries))
+	c.Assert(a.latestRevno, gc.Equals, latestRevno)
 }
 
 var errTimeout = errors.New("no change received in sufficient time")
 
-func getNext(c *C, w *Watcher, timeout time.Duration) ([]params.Delta, error) {
+func getNext(c *gc.C, w *Watcher, timeout time.Duration) ([]params.Delta, error) {
 	var deltas []params.Delta
 	var err error
 	ch := make(chan struct{}, 1)
@@ -713,10 +713,10 @@ func getNext(c *C, w *Watcher, timeout time.Duration) ([]params.Delta, error) {
 	return nil, errTimeout
 }
 
-func checkNext(c *C, w *Watcher, deltas []params.Delta, expectErr string) {
+func checkNext(c *gc.C, w *Watcher, deltas []params.Delta, expectErr string) {
 	d, err := getNext(c, w, 1*time.Second)
 	if expectErr != "" {
-		c.Check(err, ErrorMatches, expectErr)
+		c.Check(err, gc.ErrorMatches, expectErr)
 		return
 	}
 	checkDeltasEqual(c, d, deltas)
@@ -724,8 +724,8 @@ func checkNext(c *C, w *Watcher, deltas []params.Delta, expectErr string) {
 
 // deltas are returns in arbitrary order, so we compare
 // them as sets.
-func checkDeltasEqual(c *C, d0, d1 []params.Delta) {
-	c.Check(deltaMap(d0), DeepEquals, deltaMap(d1))
+func checkDeltasEqual(c *gc.C, d0, d1 []params.Delta) {
+	c.Check(deltaMap(d0), gc.DeepEquals, deltaMap(d1))
 }
 
 func deltaMap(deltas []params.Delta) map[InfoId]params.EntityInfo {
@@ -765,7 +765,7 @@ func (s watcherState) update(changes []params.Delta) {
 
 // check checks that the watcher state matches that
 // held in current.
-func (s watcherState) check(c *C, current *Store) {
+func (s watcherState) check(c *gc.C, current *Store) {
 	currentEntities := make(watcherState)
 	for id, elem := range current.entities {
 		entry := elem.Value.(*entityEntry)
@@ -773,10 +773,10 @@ func (s watcherState) check(c *C, current *Store) {
 			currentEntities[id] = params.Delta{Entity: entry.info}
 		}
 	}
-	c.Assert(s, DeepEquals, currentEntities)
+	c.Assert(s, gc.DeepEquals, currentEntities)
 }
 
-func assertNotReplied(c *C, req *request) {
+func assertNotReplied(c *gc.C, req *request) {
 	select {
 	case v := <-req.reply:
 		c.Fatalf("request was unexpectedly replied to (got %v)", v)
@@ -784,25 +784,25 @@ func assertNotReplied(c *C, req *request) {
 	}
 }
 
-func assertReplied(c *C, val bool, req *request) {
+func assertReplied(c *gc.C, val bool, req *request) {
 	select {
 	case v := <-req.reply:
-		c.Assert(v, Equals, val)
+		c.Assert(v, gc.Equals, val)
 	default:
 		c.Fatalf("request was not replied to")
 	}
 }
 
-func assertWaitingRequests(c *C, sm *StoreManager, waiting map[*Watcher][]*request) {
-	c.Assert(sm.waiting, HasLen, len(waiting))
+func assertWaitingRequests(c *gc.C, sm *StoreManager, waiting map[*Watcher][]*request) {
+	c.Assert(sm.waiting, gc.HasLen, len(waiting))
 	for w, reqs := range waiting {
 		i := 0
 		for req := sm.waiting[w]; ; req = req.next {
 			if i >= len(reqs) {
-				c.Assert(req, IsNil)
+				c.Assert(req, gc.IsNil)
 				break
 			}
-			c.Assert(req, Equals, reqs[i])
+			c.Assert(req, gc.Equals, reqs[i])
 			assertNotReplied(c, req)
 			i++
 		}

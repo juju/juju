@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/testing"
@@ -33,125 +33,125 @@ func repoMeta(name string) io.Reader {
 
 type MetaSuite struct{}
 
-var _ = Suite(&MetaSuite{})
+var _ = gc.Suite(&MetaSuite{})
 
-func (s *MetaSuite) TestReadMetaVersion1(c *C) {
+func (s *MetaSuite) TestReadMetaVersion1(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("dummy"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Name, Equals, "dummy")
-	c.Assert(meta.Summary, Equals, "That's a dummy charm.")
-	c.Assert(meta.Description, Equals,
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Name, gc.Equals, "dummy")
+	c.Assert(meta.Summary, gc.Equals, "That's a dummy charm.")
+	c.Assert(meta.Description, gc.Equals,
 		"This is a longer description which\npotentially contains multiple lines.\n")
-	c.Assert(meta.Format, Equals, 1)
-	c.Assert(meta.OldRevision, Equals, 0)
-	c.Assert(meta.Subordinate, Equals, false)
+	c.Assert(meta.Format, gc.Equals, 1)
+	c.Assert(meta.OldRevision, gc.Equals, 0)
+	c.Assert(meta.Subordinate, gc.Equals, false)
 }
 
-func (s *MetaSuite) TestReadMetaVersion2(c *C) {
+func (s *MetaSuite) TestReadMetaVersion2(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("format2"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Name, Equals, "format2")
-	c.Assert(meta.Format, Equals, 2)
-	c.Assert(meta.Categories, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Name, gc.Equals, "format2")
+	c.Assert(meta.Format, gc.Equals, 2)
+	c.Assert(meta.Categories, gc.HasLen, 0)
 }
 
-func (s *MetaSuite) TestReadCategory(c *C) {
+func (s *MetaSuite) TestReadCategory(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("category"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Categories, DeepEquals, []string{"database"})
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Categories, gc.DeepEquals, []string{"database"})
 }
 
-func (s *MetaSuite) TestSubordinate(c *C) {
+func (s *MetaSuite) TestSubordinate(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("logging"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Subordinate, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Subordinate, gc.Equals, true)
 }
 
-func (s *MetaSuite) TestSubordinateWithoutContainerRelation(c *C) {
+func (s *MetaSuite) TestSubordinateWithoutContainerRelation(c *gc.C) {
 	r := repoMeta("dummy")
 	hackYaml := ReadYaml(r)
 	hackYaml["subordinate"] = true
 	_, err := charm.ReadMeta(hackYaml.Reader())
-	c.Assert(err, ErrorMatches, "subordinate charm \"dummy\" lacks \"requires\" relation with container scope")
+	c.Assert(err, gc.ErrorMatches, "subordinate charm \"dummy\" lacks \"requires\" relation with container scope")
 }
 
-func (s *MetaSuite) TestScopeConstraint(c *C) {
+func (s *MetaSuite) TestScopeConstraint(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("logging"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["logging-client"].Scope, Equals, charm.ScopeGlobal)
-	c.Assert(meta.Requires["logging-directory"].Scope, Equals, charm.ScopeContainer)
-	c.Assert(meta.Subordinate, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Provides["logging-client"].Scope, gc.Equals, charm.ScopeGlobal)
+	c.Assert(meta.Requires["logging-directory"].Scope, gc.Equals, charm.ScopeContainer)
+	c.Assert(meta.Subordinate, gc.Equals, true)
 }
 
-func (s *MetaSuite) TestParseMetaRelations(c *C) {
+func (s *MetaSuite) TestParseMetaRelations(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("mysql"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["server"], Equals, charm.Relation{
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Provides["server"], gc.Equals, charm.Relation{
 		Name:      "server",
 		Role:      charm.RoleProvider,
 		Interface: "mysql",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires, IsNil)
-	c.Assert(meta.Peers, IsNil)
+	c.Assert(meta.Requires, gc.IsNil)
+	c.Assert(meta.Peers, gc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("riak"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["endpoint"], Equals, charm.Relation{
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Provides["endpoint"], gc.Equals, charm.Relation{
 		Name:      "endpoint",
 		Role:      charm.RoleProvider,
 		Interface: "http",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Provides["admin"], Equals, charm.Relation{
+	c.Assert(meta.Provides["admin"], gc.Equals, charm.Relation{
 		Name:      "admin",
 		Role:      charm.RoleProvider,
 		Interface: "http",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Peers["ring"], Equals, charm.Relation{
+	c.Assert(meta.Peers["ring"], gc.Equals, charm.Relation{
 		Name:      "ring",
 		Role:      charm.RolePeer,
 		Interface: "riak",
 		Limit:     1,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires, IsNil)
+	c.Assert(meta.Requires, gc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("terracotta"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["dso"], Equals, charm.Relation{
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Provides["dso"], gc.Equals, charm.Relation{
 		Name:      "dso",
 		Role:      charm.RoleProvider,
 		Interface: "terracotta",
 		Optional:  true,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Peers["server-array"], Equals, charm.Relation{
+	c.Assert(meta.Peers["server-array"], gc.Equals, charm.Relation{
 		Name:      "server-array",
 		Role:      charm.RolePeer,
 		Interface: "terracotta-server",
 		Limit:     1,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires, IsNil)
+	c.Assert(meta.Requires, gc.IsNil)
 
 	meta, err = charm.ReadMeta(repoMeta("wordpress"))
-	c.Assert(err, IsNil)
-	c.Assert(meta.Provides["url"], Equals, charm.Relation{
+	c.Assert(err, gc.IsNil)
+	c.Assert(meta.Provides["url"], gc.Equals, charm.Relation{
 		Name:      "url",
 		Role:      charm.RoleProvider,
 		Interface: "http",
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires["db"], Equals, charm.Relation{
+	c.Assert(meta.Requires["db"], gc.Equals, charm.Relation{
 		Name:      "db",
 		Role:      charm.RoleRequirer,
 		Interface: "mysql",
 		Limit:     1,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Requires["cache"], Equals, charm.Relation{
+	c.Assert(meta.Requires["cache"], gc.Equals, charm.Relation{
 		Name:      "cache",
 		Role:      charm.RoleRequirer,
 		Interface: "varnish",
@@ -159,7 +159,7 @@ func (s *MetaSuite) TestParseMetaRelations(c *C) {
 		Optional:  true,
 		Scope:     charm.ScopeGlobal,
 	})
-	c.Assert(meta.Peers, IsNil)
+	c.Assert(meta.Peers, gc.IsNil)
 }
 
 var relationsConstraintsTests = []struct {
@@ -208,15 +208,15 @@ var relationsConstraintsTests = []struct {
 	},
 }
 
-func (s *MetaSuite) TestRelationsConstraints(c *C) {
+func (s *MetaSuite) TestRelationsConstraints(c *gc.C) {
 	check := func(s, e string) {
 		meta, err := charm.ReadMeta(strings.NewReader(s))
 		if e != "" {
-			c.Assert(err, ErrorMatches, e)
-			c.Assert(meta, IsNil)
+			c.Assert(err, gc.ErrorMatches, e)
+			c.Assert(meta, gc.IsNil)
 		} else {
-			c.Assert(err, IsNil)
-			c.Assert(meta, NotNil)
+			c.Assert(err, gc.IsNil)
+			c.Assert(meta, gc.NotNil)
 		}
 	}
 	prefix := "name: a\nsummary: b\ndescription: c\n"
@@ -239,7 +239,7 @@ requires:
   innocuous: juju-info`, "")
 }
 
-func (s *MetaSuite) TestCheckMismatchedRelationName(c *C) {
+func (s *MetaSuite) TestCheckMismatchedRelationName(c *gc.C) {
 	// This  Check case cannot be covered by the above
 	// TestRelationsConstraints tests.
 	meta := charm.Meta{
@@ -255,10 +255,10 @@ func (s *MetaSuite) TestCheckMismatchedRelationName(c *C) {
 		},
 	}
 	err := meta.Check()
-	c.Assert(err, ErrorMatches, `charm "foo" has mismatched role "peer"; expected "provider"`)
+	c.Assert(err, gc.ErrorMatches, `charm "foo" has mismatched role "peer"; expected "provider"`)
 }
 
-func (s *MetaSuite) TestCheckMismatchedRole(c *C) {
+func (s *MetaSuite) TestCheckMismatchedRole(c *gc.C) {
 	// This  Check case cannot be covered by the above
 	// TestRelationsConstraints tests.
 	meta := charm.Meta{
@@ -273,7 +273,7 @@ func (s *MetaSuite) TestCheckMismatchedRole(c *C) {
 		},
 	}
 	err := meta.Check()
-	c.Assert(err, ErrorMatches, `charm "foo" has mismatched relation name ""; expected "foo"`)
+	c.Assert(err, gc.ErrorMatches, `charm "foo" has mismatched relation name ""; expected "foo"`)
 }
 
 // Test rewriting of a given interface specification into long form.
@@ -286,49 +286,49 @@ func (s *MetaSuite) TestCheckMismatchedRole(c *C) {
 // This test ensures test coverage on each of these branches, along
 // with ensuring the conversion object properly raises SchemaError
 // exceptions on invalid data.
-func (s *MetaSuite) TestIfaceExpander(c *C) {
+func (s *MetaSuite) TestIfaceExpander(c *gc.C) {
 	e := charm.IfaceExpander(nil)
 
 	path := []string{"<pa", "th>"}
 
 	// Shorthand is properly rewritten
 	v, err := e.Coerce("http", path)
-	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, gc.IsNil)
+	c.Assert(v, gc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	// Defaults are properly applied
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
-	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, gc.IsNil)
+	c.Assert(v, gc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": 2}, path)
-	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, gc.IsNil)
+	c.Assert(v, gc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(2), "optional": false, "scope": string(charm.ScopeGlobal)})
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": true}, path)
-	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, gc.IsNil)
+	c.Assert(v, gc.DeepEquals, map[string]interface{}{"interface": "http", "limit": nil, "optional": true, "scope": string(charm.ScopeGlobal)})
 
 	// Invalid data raises an error.
 	v, err = e.Coerce(42, path)
-	c.Assert(err, ErrorMatches, "<path>: expected map, got 42")
+	c.Assert(err, gc.ErrorMatches, "<path>: expected map, got 42")
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "optional": nil}, path)
-	c.Assert(err, ErrorMatches, "<path>.optional: expected bool, got nothing")
+	c.Assert(err, gc.ErrorMatches, "<path>.optional: expected bool, got nothing")
 
 	v, err = e.Coerce(map[string]interface{}{"interface": "http", "limit": "none, really"}, path)
-	c.Assert(err, ErrorMatches, "<path>.limit: unexpected value.*")
+	c.Assert(err, gc.ErrorMatches, "<path>.limit: unexpected value.*")
 
 	// Can change default limit
 	e = charm.IfaceExpander(1)
 	v, err = e.Coerce(map[string]interface{}{"interface": "http"}, path)
-	c.Assert(err, IsNil)
-	c.Assert(v, DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
+	c.Assert(err, gc.IsNil)
+	c.Assert(v, gc.DeepEquals, map[string]interface{}{"interface": "http", "limit": int64(1), "optional": false, "scope": string(charm.ScopeGlobal)})
 }
 
-func (s *MetaSuite) TestMetaHooks(c *C) {
+func (s *MetaSuite) TestMetaHooks(c *gc.C) {
 	meta, err := charm.ReadMeta(repoMeta("wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	hooks := meta.Hooks()
 	expectedHooks := map[string]bool{
 		"install":                           true,
@@ -357,23 +357,23 @@ func (s *MetaSuite) TestMetaHooks(c *C) {
 		"url-relation-departed":             true,
 		"url-relation-broken":               true,
 	}
-	c.Assert(hooks, DeepEquals, expectedHooks)
+	c.Assert(hooks, gc.DeepEquals, expectedHooks)
 }
 
-func (s *MetaSuite) TestCodecRoundTripEmpty(c *C) {
+func (s *MetaSuite) TestCodecRoundTripEmpty(c *gc.C) {
 	for i, codec := range codecs {
 		c.Logf("codec %d", i)
 		empty_input := charm.Meta{}
 		data, err := codec.Marshal(empty_input)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var empty_output charm.Meta
 		err = codec.Unmarshal(data, &empty_output)
-		c.Assert(err, IsNil)
-		c.Assert(empty_input, DeepEquals, empty_output)
+		c.Assert(err, gc.IsNil)
+		c.Assert(empty_input, gc.DeepEquals, empty_output)
 	}
 }
 
-func (s *MetaSuite) TestCodecRoundTrip(c *C) {
+func (s *MetaSuite) TestCodecRoundTrip(c *gc.C) {
 	var input = charm.Meta{
 		Name:        "Foo",
 		Summary:     "Bar",
@@ -410,10 +410,88 @@ func (s *MetaSuite) TestCodecRoundTrip(c *C) {
 	for i, codec := range codecs {
 		c.Logf("codec %d", i)
 		data, err := codec.Marshal(input)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var output charm.Meta
 		err = codec.Unmarshal(data, &output)
-		c.Assert(err, IsNil)
-		c.Assert(input, DeepEquals, output)
+		c.Assert(err, gc.IsNil)
+		c.Assert(input, gc.DeepEquals, output)
+	}
+}
+
+var implementedByTests = []struct {
+	ifce     string
+	name     string
+	role     charm.RelationRole
+	scope    charm.RelationScope
+	match    bool
+	implicit bool
+}{
+	{"ifce-pro", "pro", charm.RoleProvider, charm.ScopeGlobal, true, false},
+	{"blah", "pro", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "blah", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "pro", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-pro", "pro", charm.RoleProvider, charm.ScopeContainer, true, false},
+
+	{"juju-info", "juju-info", charm.RoleProvider, charm.ScopeGlobal, true, true},
+	{"blah", "juju-info", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"juju-info", "blah", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"juju-info", "juju-info", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"juju-info", "juju-info", charm.RoleProvider, charm.ScopeContainer, true, true},
+
+	{"ifce-req", "req", charm.RoleRequirer, charm.ScopeGlobal, true, false},
+	{"blah", "req", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "blah", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "req", charm.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-req", "req", charm.RoleRequirer, charm.ScopeContainer, true, false},
+
+	{"juju-info", "info", charm.RoleRequirer, charm.ScopeContainer, true, false},
+	{"blah", "info", charm.RoleRequirer, charm.ScopeContainer, false, false},
+	{"juju-info", "blah", charm.RoleRequirer, charm.ScopeContainer, false, false},
+	{"juju-info", "info", charm.RolePeer, charm.ScopeContainer, false, false},
+	{"juju-info", "info", charm.RoleRequirer, charm.ScopeGlobal, false, false},
+
+	{"ifce-peer", "peer", charm.RolePeer, charm.ScopeGlobal, true, false},
+	{"blah", "peer", charm.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "blah", charm.RolePeer, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "peer", charm.RoleProvider, charm.ScopeGlobal, false, false},
+	{"ifce-peer", "peer", charm.RolePeer, charm.ScopeContainer, true, false},
+}
+
+func (s *MetaSuite) TestImplementedBy(c *gc.C) {
+	for i, t := range implementedByTests {
+		c.Logf("test %d", i)
+		r := charm.Relation{
+			Interface: t.ifce,
+			Name:      t.name,
+			Role:      t.role,
+			Scope:     t.scope,
+		}
+		c.Assert(r.ImplementedBy(&dummyCharm{}), gc.Equals, t.match)
+		c.Assert(r.IsImplicit(), gc.Equals, t.implicit)
+	}
+}
+
+type dummyCharm struct{}
+
+func (c *dummyCharm) Config() *charm.Config {
+	panic("unused")
+}
+
+func (c *dummyCharm) Revision() int {
+	panic("unused")
+}
+
+func (c *dummyCharm) Meta() *charm.Meta {
+	return &charm.Meta{
+		Provides: map[string]charm.Relation{
+			"pro": {Interface: "ifce-pro", Scope: charm.ScopeGlobal},
+		},
+		Requires: map[string]charm.Relation{
+			"req":  {Interface: "ifce-req", Scope: charm.ScopeGlobal},
+			"info": {Interface: "juju-info", Scope: charm.ScopeContainer},
+		},
+		Peers: map[string]charm.Relation{
+			"peer": {Interface: "ifce-peer", Scope: charm.ScopeGlobal},
+		},
 	}
 }

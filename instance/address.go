@@ -97,3 +97,27 @@ func SelectPublicAddress(addresses []Address) string {
 	}
 	return mostpublic
 }
+
+// SelectInternalAddress picks one address from a slice that can be
+// used as an endpoint for juju internal communication.
+// If there are no suitable addresses, the empty string is returned.
+func SelectInternalAddress(addresses []Address, machineLocal bool) string {
+	usableAddress := ""
+	for _, addr := range addresses {
+		if addr.Type != Ipv6Address {
+			switch addr.NetworkScope {
+			case NetworkCloudLocal:
+				return addr.Value
+			case NetworkMachineLocal:
+				if machineLocal {
+					return addr.Value
+				}
+			case NetworkPublic, NetworkUnknown:
+				if usableAddress == "" {
+					usableAddress = addr.Value
+				}
+			}
+		}
+	}
+	return usableAddress
+}

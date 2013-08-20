@@ -5,8 +5,9 @@ package instances
 
 import (
 	"fmt"
-	"launchpad.net/juju-core/constraints"
 	"sort"
+
+	"launchpad.net/juju-core/constraints"
 )
 
 // InstanceType holds all relevant attributes of the various instance types.
@@ -17,6 +18,7 @@ type InstanceType struct {
 	CpuCores uint64
 	Mem      uint64
 	Cost     uint64
+	RootDisk uint64
 	// These attributes are not supported by all clouds.
 	VType    *string // The type of virtualisation used by the hypervisor, must match the image.
 	CpuPower *uint64
@@ -44,6 +46,9 @@ func (itype InstanceType) match(cons constraints.Value) (InstanceType, bool) {
 		return nothing, false
 	}
 	if cons.Mem != nil && itype.Mem < *cons.Mem {
+		return nothing, false
+	}
+	if cons.RootDisk != nil && itype.RootDisk < *cons.RootDisk {
 		return nothing, false
 	}
 	return itype, true
@@ -141,7 +146,13 @@ func (bc byCost) Less(i, j int) bool {
 		*inst0.CpuPower != *inst1.CpuPower {
 		return *inst0.CpuPower < *inst1.CpuPower
 	}
-	return inst0.CpuCores < inst1.CpuCores
+	if inst0.CpuCores != inst1.CpuCores {
+		return inst0.CpuCores < inst1.CpuCores
+	}
+	if inst0.RootDisk != inst1.RootDisk {
+		return inst0.RootDisk < inst1.RootDisk
+	}
+	return false
 }
 
 func (bc byCost) Swap(i, j int) {

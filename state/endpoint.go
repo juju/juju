@@ -46,47 +46,6 @@ func (ep Endpoint) CanRelateTo(other Endpoint) bool {
 		counterpartRole(ep.Role) == other.Role
 }
 
-// ImplementedBy returns whether the endpoint is implemented by the supplied charm.
-func (ep Endpoint) ImplementedBy(ch charm.Charm) bool {
-	if ep.IsImplicit() {
-		return true
-	}
-	var m map[string]charm.Relation
-	switch ep.Role {
-	case charm.RoleProvider:
-		m = ch.Meta().Provides
-	case charm.RoleRequirer:
-		m = ch.Meta().Requires
-	case charm.RolePeer:
-		m = ch.Meta().Peers
-	default:
-		panic(fmt.Errorf("unknown relation role %q", ep.Role))
-	}
-	rel, found := m[ep.Name]
-	if !found {
-		return false
-	}
-	if rel.Interface == ep.Interface {
-		switch ep.Scope {
-		case charm.ScopeGlobal:
-			return rel.Scope != charm.ScopeContainer
-		case charm.ScopeContainer:
-			return true
-		default:
-			panic(fmt.Errorf("unknown relation scope %q", ep.Scope))
-		}
-	}
-	return false
-}
-
-// IsImplicit returns whether the endpoint is supplied by juju itself,
-// rather than by a charm.
-func (ep Endpoint) IsImplicit() bool {
-	return (ep.Name == "juju-info" &&
-		ep.Interface == "juju-info" &&
-		ep.Role == charm.RoleProvider)
-}
-
 type epSlice []Endpoint
 
 var roleOrder = map[charm.RelationRole]int{

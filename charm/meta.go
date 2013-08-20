@@ -48,6 +48,47 @@ type Relation struct {
 	Scope     RelationScope
 }
 
+// ImplementedBy returns whether the relation is implemented by the supplied charm.
+func (r Relation) ImplementedBy(ch Charm) bool {
+	if r.IsImplicit() {
+		return true
+	}
+	var m map[string]Relation
+	switch r.Role {
+	case RoleProvider:
+		m = ch.Meta().Provides
+	case RoleRequirer:
+		m = ch.Meta().Requires
+	case RolePeer:
+		m = ch.Meta().Peers
+	default:
+		panic(fmt.Errorf("unknown relation role %q", r.Role))
+	}
+	rel, found := m[r.Name]
+	if !found {
+		return false
+	}
+	if rel.Interface == r.Interface {
+		switch r.Scope {
+		case ScopeGlobal:
+			return rel.Scope != ScopeContainer
+		case ScopeContainer:
+			return true
+		default:
+			panic(fmt.Errorf("unknown relation scope %q", r.Scope))
+		}
+	}
+	return false
+}
+
+// IsImplicit returns whether the relation is supplied by juju itself,
+// rather than by a charm.
+func (r Relation) IsImplicit() bool {
+	return (r.Name == "juju-info" &&
+		r.Interface == "juju-info" &&
+		r.Role == RoleProvider)
+}
+
 // Meta represents all the known content that may be defined
 // within a charm's metadata.yaml file.
 type Meta struct {

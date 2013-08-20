@@ -13,9 +13,7 @@ import (
 	"sort"
 	"strings"
 
-	"launchpad.net/gnuflag"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/log"
 )
 
@@ -23,11 +21,7 @@ const JujuPluginPrefix = "juju-"
 
 func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 	plugin := &PluginCommand{name: JujuPluginPrefix + subcommand}
-	flags := gnuflag.NewFlagSet(subcommand, gnuflag.ContinueOnError)
-	flags.SetOutput(ioutil.Discard)
-	plugin.SetFlags(flags)
-	flags.Parse(false, args)
-	plugin.Init(flags.Args())
+	plugin.Init(args)
 	err := plugin.Run(ctx)
 	_, execError := err.(*exec.Error)
 	// exec.Error results are for when the executable isn't found, in
@@ -39,7 +33,7 @@ func RunPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 }
 
 type PluginCommand struct {
-	cmd.EnvCommandBase
+	cmd.CommandBase
 	name string
 	args []string
 }
@@ -56,18 +50,6 @@ func (c *PluginCommand) Init(args []string) error {
 }
 
 func (c *PluginCommand) Run(ctx *cmd.Context) error {
-	env := c.EnvName
-	if env == "" {
-		// Passing through the empty string reads the default environments.yaml file.
-		environments, err := environs.ReadEnvirons("")
-		if err != nil {
-			log.Errorf("could not read the environments.yaml file: %s", err)
-			return fmt.Errorf("could not read the environments.yaml file")
-		}
-		env = environments.Default
-	}
-
-	os.Setenv("JUJU_ENV", env)
 	command := exec.Command(c.name, c.args...)
 
 	// Now hook up stdin, stdout, stderr

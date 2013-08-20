@@ -11,11 +11,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -161,7 +162,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := environs.FindAvailableTools(s.targetEnv, 1)
+			targetTools, err := tools.FindAvailableTools(s.targetEnv, 1)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
@@ -204,7 +205,7 @@ var (
 // putBinary stores a faked binary in the test directory.
 func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	data := v.String()
-	name := tools.StorageName(v)
+	name := agenttools.StorageName(v)
 	filename := filepath.Join(storagePath, name)
 	dir := filepath.Dir(filename)
 	err := os.MkdirAll(dir, 0755)
@@ -214,14 +215,14 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 }
 
 func assertEmpty(c *gc.C, storage environs.StorageReader) {
-	list, err := tools.ReadList(storage, 1)
+	list, err := agenttools.ReadList(storage, 1)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
-	c.Assert(err, gc.Equals, tools.ErrNoTools)
+	c.Assert(err, gc.Equals, agenttools.ErrNoTools)
 }
 
-func assertToolsList(c *gc.C, list tools.List, expected []version.Binary) {
+func assertToolsList(c *gc.C, list agenttools.List, expected []version.Binary) {
 	urls := list.URLs()
 	c.Check(urls, gc.HasLen, len(expected))
 	for _, vers := range expected {
