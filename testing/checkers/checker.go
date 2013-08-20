@@ -5,6 +5,7 @@ package checkers
 
 import (
 	"fmt"
+	"reflect"
 	"strings"
 	"time"
 
@@ -142,4 +143,82 @@ func (checker *containsChecker) Check(params []interface{}, names []string) (res
 	}
 
 	return false, "Obtained value is not a string and has no .String()"
+}
+
+type sameContents struct {
+	*CheckerInfo
+}
+
+// SameContents checks that the obtained slice contains all the values (and same number of values) of
+// the expected slice and vice versa, without worrying about order. SameContents uses DeepEquals to
+// compare values.
+//
+// This is a dumb implementation that takes n^2 time if the slices are the same lenth, so don't
+// use it on very large slices
+var SameContents Checker = &sameContents{
+	&CheckerInfo{Name: "SameContents", Params: []string{"obtained", "expected"}},
+}
+
+func (checker *sameContents) Check(params []interface{}, names []string) (result bool, error string) {
+	if len(params) != 2 {
+		return false, "SameContents expects two slice arguments"
+	}
+	obtained := params[0]
+	expected := params[1]
+	tob := reflect.TypeOf(obtained)
+	if tob.Kind() != reflect.Slice {
+		return false, fmt.Sprintf("SameContents expects the obtained value to be a slice, got %q",
+			tob.Kind())
+	}
+
+	texp := reflect.TypeOf(expected)
+	if texp.Kind() != reflect.Slice {
+		return false, fmt.Sprintf("SameContents expects the expected value to be a slice, got %q",
+			texp.Kind())
+	}
+
+	if texp != tob {
+		return false, fmt.Sprintf(
+			"SameContents expects two slices of the same type, expected: %q, got: %q",
+			texp, tob)
+	}
+
+	vexp := reflect.ValueOf(expected)
+	vob := reflect.ValueOf(obtained)
+
+	lexp := vexp.Len()
+	lob := vob.Len()
+
+	if lexp != lob {
+		// Slice has incorrect number of elements
+		return false, ""
+	}
+
+	// as we find matches from the expected slice, remove them from the obtained slice,
+	// that way we make sure the count of duplicate items is the same
+	// i.e. 1 1 2 won't match 1 2 2
+outer:
+	for i := 0; i < lexp; i++ {
+		val := vexp.Index(i)
+		for j := 0; j < vob.Len(); j++ {
+			if reflect.DeepEqual(val.Interface(), vob.Index(j).Interface()) {
+				if vob.Len() == 1 {
+					// found the last match in the obtained slice, all done
+					return true, ""
+				}
+				// remove the match from the obtained slice
+				if j == 0 {
+					vob = vob.Slice(1, vob.Len())
+				} else {
+					vob = reflect.AppendSlice(vob.Slice(0, j), vob.Slice(j+1, vob.Len()))
+				}
+				continue outer
+			}
+		}
+		// Value in expected slice not found in obtained slice
+		return false, ""
+	}
+
+	// only ever get here with two empty slices
+	return true, ""
 }
