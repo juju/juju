@@ -44,9 +44,13 @@ endif
 
 # Reformat the source files.
 format:
-	go fmt ./...
+	gofmt -w -l .
 
-# Remove test executables.
+# Invoke gofmt's "simplify" option to streamline the source code.
+simplify:
+	gofmt -w -l -s .
+
+# Clean the tree, including removing test executables.
 clean:
 	find . -name '*.test' -print0 | xargs -r0 $(RM) -v
 
@@ -56,9 +60,5 @@ install-dependencies:
 	@echo
 	@echo "Make sure you have MongoDB installed.  See the README file."
 
-# Invoke gofmt's "simplify" option to streamline the source code.
-simplify:
-	gofmt -w -s .
 
-
-.PHONY: build check format clean install-dependencies simplify
+.PHONY: build check format simplify clean install-dependencies
