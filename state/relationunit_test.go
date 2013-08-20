@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type RelationUnitSuite struct {
@@ -319,7 +319,7 @@ func (s *RelationUnitSuite) TestDestroyRelationWithUnitsInScope(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(pr.ru1.InScope(), gc.Equals, false)
 	err = rel.Refresh()
-	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 
 	// The settings were not themselves actually deleted yet...
 	assertSettings()
@@ -601,6 +601,85 @@ func (s *RelationUnitSuite) TestContainerWatchScope(c *gc.C) {
 	s.assertScopeChange(c, ws[0], nil, []string{"logging/0"})
 	s.assertNoScopeChange(c, ws...)
 	c.Assert(prr.rru0.InScope(), gc.Equals, false)
+}
+
+func (s *RelationUnitSuite) TestCoalesceWatchScope(c *gc.C) {
+	pr := NewPeerRelation(c, &s.ConnSuite)
+
+	// Test empty initial event.
+	w0 := pr.ru0.WatchScope()
+	defer testing.AssertStop(c, w0)
+	s.assertScopeChange(c, w0, nil, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 and ru2 enter; check changes observed together.
+	err := pr.ru1.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	err = pr.ru2.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertScopeChange(c, w0, []string{"riak/1", "riak/2"}, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 leaves and re-enters; check no change observed.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	err = pr.ru1.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertNoScopeChange(c, w0)
+
+	// ru1 and ru2 leave; check changes observed together.
+	err = pr.ru1.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	err = pr.ru2.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertScopeChange(c, w0, nil, []string{"riak/1", "riak/2"})
+	s.assertNoScopeChange(c, w0)
+}
+
+func (s *RelationUnitSuite) TestPrepareLeaveScope(c *gc.C) {
+	prr := NewProReqRelation(c, &s.ConnSuite, charm.ScopeGlobal)
+
+	// Test empty initial event.
+	w0 := prr.pru0.WatchScope()
+	defer testing.AssertStop(c, w0)
+	s.assertScopeChange(c, w0, nil, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// rru0 and rru1 enter; check changes.
+	err := prr.rru0.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	err = prr.rru1.EnterScope(nil)
+	c.Assert(err, gc.IsNil)
+	s.assertScopeChange(c, w0, []string{"wordpress/0", "wordpress/1"}, nil)
+	s.assertNoScopeChange(c, w0)
+
+	// rru0 notifies that it will leave soon; it's reported as departed by the
+	// watcher, but InScope remains accurate.
+	err = prr.rru0.PrepareLeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertScopeChange(c, w0, nil, []string{"wordpress/0"})
+	s.assertNoScopeChange(c, w0)
+	c.Assert(prr.rru0.InScope(), gc.Equals, true)
+
+	// rru1 leaves, and the relation is destroyed; it's not removed, because
+	// rru0 keeps it alive until it really leaves scope.
+	err = prr.rru1.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	s.assertScopeChange(c, w0, nil, []string{"wordpress/1"})
+	s.assertNoScopeChange(c, w0)
+	err = prr.rel.Destroy()
+	c.Assert(err, gc.IsNil)
+	err = prr.rel.Refresh()
+	c.Assert(err, gc.IsNil)
+
+	// rru0 really leaves; the relation is cleaned up.
+	err = prr.rru0.LeaveScope()
+	c.Assert(err, gc.IsNil)
+	err = prr.rel.Destroy()
+	c.Assert(err, gc.IsNil)
+	s.assertNoScopeChange(c, w0)
+	err = prr.rel.Refresh()
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 }
 
 func (s *RelationUnitSuite) assertScopeChange(c *gc.C, w *state.RelationScopeWatcher, entered, left []string) {

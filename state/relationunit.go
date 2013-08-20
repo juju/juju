@@ -121,7 +121,7 @@ func (ru *RelationUnit) EnterScope(settings map[string]interface{}) error {
 		C:      ru.st.relationScopes.Name,
 		Id:     ruKey,
 		Assert: txn.DocMissing,
-		Insert: relationScopeDoc{ruKey},
+		Insert: relationScopeDoc{Key: ruKey},
 	})
 
 	// * If the unit should have a subordinate, and does not, create it.
@@ -221,6 +221,27 @@ func (ru *RelationUnit) subordinateOps() ([]txn.Op, string, error) {
 		Id:     lDoc.Id,
 		Assert: isAliveDoc,
 	}}, lDoc.Id, nil
+}
+
+// PrepareLeaveScope causes the unit to be reported as departed by watchers,
+// but does not *actually* leave the scope, to avoid triggering relation
+// cleanup.
+func (ru *RelationUnit) PrepareLeaveScope() error {
+	key, err := ru.key(ru.unit.Name())
+	if err != nil {
+		return err
+	}
+	if count, err := ru.st.relationScopes.FindId(key).Count(); err != nil {
+		return err
+	} else if count == 0 {
+		return nil
+	}
+	ops := []txn.Op{{
+		C:      ru.st.relationScopes.Name,
+		Id:     key,
+		Update: D{{"$set", D{{"departing", true}}}},
+	}}
+	return ru.st.runTransaction(ops)
 }
 
 // LeaveScope signals that the unit has left its scope in the relation.
@@ -376,10 +397,15 @@ func (ru *RelationUnit) key(uname string) (string, error) {
 // relationScopeDoc represents a unit which is in a relation scope.
 // The relation, container, role, and unit are all encoded in the key.
 type relationScopeDoc struct {
-	Key string `bson:"_id"`
+	Key       string `bson:"_id"`
+	Departing bool
 }
 
 func (d *relationScopeDoc) unitName() string {
-	parts := strings.Split(d.Key, "#")
+	return unitNameFromScopeKey(d.Key)
+}
+
+func unitNameFromScopeKey(key string) string {
+	parts := strings.Split(key, "#")
 	return parts[len(parts)-1]
 }

@@ -384,14 +384,54 @@ func (w *minUnitsWatcher) Changes() <-chan []string {
 	return w.out
 }
 
-// RelationScopeWatcher observes changes to the set of units
-// in a particular relation scope.
-type RelationScopeWatcher struct {
-	commonWatcher
-	prefix     string
-	ignore     string
-	knownUnits set.Strings
-	out        chan *RelationScopeChange
+// scopeInfo holds a RelationScopeWatcher's last-delivered state, and any
+// known but undelivered changes thereto.
+type scopeInfo struct {
+	base map[string]bool
+	diff map[string]bool
+}
+
+func (info *scopeInfo) add(name string) {
+	if info.base[name] {
+		delete(info.diff, name)
+	} else {
+		info.diff[name] = true
+	}
+}
+
+func (info *scopeInfo) remove(name string) {
+	if info.base[name] {
+		info.diff[name] = false
+	} else {
+		delete(info.diff, name)
+	}
+}
+
+func (info *scopeInfo) commit() {
+	for name, change := range info.diff {
+		if change {
+			info.base[name] = true
+		} else {
+			delete(info.base, name)
+		}
+	}
+	info.diff = map[string]bool{}
+}
+
+func (info *scopeInfo) hasChanges() bool {
+	return len(info.diff) > 0
+}
+
+func (info *scopeInfo) changes() *RelationScopeChange {
+	ch := &RelationScopeChange{}
+	for name, change := range info.diff {
+		if change {
+			ch.Entered = append(ch.Entered, name)
+		} else {
+			ch.Left = append(ch.Left, name)
+		}
+	}
+	return ch
 }
 
 // RelationScopeChange contains information about units that have
@@ -399,6 +439,15 @@ type RelationScopeWatcher struct {
 type RelationScopeChange struct {
 	Entered []string
 	Left    []string
+}
+
+// RelationScopeWatcher observes changes to the set of units
+// in a particular relation scope.
+type RelationScopeWatcher struct {
+	commonWatcher
+	prefix string
+	ignore string
+	out    chan *RelationScopeChange
 }
 
 func newRelationScopeWatcher(st *State, scope, ignore string) *RelationScopeWatcher {
@@ -423,58 +472,70 @@ func (w *RelationScopeWatcher) Changes() <-chan *RelationScopeChange {
 	return w.out
 }
 
-func (changes *RelationScopeChange) isEmpty() bool {
-	return len(changes.Entered)+len(changes.Left) == 0
+// initialInfo returns an uncommitted scopeInfo with the current set of units.
+func (w *RelationScopeWatcher) initialInfo() (info *scopeInfo, err error) {
+	docs := []relationScopeDoc{}
+	sel := D{
+		{"_id", D{{"$regex", "^" + w.prefix}}},
+		{"departing", D{{"$ne", true}}},
+	}
+	if err = w.st.relationScopes.Find(sel).All(&docs); err != nil {
+		return nil, err
+	}
+	info = &scopeInfo{
+		base: map[string]bool{},
+		diff: map[string]bool{},
+	}
+	for _, doc := range docs {
+		if name := doc.unitName(); name != w.ignore {
+			info.add(name)
+		}
+	}
+	return info, nil
 }
 
-func (w *RelationScopeWatcher) mergeChange(changes *RelationScopeChange, ch watcher.Change) (err error) {
-	doc := &relationScopeDoc{ch.Id.(string)}
-	if !strings.HasPrefix(doc.Key, w.prefix) {
-		return nil
-	}
-	name := doc.unitName()
-	if name == w.ignore {
-		return nil
-	}
-	if ch.Revno == -1 {
-		if w.knownUnits.Contains(name) {
-			changes.Left = append(changes.Left, name)
-			w.knownUnits.Remove(name)
+// mergeChanges updates info with the contents of the changes in ids. False
+// values are always treated as removed; true values cause the associated
+// document to be read, and whether it's treated as added or removed depends
+// on the value of the document's Departing field.
+func (w *RelationScopeWatcher) mergeChanges(info *scopeInfo, ids map[string]bool) (err error) {
+	existIds := []string{}
+	for id, exists := range ids {
+		if exists {
+			existIds = append(existIds, id)
+		} else {
+			doc := &relationScopeDoc{Key: id}
+			info.remove(doc.unitName())
 		}
-		return nil
 	}
-	if !w.knownUnits.Contains(name) {
-		changes.Entered = append(changes.Entered, name)
-		w.knownUnits.Add(name)
+	docs := []relationScopeDoc{}
+	sel := D{{"_id", D{{"$in", existIds}}}}
+	if err := w.st.relationScopes.Find(sel).All(&docs); err != nil {
+		return err
+	}
+	for _, doc := range docs {
+		name := doc.unitName()
+		if doc.Departing {
+			info.remove(name)
+		} else if name != w.ignore {
+			info.add(name)
+		}
 	}
 	return nil
 }
 
-func (w *RelationScopeWatcher) getInitialEvent() (initial *RelationScopeChange, err error) {
-	changes := &RelationScopeChange{}
-	docs := []relationScopeDoc{}
-	sel := D{{"_id", D{{"$regex", "^" + w.prefix}}}}
-	err = w.st.relationScopes.Find(sel).All(&docs)
-	if err != nil {
-		return nil, err
-	}
-	for _, doc := range docs {
-		if name := doc.unitName(); name != w.ignore {
-			changes.Entered = append(changes.Entered, name)
-			w.knownUnits.Add(name)
-		}
-	}
-	return changes, nil
-}
-
 func (w *RelationScopeWatcher) loop() error {
-	ch := make(chan watcher.Change)
-	w.st.watcher.WatchCollection(w.st.relationScopes.Name, ch)
-	defer w.st.watcher.UnwatchCollection(w.st.relationScopes.Name, ch)
-	changes, err := w.getInitialEvent()
+	in := make(chan watcher.Change)
+	filter := func(key interface{}) bool {
+		return strings.HasPrefix(key.(string), w.prefix)
+	}
+	w.st.watcher.WatchCollectionWithFilter(w.st.relationScopes.Name, in, filter)
+	defer w.st.watcher.UnwatchCollection(w.st.relationScopes.Name, in)
+	info, err := w.initialInfo()
 	if err != nil {
 		return err
 	}
+	sent := false
 	out := w.out
 	for {
 		select {
@@ -482,15 +543,22 @@ func (w *RelationScopeWatcher) loop() error {
 			return watcher.MustErr(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case c := <-ch:
-			if err := w.mergeChange(changes, c); err != nil {
+		case ch := <-in:
+			latest, ok := collect(ch, in, w.tomb.Dying())
+			if !ok {
+				return tomb.ErrDying
+			}
+			if err := w.mergeChanges(info, latest); err != nil {
 				return err
 			}
-			if !changes.isEmpty() {
+			if info.hasChanges() {
 				out = w.out
+			} else if sent {
+				out = nil
 			}
-		case out <- changes:
-			changes = &RelationScopeChange{}
+		case out <- info.changes():
+			info.commit()
+			sent = true
 			out = nil
 		}
 	}
@@ -563,7 +631,7 @@ func (w *RelationUnitsWatcher) mergeSettings(changes *RelationUnitsChange, key s
 	if err != nil {
 		return -1, err
 	}
-	name := (&relationScopeDoc{key}).unitName()
+	name := unitNameFromScopeKey(key)
 	settings := UnitSettings{node.txnRevno, node.Map()}
 	if changes.Changed == nil {
 		changes.Changed = map[string]UnitSettings{name: settings}
