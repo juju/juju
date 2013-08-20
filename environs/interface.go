@@ -112,6 +112,15 @@ type Storage interface {
 	StorageWriter
 }
 
+// EnvironStorage implements storage access for an environment.
+type EnvironStorage interface {
+	// Storage returns storage specific to the environment.
+	Storage() Storage
+
+	// PublicStorage returns storage shared between environments.
+	PublicStorage() StorageReader
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -179,11 +188,7 @@ type Environ interface {
 	// environment.
 	AllInstances() ([]instance.Instance, error)
 
-	// Storage returns storage specific to the environment.
-	Storage() Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() StorageReader
+	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to
