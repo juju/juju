@@ -245,7 +245,7 @@ func (cfg *Config) AddFile(filename, data string, mode uint) {
 	// dash. Instead, we use printf (or we could use /bin/echo).
 	cfg.AddScripts(
 		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
-		fmt.Sprintf(`printf "%%s\n" %s > %s`, shquote(data), p),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
 	)
 }
 
