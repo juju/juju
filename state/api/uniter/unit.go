@@ -33,6 +33,11 @@ func (u *Unit) Name() string {
 	return unitName
 }
 
+// String returns the unit as a string.
+func (u *Unit) String() string {
+	return u.Name()
+}
+
 // Life returns the unit's lifecycle value.
 func (u *Unit) Life() params.Life {
 	return u.life
