@@ -24,7 +24,7 @@ func (u *Unit) Tag() string {
 	return u.tag
 }
 
-// Names returns the name of the unit.
+// Name returns the name of the unit.
 func (u *Unit) Name() string {
 	_, unitName, err := names.ParseTag(u.tag, names.UnitTagKind)
 	if err != nil {
