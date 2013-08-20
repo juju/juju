@@ -29,6 +29,10 @@ check:
 format:
 	go fmt ./...
 
+# Remove test executables.
+clean:
+	find . -name '*.test' -print0 | xargs -r0 $(RM) -v
+
 # Install packages required to develop Juju and run tests.
 install-dependencies:
 	sudo apt-get install $(strip $(DEPENDENCIES))
@@ -40,4 +44,4 @@ simplify:
 	gofmt -w -s .
 
 
-.PHONY: build check format install-dependencies simplify
+.PHONY: build check format clean install-dependencies simplify
