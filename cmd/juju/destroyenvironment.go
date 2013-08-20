@@ -49,6 +49,9 @@ func (c *DestroyEnvironmentCommand) Run(ctx *cmd.Context) error {
 		}
 	}
 
+	// TODO(axw) destroy manually provisioned machines, or otherwise
+	//           block destroy-environment until all manually provisioned
+	//           machines have been manually "destroyed".
 	return environ.Destroy(nil)
 }
 

@@ -352,7 +352,7 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 	logger.Infof("removing service %s", env.machineAgentServiceName())
 	machineAgent := upstart.NewService(env.machineAgentServiceName())
 	machineAgent.InitDir = upstartScriptLocation
-	if err := machineAgent.Remove(); err != nil {
+	if err := machineAgent.Remove(true); err != nil {
 		logger.Errorf("could not remove machine agent service: %v", err)
 		return err
 	}
@@ -360,7 +360,7 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 	logger.Infof("removing service %s", env.mongoServiceName())
 	mongo := upstart.NewService(env.mongoServiceName())
 	mongo.InitDir = upstartScriptLocation
-	if err := mongo.Remove(); err != nil {
+	if err := mongo.Remove(true); err != nil {
 		logger.Errorf("could not remove mongo service: %v", err)
 		return err
 	}

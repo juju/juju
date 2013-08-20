@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -57,9 +58,8 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 	// when we have dynamic log level configuration.
 	const logConfig = "--debug"
 
-	// FIXME(axw) use "manual" here when we have a manual provider.
 	serviceEnv := map[string]string{
-		osenv.JujuProviderType: args.envcfg.Type(),
+		osenv.JujuProviderType: provider.Manual,
 	}
 	upstartConf := upstart.MachineAgentUpstartService(
 		upstartServiceName,

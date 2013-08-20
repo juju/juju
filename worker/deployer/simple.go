@@ -177,7 +177,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if svc == nil || !svc.Installed() {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
-	if err := svc.Remove(); err != nil {
+	if err := svc.Remove(true); err != nil {
 		return err
 	}
 	tag := names.UnitTag(unitName)

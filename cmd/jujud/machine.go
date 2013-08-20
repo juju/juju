@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
+	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/cleaner"
 	"launchpad.net/juju-core/worker/firewaller"
@@ -163,7 +164,15 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	// Only the machiner currently connects to the API.
 	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
+		worker := machiner.NewMachiner(st.Machiner(), a.Tag())
+		providerType := os.Getenv(osenv.JujuProviderType)
+		if providerType == provider.Manual {
+			// Wrap the worker in another worker that
+			// uninstalls the upstart service when the
+			// machine state goes to "dead".
+			worker = &uninstallWorker{worker}
+		}
+		return worker, nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
@@ -286,6 +295,29 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 
 func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
+}
+
+type uninstallWorker struct {
+	worker.Worker
+}
+
+func (w *uninstallWorker) Wait() error {
+	err := w.Worker.Wait()
+	if err == worker.ErrTerminateAgent {
+		err2 := w.uninstallAgent()
+		if moreImportant(err2, err) {
+			err = err2
+		}
+	}
+	return err
+}
+
+func (w *uninstallWorker) uninstallAgent() error {
+	name := os.Getenv("UPSTART_JOB")
+	if name == "" {
+		return fmt.Errorf("not executing within the context of an upstart job")
+	}
+	return upstart.NewService(name).Remove(false)
 }
 
 // Below pieces are used for testing,to give us access to the *State opened

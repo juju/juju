@@ -10,4 +10,5 @@ const (
 	MAAS      = "maas"
 	Azure     = "azure"
 	OpenStack = "openstack"
+	Manual    = "manual"
 )
