@@ -148,7 +148,7 @@ type reqUnwatch struct {
 	ch  chan<- Change
 }
 
-type reqSync struct {}
+type reqSync struct{}
 
 func (w *Watcher) sendReq(req interface{}) {
 	select {

@@ -689,7 +689,7 @@ func (s *SlowPeriodSuite) TestStartSyncStartsImmediately(c *gc.C) {
 	case <-time.After(watcher.Period / 2):
 		c.Fatalf("watch after StartSync is still using old info")
 	}
-	
+
 	s.remove(c, "test", "a")
 	s.w.StartSync()
 	ch := make(chan watcher.Change)
