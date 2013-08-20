@@ -2,12 +2,12 @@
 # Makefile for juju-core.
 #
 
-PROJECT := launchpad.net/juju-core
-PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PACKAGE))
-
 ifndef GOPATH
 $(warning You need to set up a GOPATH.  See the README file.)
 endif
+
+PROJECT := launchpad.net/juju-core
+PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PACKAGE))
 
 define DEPENDENCIES
   build-essential
