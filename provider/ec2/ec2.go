@@ -9,7 +9,7 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
@@ -148,7 +149,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		fmt.Errorf("region must be specified")
 	}
@@ -156,7 +157,7 @@ func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.Met
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
-	return &imagemetadata.MetadataLookupParams{
+	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
 		Architectures: []string{"amd64", "i386", "arm"},
@@ -263,11 +264,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
 	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
-	possibleTools, err := environs.FindBootstrapTools(e, cons)
+	possibleTools, err := tools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
-	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
 	if err != nil {
 		return err
 	}
@@ -308,12 +309,12 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.
-	return []string{simplestreams.DefaultBaseURL}, nil
+	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
@@ -325,7 +326,7 @@ func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLo
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
-	return &imagemetadata.MetadataLookupParams{
+	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
@@ -337,11 +338,11 @@ func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLo
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	possibleTools, err := tools.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, series)
+	err = tools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -355,7 +356,7 @@ const ebsStorage = "ebs"
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -376,7 +377,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}

@@ -20,7 +20,7 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -28,6 +28,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
@@ -132,11 +133,11 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		return nil, fmt.Errorf("region must be specified")
 	}
-	return &imagemetadata.MetadataLookupParams{
+	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Architectures: []string{"amd64", "arm"},
 	}, nil
@@ -463,11 +464,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	const machineID = "0"
 	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
 
-	possibleTools, err := environs.FindBootstrapTools(e, cons)
+	possibleTools, err := tools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
-	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
 	if err != nil {
 		return err
 	}
@@ -595,7 +596,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
 	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, simplestreams.DefaultBaseURL)
+	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
 
 	return e.imageBaseURLs, nil
 }
@@ -603,11 +604,11 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	possibleTools, err := tools.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, series)
+	err = tools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -671,7 +672,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -686,7 +687,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
@@ -1133,7 +1134,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
@@ -1141,7 +1142,7 @@ func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLo
 	if region == "" {
 		region = e.ecfg().region()
 	}
-	return &imagemetadata.MetadataLookupParams{
+	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      e.ecfg().authURL(),

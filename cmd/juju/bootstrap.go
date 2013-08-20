@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
@@ -106,7 +107,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 	defer loggo.RemoveWriter("bootstrap")
 
 	// Try to find bootstrap tools.
-	_, err := environs.FindBootstrapTools(env, c.Constraints)
+	_, err := tools.FindBootstrapTools(env, c.Constraints)
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
@@ -117,7 +118,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 			return err
 		}
 		// Synchronization done, try again.
-		_, err = environs.FindBootstrapTools(env, c.Constraints)
+		_, err = tools.FindBootstrapTools(env, c.Constraints)
 	} else if err != nil {
 		return err
 	}
