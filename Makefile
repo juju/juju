@@ -32,6 +32,9 @@ build:
 check:
 	go test $(PROJECT)/...
 
+install:
+	go install -v $(PROJECT)/...
+
 else # --------------------------------
 
 build:
@@ -39,6 +42,9 @@ build:
 
 check:
 	$(error Cannot check package outside of GOPATH)
+
+install:
+	$(error Cannot install package from outside of GOPATH)
 
 endif
 # End of GOPATH-dependent targets.
@@ -55,19 +61,20 @@ simplify:
 clean:
 	find . -name '*.test' -print0 | xargs -r0 $(RM) -v
 
-# Install juju into $GOPATH/bin.
-install:
-	go install -v $(PROJECT)/...
-
 # Install packages required to develop Juju and run tests. The stable
-# PPA includes the required mongodb-server binaries.
+# PPA includes the required mongodb-server binaries. However, neither
+# PPA works on Saucy just yet.
 install-dependencies:
+ifneq ($(shell lsb_release -cs),saucy)
 	@echo Adding juju PPAs for golang and mongodb-server
 	@sudo apt-add-repository ppa:juju/golang
 	@sudo apt-add-repository ppa:juju/stable
 	@sudo apt-get update
+endif
 	@echo Installing dependencies
 	@sudo apt-get install $(strip $(DEPENDENCIES))
 
 
-.PHONY: build check format simplify clean install install-dependencies
+.PHONY: build check install
+.PHONY: format simplify clean
+.PHONY: install-dependencies
