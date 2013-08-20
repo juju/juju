@@ -34,6 +34,7 @@ $template JujuLogFormatLocal,"%HOSTNAME%:%msg:::drop-last-lf%\n"
 $template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
 
 :syslogtag, startswith, "juju-" /var/log/juju/all-machines.log;JujuLogFormat
+& ~
 :syslogtag, startswith, "local-juju-" /var/log/juju/all-machines.log;JujuLogFormatLocal
 & ~
 `
