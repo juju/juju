@@ -116,7 +116,12 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	return names.ServiceFromUnitTag(u.tag)
+	_, unitName, err := names.ParseTag(u.tag, names.UnitTagKind)
+	if err != nil {
+		// TODO: panic?
+		return ""
+	}
+	return names.UnitService(unitName)
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
