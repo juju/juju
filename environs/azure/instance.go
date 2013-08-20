@@ -39,7 +39,29 @@ var AZURE_DOMAIN_NAME = "cloudapp.net"
 // Addresses is specified in the Instance interface.
 func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 	addrs := []instance.Address{}
-	err := azInstance.apiCall(false, func(c *azureManagementContext) error {
+	ip, netname, err := azInstance.netInfo()
+	if err != nil {
+		return nil, err
+	}
+	if ip != "" {
+		addrs = append(addrs, instance.Address{
+			ip,
+			instance.Ipv4Address,
+			netname,
+			instance.NetworkCloudLocal})
+	}
+
+	name, err := azInstance.DNSName()
+	if err != nil {
+		return nil, err
+	}
+	host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
+	addrs = append(addrs, host)
+	return addrs, nil
+}
+
+func (azInstance *azureInstance) netInfo() (ip, netname string, err error) {
+	err = azInstance.apiCall(false, func(c *azureManagementContext) error {
 		d, err := c.GetDeployment(&gwacl.GetDeploymentRequest{ServiceName: azInstance.ServiceName})
 		if err != nil {
 			return err
@@ -47,29 +69,20 @@ func (azInstance *azureInstance) Addresses() ([]instance.Address, error) {
 		switch len(d.RoleInstanceList) {
 		case 0:
 			// nothing to do, this can happen if the instances aren't finished deploying
+			return nil
 		case 1:
-			priv := instance.Address{
-				d.RoleInstanceList[0].IPAddress,
-				instance.Ipv4Address,
-				d.VirtualNetworkName,
-				instance.NetworkCloudLocal}
-			addrs = append(addrs, priv)
+			// success
+			ip = d.RoleInstanceList[0].IPAddress
+			netname = d.VirtualNetworkName
 			return nil
 		default:
 			return fmt.Errorf("Too many instances, expected one, got %d", len(d.RoleInstanceList))
 		}
-		name, err := azInstance.DNSName()
-		if err != nil {
-			return err
-		}
-		host := instance.Address{name, instance.HostName, "", instance.NetworkPublic}
-		addrs = append(addrs, host)
-		return nil
 	})
 	if err != nil {
-		return nil, err
+		return "", "", err
 	}
-	return addrs, nil
+	return ip, netname, nil
 }
 
 // DNSName is specified in the Instance interface.

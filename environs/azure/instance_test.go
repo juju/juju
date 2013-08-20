@@ -97,17 +97,10 @@ func serialize(c *gc.C, object gwacl.AzureObject) []byte {
 }
 
 func prepareDeploymentInfoResponse(
-	c *gc.C, service *gwacl.HostedServiceDescriptor,
-	deployments ...gwacl.Deployment) []gwacl.DispatcherResponse {
+	c *gc.C, dep gwacl.Deployment) []gwacl.DispatcherResponse {
 	return []gwacl.DispatcherResponse{
-		// GetHostedServiceProperties
 		gwacl.NewDispatcherResponse(
-			serialize(c, &gwacl.HostedService{
-				Deployments:             deployments,
-				HostedServiceDescriptor: *service,
-				XMLNS: gwacl.XMLNS,
-			}),
-			http.StatusOK, nil),
+			serialize(c, &dep), http.StatusOK, nil),
 	}
 }
 
@@ -162,13 +155,11 @@ func assertPortChangeConversation(c *gc.C, record []*gwacl.X509Request, expected
 	}
 }
 
-<<<<<<< TREE
-<<<<<<< TREE
 func (*instanceSuite) TestAddresses(c *gc.C) {
 	name := "service-name"
 	vnn := "Virt Net Name"
 	service := makeHostedServiceDescriptor(name)
-	responses := prepareDeploymentInfoResponse(c, service,
+	responses := prepareDeploymentInfoResponse(c,
 		gwacl.Deployment{
 			RoleInstanceList: []gwacl.RoleInstance{
 				gwacl.RoleInstance{IPAddress: "1.2.3.4"},
@@ -200,31 +191,6 @@ func (*instanceSuite) TestAddresses(c *gc.C) {
 	c.Check(addrs, jc.SameContents, expected)
 }
 
-=======
->>>>>>> MERGE-SOURCE
-=======
-func (*instanceSuite) TestAddresses(c *gc.C) {
-	service := makeHostedServiceDescriptor("service-name")
-	responses := prepareDeploymentInfoResponse(c, service,
-		gwacl.Deployment{
-			RoleInstanceList: []gwacl.RoleInstance{
-				gwacl.RoleInstance{IPAddress: "1.2.3.4"},
-			},
-		})
-
-	record := gwacl.PatchManagementAPIResponses(responses)
-	inst := azureInstance{*service, makeEnviron(c)}
-
-	addrs, err := inst.Addresses()
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(addrs), gc.Equals, 2)
-	a := addrs[0]
-	if a.Type == instance.HostName {
-
-	}
-}
-
->>>>>>> MERGE-SOURCE
 func (*instanceSuite) TestOpenPorts(c *gc.C) {
 	service := makeHostedServiceDescriptor("service-name")
 	responses := preparePortChangeConversation(c, service,
