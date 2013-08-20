@@ -105,12 +105,9 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 }
 
 // ServiceName returns the service name.
-//
-// NOTE: This differs from state.Unit.ServiceName() by returning an
-// error as well, because it needs to make an API call
-func (u *Unit) ServiceName() (string, error) {
-	// TODO: Call Uniter.GetService(), then convert the received
-	// tag to a service name and return it.
+func (u *Unit) ServiceName() string {
+	// TODO: Implement a names.ServiceFromUnitTag() and use it here to
+	// convert u.tag to service name and return it.
 	panic("not implemented")
 }
 
