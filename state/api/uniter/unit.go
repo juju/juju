@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -21,6 +22,15 @@ type Unit struct {
 // Tag returns the unit's tag.
 func (u *Unit) Tag() string {
 	return u.tag
+}
+
+// Name returns the name of the unit.
+func (u *Unit) Name() string {
+	_, unitName, err := names.ParseTag(u.tag, names.UnitTagKind)
+	if err != nil {
+		panic(fmt.Sprintf("%q is not a valid unit tag", u.tag))
+	}
+	return unitName
 }
 
 // Life returns the unit's lifecycle value.
@@ -90,9 +100,18 @@ func (u *Unit) Watch() (*watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	// TODO: Call Uniter.GetService(), then construct and return
-	// a uniter.Service proxy object from the received tag.
-	panic("not implemented")
+	serviceTag := names.ServiceTag(u.ServiceName())
+	service := &Service{
+		st:  u.st,
+		tag: serviceTag,
+	}
+	// Call Refresh() immediately to get the up-to-date
+	// life and other needed locally cached fields.
+	err := service.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -106,9 +125,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	// TODO: Implement a names.ServiceFromUnitTag() and use it here to
-	// convert u.tag to service name and return it.
-	panic("not implemented")
+	return names.UnitService(u.Name())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -232,12 +249,6 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
 	// TODO: Call Uniter.ClearResolved()
-	panic("not implemented")
-}
-
-// Name returns the unit name.
-func (u *Unit) Name() string {
-	// TODO: Convert u.tag to a unit name and return it.
 	panic("not implemented")
 }
 
