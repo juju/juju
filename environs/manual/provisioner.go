@@ -86,6 +86,10 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	}
 
 	// Inject a new machine into state.
+	//
+	// TODO(axw) add provider type to machine schema in state, and
+	//           set this machine's provider type to "manual" so providers
+	//           know not to touch it.
 	instanceId := instance.Id(manualInstancePrefix + sshHostWithoutUser)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	m, err = injectMachine(injectMachineArgs{
