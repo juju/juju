@@ -183,6 +183,53 @@ func (u *UniterAPI) SetPrivateAddress(args params.SetEntityAddresses) (params.Er
 	return result, nil
 }
 
+// GetService returns the service tag for each given unit.
+func (u *UniterAPI) GetService(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.StringResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				serviceTag := names.ServiceTag(unit.ServiceName())
+				result.Results[i].Result = serviceTag
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
+// Resolved returns the current resolved setting for each given unit.
+func (u *UniterAPI) Resolved(args params.Entities) (params.ResolvedModeResults, error) {
+	result := params.ResolvedModeResults{
+		Results: make([]params.ResolvedModeResult, len(args.Entities)),
+	}
+	canAccess, err := u.accessUnit()
+	if err != nil {
+		return params.ResolvedModeResults{}, err
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if canAccess(entity.Tag) {
+			var unit *state.Unit
+			unit, err = u.getUnit(entity.Tag)
+			if err == nil {
+				result.Results[i].Mode = params.ResolvedMode(unit.Resolved())
+			}
+		}
+		result.Results[i].Error = common.ServerError(err)
+	}
+	return result, nil
+}
+
 // ClearResolved removes any resolved setting from each given unit.
 func (u *UniterAPI) ClearResolved(args params.Entities) (params.ErrorResults, error) {
 	result := params.ErrorResults{
