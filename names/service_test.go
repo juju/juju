@@ -4,8 +4,6 @@
 package names_test
 
 import (
-	"fmt"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/names"
@@ -50,34 +48,5 @@ func (s *serviceSuite) TestServiceNameFormats(c *gc.C) {
 	for i, test := range serviceNameTests {
 		c.Logf("test %d: %q", i, test.pattern)
 		assertService(test.pattern, test.valid)
-	}
-}
-
-var serviceFromUnitTagTests = []struct {
-	pattern string
-	service string
-	invalid bool
-}{
-	{pattern: "unit-wordpress-42", service: "wordpress"},
-	{pattern: "unit-word=press-42", invalid: true},
-	{pattern: "unit-word-pre55-321", service: "word-pre55"},
-	{pattern: "unit-wordpress-00", invalid: true},
-	{pattern: "foo", invalid: true},
-	{pattern: "service-wordpress", invalid: true},
-	{pattern: "unit--", invalid: true},
-	{pattern: "unit-wordpress", invalid: true},
-	{pattern: "unit-wordpress-4-2", invalid: true},
-}
-
-func (s *serviceSuite) TestServiceFromUnitTag(c *gc.C) {
-	for i, test := range serviceFromUnitTagTests {
-		c.Logf("test %d: %q", i, test.pattern)
-		if test.invalid {
-			expect := fmt.Sprintf("%q is not a valid unit tag", test.pattern)
-			testFunc := func() { names.ServiceFromUnitTag(test.pattern) }
-			c.Assert(testFunc, gc.PanicMatches, expect)
-		} else {
-			c.Assert(names.ServiceFromUnitTag(test.pattern), gc.Equals, test.service)
-		}
 	}
 }

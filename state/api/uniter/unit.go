@@ -98,7 +98,11 @@ func (u *Unit) Service() (*Service, error) {
 	}
 	// Call Refresh() immediately to get the up-to-date
 	// life and other needed locally cached fields.
-	return service, service.Refresh()
+	err := service.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings
