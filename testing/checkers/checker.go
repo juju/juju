@@ -165,6 +165,7 @@ func (checker *sameContents) Check(params []interface{}, names []string) (result
 	}
 	obtained := params[0]
 	expected := params[1]
+
 	tob := reflect.TypeOf(obtained)
 	if tob.Kind() != reflect.Slice {
 		return false, fmt.Sprintf("SameContents expects the obtained value to be a slice, got %q",
@@ -186,39 +187,20 @@ func (checker *sameContents) Check(params []interface{}, names []string) (result
 	vexp := reflect.ValueOf(expected)
 	vob := reflect.ValueOf(obtained)
 
-	lexp := vexp.Len()
-	lob := vob.Len()
-
-	if lexp != lob {
+	if vexp.Len() != vob.Len() {
 		// Slice has incorrect number of elements
 		return false, ""
 	}
 
-	// as we find matches from the expected slice, remove them from the obtained slice,
-	// that way we make sure the count of duplicate items is the same
-	// i.e. 1 1 2 won't match 1 2 2
-outer:
-	for i := 0; i < lexp; i++ {
-		val := vexp.Index(i)
-		for j := 0; j < vob.Len(); j++ {
-			if reflect.DeepEqual(val.Interface(), vob.Index(j).Interface()) {
-				if vob.Len() == 1 {
-					// found the last match in the obtained slice, all done
-					return true, ""
-				}
-				// remove the match from the obtained slice
-				if j == 0 {
-					vob = vob.Slice(1, vob.Len())
-				} else {
-					vob = reflect.AppendSlice(vob.Slice(0, j), vob.Slice(j+1, vob.Len()))
-				}
-				continue outer
-			}
-		}
-		// Value in expected slice not found in obtained slice
-		return false, ""
-	}
+	// spin up maps with the entries as keys and the counts as values
+	mob := make(map[interface{}]int)
+	mexp := make(map[interface{}]int)
 
-	// only ever get here with two empty slices
-	return true, ""
+	for i := 0; i < vexp.Len(); i++ {
+		mexp[vexp.Index(i).Interface()]++
+	}
+	for i := 0; i < vob.Len(); i++ {
+		mob[vob.Index(i).Interface()]++
+	}
+	return reflect.DeepEqual(mob, mexp), ""
 }
