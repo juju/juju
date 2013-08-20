@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -363,7 +364,7 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 		mirrorRefs, err := GetMirrorRefsWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q/%q: %v", baseURL, indexPath, err)
+				logger.Debugf("cannot load index %q: %v", path.Join(baseURL, indexPath), err)
 				continue
 			}
 			return nil, err
@@ -371,7 +372,7 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 		mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q/%q: %v", baseURL, indexPath, err)
+				logger.Debugf("skipping index because of error getting latest metadata %q: %v", path.Join(baseURL, indexPath), err)
 				continue
 			}
 			return nil, err
@@ -517,15 +518,14 @@ func (mirrorRefs *MirrorRefs) extractMirrorRefs(contentId string) MirrorRefSlice
 }
 
 // hasCloud tells you whether a MirrorReference has the given cloud in its
-// Clouds list. If MirrorReference has no clouds defined, then hasCloud
-// returns true regardless.
+// Clouds list.
 func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
 	for _, refCloud := range mirrorRef.Clouds {
 		if refCloud == cloud {
 			return true
 		}
 	}
-	return len(mirrorRef.Clouds) == 0
+	return false
 }
 
 // GetMirrorReference returns the reference to the metadata file containing mirrors for the specified content and cloud.
@@ -558,7 +558,6 @@ func (mirrorRefs *MirrorRefs) GetMirrorReference(contentId string, cloud CloudSp
 }
 
 // getMirrorInfo returns mirror information from the mirror file at the given path for the specified content and cloud.
-// Exported for testing.
 func (mirrorRef *MirrorReference) getMirrorInfo(baseURL, contentId string, cloud CloudSpec, format string, requireSigned bool) (*MirrorInfo, error) {
 	metadata, err := GetMirrorMetadataWithFormat(baseURL, mirrorRef.Path, format, requireSigned)
 	if err != nil {
@@ -571,7 +570,7 @@ func (mirrorRef *MirrorReference) getMirrorInfo(baseURL, contentId string, cloud
 	return mirrorInfo, nil
 }
 
-// GetMirrorMetadataWithFormat returns simplestreams mirrors data of the specified format.
+// GetMirrorMetadataWithFormat returns simplestreams mirror data of the specified format.
 // Exported for testing.
 func GetMirrorMetadataWithFormat(baseURL, mirrorPath, format string, requireSigned bool) (*MirrorMetadata, error) {
 	data, url, err := fetchData(baseURL, mirrorPath, requireSigned)
