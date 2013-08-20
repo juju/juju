@@ -11,9 +11,9 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -64,7 +64,6 @@ func wait(signal chan struct{}) error {
 	case <-time.After(25 * time.Millisecond):
 		return errors.New("timeout")
 	}
-	panic("unreachable")
 }
 
 var tests = []struct {

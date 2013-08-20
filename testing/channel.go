@@ -4,6 +4,7 @@
 package testing
 
 import (
+	"reflect"
 	"time"
 
 	gc "launchpad.net/gocheck"
@@ -68,33 +69,49 @@ func (a *NotifyAsserterC) AssertNoReceive() {
 // ContentAsserterC is like NotifyAsserterC in that it checks the behavior of a
 // channel. The difference is that we expect actual content on the channel, so
 // callers need to put that into and out of an 'interface{}'
-// TODO go1.1: We can use reflect.Select and reflect.Receive sort of
-//      functionality in order to avoid having to write a helper function to
-//      curry our requests into interface{} types.
-
 type ContentAsserterC struct {
 	// C is a gocheck C structure for doing assertions
 	C *gc.C
 	// Chan is the channel we want to receive on
-	Chan <-chan interface{}
+	Chan interface{}
 	// Precond will be called before waiting on the channel, can be nil
 	Precond func()
+}
+
+// recv waits to receive a value on the channe for the given
+// time. It returns the value received, if any, whether it
+// was received ok (the channel was not closed) and
+// whether the receive timed out.
+func (a *ContentAsserterC) recv(timeout time.Duration) (val interface{}, ok, timedOut bool) {
+	if a.Precond != nil {
+		a.Precond()
+	}
+	which, v, ok := reflect.Select([]reflect.SelectCase{{
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(a.Chan),
+	}, {
+		Dir:  reflect.SelectRecv,
+		Chan: reflect.ValueOf(time.After(timeout)),
+	}})
+	switch which {
+	case 0:
+		a.C.Assert(ok, jc.IsTrue)
+		return v.Interface(), ok, false
+	case 1:
+		return nil, false, true
+	}
+	panic("unreachable")
 }
 
 // AssertReceive will ensure that we get an event on the channel and the
 // channel is not closed. It will return the content received
 func (a *ContentAsserterC) AssertReceive() interface{} {
-	if a.Precond != nil {
-		a.Precond()
-	}
-	select {
-	case content, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsTrue)
-		return content
-	case <-time.After(LongWait):
+	v, ok, timedOut := a.recv(LongWait)
+	if timedOut {
 		a.C.Fatalf("timed out waiting for channel message")
 	}
-	return nil
+	a.C.Assert(ok, jc.IsTrue)
+	return v
 }
 
 // AssertOneReceive checks that we have exactly one message, and no more
@@ -106,22 +123,18 @@ func (a *ContentAsserterC) AssertOneReceive() interface{} {
 
 // AssertClosed ensures that we get a closed event on the channel
 func (a *ContentAsserterC) AssertClosed() {
-	if a.Precond != nil {
-		a.Precond()
-	}
-	select {
-	case _, ok := <-a.Chan:
-		a.C.Assert(ok, jc.IsFalse)
-	case <-time.After(LongWait):
+	_, ok, timedOut := a.recv(LongWait)
+	if timedOut {
 		a.C.Fatalf("timed out waiting for channel to close")
 	}
+	a.C.Assert(ok, jc.IsFalse)
 }
 
 // Assert that we fail to receive on the channel after a short wait.
 func (a *ContentAsserterC) AssertNoReceive() {
-	select {
-	case content := <-a.Chan:
-		a.C.Fatalf("unexpected receive: %#v", content)
-	case <-time.After(ShortWait):
+	content, _, timedOut := a.recv(ShortWait)
+	if timedOut {
+		return
 	}
+	a.C.Fatalf("unexpected receive: %#v", content)
 }

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
@@ -54,7 +54,7 @@ func (ctx *fakeContext) DeployedUnits() ([]string, error) {
 	return ctx.deployed.SortedValues(), nil
 }
 
-func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
+func (ctx *fakeContext) waitDeployed(c *gc.C, want ...string) {
 	sort.Strings(want)
 	timeout := time.After(testing.LongWait)
 	select {
@@ -66,21 +66,20 @@ func (ctx *fakeContext) waitDeployed(c *C, want ...string) {
 			select {
 			case <-timeout:
 				got, err := ctx.DeployedUnits()
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 				c.Fatalf("unexpected units: %#v", got)
 			case <-time.After(testing.ShortWait):
 				got, err := ctx.DeployedUnits()
-				c.Assert(err, IsNil)
+				c.Assert(err, gc.IsNil)
 				if reflect.DeepEqual(got, want) {
 					return
 				}
 			}
 		}
 	}
-	panic("unreachable")
 }
 
-func patchDeployContext(c *C, st *state.State, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
+func patchDeployContext(c *gc.C, st *state.State, expectInfo *state.Info, expectDataDir string) (*fakeContext, func()) {
 	ctx := &fakeContext{
 		inited: make(chan struct{}),
 	}
@@ -96,9 +95,9 @@ func patchDeployContext(c *C, st *state.State, expectInfo *state.Info, expectDat
 		if err != nil {
 			return nil, err
 		}
-		c.Check(stateAddrs, DeepEquals, expectInfo.Addrs)
-		c.Check(caCert, DeepEquals, expectInfo.CACert)
-		c.Check(dataDir, Equals, expectDataDir)
+		c.Check(stateAddrs, gc.DeepEquals, expectInfo.Addrs)
+		c.Check(caCert, gc.DeepEquals, expectInfo.CACert)
+		c.Check(dataDir, gc.Equals, expectDataDir)
 		ctx.st = st
 		close(ctx.inited)
 		return ctx, nil

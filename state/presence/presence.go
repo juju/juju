@@ -559,7 +559,6 @@ func (p *Pinger) loop() error {
 			}
 		}
 	}
-	panic("unreachable")
 }
 
 // prepare allocates a new unique sequence for the

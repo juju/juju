@@ -8,8 +8,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"strings"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent/tools"
@@ -26,7 +27,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
+func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(&StatusCommand{}, ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
@@ -38,7 +39,7 @@ type StatusSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&StatusSuite{})
+var _ = gc.Suite(&StatusSuite{})
 
 type M map[string]interface{}
 
@@ -54,7 +55,7 @@ func test(summary string, steps ...stepper) testCase {
 }
 
 type stepper interface {
-	step(c *C, ctx *context)
+	step(c *gc.C, ctx *context)
 }
 
 type context struct {
@@ -73,15 +74,15 @@ func (s *StatusSuite) newContext() *context {
 	}
 }
 
-func (s *StatusSuite) resetContext(c *C, ctx *context) {
+func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 	s.JujuConnSuite.Reset(c)
 }
 
-func (ctx *context) run(c *C, steps []stepper) {
+func (ctx *context) run(c *gc.C, steps []stepper) {
 	for i, s := range steps {
 		c.Logf("step %d", i)
 		c.Logf("%#v", s)
@@ -96,35 +97,35 @@ var (
 		"dns-name":    "dummyenv-0.dns",
 		"instance-id": "dummyenv-0",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine2 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-2.dns",
 		"instance-id": "dummyenv-2",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine3 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-3.dns",
 		"instance-id": "dummyenv-3",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine4 = M{
 		"agent-state": "started",
 		"dns-name":    "dummyenv-4.dns",
 		"instance-id": "dummyenv-4",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	machine1WithContainers = M{
 		"agent-state": "started",
@@ -151,7 +152,22 @@ var (
 		"dns-name":    "dummyenv-1.dns",
 		"instance-id": "dummyenv-1",
 		"series":      "series",
-		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
+	}
+	machine1WithContainersScoped = M{
+		"agent-state": "started",
+		"containers": M{
+			"1/lxc/0": M{
+				"agent-state": "started",
+				"dns-name":    "dummyenv-2.dns",
+				"instance-id": "dummyenv-2",
+				"series":      "series",
+			},
+		},
+		"dns-name":    "dummyenv-1.dns",
+		"instance-id": "dummyenv-1",
+		"series":      "series",
+		"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 	}
 	unexposedService = M{
 		"charm":   "local:series/dummy-1",
@@ -175,7 +191,7 @@ var statusFormats = []outputFormat{
 	{"json", json.Marshal, json.Unmarshal},
 }
 
-var machineCons = constraints.MustParse("cpu-cores=2 mem=8G")
+var machineCons = constraints.MustParse("cpu-cores=2 mem=8G root-disk=8G")
 
 var statusTests = []testCase{
 	// Status tests
@@ -187,8 +203,9 @@ var statusTests = []testCase{
 		expect{
 			"empty state",
 			M{
-				"machines": M{},
-				"services": M{},
+				"environment": "dummyenv",
+				"machines":    M{},
+				"services":    M{},
 			},
 		},
 
@@ -196,6 +213,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate juju bootstrap by adding machine/0 to the state",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -210,13 +228,14 @@ var statusTests = []testCase{
 		expect{
 			"simulate the PA starting an instance in response to the state change",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "pending",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
 						"series":      "series",
-						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":    "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
 				"services": M{},
@@ -227,6 +246,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA started and set the machine status",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -245,6 +265,7 @@ var statusTests = []testCase{
 		expect{
 			"simulate the MA setting the version",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"dns-name":      "dummyenv-0.dns",
@@ -252,7 +273,7 @@ var statusTests = []testCase{
 						"agent-version": "1.2.3",
 						"agent-state":   "started",
 						"series":        "series",
-						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":      "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
 				"services": M{},
@@ -266,13 +287,14 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 has specific hardware characteristics",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"agent-state": "started",
 						"dns-name":    "dummyenv-0.dns",
 						"instance-id": "dummyenv-0",
 						"series":      "series",
-						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M",
+						"hardware":    "arch=amd64 cpu-cores=2 mem=8192M root-disk=8192M",
 					},
 				},
 				"services": M{},
@@ -284,6 +306,7 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports pending",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -298,13 +321,14 @@ var statusTests = []testCase{
 		expect{
 			"machine 0 reports missing",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-state": "missing",
 						"instance-id":    "i-missing",
 						"agent-state":    "pending",
 						"series":         "series",
-						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":       "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 				},
 				"services": M{},
@@ -321,6 +345,7 @@ var statusTests = []testCase{
 		expect{
 			"no services exposed yet",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -335,6 +360,7 @@ var statusTests = []testCase{
 		expect{
 			"one exposed service",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 				},
@@ -354,6 +380,7 @@ var statusTests = []testCase{
 		expect{
 			"two more machines added",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -380,6 +407,7 @@ var statusTests = []testCase{
 		expect{
 			"add two units, one alive (in error state), one down",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -428,6 +456,7 @@ var statusTests = []testCase{
 		expect{
 			"add three more machine, one with a dead agent, one in error state and one dead itself; also one dying unit",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -438,7 +467,7 @@ var statusTests = []testCase{
 						"agent-state":      "down",
 						"agent-state-info": "(stopped: Really?)",
 						"series":           "series",
-						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"4": M{
 						"dns-name":         "dummyenv-4.dns",
@@ -446,7 +475,7 @@ var statusTests = []testCase{
 						"agent-state":      "error",
 						"agent-state-info": "Beware the red toys",
 						"series":           "series",
-						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M",
+						"hardware":         "arch=amd64 cpu-cores=1 mem=1024M root-disk=8192M",
 					},
 					"5": M{
 						"life":        "dead",
@@ -484,6 +513,146 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		scopedExpect{
+			"scope status on dummy-service/0 unit",
+			[]string{"dummy-service/0"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on exposed-service service",
+			[]string{"exposed-service"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"2": machine2,
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on service pattern",
+			[]string{"d*-service"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on unit pattern",
+			[]string{"e*posed-service/*"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"2": machine2,
+				},
+				"services": M{
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		scopedExpect{
+			"scope status on combination of service and unit patterns",
+			[]string{"exposed-service", "dummy-service", "e*posed-service/*", "dummy-service/*"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"dummy-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": false,
+						"units": M{
+							"dummy-service/0": M{
+								"machine":          "1",
+								"life":             "dying",
+								"agent-state":      "down",
+								"agent-state-info": "(started)",
+							},
+						},
+					},
+					"exposed-service": M{
+						"charm":   "local:series/dummy-1",
+						"exposed": true,
+						"units": M{
+							"exposed-service/0": M{
+								"machine":          "2",
+								"agent-state":      "error",
+								"agent-state-info": "You Require More Vespene Gas",
+								"open-ports": L{
+									"2/tcp", "3/tcp", "2/udp", "10/udp",
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 	test(
 		"add a dying service",
@@ -495,6 +664,7 @@ var statusTests = []testCase{
 		expect{
 			"service shows life==dying",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": M{
 						"instance-id": "pending",
@@ -565,6 +735,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples services with relations between some of them",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -658,6 +829,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -734,6 +906,7 @@ var statusTests = []testCase{
 		expect{
 			"multiples related peer units",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1,
@@ -791,6 +964,185 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		// scoped on 'logging'
+		scopedExpect{
+			"subordinates scoped on logging",
+			[]string{"logging"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+					"2": machine2,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/0": M{
+								"machine":     "2",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/1": M{
+										"agent-state":      "error",
+										"agent-state-info": "somehow lost in all those logs",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"server":    L{"wordpress"},
+							"juju-info": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+
+		// scoped on wordpress/0
+		scopedExpect{
+			"subordinates scoped on logging",
+			[]string{"wordpress/0"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"logging/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"db":          L{"mysql"},
+							"logging-dir": L{"logging"},
+						},
+					},
+					"logging": M{
+						"charm":   "local:series/logging-1",
+						"exposed": true,
+						"relations": M{
+							"logging-directory": L{"wordpress"},
+							"info":              L{"mysql"},
+						},
+						"subordinate-to": L{"mysql", "wordpress"},
+					},
+				},
+			},
+		},
+	), test(
+		"one service with two subordinate services",
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		startAliveMachine{"0"},
+		setMachineStatus{"0", params.StatusStarted, ""},
+		addCharm{"wordpress"},
+		addCharm{"logging"},
+		addCharm{"monitoring"},
+
+		addService{"wordpress", "wordpress"},
+		setServiceExposed{"wordpress", true},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		startAliveMachine{"1"},
+		setMachineStatus{"1", params.StatusStarted, ""},
+		addAliveUnit{"wordpress", "1"},
+		setUnitStatus{"wordpress/0", params.StatusStarted, ""},
+
+		addService{"logging", "logging"},
+		setServiceExposed{"logging", true},
+		addService{"monitoring", "monitoring"},
+		setServiceExposed{"monitoring", true},
+
+		relateServices{"wordpress", "logging"},
+		relateServices{"wordpress", "monitoring"},
+
+		addSubordinate{"wordpress/0", "logging"},
+		addSubordinate{"wordpress/0", "monitoring"},
+
+		setUnitsAlive{"logging"},
+		setUnitStatus{"logging/0", params.StatusStarted, ""},
+
+		setUnitsAlive{"monitoring"},
+		setUnitStatus{"monitoring/0", params.StatusStarted, ""},
+
+		// scoped on monitoring; make sure logging doesn't show up.
+		scopedExpect{
+			"subordinates scoped on:",
+			[]string{"monitoring"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1,
+				},
+				"services": M{
+					"wordpress": M{
+						"charm":   "local:series/wordpress-3",
+						"exposed": true,
+						"units": M{
+							"wordpress/0": M{
+								"machine":     "1",
+								"agent-state": "started",
+								"subordinates": M{
+									"monitoring/0": M{
+										"agent-state": "started",
+									},
+								},
+							},
+						},
+						"relations": M{
+							"logging-dir":     L{"logging"},
+							"monitoring-port": L{"monitoring"},
+						},
+					},
+					"monitoring": M{
+						"charm":   "local:series/monitoring-0",
+						"exposed": true,
+						"relations": M{
+							"monitoring-port": L{"wordpress"},
+						},
+						"subordinate-to": L{"wordpress"},
+					},
+				},
+			},
+		},
 	), test(
 		"machines with containers",
 		addMachine{machineId: "0", job: state.JobManageEnviron},
@@ -822,6 +1174,7 @@ var statusTests = []testCase{
 		expect{
 			"machines with nested containers",
 			M{
+				"environment": "dummyenv",
 				"machines": M{
 					"0": machine0,
 					"1": machine1WithContainers,
@@ -844,6 +1197,30 @@ var statusTests = []testCase{
 				},
 			},
 		},
+
+		// once again, with a scope on mysql/1
+		scopedExpect{
+			"machines with nested containers",
+			[]string{"mysql/1"},
+			M{
+				"environment": "dummyenv",
+				"machines": M{
+					"1": machine1WithContainersScoped,
+				},
+				"services": M{
+					"mysql": M{
+						"charm":   "local:series/mysql-1",
+						"exposed": true,
+						"units": M{
+							"mysql/1": M{
+								"machine":     "1/lxc/0",
+								"agent-state": "started",
+							},
+						},
+					},
+				},
+			},
+		},
 	),
 }
 
@@ -855,15 +1232,15 @@ type addMachine struct {
 	job       state.MachineJob
 }
 
-func (am addMachine) step(c *C, ctx *context) {
+func (am addMachine) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
 		Series:      "series",
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	}
 	m, err := ctx.st.AddMachineWithConstraints(params)
-	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, am.machineId)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
 
 type addContainer struct {
@@ -872,7 +1249,7 @@ type addContainer struct {
 	job       state.MachineJob
 }
 
-func (ac addContainer) step(c *C, ctx *context) {
+func (ac addContainer) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
 		ParentId:      ac.parentId,
 		ContainerType: instance.LXC,
@@ -880,58 +1257,58 @@ func (ac addContainer) step(c *C, ctx *context) {
 		Jobs:          []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineWithConstraints(params)
-	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, ac.machineId)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
 
 type startMachine struct {
 	machineId string
 }
 
-func (sm startMachine) step(c *C, ctx *context) {
+func (sm startMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type startMissingMachine struct {
 	machineId string
 }
 
-func (sm startMissingMachine) step(c *C, ctx *context) {
+func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type startAliveMachine struct {
 	machineId string
 }
 
-func (sam startAliveMachine) step(c *C, ctx *context) {
+func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	pinger, err := m.SetAgentAlive()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
 	err = m.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	agentAlive, err := m.AgentAlive()
-	c.Assert(err, IsNil)
-	c.Assert(agentAlive, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
 	cons, err := m.Constraints()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.pingers[m.Id()] = pinger
 }
 
@@ -940,25 +1317,25 @@ type setTools struct {
 	tools     *tools.Tools
 }
 
-func (st setTools) step(c *C, ctx *context) {
+func (st setTools) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(st.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = m.SetAgentTools(st.tools)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type addCharm struct {
 	name string
 }
 
-func (ac addCharm) step(c *C, ctx *context) {
+func (ac addCharm) step(c *gc.C, ctx *context) {
 	ch := coretesting.Charms.Dir(ac.name)
 	name, rev := ch.Meta().Name, ch.Revision()
 	curl := charm.MustParseURL(fmt.Sprintf("local:series/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.charms[ac.name] = dummy
 }
 
@@ -967,11 +1344,11 @@ type addService struct {
 	charm string
 }
 
-func (as addService) step(c *C, ctx *context) {
+func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
-	c.Assert(ok, Equals, true)
+	c.Assert(ok, gc.Equals, true)
 	_, err := ctx.st.AddService(as.name, ch)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type setServiceExposed struct {
@@ -979,12 +1356,12 @@ type setServiceExposed struct {
 	exposed bool
 }
 
-func (sse setServiceExposed) step(c *C, ctx *context) {
+func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sse.name)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	if sse.exposed {
 		err = s.SetExposed()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
@@ -993,15 +1370,15 @@ type addUnit struct {
 	machineId   string
 }
 
-func (au addUnit) step(c *C, ctx *context) {
+func (au addUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(au.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	m, err := ctx.st.Machine(au.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type addAliveUnit struct {
@@ -1009,23 +1386,23 @@ type addAliveUnit struct {
 	machineId   string
 }
 
-func (aau addAliveUnit) step(c *C, ctx *context) {
+func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(aau.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	pinger, err := u.SetAgentAlive()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
 	err = u.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	agentAlive, err := u.AgentAlive()
-	c.Assert(err, IsNil)
-	c.Assert(agentAlive, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
 	m, err := ctx.st.Machine(aau.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.pingers[u.Name()] = pinger
 }
 
@@ -1033,20 +1410,20 @@ type setUnitsAlive struct {
 	serviceName string
 }
 
-func (sua setUnitsAlive) step(c *C, ctx *context) {
+func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sua.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	us, err := s.AllUnits()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	for _, u := range us {
 		pinger, err := u.SetAgentAlive()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx.st.StartSync()
 		err = u.WaitAgentAlive(coretesting.LongWait)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		agentAlive, err := u.AgentAlive()
-		c.Assert(err, IsNil)
-		c.Assert(agentAlive, Equals, true)
+		c.Assert(err, gc.IsNil)
+		c.Assert(agentAlive, gc.Equals, true)
 		ctx.pingers[u.Name()] = pinger
 	}
 }
@@ -1057,11 +1434,11 @@ type setUnitStatus struct {
 	statusInfo string
 }
 
-func (sus setUnitStatus) step(c *C, ctx *context) {
+func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type openUnitPort struct {
@@ -1070,49 +1447,49 @@ type openUnitPort struct {
 	number   int
 }
 
-func (oup openUnitPort) step(c *C, ctx *context) {
+func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.OpenPort(oup.protocol, oup.number)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type ensureDyingUnit struct {
 	unitName string
 }
 
-func (e ensureDyingUnit) step(c *C, ctx *context) {
+func (e ensureDyingUnit) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(e.unitName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.Destroy()
-	c.Assert(err, IsNil)
-	c.Assert(u.Life(), Equals, state.Dying)
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.Life(), gc.Equals, state.Dying)
 }
 
 type ensureDyingService struct {
 	serviceName string
 }
 
-func (e ensureDyingService) step(c *C, ctx *context) {
+func (e ensureDyingService) step(c *gc.C, ctx *context) {
 	svc, err := ctx.st.Service(e.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = svc.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = svc.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(svc.Life(), Equals, state.Dying)
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.Life(), gc.Equals, state.Dying)
 }
 
 type ensureDeadMachine struct {
 	machineId string
 }
 
-func (e ensureDeadMachine) step(c *C, ctx *context) {
+func (e ensureDeadMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(e.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = m.EnsureDead()
-	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, state.Dead)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
 type setMachineStatus struct {
@@ -1121,22 +1498,22 @@ type setMachineStatus struct {
 	statusInfo string
 }
 
-func (sms setMachineStatus) step(c *C, ctx *context) {
+func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = m.SetStatus(sms.status, sms.statusInfo)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type relateServices struct {
 	ep1, ep2 string
 }
 
-func (rs relateServices) step(c *C, ctx *context) {
+func (rs relateServices) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = ctx.st.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type addSubordinate struct {
@@ -1144,17 +1521,23 @@ type addSubordinate struct {
 	subService string
 }
 
-func (as addSubordinate) step(c *C, ctx *context) {
+func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ru, err := rel.Unit(u)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
+}
+
+type scopedExpect struct {
+	what   string
+	scope  []string
+	output M
 }
 
 type expect struct {
@@ -1162,33 +1545,38 @@ type expect struct {
 	output M
 }
 
-func (e expect) step(c *C, ctx *context) {
-	c.Logf("expect: %s", e.what)
+func (e scopedExpect) step(c *gc.C, ctx *context) {
+	c.Logf("expect: %s %s", e.what, strings.Join(e.scope, " "))
 
 	// Now execute the command for each format.
 	for _, format := range statusFormats {
 		c.Logf("format %q", format.name)
 		// Run command with the required format.
-		code, stdout, stderr := runStatus(c, "--format", format.name)
-		c.Assert(code, Equals, 0)
-		c.Assert(stderr, HasLen, 0)
+		args := append([]string{"--format", format.name}, e.scope...)
+		code, stdout, stderr := runStatus(c, args...)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(stderr, gc.HasLen, 0)
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		expected := make(M)
 		err = format.unmarshal(buf, &expected)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
-		c.Assert(err, IsNil)
-		c.Assert(actual, DeepEquals, expected)
+		c.Assert(err, gc.IsNil)
+		c.Assert(actual, gc.DeepEquals, expected)
 	}
 }
 
-func (s *StatusSuite) TestStatusAllFormats(c *C) {
+func (e expect) step(c *gc.C, ctx *context) {
+	scopedExpect{e.what, nil, e.output}.step(c, ctx)
+}
+
+func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func() {
@@ -1198,4 +1586,33 @@ func (s *StatusSuite) TestStatusAllFormats(c *C) {
 			ctx.run(c, t.steps)
 		}()
 	}
+}
+
+func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
+	steps := []stepper{
+		addMachine{machineId: "0", job: state.JobManageEnviron},
+		addMachine{machineId: "1", job: state.JobHostUnits},
+		addCharm{"mysql"},
+		addService{"mysql", "mysql"},
+		addAliveUnit{"mysql", "1"},
+	}
+	ctx := s.newContext()
+	defer s.resetContext(c, ctx)
+	ctx.run(c, steps)
+
+	// Status filters can only fail if the patterns are invalid.
+	code, _, stderr := runStatus(c, "[*")
+	c.Assert(code, gc.Not(gc.Equals), 0)
+	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
+
+	code, _, stderr = runStatus(c, "//")
+	c.Assert(code, gc.Not(gc.Equals), 0)
+	c.Assert(string(stderr), gc.Equals, `error: pattern "//" contains too many '/' characters`+"\n")
+
+	// Pattern validity is checked eagerly; if a bad pattern
+	// proceeds a valid, matching pattern, then the bad pattern
+	// will still cause an error.
+	code, _, stderr = runStatus(c, "*", "[*")
+	c.Assert(code, gc.Not(gc.Equals), 0)
+	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
 }

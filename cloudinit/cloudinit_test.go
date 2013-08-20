@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cloudinit"
 )
@@ -16,10 +16,10 @@ import (
 
 type S struct{}
 
-var _ = Suite(S{})
+var _ = gc.Suite(S{})
 
 func Test1(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 var ctests = []struct {
@@ -46,6 +46,13 @@ var ctests = []struct {
 		"apt_update: true\n",
 		func(cfg *cloudinit.Config) {
 			cfg.SetAptUpdate(true)
+		},
+	},
+	{
+		"AptProxy",
+		"apt_proxy: http://foo.com\n",
+		func(cfg *cloudinit.Config) {
+			cfg.SetAptProxy("http://foo.com")
 		},
 	},
 	{
@@ -201,18 +208,52 @@ var ctests = []struct {
 			cfg.SetAttr("arbitraryAttr", "someValue")
 		},
 	},
+	{
+		"RunCmd",
+		"runcmd:\n- ifconfig\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddRunCmd("ifconfig")
+		},
+	},
+	{
+		"AddScripts",
+		"runcmd:\n- echo 'Hello World'\n- ifconfig\n",
+		func(cfg *cloudinit.Config) {
+			cfg.AddScripts(
+				"echo 'Hello World'",
+				"ifconfig",
+			)
+		},
+	},
+	{
+		"AddFile",
+		addFileExpected,
+		func(cfg *cloudinit.Config) {
+			cfg.AddFile(
+				"/etc/apt/apt.conf.d/99proxy",
+				`"Acquire::http::Proxy "http://10.0.3.1:3142";`,
+				0644,
+			)
+		},
+	},
 }
 
-const header = "#cloud-config\n"
+const (
+	header          = "#cloud-config\n"
+	addFileExpected = `runcmd:
+- install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy'
+- printf '%s\n' '"Acquire::http::Proxy "http://10.0.3.1:3142";' > '/etc/apt/apt.conf.d/99proxy'
+`
+)
 
-func (S) TestOutput(c *C) {
+func (S) TestOutput(c *gc.C) {
 	for _, t := range ctests {
 		cfg := cloudinit.New()
 		t.setOption(cfg)
 		data, err := cfg.Render()
-		c.Assert(err, IsNil)
-		c.Assert(data, NotNil)
-		c.Assert(string(data), Equals, header+t.expect, Commentf("test %q output differs", t.name))
+		c.Assert(err, gc.IsNil)
+		c.Assert(data, gc.NotNil)
+		c.Assert(string(data), gc.Equals, header+t.expect, gc.Commentf("test %q output differs", t.name))
 	}
 }
 

@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils/set"
@@ -16,7 +16,7 @@ import (
 	"testing"
 )
 
-func TestPackage(t *testing.T) { TestingT(t) }
+func TestPackage(t *testing.T) { gc.TestingT(t) }
 
 func bufferBytes(stream io.Writer) []byte {
 	return stream.(*bytes.Buffer).Bytes()
@@ -30,7 +30,7 @@ type ContextSuite struct {
 	rels map[int]*ContextRelation
 }
 
-func (s *ContextSuite) SetUpTest(c *C) {
+func (s *ContextSuite) SetUpTest(c *gc.C) {
 	s.rels = map[int]*ContextRelation{
 		0: {
 			id:   0,
@@ -49,10 +49,10 @@ func (s *ContextSuite) SetUpTest(c *C) {
 	}
 }
 
-func (s *ContextSuite) GetHookContext(c *C, relid int, remote string) *Context {
+func (s *ContextSuite) GetHookContext(c *gc.C, relid int, remote string) *Context {
 	if relid != -1 {
 		_, found := s.rels[relid]
-		c.Assert(found, Equals, true)
+		c.Assert(found, gc.Equals, true)
 	}
 	return &Context{
 		relid:  relid,
@@ -61,15 +61,15 @@ func (s *ContextSuite) GetHookContext(c *C, relid int, remote string) *Context {
 	}
 }
 
-func setSettings(c *C, ru *state.RelationUnit, settings map[string]interface{}) {
+func setSettings(c *gc.C, ru *state.RelationUnit, settings map[string]interface{}) {
 	node, err := ru.Settings()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	for _, k := range node.Keys() {
 		node.Delete(k)
 	}
 	node.Update(settings)
 	_, err = node.Write()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type Context struct {

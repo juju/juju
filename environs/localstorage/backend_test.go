@@ -7,7 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"net"
 	"net/http"
 	"os"
@@ -20,22 +20,22 @@ import (
 )
 
 func TestLocal(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type backendSuite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&backendSuite{})
+var _ = gc.Suite(&backendSuite{})
 
 // startServer starts a new local storage server
 // using a temporary directory and returns the listener,
 // a base URL for the server and the directory path.
-func startServer(c *C) (listener net.Listener, url, dataDir string) {
+func startServer(c *gc.C) (listener net.Listener, url, dataDir string) {
 	dataDir = c.MkDir()
 	listener, err := localstorage.Serve("localhost:0", dataDir)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return listener, fmt.Sprintf("http://%s/", listener.Addr()), dataDir
 }
 
@@ -109,7 +109,7 @@ var getTests = []testCase{
 	},
 }
 
-func (s *backendSuite) TestGet(c *C) {
+func (s *backendSuite) TestGet(c *gc.C) {
 	// Test retrieving a file from a storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
@@ -117,18 +117,18 @@ func (s *backendSuite) TestGet(c *C) {
 
 	check := func(tc testCase) {
 		resp, err := http.Get(url + tc.name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
-			c.Assert(resp.StatusCode, Equals, tc.status)
+			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
 		} else {
-			c.Assert(resp.StatusCode, Equals, http.StatusOK)
+			c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 		}
 		defer resp.Body.Close()
 		var buf bytes.Buffer
 		_, err = buf.ReadFrom(resp.Body)
-		c.Assert(err, IsNil)
-		c.Assert(buf.String(), Equals, tc.content)
+		c.Assert(err, gc.IsNil)
+		c.Assert(buf.String(), gc.Equals, tc.content)
 	}
 	for _, tc := range getTests {
 		check(tc)
@@ -180,7 +180,7 @@ var listTests = []testCase{
 	},
 }
 
-func (s *backendSuite) TestList(c *C) {
+func (s *backendSuite) TestList(c *gc.C) {
 	// Test listing file of a storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
@@ -189,17 +189,17 @@ func (s *backendSuite) TestList(c *C) {
 
 	check := func(tc testCase) {
 		resp, err := http.Get(url + tc.name + "*")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
-			c.Assert(resp.StatusCode, Equals, tc.status)
+			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
 		}
 		defer resp.Body.Close()
 		var buf bytes.Buffer
 		_, err = buf.ReadFrom(resp.Body)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		names := strings.Split(buf.String(), "\n")
-		c.Assert(names, DeepEquals, tc.found)
+		c.Assert(names, gc.DeepEquals, tc.found)
 	}
 	for i, tc := range listTests {
 		c.Logf("test %d", i)
@@ -227,7 +227,7 @@ var putTests = []testCase{
 	},
 }
 
-func (s *backendSuite) TestPut(c *C) {
+func (s *backendSuite) TestPut(c *gc.C) {
 	// Test sending a file to the storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
@@ -236,20 +236,20 @@ func (s *backendSuite) TestPut(c *C) {
 
 	check := func(tc testCase) {
 		req, err := http.NewRequest("PUT", url+tc.name, bytes.NewBufferString(tc.content))
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		req.Header.Set("Content-Type", "application/octet-stream")
 		resp, err := http.DefaultClient.Do(req)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
-			c.Assert(resp.StatusCode, Equals, tc.status)
+			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
 		}
-		c.Assert(resp.StatusCode, Equals, 201)
+		c.Assert(resp.StatusCode, gc.Equals, 201)
 
 		fp := filepath.Join(dataDir, tc.name)
 		b, err := ioutil.ReadFile(fp)
-		c.Assert(err, IsNil)
-		c.Assert(string(b), Equals, tc.content)
+		c.Assert(err, gc.IsNil)
+		c.Assert(string(b), gc.Equals, tc.content)
 	}
 	for _, tc := range putTests {
 		check(tc)
@@ -280,7 +280,7 @@ var removeTests = []testCase{
 	},
 }
 
-func (s *backendSuite) TestRemove(c *C) {
+func (s *backendSuite) TestRemove(c *gc.C) {
 	// Test removing a file in the storage.
 	listener, url, dataDir := startServer(c)
 	defer listener.Close()
@@ -291,22 +291,22 @@ func (s *backendSuite) TestRemove(c *C) {
 		fp := filepath.Join(dataDir, tc.name)
 		dir, _ := filepath.Split(fp)
 		err := os.MkdirAll(dir, 0777)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = ioutil.WriteFile(fp, []byte(tc.content), 0644)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		req, err := http.NewRequest("DELETE", url+tc.name, nil)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		resp, err := http.DefaultClient.Do(req)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		if tc.status != 0 {
-			c.Assert(resp.StatusCode, Equals, tc.status)
+			c.Assert(resp.StatusCode, gc.Equals, tc.status)
 			return
 		}
-		c.Assert(resp.StatusCode, Equals, http.StatusOK)
+		c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
 
 		_, err = os.Stat(fp)
-		c.Assert(os.IsNotExist(err), Equals, true)
+		c.Assert(os.IsNotExist(err), gc.Equals, true)
 	}
 	for i, tc := range removeTests {
 		c.Logf("test %d", i)
@@ -314,12 +314,12 @@ func (s *backendSuite) TestRemove(c *C) {
 	}
 }
 
-func createTestData(c *C, dataDir string) {
+func createTestData(c *gc.C, dataDir string) {
 	writeData := func(dir, name, data string) {
 		fn := filepath.Join(dir, name)
 		c.Logf("writing data to %q", fn)
 		err := ioutil.WriteFile(fn, []byte(data), 0644)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	writeData(dataDir, "foo", "this is file 'foo'")
@@ -329,7 +329,7 @@ func createTestData(c *C, dataDir string) {
 
 	innerDir := filepath.Join(dataDir, "inner")
 	err := os.MkdirAll(innerDir, 0777)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	writeData(innerDir, "fooin", "this is inner file 'fooin'")
 	writeData(innerDir, "barin", "this is inner file 'barin'")

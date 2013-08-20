@@ -32,6 +32,9 @@ type Instance interface {
 	// Id returns a provider-generated identifier for the Instance.
 	Id() Id
 
+	// Status returns the provider-specific status for the instance.
+	Status() string
+
 	// Addresses returns a list of hostnames or ip addresses
 	// associated with the instance. This will supercede DNSName
 	// which can be implemented by selecting a preferred address.
@@ -67,6 +70,7 @@ type Instance interface {
 type HardwareCharacteristics struct {
 	Arch     *string `yaml:"arch,omitempty"`
 	Mem      *uint64 `yaml:"mem,omitempty"`
+	RootDisk *uint64 `yaml:"rootdisk,omitempty"`
 	CpuCores *uint64 `yaml:"cpucores,omitempty"`
 	CpuPower *uint64 `yaml:"cpupower,omitempty"`
 }
@@ -81,20 +85,19 @@ func uintStr(i uint64) string {
 func (hc HardwareCharacteristics) String() string {
 	var strs []string
 	if hc.Arch != nil {
-		strs = append(strs, "arch="+*hc.Arch)
+		strs = append(strs, fmt.Sprintf("arch=%s", *hc.Arch))
 	}
 	if hc.CpuCores != nil {
-		strs = append(strs, "cpu-cores="+uintStr(*hc.CpuCores))
+		strs = append(strs, fmt.Sprintf("cpu-cores=%d", *hc.CpuCores))
 	}
 	if hc.CpuPower != nil {
-		strs = append(strs, "cpu-power="+uintStr(*hc.CpuPower))
+		strs = append(strs, fmt.Sprintf("cpu-power=%d", *hc.CpuPower))
 	}
 	if hc.Mem != nil {
-		s := uintStr(*hc.Mem)
-		if s != "" {
-			s += "M"
-		}
-		strs = append(strs, "mem="+s)
+		strs = append(strs, fmt.Sprintf("mem=%dM", *hc.Mem))
+	}
+	if hc.RootDisk != nil {
+		strs = append(strs, fmt.Sprintf("root-disk=%dM", *hc.RootDisk))
 	}
 	return strings.Join(strs, " ")
 }
@@ -145,6 +148,8 @@ func (hc *HardwareCharacteristics) setRaw(raw string) error {
 		err = hc.setCpuPower(str)
 	case "mem":
 		err = hc.setMem(str)
+	case "root-disk":
+		err = hc.setRootDisk(str)
 	default:
 		return fmt.Errorf("unknown characteristic %q", name)
 	}
@@ -184,26 +189,20 @@ func (hc *HardwareCharacteristics) setCpuPower(str string) (err error) {
 	return
 }
 
-func (hc *HardwareCharacteristics) setMem(str string) error {
+func (hc *HardwareCharacteristics) setMem(str string) (err error) {
 	if hc.Mem != nil {
 		return fmt.Errorf("already set")
 	}
-	var value uint64
-	if str != "" {
-		mult := 1.0
-		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
-			str = str[:len(str)-1]
-			mult = m
-		}
-		val, err := strconv.ParseFloat(str, 64)
-		if err != nil || val < 0 {
-			return fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
-		}
-		val *= mult
-		value = uint64(math.Ceil(val))
+	hc.Mem, err = parseSize(str)
+	return
+}
+
+func (hc *HardwareCharacteristics) setRootDisk(str string) (err error) {
+	if hc.RootDisk != nil {
+		return fmt.Errorf("already set")
 	}
-	hc.Mem = &value
-	return nil
+	hc.RootDisk, err = parseSize(str)
+	return
 }
 
 func parseUint64(str string) (*uint64, error) {
@@ -214,6 +213,24 @@ func parseUint64(str string) (*uint64, error) {
 		} else {
 			value = uint64(val)
 		}
+	}
+	return &value, nil
+}
+
+func parseSize(str string) (*uint64, error) {
+	var value uint64
+	if str != "" {
+		mult := 1.0
+		if m, ok := mbSuffixes[str[len(str)-1:]]; ok {
+			str = str[:len(str)-1]
+			mult = m
+		}
+		val, err := strconv.ParseFloat(str, 64)
+		if err != nil || val < 0 {
+			return nil, fmt.Errorf("must be a non-negative float with optional M/G/T/P suffix")
+		}
+		val *= mult
+		value = uint64(math.Ceil(val))
 	}
 	return &value, nil
 }

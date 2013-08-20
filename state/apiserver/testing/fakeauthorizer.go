@@ -3,13 +3,19 @@
 
 package testing
 
+import (
+	"launchpad.net/juju-core/state"
+)
+
 // FakeAuthorizer implements the common.Authorizer interface.
 type FakeAuthorizer struct {
 	Tag          string
 	LoggedIn     bool
 	Manager      bool
 	MachineAgent bool
+	UnitAgent    bool
 	Client       bool
+	Entity       state.Entity
 }
 
 func (fa FakeAuthorizer) AuthOwner(tag string) bool {
@@ -24,10 +30,18 @@ func (fa FakeAuthorizer) AuthMachineAgent() bool {
 	return fa.MachineAgent
 }
 
+func (fa FakeAuthorizer) AuthUnitAgent() bool {
+	return fa.UnitAgent
+}
+
 func (fa FakeAuthorizer) AuthClient() bool {
 	return fa.Client
 }
 
 func (fa FakeAuthorizer) GetAuthTag() string {
 	return fa.Tag
+}
+
+func (fa FakeAuthorizer) GetAuthEntity() state.Entity {
+	return fa.Entity
 }

@@ -4,7 +4,7 @@
 package statecmd_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -15,7 +15,7 @@ type ExposeSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&ExposeSuite{})
+var _ = gc.Suite(&ExposeSuite{})
 
 var serviceExposeTests = []struct {
 	about   string
@@ -40,19 +40,19 @@ var serviceExposeTests = []struct {
 	},
 }
 
-func (s *ExposeSuite) TestServiceExpose(c *C) {
+func (s *ExposeSuite) TestServiceExpose(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	serviceNames := []string{"dummy-service", "exposed-service"}
 	svcs := make([]*state.Service, len(serviceNames))
 	var err error
 	for i, name := range serviceNames {
 		svcs[i], err = s.State.AddService(name, charm)
-		c.Assert(err, IsNil)
-		c.Assert(svcs[i].IsExposed(), Equals, false)
+		c.Assert(err, gc.IsNil)
+		c.Assert(svcs[i].IsExposed(), gc.Equals, false)
 	}
 	err = svcs[1].SetExposed()
-	c.Assert(err, IsNil)
-	c.Assert(svcs[1].IsExposed(), Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(svcs[1].IsExposed(), gc.Equals, true)
 
 	for i, t := range serviceExposeTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -60,17 +60,17 @@ func (s *ExposeSuite) TestServiceExpose(c *C) {
 			ServiceName: t.service,
 		})
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			service, err := s.State.Service(t.service)
-			c.Assert(err, IsNil)
-			c.Assert(service.IsExposed(), Equals, t.exposed)
+			c.Assert(err, gc.IsNil)
+			c.Assert(service.IsExposed(), gc.Equals, t.exposed)
 		}
 	}
 
 	for _, s := range svcs {
 		err = s.Destroy()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }

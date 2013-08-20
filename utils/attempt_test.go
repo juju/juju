@@ -1,7 +1,7 @@
 package utils_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/utils"
 	"time"
 )
@@ -36,7 +36,7 @@ func ExampleAttempt_HasNext() {
 	return
 }
 
-func (utilsSuite) TestAttemptTiming(c *C) {
+func (utilsSuite) TestAttemptTiming(c *gc.C) {
 	testAttempt := utils.AttemptStrategy{
 		Total: 0.25e9,
 		Delay: 0.1e9,
@@ -48,7 +48,7 @@ func (utilsSuite) TestAttemptTiming(c *C) {
 		got = append(got, time.Now().Sub(t0))
 	}
 	got = append(got, time.Now().Sub(t0))
-	c.Assert(got, HasLen, len(want))
+	c.Assert(got, gc.HasLen, len(want))
 	const margin = 0.01e9
 	for i, got := range want {
 		lo := want[i] - margin
@@ -59,29 +59,29 @@ func (utilsSuite) TestAttemptTiming(c *C) {
 	}
 }
 
-func (utilsSuite) TestAttemptNextHasNext(c *C) {
+func (utilsSuite) TestAttemptNextHasNext(c *gc.C) {
 	a := utils.AttemptStrategy{}.Start()
-	c.Assert(a.Next(), Equals, true)
-	c.Assert(a.Next(), Equals, false)
+	c.Assert(a.Next(), gc.Equals, true)
+	c.Assert(a.Next(), gc.Equals, false)
 
 	a = utils.AttemptStrategy{}.Start()
-	c.Assert(a.Next(), Equals, true)
-	c.Assert(a.HasNext(), Equals, false)
-	c.Assert(a.Next(), Equals, false)
+	c.Assert(a.Next(), gc.Equals, true)
+	c.Assert(a.HasNext(), gc.Equals, false)
+	c.Assert(a.Next(), gc.Equals, false)
 
 	a = utils.AttemptStrategy{Total: 2e8}.Start()
-	c.Assert(a.Next(), Equals, true)
-	c.Assert(a.HasNext(), Equals, true)
+	c.Assert(a.Next(), gc.Equals, true)
+	c.Assert(a.HasNext(), gc.Equals, true)
 	time.Sleep(2e8)
-	c.Assert(a.HasNext(), Equals, true)
-	c.Assert(a.Next(), Equals, true)
-	c.Assert(a.Next(), Equals, false)
+	c.Assert(a.HasNext(), gc.Equals, true)
+	c.Assert(a.Next(), gc.Equals, true)
+	c.Assert(a.Next(), gc.Equals, false)
 
 	a = utils.AttemptStrategy{Total: 1e8, Min: 2}.Start()
 	time.Sleep(1e8)
-	c.Assert(a.Next(), Equals, true)
-	c.Assert(a.HasNext(), Equals, true)
-	c.Assert(a.Next(), Equals, true)
-	c.Assert(a.HasNext(), Equals, false)
-	c.Assert(a.Next(), Equals, false)
+	c.Assert(a.Next(), gc.Equals, true)
+	c.Assert(a.HasNext(), gc.Equals, true)
+	c.Assert(a.Next(), gc.Equals, true)
+	c.Assert(a.HasNext(), gc.Equals, false)
+	c.Assert(a.Next(), gc.Equals, false)
 }

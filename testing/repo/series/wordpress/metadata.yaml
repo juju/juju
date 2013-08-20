@@ -9,6 +9,9 @@ provides:
   logging-dir:
     interface: logging
     scope: container
+  monitoring-port:
+    interface: monitoring
+    scope: container
 requires:
   db:
     interface: mysql

@@ -14,8 +14,9 @@ define DEPENDENCIES
   bzr
   distro-info-data
   git-core
-  golang-go
+  golang
   mercurial
+  mongodb-server
   zip
 endef
 
@@ -54,11 +55,19 @@ simplify:
 clean:
 	find . -name '*.test' -print0 | xargs -r0 $(RM) -v
 
-# Install packages required to develop Juju and run tests.
+# Install juju into $GOPATH/bin.
+install:
+	go install -v $(PROJECT)/...
+
+# Install packages required to develop Juju and run tests. The stable
+# PPA includes the required mongodb-server binaries.
 install-dependencies:
-	sudo apt-get install $(strip $(DEPENDENCIES))
-	@echo
-	@echo "Make sure you have MongoDB installed.  See the README file."
+	@echo Adding juju PPAs for golang and mongodb-server
+	@sudo apt-add-repository ppa:juju/golang
+	@sudo apt-add-repository ppa:juju/stable
+	@sudo apt-get update
+	@echo Installing dependencies
+	@sudo apt-get install $(strip $(DEPENDENCIES))
 
 
-.PHONY: build check format simplify clean install-dependencies
+.PHONY: build check format simplify clean install install-dependencies

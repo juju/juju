@@ -4,21 +4,20 @@
 package main
 
 import (
-	"bytes"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"strings"
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -51,19 +50,9 @@ func (s *BootstrapSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 }
 
-func (*BootstrapSuite) TestMissingEnvironment(c *gc.C) {
-	defer coretesting.MakeFakeHomeNoEnvironments(c, "empty").Restore()
-	ctx := coretesting.Context(c)
-	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
-	c.Check(code, gc.Equals, 1)
-	errStr := ctx.Stderr.(*bytes.Buffer).String()
-	strippedErr := strings.Replace(errStr, "\n", "", -1)
-	c.Assert(strippedErr, gc.Matches, ".*No juju environment configuration file exists.*")
-}
-
 func (s *BootstrapSuite) TestTest(c *gc.C) {
 	uploadTools = mockUploadTools
-	defer func() { uploadTools = tools.Upload }()
+	defer func() { uploadTools = agenttools.Upload }()
 
 	for i, test := range bootstrapTests {
 		c.Logf("\ntest %d: %s", i, test.info)
@@ -108,12 +97,12 @@ func (test bootstrapTest) run(c *gc.C) {
 	}
 
 	// Run command and check for uploads.
-	opc, errc := runCommand(new(BootstrapCommand), test.args...)
+	opc, errc := runCommand(nil, new(BootstrapCommand), test.args...)
 	if uploadCount > 0 {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 		}
-		list, err := environs.FindAvailableTools(env, version.Current.Major)
+		list, err := tools.FindAvailableTools(env, version.Current.Major)
 		c.Check(err, gc.IsNil)
 		c.Logf("found: " + list.String())
 		urls := list.URLs()
@@ -266,7 +255,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
-	_, err := environs.FindAvailableTools(env, version.Current.Major)
+	_, err := tools.FindAvailableTools(env, version.Current.Major)
 	c.Assert(err, gc.ErrorMatches, "no tools available")
 
 	// Bootstrap the environment with the valid source. This time
@@ -301,7 +290,7 @@ func createToolsSource(c *gc.C) string {
 	source := c.MkDir()
 	for _, vers := range vAll {
 		data := vers.String()
-		name := tools.StorageName(vers)
+		name := agenttools.StorageName(vers)
 		filename := filepath.Join(source, name)
 		dir := filepath.Dir(filename)
 		err := os.MkdirAll(dir, 0755)
@@ -323,12 +312,12 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 }
 
 // checkTools check if the environment contains the passed tools.
-func checkTools(c *gc.C, env environs.Environ, tools []version.Binary) {
-	list, err := environs.FindAvailableTools(env, version.Current.Major)
+func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
+	list, err := tools.FindAvailableTools(env, version.Current.Major)
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()
-	c.Check(urls, gc.HasLen, len(tools))
+	c.Check(urls, gc.HasLen, len(expected))
 }
 
 var (

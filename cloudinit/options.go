@@ -4,7 +4,10 @@
 package cloudinit
 
 import (
+	"fmt"
 	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // SetAttr sets an arbitrary attribute in the cloudinit config.
@@ -32,6 +35,12 @@ func (cfg *Config) SetAptUpgrade(yes bool) {
 // on first boot.
 func (cfg *Config) SetAptUpdate(yes bool) {
 	cfg.set("apt_update", yes, yes)
+}
+
+// SetAptProxy sets the URL to be used as the apt
+// proxy.
+func (cfg *Config) SetAptProxy(url string) {
+	cfg.set("apt_proxy", url != "", url)
 }
 
 // SetAptMirror sets the URL to be used as the apt
@@ -214,6 +223,34 @@ func (cfg *Config) AddSSHAuthorizedKeys(keys string) {
 		akeys = append(akeys, line)
 	}
 	cfg.attrs["ssh_authorized_keys"] = akeys
+}
+
+// AddScripts is a simple shorthand for calling AddRunCmd multiple times.
+func (cfg *Config) AddScripts(scripts ...string) {
+	for _, s := range scripts {
+		cfg.AddRunCmd(s)
+	}
+}
+
+// AddFile will add multiple run_cmd entries to safely set the contents of a
+// specific file to the requested contents.
+func (cfg *Config) AddFile(filename, data string, mode uint) {
+	// Note: recent versions of cloud-init have the "write_files"
+	// module, which can write arbitrary files. We currently support
+	// 12.04 LTS, which uses an older version of cloud-init without
+	// this module.
+	p := shquote(filename)
+	// Don't use the shell's echo builtin here; the interpretation
+	// of escape sequences differs between shells, namely bash and
+	// dash. Instead, we use printf (or we could use /bin/echo).
+	cfg.AddScripts(
+		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, shquote(data), p),
+	)
+}
+
+func shquote(p string) string {
+	return utils.ShQuote(p)
 }
 
 // TODO

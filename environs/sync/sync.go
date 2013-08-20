@@ -17,7 +17,7 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/ec2"
+	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
