@@ -19,7 +19,15 @@ import (
 	"launchpad.net/juju-core/state"
 )
 
+// sshHostPrefix is the prefix for a machine to be "manually provisioned".
 const sshHostPrefix = "ssh:"
+
+var addMachineDoc = `
+Machines are created in a clean state and ready to have units deployed.
+
+This command also supports configuring existing machines via SSH. The
+target machine must be able to communicate with the API servers, and
+be able to access the tools storage.`[1:]
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
@@ -36,9 +44,9 @@ type AddMachineCommand struct {
 func (c *AddMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container>:machine | <container>]",
+		Args:    "[<container>:machine | <container> | ssh:[user@]host]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
-		Doc:     "Machines are created in a clean state and ready to have units deployed.",
+		Doc:     addMachineDoc,
 	}
 }
 
