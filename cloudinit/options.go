@@ -235,10 +235,17 @@ func (cfg *Config) AddScripts(scripts ...string) {
 // AddFile will add multiple run_cmd entries to safely set the contents of a
 // specific file to the requested contents.
 func (cfg *Config) AddFile(filename, data string, mode uint) {
+	// Note: recent versions of cloud-init have the "write_files"
+	// module, which can write arbitrary files. We currently support
+	// 12.04 LTS, which uses an older version of cloud-init without
+	// this module.
 	p := shquote(filename)
+	// Don't use the shell's echo builtin here; the interpretation
+	// of escape sequences differs between shells, namely bash and
+	// dash. Instead, we use printf (or we could use /bin/echo).
 	cfg.AddScripts(
 		fmt.Sprintf("install -m %o /dev/null %s", mode, p),
-		fmt.Sprintf("echo %s > %s", shquote(data), p),
+		fmt.Sprintf(`printf "%%s\n" %s > %s`, shquote(data), p),
 	)
 }
 
