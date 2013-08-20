@@ -409,23 +409,6 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
-func (s *uniterSuite) TestGetService(c *gc.C) {
-	args := params.Entities{Entities: []params.Entity{
-		{Tag: "unit-mysql-0"},
-		{Tag: "unit-wordpress-0"},
-		{Tag: "unit-foo-42"},
-	}}
-	result, err := s.uniter.GetService(args)
-	c.Assert(err, gc.IsNil)
-	c.Assert(result, gc.DeepEquals, params.StringResults{
-		Results: []params.StringResult{
-			{Error: apiservertesting.ErrUnauthorized},
-			{Result: "service-wordpress"},
-			{Error: apiservertesting.ErrUnauthorized},
-		},
-	})
-}
-
 func (s *uniterSuite) TestResolved(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, gc.IsNil)

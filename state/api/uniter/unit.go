@@ -7,6 +7,7 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -90,9 +91,14 @@ func (u *Unit) Watch() (*watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	// TODO: Call Uniter.GetService(), then construct and return
-	// a uniter.Service proxy object from the received tag.
-	panic("not implemented")
+	serviceTag := names.ServiceTag(u.ServiceName())
+	service := &Service{
+		st:  u.st,
+		tag: serviceTag,
+	}
+	// Call Refresh() immediately to get the up-to-date
+	// life and other needed locally cached fields.
+	return service, service.Refresh()
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -106,9 +112,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	// TODO: Implement a names.ServiceFromUnitTag() and use it here to
-	// convert u.tag to service name and return it.
-	panic("not implemented")
+	return names.ServiceFromUnitTag(u.tag)
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as

@@ -4,7 +4,9 @@
 package names
 
 import (
+	"fmt"
 	"regexp"
+	"strings"
 )
 
 const (
@@ -22,4 +24,18 @@ func IsService(name string) bool {
 // ServiceTag returns the tag for the service with the given name.
 func ServiceTag(serviceName string) string {
 	return makeTag(ServiceTagKind, serviceName)
+}
+
+// ServiceFromUnitTag returns the service name for the given unit tag.
+func ServiceFromUnitTag(tag string) string {
+	_, name, err := ParseTag(tag, UnitTagKind)
+	if err != nil {
+		panic(fmt.Sprintf("%q is not a valid unit tag", tag))
+	}
+	// Strip only the last "/".
+	i := strings.LastIndex(name, "/")
+	if i <= 0 || !IsUnit(name) {
+		panic(fmt.Sprintf("%q is not a valid unit tag", tag))
+	}
+	return name[:i]
 }
