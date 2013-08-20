@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 )
@@ -71,34 +71,34 @@ var annotatorTests = []struct {
 	},
 }
 
-func testAnnotator(c *C, getEntity func() (state.Annotator, error)) {
+func testAnnotator(c *gc.C, getEntity func() (state.Annotator, error)) {
 	for i, t := range annotatorTests {
 		c.Logf("test %d. %s", i, t.about)
 		entity, err := getEntity()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = entity.SetAnnotations(t.initial)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = entity.SetAnnotations(t.input)
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		// Retrieving single values works as expected.
 		for key, value := range t.input {
 			v, err := entity.Annotation(key)
-			c.Assert(err, IsNil)
-			c.Assert(v, Equals, value)
+			c.Assert(err, gc.IsNil)
+			c.Assert(v, gc.Equals, value)
 		}
 		// The value stored in MongoDB changed.
 		ann, err := entity.Annotations()
-		c.Assert(err, IsNil)
-		c.Assert(ann, DeepEquals, t.expected)
+		c.Assert(err, gc.IsNil)
+		c.Assert(ann, gc.DeepEquals, t.expected)
 		// Clean up existing annotations.
 		cleanup := make(map[string]string)
 		for key := range t.expected {
 			cleanup[key] = ""
 		}
 		err = entity.SetAnnotations(cleanup)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }

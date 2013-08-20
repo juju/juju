@@ -4,13 +4,13 @@
 package instance_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/instance"
 )
 
 type HardwareSuite struct{}
 
-var _ = Suite(&HardwareSuite{})
+var _ = gc.Suite(&HardwareSuite{})
 
 var parseHardwareTests = []struct {
 	summary string
@@ -226,18 +226,18 @@ var parseHardwareTests = []struct {
 	},
 }
 
-func (s *HardwareSuite) TestParseHardware(c *C) {
+func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 	for i, t := range parseHardwareTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hwc, err := instance.ParseHardware(t.args...)
 		if t.err == "" {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		} else {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		cons1, err := instance.ParseHardware(hwc.String())
-		c.Assert(err, IsNil)
-		c.Assert(cons1, DeepEquals, hwc)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons1, gc.DeepEquals, hwc)
 	}
 }

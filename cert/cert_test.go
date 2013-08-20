@@ -16,140 +16,140 @@ import (
 	"testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cert"
 )
 
 func TestAll(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type certSuite struct{}
 
-var _ = Suite(certSuite{})
+var _ = gc.Suite(certSuite{})
 
-func (certSuite) TestParseCertificate(c *C) {
+func (certSuite) TestParseCertificate(c *gc.C) {
 	xcert, err := cert.ParseCert(caCertPEM)
-	c.Assert(err, IsNil)
-	c.Assert(xcert.Subject.CommonName, Equals, "juju testing")
+	c.Assert(err, gc.IsNil)
+	c.Assert(xcert.Subject.CommonName, gc.Equals, "juju testing")
 
 	xcert, err = cert.ParseCert(caKeyPEM)
-	c.Check(xcert, IsNil)
-	c.Assert(err, ErrorMatches, "no certificates found")
+	c.Check(xcert, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "no certificates found")
 
 	xcert, err = cert.ParseCert([]byte("hello"))
-	c.Check(xcert, IsNil)
-	c.Assert(err, ErrorMatches, "no certificates found")
+	c.Check(xcert, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "no certificates found")
 }
 
-func (certSuite) TestParseCertAndKey(c *C) {
+func (certSuite) TestParseCertAndKey(c *gc.C) {
 	xcert, key, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
-	c.Assert(err, IsNil)
-	c.Assert(xcert.Subject.CommonName, Equals, "juju testing")
-	c.Assert(key, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(xcert.Subject.CommonName, gc.Equals, "juju testing")
+	c.Assert(key, gc.NotNil)
 
-	c.Assert(xcert.PublicKey.(*rsa.PublicKey), DeepEquals, &key.PublicKey)
+	c.Assert(xcert.PublicKey.(*rsa.PublicKey), gc.DeepEquals, &key.PublicKey)
 }
 
-func (certSuite) TestNewCA(c *C) {
+func (certSuite) TestNewCA(c *gc.C) {
 	expiry := roundTime(time.Now().AddDate(0, 0, 1))
 	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	caCert, caKey, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(caKey, FitsTypeOf, (*rsa.PrivateKey)(nil))
-	c.Assert(caCert.Subject.CommonName, Equals, `juju-generated CA for environment "foo"`)
-	c.Assert(caCert.NotAfter.Equal(expiry), Equals, true)
-	c.Assert(caCert.BasicConstraintsValid, Equals, true)
-	c.Assert(caCert.IsCA, Equals, true)
+	c.Assert(caKey, gc.FitsTypeOf, (*rsa.PrivateKey)(nil))
+	c.Assert(caCert.Subject.CommonName, gc.Equals, `juju-generated CA for environment "foo"`)
+	c.Assert(caCert.NotAfter.Equal(expiry), gc.Equals, true)
+	c.Assert(caCert.BasicConstraintsValid, gc.Equals, true)
+	c.Assert(caCert.IsCA, gc.Equals, true)
 	//c.Assert(caCert.MaxPathLen, Equals, 0)	TODO it ends up as -1 - check that this is ok.
 }
 
-func (certSuite) TestNewServer(c *C) {
+func (certSuite) TestNewServer(c *gc.C) {
 	expiry := roundTime(time.Now().AddDate(1, 0, 0))
 	caCertPEM, caKeyPEM, err := cert.NewCA("foo", expiry)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	caCert, _, err := cert.ParseCertAndKey(caCertPEM, caKeyPEM)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	srvCertPEM, srvKeyPEM, err := cert.NewServer("juju test", caCertPEM, caKeyPEM, expiry)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	srvCert, srvKey, err := cert.ParseCertAndKey(srvCertPEM, srvKeyPEM)
-	c.Assert(err, IsNil)
-	c.Assert(err, IsNil)
-	c.Assert(srvCert.Subject.CommonName, Equals, "*")
-	c.Assert(srvCert.NotAfter.Equal(expiry), Equals, true)
-	c.Assert(srvCert.BasicConstraintsValid, Equals, false)
-	c.Assert(srvCert.IsCA, Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(srvCert.Subject.CommonName, gc.Equals, "*")
+	c.Assert(srvCert.NotAfter.Equal(expiry), gc.Equals, true)
+	c.Assert(srvCert.BasicConstraintsValid, gc.Equals, false)
+	c.Assert(srvCert.IsCA, gc.Equals, false)
 
 	checkTLSConnection(c, caCert, srvCert, srvKey)
 }
 
-func (certSuite) TestWithNonUTCExpiry(c *C) {
+func (certSuite) TestWithNonUTCExpiry(c *gc.C) {
 	expiry, err := time.Parse("2006-01-02 15:04:05.999999999 -0700 MST", "2012-11-28 15:53:57 +0100 CET")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	certPEM, keyPEM, err := cert.NewCA("foo", expiry)
 	xcert, err := cert.ParseCert(certPEM)
-	c.Assert(err, IsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 
 	certPEM, _, err = cert.NewServer("foo", certPEM, keyPEM, expiry)
 	xcert, err = cert.ParseCert(certPEM)
-	c.Assert(err, IsNil)
-	c.Assert(xcert.NotAfter.Equal(expiry), Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(xcert.NotAfter.Equal(expiry), gc.Equals, true)
 }
 
-func (certSuite) TestNewServerWithInvalidCert(c *C) {
+func (certSuite) TestNewServerWithInvalidCert(c *gc.C) {
 	srvCert, srvKey, err := cert.NewServer("foo", nonCACert, nonCAKey, time.Now())
-	c.Check(srvCert, IsNil)
-	c.Check(srvKey, IsNil)
-	c.Assert(err, ErrorMatches, "CA certificate is not a valid CA")
+	c.Check(srvCert, gc.IsNil)
+	c.Check(srvKey, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "CA certificate is not a valid CA")
 }
 
-func (certSuite) TestVerify(c *C) {
+func (certSuite) TestVerify(c *gc.C) {
 	now := time.Now()
 	caCert, caKey, err := cert.NewCA("foo", now.Add(1*time.Minute))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	srvCert, _, err := cert.NewServer("foo", caCert, caKey, now.Add(3*time.Minute))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = cert.Verify(srvCert, caCert, now)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = cert.Verify(srvCert, caCert, now.Add(55*time.Second))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// TODO(rog) why does this succeed?
 	// err = cert.Verify(srvCert, caCert, now.Add(-1 * time.Minute))
 	//c.Check(err, ErrorMatches, "x509: certificate has expired or is not yet valid")
 
 	err = cert.Verify(srvCert, caCert, now.Add(2*time.Minute))
-	c.Check(err, ErrorMatches, "x509: certificate has expired or is not yet valid")
+	c.Check(err, gc.ErrorMatches, "x509: certificate has expired or is not yet valid")
 
 	caCert2, caKey2, err := cert.NewCA("bar", now.Add(1*time.Minute))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Check original server certificate against wrong CA.
 	err = cert.Verify(srvCert, caCert2, now)
-	c.Check(err, ErrorMatches, "x509: certificate signed by unknown authority")
+	c.Check(err, gc.ErrorMatches, "x509: certificate signed by unknown authority")
 
 	srvCert2, _, err := cert.NewServer("bar", caCert2, caKey2, now.Add(1*time.Minute))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Check new server certificate against original CA.
 	err = cert.Verify(srvCert2, caCert, now)
-	c.Check(err, ErrorMatches, "x509: certificate signed by unknown authority")
+	c.Check(err, gc.ErrorMatches, "x509: certificate signed by unknown authority")
 }
 
 // checkTLSConnection checks that we can correctly perform a TLS
 // handshake using the given credentials.
-func checkTLSConnection(c *C, caCert, srvCert *x509.Certificate, srvKey *rsa.PrivateKey) (caName string) {
+func checkTLSConnection(c *gc.C, caCert, srvCert *x509.Certificate, srvKey *rsa.PrivateKey) (caName string) {
 	clientCertPool := x509.NewCertPool()
 	clientCertPool.AddCert(caCert)
 
@@ -198,20 +198,20 @@ func checkTLSConnection(c *C, caCert, srvCert *x509.Certificate, srvKey *rsa.Pri
 
 	for i := 0; i < 2; i++ {
 		err := <-done
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 
 	outData := string(outBytes.Bytes())
-	c.Assert(outData, Not(HasLen), 0)
+	c.Assert(outData, gc.Not(gc.HasLen), 0)
 	if strings.Index(outData, msg) != -1 {
 		c.Fatalf("TLS connection not encrypted")
 	}
-	c.Assert(clientState.VerifiedChains, HasLen, 1)
-	c.Assert(clientState.VerifiedChains[0], HasLen, 2)
+	c.Assert(clientState.VerifiedChains, gc.HasLen, 1)
+	c.Assert(clientState.VerifiedChains[0], gc.HasLen, 2)
 	return clientState.VerifiedChains[0][1].Subject.CommonName
 }
 
-func newTLSCert(c *C, cert *x509.Certificate, key *rsa.PrivateKey) tls.Certificate {
+func newTLSCert(c *gc.C, cert *x509.Certificate, key *rsa.PrivateKey) tls.Certificate {
 	return tls.Certificate{
 		Certificate: [][]byte{cert.Raw},
 		PrivateKey:  key,

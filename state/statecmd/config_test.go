@@ -5,7 +5,7 @@ package statecmd_test
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
@@ -22,7 +22,7 @@ func Test(t *stdtesting.T) {
 	coretesting.MgoTestPackage(t)
 }
 
-var _ = Suite(&ConfigSuite{})
+var _ = gc.Suite(&ConfigSuite{})
 
 var getTests = []struct {
 	about       string
@@ -115,36 +115,36 @@ var getTests = []struct {
 	},
 }}
 
-func (s *ConfigSuite) TestServiceGetUnknownService(c *C) {
+func (s *ConfigSuite) TestServiceGetUnknownService(c *gc.C) {
 	_, err := statecmd.ServiceGet(s.State, params.ServiceGet{ServiceName: "unknown"})
-	c.Assert(err, ErrorMatches, `service "unknown" not found`)
+	c.Assert(err, gc.ErrorMatches, `service "unknown" not found`)
 }
 
-func (s *ConfigSuite) TestServiceGet(c *C) {
+func (s *ConfigSuite) TestServiceGet(c *gc.C) {
 	for i, t := range getTests {
 		c.Logf("test %d. %s", i, t.about)
 		ch := s.AddTestingCharm(c, t.charm)
 		svc, err := s.State.AddService(fmt.Sprintf("test%d", i), ch)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		var constraintsv constraints.Value
 		if t.constraints != "" {
 			constraintsv = constraints.MustParse(t.constraints)
 			err = svc.SetConstraints(constraintsv)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		}
 		if t.config != nil {
 			settings, err := ch.Config().ParseSettingsStrings(t.config)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			err = svc.UpdateConfigSettings(settings)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		}
 		expect := t.expect
 		expect.Constraints = constraintsv
 		expect.Service = svc.Name()
 		expect.Charm = ch.Meta().Name
 		got, err := statecmd.ServiceGet(s.State, params.ServiceGet{svc.Name()})
-		c.Assert(err, IsNil)
-		c.Assert(got, DeepEquals, expect)
+		c.Assert(err, gc.IsNil)
+		c.Assert(got, gc.DeepEquals, expect)
 	}
 }

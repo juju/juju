@@ -5,7 +5,7 @@ package params_test
 
 import (
 	"encoding/json"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/instance"
@@ -16,12 +16,12 @@ import (
 
 // TestPackage integrates the tests into gotest.
 func TestPackage(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type MarshalSuite struct{}
 
-var _ = Suite(&MarshalSuite{})
+var _ = gc.Suite(&MarshalSuite{})
 
 var marshalTestCases = []struct {
 	about string
@@ -112,45 +112,45 @@ var marshalTestCases = []struct {
 	json: `["relation","remove",{"Key":"Benji", "Endpoints": null}]`,
 }}
 
-func (s *MarshalSuite) TestDeltaMarshalJSON(c *C) {
+func (s *MarshalSuite) TestDeltaMarshalJSON(c *gc.C) {
 	for _, t := range marshalTestCases {
 		c.Log(t.about)
 		output, err := t.value.MarshalJSON()
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 		// We check unmarshalled output both to reduce the fragility of the
 		// tests (because ordering in the maps can change) and to verify that
 		// the output is well-formed.
 		var unmarshalledOutput interface{}
 		err = json.Unmarshal(output, &unmarshalledOutput)
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 		var expected interface{}
 		err = json.Unmarshal([]byte(t.json), &expected)
-		c.Check(err, IsNil)
-		c.Check(unmarshalledOutput, DeepEquals, expected)
+		c.Check(err, gc.IsNil)
+		c.Check(unmarshalledOutput, gc.DeepEquals, expected)
 	}
 }
 
-func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *C) {
+func (s *MarshalSuite) TestDeltaUnmarshalJSON(c *gc.C) {
 	for i, t := range marshalTestCases {
 		c.Logf("test %d. %s", i, t.about)
 		var unmarshalled params.Delta
 		err := json.Unmarshal([]byte(t.json), &unmarshalled)
-		c.Check(err, IsNil)
-		c.Check(unmarshalled, DeepEquals, t.value)
+		c.Check(err, gc.IsNil)
+		c.Check(unmarshalled, gc.DeepEquals, t.value)
 	}
 }
 
-func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *C) {
+func (s *MarshalSuite) TestDeltaMarshalJSONCardinality(c *gc.C) {
 	err := json.Unmarshal([]byte(`[1,2]`), new(params.Delta))
-	c.Check(err, ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
+	c.Check(err, gc.ErrorMatches, "Expected 3 elements in top-level of JSON but got 2")
 }
 
-func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *C) {
+func (s *MarshalSuite) TestDeltaMarshalJSONUnknownOperation(c *gc.C) {
 	err := json.Unmarshal([]byte(`["relation","masticate",{}]`), new(params.Delta))
-	c.Check(err, ErrorMatches, `Unexpected operation "masticate"`)
+	c.Check(err, gc.ErrorMatches, `Unexpected operation "masticate"`)
 }
 
-func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *C) {
+func (s *MarshalSuite) TestDeltaMarshalJSONUnknownEntity(c *gc.C) {
 	err := json.Unmarshal([]byte(`["qwan","change",{}]`), new(params.Delta))
-	c.Check(err, ErrorMatches, `Unexpected entity name "qwan"`)
+	c.Check(err, gc.ErrorMatches, `Unexpected entity name "qwan"`)
 }

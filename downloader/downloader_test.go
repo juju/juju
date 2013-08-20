@@ -10,7 +10,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/downloader"
 	"launchpad.net/juju-core/testing"
@@ -21,56 +21,56 @@ type suite struct {
 	testing.HTTPSuite
 }
 
-func (s *suite) SetUpSuite(c *C) {
+func (s *suite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 }
 
-func (s *suite) TearDownSuite(c *C) {
+func (s *suite) TearDownSuite(c *gc.C) {
 	s.HTTPSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *suite) SetUpTest(c *C) {
+func (s *suite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.HTTPSuite.SetUpTest(c)
 }
 
-func (s *suite) TearDownTest(c *C) {
+func (s *suite) TearDownTest(c *gc.C) {
 	s.HTTPSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-var _ = Suite(&suite{})
+var _ = gc.Suite(&suite{})
 
 func Test(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
-func (s *suite) TestDownload(c *C) {
+func (s *suite) TestDownload(c *gc.C) {
 	tmp := c.MkDir()
 	testing.Server.Response(200, nil, []byte("archive"))
 	d := downloader.New(s.URL("/archive.tgz"), tmp)
 	status := <-d.Done()
-	c.Assert(status.Err, IsNil)
-	c.Assert(status.File, NotNil)
+	c.Assert(status.Err, gc.IsNil)
+	c.Assert(status.File, gc.NotNil)
 	defer os.Remove(status.File.Name())
 	defer status.File.Close()
 
 	dir, _ := filepath.Split(status.File.Name())
-	c.Assert(filepath.Clean(dir), Equals, tmp)
+	c.Assert(filepath.Clean(dir), gc.Equals, tmp)
 	assertFileContents(c, status.File, "archive")
 }
 
-func (s *suite) TestDownloadError(c *C) {
+func (s *suite) TestDownloadError(c *gc.C) {
 	testing.Server.Response(404, nil, nil)
 	d := downloader.New(s.URL("/archive.tgz"), c.MkDir())
 	status := <-d.Done()
-	c.Assert(status.File, IsNil)
-	c.Assert(status.Err, ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
+	c.Assert(status.File, gc.IsNil)
+	c.Assert(status.Err, gc.ErrorMatches, `cannot download ".*": bad http response: 404 Not Found`)
 }
 
-func (s *suite) TestStopDownload(c *C) {
+func (s *suite) TestStopDownload(c *gc.C) {
 	tmp := c.MkDir()
 	d := downloader.New(s.URL("/x.tgz"), tmp)
 	d.Stop()
@@ -80,16 +80,16 @@ func (s *suite) TestStopDownload(c *C) {
 	case <-time.After(testing.ShortWait):
 	}
 	infos, err := ioutil.ReadDir(tmp)
-	c.Assert(err, IsNil)
-	c.Assert(infos, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(infos, gc.HasLen, 0)
 }
 
-func assertFileContents(c *C, f *os.File, expect string) {
+func assertFileContents(c *gc.C, f *os.File, expect string) {
 	got, err := ioutil.ReadAll(f)
-	c.Assert(err, IsNil)
-	if !c.Check(string(got), Equals, expect) {
+	c.Assert(err, gc.IsNil)
+	if !c.Check(string(got), gc.Equals, expect) {
 		info, err := f.Stat()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		c.Logf("info %#v", info)
 	}
 }

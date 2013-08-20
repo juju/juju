@@ -4,7 +4,7 @@
 package main
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -19,9 +19,9 @@ type DeploySuite struct {
 	testing.RepoSuite
 }
 
-var _ = Suite(&DeploySuite{})
+var _ = gc.Suite(&DeploySuite{})
 
-func runDeploy(c *C, args ...string) error {
+func runDeploy(c *gc.C, args ...string) error {
 	_, err := coretesting.RunCommand(c, &DeployCommand{}, args)
 	return err
 }
@@ -54,145 +54,145 @@ var initErrorTests = []struct {
 	},
 }
 
-func (s *DeploySuite) TestInitErrors(c *C) {
+func (s *DeploySuite) TestInitErrors(c *gc.C) {
 	for i, t := range initErrorTests {
 		c.Logf("test %d", i)
 		err := coretesting.InitCommand(&DeployCommand{}, t.args)
-		c.Assert(err, ErrorMatches, t.err)
+		c.Assert(err, gc.ErrorMatches, t.err)
 	}
 }
 
-func (s *DeploySuite) TestNoCharm(c *C) {
+func (s *DeploySuite) TestNoCharm(c *gc.C) {
 	err := runDeploy(c, "local:unknown-123")
-	c.Assert(err, ErrorMatches, `cannot get charm: charm not found in ".*": local:precise/unknown-123`)
+	c.Assert(err, gc.ErrorMatches, `cannot get charm: charm not found in ".*": local:precise/unknown-123`)
 }
 
-func (s *DeploySuite) TestCharmDir(c *C) {
+func (s *DeploySuite) TestCharmDir(c *gc.C) {
 	coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "dummy", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestUpgradeCharmDir(c *C) {
+func (s *DeploySuite) TestUpgradeCharmDir(c *gc.C) {
 	dirPath := coretesting.Charms.ClonedDirPath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-2")
 	s.AssertService(c, "dummy", curl, 1, 0)
 	// Check the charm really was upgraded.
 	ch, err := charm.ReadDir(dirPath)
-	c.Assert(err, IsNil)
-	c.Assert(ch.Revision(), Equals, 2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(ch.Revision(), gc.Equals, 2)
 }
 
-func (s *DeploySuite) TestCharmBundle(c *C) {
+func (s *DeploySuite) TestCharmBundle(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "some-service-name")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "some-service-name", curl, 1, 0)
 }
 
-func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *C) {
+func (s *DeploySuite) TestCannotUpgradeCharmBundle(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-u")
-	c.Assert(err, ErrorMatches, `cannot increment revision of charm "local:precise/dummy-1": not a directory`)
+	c.Assert(err, gc.ErrorMatches, `cannot increment revision of charm "local:precise/dummy-1": not a directory`)
 	// Verify state not touched...
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	_, err = s.State.Charm(curl)
-	c.Assert(err, ErrorMatches, `charm "local:precise/dummy-1" not found`)
+	c.Assert(err, gc.ErrorMatches, `charm "local:precise/dummy-1" not found`)
 	_, err = s.State.Service("dummy")
-	c.Assert(err, ErrorMatches, `service "dummy" not found`)
+	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
 }
 
-func (s *DeploySuite) TestSubordinateCharm(c *C) {
+func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/logging-1")
 	s.AssertService(c, "logging", curl, 0, 0)
 }
 
-func (s *DeploySuite) TestConfig(c *C) {
+func (s *DeploySuite) TestConfig(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	path := setupConfigfile(c, c.MkDir())
 	err := runDeploy(c, "local:dummy", "dummy-service", "--config", path)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	service, err := s.State.Service("dummy-service")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	settings, err := service.ConfigSettings()
-	c.Assert(err, IsNil)
-	c.Assert(settings, DeepEquals, charm.Settings{
+	c.Assert(err, gc.IsNil)
+	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"skill-level": int64(9000),
 		"username":    "admin001",
 	})
 }
 
-func (s *DeploySuite) TestConfigError(c *C) {
+func (s *DeploySuite) TestConfigError(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	path := setupConfigfile(c, c.MkDir())
 	err := runDeploy(c, "local:dummy", "other-service", "--config", path)
-	c.Assert(err, ErrorMatches, `no settings found for "other-service"`)
+	c.Assert(err, gc.ErrorMatches, `no settings found for "other-service"`)
 	_, err = s.State.Service("other-service")
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 }
 
-func (s *DeploySuite) TestConstraints(c *C) {
+func (s *DeploySuite) TestConstraints(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "--constraints", "mem=2G cpu-cores=2")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	service, _ := s.AssertService(c, "dummy", curl, 1, 0)
 	cons, err := service.Constraints()
-	c.Assert(err, IsNil)
-	c.Assert(cons, DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(cons, gc.DeepEquals, constraints.MustParse("mem=2G cpu-cores=2"))
 }
 
-func (s *DeploySuite) TestSubordinateConstraints(c *C) {
+func (s *DeploySuite) TestSubordinateConstraints(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "local:logging", "--constraints", "mem=1G")
-	c.Assert(err, ErrorMatches, "cannot use --constraints with subordinate service")
+	c.Assert(err, gc.ErrorMatches, "cannot use --constraints with subordinate service")
 }
 
-func (s *DeploySuite) TestNumUnits(c *C) {
+func (s *DeploySuite) TestNumUnits(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "local:dummy", "-n", "13")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	curl := charm.MustParseURL("local:precise/dummy-1")
 	s.AssertService(c, "dummy", curl, 13, 0)
 }
 
-func (s *DeploySuite) TestNumUnitsSubordinate(c *C) {
+func (s *DeploySuite) TestNumUnitsSubordinate(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err := runDeploy(c, "--num-units", "3", "local:logging")
-	c.Assert(err, ErrorMatches, "cannot use --num-units or --to with subordinate service")
+	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")
-	c.Assert(err, ErrorMatches, `service "dummy" not found`)
+	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
 }
 
-func (s *DeploySuite) assertForceMachine(c *C, machineId string) {
+func (s *DeploySuite) assertForceMachine(c *gc.C, machineId string) {
 	svc, err := s.State.Service("portlandia")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	units, err := svc.AllUnits()
-	c.Assert(err, IsNil)
-	c.Assert(units, HasLen, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(units, gc.HasLen, 1)
 	mid, err := units[0].AssignedMachineId()
-	c.Assert(err, IsNil)
-	c.Assert(mid, Equals, machineId)
+	c.Assert(err, gc.IsNil)
+	c.Assert(mid, gc.Equals, machineId)
 }
 
-func (s *DeploySuite) TestForceMachine(c *C) {
+func (s *DeploySuite) TestForceMachine(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", machine.Id(), "local:dummy", "portlandia")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertForceMachine(c, machine.Id())
 }
 
-func (s *DeploySuite) TestForceMachineExistingContainer(c *C) {
+func (s *DeploySuite) TestForceMachineExistingContainer(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	params := &state.AddMachineParams{
 		Series:        "precise",
@@ -200,41 +200,41 @@ func (s *DeploySuite) TestForceMachineExistingContainer(c *C) {
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(params)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", container.Id(), "local:dummy", "portlandia")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertForceMachine(c, container.Id())
 	machines, err := s.State.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(machines, HasLen, 2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 2)
 }
 
-func (s *DeploySuite) TestForceMachineNewContainer(c *C) {
+func (s *DeploySuite) TestForceMachineNewContainer(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = runDeploy(c, "--to", "lxc:"+machine.Id(), "local:dummy", "portlandia")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertForceMachine(c, machine.Id()+"/lxc/0")
 	machines, err := s.State.AllMachines()
-	c.Assert(err, IsNil)
-	c.Assert(machines, HasLen, 2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(machines, gc.HasLen, 2)
 }
 
-func (s *DeploySuite) TestForceMachineNotFound(c *C) {
+func (s *DeploySuite) TestForceMachineNotFound(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
 	err := runDeploy(c, "--to", "42", "local:dummy", "portlandia")
-	c.Assert(err, ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
+	c.Assert(err, gc.ErrorMatches, `cannot assign unit "portlandia/0" to machine: machine 42 not found`)
 	_, err = s.State.Service("dummy")
-	c.Assert(err, ErrorMatches, `service "dummy" not found`)
+	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
 }
 
-func (s *DeploySuite) TestForceMachineSubordinate(c *C) {
+func (s *DeploySuite) TestForceMachineSubordinate(c *gc.C) {
 	machine, err := s.State.AddMachine("precise", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	coretesting.Charms.BundlePath(s.SeriesPath, "logging")
 	err = runDeploy(c, "--to", machine.Id(), "local:logging")
-	c.Assert(err, ErrorMatches, "cannot use --num-units or --to with subordinate service")
+	c.Assert(err, gc.ErrorMatches, "cannot use --num-units or --to with subordinate service")
 	_, err = s.State.Service("dummy")
-	c.Assert(err, ErrorMatches, `service "dummy" not found`)
+	c.Assert(err, gc.ErrorMatches, `service "dummy" not found`)
 }
