@@ -25,6 +25,7 @@ func registerSimpleStreamsTests() {
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			BaseURL:       "test:",
 			RequireSigned: false,
+			DataType:      "image-ids",
 			ValidConstraint: sstesting.NewTestConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -145,7 +146,7 @@ func (*simplestreamsSuite) TestExtractIndexesReturnsAllIndexes(c *gc.C) {
 
 func (*simplestreamsSuite) TestHasCloudAcceptsNil(c *gc.C) {
 	metadata := simplestreams.IndexMetadata{Clouds: nil}
-	c.Check(simplestreams.HasCloud(metadata, simplestreams.CloudSpec{}), gc.Equals, false)
+	c.Check(simplestreams.HasCloud(metadata, simplestreams.CloudSpec{}), gc.Equals, true)
 }
 
 func (*simplestreamsSuite) TestHasCloudFindsMatch(c *gc.C) {

@@ -5,37 +5,37 @@ package syslog_test
 
 import (
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/log/syslog"
 	"path/filepath"
 	"testing"
 )
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type SyslogConfigSuite struct {
 	configDir string
 }
 
-var _ = Suite(&SyslogConfigSuite{})
+var _ = gc.Suite(&SyslogConfigSuite{})
 
-func (s *SyslogConfigSuite) SetUpTest(c *C) {
+func (s *SyslogConfigSuite) SetUpTest(c *gc.C) {
 	s.configDir = c.MkDir()
 }
 
-func (s *SyslogConfigSuite) assertRsyslogConfigPath(c *C, slConfig *syslog.SyslogConfig) {
+func (s *SyslogConfigSuite) assertRsyslogConfigPath(c *gc.C, slConfig *syslog.SyslogConfig) {
 	slConfig.ConfigDir = s.configDir
 	slConfig.ConfigFileName = "rsyslog.conf"
-	c.Assert(slConfig.ConfigFilePath(), Equals, filepath.Join(s.configDir, "rsyslog.conf"))
+	c.Assert(slConfig.ConfigFilePath(), gc.Equals, filepath.Join(s.configDir, "rsyslog.conf"))
 }
 
-func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *C, slConfig *syslog.SyslogConfig,
+func (s *SyslogConfigSuite) assertRsyslogConfigContents(c *gc.C, slConfig *syslog.SyslogConfig,
 	expectedConf string) {
 	data, err := slConfig.Render()
-	c.Assert(err, IsNil)
-	c.Assert(string(data), Equals, expectedConf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data), gc.Equals, expectedConf)
 }
 
 var expectedAccumulateSyslogConf = `
@@ -63,21 +63,21 @@ $template JujuLogFormat,"%HOSTNAME%:%msg:2:2048:drop-last-lf%\n"
 & ~
 `
 
-func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *C) {
+func (s *SyslogConfigSuite) TestAccumulateConfigRender(c *gc.C) {
 	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine")
 	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedAccumulateSyslogConf)
 }
 
-func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *C) {
+func (s *SyslogConfigSuite) TestAccumulateConfigWrite(c *gc.C) {
 	syslogConfigRenderer := syslog.NewAccumulateConfig("some-machine")
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
 	err := syslogConfigRenderer.Write()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
-	c.Assert(err, IsNil)
-	c.Assert(string(syslogConfData), Equals, expectedAccumulateSyslogConf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(syslogConfData), gc.Equals, expectedAccumulateSyslogConf)
 }
 
 var expectedForwardSyslogConf = `
@@ -95,19 +95,19 @@ $InputRunFileMonitor
 & ~
 `
 
-func (s *SyslogConfigSuite) TestForwardConfigRender(c *C) {
+func (s *SyslogConfigSuite) TestForwardConfigRender(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", []string{"server"})
 	s.assertRsyslogConfigContents(c, syslogConfigRenderer, expectedForwardSyslogConf)
 }
 
-func (s *SyslogConfigSuite) TestForwardConfigWrite(c *C) {
+func (s *SyslogConfigSuite) TestForwardConfigWrite(c *gc.C) {
 	syslogConfigRenderer := syslog.NewForwardConfig("some-machine", []string{"server"})
 	syslogConfigRenderer.ConfigDir = s.configDir
 	syslogConfigRenderer.ConfigFileName = "rsyslog.conf"
 	s.assertRsyslogConfigPath(c, syslogConfigRenderer)
 	err := syslogConfigRenderer.Write()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	syslogConfData, err := ioutil.ReadFile(syslogConfigRenderer.ConfigFilePath())
-	c.Assert(err, IsNil)
-	c.Assert(string(syslogConfData), Equals, expectedForwardSyslogConf)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(syslogConfData), gc.Equals, expectedForwardSyslogConf)
 }

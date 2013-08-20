@@ -4,7 +4,7 @@
 package upgrader_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
@@ -30,18 +30,18 @@ type upgraderSuite struct {
 	authorizer apiservertesting.FakeAuthorizer
 }
 
-var _ = Suite(&upgraderSuite{})
+var _ = gc.Suite(&upgraderSuite{})
 
-func (s *upgraderSuite) SetUpTest(c *C) {
+func (s *upgraderSuite) SetUpTest(c *gc.C) {
 	s.JujuConnSuite.SetUpTest(c)
 	s.resources = common.NewResources()
 
 	// Create a machine to work with
 	var err error
 	s.rawMachine, err = s.State.AddMachine("series", state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = s.rawMachine.SetPassword("test-password")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// The default auth is as the machine agent
 	s.authorizer = apiservertesting.FakeAuthorizer{
@@ -52,98 +52,98 @@ func (s *upgraderSuite) SetUpTest(c *C) {
 		Client:       false,
 	}
 	s.upgrader, err = upgrader.NewUpgraderAPI(s.State, s.resources, s.authorizer)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *upgraderSuite) TearDownTest(c *C) {
+func (s *upgraderSuite) TearDownTest(c *gc.C) {
 	if s.resources != nil {
 		s.resources.StopAll()
 	}
 	s.JujuConnSuite.TearDownTest(c)
 }
 
-func (s *upgraderSuite) TestWatchAPIVersionNothing(c *C) {
+func (s *upgraderSuite) TestWatchAPIVersionNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.WatchAPIVersion(params.Entities{})
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 0)
 }
 
-func (s *upgraderSuite) TestWatchAPIVersion(c *C) {
+func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := s.upgrader.WatchAPIVersion(args)
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 1)
-	c.Check(results.Results[0].NotifyWatcherId, Not(Equals), "")
-	c.Check(results.Results[0].Error, IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, gc.Not(gc.Equals), "")
+	c.Check(results.Results[0].Error, gc.IsNil)
 	resource := s.resources.Get(results.Results[0].NotifyWatcherId)
-	c.Check(resource, NotNil)
+	c.Check(resource, gc.NotNil)
 
 	w := resource.(state.NotifyWatcher)
 	wc := statetesting.NewNotifyWatcherC(c, s.State, w)
 	wc.AssertNoChange()
 
 	err = statetesting.SetAgentVersion(s.State, version.MustParse("3.4.567.8"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	wc.AssertOneChange()
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
 }
 
-func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *C) {
+func (s *upgraderSuite) TestUpgraderAPIRefusesNonAgent(c *gc.C) {
 	// We aren't even a machine agent
 	anAuthorizer := s.authorizer
 	anAuthorizer.UnitAgent = false
 	anAuthorizer.MachineAgent = false
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, NotNil)
-	c.Check(anUpgrader, IsNil)
-	c.Assert(err, ErrorMatches, "permission denied")
+	c.Check(err, gc.NotNil)
+	c.Check(anUpgrader, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "permission denied")
 }
 
-func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *C) {
+func (s *upgraderSuite) TestWatchAPIVersionRefusesWrongAgent(c *gc.C) {
 	// We are a machine agent, but not the one we are trying to track
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.WatchAPIVersion(args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 1)
-	c.Check(results.Results[0].NotifyWatcherId, Equals, "")
-	c.Assert(results.Results[0].Error, DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Check(results.Results[0].NotifyWatcherId, gc.Equals, "")
+	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *upgraderSuite) TestToolsNothing(c *C) {
+func (s *upgraderSuite) TestToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.Tools(params.Entities{})
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 0)
 }
 
-func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *C) {
+func (s *upgraderSuite) TestToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
 	}
 	results, err := anUpgrader.Tools(args)
 	// It is not an error to make the request, but the specific item is rejected
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 1)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
 	toolResult := results.Results[0]
-	c.Assert(toolResult.Error, DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *upgraderSuite) TestToolsForAgent(c *C) {
+func (s *upgraderSuite) TestToolsForAgent(c *gc.C) {
 	cur := version.Current
 	agent := params.Entity{Tag: s.rawMachine.Tag()}
 
@@ -154,30 +154,30 @@ func (s *upgraderSuite) TestToolsForAgent(c *C) {
 		URL:     "",
 		Version: version.Current,
 	})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	args := params.Entities{Entities: []params.Entity{agent}}
 	results, err := s.upgrader.Tools(args)
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 1)
-	c.Assert(results.Results[0].Error, IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 	agentTools := results.Results[0].Tools
-	c.Check(agentTools.URL, Not(Equals), "")
-	c.Check(agentTools.Version, DeepEquals, cur)
+	c.Check(agentTools.URL, gc.Not(gc.Equals), "")
+	c.Check(agentTools.Version, gc.DeepEquals, cur)
 }
 
-func (s *upgraderSuite) TestSetToolsNothing(c *C) {
+func (s *upgraderSuite) TestSetToolsNothing(c *gc.C) {
 	// Not an error to watch nothing
 	results, err := s.upgrader.SetTools(params.SetAgentsTools{})
-	c.Assert(err, IsNil)
-	c.Check(results.Results, HasLen, 0)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 0)
 }
 
-func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
+func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *gc.C) {
 	anAuthorizer := s.authorizer
 	anAuthorizer.Tag = "machine-12354"
 	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 	args := params.SetAgentsTools{
 		AgentTools: []params.SetAgentTools{{
 			Tag: s.rawMachine.Tag(),
@@ -188,11 +188,11 @@ func (s *upgraderSuite) TestSetToolsRefusesWrongAgent(c *C) {
 	}
 
 	results, err := anUpgrader.SetTools(args)
-	c.Assert(results.Results, HasLen, 1)
-	c.Assert(results.Results[0].Error, DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
-func (s *upgraderSuite) TestSetTools(c *C) {
+func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	cur := version.Current
 	_, err := s.rawMachine.AgentTools()
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
@@ -205,20 +205,20 @@ func (s *upgraderSuite) TestSetTools(c *C) {
 		},
 	}
 	results, err := s.upgrader.SetTools(args)
-	c.Assert(err, IsNil)
-	c.Assert(results.Results, HasLen, 1)
-	c.Assert(results.Results[0].Error, IsNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
 	// Check that the new value actually got set, we must Refresh because
 	// it was set on a different Machine object
 	err = s.rawMachine.Refresh()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	realTools, err := s.rawMachine.AgentTools()
-	c.Assert(err, IsNil)
-	c.Check(realTools.Version.Arch, Equals, cur.Arch)
-	c.Check(realTools.Version.Series, Equals, cur.Series)
-	c.Check(realTools.Version.Major, Equals, cur.Major)
-	c.Check(realTools.Version.Minor, Equals, cur.Minor)
-	c.Check(realTools.Version.Patch, Equals, cur.Patch)
-	c.Check(realTools.Version.Build, Equals, cur.Build)
-	c.Check(realTools.URL, Equals, "")
+	c.Assert(err, gc.IsNil)
+	c.Check(realTools.Version.Arch, gc.Equals, cur.Arch)
+	c.Check(realTools.Version.Series, gc.Equals, cur.Series)
+	c.Check(realTools.Version.Major, gc.Equals, cur.Major)
+	c.Check(realTools.Version.Minor, gc.Equals, cur.Minor)
+	c.Check(realTools.Version.Patch, gc.Equals, cur.Patch)
+	c.Check(realTools.Version.Build, gc.Equals, cur.Build)
+	c.Check(realTools.URL, gc.Equals, "")
 }

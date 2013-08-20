@@ -4,7 +4,7 @@
 package client_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -16,7 +16,7 @@ type permSuite struct {
 	baseSuite
 }
 
-var _ = Suite(&permSuite{})
+var _ = gc.Suite(&permSuite{})
 
 // Most (if not all) of the permission tests below aim to test
 // end-to-end operations execution through the API, but do not care
@@ -29,7 +29,7 @@ var operationPermTests = []struct {
 	// op performs the operation to be tested using the given state
 	// connection. It returns a function that should be used to
 	// undo any changes made by the operation.
-	op    func(c *C, st *api.State, mst *state.State) (reset func(), err error)
+	op    func(c *gc.C, st *api.State, mst *state.State) (reset func(), err error)
 	allow []string
 	deny  []string
 }{{
@@ -141,7 +141,7 @@ loop:
 	return p
 }
 
-func (s *permSuite) TestOperationPerm(c *C) {
+func (s *permSuite) TestOperationPerm(c *gc.C) {
 	entities := s.setUpScenario(c)
 	for i, t := range operationPermTests {
 		allow := allowed(entities, t.allow, t.deny)
@@ -150,10 +150,10 @@ func (s *permSuite) TestOperationPerm(c *C) {
 			st := s.openAs(c, e)
 			reset, err := t.op(c, st, s.State)
 			if allow[e] {
-				c.Check(err, IsNil)
+				c.Check(err, gc.IsNil)
 			} else {
-				c.Check(err, ErrorMatches, "permission denied")
-				c.Check(params.ErrCode(err), Equals, params.CodeUnauthorized)
+				c.Check(err, gc.ErrorMatches, "permission denied")
+				c.Check(params.ErrCode(err), gc.Equals, params.CodeUnauthorized)
 			}
 			reset()
 			st.Close()
@@ -161,19 +161,19 @@ func (s *permSuite) TestOperationPerm(c *C) {
 	}
 }
 
-func opClientCharmInfo(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientCharmInfo(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	info, err := st.Client().CharmInfo("local:series/wordpress-3")
 	if err != nil {
-		c.Check(info, IsNil)
+		c.Check(info, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(info.URL, Equals, "local:series/wordpress-3")
-	c.Assert(info.Meta.Name, Equals, "wordpress")
-	c.Assert(info.Revision, Equals, 3)
+	c.Assert(info.URL, gc.Equals, "local:series/wordpress-3")
+	c.Assert(info.Meta.Name, gc.Equals, "wordpress")
+	c.Assert(info.Revision, gc.Equals, 3)
 	return func() {}, nil
 }
 
-func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddRelation("nosuch1", "nosuch2")
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
@@ -181,7 +181,7 @@ func opClientAddRelation(c *C, st *api.State, mst *state.State) (func(), error) 
 	return func() {}, err
 }
 
-func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientDestroyRelation(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().DestroyRelation("nosuch1", "nosuch2")
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
@@ -189,26 +189,26 @@ func opClientDestroyRelation(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, err
 }
 
-func opClientStatus(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientStatus(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	status, err := st.Client().Status()
 	if err != nil {
-		c.Check(status, IsNil)
+		c.Check(status, gc.IsNil)
 		return func() {}, err
 	}
-	c.Assert(status, DeepEquals, scenarioStatus)
+	c.Assert(status, gc.DeepEquals, scenarioStatus)
 	return func() {}, nil
 }
 
-func resetBlogTitle(c *C, st *api.State) func() {
+func resetBlogTitle(c *gc.C, st *api.State) func() {
 	return func() {
 		err := st.Client().ServiceSet("wordpress", map[string]string{
 			"blog-title": "",
 		})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
-func opClientServiceSet(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceSet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSet("wordpress", map[string]string{
 		"blog-title": "foo",
 	})
@@ -218,7 +218,7 @@ func opClientServiceSet(c *C, st *api.State, mst *state.State) (func(), error) {
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceSetYAML(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceSetYAML(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetYAML("wordpress", `"wordpress": {"blog-title": "foo"}`)
 	if err != nil {
 		return func() {}, err
@@ -226,7 +226,7 @@ func opClientServiceSetYAML(c *C, st *api.State, mst *state.State) (func(), erro
 	return resetBlogTitle(c, st), nil
 }
 
-func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceGet(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().ServiceGet("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -234,19 +234,19 @@ func opClientServiceGet(c *C, st *api.State, mst *state.State) (func(), error) {
 	return func() {}, nil
 }
 
-func opClientServiceExpose(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceExpose(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceExpose("wordpress")
 	if err != nil {
 		return func() {}, err
 	}
 	return func() {
 		svc, err := mst.Service("wordpress")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		svc.ClearExposed()
 	}, nil
 }
 
-func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceUnexpose(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceUnexpose("wordpress")
 	if err != nil {
 		return func() {}, err
@@ -254,7 +254,7 @@ func opClientServiceUnexpose(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, nil
 }
 
-func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
+func opClientResolved(c *gc.C, st *api.State, _ *state.State) (func(), error) {
 	err := st.Client().Resolved("wordpress/0", false)
 	// There are several scenarios in which this test is called, one is
 	// that the user is not authorized.  In that case we want to exit now,
@@ -267,21 +267,21 @@ func opClientResolved(c *C, st *api.State, _ *state.State) (func(), error) {
 	// because the unit is not in an error state when we tried to resolve
 	// the error.  Therefore, since it is complaining it means that the
 	// call to Resolved worked, so we're happy.
-	c.Assert(err, NotNil)
-	c.Assert(err.Error(), Equals, `unit "wordpress/0" is not in an error state`)
+	c.Assert(err, gc.NotNil)
+	c.Assert(err.Error(), gc.Equals, `unit "wordpress/0" is not in an error state`)
 	return func() {}, nil
 }
 
-func opClientGetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientGetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	ann, err := st.Client().GetAnnotations("service-wordpress")
 	if err != nil {
 		return func() {}, err
 	}
-	c.Assert(ann, DeepEquals, make(map[string]string))
+	c.Assert(ann, gc.DeepEquals, make(map[string]string))
 	return func() {}, nil
 }
 
-func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetAnnotations(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	pairs := map[string]string{"key1": "value1", "key2": "value2"}
 	err := st.Client().SetAnnotations("service-wordpress", pairs)
 	if err != nil {
@@ -293,7 +293,7 @@ func opClientSetAnnotations(c *C, st *api.State, mst *state.State) (func(), erro
 	}, nil
 }
 
-func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceDeploy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDeploy("mad:bad/url-1", "x", 1, "", constraints.Value{})
 	if err.Error() == `charm URL has invalid schema: "mad:bad/url-1"` {
 		err = nil
@@ -301,7 +301,7 @@ func opClientServiceDeploy(c *C, st *api.State, mst *state.State) (func(), error
 	return func() {}, err
 }
 
-func opClientServiceUpdate(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceUpdate(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	args := params.ServiceUpdate{
 		ServiceName:     "no-such-charm",
 		CharmUrl:        "cs:series/wordpress-42",
@@ -316,7 +316,7 @@ func opClientServiceUpdate(c *C, st *api.State, mst *state.State) (func(), error
 	return func() {}, err
 }
 
-func opClientServiceSetCharm(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceSetCharm(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceSetCharm("nosuch", "local:series/wordpress", false)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
@@ -324,7 +324,7 @@ func opClientServiceSetCharm(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, err
 }
 
-func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientAddServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().AddServiceUnits("nosuch", 1)
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
@@ -332,7 +332,7 @@ func opClientAddServiceUnits(c *C, st *api.State, mst *state.State) (func(), err
 	return func() {}, err
 }
 
-func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientDestroyServiceUnits(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().DestroyServiceUnits([]string{"wordpress/99"})
 	if err != nil && strings.HasPrefix(err.Error(), "no units were destroyed") {
 		err = nil
@@ -340,7 +340,7 @@ func opClientDestroyServiceUnits(c *C, st *api.State, mst *state.State) (func(),
 	return func() {}, err
 }
 
-func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientServiceDestroy(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	err := st.Client().ServiceDestroy("non-existent")
 	if params.ErrCode(err) == params.CodeNotFound {
 		err = nil
@@ -348,12 +348,12 @@ func opClientServiceDestroy(c *C, st *api.State, mst *state.State) (func(), erro
 	return func() {}, err
 }
 
-func opClientGetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientGetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	_, err := st.Client().GetServiceConstraints("wordpress")
 	return func() {}, err
 }
 
-func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientSetServiceConstraints(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	nullConstraints := constraints.Value{}
 	err := st.Client().SetServiceConstraints("wordpress", nullConstraints)
 	if err != nil {
@@ -362,7 +362,7 @@ func opClientSetServiceConstraints(c *C, st *api.State, mst *state.State) (func(
 	return func() {}, nil
 }
 
-func opClientWatchAll(c *C, st *api.State, mst *state.State) (func(), error) {
+func opClientWatchAll(c *gc.C, st *api.State, mst *state.State) (func(), error) {
 	watcher, err := st.Client().WatchAll()
 	if err == nil {
 		watcher.Stop()

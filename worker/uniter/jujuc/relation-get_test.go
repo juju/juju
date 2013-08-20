@@ -6,7 +6,7 @@ package jujuc_test
 import (
 	"fmt"
 	"io/ioutil"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/worker/uniter/jujuc"
@@ -17,9 +17,9 @@ type RelationGetSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&RelationGetSuite{})
+var _ = gc.Suite(&RelationGetSuite{})
 
-func (s *RelationGetSuite) SetUpTest(c *C) {
+func (s *RelationGetSuite) SetUpTest(c *gc.C) {
 	s.ContextSuite.SetUpTest(c)
 	s.rels[0].units["u/0"]["private-address"] = "foo: bar\n"
 	s.rels[1].units["m/0"] = map[string]interface{}{"pew": "pew\npew\n"}
@@ -33,7 +33,7 @@ var relationGetTests = []struct {
 	args     []string
 	code     int
 	out      string
-	checkctx func(*C, *cmd.Context)
+	checkctx func(*gc.C, *cmd.Context)
 }{
 	{
 		summary: "no default relation",
@@ -163,26 +163,26 @@ var relationGetTests = []struct {
 	},
 }
 
-func (s *RelationGetSuite) TestRelationGet(c *C) {
+func (s *RelationGetSuite) TestRelationGet(c *gc.C) {
 	for i, t := range relationGetTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, "relation-get")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.args)
-		c.Assert(code, Equals, t.code)
+		c.Assert(code, gc.Equals, t.code)
 		if code == 0 {
-			c.Assert(bufferString(ctx.Stderr), Equals, "")
+			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 			expect := t.out
 			if expect != "" {
 				expect = expect + "\n"
 			}
-			c.Assert(bufferString(ctx.Stdout), Equals, expect)
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
 		} else {
-			c.Assert(bufferString(ctx.Stdout), Equals, "")
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 			expect := fmt.Sprintf(`(.|\n)*error: %s\n`, t.out)
-			c.Assert(bufferString(ctx.Stderr), Matches, expect)
+			c.Assert(bufferString(ctx.Stderr), gc.Matches, expect)
 		}
 	}
 }
@@ -228,35 +228,35 @@ var relationGetHelpTests = []struct {
 	},
 }
 
-func (s *RelationGetSuite) TestHelp(c *C) {
+func (s *RelationGetSuite) TestHelp(c *gc.C) {
 	for i, t := range relationGetHelpTests {
 		c.Logf("test %d", i)
 		hctx := s.GetHookContext(c, t.relid, t.unit)
 		com, err := jujuc.NewCommand(hctx, "relation-get")
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, []string{"--help"})
-		c.Assert(code, Equals, 0)
+		c.Assert(code, gc.Equals, 0)
 		unitHelp := ""
 		if t.unit != "" {
 			unitHelp = fmt.Sprintf("Current default unit id is %q.\n", t.unit)
 		}
 		expect := fmt.Sprintf(helpTemplate, t.usage, t.rel, unitHelp)
-		c.Assert(bufferString(ctx.Stdout), Equals, expect)
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, expect)
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	}
 }
 
-func (s *RelationGetSuite) TestOutputPath(c *C) {
+func (s *RelationGetSuite) TestOutputPath(c *gc.C) {
 	hctx := s.GetHookContext(c, 1, "m/0")
 	com, err := jujuc.NewCommand(hctx, "relation-get")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx := testing.Context(c)
 	code := cmd.Main(com, ctx, []string{"--output", "some-file", "pew"})
-	c.Assert(code, Equals, 0)
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "some-file"))
-	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "pew\npew\n\n")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, "pew\npew\n\n")
 }

@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
@@ -32,17 +32,17 @@ type ConnSuite struct {
 	State       *state.State
 }
 
-func (cs *ConnSuite) SetUpSuite(c *C) {
+func (cs *ConnSuite) SetUpSuite(c *gc.C) {
 	cs.LoggingSuite.SetUpSuite(c)
 	cs.MgoSuite.SetUpSuite(c)
 }
 
-func (cs *ConnSuite) TearDownSuite(c *C) {
+func (cs *ConnSuite) TearDownSuite(c *gc.C) {
 	cs.MgoSuite.TearDownSuite(c)
 	cs.LoggingSuite.TearDownSuite(c)
 }
 
-func (cs *ConnSuite) SetUpTest(c *C) {
+func (cs *ConnSuite) SetUpTest(c *gc.C) {
 	cs.LoggingSuite.SetUpTest(c)
 	cs.MgoSuite.SetUpTest(c)
 	cs.State = state.TestingInitialize(c, nil)
@@ -54,29 +54,29 @@ func (cs *ConnSuite) SetUpTest(c *C) {
 	cs.units = cs.MgoSuite.Session.DB("juju").C("units")
 }
 
-func (cs *ConnSuite) TearDownTest(c *C) {
+func (cs *ConnSuite) TearDownTest(c *gc.C) {
 	cs.State.Close()
 	cs.MgoSuite.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
+func (s *ConnSuite) AddTestingCharm(c *gc.C, name string) *state.Charm {
 	return state.AddTestingCharm(c, s.State, name)
 }
 
-func (s *ConnSuite) AddSeriesCharm(c *C, name, series string) *state.Charm {
+func (s *ConnSuite) AddSeriesCharm(c *gc.C, name, series string) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "", "", series, -1)
 }
 
 // AddConfigCharm clones a testing charm, replaces its config with
 // the given YAML string and adds it to the state, using the given
 // revision.
-func (s *ConnSuite) AddConfigCharm(c *C, name, configYaml string, revision int) *state.Charm {
+func (s *ConnSuite) AddConfigCharm(c *gc.C, name, configYaml string, revision int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "config.yaml", configYaml, "series", revision)
 }
 
 // AddMetaCharm clones a testing charm, replaces its metadata with the
 // given YAML string and adds it to the state, using the given revision.
-func (s *ConnSuite) AddMetaCharm(c *C, name, metaYaml string, revsion int) *state.Charm {
+func (s *ConnSuite) AddMetaCharm(c *gc.C, name, metaYaml string, revsion int) *state.Charm {
 	return state.AddCustomCharm(c, s.State, name, "metadata.yaml", metaYaml, "series", revsion)
 }

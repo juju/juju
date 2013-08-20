@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/state"
@@ -20,7 +20,7 @@ func Test(t *stdtesting.T) { coretesting.MgoTestPackage(t) }
 
 type HookQueueSuite struct{}
 
-var _ = Suite(&HookQueueSuite{})
+var _ = gc.Suite(&HookQueueSuite{})
 
 type msi map[string]int64
 
@@ -163,7 +163,7 @@ var aliveHookQueueTests = []hookQueueTest{
 	),
 }
 
-func (s *HookQueueSuite) TestAliveHookQueue(c *C) {
+func (s *HookQueueSuite) TestAliveHookQueue(c *gc.C) {
 	for i, t := range aliveHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := make(chan hook.Info)
@@ -176,7 +176,7 @@ func (s *HookQueueSuite) TestAliveHookQueue(c *C) {
 		}
 		expect{}.check(c, in, out)
 		q.Stop()
-		c.Assert(ruw.stopped, Equals, true)
+		c.Assert(ruw.stopped, gc.Equals, true)
 	}
 }
 
@@ -199,7 +199,7 @@ var dyingHookQueueTests = []hookQueueTest{
 	),
 }
 
-func (s *HookQueueSuite) TestDyingHookQueue(c *C) {
+func (s *HookQueueSuite) TestDyingHookQueue(c *gc.C) {
 	for i, t := range dyingHookQueueTests {
 		c.Logf("test %d: %s", i, t.summary)
 		out := make(chan hook.Info)
@@ -235,7 +235,7 @@ func (w *RUW) Err() error {
 }
 
 type checker interface {
-	check(c *C, in chan state.RelationUnitsChange, out chan hook.Info)
+	check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info)
 }
 
 type send struct {
@@ -243,7 +243,7 @@ type send struct {
 	departed []string
 }
 
-func (d send) check(c *C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d send) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
 	ruc := state.RelationUnitsChange{Changed: map[string]state.UnitSettings{}}
 	for name, version := range d.changed {
 		ruc.Changed[name] = state.UnitSettings{
@@ -261,7 +261,7 @@ type advance struct {
 	count int
 }
 
-func (d advance) check(c *C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d advance) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
 	for i := 0; i < d.count; i++ {
 		select {
 		case <-out:
@@ -278,7 +278,7 @@ type expect struct {
 	members msi
 }
 
-func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Info) {
+func (d expect) check(c *gc.C, in chan state.RelationUnitsChange, out chan hook.Info) {
 	if d.hook == "" {
 		select {
 		case unexpected := <-out:
@@ -301,7 +301,7 @@ func (d expect) check(c *C, in chan state.RelationUnitsChange, out chan hook.Inf
 	}
 	select {
 	case actual := <-out:
-		c.Assert(actual, DeepEquals, expect)
+		c.Assert(actual, gc.DeepEquals, expect)
 	case <-time.After(coretesting.LongWait):
 		c.Fatalf("timed out waiting for %#v", expect)
 	}

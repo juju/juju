@@ -19,6 +19,9 @@ const (
 	imageIds = "image-ids"
 )
 
+// This needs to be a var so we can override it for testing.
+var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
+
 // ImageConstraint defines criteria used to find an image metadata record.
 type ImageConstraint struct {
 	simplestreams.LookupParams
