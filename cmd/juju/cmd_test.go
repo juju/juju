@@ -150,7 +150,7 @@ func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
 	// Prepare the environment so we can destroy it.
 	_, err := environs.PrepareFromName("")
 	c.Assert(err, gc.IsNil)
-	
+
 	// normal destroy
 	opc, errc := runCommand(nil, new(DestroyEnvironmentCommand), "--yes")
 	c.Check(<-errc, gc.IsNil)

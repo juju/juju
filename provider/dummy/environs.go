@@ -142,7 +142,7 @@ type environState struct {
 // environ represents a client's connection to a given environment's
 // state.
 type environ struct {
-	name string
+	name         string
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 }
@@ -229,10 +229,10 @@ func (e *environ) GetStateInAPIServer() *state.State {
 // storage requests.
 func newState(name string, ops chan<- Operation) *environState {
 	s := &environState{
-		name:         name,
-		ops:          ops,
-		insts:        make(map[instance.Id]*dummyInstance),
-		globalPorts:  make(map[instance.Port]bool),
+		name:        name,
+		ops:         ops,
+		insts:       make(map[instance.Id]*dummyInstance),
+		globalPorts: make(map[instance.Port]bool),
 	}
 	s.storage = newStorage(s, "/"+name+"/private")
 	s.publicStorage = newStorage(s, "/"+name+"/public")
@@ -356,7 +356,7 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	env := &environ{
-		name: ecfg.Name(),
+		name:         ecfg.Name(),
 		ecfgUnlocked: ecfg,
 	}
 	if err := env.checkBroken("Open"); err != nil {
@@ -582,12 +582,12 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
 	i := &dummyInstance{
-		id:        instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
-		ports:     make(map[instance.Port]bool),
-		machineId: machineId,
-		series:    series,
+		id:           instance.Id(fmt.Sprintf("%s-%d", e.name, estate.maxId)),
+		ports:        make(map[instance.Port]bool),
+		machineId:    machineId,
+		series:       series,
 		firewallMode: e.Config().FirewallMode(),
-		state: estate,
+		state:        estate,
 	}
 	var hc *instance.HardwareCharacteristics
 	// To match current system capability, only provide hardware characteristics for
@@ -739,11 +739,11 @@ func (*environ) Provider() environs.EnvironProvider {
 }
 
 type dummyInstance struct {
-	state     *environState
-	ports     map[instance.Port]bool
-	id        instance.Id
-	machineId string
-	series    string
+	state        *environState
+	ports        map[instance.Port]bool
+	id           instance.Id
+	machineId    string
+	series       string
 	firewallMode config.FirewallMode
 }
 

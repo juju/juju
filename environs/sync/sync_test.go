@@ -92,23 +92,21 @@ var tests = []struct {
 }{
 	{
 		description: "copy newest from the filesystem",
-		ctx: &sync.SyncContext{
-		},
+		ctx:         &sync.SyncContext{},
 		source:      true,
 		tools:       v100all,
 		emptyPublic: true,
 	},
 	{
 		description: "copy newest from the dummy environment",
-		ctx: &sync.SyncContext{
-		},
+		ctx:         &sync.SyncContext{},
 		tools:       v100all,
 		emptyPublic: true,
 	},
 	{
 		description: "copy newest dev from the dummy environment",
 		ctx: &sync.SyncContext{
-			Dev:     true,
+			Dev: true,
 		},
 		tools:       v190all,
 		emptyPublic: true,
@@ -181,7 +179,7 @@ func (s *syncSuite) TestCopyToDummyPublicBlockedByPrivate(c *gc.C) {
 
 	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
 	ctx := &sync.SyncContext{
-		Target:     s.targetEnv,
+		Target:       s.targetEnv,
 		PublicBucket: true,
 	}
 	err := sync.SyncTools(ctx)

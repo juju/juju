@@ -70,7 +70,7 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	}
 	// Prepare syncing.
 	sctx := &sync.SyncContext{
-		Target:     environ,
+		Target:       environ,
 		AllVersions:  c.allVersions,
 		DryRun:       c.dryRun,
 		PublicBucket: c.publicBucket,

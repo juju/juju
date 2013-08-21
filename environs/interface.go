@@ -22,7 +22,7 @@ type EnvironProvider interface {
 	// be saved to be used later. If the environment is already
 	// prepared, this call is equivalent to Open.
 	Prepare(cfg *config.Config) (Environ, error)
-	
+
 	// Open opens the environment and returns it.
 	// The configuration must have come from a previously
 	// prepared environment.

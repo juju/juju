@@ -114,7 +114,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
 			Target: env,
-			Source:  c.Source,
+			Source: c.Source,
 		}
 		if err = syncTools(sctx); err != nil {
 			return err

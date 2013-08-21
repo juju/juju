@@ -13,8 +13,8 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/provider/dummy"
-	jc "launchpad.net/juju-core/testing/checkers"
 	coretesting "launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 type syncToolsSuite struct {
@@ -73,14 +73,13 @@ var tests = []struct {
 	{
 		description: "environment as only argument",
 		args:        []string{"-e", "test-target"},
-		sctx: &sync.SyncContext{
-		},
+		sctx:        &sync.SyncContext{},
 	},
 	{
 		description: "specifying also the synchronization source",
 		args:        []string{"-e", "test-target", "--source", "/foo/bar"},
 		sctx: &sync.SyncContext{
-			Source:  "/foo/bar",
+			Source: "/foo/bar",
 		},
 	},
 	{
@@ -102,7 +101,7 @@ var tests = []struct {
 		description: "just make a dry run",
 		args:        []string{"-e", "test-target", "--dry-run"},
 		sctx: &sync.SyncContext{
-			DryRun:  true,
+			DryRun: true,
 		},
 	},
 }
@@ -113,7 +112,7 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 }
 
 func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
-// makeEmptyFakeHome creates a faked home without tools.
+	// makeEmptyFakeHome creates a faked home without tools.
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.description)
 		called := false
@@ -125,7 +124,7 @@ func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
 			c.Assert(sctx.PublicBucket, gc.Equals, test.sctx.PublicBucket)
 			c.Assert(sctx.Dev, gc.Equals, test.sctx.Dev)
 			c.Assert(sctx.Source, gc.Equals, test.sctx.Source)
-			s.targetEnv.Storage()		// This will panic if the environment is not prepared.
+			s.targetEnv.Storage() // This will panic if the environment is not prepared.
 			called = true
 			return nil
 		}

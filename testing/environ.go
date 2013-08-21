@@ -31,7 +31,7 @@ func EnvironConfig(c *C) *config.Config {
 
 const (
 	SampleEnvName = "erewhemos"
-	EnvDefault = "default:\n  " + SampleEnvName + "\n"
+	EnvDefault    = "default:\n  " + SampleEnvName + "\n"
 )
 
 // Environment names below are explicit as it makes them more readable.
