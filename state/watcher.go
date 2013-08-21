@@ -1271,7 +1271,6 @@ func (w *cleanupWatcher) loop() (err error) {
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
 		case ch := <-in:
-			// Simply emit event for each change.
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
 			}
