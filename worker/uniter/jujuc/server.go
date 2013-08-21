@@ -9,15 +9,18 @@ package jujuc
 import (
 	"bytes"
 	"fmt"
-	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/log"
 	"net"
 	"net/rpc"
-	"os"
 	"path/filepath"
 	"sort"
 	"sync"
+
+	"launchpad.net/loggo"
+
+	"launchpad.net/juju-core/cmd"
 )
+
+var logger = loggo.GetLogger("worker.uniter.jujuc")
 
 // newCommands maps Command names to initializers.
 var newCommands = map[string]func(Context) cmd.Command{
@@ -102,8 +105,8 @@ func (j *Jujuc) Main(req Request, resp *Response) error {
 	}
 	j.mu.Lock()
 	defer j.mu.Unlock()
-	log.Infof("worker/uniter/jujuc: running hook tool %q %q", req.CommandName, req.Args)
-	log.Debugf("worker/uniter/jujuc: hook context id %q; dir %q", req.ContextId, req.Dir)
+	logger.Infof("running hook tool %q %q", req.CommandName, req.Args)
+	logger.Debugf("hook context id %q; dir %q", req.ContextId, req.Dir)
 	resp.Code = cmd.Main(c, ctx, req.Args)
 	resp.Stdout = stdout.Bytes()
 	resp.Stderr = stderr.Bytes()
@@ -176,6 +179,5 @@ func (s *Server) Run() (err error) {
 func (s *Server) Close() {
 	close(s.closing)
 	s.listener.Close()
-	os.Remove(s.socketPath)
 	<-s.closed
 }
