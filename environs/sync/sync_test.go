@@ -53,6 +53,7 @@ environments:
 	var err error
 	s.targetEnv, err = environs.PrepareFromName("test-target")
 	c.Assert(err, gc.IsNil)
+	envtesting.RemoveAllTools(c, s.targetEnv)
 
 	// Create a source storage.
 	s.storage, err = envtesting.NewEC2HTTPTestStorage("127.0.0.1")
