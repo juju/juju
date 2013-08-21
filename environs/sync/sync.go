@@ -46,7 +46,8 @@ type SyncContext struct {
 	// Dev controls the copy of development versions as well as released ones.
 	Dev bool
 
-	// Source allows to chose a location on the file system as source.
+	// Source, if non-empty, specifies a directory in the local file system
+	// to use as a source.
 	Source string
 }
 
