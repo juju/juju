@@ -10,12 +10,13 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
@@ -171,7 +172,7 @@ func (p *Provisioner) getBroker() (Broker, error) {
 }
 
 func (p *Provisioner) getAgentTools() (*tools.Tools, error) {
-	tools, err := tools.ReadTools(p.dataDir, version.Current)
+	tools, err := agenttools.ReadTools(p.dataDir, version.Current)
 	if err != nil {
 		logger.Errorf("cannot read agent tools from %q", p.dataDir)
 		return nil, err

@@ -16,12 +16,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -86,11 +86,11 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 
 	for i, t := range []struct {
 		majorVersion int
-		list         tools.List
+		list         coretools.List
 	}{{
-		0, tools.List{t001},
+		0, coretools.List{t001},
 	}, {
-		1, tools.List{t100, t101},
+		1, coretools.List{t100, t101},
 	}, {
 		2, nil,
 	}} {
@@ -100,7 +100,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 			c.Assert(err, gc.IsNil)
 			c.Assert(list, gc.DeepEquals, t.list)
 		} else {
-			c.Assert(err, gc.Equals, tools.ErrNoMatches)
+			c.Assert(err, gc.Equals, coretools.ErrNoMatches)
 		}
 	}
 }
@@ -171,7 +171,7 @@ func (s *StorageSuite) TestUploadBadBuild(c *gc.C) {
 
 // downloadTools downloads the supplied tools and extracts them into a
 // new directory.
-func downloadTools(c *gc.C, t *agenttools.Tools) string {
+func downloadTools(c *gc.C, t *coretools.Tools) string {
 	resp, err := http.Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
@@ -184,7 +184,7 @@ func downloadTools(c *gc.C, t *agenttools.Tools) string {
 }
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
-func downloadToolsRaw(c *gc.C, t *agenttools.Tools) []byte {
+func downloadToolsRaw(c *gc.C, t *coretools.Tools) []byte {
 	resp, err := http.Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()

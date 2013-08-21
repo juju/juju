@@ -15,10 +15,10 @@ import (
 
 	"launchpad.net/loggo"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -75,7 +75,7 @@ func SyncTools(ctx *SyncContext) error {
 	}
 	if !ctx.Dev {
 		// No development versions, only released ones.
-		filter := tools.Filter{Released: true}
+		filter := coretools.Filter{Released: true}
 		if sourceTools, err = sourceTools.Match(filter); err != nil {
 			return err
 		}
@@ -95,7 +95,7 @@ func SyncTools(ctx *SyncContext) error {
 	if ctx.PublicBucket {
 		switch _, err := tools.ReadList(ctx.targetStorage, majorVersion); err {
 		case tools.ErrNoTools:
-		case nil, tools.ErrNoMatches:
+		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
 		default:
 			return err
@@ -107,7 +107,7 @@ func SyncTools(ctx *SyncContext) error {
 	}
 	targetTools, err := tools.ReadList(ctx.targetStorage, majorVersion)
 	switch err {
-	case nil, tools.ErrNoMatches, tools.ErrNoTools:
+	case nil, coretools.ErrNoMatches, tools.ErrNoTools:
 	default:
 		return err
 	}
@@ -134,7 +134,7 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*agenttools.Tools, ctx *SyncContext) error {
+func copyTools(tools []*coretools.Tools, ctx *SyncContext) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if ctx.DryRun {
@@ -148,7 +148,7 @@ func copyTools(tools []*agenttools.Tools, ctx *SyncContext) error {
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *agenttools.Tools, ctx *SyncContext) error {
+func copyOneToolsPackage(tool *coretools.Tools, ctx *SyncContext) error {
 	toolsName := tools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := ctx.sourceStorage.Get(toolsName)

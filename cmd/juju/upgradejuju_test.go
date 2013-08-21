@@ -8,12 +8,12 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -284,7 +284,7 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(storage environs.Storage, forceVersion *version.Number, series ...string) (*agenttools.Tools, error) {
+func mockUploadTools(storage environs.Storage, forceVersion *version.Number, series ...string) (*tools.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion
@@ -304,7 +304,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 	uploadTools = mockUploadTools
 	defer func() {
 		version.Current = oldVersion
-		uploadTools = tools.Upload
+		uploadTools = envtools.Upload
 	}()
 
 	for i, test := range upgradeJujuTests {
@@ -360,7 +360,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJuju(c *gc.C) {
 
 		for _, uploaded := range test.expectUploaded {
 			vers := version.MustParseBinary(uploaded)
-			r, err := s.Conn.Environ.Storage().Get(tools.StorageName(vers))
+			r, err := s.Conn.Environ.Storage().Get(envtools.StorageName(vers))
 			if !c.Check(err, gc.IsNil) {
 				continue
 			}
@@ -397,7 +397,7 @@ func (s *UpgradeJujuSuite) TestUpgradeJujuWithRealUpload(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	vers := version.Current
 	vers.Build = 1
-	name := tools.StorageName(vers)
+	name := envtools.StorageName(vers)
 	r, err := s.Conn.Environ.Storage().Get(name)
 	c.Assert(err, gc.IsNil)
 	r.Close()

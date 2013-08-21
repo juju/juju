@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -161,7 +162,7 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := tools.FindTools(s.targetEnv, 1, tools.Filter{})
+			targetTools, err := tools.FindTools(s.targetEnv, 1, coretools.Filter{})
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
@@ -221,7 +222,7 @@ func assertEmpty(c *gc.C, storage environs.StorageReader) {
 	c.Assert(err, gc.Equals, tools.ErrNoTools)
 }
 
-func assertToolsList(c *gc.C, list tools.List, expected []version.Binary) {
+func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 	urls := list.URLs()
 	c.Check(urls, gc.HasLen, len(expected))
 	for _, vers := range expected {

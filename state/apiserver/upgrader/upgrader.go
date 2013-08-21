@@ -6,13 +6,13 @@ package upgrader
 import (
 	"errors"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
+	agenttools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 

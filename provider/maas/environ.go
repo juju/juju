@@ -12,7 +12,6 @@ import (
 
 	"launchpad.net/gomaasapi"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -22,6 +21,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -212,7 +212,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *agenttools.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools coretools.List) (gomaasapi.MAASObject, *coretools.Tools, error) {
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
@@ -277,7 +277,7 @@ EOF
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))

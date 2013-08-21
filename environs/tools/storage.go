@@ -10,13 +10,12 @@ import (
 	"os"
 	"strings"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
 var ErrNoTools = errors.New("no tools available")
-var ErrNoMatches = errors.New("no matching tools available")
 
 const (
 	DefaultToolPrefix = "tools/juju-"
@@ -38,19 +37,19 @@ func StorageName(vers version.Binary) string {
 
 // ReadList returns a List of the tools in store with the given major version.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(storage environs.StorageReader, majorVersion int) (List, error) {
+func ReadList(storage environs.StorageReader, majorVersion int) (coretools.List, error) {
 	logger.Debugf("reading v%d.* tools", majorVersion)
 	names, err := storage.List(toolPrefix)
 	if err != nil {
 		return nil, err
 	}
-	var list List
+	var list coretools.List
 	var foundAnyTools bool
 	for _, name := range names {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
-		var t agenttools.Tools
+		var t coretools.Tools
 		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
 			continue
@@ -67,7 +66,7 @@ func ReadList(storage environs.StorageReader, majorVersion int) (List, error) {
 	}
 	if len(list) == 0 {
 		if foundAnyTools {
-			return nil, ErrNoMatches
+			return nil, coretools.ErrNoMatches
 		}
 		return nil, ErrNoTools
 	}
@@ -81,7 +80,7 @@ func ReadList(storage environs.StorageReader, majorVersion int) (List, error) {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*agenttools.Tools, error) {
+func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*coretools.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -133,5 +132,5 @@ func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries .
 	if err != nil {
 		return nil, err
 	}
-	return &agenttools.Tools{toolsVersion, url}, nil
+	return &coretools.Tools{toolsVersion, url}, nil
 }

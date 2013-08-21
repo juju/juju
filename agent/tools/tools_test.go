@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/testing"
+	coretest "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -36,7 +37,7 @@ func (t *ToolsSuite) TestPackageDependencies(c *gc.C) {
 	// resulting slice has that prefix removed to keep the output short.
 	c.Assert(testing.FindJujuCoreImports(c, "launchpad.net/juju-core/agent/tools"),
 		gc.DeepEquals,
-		[]string{"utils/set", "version"})
+		[]string{"tools", "version"})
 }
 
 const urlFile = "downloaded-url.txt"
@@ -80,7 +81,7 @@ var unpackToolsBadDataTests = []struct {
 func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 	for i, test := range unpackToolsBadDataTests {
 		c.Logf("test %d", i)
-		testTools := &tools.Tools{
+		testTools := &coretest.Tools{
 			URL:     "http://foo/bar",
 			Version: version.MustParseBinary("1.2.3-foo-bar"),
 		}
@@ -99,7 +100,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		testing.NewTarFile("bar", 0755, "bar contents"),
 		testing.NewTarFile("foo", 0755, "foo contents"),
 	}
-	testTools := &tools.Tools{
+	testTools := &coretest.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
@@ -111,7 +112,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
-	tools2 := &tools.Tools{
+	tools2 := &coretest.Tools{
 		URL:     "http://arble",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
@@ -148,7 +149,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("jujuc", 0755, "juju executable"),
 		testing.NewTarFile("jujud", 0755, "jujuc executable"),
 	}
-	testTools := &tools.Tools{
+	testTools := &coretest.Tools{
 		URL:     "http://foo/bar1",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
@@ -167,7 +168,7 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		testing.NewTarFile("foo", 0755, "foo content"),
 		testing.NewTarFile("bar", 0755, "bar content"),
 	}
-	tools2 := &tools.Tools{
+	tools2 := &coretest.Tools{
 		URL:     "http://foo/bar2",
 		Version: version.MustParseBinary("1.2.4-foo-bar"),
 	}
@@ -189,7 +190,7 @@ func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *tools.Tools, files []*testing.TarFile) {
+func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, files []*testing.TarFile) {
 	var wantNames []string
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)

@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -166,7 +167,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		return nil, errUpToDate
 	}
 	client := version.Current.Number
-	available, err := tools.FindTools(env, client.Major, tools.Filter{})
+	available, err := tools.FindTools(env, client.Major, coretools.Filter{})
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
 			return nil, err
@@ -194,7 +195,7 @@ type upgradeVersions struct {
 	agent  version.Number
 	client version.Number
 	chosen version.Number
-	tools  tools.List
+	tools  coretools.List
 }
 
 // uploadTools compiles jujud from $GOPATH and uploads it into the supplied
@@ -230,7 +231,7 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 	if err != nil {
 		return err
 	}
-	v.tools = tools.List{uploaded}
+	v.tools = coretools.List{uploaded}
 	return nil
 }
 
@@ -241,7 +242,7 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 func (v *upgradeVersions) validate() (err error) {
 	// If not completely specified already, pick a single tools version.
 	v.dev = v.dev || v.chosen.IsDev()
-	filter := tools.Filter{Number: v.chosen, Released: !v.dev}
+	filter := coretools.Filter{Number: v.chosen, Released: !v.dev}
 	if v.tools, err = v.tools.Match(filter); err != nil {
 		return err
 	}
@@ -268,7 +269,7 @@ func (v *upgradeVersions) validate() (err error) {
 
 // uploadVersion returns a copy of the supplied version with a build number
 // higher than any of the supplied tools that share its major, minor and patch.
-func uploadVersion(vers version.Number, existing tools.List) version.Number {
+func uploadVersion(vers version.Number, existing coretools.List) version.Number {
 	vers.Build++
 	for _, t := range existing {
 		if t.Version.Major != vers.Major || t.Version.Minor != vers.Minor || t.Version.Patch != vers.Patch {

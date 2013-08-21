@@ -4,16 +4,18 @@
 package tools
 
 import (
+	"errors"
 	"strings"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
 // List holds tools available in an environment. The order of tools within
 // a List is not significant.
-type List []*agenttools.Tools
+type List []*Tools
+
+var ErrNoMatches = errors.New("no matching tools available")
 
 // String returns the versions of the tools in src, separated by semicolons.
 func (src List) String() string {
@@ -26,21 +28,21 @@ func (src List) String() string {
 
 // Series returns all series for which some tools in src were built.
 func (src List) Series() []string {
-	return src.collect(func(tools *agenttools.Tools) string {
+	return src.collect(func(tools *Tools) string {
 		return tools.Version.Series
 	})
 }
 
 // Arches returns all architectures for which some tools in src were built.
 func (src List) Arches() []string {
-	return src.collect(func(tools *agenttools.Tools) string {
+	return src.collect(func(tools *Tools) string {
 		return tools.Version.Arch
 	})
 }
 
 // collect calls f on all values in src and returns an alphabetically
 // ordered list of the returned results without duplicates.
-func (src List) collect(f func(*agenttools.Tools) string) []string {
+func (src List) collect(f func(*Tools) string) []string {
 	var seen set.Strings
 	for _, tools := range src {
 		seen.Add(f(tools))
@@ -125,7 +127,7 @@ type Filter struct {
 }
 
 // match returns true if the supplied tools match f.
-func (f Filter) match(tools *agenttools.Tools) bool {
+func (f Filter) match(tools *Tools) bool {
 	if f.Released && tools.Version.IsDev() {
 		return false
 	}

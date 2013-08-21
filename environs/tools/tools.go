@@ -6,11 +6,11 @@ package tools
 import (
 	"fmt"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/loggo"
 )
@@ -25,7 +25,7 @@ var logger = loggo.GetLogger("juju.environs.tools")
 // storage are available.
 // If no *available* tools have the supplied major version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(environ environs.Environ, majorVersion int, filter Filter) (list List, err error) {
+func FindTools(environ environs.Environ, majorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 	log.Infof("environs: reading tools with major version %d", majorVersion)
 	defer convertToolsError(&err)
 	// Construct a tools filter.
@@ -56,11 +56,11 @@ func FindTools(environ environs.Environ, majorVersion int, filter Filter) (list 
 // If the environment was not already configured to use a specific agent
 // version, the newest available version will be chosen and set in the
 // environment's configuration.
-func FindBootstrapTools(environ environs.Environ, cons constraints.Value) (list List, err error) {
+func FindBootstrapTools(environ environs.Environ, cons constraints.Value) (list coretools.List, err error) {
 	// Construct a tools filter.
 	cliVersion := version.Current.Number
 	cfg := environ.Config()
-	filter := Filter{
+	filter := coretools.Filter{
 		Series: cfg.DefaultSeries(),
 		Arch:   stringOrEmpty(cons.Arch),
 	}
@@ -106,14 +106,14 @@ func stringOrEmpty(pstr *string) string {
 // constraints.
 // It is an error to call it with an environment not already configured to use
 // a specific agent version.
-func FindInstanceTools(environ environs.Environ, series string, cons constraints.Value) (list List, err error) {
+func FindInstanceTools(environ environs.Environ, series string, cons constraints.Value) (list coretools.List, err error) {
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	agentVersion, ok := environ.Config().AgentVersion()
 	if !ok {
 		return nil, fmt.Errorf("no agent version set in environment configuration")
 	}
-	filter := Filter{
+	filter := coretools.Filter{
 		Number: agentVersion,
 		Series: series,
 		Arch:   stringOrEmpty(cons.Arch),
@@ -125,9 +125,9 @@ func FindInstanceTools(environ environs.Environ, series string, cons constraints
 // TODO(fwereade) this should not exist: it's used by cmd/jujud/Upgrader,
 // which needs to run on every agent and must absolutely *not* in general
 // have access to an environs.Environ.
-func FindExactTools(environ environs.Environ, vers version.Binary) (t *agenttools.Tools, err error) {
+func FindExactTools(environ environs.Environ, vers version.Binary) (t *coretools.Tools, err error) {
 	log.Infof("environs: finding exact version %s", vers)
-	filter := Filter{
+	filter := coretools.Filter{
 		Number: vers.Number,
 		Series: vers.Series,
 		Arch:   vers.Arch,
@@ -141,7 +141,7 @@ func FindExactTools(environ environs.Environ, vers version.Binary) (t *agenttool
 
 // CheckToolsSeries verifies that all the given possible tools are for the
 // given OS series.
-func CheckToolsSeries(toolsList List, series string) error {
+func CheckToolsSeries(toolsList coretools.List, series string) error {
 	toolsSeries := toolsList.Series()
 	if len(toolsSeries) != 1 {
 		return fmt.Errorf("expected single series, got %v", toolsSeries)
@@ -154,7 +154,7 @@ func CheckToolsSeries(toolsList List, series string) error {
 
 func isToolsError(err error) bool {
 	switch err {
-	case ErrNoTools, ErrNoMatches:
+	case ErrNoTools, coretools.ErrNoMatches:
 		return true
 	}
 	return false

@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/agent/tools"
 	coretesting "launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -41,7 +42,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 		coretesting.NewTarFile("bar", 0755, "bar contents"),
 		coretesting.NewTarFile("foo", 0755, "foo contents"),
 	}
-	t1 := &tools.Tools{
+	t1 := &coretools.Tools{
 		URL:     "http://foo/bar",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
@@ -53,7 +54,7 @@ func (s *DiskManagerSuite) TestUnpackToolsContents(c *gc.C) {
 
 	// Try to unpack the same version of tools again - it should succeed,
 	// leaving the original version around.
-	t2 := &tools.Tools{
+	t2 := &coretools.Tools{
 		URL:     "http://arble",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
@@ -75,7 +76,7 @@ func (t *DiskManagerSuite) TestSharedToolsDir(c *gc.C) {
 
 // assertToolsContents asserts that the directory for the tools
 // has the given contents.
-func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *tools.Tools, files []*coretesting.TarFile) {
+func (s *DiskManagerSuite) assertToolsContents(c *gc.C, t *coretools.Tools, files []*coretesting.TarFile) {
 	var wantNames []string
 	for _, f := range files {
 		wantNames = append(wantNames, f.Header.Name)

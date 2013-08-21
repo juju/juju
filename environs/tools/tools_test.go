@@ -6,7 +6,6 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -15,6 +14,7 @@ import (
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -135,7 +135,7 @@ var findToolsTests = []struct {
 	info:    "private tools only, none matching",
 	major:   1,
 	private: v220all,
-	err:     tools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }, {
 	info:    "tools found in private bucket",
 	major:   1,
@@ -157,7 +157,7 @@ var findToolsTests = []struct {
 	major:   1,
 	private: v220all,
 	public:  vAll,
-	err:     tools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }}
 
 func (s *ToolsSuite) TestFindTools(c *gc.C) {
@@ -166,7 +166,7 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := tools.FindTools(s.env, test.major, tools.Filter{})
+		actual, err := tools.FindTools(s.env, test.major, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -271,58 +271,58 @@ var findBootstrapToolsTests = []struct {
 	available:     v220all,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: major downgrades bad",
 	available:     v100Xall,
 	cliVersion:    v220p64,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: no matching series",
 	available:     vAll,
 	cliVersion:    v100p64,
 	defaultSeries: "raring",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: no matching arches",
 	available:     vAll,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
 	constraints:   "arch=arm",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: specific bad major 1",
 	available:     vAll,
 	cliVersion:    v220p64,
 	agentVersion:  v120,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: specific bad major 2",
 	available:     vAll,
 	cliVersion:    v120p64,
 	agentVersion:  v220,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: ignore dev tools 1",
 	available:     v110all,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: ignore dev tools 2",
 	available:     v110all,
 	cliVersion:    v120p64,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: ignore dev tools 3",
 	available:     []version.Binary{v1001p64},
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           tools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli with dev setting picks newest matching 1",
 	available:     v100Xall,
@@ -428,26 +428,26 @@ var findInstanceToolsTests = []struct {
 	available:    v100Xall,
 	agentVersion: v120,
 	series:       "precise",
-	err:          tools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 2",
 	available:    v120all,
 	agentVersion: v110,
 	series:       "precise",
-	err:          tools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 3",
 	available:    v120q,
 	agentVersion: v120,
 	series:       "precise",
-	err:          tools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 4",
 	available:    v120q,
 	agentVersion: v120,
 	series:       "quantal",
 	constraints:  "arch=arm",
-	err:          tools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "actual match 1",
 	available:    vAll,
@@ -512,7 +512,7 @@ var findExactToolsTests = []struct {
 	info:    "only non-matches available in private",
 	private: append(v110all, v100p32, v100q64, v1001p64),
 	seek:    v100p64,
-	err:     tools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }, {
 	info:    "exact match available in private",
 	private: []version.Binary{v100p64},
@@ -521,7 +521,7 @@ var findExactToolsTests = []struct {
 	info:    "only non-matches available in public",
 	private: append(v110all, v100p32, v100q64, v1001p64),
 	seek:    v100p64,
-	err:     tools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in public",
 	public: []version.Binary{v100p64},
@@ -531,7 +531,7 @@ var findExactToolsTests = []struct {
 	private: v110all,
 	public:  []version.Binary{v100p64},
 	seek:    v100p64,
-	err:     tools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }}
 
 func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
@@ -558,14 +558,14 @@ func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 
 // fakeToolsForSeries fakes a Tools object with just enough information for
 // testing the handling its OS series.
-func fakeToolsForSeries(series string) *agenttools.Tools {
-	return &agenttools.Tools{Version: version.Binary{Series: series}}
+func fakeToolsForSeries(series string) *coretools.Tools {
+	return &coretools.Tools{Version: version.Binary{Series: series}}
 }
 
 // fakeToolsList fakes a tools.List containing Tools objects for the given
 // respective series, in the same number and order.
-func fakeToolsList(series ...string) tools.List {
-	list := tools.List{}
+func fakeToolsList(series ...string) coretools.List {
+	list := coretools.List{}
 	for _, name := range series {
 		list = append(list, fakeToolsForSeries(name))
 	}
