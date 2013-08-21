@@ -5,6 +5,7 @@ package ec2_test
 
 import (
 	"bytes"
+	"fmt"
 	"regexp"
 	"sort"
 
@@ -293,6 +294,31 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
 	c.Check(*hc.CpuCores, gc.Equals, uint64(1))
 	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
+}
+
+func (t *localServerSuite) TestAddresses(c *gc.C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	c.Assert(err, gc.IsNil)
+	instId := inst.Id()
+	addrs, err := inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	c.Assert(addrs, gc.DeepEquals, []instance.Address{{
+		Value:        fmt.Sprintf("%s.testing.invalid", instId),
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        fmt.Sprintf("%s.internal.invalid", instId),
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkCloudLocal,
+	}})
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {

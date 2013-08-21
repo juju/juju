@@ -21,6 +21,11 @@ type Charm struct {
 	url *charm.URL
 }
 
+// Strings returns the charm URL as a string.
+func (c *Charm) String() string {
+	return c.url.String()
+}
+
 // URL returns the URL that identifies the charm.
 func (c *Charm) URL() *charm.URL {
 	clone := *c.url
