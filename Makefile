@@ -67,12 +67,12 @@ clean:
 install-dependencies:
 ifneq ($(shell lsb_release -cs),saucy)
 	@echo Adding juju PPAs for golang and mongodb-server
-	@sudo apt-add-repository ppa:juju/golang
-	@sudo apt-add-repository ppa:juju/stable
+	@sudo apt-add-repository --yes ppa:juju/golang
+	@sudo apt-add-repository --yes ppa:juju/stable
 	@sudo apt-get update
 endif
 	@echo Installing dependencies
-	@sudo apt-get install $(strip $(DEPENDENCIES))
+	@sudo apt-get --yes install $(strip $(DEPENDENCIES))
 
 
 .PHONY: build check install
