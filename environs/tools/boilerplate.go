@@ -107,7 +107,7 @@ var indexBoilerplate = `
    "com.ubuntu.juju:custom": {
      "updated": "{{.Updated}}",
      "cloudname": "custom",
-     "datatype": "juju-tools",
+     "datatype": "content-download",
      "format": "products:1.0",
      "products": [
        "com.ubuntu.juju:{{.Version}}:{{.Arch}}"
@@ -125,7 +125,7 @@ var productBoilerplate = `
   "content_id": "com.ubuntu.juju:custom",
   "format": "products:1.0",
   "updated": "{{.Updated}}",
-  "datatype": "juju-tools",
+  "datatype": "content-download",
   "products": {
     "com.ubuntu.juju:{{.Version}}:{{.Arch}}": {
       "release": "{{.Series}}",
