@@ -379,6 +379,53 @@ func (s *localServerSuite) TestInstancesGathering(c *gc.C) {
 	}
 }
 
+func (s *localServerSuite) TestCollectInstances(c *gc.C) {
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			details := args[0].(*nova.ServerDetail)
+			details.Status = "BUILD(networking)"
+			return nil
+		},
+	)
+	defer cleanup()
+	stateInst, _ := testing.StartInstance(c, s.Env, "100")
+	defer func() {
+		err := s.Env.StopInstances([]instance.Instance{stateInst})
+		c.Assert(err, gc.IsNil)
+	}()
+	found := make(map[instance.Id]instance.Instance)
+	missing := []instance.Id{stateInst.Id()}
+
+	resultMissing := openstack.CollectInstances(s.Env, missing, found)
+
+	c.Assert(resultMissing, gc.DeepEquals, missing)
+}
+
+func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
+	// HP servers are available once they are BUILD(spawning).
+	cleanup := s.srv.Service.Nova.RegisterControlPoint(
+		"addServer",
+		func(sc hook.ServiceControl, args ...interface{}) error {
+			details := args[0].(*nova.ServerDetail)
+			details.Status = nova.StatusBuildSpawning
+			return nil
+		},
+	)
+	defer cleanup()
+	stateInst, _ := testing.StartInstance(c, s.Env, "100")
+	defer func() {
+		err := s.Env.StopInstances([]instance.Instance{stateInst})
+		c.Assert(err, gc.IsNil)
+	}()
+
+	instances, err := s.Env.Instances([]instance.Id{stateInst.Id()})
+
+	c.Assert(err, gc.IsNil)
+	c.Assert(instances, gc.HasLen, 1)
+	c.Assert(instances[0].Status(), gc.Equals, nova.StatusBuildSpawning)
+}
+
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
@@ -432,7 +479,7 @@ func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), gc.Equals, true)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), gc.Equals, true)
-	c.Assert(urls[2], gc.Equals, simplestreams.DefaultBaseURL)
+	c.Assert(urls[2], gc.Equals, imagemetadata.DefaultBaseURL)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
@@ -449,7 +496,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := s.Env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("some-region")
+	params, err := s.Env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

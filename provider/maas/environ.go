@@ -12,11 +12,12 @@ import (
 
 	"launchpad.net/gomaasapi"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
@@ -82,11 +83,11 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	}
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
-	possibleTools, err := environs.FindBootstrapTools(env, cons)
+	possibleTools, err := tools.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
+	err = tools.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
 	if err != nil {
 		return nil, err
 	}
@@ -211,7 +212,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools agenttools.List) (gomaasapi.MAASObject, *agenttools.Tools, error) {
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
@@ -276,7 +277,7 @@ EOF
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
+func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -333,11 +334,11 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 // TODO(bug 1199847): This work can be shared between providers.
 func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := environs.FindInstanceTools(environ, series, cons)
+	possibleTools, err := tools.FindInstanceTools(environ, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, series)
+	err = tools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}

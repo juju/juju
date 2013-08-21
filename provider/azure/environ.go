@@ -11,13 +11,14 @@ import (
 
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -170,7 +171,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
-	possibleTools, err := environs.FindBootstrapTools(env, cons)
+	possibleTools, err := tools.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
 	}
@@ -427,7 +428,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (_ instance.Instance, err error) {
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
@@ -618,11 +619,11 @@ func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, 
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := environs.FindInstanceTools(env, series, cons)
+	possibleTools, err := tools.FindInstanceTools(env, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, series)
+	err = tools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -972,7 +973,7 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 // available images.
 func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
 	// Hard-coded to the central Simplestreams database for now.
-	return []string{simplestreams.DefaultBaseURL}, nil
+	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

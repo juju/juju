@@ -160,6 +160,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	})
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
 	err = environs.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 

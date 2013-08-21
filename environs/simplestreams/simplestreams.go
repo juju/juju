@@ -157,6 +157,7 @@ type MetadataCatalog struct {
 type ItemCollection struct {
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch"`
+	Version    string                 `json:"version"`
 	RegionName string                 `json:"region"`
 	Endpoint   string                 `json:"endpoint"`
 }
@@ -209,14 +210,15 @@ func (ind *Indices) extractIndexes() IndexMetadataSlice {
 }
 
 // hasCloud tells you whether an IndexMetadata has the given cloud in its
-// Clouds list.
+// Clouds list. If IndexMetadata has no clouds defined, then hasCloud
+// returns true regardless.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
 		if metadataCloud == cloud {
 			return true
 		}
 	}
-	return false
+	return len(metadata.Clouds) == 0
 }
 
 // hasProduct tells you whether an IndexMetadata provides any of the given
@@ -243,9 +245,6 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	}
 	return result
 }
-
-// This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
 var httpClient *http.Client = http.DefaultClient
 

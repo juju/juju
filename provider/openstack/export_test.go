@@ -262,3 +262,7 @@ func SetUseFloatingIP(e environs.Environ, val bool) {
 func EnsureGroup(e environs.Environ, name string, rules []nova.RuleInfo) (nova.SecurityGroup, error) {
 	return e.(*environ).ensureGroup(name, rules)
 }
+
+func CollectInstances(e environs.Environ, ids []instance.Id, out map[instance.Id]instance.Instance) []instance.Id {
+	return e.(*environ).collectInstances(ids, out)
+}

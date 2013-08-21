@@ -26,7 +26,7 @@ type liveTestData struct {
 
 var liveUrls = map[string]liveTestData{
 	"ec2": {
-		baseURL:        simplestreams.DefaultBaseURL,
+		baseURL:        DefaultBaseURL,
 		requireSigned:  true,
 		validCloudSpec: simplestreams.CloudSpec{"us-east-1", aws.Regions["us-east-1"].EC2Endpoint},
 	},
@@ -63,6 +63,7 @@ func registerSimpleStreamsTests() {
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			BaseURL:       "test:",
 			RequireSigned: false,
+			DataType:      imageIds,
 			ValidConstraint: NewImageConstraint(simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -79,6 +80,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validImageConstraint simples
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
 		BaseURL:         baseURL,
 		RequireSigned:   requireSigned,
+		DataType:        imageIds,
 		ValidConstraint: validImageConstraint,
 	})
 }
