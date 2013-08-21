@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"strconv"
-	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -673,7 +672,6 @@ func (s *UnitSuite) TestUnitSetAgentAlive(c *gc.C) {
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	time.Sleep(coretesting.ShortWait)
 	alive, err = s.unit.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
@@ -703,7 +701,6 @@ func (s *UnitSuite) TestUnitWaitAgentAlive(c *gc.C) {
 
 	s.State.StartSync()
 
-	time.Sleep(coretesting.ShortWait)
 	alive, err = s.unit.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)

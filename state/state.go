@@ -1036,7 +1036,7 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.watcher.StartSync()
-	st.pwatcher.StartSync()
+	st.pwatcher.Sync()
 }
 
 // SetAdminMongoPassword sets the administrative password

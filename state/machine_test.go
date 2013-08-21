@@ -5,7 +5,6 @@ package state_test
 
 import (
 	"sort"
-	"time"
 
 	gc "launchpad.net/gocheck"
 
@@ -256,7 +255,6 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
 	defer pinger.Stop()
 
 	s.State.StartSync()
-	time.Sleep(coretesting.ShortWait)
 	alive, err = s.machine.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
@@ -302,7 +300,6 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	s.State.StartSync()
-	time.Sleep(coretesting.ShortWait)
 	alive, err = s.machine.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
