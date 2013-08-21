@@ -6,11 +6,12 @@ package tools
 import (
 	"errors"
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"strings"
 
+	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/version"
 )
 
@@ -35,16 +36,9 @@ func StorageName(vers version.Binary) string {
 	return toolPrefix + vers.String() + toolSuffix
 }
 
-// URLLister exposes to ReadList the relevant capabilities of an
-// environs.Storage; it exists to foil an import cycle.
-type URLLister interface {
-	URL(name string) (string, error)
-	List(prefix string) ([]string, error)
-}
-
 // ReadList returns a List of the tools in store with the given major version.
 // If store contains no such tools, it returns ErrNoMatches.
-func ReadList(storage URLLister, majorVersion int) (List, error) {
+func ReadList(storage environs.StorageReader, majorVersion int) (List, error) {
 	logger.Debugf("reading v%d.* tools", majorVersion)
 	names, err := storage.List(toolPrefix)
 	if err != nil {
@@ -56,7 +50,7 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 		if !strings.HasPrefix(name, toolPrefix) || !strings.HasSuffix(name, toolSuffix) {
 			continue
 		}
-		var t Tools
+		var t agenttools.Tools
 		vers := name[len(toolPrefix) : len(name)-len(toolSuffix)]
 		if t.Version, err = version.ParseBinary(vers); err != nil {
 			continue
@@ -80,13 +74,6 @@ func ReadList(storage URLLister, majorVersion int) (List, error) {
 	return list, nil
 }
 
-// URLPutter exposes to Upload the relevant capabilities of an
-// environs.Storage; it exists to avoid a dependency on environs.
-type URLPutter interface {
-	URL(name string) (string, error)
-	Put(name string, r io.Reader, length int64) error
-}
-
 // Upload builds whatever version of launchpad.net/juju-core is in $GOPATH,
 // uploads it to the given storage, and returns a Tools instance describing
 // them. If forceVersion is not nil, the uploaded tools bundle will report
@@ -94,7 +81,7 @@ type URLPutter interface {
 // of the built tools will be uploaded for use by machines of those series.
 // Juju tools built for one series do not necessarily run on another, but this
 // func exists only for development use cases.
-func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...string) (*Tools, error) {
+func Upload(storage environs.Storage, forceVersion *version.Number, fakeSeries ...string) (*agenttools.Tools, error) {
 	// TODO(rog) find binaries from $PATH when not using a development
 	// version of juju within a $GOPATH.
 
@@ -146,5 +133,5 @@ func Upload(storage URLPutter, forceVersion *version.Number, fakeSeries ...strin
 	if err != nil {
 		return nil, err
 	}
-	return &Tools{toolsVersion, url}, nil
+	return &agenttools.Tools{toolsVersion, url}, nil
 }

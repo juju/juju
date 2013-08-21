@@ -15,8 +15,9 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -133,7 +134,7 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
+func copyTools(tools []*agenttools.Tools, ctx *SyncContext) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if ctx.DryRun {
@@ -147,7 +148,7 @@ func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *tools.Tools, ctx *SyncContext) error {
+func copyOneToolsPackage(tool *agenttools.Tools, ctx *SyncContext) error {
 	toolsName := tools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := ctx.sourceStorage.Get(toolsName)

@@ -78,12 +78,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		forceVersion := uploadVersion(version.Current.Number, nil)
 		cfg := environ.Config()
 		series := getUploadSeries(cfg, c.Series)
-		tools, err := uploadTools(environ.Storage(), &forceVersion, series...)
+		agenttools, err := uploadTools(environ.Storage(), &forceVersion, series...)
 		if err != nil {
 			return err
 		}
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": tools.Version.Number.String(),
+			"agent-version": agenttools.Version.Number.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)

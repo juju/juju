@@ -16,9 +16,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -170,7 +171,7 @@ func (s *StorageSuite) TestUploadBadBuild(c *gc.C) {
 
 // downloadTools downloads the supplied tools and extracts them into a
 // new directory.
-func downloadTools(c *gc.C, t *tools.Tools) string {
+func downloadTools(c *gc.C, t *agenttools.Tools) string {
 	resp, err := http.Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
@@ -183,7 +184,7 @@ func downloadTools(c *gc.C, t *tools.Tools) string {
 }
 
 // downloadToolsRaw downloads the supplied tools and returns the raw bytes.
-func downloadToolsRaw(c *gc.C, t *tools.Tools) []byte {
+func downloadToolsRaw(c *gc.C, t *agenttools.Tools) []byte {
 	resp, err := http.Get(t.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()

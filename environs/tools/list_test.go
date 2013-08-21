@@ -6,7 +6,8 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -14,8 +15,8 @@ type ListSuite struct{}
 
 var _ = gc.Suite(&ListSuite{})
 
-func mustParseTools(name string) *tools.Tools {
-	return &tools.Tools{
+func mustParseTools(name string) *agenttools.Tools {
+	return &agenttools.Tools{
 		Version: version.MustParseBinary(name),
 		URL:     "http://testing.invalid/" + name,
 	}

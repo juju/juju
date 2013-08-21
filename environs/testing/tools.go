@@ -8,14 +8,15 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/version"
 )
 
-func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*tools.Tools, error) {
+func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*agenttools.Tools, error) {
 	data := vers.String()
 	name := tools.StorageName(vers)
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
@@ -26,19 +27,19 @@ func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*too
 	if err != nil {
 		return nil, err
 	}
-	return &tools.Tools{Version: vers, URL: url}, nil
+	return &agenttools.Tools{Version: vers, URL: url}, nil
 }
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *tools.Tools {
+func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *agenttools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	c.Assert(err, IsNil)
 	return t
 }
 
 // MustUploadFakeToolsVersion acts as UploadFakeToolsVersion, but panics on failure.
-func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *tools.Tools {
+func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *agenttools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	if err != nil {
 		panic(err)

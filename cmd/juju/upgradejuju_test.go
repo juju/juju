@@ -8,9 +8,10 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -283,8 +284,7 @@ var upgradeJujuTests = []struct {
 // consuming build from source.
 // TODO(fwereade) better factor agent/tools such that build logic is
 // exposed and can itself be neatly mocked?
-func mockUploadTools(putter tools.URLPutter, forceVersion *version.Number, series ...string) (*tools.Tools, error) {
-	storage := putter.(environs.Storage)
+func mockUploadTools(storage environs.Storage, forceVersion *version.Number, series ...string) (*agenttools.Tools, error) {
 	vers := version.Current
 	if forceVersion != nil {
 		vers.Number = *forceVersion

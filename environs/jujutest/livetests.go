@@ -9,11 +9,12 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -546,7 +547,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 
 type tooler interface {
 	Life() state.Life
-	AgentTools() (*tools.Tools, error)
+	AgentTools() (*agenttools.Tools, error)
 	Refresh() error
 	String() string
 }
@@ -557,7 +558,7 @@ type watcher interface {
 }
 
 type toolsWaiter struct {
-	lastTools *tools.Tools
+	lastTools *agenttools.Tools
 	// changes is a chan of struct{} so that it can
 	// be used with different kinds of entity watcher.
 	changes chan struct{}
@@ -603,7 +604,7 @@ func (w *toolsWaiter) Stop() error {
 
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
-func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
+func (w *toolsWaiter) NextTools(c *C) (*agenttools.Tools, error) {
 	for _ = range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
@@ -632,7 +633,7 @@ func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
+func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *agenttools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
 	c.Assert(err, IsNil)
