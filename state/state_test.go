@@ -320,9 +320,11 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
 	arch := "amd64"
 	mem := uint64(1024)
+	disk := uint64(1024)
 	hc := instance.HardwareCharacteristics{
-		Arch: &arch,
-		Mem:  &mem,
+		Arch:     &arch,
+		Mem:      &mem,
+		RootDisk: &disk,
 	}
 	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
 	c.Assert(err, gc.IsNil)
@@ -959,11 +961,24 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
+	// Add a nested container of the right type: not reported.
+	params.ParentId = m.Id()
+	params.ContainerType = instance.LXC
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
 	params.ContainerType = instance.LXC
 	m2, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+	statetesting.AssertStop(c, w)
+
+	w = machine.WatchContainers(instance.LXC)
+	defer statetesting.AssertStop(c, w)
+	wc = statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
 
 	// Make the container Dying: reported.
@@ -1070,7 +1085,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 			err = s.State.SetEnvironConfig(cfg)
 			c.Assert(err, gc.IsNil)
 		}
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, gc.Equals, true)
@@ -1123,7 +1138,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
 	c.Assert(err, gc.IsNil)
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// Start watching the configuration.
 	watcher := s.State.WatchEnvironConfig()
@@ -1142,7 +1157,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 		}
 	}()
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// The invalid configuration must not have been generated.
 	select {

@@ -15,9 +15,9 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/environs/dummy"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -189,7 +189,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	done := make(chan error)
 	go func() {
 		done <- u.Wait()

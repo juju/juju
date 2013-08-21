@@ -14,7 +14,7 @@ import (
 	"time"
 
 	"launchpad.net/gnuflag"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
@@ -75,50 +75,50 @@ type ServerSuite struct {
 	err      chan error
 }
 
-var _ = Suite(&ServerSuite{})
+var _ = gc.Suite(&ServerSuite{})
 
-func (s *ServerSuite) SetUpTest(c *C) {
+func (s *ServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.sockPath = filepath.Join(c.MkDir(), "test.sock")
 	srv, err := jujuc.NewServer(factory, s.sockPath)
-	c.Assert(err, IsNil)
-	c.Assert(srv, NotNil)
+	c.Assert(err, gc.IsNil)
+	c.Assert(srv, gc.NotNil)
 	s.server = srv
 	s.err = make(chan error)
 	go func() { s.err <- s.server.Run() }()
 }
 
-func (s *ServerSuite) TearDownTest(c *C) {
+func (s *ServerSuite) TearDownTest(c *gc.C) {
 	s.server.Close()
-	c.Assert(<-s.err, IsNil)
+	c.Assert(<-s.err, gc.IsNil)
 	_, err := os.Open(s.sockPath)
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *ServerSuite) Call(c *C, req jujuc.Request) (resp jujuc.Response, err error) {
+func (s *ServerSuite) Call(c *gc.C, req jujuc.Request) (resp jujuc.Response, err error) {
 	client, err := rpc.Dial("unix", s.sockPath)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer client.Close()
 	err = client.Call("Jujuc.Main", req, &resp)
 	return resp, err
 }
 
-func (s *ServerSuite) TestHappyPath(c *C) {
+func (s *ServerSuite) TestHappyPath(c *gc.C) {
 	dir := c.MkDir()
 	resp, err := s.Call(c, jujuc.Request{
 		"validCtx", dir, "remote", []string{"--value", "something"},
 	})
-	c.Assert(err, IsNil)
-	c.Assert(resp.Code, Equals, 0)
-	c.Assert(string(resp.Stdout), Equals, "eye of newt\n")
-	c.Assert(string(resp.Stderr), Equals, "toe of frog\n")
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.Code, gc.Equals, 0)
+	c.Assert(string(resp.Stdout), gc.Equals, "eye of newt\n")
+	c.Assert(string(resp.Stderr), gc.Equals, "toe of frog\n")
 	content, err := ioutil.ReadFile(filepath.Join(dir, "local"))
-	c.Assert(err, IsNil)
-	c.Assert(string(content), Equals, "something")
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, "something")
 }
 
-func (s *ServerSuite) TestLocks(c *C) {
+func (s *ServerSuite) TestLocks(c *gc.C) {
 	var wg sync.WaitGroup
 	t0 := time.Now()
 	for i := 0; i < 4; i++ {
@@ -128,63 +128,63 @@ func (s *ServerSuite) TestLocks(c *C) {
 			resp, err := s.Call(c, jujuc.Request{
 				"validCtx", dir, "remote", []string{"--slow"},
 			})
-			c.Assert(err, IsNil)
-			c.Assert(resp.Code, Equals, 0)
+			c.Assert(err, gc.IsNil)
+			c.Assert(resp.Code, gc.Equals, 0)
 			wg.Done()
 		}()
 	}
 	wg.Wait()
 	t1 := time.Now()
-	c.Assert(t0.Add(4*testing.ShortWait).Before(t1), Equals, true)
+	c.Assert(t0.Add(4*testing.ShortWait).Before(t1), gc.Equals, true)
 }
 
-func (s *ServerSuite) TestBadCommandName(c *C) {
+func (s *ServerSuite) TestBadCommandName(c *gc.C) {
 	dir := c.MkDir()
 	_, err := s.Call(c, jujuc.Request{"validCtx", dir, "", nil})
-	c.Assert(err, ErrorMatches, "bad request: command not specified")
+	c.Assert(err, gc.ErrorMatches, "bad request: command not specified")
 	_, err = s.Call(c, jujuc.Request{"validCtx", dir, "witchcraft", nil})
-	c.Assert(err, ErrorMatches, `bad request: unknown command "witchcraft"`)
+	c.Assert(err, gc.ErrorMatches, `bad request: unknown command "witchcraft"`)
 }
 
-func (s *ServerSuite) TestBadDir(c *C) {
+func (s *ServerSuite) TestBadDir(c *gc.C) {
 	for _, req := range []jujuc.Request{
 		{"validCtx", "", "anything", nil},
 		{"validCtx", "foo/bar", "anything", nil},
 	} {
 		_, err := s.Call(c, req)
-		c.Assert(err, ErrorMatches, "bad request: Dir is not absolute")
+		c.Assert(err, gc.ErrorMatches, "bad request: Dir is not absolute")
 	}
 }
 
-func (s *ServerSuite) TestBadContextId(c *C) {
+func (s *ServerSuite) TestBadContextId(c *gc.C) {
 	_, err := s.Call(c, jujuc.Request{"whatever", c.MkDir(), "remote", nil})
-	c.Assert(err, ErrorMatches, `bad request: unknown context "whatever"`)
+	c.Assert(err, gc.ErrorMatches, `bad request: unknown context "whatever"`)
 }
 
-func (s *ServerSuite) AssertBadCommand(c *C, args []string, code int) jujuc.Response {
+func (s *ServerSuite) AssertBadCommand(c *gc.C, args []string, code int) jujuc.Response {
 	resp, err := s.Call(c, jujuc.Request{"validCtx", c.MkDir(), args[0], args[1:]})
-	c.Assert(err, IsNil)
-	c.Assert(resp.Code, Equals, code)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resp.Code, gc.Equals, code)
 	return resp
 }
 
-func (s *ServerSuite) TestParseError(c *C) {
+func (s *ServerSuite) TestParseError(c *gc.C) {
 	resp := s.AssertBadCommand(c, []string{"remote", "--cheese"}, 2)
-	c.Assert(string(resp.Stdout), Equals, "")
-	c.Assert(string(resp.Stderr), Equals, "error: flag provided but not defined: --cheese\n")
+	c.Assert(string(resp.Stdout), gc.Equals, "")
+	c.Assert(string(resp.Stderr), gc.Equals, "error: flag provided but not defined: --cheese\n")
 }
 
-func (s *ServerSuite) TestBrokenCommand(c *C) {
+func (s *ServerSuite) TestBrokenCommand(c *gc.C) {
 	resp := s.AssertBadCommand(c, []string{"remote", "--value", "error"}, 1)
-	c.Assert(string(resp.Stdout), Equals, "")
-	c.Assert(string(resp.Stderr), Equals, "error: blam\n")
+	c.Assert(string(resp.Stdout), gc.Equals, "")
+	c.Assert(string(resp.Stderr), gc.Equals, "error: blam\n")
 }
 
 type NewCommandSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&NewCommandSuite{})
+var _ = gc.Suite(&NewCommandSuite{})
 
 var newCommandTests = []struct {
 	name string
@@ -202,18 +202,18 @@ var newCommandTests = []struct {
 	{"random", "unknown command: random"},
 }
 
-func (s *NewCommandSuite) TestNewCommand(c *C) {
+func (s *NewCommandSuite) TestNewCommand(c *gc.C) {
 	ctx := s.GetHookContext(c, 0, "")
 	for _, t := range newCommandTests {
 		com, err := jujuc.NewCommand(ctx, t.name)
 		if t.err == "" {
 			// At this level, just check basic sanity; commands are tested in
 			// more detail elsewhere.
-			c.Assert(err, IsNil)
-			c.Assert(com.Info().Name, Equals, t.name)
+			c.Assert(err, gc.IsNil)
+			c.Assert(com.Info().Name, gc.Equals, t.name)
 		} else {
-			c.Assert(com, IsNil)
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(com, gc.IsNil)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
 }

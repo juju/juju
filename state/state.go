@@ -294,6 +294,7 @@ func (st *State) addMachineContainerOps(params *AddMachineParams, cons constrain
 			InstanceId: params.instanceId,
 			Arch:       params.characteristics.Arch,
 			Mem:        params.characteristics.Mem,
+			RootDisk:   params.characteristics.RootDisk,
 			CpuCores:   params.characteristics.CpuCores,
 			CpuPower:   params.characteristics.CpuPower,
 		}
@@ -1035,13 +1036,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.watcher.StartSync()
-	st.pwatcher.StartSync()
-}
-
-// Sync forces watchers to resynchronize their state with the
-// database immediately, and waits until all events are known.
-func (st *State) Sync() {
-	st.watcher.Sync()
 	st.pwatcher.Sync()
 }
 

@@ -12,7 +12,7 @@ import (
 	"launchpad.net/juju-core/juju"
 
 	// Import the providers.
-	_ "launchpad.net/juju-core/environs/all"
+	_ "launchpad.net/juju-core/provider/all"
 )
 
 var jujuDoc = `
@@ -71,6 +71,7 @@ func Main(args []string) {
 	// Reporting commands.
 	jujucmd.Register(wrap(&StatusCommand{}))
 	jujucmd.Register(wrap(&SwitchCommand{}))
+	jujucmd.Register(wrap(&EndpointCommand{}))
 
 	// Error resolution and debugging commands.
 	jujucmd.Register(wrap(&SCPCommand{}))

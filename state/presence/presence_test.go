@@ -5,7 +5,7 @@ package presence_test
 
 import (
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/tomb"
@@ -25,19 +25,19 @@ type PresenceSuite struct {
 	pings    *mgo.Collection
 }
 
-var _ = Suite(&PresenceSuite{})
+var _ = gc.Suite(&PresenceSuite{})
 
-func (s *PresenceSuite) SetUpSuite(c *C) {
+func (s *PresenceSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
 }
 
-func (s *PresenceSuite) TearDownSuite(c *C) {
+func (s *PresenceSuite) TearDownSuite(c *gc.C) {
 	s.MgoSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *PresenceSuite) SetUpTest(c *C) {
+func (s *PresenceSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
 
@@ -48,7 +48,7 @@ func (s *PresenceSuite) SetUpTest(c *C) {
 	presence.FakeTimeSlot(0)
 }
 
-func (s *PresenceSuite) TearDownTest(c *C) {
+func (s *PresenceSuite) TearDownTest(c *gc.C) {
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 
@@ -56,7 +56,7 @@ func (s *PresenceSuite) TearDownTest(c *C) {
 	presence.RealPeriod()
 }
 
-func assertChange(c *C, watch <-chan presence.Change, want presence.Change) {
+func assertChange(c *gc.C, watch <-chan presence.Change, want presence.Change) {
 	select {
 	case got := <-watch:
 		if got != want {
@@ -67,7 +67,7 @@ func assertChange(c *C, watch <-chan presence.Change, want presence.Change) {
 	}
 }
 
-func assertNoChange(c *C, watch <-chan presence.Change) {
+func assertNoChange(c *gc.C, watch <-chan presence.Change) {
 	select {
 	case got := <-watch:
 		c.Fatalf("watch reported %v, want nothing", got)
@@ -75,24 +75,24 @@ func assertNoChange(c *C, watch <-chan presence.Change) {
 	}
 }
 
-func assertAlive(c *C, w *presence.Watcher, key string, alive bool) {
+func assertAlive(c *gc.C, w *presence.Watcher, key string, alive bool) {
 	alive, err := w.Alive("a")
-	c.Assert(err, IsNil)
-	c.Assert(alive, Equals, alive)
+	c.Assert(err, gc.IsNil)
+	c.Assert(alive, gc.Equals, alive)
 }
 
-func (s *PresenceSuite) TestErrAndDead(c *C) {
+func (s *PresenceSuite) TestErrAndDead(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	defer w.Stop()
 
-	c.Assert(w.Err(), Equals, tomb.ErrStillAlive)
+	c.Assert(w.Err(), gc.Equals, tomb.ErrStillAlive)
 	select {
 	case <-w.Dead():
 		c.Fatalf("Dead channel fired unexpectedly")
 	default:
 	}
-	c.Assert(w.Stop(), IsNil)
-	c.Assert(w.Err(), IsNil)
+	c.Assert(w.Stop(), gc.IsNil)
+	c.Assert(w.Err(), gc.IsNil)
 	select {
 	case <-w.Dead():
 	default:
@@ -100,16 +100,16 @@ func (s *PresenceSuite) TestErrAndDead(c *C) {
 	}
 }
 
-func (s *PresenceSuite) TestAliveError(c *C) {
+func (s *PresenceSuite) TestAliveError(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
-	c.Assert(w.Stop(), IsNil)
+	c.Assert(w.Stop(), gc.IsNil)
 
 	alive, err := w.Alive("a")
-	c.Assert(err, ErrorMatches, ".*: watcher is dying")
-	c.Assert(alive, Equals, false)
+	c.Assert(err, gc.ErrorMatches, ".*: watcher is dying")
+	c.Assert(alive, gc.Equals, false)
 }
 
-func (s *PresenceSuite) TestWorkflow(c *C) {
+func (s *PresenceSuite) TestWorkflow(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	pa := presence.NewPinger(s.presence, "a")
 	pb := presence.NewPinger(s.presence, "b")
@@ -134,7 +134,7 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
-	c.Assert(pa.Start(), IsNil)
+	c.Assert(pa.Start(), gc.IsNil)
 
 	w.StartSync()
 	assertChange(c, cha, presence.Change{"a", true})
@@ -162,31 +162,31 @@ func (s *PresenceSuite) TestWorkflow(c *C) {
 	w.Watch("a", cha)
 	assertChange(c, cha, presence.Change{"a", true})
 
-	c.Assert(pb.Start(), IsNil)
+	c.Assert(pb.Start(), gc.IsNil)
 
 	w.StartSync()
 	assertChange(c, chb, presence.Change{"b", true})
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
-	c.Assert(pa.Stop(), IsNil)
+	c.Assert(pa.Stop(), gc.IsNil)
 
 	w.StartSync()
 	assertNoChange(c, cha)
 	assertNoChange(c, chb)
 
 	// pb is running, pa isn't.
-	c.Assert(pa.Kill(), IsNil)
-	c.Assert(pb.Kill(), IsNil)
+	c.Assert(pa.Kill(), gc.IsNil)
+	c.Assert(pb.Kill(), gc.IsNil)
 
 	w.StartSync()
 	assertChange(c, cha, presence.Change{"a", false})
 	assertChange(c, chb, presence.Change{"b", false})
 
-	c.Assert(w.Stop(), IsNil)
+	c.Assert(w.Stop(), gc.IsNil)
 }
 
-func (s *PresenceSuite) TestScale(c *C) {
+func (s *PresenceSuite) TestScale(c *gc.C) {
 	const N = 1000
 	var ps []*presence.Pinger
 	defer func() {
@@ -198,13 +198,13 @@ func (s *PresenceSuite) TestScale(c *C) {
 	c.Logf("Starting %d pingers...", N)
 	for i := 0; i < N; i++ {
 		p := presence.NewPinger(s.presence, strconv.Itoa(i))
-		c.Assert(p.Start(), IsNil)
+		c.Assert(p.Start(), gc.IsNil)
 		ps = append(ps, p)
 	}
 
 	c.Logf("Killing odd ones...")
 	for i := 1; i < N; i += 2 {
-		c.Assert(ps[i].Kill(), IsNil)
+		c.Assert(ps[i].Kill(), gc.IsNil)
 	}
 
 	c.Logf("Checking who's still alive...")
@@ -223,7 +223,7 @@ func (s *PresenceSuite) TestScale(c *C) {
 	}
 }
 
-func (s *PresenceSuite) TestExpiry(c *C) {
+func (s *PresenceSuite) TestExpiry(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	p := presence.NewPinger(s.presence, "a")
 	defer w.Stop()
@@ -233,7 +233,7 @@ func (s *PresenceSuite) TestExpiry(c *C) {
 	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
-	c.Assert(p.Start(), IsNil)
+	c.Assert(p.Start(), gc.IsNil)
 	w.StartSync()
 	assertChange(c, ch, presence.Change{"a", true})
 
@@ -253,7 +253,7 @@ func (s *PresenceSuite) TestExpiry(c *C) {
 	assertNoChange(c, ch)
 }
 
-func (s *PresenceSuite) TestWatchPeriod(c *C) {
+func (s *PresenceSuite) TestWatchPeriod(c *gc.C) {
 	presence.FakePeriod(1)
 	presence.RealTimeSlot()
 
@@ -267,15 +267,15 @@ func (s *PresenceSuite) TestWatchPeriod(c *C) {
 	assertChange(c, ch, presence.Change{"a", false})
 
 	// A single ping.
-	c.Assert(p.Start(), IsNil)
-	c.Assert(p.Stop(), IsNil)
+	c.Assert(p.Start(), gc.IsNil)
+	c.Assert(p.Stop(), gc.IsNil)
 
 	// Wait for next periodic refresh.
 	time.Sleep(1 * time.Second)
 	assertChange(c, ch, presence.Change{"a", true})
 }
 
-func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *C) {
+func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	ch := make(chan presence.Change)
 	for i := 0; i < 100; i++ {
@@ -297,23 +297,23 @@ func (s *PresenceSuite) TestWatchUnwatchOnQueue(c *C) {
 	for i := 0; i < 100; i += 2 {
 		key := strconv.Itoa(i)
 		c.Logf("Checking %q...", key)
-		c.Assert(alive[key], Equals, false)
+		c.Assert(alive[key], gc.Equals, false)
 	}
 }
 
-func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
+func (s *PresenceSuite) TestRestartWithoutGaps(c *gc.C) {
 	p := presence.NewPinger(s.presence, "a")
-	c.Assert(p.Start(), IsNil)
+	c.Assert(p.Start(), gc.IsNil)
 	defer p.Stop()
 
 	done := make(chan bool)
 	go func() {
 		stop := false
 		for !stop {
-			if !c.Check(p.Stop(), IsNil) {
+			if !c.Check(p.Stop(), gc.IsNil) {
 				break
 			}
-			if !c.Check(p.Start(), IsNil) {
+			if !c.Check(p.Start(), gc.IsNil) {
 				break
 			}
 			select {
@@ -328,8 +328,8 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 			w := presence.NewWatcher(s.presence)
 			w.Sync()
 			alive, err := w.Alive("a")
-			c.Check(w.Stop(), IsNil)
-			if !c.Check(err, IsNil) || !c.Check(alive, Equals, true) {
+			c.Check(w.Stop(), gc.IsNil)
+			if !c.Check(err, gc.IsNil) || !c.Check(alive, gc.Equals, true) {
 				break
 			}
 			select {
@@ -345,7 +345,7 @@ func (s *PresenceSuite) TestRestartWithoutGaps(c *C) {
 	done <- true
 }
 
-func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
+func (s *PresenceSuite) TestPingerPeriodAndResilience(c *gc.C) {
 	// This test verifies both the periodic pinging,
 	// and also a great property of the design: deaths
 	// also expire, which means erroneous scenarios are
@@ -363,15 +363,15 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	defer p2.Stop()
 
 	// Start p1 and let it go on.
-	c.Assert(p1.Start(), IsNil)
+	c.Assert(p1.Start(), gc.IsNil)
 
 	w.Sync()
 	assertAlive(c, w, "a", true)
 
 	// Start and kill p2, which will temporarily
 	// invalidate p1 and set the key as dead.
-	c.Assert(p2.Start(), IsNil)
-	c.Assert(p2.Kill(), IsNil)
+	c.Assert(p2.Start(), gc.IsNil)
+	c.Assert(p2.Kill(), gc.IsNil)
 
 	w.Sync()
 	assertAlive(c, w, "a", false)
@@ -385,7 +385,7 @@ func (s *PresenceSuite) TestPingerPeriodAndResilience(c *C) {
 	assertAlive(c, w, "a", true)
 }
 
-func (s *PresenceSuite) TestStartSync(c *C) {
+func (s *PresenceSuite) TestStartSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	p := presence.NewPinger(s.presence, "a")
 	defer w.Stop()
@@ -395,7 +395,7 @@ func (s *PresenceSuite) TestStartSync(c *C) {
 	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
 
-	c.Assert(p.Start(), IsNil)
+	c.Assert(p.Start(), gc.IsNil)
 
 	done := make(chan bool)
 	go func() {
@@ -414,7 +414,7 @@ func (s *PresenceSuite) TestStartSync(c *C) {
 	assertChange(c, ch, presence.Change{"a", true})
 }
 
-func (s *PresenceSuite) TestSync(c *C) {
+func (s *PresenceSuite) TestSync(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	p := presence.NewPinger(s.presence, "a")
 	defer w.Stop()
@@ -427,7 +427,7 @@ func (s *PresenceSuite) TestSync(c *C) {
 	// Nothing to do here.
 	w.Sync()
 
-	c.Assert(p.Start(), IsNil)
+	c.Assert(p.Start(), gc.IsNil)
 
 	done := make(chan bool)
 	go func() {
@@ -453,7 +453,7 @@ func (s *PresenceSuite) TestSync(c *C) {
 	}
 }
 
-func (s *PresenceSuite) TestFindAllBeings(c *C) {
+func (s *PresenceSuite) TestFindAllBeings(c *gc.C) {
 	w := presence.NewWatcher(s.presence)
 	p := presence.NewPinger(s.presence, "a")
 	defer w.Stop()
@@ -462,7 +462,7 @@ func (s *PresenceSuite) TestFindAllBeings(c *C) {
 	ch := make(chan presence.Change)
 	w.Watch("a", ch)
 	assertChange(c, ch, presence.Change{"a", false})
-	c.Assert(p.Start(), IsNil)
+	c.Assert(p.Start(), gc.IsNil)
 	done := make(chan bool)
 	go func() {
 		w.Sync()
@@ -470,8 +470,8 @@ func (s *PresenceSuite) TestFindAllBeings(c *C) {
 	}()
 	assertChange(c, ch, presence.Change{"a", true})
 	results, err := presence.FindAllBeings(w)
-	c.Assert(err, IsNil)
-	c.Assert(results, HasLen, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(results, gc.HasLen, 1)
 	select {
 	case <-done:
 	case <-time.After(testing.LongWait):

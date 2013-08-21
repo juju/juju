@@ -1,4 +1,4 @@
-// Copyright 2012, 2013 Canonical Ltd.
+// Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
 package uniter
@@ -6,6 +6,7 @@ package uniter
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 )
@@ -51,3 +52,39 @@ func (st *State) Unit(tag string) (*Unit, error) {
 		st:   st,
 	}, nil
 }
+
+// Service returns a service state by name.
+func (st *State) Service(tag string) (*Service, error) {
+	// TODO: Return a new uniter.Service proxy object for tag.
+	panic("not implemented")
+}
+
+// ProviderType returns a provider type used by the current juju
+// environment.
+// TODO: Once we have machine addresses, this might be completely
+// unnecessary though.
+func (st *State) ProviderType() string {
+	// TODO: Call Uniter.ProviderType()
+	panic("not implemented")
+}
+
+// Charm returns the charm with the given URL.
+func (st *State) Charm(curl *charm.URL) (*Charm, error) {
+	// TODO: Return a new uniter.Service proxy object for tag.
+	panic("not implemented")
+}
+
+// Relation returns the existing relation with the given id.
+func (st *State) Relation(id int) (*Relation, error) {
+	// TODO: Return a new uniter.Relation proxy object.
+	panic("not implemented")
+}
+
+// Environment returns the environment entity.
+func (st *State) Environment() (*Environment, error) {
+	return &Environment{st}, nil
+}
+
+// TODO: Possibly add st.KeyRelation(key) as well, but we might
+// not need it, if the relation tags change to be "relation-<key>",
+// or it might just be a wrapper around tag-to-key conversion.
