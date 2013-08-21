@@ -11,7 +11,6 @@ import (
 	"fmt"
 	"net"
 	"net/rpc"
-	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -180,6 +179,5 @@ func (s *Server) Run() (err error) {
 func (s *Server) Close() {
 	close(s.closing)
 	s.listener.Close()
-	os.Remove(s.socketPath)
 	<-s.closed
 }
