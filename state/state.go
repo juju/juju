@@ -1036,13 +1036,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.watcher.StartSync()
-	st.pwatcher.StartSync()
-}
-
-// Sync forces watchers to resynchronize their state with the
-// database immediately, and waits until all events are known.
-func (st *State) Sync() {
-	st.watcher.Sync()
 	st.pwatcher.Sync()
 }
 
