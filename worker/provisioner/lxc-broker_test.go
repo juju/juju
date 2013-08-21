@@ -264,10 +264,12 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 
 	container := s.addContainer(c)
 
+	s.State.StartSync()
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(container.EnsureDead(), gc.IsNil)
+	s.State.StartSync()
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
 }
