@@ -471,7 +471,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *localServerSuite) TestGetMetadataURLs(c *C) {
+func (s *localServerSuite) TestGetMetadataURLs(c *gc.C) {
 	urls, err := imagemetadata.GetMetadataURLs(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(urls), gc.Equals, 3)
