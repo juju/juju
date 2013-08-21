@@ -129,7 +129,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Not alive yet.
-	s.State.Sync()
+	s.State.StartSync()
 	alive, err := stm.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)
@@ -139,7 +139,7 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	defer st.Close()
 
 	// Make sure the pinger has started.
-	s.State.Sync()
+	s.State.StartSync()
 	stm.WaitAgentAlive(coretesting.LongWait)
 	alive, err = stm.AgentAlive()
 	c.Assert(err, gc.IsNil)
@@ -149,9 +149,9 @@ func (s *serverSuite) TestMachineLoginStartsPinger(c *gc.C) {
 	c.Assert(st.Close(), gc.IsNil)
 
 	// Sync, then wait for a bit to make sure the state is updated.
-	s.State.Sync()
+	s.State.StartSync()
 	<-time.After(coretesting.ShortWait)
-	s.State.Sync()
+	s.State.StartSync()
 
 	c.Assert(err, gc.IsNil)
 	alive, err = stm.AgentAlive()

@@ -338,6 +338,8 @@ func (u *Uniter) runHook(hi hook.Info) (err error) {
 		return jujuc.NewCommand(hctx, cmdName)
 	}
 	socketPath := filepath.Join(u.baseDir, "agent.socket")
+	// Use abstract namespace so we don't get stale socket files.
+	socketPath = "@" + socketPath
 	srv, err := jujuc.NewServer(getCmd, socketPath)
 	if err != nil {
 		return err
