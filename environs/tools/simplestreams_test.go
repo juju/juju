@@ -65,7 +65,7 @@ func registerSimpleStreamsTests() {
 		LocalLiveSimplestreamsSuite: sstesting.LocalLiveSimplestreamsSuite{
 			BaseURL:       "test:",
 			RequireSigned: false,
-			DataType:      tools.JujuTools,
+			DataType:      tools.ContentDownload,
 			ValidConstraint: tools.NewToolsConstraint("1.13.0", simplestreams.LookupParams{
 				CloudSpec: simplestreams.CloudSpec{
 					Region:   "us-east-1",
@@ -82,7 +82,7 @@ func registerLiveSimpleStreamsTests(baseURL string, validToolsConstraint simples
 	gc.Suite(&sstesting.LocalLiveSimplestreamsSuite{
 		BaseURL:         baseURL,
 		RequireSigned:   requireSigned,
-		DataType:        tools.JujuTools,
+		DataType:        tools.ContentDownload,
 		ValidConstraint: validToolsConstraint,
 	})
 }
