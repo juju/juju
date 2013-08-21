@@ -92,8 +92,9 @@ func (s *ConfigSuite) TestGetConfig(c *gc.C) {
 	}
 }
 
-var setTests = []struct {
+var setUnsetTests = []struct {
 	about  string
+	unset  bool
 	args   []string       // command to be executed
 	expect charm.Settings // resulting configuration of the dummy service.
 	err    string         // error regex
@@ -111,15 +112,61 @@ var setTests = []struct {
 	err:   "error.*no such file or directory\n",
 }, {
 	about: "set with options",
-	args:  []string{"username=hello"},
+	args:  []string{"username=hello", "outlook=hello@world.tld"},
 	expect: charm.Settings{
 		"username": "hello",
+		"outlook":  "hello@world.tld",
 	},
 }, {
 	about: "set with option values containing =",
 	args:  []string{"username=hello=foo"},
 	expect: charm.Settings{
 		"username": "hello=foo",
+		"outlook":  "hello@world.tld",
+	},
+}, {
+	about: "set to default value",
+	unset: true,
+	args:  []string{"username"},
+	expect: charm.Settings{
+		"username": "admin001",
+		"outlook":  "hello@world.tld",
+	},
+}, {
+	about: "set to a nil default value (aka remove a setting)",
+	unset: true,
+	args:  []string{"outlook"},
+	expect: charm.Settings{
+		"username": "admin001",
+	},
+}, {
+	about: "set illegal option to default",
+	unset: true,
+	args:  []string{"lookout"},
+	err:   "error: invalid option: \"lookout\"\n",
+}, {
+	about: "mixing unset and set expression",
+	unset: true,
+	args:  []string{"username=admin002"},
+	err:   "error: invalid setting during unset: \"username=admin002\"\n",
+}, {
+	about: "setting valid and invalid options to default",
+	unset: true,
+	args:  []string{"username", "outlook", "invalidstuff"},
+	err:   "error: invalid option: \"invalidstuff\"\n",
+}, {
+	about: "another set with options for multi-default in next test",
+	args:  []string{"username=foobar", "outlook=foobar@barfoo.tld"},
+	expect: charm.Settings{
+		"username": "foobar",
+		"outlook":  "foobar@barfoo.tld",
+	},
+}, {
+	about: "set multiple options to their default values",
+	unset: true,
+	args:  []string{"username", "outlook"},
+	expect: charm.Settings{
+		"username": "admin001",
 	},
 }, {
 	about: "--config $FILE test",
@@ -131,17 +178,21 @@ var setTests = []struct {
 },
 }
 
-func (s *ConfigSuite) TestSetConfig(c *gc.C) {
+func (s *ConfigSuite) TestSetUnsetConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, gc.IsNil)
 	dir := c.MkDir()
 	setupConfigfile(c, dir)
-	for i, t := range setTests {
+	for i, t := range setUnsetTests {
+		var command cmd.Command = &SetCommand{}
+		if t.unset {
+			command = &UnsetCommand{}
+		}
 		args := append([]string{"dummy-service"}, t.args...)
 		c.Logf("test %d. %s", i, t.about)
 		ctx := coretesting.ContextForDir(c, dir)
-		code := cmd.Main(&SetCommand{}, ctx, args)
+		code := cmd.Main(command, ctx, args)
 		if t.err != "" {
 			c.Check(code, gc.Not(gc.Equals), 0)
 			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, t.err)
