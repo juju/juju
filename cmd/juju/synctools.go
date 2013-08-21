@@ -8,6 +8,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/sync"
 )
 
@@ -63,9 +64,13 @@ func (c *SyncToolsCommand) Run(ctx *cmd.Context) error {
 	// Register writer for output on screen.
 	loggo.RegisterWriter("synctools", sync.NewSyncLogWriter(ctx.Stdout, ctx.Stderr), loggo.INFO)
 	defer loggo.RemoveWriter("synctools")
+	environ, err := environs.PrepareFromName(c.EnvName)
+	if err != nil {
+		return err
+	}
 	// Prepare syncing.
 	sctx := &sync.SyncContext{
-		EnvName:      c.EnvName,
+		Target:     environ,
 		AllVersions:  c.allVersions,
 		DryRun:       c.dryRun,
 		PublicBucket: c.publicBucket,
