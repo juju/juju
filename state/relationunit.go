@@ -306,16 +306,16 @@ func (ru *RelationUnit) LeaveScope() error {
 }
 
 // InScope returns whether the relation unit has entered scope or not.
-func (ru *RelationUnit) InScope() bool {
+func (ru *RelationUnit) InScope() (bool, error) {
 	key, err := ru.key(ru.unit.Name())
 	if err != nil {
-		return false
+		return false, err
 	}
 	count, err := ru.st.relationScopes.FindId(key).Count()
 	if err != nil {
-		return false
+		return false, err
 	}
-	return count > 0
+	return count > 0, nil
 }
 
 // WatchScope returns a watcher which notifies of counterpart units

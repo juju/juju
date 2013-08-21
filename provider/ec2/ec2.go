@@ -88,27 +88,60 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
+// refreshInstance requeries the Instance details over the ec2 api
+func (inst *ec2Instance) refreshInstance() error {
+	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+	if err != nil {
+		return err
+	}
+	inst.Instance = insts[0].(*ec2Instance).Instance
+	return nil
+}
+
+// Addresses implements instance.Addresses() returning generic address
+// details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("ec2Instance.Addresses not implemented")
-	return nil, nil
+	var addresses []instance.Address
+	// TODO(gz): Stop relying on this requerying logic, maybe remove error
+	if inst.Instance.DNSName == "" {
+		// Fetch the instance information again, in case
+		// the DNS information has become available.
+		err := inst.refreshInstance()
+		if err != nil {
+			return nil, err
+		}
+	}
+	possibleAddresses := []instance.Address{
+		{
+			Value:        inst.Instance.DNSName,
+			Type:         instance.HostName,
+			NetworkScope: instance.NetworkPublic,
+		},
+		{
+			Value:        inst.Instance.PrivateDNSName,
+			Type:         instance.HostName,
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+	}
+	for _, address := range possibleAddresses {
+		if address.Value != "" {
+			addresses = append(addresses, address)
+		}
+	}
+	return addresses, nil
 }
 
 func (inst *ec2Instance) DNSName() (string, error) {
-	if inst.Instance.DNSName != "" {
-		return inst.Instance.DNSName, nil
-	}
-	// Fetch the instance information again, in case
-	// the DNS information has become available.
-	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+	addresses, err := inst.Addresses()
 	if err != nil {
 		return "", err
 	}
-	freshInst := insts[0].(*ec2Instance).Instance
-	if freshInst.DNSName == "" {
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
 		return "", instance.ErrNoDNSName
 	}
-	inst.Instance.DNSName = freshInst.DNSName
-	return freshInst.DNSName, nil
+	return addr, nil
+
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {

@@ -7,23 +7,35 @@ import (
 	"fmt"
 
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
 
 // Unit represents a juju unit as seen by a uniter worker.
 type Unit struct {
-	st         *State
-	tag        string
-	life       params.Life
-	serviceTag string
-	// TODO: Uncomment after added to params. See Resolved()
-	//resolvedMode params.ResolvedMode
+	st   *State
+	tag  string
+	life params.Life
 }
 
 // Tag returns the unit's tag.
 func (u *Unit) Tag() string {
 	return u.tag
+}
+
+// Name returns the name of the unit.
+func (u *Unit) Name() string {
+	_, unitName, err := names.ParseTag(u.tag, names.UnitTagKind)
+	if err != nil {
+		panic(fmt.Sprintf("%q is not a valid unit tag", u.tag))
+	}
+	return unitName
+}
+
+// String returns the unit as a string.
+func (u *Unit) String() string {
+	return u.Name()
 }
 
 // Life returns the unit's lifecycle value.
@@ -38,7 +50,6 @@ func (u *Unit) Refresh() error {
 		return err
 	}
 	u.life = life
-	// TODO: Update resolvedMode as well
 	return nil
 }
 
@@ -94,7 +105,18 @@ func (u *Unit) Watch() (*watcher.NotifyWatcher, error) {
 
 // Service returns the service.
 func (u *Unit) Service() (*Service, error) {
-	return u.st.Service(u.serviceTag)
+	serviceTag := names.ServiceTag(u.ServiceName())
+	service := &Service{
+		st:  u.st,
+		tag: serviceTag,
+	}
+	// Call Refresh() immediately to get the up-to-date
+	// life and other needed locally cached fields.
+	err := service.Refresh()
+	if err != nil {
+		return nil, err
+	}
+	return service, nil
 }
 
 // ConfigSettings returns the complete set of service charm config settings
@@ -108,8 +130,7 @@ func (u *Unit) ConfigSettings() (charm.Settings, error) {
 
 // ServiceName returns the service name.
 func (u *Unit) ServiceName() string {
-	// TODO: Convert u.serviceTag to a service name and return it.
-	panic("not implemented")
+	return names.UnitService(u.Name())
 }
 
 // Destroy, when called on a Alive unit, advances its lifecycle as far as
@@ -123,12 +144,13 @@ func (u *Unit) Destroy() (err error) {
 }
 
 // Resolved returns the resolved mode for the unit.
-// TODO: Copy state.ResolvedMode type and constants in
-// state/api/params/constants.go, then uncomment this.
-//func (u *Unit) Resolved() params.ResolvedMode {
-//	// TODO: Update u.resolvedMode on Refresh() as well as u.life.
-//	return u.resolvedMode
-//}
+//
+// NOTE: This differs from state.Unit.Resolved() by returning an
+// error as well, because it needs to make an API call
+func (u *Unit) Resolved() (params.ResolvedMode, error) {
+	// TODO: Call Uniter.Resolved()
+	panic("not implemented")
+}
 
 // IsPrincipal returns whether the unit is deployed in its own container,
 // and can therefore have subordinate services deployed alongside it.
@@ -232,12 +254,6 @@ func (u *Unit) SetCharmURL(curl *charm.URL) (err error) {
 // ClearResolved removes any resolved setting on the unit.
 func (u *Unit) ClearResolved() error {
 	// TODO: Call Uniter.ClearResolved()
-	panic("not implemented")
-}
-
-// Name returns the unit name.
-func (u *Unit) Name() string {
-	// TODO: Convert u.tag to a unit name and return it.
 	panic("not implemented")
 }
 

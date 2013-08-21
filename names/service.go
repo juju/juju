@@ -8,7 +8,7 @@ import (
 )
 
 const (
-	ServiceSnippet = "[a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*"
+	ServiceSnippet = "([a-z][a-z0-9]*(-[a-z0-9]*[a-z][a-z0-9]*)*)"
 	NumberSnippet  = "(0|[1-9][0-9]*)"
 )
 
