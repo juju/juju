@@ -78,6 +78,7 @@ func startMgoServer() error {
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
+		"--nounixsocket",
 	}
 	server := exec.Command("mongod", mgoargs...)
 	out, err := server.StdoutPipe()
