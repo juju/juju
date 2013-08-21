@@ -18,7 +18,6 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
 )
@@ -77,39 +76,19 @@ func testPasswordHash() string {
 	return utils.PasswordHash(testPassword)
 }
 
-func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineConf *agent.Conf, cmd *BootstrapCommand, err error) {
+func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineConf agent.Config, cmd *BootstrapCommand, err error) {
 	ioutil.WriteFile(s.providerStateURLFile, []byte("test://localhost/provider-state\n"), 0600)
-	bootConf := &agent.Conf{
-		DataDir:     s.dataDir,
-		OldPassword: testPasswordHash(),
-		StateInfo: &state.Info{
-			Tag:    "bootstrap",
-			Addrs:  []string{testing.MgoAddr},
-			CACert: []byte(testing.CACert),
-		},
-		APIInfo: &api.Info{
-			Tag:    "bootstrap",
-			Addrs:  []string{"0.1.2.3:1234"},
-			CACert: []byte(testing.CACert),
-		},
-	}
+	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
+	// really should be using NewStateMachineConfig.
+	bootConf, err := agent.NewAgentConfig(s.dataDir, "bootstrap", testPasswordHash(), "nonce",
+		[]string{testing.MgoAddr}, []string{"0.1.2.3:1234"}, []byte(testing.CACert))
+	c.Assert(err, gc.IsNil)
 	err = bootConf.Write()
 	c.Assert(err, gc.IsNil)
 
-	machineConf = &agent.Conf{
-		DataDir:     s.dataDir,
-		OldPassword: testPasswordHash(),
-		StateInfo: &state.Info{
-			Tag:    "machine-0",
-			Addrs:  []string{testing.MgoAddr},
-			CACert: []byte(testing.CACert),
-		},
-		APIInfo: &api.Info{
-			Tag:    "machine-0",
-			Addrs:  []string{"0.1.2.3:1234"},
-			CACert: []byte(testing.CACert),
-		},
-	}
+	machineConf, err = agent.NewAgentConfig(s.dataDir, "machine-0", testPasswordHash(), "nonce",
+		[]string{testing.MgoAddr}, []string{"0.1.2.3:1234"}, []byte(testing.CACert))
+	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
 	c.Assert(err, gc.IsNil)
 
@@ -238,28 +217,13 @@ func (s *BootstrapSuite) TestInitialPassword(c *gc.C) {
 	// Check that the machine configuration has been given a new
 	// password and that we can connect to mongo as that machine
 	// and that the in-mongo password also verifies correctly.
-
-	machineConf1, err := agent.ReadConf(machineConf.DataDir, "machine-0")
+	machineConf1, err := agent.ReadConf(machineConf.DataDir(), "machine-0")
 	c.Assert(err, gc.IsNil)
+	c.Assert(machineConf1.PasswordHash(), gc.Not(gc.Equals), testPasswordHash())
 
-	c.Assert(machineConf1.OldPassword, gc.Equals, "")
-	c.Assert(machineConf1.APIInfo.Password, gc.Not(gc.Equals), "")
-	c.Assert(machineConf1.StateInfo.Password, gc.Equals, machineConf1.APIInfo.Password)
-
-	// Check that no other information has been lost.
-	machineConf.OldPassword = ""
-	machineConf.APIInfo.Password = machineConf1.APIInfo.Password
-	machineConf.StateInfo.Password = machineConf1.StateInfo.Password
-	c.Assert(machineConf1, gc.DeepEquals, machineConf)
-
-	info.Tag, info.Password = "machine-0", machineConf1.StateInfo.Password
-	st, err = state.Open(info, state.DefaultDialOpts())
+	st, err = machineConf1.OpenState()
 	c.Assert(err, gc.IsNil)
 	defer st.Close()
-
-	m, err := st.Machine("0")
-	c.Assert(err, gc.IsNil)
-	c.Assert(m.PasswordValid(machineConf1.StateInfo.Password), gc.Equals, true)
 }
 
 var base64ConfigTests = []struct {
