@@ -124,13 +124,14 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	// Need to write out the agent file for machine-0 before initializing
 	// state, as as part of that process, it will reset the password in the
 	// agent file.
-	if err := env.writeBootstrapAgentConfFile(cert, key); err != nil {
+	agentConfig, err := env.writeBootstrapAgentConfFile(env.config.AdminSecret(), cert, key)
+	if err != nil {
 		return err
 	}
 
 	// Have to initialize the state configuration with localhost so we get
 	// "special" permissions.
-	stateConnection, err := env.initialStateConfiguration(boostrapInstanceId, cons)
+	stateConnection, err := env.initialStateConfiguration(agentConfig, cons)
 	if err != nil {
 		return err
 	}
@@ -492,59 +493,39 @@ func (env *localEnviron) findBridgeAddress() (string, error) {
 	return getAddressForInterface(lxcBridgeName)
 }
 
-func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
+func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
 	info, apiInfo, err := env.StateInfo()
 	if err != nil {
 		logger.Errorf("failed to get state info to write bootstrap agent file: %v", err)
-		return err
+		return nil, err
 	}
 	tag := names.MachineTag("0")
-	info.Tag = tag
-	apiInfo.Tag = tag
-	conf := &agent.Conf{
-		DataDir:         env.config.rootDir(),
-		StateInfo:       info,
-		APIInfo:         apiInfo,
-		StateServerCert: cert,
-		StateServerKey:  key,
-		StatePort:       env.config.StatePort(),
-		APIPort:         env.config.APIPort(),
-		MachineNonce:    state.BootstrapNonce,
+	passwordHash := utils.PasswordHash(secret)
+	config, err := agent.NewStateMachineConfig(
+		env.config.rootDir(), tag, passwordHash, state.BootstrapNonce,
+		info.Addrs, apiInfo.Addrs, info.CACert, cert, key,
+		env.config.StatePort(), env.config.APIPort())
+	if err != nil {
+		return nil, err
 	}
-	if err := conf.Write(); err != nil {
+	if err := config.Write(); err != nil {
 		logger.Errorf("failed to write bootstrap agent file: %v", err)
-		return err
+		return nil, err
 	}
-	return nil
+	return config, nil
 }
 
-func (env *localEnviron) initialStateConfiguration(addr string, cons constraints.Value) (*state.State, error) {
-	// We don't check the existance of the CACert here as if it wasn't set, we
-	// wouldn't get this far.
-	cfg := env.config.Config
-	caCert, _ := cfg.CACert()
-	addr = fmt.Sprintf("%s:%d", addr, cfg.StatePort())
-	info := &state.Info{
-		Addrs:  []string{addr},
-		CACert: caCert,
-	}
+func (env *localEnviron) initialStateConfiguration(agentConfig agent.Config, cons constraints.Value) (*state.State, error) {
 	timeout := state.DialOpts{60 * time.Second}
-	bootstrap, err := environs.BootstrapConfig(cfg)
+	bootstrap, err := environs.BootstrapConfig(env.config.Config)
 	if err != nil {
 		return nil, err
 	}
-	st, err := state.Initialize(info, bootstrap, timeout)
+	st, err := agent.InitialStateConfiguration(agentConfig, bootstrap, timeout)
 	if err != nil {
-		logger.Errorf("failed to initialize state: %v", err)
 		return nil, err
 	}
-	logger.Debugf("state initialized")
 
-	passwordHash := utils.PasswordHash(cfg.AdminSecret())
-	if err := environs.BootstrapUsers(st, cfg, passwordHash); err != nil {
-		st.Close()
-		return nil, err
-	}
 	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
 
 	if err := environs.ConfigureBootstrapMachine(

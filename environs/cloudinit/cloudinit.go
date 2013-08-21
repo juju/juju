@@ -230,36 +230,30 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return filepath.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
-	info := *cfg.StateInfo
-	apiInfo := *cfg.APIInfo
-	c := &agent.Conf{
-		DataDir:         cfg.DataDir,
-		StateInfo:       &info,
-		APIInfo:         &apiInfo,
-		StateServerCert: cfg.StateServerCert,
-		StateServerKey:  cfg.StateServerKey,
-		StatePort:       cfg.StatePort,
-		APIPort:         cfg.APIPort,
-		MachineNonce:    cfg.MachineNonce,
+func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
+	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
+	// if the machine is a stateServer then to use localhost.  This may be
+	// sufficient, but needs thought in the new world order.
+	if cfg.StateServer {
+		return agent.NewStateMachineConfig(
+			cfg.DataDir, tag, cfg.StateInfo.Password, cfg.MachineNonce,
+			cfg.stateHostAddrs(), cfg.apiHostAddrs(),
+			cfg.StateInfo.CACert, cfg.StateServerCert, cfg.StateServerKey,
+			cfg.StatePort, cfg.APIPort)
 	}
-	c.OldPassword = cfg.StateInfo.Password
-
-	c.StateInfo.Addrs = cfg.stateHostAddrs()
-	c.StateInfo.Tag = tag
-	c.StateInfo.Password = ""
-
-	c.APIInfo.Addrs = cfg.apiHostAddrs()
-	c.APIInfo.Tag = tag
-	c.APIInfo.Password = ""
-
-	return c
+	return agent.NewAgentConfig(
+		cfg.DataDir, tag, cfg.StateInfo.Password, cfg.MachineNonce,
+		cfg.stateHostAddrs(), cfg.apiHostAddrs(),
+		cfg.StateInfo.CACert)
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (*agent.Conf, error) {
-	acfg := cfg.agentConfig(tag)
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.Config, error) {
+	acfg, err := cfg.agentConfig(tag)
+	if err != nil {
+		return nil, err
+	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, err
