@@ -4,7 +4,10 @@
 package uniter
 
 import (
+	"fmt"
+
 	"launchpad.net/juju-core/charm"
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 )
@@ -21,6 +24,20 @@ type Service struct {
 	tag  string
 	life params.Life
 	// TODO: Add fields.
+}
+
+// Name returns the service name.
+func (s *Service) Name() string {
+	_, serviceName, err := names.ParseTag(s.tag, names.ServiceTagKind)
+	if err != nil {
+		panic(fmt.Sprintf("%q is not a valid service tag", s.tag))
+	}
+	return serviceName
+}
+
+// String returns the service as a string.
+func (s *Service) String() string {
+	return s.Name()
 }
 
 // Watch returns a watcher for observing changes to a service.

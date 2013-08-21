@@ -16,7 +16,7 @@ func init() {
 }
 
 const (
-	JujuTools = "juju-tools"
+	ContentDownload = "content-download"
 )
 
 // This needs to be a var so we can override it for testing.
@@ -60,7 +60,7 @@ type ToolsMetadata struct {
 // then unsigned data is used.
 func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
 	params := simplestreams.ValueParams{
-		DataType:      JujuTools,
+		DataType:      ContentDownload,
 		FilterFunc:    appendMatchingTools,
 		ValueTemplate: ToolsMetadata{},
 	}

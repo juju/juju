@@ -54,7 +54,7 @@ var imageData = map[string]string{
 		   "path": "streams/v1/raring_metadata.json"
 		  },
 		  "com.ubuntu.cloud:released:download": {
-		   "datatype": "image-downloads",
+		   "datatype": "content-download",
 		   "path": "streams/v1/com.ubuntu.cloud:released:download.json",
 		   "updated": "Wed, 01 May 2013 13:30:37 +0000",
 		   "products": [
@@ -63,16 +63,9 @@ var imageData = map[string]string{
 		   ],
 		   "format": "products:1.0"
 		  },
-		  "com.ubuntu.juju:tools": {
+		  "com.ubuntu.juju:released:tools": {
 		   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
-		   "clouds": [
-		    {
-			  "region": "us-east-1",
-		 	  "endpoint": "https://ec2.us-east-1.amazonaws.com"
-		    }
-		   ],
-		   "cloudname": "aws",
-		   "datatype": "juju-tools",
+		   "datatype": "content-download",
 		   "format": "products:1.0",
 		   "products": [
 		     "com.ubuntu.juju:1.13.0:amd64",
@@ -81,6 +74,28 @@ var imageData = map[string]string{
 		   "path": "streams/v1/tools_metadata.json"
 		  }
 		 },
+         "mirrors": {
+          "com.ubuntu.juju:released:tools": [
+             {
+              "datatype": "content-download",
+              "path": "streams/v1/tools_metadata:public-mirrors.json",
+		      "clouds": [
+			   {
+			    "region": "us-east-1",
+			    "endpoint": "https://ec2.us-east-1.amazonaws.com"
+			   }
+		      ],
+              "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
+              "format": "mirrors:1.0"
+             },
+             {
+              "datatype": "content-download",
+              "path": "streams/v1/tools_metadata:more-mirrors.json",
+              "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
+              "format": "mirrors:1.0"
+             }
+		  ]
+		 },
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		 "format": "index:1.0"
 		}
@@ -88,7 +103,7 @@ var imageData = map[string]string{
 	"/streams/v1/tools_metadata.json": `
 {
  "content_id": "com.ubuntu.juju:tools",
- "datatype": "juju-tools",
+ "datatype": "content-download",
  "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
  "format": "products:1.0",
  "products": {
@@ -141,6 +156,56 @@ var imageData = map[string]string{
    }
   }
  }
+}
+`,
+	"/streams/v1/tools_metadata:public-mirrors.json": `
+{
+  "mirrors": {
+    "com.ubuntu.juju:released:tools": [
+      {
+        "mirror": "http://some-mirror/",
+        "path": "com.ubuntu.juju:download.json",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-east-1.amazonaws.com",
+            "region": "us-east-1"
+          }
+        ]
+      },
+      {
+        "mirror": "http://another-mirror/",
+        "path": "com.ubuntu.juju:download.json",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-west-1.amazonaws.com",
+            "region": "us-west-1"
+          }
+        ]
+      }
+    ]
+  },
+  "format": "mirrors:1.0",
+  "updated": "Mon, 05 Aug 2013 11:07:04 +0000"
+}
+`,
+	"/streams/v1/tools_metadata:more-mirrors.json": `
+{
+  "mirrors": {
+    "com.ubuntu.juju:released:tools": [
+      {
+        "mirror": "http://big-mirror/",
+        "path": "big:download.json",
+        "clouds": [
+          {
+            "endpoint": "https://some-endpoint.com",
+            "region": "some-region"
+          }
+        ]
+      }
+    ]
+  },
+  "format": "mirrors:1.0",
+  "updated": "Mon, 05 Aug 2013 11:07:04 +0000"
 }
 `,
 	"/streams/v1/image_metadata.json": `
@@ -269,6 +334,7 @@ func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
 const (
 	Index_v1   = "index:1.0"
 	Product_v1 = "products:1.0"
+	Mirror_v1  = "mirrors:1.0"
 )
 
 type testConstraint struct {
@@ -306,7 +372,7 @@ type TestItem struct {
 	Endpoint    string `json:"endpoint"`
 }
 
-func (s *LocalLiveSimplestreamsSuite) indexPath() string {
+func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
 		return simplestreams.DefaultIndexPath + simplestreams.SignedSuffix
 	}
@@ -326,7 +392,7 @@ func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams
 		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(s.BaseURL, s.indexPath(), format, s.RequireSigned, params)
+	return simplestreams.GetIndexWithFormat(s.BaseURL, s.IndexPath(), format, s.RequireSigned, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {
