@@ -338,7 +338,7 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 
 const ebsStorage = "ebs"
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

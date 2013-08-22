@@ -550,7 +550,7 @@ func (e *environ) Destroy([]instance.Instance) error {
 	return nil
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

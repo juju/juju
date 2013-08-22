@@ -41,7 +41,7 @@ func NewProvisionerTask(
 	machineId string,
 	machineGetter MachineGetter,
 	watcher Watcher,
-	broker environs.Broker,
+	broker environs.InstanceBroker,
 	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
@@ -63,7 +63,7 @@ type provisionerTask struct {
 	machineId      string
 	machineGetter  MachineGetter
 	machineWatcher Watcher
-	broker         environs.Broker
+	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
 	auth           AuthenticationProvider
 

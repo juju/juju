@@ -10,7 +10,9 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-type Broker interface {
+// TODO(wallyworld) - we want this in the environs/instance package but import loops
+// stop that from being possible right now.
+type InstanceBroker interface {
 	// StartInstance asks for a new instance to be created, associated with
 	// the provided config in machineConfig. The given config describes the juju
 	// state for the new instance to connect to. The config MachineNonce, which must be

@@ -20,7 +20,7 @@ import (
 var logger = loggo.GetLogger("juju.provider")
 
 // StartInstance uses the supplied broker to start a machine instance.
-func StartInstance(broker environs.Broker, machineId, machineNonce string, series string, cons constraints.Value,
+func StartInstance(broker environs.InstanceBroker, machineId, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	var err error
@@ -69,11 +69,10 @@ func StartBootstrapInstance(env environs.Environ, cons constraints.Value, possib
 			Characteristics: characteristics,
 		})
 	if err != nil {
-		err2 := env.StopInstances([]instance.Instance{inst})
-		if err2 != nil {
-			// Failure upon failure.  Log it, but return the
-			// original error.
-			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
+		stoperr := env.StopInstances([]instance.Instance{inst})
+		if stoperr != nil {
+			// Failure upon failure.  Log it, but return the original error.
+			logger.Errorf("cannot release failed bootstrap instance: %v", stoperr)
 		}
 		return fmt.Errorf("cannot save state: %v", err)
 	}

@@ -369,7 +369,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
@@ -563,7 +563,7 @@ func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, 
 // This has been reported to Windows Azure.
 var maxConcurrentDeletes = 1
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
 	// all the Azure services.
@@ -624,7 +624,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return instances, nil
 }
 
-// AllInstances is specified in the Broker interface.
+// AllInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	// The instance list is built using the list of all the Azure
 	// Services (instance==service).

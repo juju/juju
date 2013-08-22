@@ -20,10 +20,10 @@ import (
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
-var _ environs.Broker = (*lxcBroker)(nil)
+var _ environs.InstanceBroker = (*lxcBroker)(nil)
 var _ tools.HasTools = (*lxcBroker)(nil)
 
-func NewLxcBroker(config *config.Config, tools *tools.Tools) environs.Broker {
+func NewLxcBroker(config *config.Config, tools *tools.Tools) environs.InstanceBroker {
 	return &lxcBroker{
 		manager: lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
 		config:  config,

@@ -609,7 +609,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	return err
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

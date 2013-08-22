@@ -251,7 +251,7 @@ func (env *localEnviron) setupLocalStorage() error {
 	return nil
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
@@ -273,7 +273,7 @@ func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools too
 	return inst, nil, nil
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 	for _, inst := range instances {
 		if inst.Id() == boostrapInstanceId {
@@ -301,7 +301,7 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return insts, nil
 }
 
-// AllInstances is specified in the Broker interface.
+// AllInstances is specified in the InstanceBroker interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
 	instances = append(instances, &localInstance{boostrapInstanceId, env})
 	// Add in all the containers as well.

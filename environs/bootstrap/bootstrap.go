@@ -15,7 +15,6 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -56,7 +55,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	log.Infof("bootstrapping environment %q", environ.Name())
+	logger.Infof("bootstrapping environment %q", environ.Name())
 	newestTools, err := tools.FindBootstrapTools(environ, cons)
 	if err != nil {
 		return err

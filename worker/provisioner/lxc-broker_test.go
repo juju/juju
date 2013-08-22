@@ -38,7 +38,7 @@ type lxcSuite struct {
 
 type lxcBrokerSuite struct {
 	lxcSuite
-	broker environs.Broker
+	broker environs.InstanceBroker
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})

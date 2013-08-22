@@ -120,7 +120,7 @@ type Storage interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
-	Broker
+	InstanceBroker
 
 	// Name returns the Environ's name.
 	Name() string

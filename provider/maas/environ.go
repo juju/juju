@@ -215,7 +215,7 @@ EOF
 `
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
@@ -270,7 +270,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	return inst, nil, nil
 }
 
-// StartInstance is specified in the Broker interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(instances) == 0 {

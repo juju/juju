@@ -155,7 +155,7 @@ func (p *Provisioner) getWatcher() (Watcher, error) {
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getBroker() (environs.Broker, error) {
+func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 	switch p.pt {
 	case ENVIRON:
 		return p.environ, nil
