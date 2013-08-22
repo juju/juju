@@ -197,6 +197,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
+	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
@@ -206,6 +207,7 @@ func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) str
 }
 
 func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
+	s.State.StartSync()
 	event := <-s.events
 	c.Assert(event.Action, gc.Equals, mock.Stopped)
 	c.Assert(event.InstanceId, gc.Equals, instId)
@@ -264,12 +266,10 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
 
 	container := s.addContainer(c)
 
-	s.State.StartSync()
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
 	c.Assert(container.EnsureDead(), gc.IsNil)
-	s.State.StartSync()
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
 }
