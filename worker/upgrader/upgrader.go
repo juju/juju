@@ -11,7 +11,7 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
 	coretools "launchpad.net/juju-core/tools"
@@ -41,11 +41,11 @@ func (e *UpgradeReadyError) Error() string {
 // It should be called just before an agent exits, so that
 // it will restart running the new tools.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	agenttools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
+	tools, err := agenttools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
 	if err != nil {
 		return err
 	}
-	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, agenttools.Version, agenttools.URL)
+	logger.Infof("upgraded from %v to %v (%q)", e.OldTools.Version, tools.Version, tools.URL)
 	return nil
 }
 
@@ -98,7 +98,7 @@ func (u *Upgrader) Stop() error {
 }
 
 func (u *Upgrader) loop() error {
-	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
+	currentTools, err := agenttools.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
@@ -173,7 +173,7 @@ func (u *Upgrader) fetchTools(agentTools *coretools.Tools) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad HTTP response: %v", resp.Status)
 	}
-	err = tools.UnpackTools(u.dataDir, agentTools, resp.Body)
+	err = agenttools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}

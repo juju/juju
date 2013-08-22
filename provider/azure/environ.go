@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -170,7 +170,7 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
-	possibleTools, err := tools.FindBootstrapTools(env, cons)
+	possibleTools, err := envtools.FindBootstrapTools(env, cons)
 	if err != nil {
 		return nil, err
 	}
@@ -422,7 +422,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 // internalStartInstance does the provider-specific work of starting an
 // instance.  The code in StartInstance is actually largely agnostic across
 // the EC2/OpenStack/MAAS/Azure providers.
-// The instance will be set up for the same series for which you pass tools.
+// The instance will be set up for the same series for which you pass envtools.
 // All tools in possibleTools must be for the same series.
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
@@ -441,7 +441,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		return nil, err
 	}
 
-	// Pick tools.  Needed for the custom data (which is what we normally
+	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
 	machineConfig.Tools = possibleTools[0]
 	logger.Infof("picked tools %q", machineConfig.Tools)
@@ -618,11 +618,11 @@ func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, 
 // TODO(bug 1199847): This work can be shared between providers.
 func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(env, series, cons)
+	possibleTools, err := envtools.FindInstanceTools(env, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = tools.CheckToolsSeries(possibleTools, series)
+	err = envtools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}

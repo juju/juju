@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -18,7 +18,7 @@ import (
 
 func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*coretools.Tools, error) {
 	data := vers.String()
-	name := tools.StorageName(vers)
+	name := envtools.StorageName(vers)
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
 	if err := storage.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
 		return nil, err
@@ -79,12 +79,12 @@ func MustUploadFakeTools(storage environs.Storage) {
 // RemoveFakeTools deletes the fake tools from the supplied storage.
 func RemoveFakeTools(c *C, storage environs.Storage) {
 	toolsVersion := version.Current
-	name := tools.StorageName(toolsVersion)
+	name := envtools.StorageName(toolsVersion)
 	err := storage.Remove(name)
 	c.Check(err, IsNil)
 	if version.Current.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
-		name := tools.StorageName(toolsVersion)
+		name := envtools.StorageName(toolsVersion)
 		err := storage.Remove(name)
 		c.Check(err, IsNil)
 	}

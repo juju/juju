@@ -15,7 +15,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
@@ -114,10 +114,10 @@ type agentSuite struct {
 // for an agent with the given entity name.
 // It returns the agent's configuration and the current tools.
 func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (*agent.Conf, *coretools.Tools) {
-	agentTools := s.primeTools(c, version.Current)
-	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	tools := s.primeTools(c, version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
-	c.Assert(tools1, gc.DeepEquals, agentTools)
+	c.Assert(tools1, gc.DeepEquals, tools)
 
 	conf := &agent.Conf{
 		DataDir:   s.DataDir(),
@@ -130,7 +130,7 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (*agent.Conf, *co
 	conf.APIInfo.Password = password
 	err = conf.Write()
 	c.Assert(err, gc.IsNil)
-	return conf, agentTools
+	return conf, tools
 }
 
 // initAgent initialises the given agent command with additional
@@ -170,13 +170,13 @@ func (s *agentSuite) primeTools(c *gc.C, vers version.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, gc.IsNil)
 	version.Current = vers
-	agentTools := s.uploadTools(c, vers)
-	resp, err := http.Get(agentTools.URL)
+	tools := s.uploadTools(c, vers)
+	resp, err := http.Get(tools.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
+	err = agenttools.UnpackTools(s.DataDir(), tools, resp.Body)
 	c.Assert(err, gc.IsNil)
-	return agentTools
+	return tools
 }
 
 func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent) {

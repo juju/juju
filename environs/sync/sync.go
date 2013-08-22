@@ -16,7 +16,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
@@ -69,7 +69,7 @@ func SyncTools(ctx *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := tools.ReadList(ctx.sourceStorage, majorVersion)
+	sourceTools, err := envtools.ReadList(ctx.sourceStorage, majorVersion)
 	if err != nil {
 		return err
 	}
@@ -93,8 +93,8 @@ func SyncTools(ctx *SyncContext) error {
 	logger.Infof("listing target bucket")
 	ctx.targetStorage = targetEnv.Storage()
 	if ctx.PublicBucket {
-		switch _, err := tools.ReadList(ctx.targetStorage, majorVersion); err {
-		case tools.ErrNoTools:
+		switch _, err := envtools.ReadList(ctx.targetStorage, majorVersion); err {
+		case envtools.ErrNoTools:
 		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
 		default:
@@ -105,9 +105,9 @@ func SyncTools(ctx *SyncContext) error {
 			return fmt.Errorf("cannot write to public storage")
 		}
 	}
-	targetTools, err := tools.ReadList(ctx.targetStorage, majorVersion)
+	targetTools, err := envtools.ReadList(ctx.targetStorage, majorVersion)
 	switch err {
-	case nil, coretools.ErrNoMatches, tools.ErrNoTools:
+	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
 		return err
 	}
@@ -149,7 +149,7 @@ func copyTools(tools []*coretools.Tools, ctx *SyncContext) error {
 
 // copyOneToolsPackage copies one tool from the source to the target.
 func copyOneToolsPackage(tool *coretools.Tools, ctx *SyncContext) error {
-	toolsName := tools.StorageName(tool.Version)
+	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := ctx.sourceStorage.Get(toolsName)
 	if err != nil {
