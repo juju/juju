@@ -125,6 +125,16 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
+		{
+			Value:        inst.Instance.IPAddress,
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+		},
+		{
+			Value:        inst.Instance.PrivateIPAddress,
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+		},
 	}
 	for _, address := range possibleAddresses {
 		if address.Value != "" {
