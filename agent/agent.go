@@ -108,6 +108,9 @@ type conf struct {
 	APIInfo *api.Info `yaml:",omitempty"`
 }
 
+// Ensure that conf implements Config.
+var _ Config = (*conf)(nil)
+
 type AgentConfigParams struct {
 	DataDir        string
 	Tag            string
