@@ -151,9 +151,12 @@ func FindExactTools(environ environs.Environ, vers version.Binary) (t *coretools
 // CheckToolsSeries verifies that all the given possible tools are for the
 // given OS series.
 func checkToolsSeries(toolsList coretools.List, series string) error {
-	toolsSeries := toolsList.OneSeries()
-	if toolsSeries != series {
-		return fmt.Errorf("tools mismatch: expected series %v, got %v", series, toolsSeries)
+	toolsSeries := toolsList.AllSeries()
+	if len(toolsSeries) != 1 {
+		return fmt.Errorf("expected single series, got %v", toolsSeries)
+	}
+	if toolsSeries[0] != series {
+		return fmt.Errorf("tools mismatch: expected series %v, got %v", series, toolsSeries[0])
 	}
 	return nil
 }

@@ -16,12 +16,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -68,59 +68,9 @@ func (env *maasEnviron) Name() string {
 	return env.name
 }
 
-// startBootstrapNode starts the juju bootstrap node for this environment.
-func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Instance, error) {
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids or MAAS system ids.  Juju assigns the machine ID.
-	const machineID = "0"
-
-	// Create an empty bootstrap state file so we can get its URL.
-	// If will be updated with the instance id and hardware characteristics
-	// after the bootstrap instance is started.
-	stateFileURL, err := environs.CreateStateFile(env.Storage())
-	if err != nil {
-		return nil, err
-	}
-
-	logger.Debugf("bootstrapping environment %q", env.Name())
-	possibleTools, err := tools.FindBootstrapTools(env, cons)
-	if err != nil {
-		return nil, err
-	}
-
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-	inst, _, err := env.StartInstance(cons, possibleTools, machineConfig)
-	if err != nil {
-		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
-	}
-	return inst, nil
-}
-
 // Bootstrap is specified in the Environ interface.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *maasEnviron) Bootstrap(cons constraints.Value) error {
-	inst, err := env.startBootstrapNode(cons)
-	if err != nil {
-		return err
-	}
-	// TODO(wallyworld) add hardware characteristics to BootstrapState
-	err = environs.SaveState(
-		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
-	if err != nil {
-		err2 := env.releaseInstance(inst)
-		if err2 != nil {
-			// Failure upon failure.  Log it, but return the
-			// original error.
-			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
-		}
-		return fmt.Errorf("cannot save state: %v", err)
-	}
-
-	// TODO make safe in the case of racing Bootstraps
-	// If two Bootstraps are called concurrently, there's
-	// no way to make sure that only one succeeds.
-	return nil
+func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+	return provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -208,7 +158,7 @@ func convertConstraints(cons constraints.Value) url.Values {
 }
 
 // acquireNode allocates a node from the MAAS.
-func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools coretools.List) (gomaasapi.MAASObject, *coretools.Tools, error) {
+func (environ *maasEnviron) acquireNode(cons constraints.Value, possibleTools tools.List) (gomaasapi.MAASObject, *tools.Tools, error) {
 	constraintsParams := convertConstraints(cons)
 	var result gomaasapi.JSONObject
 	var err error
@@ -265,8 +215,8 @@ EOF
 `
 }
 
-// StartInstance is specified in the Environ interface.
-func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools coretools.List,
+// StartInstance is specified in the Broker interface.
+func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	var inst *maasInstance
@@ -320,7 +270,7 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	return inst, nil, nil
 }
 
-// StopInstances is specified in the Environ interface.
+// StartInstance is specified in the Broker interface.
 func (environ *maasEnviron) StopInstances(instances []instance.Instance) error {
 	// Shortcut to exit quickly if 'instances' is an empty slice or nil.
 	if len(instances) == 0 {

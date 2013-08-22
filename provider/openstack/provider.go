@@ -27,13 +27,13 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -458,53 +458,15 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return publicStorage
 }
 
-// TODO(bug 1199847): This work can be shared between providers.
-func (e *environ) Bootstrap(cons constraints.Value) error {
-	// The bootstrap instance gets machine id "0".  This is not related
-	// to instance ids.  Juju assigns the machine ID.
-	const machineID = "0"
-	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
-
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
-	if err != nil {
-		return err
-	}
-	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	err = e.client.Authenticate()
+	err := e.client.Authenticate()
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := environs.CreateStateFile(e.Storage())
-	if err != nil {
-		return err
-	}
-
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-
-	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.StartInstance(cons, possibleTools, machineConfig)
-	if err != nil {
-		return fmt.Errorf("cannot start bootstrap instance: %v", err)
-	}
-	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances:  []instance.Id{inst.Id()},
-		Characteristics: []instance.HardwareCharacteristics{*characteristics},
-	})
-	if err != nil {
-		// ignore error on StopInstance because the previous error is
-		// more important.
-		e.StopInstances([]instance.Instance{inst})
-		return fmt.Errorf("cannot save state: %v", err)
-	}
-	// TODO make safe in the case of racing Bootstraps
-	// If two Bootstraps are called concurrently, there's
-	// no way to use Swift to make sure that only one succeeds.
-	// Perhaps consider using SimpleDB for state storage
-	// which would enable that possibility.
-
-	return nil
+	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -645,8 +607,8 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	return err
 }
 
-// StartInstance is specified in the Environ interface.
-func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
+// StartInstance is specified in the Broker interface.
+func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
 	series := possibleTools.OneSeries()
@@ -660,7 +622,7 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(coretools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}

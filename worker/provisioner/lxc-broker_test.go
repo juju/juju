@@ -183,7 +183,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
 	// Write the tools file.
-	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
+	toolsDir := tools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
 	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)

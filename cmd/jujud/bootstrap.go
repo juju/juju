@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
@@ -70,7 +71,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 	}
 	defer st.Close()
 
-	if err := environs.BootstrapUsers(st, cfg, c.Conf.OldPassword); err != nil {
+	if err := bootstrap.BootstrapUsers(st, cfg, c.Conf.OldPassword); err != nil {
 		return err
 	}
 
@@ -106,7 +107,7 @@ func (c *BootstrapCommand) Run(_ *cmd.Context) error {
 		characteristics = bsState.Characteristics[0]
 	}
 
-	return environs.ConfigureBootstrapMachine(st, c.Constraints, c.Conf.DataDir, jobs, instance.Id(instId), characteristics)
+	return bootstrap.ConfigureBootstrapMachine(st, c.Constraints, c.Conf.DataDir, jobs, instance.Id(instId), characteristics)
 }
 
 // yamlBase64Value implements gnuflag.Value on a map[string]interface{}.

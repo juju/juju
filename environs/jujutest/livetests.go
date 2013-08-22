@@ -12,6 +12,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -100,7 +101,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 		_, err := tools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
-	err := environs.Bootstrap(t.Env, cons)
+	err := bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -315,7 +316,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -859,7 +860,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

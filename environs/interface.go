@@ -135,7 +135,7 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value) error
+	Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.

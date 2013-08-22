@@ -14,6 +14,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
@@ -235,7 +236,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	env := suite.makeEnviron()
 	// Create node 0: it will be used as the bootstrap node.
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "node0", "hostname": "host0"}`)
-	err := environs.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	// The bootstrap node has been acquired and started.
 	operations := suite.testMAASObject.TestServer.NodeOperations()
@@ -398,9 +399,9 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 
-	config := env.Config()
-	statePortSuffix := fmt.Sprintf(":%d", config.StatePort())
-	apiPortSuffix := fmt.Sprintf(":%d", config.APIPort())
+	cfg := env.Config()
+	statePortSuffix := fmt.Sprintf(":%d", cfg.StatePort())
+	apiPortSuffix := fmt.Sprintf(":%d", cfg.APIPort())
 	c.Assert(stateInfo.Addrs, gc.DeepEquals, []string{hostname + statePortSuffix})
 	c.Assert(apiInfo.Addrs, gc.DeepEquals, []string{hostname + apiPortSuffix})
 }
@@ -441,7 +442,7 @@ func (suite *environSuite) TestBootstrapSucceeds(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "thenode", "hostname": "host"}`)
-	err := env.Bootstrap(constraints.Value{})
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -450,7 +451,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 	env := suite.makeEnviron()
 	// Can't RemoveAllTools, no public storage.
 	envtesting.RemoveTools(c, env.Storage())
-	err := env.Bootstrap(constraints.Value{})
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Check(err, gc.ErrorMatches, "no tools available")
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 }
@@ -458,7 +459,7 @@ func (suite *environSuite) TestBootstrapFailsIfNoTools(c *gc.C) {
 func (suite *environSuite) TestBootstrapFailsIfNoNodes(c *gc.C) {
 	suite.setupFakeTools(c)
 	env := suite.makeEnviron()
-	err := env.Bootstrap(constraints.Value{})
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	// Since there are no nodes, the attempt to allocate one returns a
 	// 409: Conflict.
 	c.Check(err, gc.ErrorMatches, ".*409.*")
@@ -469,7 +470,7 @@ func (suite *environSuite) TestBootstrapIntegratesWithEnvirons(c *gc.C) {
 	env := suite.makeEnviron()
 	suite.testMAASObject.TestServer.NewNode(`{"system_id": "bootstrapnode", "hostname": "host"}`)
 
-	// environs.Bootstrap calls Environ.Bootstrap.  This works.
-	err := environs.Bootstrap(env, constraints.Value{})
+	// bootstrap.Bootstrap calls Environ.Bootstrap.  This works.
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }

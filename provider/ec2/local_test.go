@@ -19,6 +19,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
@@ -239,7 +240,7 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.env.Storage())
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -309,7 +310,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
@@ -324,7 +325,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
@@ -341,7 +342,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()

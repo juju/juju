@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/sync"
 	"launchpad.net/juju-core/environs/tools"
@@ -96,7 +97,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environs.Bootstrap(environ, c.Constraints)
+	return bootstrap.Bootstrap(environ, c.Constraints)
 }
 
 // ensureToolsAvailability verifies the tools are available. If no tools are

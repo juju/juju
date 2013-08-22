@@ -447,7 +447,7 @@ func (e *environ) GetToolsBaseURLs() ([]string, error) {
 	return []string{"dummy-tools-metadata-url"}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -460,10 +460,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
-	if err != nil {
-		return err
-	}
 	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
@@ -554,7 +550,7 @@ func (e *environ) Destroy([]instance.Instance) error {
 	return nil
 }
 
-// StartInstance is specified in the Environ interface.
+// StartInstance is specified in the Broker interface.
 func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
 	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 

@@ -16,11 +16,11 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -154,33 +154,6 @@ func (env *azureEnviron) getSnapshot() *azureEnviron {
 	return &snap
 }
 
-// startBootstrapInstance starts the bootstrap instance for this environment.
-func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids or anything in Azure.  Juju assigns the machine ID.
-	const machineID = "0"
-
-	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics
-	// after the bootstrap instance is started.
-	stateFileURL, err := environs.CreateStateFile(env.Storage())
-	if err != nil {
-		return nil, nil, err
-	}
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-
-	logger.Debugf("bootstrapping environment %q", env.Name())
-	possibleTools, err := tools.FindBootstrapTools(env, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	inst, hw, err := env.StartInstance(cons, possibleTools, machineConfig)
-	if err != nil {
-		return nil, nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
-	}
-	return inst, hw, nil
-}
-
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
@@ -253,10 +226,8 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	// TODO(bug 1199847). The creation of the affinity group and the
-	// virtual network is specific to the Azure provider.
+func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) (err error) {
+	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
 		return err
@@ -277,31 +248,8 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 			env.deleteVirtualNetwork()
 		}
 	}()
-
-	inst, characteristics, err := env.startBootstrapInstance(cons)
-	if err != nil {
-		return err
-	}
-	err = environs.SaveState(
-		env.Storage(),
-		&environs.BootstrapState{
-			StateInstances:  []instance.Id{inst.Id()},
-			Characteristics: []instance.HardwareCharacteristics{*characteristics},
-		})
-	if err != nil {
-		err2 := env.StopInstances([]instance.Instance{inst})
-		if err2 != nil {
-			// Failure upon failure.  Log it, but return the
-			// original error.
-			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
-		}
-		return fmt.Errorf("cannot save state: %v", err)
-	}
-
-	// TODO make safe in the case of racing Bootstraps
-	// If two Bootstraps are called concurrently, there's
-	// no way to make sure that only one succeeds.
-	return nil
+	err = provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	return err
 }
 
 // StateInfo is specified in the Environ interface.
@@ -421,8 +369,8 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// StartInstance is specified in the Environ interface.
-func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools coretools.List,
+// StartInstance is specified in the Broker interface.
+func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
 	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
 
 	// Declaring "err" in the function signature so that we can "defer"
@@ -615,7 +563,7 @@ func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, 
 // This has been reported to Windows Azure.
 var maxConcurrentDeletes = 1
 
-// StopInstances is specified in the Environ interface.
+// StartInstance is specified in the Broker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
 	// all the Azure services.
@@ -676,7 +624,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return instances, nil
 }
 
-// AllInstances is specified in the Environ interface.
+// AllInstances is specified in the Broker interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	// The instance list is built using the list of all the Azure
 	// Services (instance==service).

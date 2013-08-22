@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -217,7 +218,7 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 	c.Assert(err, IsNil)
 	// sanity check we've got the correct environment.
 	c.Assert(environ.Name(), Equals, "dummyenv")
-	c.Assert(environs.Bootstrap(environ, constraints.Value{}), IsNil)
+	c.Assert(bootstrap.Bootstrap(environ, constraints.Value{}), IsNil)
 
 	s.BackingState = environ.(GetStater).GetStateInAPIServer()
 
