@@ -11,12 +11,10 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
@@ -93,31 +91,6 @@ func verifyBootstrapInit(env environs.Environ) error {
 	return environs.VerifyStorage(storage)
 }
 
-// BootstrapUsers creates the initial admin user for the database, and sets
-// the initial password.
-func BootstrapUsers(st *state.State, cfg *config.Config, passwordHash string) error {
-	logger.Debugf("adding admin user")
-	// Set up initial authentication.
-	u, err := st.AddUser("admin", "")
-	if err != nil {
-		return err
-	}
-
-	// Note that at bootstrap time, the password is set to
-	// the hash of its actual value. The first time a client
-	// connects to mongo, it changes the mongo password
-	// to the original password.
-	logger.Debugf("setting password hash for admin user")
-	if err := u.SetPasswordHash(passwordHash); err != nil {
-		return err
-	}
-	if err := st.SetAdminMongoPassword(passwordHash); err != nil {
-		return err
-	}
-	return nil
-
-}
-
 // ConfigureBootstrapMachine adds the initial machine into state.  As a part
 // of this process the environmental constraints are saved as constraints used
 // when bootstrapping are considered constraints for the entire environment.
@@ -147,15 +120,8 @@ func ConfigureBootstrapMachine(
 	if err != nil {
 		return err
 	}
-	newPassword, err := utils.RandomPassword()
+	newPassword, err := mconf.GenerateNewPassword()
 	if err != nil {
-		return err
-	}
-	mconf.StateInfo.Password = newPassword
-	mconf.APIInfo.Password = newPassword
-	mconf.OldPassword = ""
-
-	if err := mconf.Write(); err != nil {
 		return err
 	}
 	if err := m.SetMongoPassword(newPassword); err != nil {
