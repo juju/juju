@@ -113,9 +113,9 @@ type agentSuite struct {
 // primeAgent writes the configuration file and tools for an agent with the
 // given entity name.  It returns the agent's configuration and the current
 // tools.
-func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *tools.Tools) {
+func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
 	tools := s.primeTools(c, version.Current)
-	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, tools)
 
