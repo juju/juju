@@ -5,6 +5,7 @@ package imagemetadata
 
 import "launchpad.net/juju-core/environs"
 
+// SupportsCustomURLs instances can host image metadata at provider specific URLs.
 type SupportsCustomURLs interface {
 	GetImageBaseURLs() ([]string, error)
 }
