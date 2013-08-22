@@ -118,7 +118,11 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
 		return a.APIWorker(ensureStateWorker)
 	})
-	err := agentDone(a.runner.Wait())
+	err := a.runner.Wait()
+	if err == worker.ErrTerminateAgent {
+		err = a.uninstallAgent()
+	}
+	err = agentDone(err)
 	a.tomb.Kill(err)
 	return err
 }
@@ -164,15 +168,7 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	// Only the machiner currently connects to the API.
 	// Add other workers here as they are ready.
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
-		worker := machiner.NewMachiner(st.Machiner(), a.Tag())
-		providerType := os.Getenv(osenv.JujuProviderType)
-		if providerType == provider.Manual {
-			// Wrap the worker in another worker that
-			// uninstalls the upstart service when the
-			// machine state goes to "dead".
-			worker = &uninstallWorker{worker}
-		}
-		return worker, nil
+		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
@@ -297,22 +293,8 @@ func (a *MachineAgent) Tag() string {
 	return names.MachineTag(a.MachineId)
 }
 
-type uninstallWorker struct {
-	worker.Worker
-}
-
-func (w *uninstallWorker) Wait() error {
-	err := w.Worker.Wait()
-	if err == worker.ErrTerminateAgent {
-		err2 := w.uninstallAgent()
-		if moreImportant(err2, err) {
-			err = err2
-		}
-	}
-	return err
-}
-
-func (w *uninstallWorker) uninstallAgent() error {
+func (m *MachineAgent) uninstallAgent() error {
+	// TODO(axw) get this from agent config when it's available
 	name := os.Getenv("UPSTART_JOB")
 	if name == "" {
 		return fmt.Errorf("not executing within the context of an upstart job")

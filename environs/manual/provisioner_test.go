@@ -45,7 +45,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	hostname := args.Host
 	args.Host = "ubuntu@" + args.Host
 
-	defer sshresponse(c, detectionoutput, 0)()
+	defer sshresponse(c, detectionScript, detectionoutput, 0)()
 	m, err := ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "agent tools for machine 0 not found")
 	c.Assert(m, gc.IsNil)
@@ -58,8 +58,8 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	for _, errorCode := range []int{255, 0} {
-		defer sshresponse(c, "", errorCode)()
-		defer sshresponse(c, detectionoutput, 0)()
+		defer sshresponse(c, "", "", errorCode)()
+		defer sshresponse(c, detectionScript, detectionoutput, 0)()
 		m, err = ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))

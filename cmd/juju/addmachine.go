@@ -27,7 +27,7 @@ Machines are created in a clean state and ready to have units deployed.
 
 This command also supports configuring existing machines via SSH. The
 target machine must be able to communicate with the API servers, and
-be able to access the tools storage.`[1:]
+be able to access the environment storage.`[1:]
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {

@@ -39,9 +39,30 @@ type provisionMachineAgentArgs struct {
 // provisionMachineAgent connects to a machine over SSH,
 // copies across the tools, and installs a machine agent.
 func provisionMachineAgent(args provisionMachineAgentArgs) error {
+	script, err := provisionMachineAgentSCript(args)
+	if err != nil {
+		return err
+	}
+	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
+	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
+	sshArgs := []string{
+		args.host,
+		"-t", // allocate a pseudo-tty
+		"--", fmt.Sprintf("sudo bash -c '%s'", script),
+	}
+	cmd := exec.Command("ssh", sshArgs...)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	cmd.Stdin = os.Stdin
+	return cmd.Run()
+}
+
+// provisionMachineAgentScript generates the script necessary
+// to install a machine agent on the specified host.
+func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error) {
 	tools, err := args.machine.AgentTools()
 	if err != nil {
-		return fmt.Errorf("machine %v has no associated agent tools", args.machine)
+		return "", fmt.Errorf("machine %v has no associated agent tools", args.machine)
 	}
 
 	dataDir := args.dataDir
@@ -62,7 +83,7 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 		osenv.JujuProviderType: provider.Manual,
 	}
 	upstartConf := upstart.MachineAgentUpstartService(
-		upstartServiceName,
+		"jujud-"+args.machine.Tag(),
 		path.Join(dataDir, "tools", tools.Version.String()),
 		dataDir,
 		logDir,
@@ -73,7 +94,7 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 	)
 	upstartCommands, err := upstartConf.InstallCommands()
 	if err != nil {
-		return fmt.Errorf("error generating upstart configuration: %v", err)
+		return "", fmt.Errorf("error generating upstart configuration: %v", err)
 	}
 
 	var agentConf = agent.Conf{
@@ -86,7 +107,7 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 	}
 	agentConfCommands, err := agentConf.WriteCommands()
 	if err != nil {
-		return fmt.Errorf("error generating agent configuration: %v", err)
+		return "", fmt.Errorf("error generating agent configuration: %v", err)
 	}
 
 	// Finally, run the script remotely.
@@ -95,19 +116,7 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 		strings.Join(agentConfCommands, "\n"),
 		strings.Join(upstartCommands, "\n"),
 	}
-	script := fmt.Sprintf(agentProvisioningScript, fmtargs...)
-	scriptBase64 := base64.StdEncoding.EncodeToString([]byte(script))
-	script = fmt.Sprintf(`F=$(mktemp); echo %s | base64 -d > $F; . $F`, scriptBase64)
-	sshArgs := []string{
-		args.host,
-		"-t", // allocate a pseudo-tty
-		"--", fmt.Sprintf("sudo bash -c '%s'", script),
-	}
-	cmd := exec.Command("ssh", sshArgs...)
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	cmd.Stdin = os.Stdin
-	return cmd.Run()
+	return fmt.Sprintf(agentProvisioningScript, fmtargs...), nil
 }
 
 const agentProvisioningScript = `#!/bin/bash
