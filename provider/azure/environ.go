@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -413,7 +412,7 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		Arches:      architectures,
 		Constraints: cons,
 	}
-	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
+	spec, err := findInstanceSpec(env, ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
@@ -968,12 +967,17 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 	return &context, nil
 }
 
-// getImageBaseURLs returns the base URLs for this environment's simplestreams
-// database.  In other words, where it should look for information on the
-// available images.
-func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
-	// Hard-coded to the central Simplestreams database for now.
-	return []string{imagemetadata.DefaultBaseURL}, nil
+// baseURLs specifies an Azure specific location where we look for simplestreams information.
+// It contains the central databases for the released and daily streams, but this may
+// become more configurable.  This variable is here as a placeholder, but also
+// as an injection point for tests.
+var baseURLs = []string{
+	"http://cloud-images.ubuntu.com/daily",
+}
+
+// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *azureEnviron) GetImageBaseURLs() ([]string, error) {
+	return baseURLs, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

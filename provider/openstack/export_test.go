@@ -246,10 +246,6 @@ func FindInstanceSpec(e environs.Environ, series, arch, cons string) (spec *inst
 	return
 }
 
-func GetImageURLs(e environs.Environ) ([]string, error) {
-	return e.(*environ).getImageBaseURLs()
-}
-
 func GetSwiftURL(e environs.Environ) (string, error) {
 	return e.(*environ).client.MakeServiceURL("object-store", nil)
 }

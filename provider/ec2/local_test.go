@@ -445,13 +445,6 @@ func CheckPackage(c *gc.C, x map[interface{}]interface{}, pkg string, match bool
 	}
 }
 
-func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
-	urls, err := ec2.GetImageURLs(s.env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(urls), gc.Equals, 1)
-	c.Assert(urls[0], gc.Equals, imagemetadata.DefaultBaseURL)
-}
-
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if
 type localNonUSEastSuite struct {

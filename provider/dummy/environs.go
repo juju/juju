@@ -35,6 +35,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/imagemetadata"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
@@ -147,6 +148,9 @@ type environ struct {
 	ecfgMutex    sync.Mutex
 	ecfgUnlocked *environConfig
 }
+
+var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
+var _ tools.SupportsCustomURLs = (*environ)(nil)
 
 // storage holds the storage for an environState.
 // There are two instances for each environState
@@ -428,6 +432,16 @@ func (e *environ) checkBroken(method string) error {
 
 func (e *environ) Name() string {
 	return e.state.name
+}
+
+// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) GetImageBaseURLs() ([]string, error) {
+	return []string{"dummy-image-metadata-url"}, nil
+}
+
+// GetToolsBaseURLs returns a list of URLs which are used to search for simplestreams tools metadata.
+func (e *environ) GetToolsBaseURLs() ([]string, error) {
+	return []string{"dummy-tools-url"}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value) error {

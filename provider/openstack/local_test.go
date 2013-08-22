@@ -471,8 +471,8 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	c.Assert(err, gc.NotNil)
 }
 
-func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
-	urls, err := openstack.GetImageURLs(s.env)
+func (s *localServerSuite) TestGetMetadataURLs(c *gc.C) {
+	urls, err := imagemetadata.GetMetadataURLs(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(urls), gc.Equals, 3)
 	// The public bucket URL ends with "/juju-dist/".
