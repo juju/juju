@@ -19,15 +19,17 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/loggo"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
+
+var logger = loggo.GetLogger("juju.provider.ec2")
 
 // Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
@@ -170,7 +172,7 @@ amazon:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Infof("environs/ec2: opening environment %q", cfg.Name())
+	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -296,7 +298,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
+	logger.Infof("bootstrapping environment %q", e.name)
 	possibleTools, err := tools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
@@ -424,7 +426,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
+	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	config := e.Config()
 	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
@@ -457,7 +459,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 		arch:     &spec.Image.Arch,
 		instType: &spec.InstanceType,
 	}
-	log.Infof("environs/ec2: started instance %q", inst.Id())
+	logger.Infof("started instance %q", inst.Id())
 	return inst, inst.hardwareCharacteristics(), nil
 }
 
@@ -565,7 +567,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy(ensureInsts []instance.Instance) error {
-	log.Infof("environs/ec2: destroying environment %q", e.name)
+	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -663,7 +665,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	}
 	for _, p := range resp.Groups[0].IPPerms {
 		if len(p.SourceIPs) != 1 {
-			log.Warningf("environs/ec2: unexpected IP permission found: %v", p)
+			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
@@ -685,7 +687,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", ports)
 	return nil
 }
 
@@ -697,7 +699,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", ports)
 	return nil
 }
 
@@ -769,7 +771,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) erro
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -782,7 +784,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) err
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: closed ports in security group %s: %v", name, ports)
+	logger.Infof("closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
