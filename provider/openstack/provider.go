@@ -20,6 +20,8 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
+	"launchpad.net/loggo"
+
 	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -30,12 +32,13 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.provider.openstack")
 
 type environProvider struct{}
 
@@ -121,7 +124,7 @@ hpcloud:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Infof("environs/openstack: opening environment %q", cfg.Name())
+	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -354,7 +357,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -367,7 +370,7 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Por
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: closed ports in security group %s: %v", name, ports)
+	logger.Infof("closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -463,7 +466,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// The bootstrap instance gets machine id "0".  This is not related
 	// to instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
+	logger.Infof("bootstrapping environment %q", e.name)
 
 	possibleTools, err := tools.FindBootstrapTools(e, cons)
 	if err != nil {
@@ -699,7 +702,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
+	logger.Debugf("openstack user data; %d bytes", len(userData))
 	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
@@ -707,7 +710,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
-			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
+			logger.Infof("allocated public IP %s", publicIP.IP)
 		}
 	}
 	config := e.Config()
@@ -746,16 +749,16 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 		arch:         &spec.Image.Arch,
 		instType:     &spec.InstanceType,
 	}
-	log.Infof("environs/openstack: started instance %q", inst.Id())
+	logger.Infof("started instance %q", inst.Id())
 	if withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
-				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
+				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
 			return nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
-		log.Infof("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
+		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, inst.hardwareCharacteristics(), nil
 }
@@ -769,7 +772,7 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 		}
 		ids[i] = instanceValue.Id()
 	}
-	log.Debugf("environs/openstack: terminating instances %v", ids)
+	logger.Debugf("terminating instances %v", ids)
 	return e.terminateInstances(ids)
 }
 
@@ -860,7 +863,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy(ensureInsts []instance.Instance) error {
-	log.Infof("environs/openstack: destroying environment %q", e.name)
+	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -928,7 +931,7 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 		})
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
-			log.Debugf("error creating security group rule: %v", err.Error())
+			logger.Debugf("error creating security group rule: %v", err.Error())
 		}
 	}
 	return nil
@@ -988,7 +991,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", ports)
 	return nil
 }
 
@@ -1000,7 +1003,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", ports)
 	return nil
 }
 
@@ -1123,7 +1126,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
-			log.Debugf("environs/openstack: error terminating instance %q: %v", id, err)
+			logger.Debugf("error terminating instance %q: %v", id, err)
 			firstErr = err
 		}
 	}

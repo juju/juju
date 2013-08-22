@@ -5,7 +5,6 @@ package ec2_test
 
 import (
 	"bytes"
-	"fmt"
 	"regexp"
 	"sort"
 
@@ -350,18 +349,33 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	apiInfo.Tag = "machine-1"
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
-	instId := inst.Id()
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.DeepEquals, []instance.Address{{
-		Value:        fmt.Sprintf("%s.testing.invalid", instId),
+	// Expected values use Address type but really contain a regexp for
+	// the value rather than a valid ip or hostname.
+	expected := []instance.Address{{
+		Value:        "*.testing.invalid",
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkPublic,
 	}, {
-		Value:        fmt.Sprintf("%s.internal.invalid", instId),
+		Value:        "*.internal.invalid",
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkCloudLocal,
-	}})
+	}, {
+		Value:        "8.0.0.*",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "127.0.0.*",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	c.Assert(addrs, gc.HasLen, len(expected))
+	for i, addr := range addrs {
+		c.Check(addr.Value, gc.Matches, expected[i].Value)
+		c.Check(addr.Type, gc.Equals, expected[i].Type)
+		c.Check(addr.NetworkScope, gc.Equals, expected[i].NetworkScope)
+	}
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
