@@ -572,8 +572,9 @@ func (*cloudinitSuite) TestCloudInitVerify(c *gc.C) {
 		AuthorizedKeys:     "sshkey1",
 		MachineEnvironment: map[string]string{osenv.JujuProviderType: "dummy"},
 		StateInfo: &state.Info{
-			Addrs:  []string{"host:98765"},
-			CACert: []byte(testing.CACert),
+			Addrs:    []string{"host:98765"},
+			CACert:   []byte(testing.CACert),
+			Password: "password",
 		},
 		APIInfo: &api.Info{
 			Addrs:  []string{"host:9999"},
