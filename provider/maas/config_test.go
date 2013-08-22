@@ -11,7 +11,9 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-type configSuite struct{}
+type configSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = gc.Suite(&configSuite{})
 
