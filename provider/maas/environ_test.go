@@ -257,6 +257,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	stateInfo, apiInfo, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	stateInfo.Tag = "machine-1"
+	stateInfo.Password = "password"
 	apiInfo.Tag = "machine-1"
 	series := version.Current.Series
 	nonce := "12345"

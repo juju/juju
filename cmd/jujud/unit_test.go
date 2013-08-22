@@ -33,18 +33,20 @@ func (s *UnitSuite) TearDownTest(c *gc.C) {
 	s.GitSuite.TearDownTest(c)
 }
 
+const initialUnitPassword = "unit-password"
+
 // primeAgent creates a unit, and sets up the unit agent's directory.
 // It returns the new unit and the agent's configuration.
-func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, *agent.Conf, *tools.Tools) {
+func (s *UnitSuite) primeAgent(c *gc.C) (*state.Unit, agent.Config, *tools.Tools) {
 	svc, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 	c.Assert(err, gc.IsNil)
 	unit, err := svc.AddUnit()
 	c.Assert(err, gc.IsNil)
-	err = unit.SetMongoPassword("unit-password")
+	err = unit.SetMongoPassword(initialUnitPassword)
 	c.Assert(err, gc.IsNil)
-	err = unit.SetPassword("unit-password")
+	err = unit.SetPassword(initialUnitPassword)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), "unit-password")
+	conf, tools := s.agentSuite.primeAgent(c, unit.Tag(), initialUnitPassword)
 	return unit, conf, tools
 }
 
@@ -150,5 +152,5 @@ func (s *UnitSuite) TestWithDeadUnit(c *gc.C) {
 func (s *UnitSuite) TestOpenAPIState(c *gc.C) {
 	c.Skip("unit agent API connection not implemented yet")
 	unit, _, _ := s.primeAgent(c)
-	s.testOpenAPIState(c, unit, s.newAgent(c, unit))
+	s.testOpenAPIState(c, unit, s.newAgent(c, unit), initialUnitPassword)
 }

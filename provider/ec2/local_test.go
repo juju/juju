@@ -280,6 +280,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// provisioning agent.
 	series := t.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	inst1, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
@@ -314,6 +315,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
@@ -329,6 +331,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	_, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, gc.IsNil)
@@ -346,6 +349,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)

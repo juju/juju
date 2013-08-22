@@ -17,7 +17,9 @@ import (
 	"launchpad.net/juju-core/tools"
 )
 
-type customDataSuite struct{}
+type customDataSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = gc.Suite(&customDataSuite{})
 
@@ -31,9 +33,10 @@ func makeMachineConfig(c *gc.C) *cloudinit.MachineConfig {
 		DataDir:      dir,
 		Tools:        &tools.Tools{URL: "file://" + dir},
 		StateInfo: &state.Info{
-			CACert: []byte(testing.CACert),
-			Addrs:  []string{"127.0.0.1:123"},
-			Tag:    names.MachineTag(machineID),
+			CACert:   []byte(testing.CACert),
+			Addrs:    []string{"127.0.0.1:123"},
+			Tag:      names.MachineTag(machineID),
+			Password: "password",
 		},
 		APIInfo: &api.Info{
 			CACert: []byte(testing.CACert),
