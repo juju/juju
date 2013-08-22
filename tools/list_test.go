@@ -72,6 +72,9 @@ func (s *ListSuite) TestSeries(c *gc.C) {
 	for i, test := range seriesTests {
 		c.Logf("test %d", i)
 		c.Check(test.src.AllSeries(), gc.DeepEquals, test.expect)
+		if len(test.expect) == 1 {
+			c.Check(test.src.OneSeries(), gc.Equals, test.expect[0])
+		}
 	}
 }
 

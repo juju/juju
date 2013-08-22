@@ -193,7 +193,3 @@ type Environ interface {
 	// Provider returns the EnvironProvider that created this Environ.
 	Provider() EnvironProvider
 }
-
-// List holds tools available in an environment. The order of tools within
-// a List is not significant.
-type List tools.List
