@@ -437,7 +437,11 @@ func InitialStateConfiguration(agentConfig Config, cfg *config.Config, timeout s
 	info.Tag = ""
 	st, err := state.Initialize(&info, cfg, timeout)
 	if err != nil {
-		logger.Errorf("failed to initialize state: %v", err)
+		if errors.IsUnauthorizedError(err) {
+			logger.Errorf("unauthorized: %v", err)
+		} else {
+			logger.Errorf("failed to initialize state: %v", err)
+		}
 		return nil, err
 	}
 	logger.Debugf("state initialized")
