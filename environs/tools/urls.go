@@ -5,6 +5,7 @@ package tools
 
 import "launchpad.net/juju-core/environs"
 
+// SupportsCustomURLs instances can host tools metadata at provider specific URLs.
 type SupportsCustomURLs interface {
 	GetToolsBaseURLs() ([]string, error)
 }
