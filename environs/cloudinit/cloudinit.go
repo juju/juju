@@ -234,13 +234,19 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
 	// if the machine is a stateServer then to use localhost.  This may be
 	// sufficient, but needs thought in the new world order.
+	var password string
+	if cfg.StateInfo == nil {
+		password = cfg.APIInfo.Password
+	} else {
+		password = cfg.StateInfo.Password
+	}
 	if cfg.StateServer {
 		return agent.NewStateMachineConfig(
 			agent.StateMachineConfigParams{
 				AgentConfigParams: agent.AgentConfigParams{
 					DataDir:        cfg.DataDir,
 					Tag:            tag,
-					Password:       cfg.StateInfo.Password,
+					Password:       password,
 					Nonce:          cfg.MachineNonce,
 					StateAddresses: cfg.stateHostAddrs(),
 					APIAddresses:   cfg.apiHostAddrs(),
@@ -256,7 +262,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 		agent.AgentConfigParams{
 			DataDir:        cfg.DataDir,
 			Tag:            tag,
-			Password:       cfg.StateInfo.Password,
+			Password:       password,
 			Nonce:          cfg.MachineNonce,
 			StateAddresses: cfg.stateHostAddrs(),
 			APIAddresses:   cfg.apiHostAddrs(),
