@@ -495,13 +495,19 @@ func (env *localEnviron) findBridgeAddress() (string, error) {
 }
 
 func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
-	info, apiInfo, err := env.StateInfo()
-	if err != nil {
-		logger.Errorf("failed to get state info to write bootstrap agent file: %v", err)
-		return nil, err
-	}
 	tag := names.MachineTag("0")
 	passwordHash := utils.PasswordHash(secret)
+	// We don't check the existance of the CACert here as if it wasn't set, we
+	// wouldn't get this far.
+	cfg := env.config.Config
+	caCert, _ := cfg.CACert()
+	// NOTE: the state address HAS to be localhost, otherwise the mongo
+	// initialization fails.  There is some magic code somewhere in the mongo
+	// connection code that treats connections from localhost as special, and
+	// will raise unauthorized errors during the initialization if the caller
+	// is not connected from localhost.
+	stateAddress := fmt.Sprintf("localhost:%d", cfg.StatePort())
+	apiAddress := fmt.Sprintf("localhost:%d", cfg.APIPort())
 	config, err := agent.NewStateMachineConfig(
 		agent.StateMachineConfigParams{
 			AgentConfigParams: agent.AgentConfigParams{
@@ -509,14 +515,14 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 				Tag:            tag,
 				Password:       passwordHash,
 				Nonce:          state.BootstrapNonce,
-				StateAddresses: info.Addrs,
-				APIAddresses:   apiInfo.Addrs,
-				CACert:         info.CACert,
+				StateAddresses: []string{stateAddress},
+				APIAddresses:   []string{apiAddress},
+				CACert:         caCert,
 			},
 			StateServerCert: cert,
 			StateServerKey:  key,
-			StatePort:       env.config.StatePort(),
-			APIPort:         env.config.APIPort(),
+			StatePort:       cfg.StatePort(),
+			APIPort:         cfg.APIPort(),
 		})
 	if err != nil {
 		return nil, err

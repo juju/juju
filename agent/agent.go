@@ -435,6 +435,7 @@ func InitialStateConfiguration(agentConfig Config, cfg *config.Config, timeout s
 	c := agentConfig.(*conf)
 	info := *c.StateInfo
 	info.Tag = ""
+	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(&info, cfg, timeout)
 	if err != nil {
 		if errors.IsUnauthorizedError(err) {
