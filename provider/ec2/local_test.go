@@ -349,6 +349,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
