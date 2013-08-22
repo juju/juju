@@ -12,17 +12,20 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
@@ -35,7 +38,7 @@ type lxcSuite struct {
 
 type lxcBrokerSuite struct {
 	lxcSuite
-	broker provisioner.Broker
+	broker environs.Broker
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -84,7 +87,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	series := "series"
 	nonce := "fake-nonce"
 	cons := constraints.Value{}
-	lxc, _, err := s.broker.StartInstance(machineId, nonce, series, cons, stateInfo, apiInfo)
+	lxc, _, err := provider.StartInstance(s.broker, machineId, nonce, series, cons, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 	return lxc
 }
@@ -180,7 +183,7 @@ func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
 	// Write the tools file.
-	toolsDir := tools.SharedToolsDir(s.DataDir(), version.Current)
+	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
 	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
 	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)

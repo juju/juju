@@ -25,6 +25,7 @@ import (
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -461,7 +462,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	series := s.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, _, err := s.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, _, err := provider.StartInstance(s.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 
 	err = s.env.Destroy(append(insts, inst1))

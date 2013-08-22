@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/tools"
@@ -26,6 +27,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -251,30 +253,20 @@ func (env *localEnviron) setupLocalStorage() error {
 }
 
 // StartInstance is specified in the Environ interface.
-func (env *localEnviron) StartInstance(
-	machineId, machineNonce, series string,
-	cons constraints.Value,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	// We pretty much ignore the constraints.
-	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	possibleTools, err := tools.FindInstanceTools(env, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(possibleTools) == 0 {
-		return nil, nil, fmt.Errorf("could not find appropriate tools")
-	}
+func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools coretools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	tools := possibleTools[0]
-	logger.Debugf("tools: %#v", tools)
+	machineId := machineConfig.MachineId
+	series := possibleTools.OneSeries()
+	logger.Debugf("StartInstance: %q, %s", machineId, series)
+	agenttools := possibleTools[0]
+	logger.Debugf("tools: %#v", agenttools)
 
 	network := lxc.DefaultNetworkConfig()
 	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineNonce, network,
-		tools, env.config.Config,
-		stateInfo, apiInfo)
+		machineId, series, machineConfig.MachineNonce, network,
+		agenttools, env.config.Config,
+		machineConfig.StateInfo, machineConfig.APIInfo)
 	if err != nil {
 		return nil, nil, err
 	}

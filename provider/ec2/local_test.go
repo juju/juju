@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -282,7 +283,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	series := t.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst1, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, hc, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -317,7 +318,7 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
@@ -331,7 +332,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	_, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	_, hc, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -348,7 +349,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	instId := inst.Id()
 	addrs, err := inst.Addresses()

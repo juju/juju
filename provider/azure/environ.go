@@ -155,7 +155,7 @@ func (env *azureEnviron) getSnapshot() *azureEnviron {
 }
 
 // startBootstrapInstance starts the bootstrap instance for this environment.
-func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instance.Instance, error) {
+func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids or anything in Azure.  Juju assigns the machine ID.
 	const machineID = "0"
@@ -165,20 +165,20 @@ func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instanc
 	// after the bootstrap instance is started.
 	stateFileURL, err := environs.CreateStateFile(env.Storage())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	logger.Debugf("bootstrapping environment %q", env.Name())
 	possibleTools, err := tools.FindBootstrapTools(env, cons)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
+	inst, hw, err := env.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
-		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
+		return nil, nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
-	return inst, nil
+	return inst, hw, nil
 }
 
 // getAffinityGroupName returns the name of the affinity group used by all
@@ -278,14 +278,16 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 		}
 	}()
 
-	inst, err := env.startBootstrapInstance(cons)
+	inst, characteristics, err := env.startBootstrapInstance(cons)
 	if err != nil {
 		return err
 	}
-	// TODO(wallyworld) - save hardware characteristics
 	err = environs.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
+		&environs.BootstrapState{
+			StateInstances:  []instance.Id{inst.Id()},
+			Characteristics: []instance.HardwareCharacteristics{*characteristics},
+		})
 	if err != nil {
 		err2 := env.StopInstances([]instance.Instance{inst})
 		if err2 != nil {
@@ -419,26 +421,16 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// internalStartInstance does the provider-specific work of starting an
-// instance.  The code in StartInstance is actually largely agnostic across
-// the EC2/OpenStack/MAAS/Azure providers.
-// The instance will be set up for the same series for which you pass tools.
-// All tools in possibleTools must be for the same series.
-// machineConfig will be filled out with further details, but should contain
-// MachineID, MachineNonce, StateInfo, and APIInfo.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+// StartInstance is specified in the Environ interface.
+func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools coretools.List,
+	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
-
 	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// Pick tools.  Needed for the custom data (which is what we normally
@@ -449,12 +441,12 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// Compose userdata.
 	userData, err := makeCustomData(machineConfig)
 	if err != nil {
-		return nil, fmt.Errorf("custom data: %v", err)
+		return nil, nil, fmt.Errorf("custom data: %v", err)
 	}
 
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer env.releaseManagementAPI(azure)
 
@@ -462,7 +454,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	location := snap.ecfg.location()
 	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	serviceName := service.ServiceName
 
@@ -476,9 +468,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series[0], location)
+	series := possibleTools.OneSeries()
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series, location)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// virtualNetworkName is the virtual network to which all the
@@ -496,7 +489,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	err = azure.AddDeployment(deployment, serviceName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var inst instance.Instance
@@ -518,9 +511,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// above can perform its check.
 	inst, err = env.getInstance(serviceName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return inst, nil
+	// TODO(bug 1193998) - return instance hardware characteristics as well
+	return inst, &instance.HardwareCharacteristics{}, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
@@ -555,7 +549,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 // getInitialEndpoints returns a slice of the endpoints every instance should have open
 // (ssh port, etc).
 func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
-	config := env.Config()
+	cfg := env.Config()
 	return []gwacl.InputEndpoint{
 		{
 			LocalPort: 22,
@@ -565,16 +559,16 @@ func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 		},
 		// TODO: Ought to have this only for state servers.
 		{
-			LocalPort: config.StatePort(),
+			LocalPort: cfg.StatePort(),
 			Name:      "stateport",
-			Port:      config.StatePort(),
+			Port:      cfg.StatePort(),
 			Protocol:  "tcp",
 		},
 		// TODO: Ought to have this only for API servers.
 		{
-			LocalPort: config.APIPort(),
+			LocalPort: cfg.APIPort(),
 			Name:      "apiport",
-			Port:      config.APIPort(),
+			Port:      cfg.APIPort(),
 			Protocol:  "tcp",
 		}}
 }
@@ -612,24 +606,6 @@ func (env *azureEnviron) newRole(roleSize string, vhd *gwacl.OSVirtualHardDisk, 
 func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, deploymentLabel string, virtualNetworkName string) *gwacl.Deployment {
 	// Use the service name as the label for the deployment.
 	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, deploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
-}
-
-// StartInstance is specified in the Environ interface.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(env, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
-	// TODO(bug 1193998) - return instance hardware characteristics as well.
-	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
-	return inst, nil, err
 }
 
 // Spawn this many goroutines to issue requests for destroying services.

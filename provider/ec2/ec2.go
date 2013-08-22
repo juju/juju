@@ -303,10 +303,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
-	if err != nil {
-		return err
-	}
 	stateFileURL, err := environs.CreateStateFile(e.Storage())
 	if err != nil {
 		return err
@@ -315,7 +311,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
+	inst, characteristics, err := e.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -364,41 +360,22 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	}, nil
 }
 
-// TODO(bug 1199847): This work can be shared between providers.
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-
-	return e.internalStartInstance(cons, possibleTools, machineConfig)
-}
-
 const ebsStorage = "ebs"
 
-// internalStartInstance is the internal version of StartInstance, used by
-// Bootstrap as well as via StartInstance itself.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
+// StartInstance is specified in the Environ interface.
+func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
 	arches := possibleTools.Arches()
 	storage := ebsStorage
 	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, nil, err
 	}
+	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series[0],
+		Series:      series,
 		Arches:      arches,
 		Constraints: cons,
 		Storage:     &storage,
@@ -421,15 +398,15 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools co
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
 	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
-	config := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
+	cfg := e.Config()
+	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
-	var instances *ec2.RunInstancesResp
+	var instResp *ec2.RunInstancesResp
 
 	for a := shortAttempt.Start(); a.Next(); {
-		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
+		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:        spec.Image.Id,
 			MinCount:       1,
 			MaxCount:       1,
@@ -444,12 +421,12 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools co
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	}
-	if len(instances.Instances) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
+	if len(instResp.Instances) != 1 {
+		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 	inst := &ec2Instance{
 		e:        e,
-		Instance: &instances.Instances[0],
+		Instance: &instResp.Instances[0],
 		arch:     &spec.Image.Arch,
 		instType: &spec.InstanceType,
 	}

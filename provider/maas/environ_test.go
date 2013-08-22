@@ -16,11 +16,12 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -261,7 +262,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 	series := version.Current.Series
 	nonce := "12345"
 	// TODO(wallyworld) - test instance metadata
-	instance, _, err := env.StartInstance("1", nonce, series, constraints.Value{}, stateInfo, apiInfo)
+	instance, _, err := provider.StartInstance(env, "1", nonce, series, constraints.Value{}, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(instance, gc.NotNil)
 
@@ -289,7 +290,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Trash the tools and try to start another instance.
 	envtesting.RemoveTools(c, env.Storage())
-	instance, _, err = env.StartInstance("2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
+	instance, _, err = provider.StartInstance(env, "2", "fake-nonce", series, constraints.Value{}, stateInfo, apiInfo)
 	c.Check(instance, gc.IsNil)
 	c.Check(err, gc.ErrorMatches, "no tools available")
 	c.Check(err, jc.Satisfies, errors.IsNotFoundError)

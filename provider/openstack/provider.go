@@ -469,10 +469,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
-	if err != nil {
-		return err
-	}
 	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
@@ -488,7 +484,7 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
 
 	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
+	inst, characteristics, err := e.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -599,22 +595,6 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 	return e.imageBaseURLs, nil
 }
 
-// TODO(bug 1199847): This work can be shared between providers.
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return e.internalStartInstance(cons, possibleTools, machineConfig)
-}
-
 // allocatePublicIP tries to find an available floating IP address, or
 // allocates a new one, returning it, or an error
 func (e *environ) allocatePublicIP() (*nova.FloatingIP, error) {
@@ -665,20 +645,15 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	return err
 }
 
-// internalStartInstance is the internal version of StartInstance, used by
-// Bootstrap as well as via StartInstance itself.
-// machineConfig will be filled out with further details, but should contain
-// MachineID, MachineNonce, StateInfo, and APIInfo.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
+// StartInstance is specified in the Environ interface.
+func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	series := possibleTools.OneSeries()
 	arches := possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series[0],
+		Series:      series,
 		Arches:      arches,
 		Constraints: cons,
 	})
@@ -710,8 +685,8 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools co
 			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
 		}
 	}
-	config := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
+	cfg := e.Config()
+	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}

@@ -7,6 +7,7 @@ import (
 	"errors"
 	"strings"
 
+	"fmt"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -26,11 +27,20 @@ func (src List) String() string {
 	return strings.Join(names, ";")
 }
 
-// Series returns all series for which some tools in src were built.
-func (src List) Series() []string {
+// AllSeries returns all series for which some tools in src were built.
+func (src List) allSeries() []string {
 	return src.collect(func(tools *Tools) string {
 		return tools.Version.Series
 	})
+}
+
+// OneSeries returns the single series for which all tools in src were built.
+func (src List) OneSeries() string {
+	series := src.allSeries()
+	if len(series) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
+	}
+	return series[0]
 }
 
 // Arches returns all architectures for which some tools in src were built.

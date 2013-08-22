@@ -87,13 +87,9 @@ func (env *maasEnviron) startBootstrapNode(cons constraints.Value) (instance.Ins
 	if err != nil {
 		return nil, err
 	}
-	err = tools.CheckToolsSeries(possibleTools, env.Config().DefaultSeries())
-	if err != nil {
-		return nil, err
-	}
 
 	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
+	inst, _, err := env.StartInstance(cons, possibleTools, machineConfig)
 	if err != nil {
 		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
 	}
@@ -269,45 +265,37 @@ EOF
 `
 }
 
-// internalStartInstance allocates and starts a MAAS node.  It is used both
-// for the implementation of StartInstance, and to initialize the bootstrap
-// node.
-// The instance will be set up for the same series for which you pass tools.
-// All tools in possibleTools must be for the same series.
-// machineConfig will be filled out with further details, but should contain
-// MachineID, MachineNonce, StateInfo, and APIInfo.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (_ *maasInstance, err error) {
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
-	var instance *maasInstance
+// StartInstance is specified in the Environ interface.
+func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools coretools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	var inst *maasInstance
+	var err error
 	if node, tools, err := environ.acquireNode(cons, possibleTools); err != nil {
-		return nil, fmt.Errorf("cannot run instances: %v", err)
+		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	} else {
-		instance = &maasInstance{&node, environ}
+		inst = &maasInstance{&node, environ}
 		machineConfig.Tools = tools
 	}
 	defer func() {
 		if err != nil {
-			if err := environ.releaseInstance(instance); err != nil {
+			if err := environ.releaseInstance(inst); err != nil {
 				logger.Errorf("error releasing failed instance: %v", err)
 			}
 		}
 	}()
 
-	hostname, err := instance.DNSName()
+	hostname, err := inst.DNSName()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	info := machineInfo{hostname}
 	runCmd, err := info.cloudinitRunCmd()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
@@ -319,33 +307,17 @@ func (environ *maasEnviron) internalStartInstance(cons constraints.Value, possib
 	)
 	if err != nil {
 		msg := fmt.Errorf("could not compose userdata for bootstrap node: %v", err)
-		return nil, msg
+		return nil, nil, msg
 	}
 	logger.Debugf("maas user data; %d bytes", len(userdata))
 
-	if err := environ.startNode(*instance.maasObject, series[0], userdata); err != nil {
-		return nil, err
-	}
-	logger.Debugf("started instance %q", instance.Id())
-	return instance, nil
-}
-
-// StartInstance is specified in the Environ interface.
-// TODO(bug 1199847): This work can be shared between providers.
-func (environ *maasEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(environ, series, cons)
-	if err != nil {
+	series := possibleTools.OneSeries()
+	if err := environ.startNode(*inst.maasObject, series, userdata); err != nil {
 		return nil, nil, err
 	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
+	logger.Debugf("started instance %q", inst.Id())
 	// TODO(bug 1193998) - return instance hardware characteristics as well
-	inst, err := environ.internalStartInstance(cons, possibleTools, machineConfig)
-	return inst, nil, err
+	return inst, nil, nil
 }
 
 // StopInstances is specified in the Environ interface.

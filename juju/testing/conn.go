@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -92,7 +93,8 @@ func StartInstance(c *C, env environs.Environ, machineId string) (instance.Insta
 func StartInstanceWithConstraints(c *C, env environs.Environ, machineId string,
 	cons constraints.Value) (instance.Instance, *instance.HardwareCharacteristics) {
 	series := config.DefaultSeries
-	inst, metadata, err := env.StartInstance(
+	inst, metadata, err := provider.StartInstance(
+		env,
 		machineId,
 		"fake_nonce",
 		series,

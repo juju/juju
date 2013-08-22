@@ -47,7 +47,16 @@ func FindTools(environ environs.Environ, majorVersion int, filter coretools.Filt
 	if err != nil {
 		return nil, err
 	}
-	return list.Match(filter)
+	list, err = list.Match(filter)
+	if err != nil {
+		return nil, err
+	}
+	if filter.Series != "" {
+		if err := checkToolsSeries(list, filter.Series); err != nil {
+			return nil, err
+		}
+	}
+	return list, err
 }
 
 // FindBootstrapTools returns a ToolsList containing only those tools with
@@ -141,13 +150,10 @@ func FindExactTools(environ environs.Environ, vers version.Binary) (t *coretools
 
 // CheckToolsSeries verifies that all the given possible tools are for the
 // given OS series.
-func CheckToolsSeries(toolsList coretools.List, series string) error {
-	toolsSeries := toolsList.Series()
-	if len(toolsSeries) != 1 {
-		return fmt.Errorf("expected single series, got %v", toolsSeries)
-	}
-	if toolsSeries[0] != series {
-		return fmt.Errorf("tools mismatch: expected series %v, got %v", series, toolsSeries[0])
+func checkToolsSeries(toolsList coretools.List, series string) error {
+	toolsSeries := toolsList.OneSeries()
+	if toolsSeries != series {
+		return fmt.Errorf("tools mismatch: expected series %v, got %v", series, toolsSeries)
 	}
 	return nil
 }

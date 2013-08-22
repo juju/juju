@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -781,7 +782,9 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate tools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, _, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := provider.StartInstance(
+		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
+		testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -793,7 +796,9 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
-	inst, _, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := provider.StartInstance(
+		t.Env, "4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"),
+		testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
