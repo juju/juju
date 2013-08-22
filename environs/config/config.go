@@ -330,16 +330,22 @@ func (c *Config) AgentVersion() (version.Number, bool) {
 	return version.Zero, false
 }
 
-// ToolsMetadataURL returns the URL at which the metadata used to
-// locate tools tarballs is located.
-func (c *Config) ToolsMetadataURL() string {
-	return c.asString("tools-metadata-url")
+// ToolsURL returns the URL at which the tools tarballs and metadata used is located,
+// and wether it has been set.
+func (c *Config) ToolsURL() (string, bool) {
+	if url := c.asString("tools-url"); url != "" {
+		return url, true
+	}
+	return "", false
 }
 
-// ImageMetadataURL returns the URL at which the metadata used to
-// locate image ids is located.
-func (c *Config) ImageMetadataURL() string {
-	return c.asString("image-metadata-url")
+// ImageMetadataURL returns the URL at which the metadata used to locate image ids is located,
+// and wether it has been set.
+func (c *Config) ImageMetadataURL() (string, bool) {
+	if url := c.asString("image-metadata-url"); url != "" {
+		return url, true
+	}
+	return "", false
 }
 
 // Development returns whether the environment is in development mode.
@@ -387,7 +393,7 @@ var fields = schema.Fields{
 	"type":                      schema.String(),
 	"name":                      schema.String(),
 	"default-series":            schema.String(),
-	"tools-metadata-url":        schema.String(),
+	"tools-url":                 schema.String(),
 	"image-metadata-url":        schema.String(),
 	"authorized-keys":           schema.String(),
 	"authorized-keys-path":      schema.String(),
@@ -406,7 +412,7 @@ var fields = schema.Fields{
 
 var defaults = schema.Defaults{
 	"default-series":            DefaultSeries,
-	"tools-metadata-url":        "",
+	"tools-url":                 "",
 	"image-metadata-url":        "",
 	"authorized-keys":           "",
 	"authorized-keys-path":      "",

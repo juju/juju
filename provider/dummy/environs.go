@@ -444,7 +444,7 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 
 // GetToolsBaseURLs returns a list of URLs which are used to search for simplestreams tools metadata.
 func (e *environ) GetToolsBaseURLs() ([]string, error) {
-	return []string{"dummy-tools-metadata-url"}, nil
+	return []string{"dummy-tools-url"}, nil
 }
 
 func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {

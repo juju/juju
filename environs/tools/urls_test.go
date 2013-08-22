@@ -35,23 +35,23 @@ func (s *URLsSuite) env(c *gc.C, toolsMetadataURL string) environs.Environ {
 		"ca-private-key":  testing.CAKey,
 	}
 	if toolsMetadataURL != "" {
-		attrs["tools-metadata-url"] = toolsMetadataURL
+		attrs["tools-url"] = toolsMetadataURL
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
 	return env
 }
 
-func (s *URLsSuite) TestToolsMetadataURLsNoConfigURL(c *gc.C) {
+func (s *URLsSuite) TestToolsURLsNoConfigURL(c *gc.C) {
 	urls, err := tools.GetMetadataURLs(s.env(c, ""))
 	c.Assert(err, gc.IsNil)
 	c.Assert(urls, gc.DeepEquals, []string{
-		"dummy-tools-metadata-url", "http://juju.canonical.com/tools"})
+		"dummy-tools-url", "http://juju.canonical.com/tools"})
 }
 
-func (s *URLsSuite) TestToolsMetadataURLs(c *gc.C) {
-	urls, err := tools.GetMetadataURLs(s.env(c, "config-tools-metadata-url"))
+func (s *URLsSuite) TestToolsURLs(c *gc.C) {
+	urls, err := tools.GetMetadataURLs(s.env(c, "config-tools-url"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(urls, gc.DeepEquals, []string{
-		"config-tools-metadata-url", "dummy-tools-metadata-url", "http://juju.canonical.com/tools"})
+		"config-tools-url", "dummy-tools-url", "http://juju.canonical.com/tools"})
 }
