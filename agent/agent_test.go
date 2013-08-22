@@ -14,7 +14,7 @@ type suite struct {
 	coretesting.LoggingSuite
 }
 
-var _ = gc.Suite(suite{})
+var _ = gc.Suite(&suite{})
 
 var agentConfigTests = []struct {
 	about    string
@@ -114,7 +114,7 @@ var agentConfigTests = []struct {
 	},
 }}
 
-func (suite) TestNewAgentConfig(c *gc.C) {
+func (*suite) TestNewAgentConfig(c *gc.C) {
 
 	for i, test := range agentConfigTests {
 		c.Logf("%v: %s", i, test.about)
@@ -127,7 +127,7 @@ func (suite) TestNewAgentConfig(c *gc.C) {
 	}
 }
 
-func (suite) TestNewStateMachineConfig(c *gc.C) {
+func (*suite) TestNewStateMachineConfig(c *gc.C) {
 	type testStruct struct {
 		about    string
 		params   agent.StateMachineConfigParams
@@ -176,7 +176,7 @@ var attributeParams = agent.AgentConfigParams{
 	Nonce:          "a nonce",
 }
 
-func (suite) TestAttributes(c *gc.C) {
+func (*suite) TestAttributes(c *gc.C) {
 	conf, err := agent.NewAgentConfig(attributeParams)
 	c.Assert(err, gc.IsNil)
 	c.Assert(conf.DataDir(), gc.Equals, "/data/dir")
@@ -185,7 +185,7 @@ func (suite) TestAttributes(c *gc.C) {
 	c.Assert(conf.Nonce(), gc.Equals, "a nonce")
 }
 
-func (suite) TestWriteAndRead(c *gc.C) {
+func (*suite) TestWriteAndRead(c *gc.C) {
 	testParams := attributeParams
 	testParams.DataDir = c.MkDir()
 	conf, err := agent.NewAgentConfig(testParams)
@@ -203,7 +203,7 @@ func (suite) TestWriteAndRead(c *gc.C) {
 	c.Assert(confCommands, gc.DeepEquals, rereadCommands)
 }
 
-func (suite) TestGenerateNewPassword(c *gc.C) {
+func (*suite) TestGenerateNewPassword(c *gc.C) {
 
 	for i, test := range []struct {
 		about  string
