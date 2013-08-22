@@ -460,6 +460,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// and without a provisioning agent.
 	series := s.env.Config().DefaultSeries()
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	inst1, _, err := s.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
