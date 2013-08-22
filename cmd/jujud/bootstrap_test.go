@@ -80,14 +80,22 @@ func (s *BootstrapSuite) initBootstrapCommand(c *gc.C, args ...string) (machineC
 	ioutil.WriteFile(s.providerStateURLFile, []byte("test://localhost/provider-state\n"), 0600)
 	// NOTE: the old test used an equivalent of the NewAgentConfig, but it
 	// really should be using NewStateMachineConfig.
-	bootConf, err := agent.NewAgentConfig(s.dataDir, "bootstrap", testPasswordHash(), "nonce",
-		[]string{testing.MgoAddr}, []string{"0.1.2.3:1234"}, []byte(testing.CACert))
+	params := agent.AgentConfigParams{
+		DataDir:        s.dataDir,
+		Tag:            "bootstrap",
+		Password:       testPasswordHash(),
+		Nonce:          state.BootstrapNonce,
+		StateAddresses: []string{testing.MgoAddr},
+		APIAddresses:   []string{"0.1.2.3:1234"},
+		CACert:         []byte(testing.CACert),
+	}
+	bootConf, err := agent.NewAgentConfig(params)
 	c.Assert(err, gc.IsNil)
 	err = bootConf.Write()
 	c.Assert(err, gc.IsNil)
 
-	machineConf, err = agent.NewAgentConfig(s.dataDir, "machine-0", testPasswordHash(), "nonce",
-		[]string{testing.MgoAddr}, []string{"0.1.2.3:1234"}, []byte(testing.CACert))
+	params.Tag = "machine-0"
+	machineConf, err = agent.NewAgentConfig(params)
 	c.Assert(err, gc.IsNil)
 	err = machineConf.Write()
 	c.Assert(err, gc.IsNil)

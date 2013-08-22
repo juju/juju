@@ -99,8 +99,15 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	}
 	logger.Debugf("API addresses: %q", apiAddrs)
 	conf, err := agent.NewAgentConfig(
-		ctx.dataDir, tag, initialPassword, "nonce",
-		stateAddrs, apiAddrs, ctx.caCert)
+		agent.AgentConfigParams{
+			DataDir:        ctx.dataDir,
+			Tag:            tag,
+			Password:       initialPassword,
+			Nonce:          "unused",
+			StateAddresses: stateAddrs,
+			APIAddresses:   apiAddrs,
+			CACert:         ctx.caCert,
+		})
 	if err != nil {
 		return err
 	}

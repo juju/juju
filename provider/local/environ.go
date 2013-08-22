@@ -502,9 +502,21 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 	tag := names.MachineTag("0")
 	passwordHash := utils.PasswordHash(secret)
 	config, err := agent.NewStateMachineConfig(
-		env.config.rootDir(), tag, passwordHash, state.BootstrapNonce,
-		info.Addrs, apiInfo.Addrs, info.CACert, cert, key,
-		env.config.StatePort(), env.config.APIPort())
+		agent.StateMachineConfigParams{
+			AgentConfigParams: agent.AgentConfigParams{
+				DataDir:        env.config.rootDir(),
+				Tag:            tag,
+				Password:       passwordHash,
+				Nonce:          state.BootstrapNonce,
+				StateAddresses: info.Addrs,
+				APIAddresses:   apiInfo.Addrs,
+				CACert:         info.CACert,
+			},
+			StateServerCert: cert,
+			StateServerKey:  key,
+			StatePort:       env.config.StatePort(),
+			APIPort:         env.config.APIPort(),
+		})
 	if err != nil {
 		return nil, err
 	}

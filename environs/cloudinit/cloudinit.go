@@ -236,15 +236,32 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 	// sufficient, but needs thought in the new world order.
 	if cfg.StateServer {
 		return agent.NewStateMachineConfig(
-			cfg.DataDir, tag, cfg.StateInfo.Password, cfg.MachineNonce,
-			cfg.stateHostAddrs(), cfg.apiHostAddrs(),
-			cfg.StateInfo.CACert, cfg.StateServerCert, cfg.StateServerKey,
-			cfg.StatePort, cfg.APIPort)
+			agent.StateMachineConfigParams{
+				AgentConfigParams: agent.AgentConfigParams{
+					DataDir:        cfg.DataDir,
+					Tag:            tag,
+					Password:       cfg.StateInfo.Password,
+					Nonce:          cfg.MachineNonce,
+					StateAddresses: cfg.stateHostAddrs(),
+					APIAddresses:   cfg.apiHostAddrs(),
+					CACert:         cfg.StateInfo.CACert,
+				},
+				StateServerCert: cfg.StateServerCert,
+				StateServerKey:  cfg.StateServerKey,
+				StatePort:       cfg.StatePort,
+				APIPort:         cfg.APIPort,
+			})
 	}
 	return agent.NewAgentConfig(
-		cfg.DataDir, tag, cfg.StateInfo.Password, cfg.MachineNonce,
-		cfg.stateHostAddrs(), cfg.apiHostAddrs(),
-		cfg.StateInfo.CACert)
+		agent.AgentConfigParams{
+			DataDir:        cfg.DataDir,
+			Tag:            tag,
+			Password:       cfg.StateInfo.Password,
+			Nonce:          cfg.MachineNonce,
+			StateAddresses: cfg.stateHostAddrs(),
+			APIAddresses:   cfg.apiHostAddrs(),
+			CACert:         cfg.StateInfo.CACert,
+		})
 }
 
 // addAgentInfo adds agent-required information to the agent's directory

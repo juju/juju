@@ -108,33 +108,53 @@ type conf struct {
 	APIInfo *api.Info `yaml:",omitempty"`
 }
 
-// NewAgentConfig returns a new config object suitable for use for a unit
-// agent. As the unit agent becomes entirely APIified, we should remove the
-// state addresses from here.
-func NewAgentConfig(dataDir, tag, password, nonce string,
-	stateAddresses, apiAddresses []string,
-	caCert []byte) (Config, error) {
-	if caCert == nil {
-		return nil, requiredError("ca cert")
+type AgentConfigParams struct {
+	DataDir        string
+	Tag            string
+	Password       string
+	Nonce          string
+	StateAddresses []string
+	APIAddresses   []string
+	CACert         []byte
+}
+
+func newConfig(params AgentConfigParams) (*conf, error) {
+	if params.DataDir == "" {
+		return nil, requiredError("data directory")
+	}
+	if params.Tag == "" {
+		return nil, requiredError("entity tag")
+	}
+	if params.Password == "" {
+		return nil, requiredError("password")
+	}
+	if params.CACert == nil {
+		return nil, requiredError("CA certificate")
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
-	stateInfo := state.Info{
-		Addrs:  stateAddresses,
-		Tag:    tag,
-		CACert: caCert,
+	var stateInfo *state.Info
+	if len(params.StateAddresses) > 0 {
+		stateInfo = &state.Info{
+			Addrs:  params.StateAddresses,
+			Tag:    params.Tag,
+			CACert: params.CACert,
+		}
 	}
-	apiInfo := api.Info{
-		Addrs:  apiAddresses,
-		Tag:    tag,
-		CACert: caCert,
+	var apiInfo *api.Info
+	if len(params.APIAddresses) > 0 {
+		apiInfo = &api.Info{
+			Addrs:  params.APIAddresses,
+			Tag:    params.Tag,
+			CACert: params.CACert,
+		}
 	}
 	conf := &conf{
-		dataDir:      dataDir,
-		OldPassword:  password,
-		StateInfo:    &stateInfo,
-		APIInfo:      &apiInfo,
-		MachineNonce: nonce,
+		dataDir:      params.DataDir,
+		OldPassword:  params.Password,
+		StateInfo:    stateInfo,
+		APIInfo:      apiInfo,
+		MachineNonce: params.Nonce,
 	}
 	if err := conf.check(); err != nil {
 		return nil, err
@@ -142,46 +162,36 @@ func NewAgentConfig(dataDir, tag, password, nonce string,
 	return conf, nil
 }
 
-func NewStateMachineConfig(dataDir, tag, password, nonce string,
-	stateAddresses, apiAddresses []string,
-	caCert, stateServerCert, stateServerKey []byte,
-	statePort, APIPort int) (Config, error) {
-	if caCert == nil {
-		return nil, requiredError("ca cert")
-	}
-	if stateServerCert == nil {
+// NewAgentConfig returns a new config object suitable for use for a unit
+// agent. As the unit agent becomes entirely APIified, we should remove the
+// state addresses from here.
+func NewAgentConfig(params AgentConfigParams) (Config, error) {
+	return newConfig(params)
+}
+
+type StateMachineConfigParams struct {
+	AgentConfigParams
+	StateServerCert []byte
+	StateServerKey  []byte
+	StatePort       int
+	APIPort         int
+}
+
+func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
+	if params.StateServerCert == nil {
 		return nil, requiredError("state server cert")
 	}
-	if stateServerKey == nil {
+	if params.StateServerKey == nil {
 		return nil, requiredError("state server key")
 	}
-
-	// Note that the password parts of the state and api information are
-	// blank.  This is by design.
-	stateInfo := state.Info{
-		Addrs:  stateAddresses,
-		Tag:    tag,
-		CACert: caCert,
-	}
-	apiInfo := api.Info{
-		Addrs:  apiAddresses,
-		Tag:    tag,
-		CACert: caCert,
-	}
-	conf := &conf{
-		dataDir:         dataDir,
-		OldPassword:     password,
-		StateInfo:       &stateInfo,
-		APIInfo:         &apiInfo,
-		StateServerCert: stateServerCert,
-		StateServerKey:  stateServerKey,
-		StatePort:       statePort,
-		APIPort:         APIPort,
-		MachineNonce:    nonce,
-	}
-	if err := conf.check(); err != nil {
+	conf, err := newConfig(params.AgentConfigParams)
+	if err != nil {
 		return nil, err
 	}
+	conf.StateServerCert = params.StateServerCert
+	conf.StateServerKey = params.StateServerKey
+	conf.StatePort = params.StatePort
+	conf.APIPort = params.APIPort
 	return conf, nil
 }
 
@@ -251,37 +261,19 @@ func (c *conf) Dir() string {
 
 // Check checks that the configuration has all the required elements.
 func (c *conf) check() error {
-	if c.dataDir == "" {
-		return requiredError("data directory")
-	}
 	if c.StateInfo == nil && c.APIInfo == nil {
-		return requiredError("state info or API info")
+		return requiredError("state or API addresses")
 	}
 	if c.StateInfo != nil {
-		if c.StateInfo.Tag == "" {
-			return requiredError("state entity tag")
-		}
 		if err := checkAddrs(c.StateInfo.Addrs, "state server address"); err != nil {
 			return err
-		}
-		if len(c.StateInfo.CACert) == 0 {
-			return requiredError("state CA certificate")
 		}
 	}
 	// TODO(rog) make APIInfo mandatory
 	if c.APIInfo != nil {
-		if c.APIInfo.Tag == "" {
-			return requiredError("API entity tag")
-		}
 		if err := checkAddrs(c.APIInfo.Addrs, "API server address"); err != nil {
 			return err
 		}
-		if len(c.APIInfo.CACert) == 0 {
-			return requiredError("API CA certficate")
-		}
-	}
-	if c.StateInfo != nil && c.APIInfo != nil && c.StateInfo.Tag != c.APIInfo.Tag {
-		return fmt.Errorf("mismatched entity tags")
 	}
 	return nil
 }
@@ -301,7 +293,13 @@ func checkAddrs(addrs []string, what string) error {
 }
 
 func (c *conf) PasswordHash() string {
-	return utils.PasswordHash(c.StateInfo.Password)
+	var password string
+	if c.StateInfo == nil {
+		password = c.APIInfo.Password
+	} else {
+		password = c.StateInfo.Password
+	}
+	return utils.PasswordHash(password)
 }
 
 func (c *conf) GenerateNewPassword() (string, error) {
@@ -313,13 +311,17 @@ func (c *conf) GenerateNewPassword() (string, error) {
 	// to write the configuration file, the configuration will
 	// still be valid.
 	other := *c
-	stateInfo := *c.StateInfo
-	other.StateInfo = &stateInfo
-	apiInfo := *c.APIInfo
-	other.APIInfo = &apiInfo
+	if c.StateInfo != nil {
+		stateInfo := *c.StateInfo
+		stateInfo.Password = newPassword
+		other.StateInfo = &stateInfo
+	}
+	if c.APIInfo != nil {
+		apiInfo := *c.APIInfo
+		apiInfo.Password = newPassword
+		other.APIInfo = &apiInfo
+	}
 
-	other.StateInfo.Password = newPassword
-	other.APIInfo.Password = newPassword
 	if err := other.Write(); err != nil {
 		return "", err
 	}

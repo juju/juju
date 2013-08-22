@@ -119,8 +119,16 @@ func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *t
 
 	stateInfo := s.StateInfo(c)
 	apiInfo := s.APIInfo(c)
-	conf, err := agent.NewAgentConfig(s.DataDir(), tag, password, state.BootstrapNonce,
-		stateInfo.Addrs, apiInfo.Addrs, stateInfo.CACert)
+	conf, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:        s.DataDir(),
+			Tag:            tag,
+			Password:       password,
+			Nonce:          state.BootstrapNonce,
+			StateAddresses: stateInfo.Addrs,
+			APIAddresses:   apiInfo.Addrs,
+			CACert:         stateInfo.CACert,
+		})
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
 }
@@ -137,10 +145,22 @@ func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Confi
 	stateInfo := s.StateInfo(c)
 	port := coretesting.FindTCPPort()
 	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
-	conf, err := agent.NewStateMachineConfig(s.DataDir(), tag, password, state.BootstrapNonce,
-		stateInfo.Addrs, apiAddr, stateInfo.CACert,
-		[]byte(coretesting.ServerCert), []byte(coretesting.ServerKey),
-		coretesting.MgoPort, port)
+	conf, err := agent.NewStateMachineConfig(
+		agent.StateMachineConfigParams{
+			AgentConfigParams: agent.AgentConfigParams{
+				DataDir:        s.DataDir(),
+				Tag:            tag,
+				Password:       password,
+				Nonce:          state.BootstrapNonce,
+				StateAddresses: stateInfo.Addrs,
+				APIAddresses:   apiAddr,
+				CACert:         stateInfo.CACert,
+			},
+			StateServerCert: []byte(coretesting.ServerCert),
+			StateServerKey:  []byte(coretesting.ServerKey),
+			StatePort:       coretesting.MgoPort,
+			APIPort:         port,
+		})
 	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
 }

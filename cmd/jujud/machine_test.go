@@ -74,10 +74,11 @@ func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.M
 	c.Assert(err, gc.IsNil)
 	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
+	tag := names.MachineTag(m.Id())
 	if m.IsStateServer() {
-		config, tools = s.agentSuite.primeStateAgent(c, names.MachineTag(m.Id()), initialMachinePassword)
+		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)
 	} else {
-		config, tools = s.agentSuite.primeAgent(c, names.MachineTag(m.Id()), initialMachinePassword)
+		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword)
 	}
 	err = config.Write()
 	c.Assert(err, gc.IsNil)
