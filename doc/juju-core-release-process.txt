@@ -60,6 +60,8 @@ Test this release by bootstrapping an environment in ec2 (and hp cloud if you ha
 
 If this step fails then this release is a failure and the release number is unused. Do not reuse release numbers. It is ok to have gaps in the sequence, we've done it before, water is still wet.
 
+The previous paragraph is mostly relevant for devel releases. For stable releases they are branched from a known working devel branch and then fed through the launchpad build process then backported into ppa:juju/stable so there is far less chance that they will be a failure.
+
 Step 7. Publish the release notes to launchpad, closing the milestone and opening another
 
 Step 8. Announce the release
