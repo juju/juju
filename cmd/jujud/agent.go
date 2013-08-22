@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
@@ -20,6 +19,7 @@ import (
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
 	"launchpad.net/juju-core/worker/upgrader"

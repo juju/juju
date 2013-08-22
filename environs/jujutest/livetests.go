@@ -9,11 +9,11 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -23,6 +23,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"strings"
@@ -95,7 +96,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := tools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := envtools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
 	err := environs.Bootstrap(t.Env, cons)
@@ -546,7 +547,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 
 type tooler interface {
 	Life() state.Life
-	AgentTools() (*tools.Tools, error)
+	AgentTools() (*coretools.Tools, error)
 	Refresh() error
 	String() string
 }
@@ -557,7 +558,7 @@ type watcher interface {
 }
 
 type toolsWaiter struct {
-	lastTools *tools.Tools
+	lastTools *coretools.Tools
 	// changes is a chan of struct{} so that it can
 	// be used with different kinds of entity watcher.
 	changes chan struct{}
@@ -603,7 +604,7 @@ func (w *toolsWaiter) Stop() error {
 
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
-func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
+func (w *toolsWaiter) NextTools(c *C) (*coretools.Tools, error) {
 	for _ = range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
@@ -632,7 +633,7 @@ func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
+func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *coretools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
 	c.Assert(err, IsNil)
@@ -644,9 +645,9 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
+	upgradeTools, err := envtools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, IsNil)
-	// tools.Upload always returns tools for the series on which the tests are running.
+	// envtools.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
 	upgradeTools.Version.Series = newVersion.Series
@@ -778,7 +779,7 @@ attempt:
 
 // Check that we can't start an instance running tools that correspond with no
 // available platform.  The first thing start instance should do is find
-// appropriate tools.
+// appropriate envtools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	inst, _, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
 	if inst != nil {
@@ -837,14 +838,14 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	// already bootstrapped.
 	t.Destroy(c)
 
-	currentName := tools.StorageName(current)
-	otherName := tools.StorageName(other)
+	currentName := envtools.StorageName(current)
+	otherName := envtools.StorageName(other)
 	envStorage := env.Storage()
 	dummyStorage := dummyenv.Storage()
 
 	defer envStorage.Remove(otherName)
 
-	_, err = tools.Upload(dummyStorage, &current.Number)
+	_, err = envtools.Upload(dummyStorage, &current.Number)
 	c.Assert(err, IsNil)
 
 	// This will only work while cross-compiling across releases is safe,

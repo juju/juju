@@ -6,10 +6,16 @@ package ec2
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -17,16 +23,12 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
-	"launchpad.net/loggo"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 )
 
 var logger = loggo.GetLogger("juju.provider.ec2")
@@ -309,11 +311,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", e.name)
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
+	possibleTools, err := envtools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
-	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	err = envtools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
 	if err != nil {
 		return err
 	}
@@ -377,11 +379,11 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
+	possibleTools, err := envtools.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = tools.CheckToolsSeries(possibleTools, series)
+	err = envtools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -395,7 +397,7 @@ const ebsStorage = "ebs"
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -416,7 +418,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(coretools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}

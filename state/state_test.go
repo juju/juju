@@ -13,7 +13,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -25,6 +24,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 

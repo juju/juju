@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -17,6 +16,7 @@ import (
 	"launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 

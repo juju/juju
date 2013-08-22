@@ -8,7 +8,6 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs/config"
@@ -16,6 +15,7 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")

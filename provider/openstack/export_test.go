@@ -13,12 +13,12 @@ import (
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 )
 

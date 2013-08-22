@@ -9,11 +9,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/tools"
 )
 
 type UnitSuite struct {

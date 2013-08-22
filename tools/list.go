@@ -4,6 +4,7 @@
 package tools
 
 import (
+	"errors"
 	"strings"
 
 	"launchpad.net/juju-core/utils/set"
@@ -13,6 +14,8 @@ import (
 // List holds tools available in an environment. The order of tools within
 // a List is not significant.
 type List []*Tools
+
+var ErrNoMatches = errors.New("no matching tools available")
 
 // String returns the versions of the tools in src, separated by semicolons.
 func (src List) String() string {

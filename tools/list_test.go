@@ -6,7 +6,7 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 

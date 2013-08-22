@@ -12,7 +12,6 @@ import (
 	"launchpad.net/gomaasapi"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
@@ -21,6 +20,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )

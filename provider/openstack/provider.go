@@ -19,10 +19,8 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
-
 	"launchpad.net/loggo"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -30,11 +28,12 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -468,11 +467,11 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	const machineID = "0"
 	logger.Infof("bootstrapping environment %q", e.name)
 
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
+	possibleTools, err := envtools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
-	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	err = envtools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
 	if err != nil {
 		return err
 	}
@@ -605,11 +604,11 @@ func (e *environ) GetImageBaseURLs() ([]string, error) {
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
+	possibleTools, err := envtools.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = tools.CheckToolsSeries(possibleTools, series)
+	err = envtools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -673,7 +672,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 // machineConfig will be filled out with further details, but should contain
 // MachineID, MachineNonce, StateInfo, and APIInfo.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools coretools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -688,7 +687,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(coretools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
