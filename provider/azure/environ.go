@@ -381,7 +381,7 @@ func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools too
 		return nil, nil, err
 	}
 
-	// Pick tools.  Needed for the custom data (which is what we normally
+	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
 	machineConfig.Tools = possibleTools[0]
 	logger.Infof("picked tools %q", machineConfig.Tools)

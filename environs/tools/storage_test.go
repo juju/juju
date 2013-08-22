@@ -18,7 +18,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	coretools "launchpad.net/juju-core/tools"
@@ -55,24 +55,24 @@ func (s *StorageSuite) TearDownTest(c *gc.C) {
 
 func (s *StorageSuite) TestStorageName(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	path := tools.StorageName(vers)
+	path := envtools.StorageName(vers)
 	c.Assert(path, gc.Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
 func (s *StorageSuite) TestSetToolPrefix(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	tools.SetToolPrefix("test_prefix/juju-")
-	path := tools.StorageName(vers)
+	envtools.SetToolPrefix("test_prefix/juju-")
+	path := envtools.StorageName(vers)
 	c.Assert(path, gc.Equals, "test_prefix/juju-1.2.3-precise-amd64.tgz")
-	tools.SetToolPrefix(tools.DefaultToolPrefix)
-	path = tools.StorageName(vers)
+	envtools.SetToolPrefix(envtools.DefaultToolPrefix)
+	path = envtools.StorageName(vers)
 	c.Assert(path, gc.Equals, "tools/juju-1.2.3-precise-amd64.tgz")
 }
 
 func (s *StorageSuite) TestReadListEmpty(c *gc.C) {
 	store := s.env.Storage()
-	_, err := tools.ReadList(store, 2)
-	c.Assert(err, gc.Equals, tools.ErrNoTools)
+	_, err := envtools.ReadList(store, 2)
+	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
 func (s *StorageSuite) TestReadList(c *gc.C) {
@@ -95,7 +95,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 		2, nil,
 	}} {
 		c.Logf("test %d", i)
-		list, err := tools.ReadList(store, t.majorVersion)
+		list, err := envtools.ReadList(store, t.majorVersion)
 		if t.list != nil {
 			c.Assert(err, gc.IsNil)
 			c.Assert(list, gc.DeepEquals, t.list)
@@ -106,7 +106,7 @@ func (s *StorageSuite) TestReadList(c *gc.C) {
 }
 
 func (s *StorageSuite) TestUpload(c *gc.C) {
-	t, err := tools.Upload(s.env.Storage(), nil)
+	t, err := envtools.Upload(s.env.Storage(), nil)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	c.Assert(t.URL, gc.Not(gc.Equals), "")
@@ -117,12 +117,12 @@ func (s *StorageSuite) TestUpload(c *gc.C) {
 }
 
 func (s *StorageSuite) TestUploadFakeSeries(c *gc.C) {
-	t, err := tools.Upload(s.env.Storage(), nil, "sham", "fake")
+	t, err := envtools.Upload(s.env.Storage(), nil, "sham", "fake")
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, version.Current)
 	expectRaw := downloadToolsRaw(c, t)
 
-	list, err := tools.ReadList(s.env.Storage(), version.Current.Major)
+	list, err := envtools.ReadList(s.env.Storage(), version.Current.Major)
 	c.Assert(err, gc.IsNil)
 	c.Assert(list, gc.HasLen, 3)
 	expectSeries := []string{"fake", "sham", version.CurrentSeries()}
@@ -143,7 +143,7 @@ func (s *StorageSuite) TestUploadAndForceVersion(c *gc.C) {
 	//   and the reading of the version from jujud.
 	vers := version.Current
 	vers.Patch++
-	t, err := tools.Upload(s.env.Storage(), &vers.Number)
+	t, err := envtools.Upload(s.env.Storage(), &vers.Number)
 	c.Assert(err, gc.IsNil)
 	c.Assert(t.Version, gc.Equals, vers)
 }
@@ -164,7 +164,7 @@ func (s *StorageSuite) TestUploadBadBuild(c *gc.C) {
 	defer os.Setenv("GOPATH", os.Getenv("GOPATH"))
 	os.Setenv("GOPATH", gopath)
 
-	t, err := tools.Upload(s.env.Storage(), nil)
+	t, err := envtools.Upload(s.env.Storage(), nil)
 	c.Assert(t, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, `build command "go" failed: exit status 1; can't load package:(.|\n)*`)
 }
@@ -211,7 +211,7 @@ func (*StorageSuite) TestSetenv(c *gc.C) {
 		c.Logf("test %d", i)
 		env := make([]string, len(env0))
 		copy(env, env0)
-		env = tools.Setenv(env, t.set)
+		env = envtools.Setenv(env, t.set)
 		c.Check(env, gc.DeepEquals, t.expect)
 	}
 }

@@ -14,7 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
@@ -98,7 +98,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := tools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := envtools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
 	err := bootstrap.Bootstrap(t.Env, cons)
@@ -647,9 +647,9 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *coretools.Tool
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
+	upgradeTools, err := envtools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, IsNil)
-	// tools.Upload always returns tools for the series on which the tests are running.
+	// envtools.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
 	upgradeTools.Version.Series = newVersion.Series
@@ -781,7 +781,7 @@ attempt:
 
 // Check that we can't start an instance running tools that correspond with no
 // available platform.  The first thing start instance should do is find
-// appropriate tools.
+// appropriate envtools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 	inst, _, err := provider.StartInstance(
 		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
@@ -844,14 +844,14 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	// already bootstrapped.
 	t.Destroy(c)
 
-	currentName := tools.StorageName(current)
-	otherName := tools.StorageName(other)
+	currentName := envtools.StorageName(current)
+	otherName := envtools.StorageName(other)
 	envStorage := env.Storage()
 	dummyStorage := dummyenv.Storage()
 
 	defer envStorage.Remove(otherName)
 
-	_, err = tools.Upload(dummyStorage, &current.Number)
+	_, err = envtools.Upload(dummyStorage, &current.Number)
 	c.Assert(err, IsNil)
 
 	// This will only work while cross-compiling across releases is safe,

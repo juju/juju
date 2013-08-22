@@ -1085,7 +1085,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 			err = s.State.SetEnvironConfig(cfg)
 			c.Assert(err, gc.IsNil)
 		}
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, gc.Equals, true)
@@ -1138,7 +1138,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
 	c.Assert(err, gc.IsNil)
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// Start watching the configuration.
 	watcher := s.State.WatchEnvironConfig()
@@ -1157,7 +1157,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 		}
 	}()
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// The invalid configuration must not have been generated.
 	select {

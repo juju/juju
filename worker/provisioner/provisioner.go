@@ -16,7 +16,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
-	"launchpad.net/juju-core/tools"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
@@ -171,7 +171,7 @@ func (p *Provisioner) getBroker() (environs.Broker, error) {
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getAgentTools() (*tools.Tools, error) {
+func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
 	tools, err := agenttools.ReadTools(p.dataDir, version.Current)
 	if err != nil {
 		logger.Errorf("cannot read agent tools from %q", p.dataDir)

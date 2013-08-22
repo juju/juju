@@ -9,7 +9,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -130,7 +130,7 @@ var findToolsTests = []struct {
 }{{
 	info:  "none available anywhere",
 	major: 1,
-	err:   tools.ErrNoTools,
+	err:   envtools.ErrNoTools,
 }, {
 	info:    "private tools only, none matching",
 	major:   1,
@@ -166,7 +166,7 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := tools.FindTools(s.env, test.major, coretools.Filter{})
+		actual, err := envtools.FindTools(s.env, test.major, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -176,7 +176,7 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 		}
 		source := private
 		if len(source) == 0 {
-			// We only use the public bucket if the private one has *no* tools.
+			// We only use the public bucket if the private one has *no* envtools.
 			source = public
 		}
 		expect := map[version.Binary]string{}
@@ -201,7 +201,7 @@ var findBootstrapToolsTests = []struct {
 	info:          "no tools at all",
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           tools.ErrNoTools,
+	err:           envtools.ErrNoTools,
 }, {
 	info:          "released cli: use newest compatible release version",
 	available:     vAll,
@@ -387,7 +387,7 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 		}
 
 		cons := constraints.MustParse(test.constraints)
-		actual, err := tools.FindBootstrapTools(s.env, cons)
+		actual, err := envtools.FindBootstrapTools(s.env, cons)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -422,7 +422,7 @@ var findInstanceToolsTests = []struct {
 	info:         "nothing at all",
 	agentVersion: v120,
 	series:       "precise",
-	err:          tools.ErrNoTools,
+	err:          envtools.ErrNoTools,
 }, {
 	info:         "nothing matching 1",
 	available:    v100Xall,
@@ -482,7 +482,7 @@ func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 		}
 
 		cons := constraints.MustParse(test.constraints)
-		actual, err := tools.FindInstanceTools(s.env, test.series, cons)
+		actual, err := envtools.FindInstanceTools(s.env, test.series, cons)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -507,7 +507,7 @@ var findExactToolsTests = []struct {
 }{{
 	info: "nothing available",
 	seek: v100p64,
-	err:  tools.ErrNoTools,
+	err:  envtools.ErrNoTools,
 }, {
 	info:    "only non-matches available in private",
 	private: append(v110all, v100p32, v100q64, v1001p64),
@@ -540,13 +540,13 @@ func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := tools.FindExactTools(s.env, test.seek)
+		actual, err := envtools.FindExactTools(s.env, test.seek)
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
 			c.Check(actual.Version, gc.Equals, test.seek)
 			source := private
 			if len(source) == 0 {
-				// We only use the public bucket if the private one has *no* tools.
+				// We only use the public bucket if the private one has *no* envtools.
 				source = public
 			}
 			c.Check(actual.URL, gc.DeepEquals, source[actual.Version])
@@ -562,7 +562,7 @@ func fakeToolsForSeries(series string) *coretools.Tools {
 	return &coretools.Tools{Version: version.Binary{Series: series}}
 }
 
-// fakeToolsList fakes a tools.List containing Tools objects for the given
+// fakeToolsList fakes a envtools.List containing Tools objects for the given
 // respective series, in the same number and order.
 func fakeToolsList(series ...string) coretools.List {
 	list := coretools.List{}
@@ -573,7 +573,7 @@ func fakeToolsList(series ...string) coretools.List {
 }
 
 func (s *ToolsSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
-	err := tools.CheckToolsSeries(fakeToolsList(), "precise")
+	err := envtools.CheckToolsSeries(fakeToolsList(), "precise")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got \\[\\]")
 }
@@ -582,7 +582,7 @@ func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	names := []string{"precise", "raring"}
 	for _, series := range names {
 		list := fakeToolsList(series)
-		err := tools.CheckToolsSeries(list, series)
+		err := envtools.CheckToolsSeries(list, series)
 		c.Check(err, gc.IsNil)
 	}
 }
@@ -590,20 +590,20 @@ func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 func (s *ToolsSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.C) {
 	series := "quantal"
 	list := fakeToolsList(series, series, series)
-	err := tools.CheckToolsSeries(list, series)
+	err := envtools.CheckToolsSeries(list, series)
 	c.Check(err, gc.IsNil)
 }
 
 func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {
 	list := fakeToolsList("hoary")
-	err := tools.CheckToolsSeries(list, "warty")
+	err := envtools.CheckToolsSeries(list, "warty")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "tools mismatch: expected series warty, got hoary")
 }
 
 func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
 	list := fakeToolsList("precise", "raring")
-	err := tools.CheckToolsSeries(list, "precise")
+	err := envtools.CheckToolsSeries(list, "precise")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got .*")
 }

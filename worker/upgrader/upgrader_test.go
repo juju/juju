@@ -14,7 +14,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	jujutesting "launchpad.net/juju-core/juju/testing"
@@ -77,7 +77,7 @@ func (s *UpgraderSuite) primeTools(c *gc.C, vers version.Binary) *coretools.Tool
 	resp, err := http.Get(agentTools.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
+	err = agenttools.UnpackTools(s.DataDir(), agentTools, resp.Body)
 	c.Assert(err, gc.IsNil)
 	return agentTools
 }
@@ -155,7 +155,7 @@ func (s *UpgraderSuite) TestUpgraderUpgradesImmediately(c *gc.C) {
 		NewTools:  newTools,
 		DataDir:   s.DataDir(),
 	})
-	foundTools, err := tools.ReadTools(s.DataDir(), newTools.Version)
+	foundTools, err := agenttools.ReadTools(s.DataDir(), newTools.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(foundTools, gc.DeepEquals, newTools)
 }
@@ -191,7 +191,7 @@ func (s *UpgraderSuite) TestUpgraderRetryAndChanged(c *gc.C) {
 	err = statetesting.SetAgentVersion(s.State, newerTools.Version.Number)
 	c.Assert(err, gc.IsNil)
 
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	done := make(chan error)
 	go func() {
 		done <- u.Wait()
@@ -222,7 +222,7 @@ func (s *UpgraderSuite) TestChangeAgentTools(c *gc.C) {
 	}
 	err := ugErr.ChangeAgentTools()
 	c.Assert(err, gc.IsNil)
-	link, err := os.Readlink(tools.ToolsDir(s.DataDir(), "anAgent"))
+	link, err := os.Readlink(agenttools.ToolsDir(s.DataDir(), "anAgent"))
 	c.Assert(err, gc.IsNil)
 	c.Assert(link, gc.Equals, newTools.Version.String())
 }

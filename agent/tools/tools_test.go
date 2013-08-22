@@ -12,7 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/testing"
 	coretest "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
@@ -85,7 +85,7 @@ func (t *ToolsSuite) TestUnpackToolsBadData(c *gc.C) {
 			URL:     "http://foo/bar",
 			Version: version.MustParseBinary("1.2.3-foo-bar"),
 		}
-		err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
+		err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(test.data))
 		c.Assert(err, gc.ErrorMatches, test.err)
 		assertDirNames(c, t.toolsDir(), []string{})
 	}
@@ -105,7 +105,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
 
-	err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
 	c.Assert(err, gc.IsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
 	t.assertToolsContents(c, testTools, files)
@@ -120,7 +120,7 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 		testing.NewTarFile("bar", 0755, "bar2 contents"),
 		testing.NewTarFile("x", 0755, "x contents"),
 	}
-	err = tools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
+	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
 	c.Assert(err, gc.IsNil)
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar"})
 	t.assertToolsContents(c, testTools, files)
@@ -128,18 +128,18 @@ func (t *ToolsSuite) TestUnpackToolsContents(c *gc.C) {
 
 func (t *ToolsSuite) TestReadToolsErrors(c *gc.C) {
 	vers := version.MustParseBinary("1.2.3-precise-amd64")
-	testTools, err := tools.ReadTools(t.dataDir, vers)
+	testTools, err := agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "cannot read URL in tools directory: .*")
 
-	dir := tools.SharedToolsDir(t.dataDir, vers)
+	dir := agenttools.SharedToolsDir(t.dataDir, vers)
 	err = os.MkdirAll(dir, 0755)
 	c.Assert(err, gc.IsNil)
 
 	err = ioutil.WriteFile(filepath.Join(dir, urlFile), []byte(" \t\n"), 0644)
 	c.Assert(err, gc.IsNil)
 
-	testTools, err = tools.ReadTools(t.dataDir, vers)
+	testTools, err = agenttools.ReadTools(t.dataDir, vers)
 	c.Assert(testTools, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "empty URL in tools directory.*")
 }
@@ -153,15 +153,15 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		URL:     "http://foo/bar1",
 		Version: version.MustParseBinary("1.2.3-foo-bar"),
 	}
-	err := tools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
+	err := agenttools.UnpackTools(t.dataDir, testTools, bytes.NewReader(testing.TarGz(files...)))
 	c.Assert(err, gc.IsNil)
 
-	gotTools, err := tools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
+	gotTools, err := agenttools.ChangeAgentTools(t.dataDir, "testagent", testTools.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "testagent"})
-	assertDirNames(c, tools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"jujuc", "jujud", urlFile})
 
 	// Upgrade again to check that the link replacement logic works ok.
 	files2 := []*testing.TarFile{
@@ -172,19 +172,19 @@ func (t *ToolsSuite) TestChangeAgentTools(c *gc.C) {
 		URL:     "http://foo/bar2",
 		Version: version.MustParseBinary("1.2.4-foo-bar"),
 	}
-	err = tools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
+	err = agenttools.UnpackTools(t.dataDir, tools2, bytes.NewReader(testing.TarGz(files2...)))
 	c.Assert(err, gc.IsNil)
 
-	gotTools, err = tools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
+	gotTools, err = agenttools.ChangeAgentTools(t.dataDir, "testagent", tools2.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *tools2)
 
 	assertDirNames(c, t.toolsDir(), []string{"1.2.3-foo-bar", "1.2.4-foo-bar", "testagent"})
-	assertDirNames(c, tools.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
+	assertDirNames(c, agenttools.ToolsDir(t.dataDir, "testagent"), []string{"foo", "bar", urlFile})
 }
 
 func (t *ToolsSuite) TestSharedToolsDir(c *gc.C) {
-	dir := tools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64"))
+	dir := agenttools.SharedToolsDir("/var/lib/juju", version.MustParseBinary("1.2.3-precise-amd64"))
 	c.Assert(dir, gc.Equals, "/var/lib/juju/tools/1.2.3-precise-amd64")
 }
 
@@ -196,13 +196,13 @@ func (t *ToolsSuite) assertToolsContents(c *gc.C, testTools *coretest.Tools, fil
 		wantNames = append(wantNames, f.Header.Name)
 	}
 	wantNames = append(wantNames, urlFile)
-	dir := tools.SharedToolsDir(t.dataDir, testTools.Version)
+	dir := agenttools.SharedToolsDir(t.dataDir, testTools.Version)
 	assertDirNames(c, dir, wantNames)
 	assertFileContents(c, dir, urlFile, testTools.URL, 0200)
 	for _, f := range files {
 		assertFileContents(c, dir, f.Header.Name, f.Contents, 0400)
 	}
-	gotTools, err := tools.ReadTools(t.dataDir, testTools.Version)
+	gotTools, err := agenttools.ReadTools(t.dataDir, testTools.Version)
 	c.Assert(err, gc.IsNil)
 	c.Assert(*gotTools, gc.Equals, *testTools)
 }
