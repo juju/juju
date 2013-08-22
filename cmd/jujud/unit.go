@@ -79,12 +79,12 @@ func (a *UnitAgent) Run(ctx *cmd.Context) error {
 
 // StateWorkers returns a worker that runs the unit agent workers.
 func (a *UnitAgent) StateWorkers() (worker.Worker, error) {
-	st, entity, err := openState(a.Conf.Conf, a)
+	st, entity, err := openState(a.Conf.config, a)
 	if err != nil {
 		return nil, err
 	}
 	unit := entity.(*state.Unit)
-	dataDir := a.Conf.DataDir
+	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("uniter", func() (worker.Worker, error) {
 		return uniter.NewUniter(st, unit.Name(), dataDir), nil
@@ -93,11 +93,11 @@ func (a *UnitAgent) StateWorkers() (worker.Worker, error) {
 }
 
 func (a *UnitAgent) APIWorkers() (worker.Worker, error) {
-	st, entity, err := openAPIState(a.Conf.Conf, a)
+	st, entity, err := openAPIState(a.Conf.config, a)
 	if err != nil {
 		return nil, err
 	}
-	dataDir := a.Conf.DataDir
+	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		return upgrader.New(st.Upgrader(), entity.Tag(), dataDir), nil

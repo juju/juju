@@ -7,20 +7,23 @@ package ec2
 
 import (
 	"io/ioutil"
-	"launchpad.net/goamz/aws"
-	gc "launchpad.net/gocheck"
-	"launchpad.net/goyaml"
-	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/testing"
 	"os"
 	"path/filepath"
 	"strings"
+
+	"launchpad.net/goamz/aws"
+	gc "launchpad.net/gocheck"
+	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/testing"
 )
 
 // Use local suite since this file lives in the ec2 package
 // for testing internals.
 type ConfigSuite struct {
+	testing.LoggingSuite
 	savedHome, savedAccessKey, savedSecretKey string
 }
 
@@ -301,6 +304,7 @@ func indent(s string, with string) string {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.savedHome = os.Getenv("HOME")
 	s.savedAccessKey = os.Getenv("AWS_ACCESS_KEY_ID")
 	s.savedSecretKey = os.Getenv("AWS_SECRET_ACCESS_KEY")
@@ -323,6 +327,7 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 	os.Setenv("AWS_ACCESS_KEY_ID", s.savedAccessKey)
 	os.Setenv("AWS_SECRET_ACCESS_KEY", s.savedSecretKey)
 	delete(aws.Regions, "configtest")
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ConfigSuite) TestConfig(c *gc.C) {
