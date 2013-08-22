@@ -4,6 +4,7 @@
 package debug_test
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -13,7 +14,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/worker/uniter/debug"
 )
 
@@ -77,7 +78,7 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	session, err = s.ctx.FindSession()
 	c.Assert(session, gc.IsNil)
 	c.Assert(err, gc.NotNil)
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 
 	// Hooks file is present, empty.
 	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte{}, 0777)
@@ -86,8 +87,8 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	// If session.hooks is empty, it'll match anything.
-	c.Assert(session.MatchHook(""), gc.Equals, true)
-	c.Assert(session.MatchHook("something"), gc.Equals, true)
+	c.Assert(session.MatchHook(""), jc.IsTrue)
+	c.Assert(session.MatchHook("something"), jc.IsTrue)
 
 	// Hooks file is present, non-empty
 	err = ioutil.WriteFile(s.ctx.ClientFileLock(), []byte(`hooks: [foo, bar, baz]`), 0777)
@@ -96,12 +97,12 @@ func (s *DebugHooksServerSuite) TestFindSession(c *gc.C) {
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 	// session should only match "foo", "bar" or "baz".
-	c.Assert(session.MatchHook(""), gc.Equals, false)
-	c.Assert(session.MatchHook("something"), gc.Equals, false)
-	c.Assert(session.MatchHook("foo"), gc.Equals, true)
-	c.Assert(session.MatchHook("bar"), gc.Equals, true)
-	c.Assert(session.MatchHook("baz"), gc.Equals, true)
-	c.Assert(session.MatchHook("foo bar baz"), gc.Equals, false)
+	c.Assert(session.MatchHook(""), jc.IsFalse)
+	c.Assert(session.MatchHook("something"), jc.IsFalse)
+	c.Assert(session.MatchHook("foo"), jc.IsTrue)
+	c.Assert(session.MatchHook("bar"), jc.IsTrue)
+	c.Assert(session.MatchHook("baz"), jc.IsTrue)
+	c.Assert(session.MatchHook("foo bar baz"), jc.IsFalse)
 }
 
 func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
@@ -126,7 +127,7 @@ func (s *DebugHooksServerSuite) TestRunHookExceptional(c *gc.C) {
 	expected := time.Now().Add(time.Second)
 	err = session.RunHook("myhook", s.tmpdir, os.Environ())
 	after := time.Now()
-	c.Assert(after, checkers.TimeBetween(expected.Add(-100*time.Millisecond), expected.Add(100*time.Millisecond)))
+	c.Assert(after, jc.TimeBetween(expected.Add(-100*time.Millisecond), expected.Add(100*time.Millisecond)))
 	c.Assert(err, gc.ErrorMatches, "signal: killed")
 	c.Assert(cmd.Wait(), gc.IsNil)
 }
@@ -138,6 +139,8 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	c.Assert(session, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 
+	const hookName = "myhook"
+
 	// Run the hook in debug mode with the exit flock held,
 	// and also create the .pid file. We'll populate it with
 	// an invalid PID; this will cause the server process to
@@ -146,13 +149,13 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	c.Assert(cmd.Start(), gc.IsNil)
 	ch := make(chan error)
 	go func() {
-		ch <- session.RunHook("myhook", s.tmpdir, os.Environ())
+		ch <- session.RunHook(hookName, s.tmpdir, os.Environ())
 	}()
 	var debugdir os.FileInfo
 	for i := 0; i < 10; i++ {
 		tmpdir, err := os.Open(s.tmpdir)
 		if err != nil {
-			c.Fatalf("Faiked to open $TMPDIR: %s", err)
+			c.Fatalf("Failed to open $TMPDIR: %s", err)
 		}
 		fi, err := tmpdir.Readdir(-1)
 		if err != nil {
@@ -176,6 +179,9 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 	if debugdir == nil {
 		c.Error("could not find hook.sh")
 	} else {
+		envsh := filepath.Join(s.tmpdir, debugdir.Name(), "env.sh")
+		s.verifyEnvshFile(c, envsh, hookName)
+
 		hookpid := filepath.Join(s.tmpdir, debugdir.Name(), "hook.pid")
 		err = ioutil.WriteFile(hookpid, []byte("not a pid"), 0777)
 		c.Assert(err, gc.IsNil)
@@ -186,4 +192,13 @@ func (s *DebugHooksServerSuite) TestRunHook(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 	}
 	cmd.Process.Kill() // kill flock
+}
+
+func (s *DebugHooksServerSuite) verifyEnvshFile(c *gc.C, envshPath string, hookName string) {
+	data, err := ioutil.ReadFile(envshPath)
+	c.Assert(err, gc.IsNil)
+	contents := string(data)
+	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_UNIT_NAME=%q", s.ctx.Unit))
+	c.Assert(contents, jc.Contains, fmt.Sprintf("JUJU_HOOK_NAME=%q", hookName))
+	c.Assert(contents, jc.Contains, fmt.Sprintf(`PS1="%s:%s %% "`, s.ctx.Unit, hookName))
 }

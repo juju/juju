@@ -79,17 +79,19 @@ const debugHooksServerScript = `set -e
 export JUJU_DEBUG=$(mktemp -d)
 exec > $JUJU_DEBUG/debug.log >&1
 
+# Set a useful prompt.
+export PS1="$JUJU_UNIT_NAME:$JUJU_HOOK_NAME % "
+
 # Save environment variables and export them for sourcing.
 FILTER='^\(LS_COLORS\|LESSOPEN\|LESSCLOSE\|PWD\)='
-env | grep -v $FILTER > $JUJU_DEBUG/env.sh
-sed -i 's/^/export /' $JUJU_DEBUG/env.sh
+export | grep -v $FILTER > $JUJU_DEBUG/env.sh
 
 # Create an internal script which will load the hook environment.
 cat > $JUJU_DEBUG/hook.sh <<END
 #!/bin/bash
 . $JUJU_DEBUG/env.sh
 echo \$\$ > $JUJU_DEBUG/hook.pid
-exec /bin/bash
+exec /bin/bash --noprofile --norc
 END
 chmod +x $JUJU_DEBUG/hook.sh
 

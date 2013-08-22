@@ -400,7 +400,7 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
-		agentState.Sync()
+		agentState.StartSync()
 		timeout := time.After(testing.LongWait)
 		for done := false; !done; {
 			select {
@@ -434,7 +434,7 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
-		agentState.Sync()
+		agentState.StartSync()
 		timeout := time.After(testing.LongWait)
 		for {
 			select {

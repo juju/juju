@@ -13,23 +13,25 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
+	"launchpad.net/juju-core/version"
 )
 
-// ValidateImageMetadataCommand
-type ValidateImageMetadataCommand struct {
+// ValidateToolsMetadataCommand
+type ValidateToolsMetadataCommand struct {
 	cmd.EnvCommandBase
 	providerType string
 	metadataDir  string
 	series       string
 	region       string
 	endpoint     string
+	version      string
 }
 
-var validateImagesMetadataDoc = `
-validate-images loads simplestreams metadata and validates the contents by looking for images
-belonging to the specified cloud.
+var validateToolsMetadataDoc = `
+validate-tools loads simplestreams metadata and validates the contents by looking for tools
+belonging to the specified series, version, and architecture, for the specified cloud.
 
 The cloud specificaton comes from the current Juju environment, as specified in the usual way
 from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV. Series, Region, and Endpoint
@@ -41,47 +43,53 @@ may be peformed on arbitary metadata.
 Examples:
 
 - validate using the current environment settings but with series raring
- juju metadata validate-images -s raring
+ juju metadata validate-tools -s raring
+
+- validate using the current environment settings but with Juju version 1.11.4
+ juju metadata validate-tools -j 1.11.4
+
+- validate using the current environment settings and list all tools found for any series
+ juju metadata validate-tools --series=
 
 - validate using the current environment settings but with series raring and using metadata from local directory
  juju metadata validate-images -s raring -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to production.
 In this case, the metadata is placed in a local directory, a cloud provider type is specified (ec2, openstack etc),
-and the validation is performed for each supported region and series.
+and the validation is performed for each supported series, version, and arcgitecture.
 
 Example bash snippet:
 
 #!/bin/bash
 
-juju metadata validate-images -p ec2 -r us-east-1 -s precise -d <some directory>
+juju metadata validate-tools -p ec2 -r us-east-1 -s precise --juju-version 1.12.0 -d <some directory>
 RETVAL=$?
 [ $RETVAL -eq 0 ] && echo Success
 [ $RETVAL -ne 0 ] && echo Failure
 `
 
-func (c *ValidateImageMetadataCommand) Info() *cmd.Info {
+func (c *ValidateToolsMetadataCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "validate-images",
-		Purpose: "validate image metadata and ensure image(s) exist for an environment",
-		Doc:     validateImagesMetadataDoc,
+		Name:    "validate-tools",
+		Purpose: "validate tools metadata and ensure tools tarball(s) exist for Juju version(s)",
+		Doc:     validateToolsMetadataDoc,
 	}
 }
 
-func (c *ValidateImageMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.StringVar(&c.providerType, "p", "", "the provider type eg ec2, openstack")
 	f.StringVar(&c.metadataDir, "d", "", "directory where metadata files are found")
 	f.StringVar(&c.series, "s", "", "the series for which to validate (overrides env config series)")
+	f.StringVar(&c.series, "series", "", "")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
+	f.StringVar(&c.version, "j", "current", "the Juju version (use 'current' for current version)")
+	f.StringVar(&c.version, "juju-version", "", "")
 }
 
-func (c *ValidateImageMetadataCommand) Init(args []string) error {
+func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 	if c.providerType != "" {
-		if c.series == "" {
-			return fmt.Errorf("series required if provider type is specified")
-		}
 		if c.region == "" {
 			return fmt.Errorf("region required if provider type is specified")
 		}
@@ -89,20 +97,23 @@ func (c *ValidateImageMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
+	if c.version == "current" {
+		c.version = version.CurrentNumber().String()
+	}
 	return c.EnvCommandBase.Init(args)
 }
 
-func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
-	var params *imagemetadata.MetadataLookupParams
+func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
+	var params *simplestreams.MetadataLookupParams
 
 	if c.providerType == "" {
 		environ, err := environs.NewFromName(c.EnvName)
 		if err != nil {
 			return err
 		}
-		mdLookup, ok := environ.(imagemetadata.ImageMetadataValidator)
+		mdLookup, ok := environ.(simplestreams.MetadataValidator)
 		if !ok {
-			return fmt.Errorf("%s provider does not support image metadata validation", environ.Config().Type())
+			return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
@@ -113,9 +124,9 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		if err != nil {
 			return err
 		}
-		mdLookup, ok := prov.(imagemetadata.ImageMetadataValidator)
+		mdLookup, ok := prov.(simplestreams.MetadataValidator)
 		if !ok {
-			return fmt.Errorf("%s provider does not support image metadata validation", c.providerType)
+			return fmt.Errorf("%s provider does not support tools metadata validation", c.providerType)
 		}
 		params, err = mdLookup.MetadataLookupParams(c.region)
 		if err != nil {
@@ -146,15 +157,18 @@ func (c *ValidateImageMetadataCommand) Run(context *cmd.Context) error {
 		simplestreams.SetHttpClient(c)
 	}
 
-	image_ids, err := imagemetadata.ValidateImageMetadata(params)
+	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
+		MetadataLookupParams: *params,
+		Version:              c.version,
+	})
 	if err != nil {
 		return err
 	}
 
-	if len(image_ids) > 0 {
-		fmt.Fprintf(context.Stdout, "matching image ids for region %q:\n%s\n", params.Region, strings.Join(image_ids, "\n"))
+	if len(versions) > 0 {
+		fmt.Fprintf(context.Stdout, "matching tools versions:\n%s\n", strings.Join(versions, "\n"))
 	} else {
-		return fmt.Errorf("no matching image ids for region %s using URLs:\n%s", params.Region, strings.Join(params.BaseURLs, "\n"))
+		return fmt.Errorf("no matching tools using URLs:\n%s", strings.Join(params.BaseURLs, "\n"))
 	}
 	return nil
 }

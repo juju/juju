@@ -66,7 +66,7 @@ func NewNotifyWatcherC(c *C, st *state.State, w NotifyWatcher) NotifyWatcherC {
 }
 
 func (c NotifyWatcherC) AssertNoChange() {
-	c.State.Sync()
+	c.State.StartSync()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (_, %v)", ok)
@@ -75,7 +75,7 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	c.State.Sync()
+	c.State.StartSync()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
@@ -118,7 +118,7 @@ type StringsWatcher interface {
 }
 
 func (c StringsWatcherC) AssertNoChange() {
-	c.State.Sync()
+	c.State.StartSync()
 	select {
 	case actual, ok := <-c.Watcher.Changes():
 		c.Fatalf("watcher sent unexpected change: (%v, %v)", actual, ok)
@@ -126,10 +126,18 @@ func (c StringsWatcherC) AssertNoChange() {
 	}
 }
 
+func (c StringsWatcherC) AssertChange(expect ...string) {
+	c.assertChange(false, expect...)
+}
+
+func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {
+	c.assertChange(true, expect...)
+}
+
 // AssertChange asserts the given list of changes was reported by
 // the watcher, but does not assume there are no following changes.
-func (c StringsWatcherC) AssertChange(expect ...string) {
-	c.State.Sync()
+func (c StringsWatcherC) assertChange(single bool, expect ...string) {
+	c.State.StartSync()
 	timeout := time.After(testing.LongWait)
 	var actual []string
 loop:
@@ -138,7 +146,7 @@ loop:
 		case changes, ok := <-c.Watcher.Changes():
 			c.Assert(ok, Equals, true)
 			actual = append(actual, changes...)
-			if len(actual) >= len(expect) {
+			if single || len(actual) >= len(expect) {
 				break loop
 			}
 		case <-timeout:

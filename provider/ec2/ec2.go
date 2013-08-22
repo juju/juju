@@ -9,7 +9,7 @@ import (
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -17,16 +17,19 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/loggo"
 	"net/http"
 	"strings"
 	"sync"
 	"time"
 )
+
+var logger = loggo.GetLogger("juju.provider.ec2")
 
 // Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
@@ -88,27 +91,70 @@ func (inst *ec2Instance) hardwareCharacteristics() *instance.HardwareCharacteris
 	return hc
 }
 
+// refreshInstance requeries the Instance details over the ec2 api
+func (inst *ec2Instance) refreshInstance() error {
+	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+	if err != nil {
+		return err
+	}
+	inst.Instance = insts[0].(*ec2Instance).Instance
+	return nil
+}
+
+// Addresses implements instance.Addresses() returning generic address
+// details for the instance, and requerying the ec2 api if required.
 func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
-	logger.Errorf("ec2Instance.Addresses not implemented")
-	return nil, nil
+	var addresses []instance.Address
+	// TODO(gz): Stop relying on this requerying logic, maybe remove error
+	if inst.Instance.DNSName == "" {
+		// Fetch the instance information again, in case
+		// the DNS information has become available.
+		err := inst.refreshInstance()
+		if err != nil {
+			return nil, err
+		}
+	}
+	possibleAddresses := []instance.Address{
+		{
+			Value:        inst.Instance.DNSName,
+			Type:         instance.HostName,
+			NetworkScope: instance.NetworkPublic,
+		},
+		{
+			Value:        inst.Instance.PrivateDNSName,
+			Type:         instance.HostName,
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+		{
+			Value:        inst.Instance.IPAddress,
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+		},
+		{
+			Value:        inst.Instance.PrivateIPAddress,
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+		},
+	}
+	for _, address := range possibleAddresses {
+		if address.Value != "" {
+			addresses = append(addresses, address)
+		}
+	}
+	return addresses, nil
 }
 
 func (inst *ec2Instance) DNSName() (string, error) {
-	if inst.Instance.DNSName != "" {
-		return inst.Instance.DNSName, nil
-	}
-	// Fetch the instance information again, in case
-	// the DNS information has become available.
-	insts, err := inst.e.Instances([]instance.Id{inst.Id()})
+	addresses, err := inst.Addresses()
 	if err != nil {
 		return "", err
 	}
-	freshInst := insts[0].(*ec2Instance).Instance
-	if freshInst.DNSName == "" {
+	addr := instance.SelectPublicAddress(addresses)
+	if addr == "" {
 		return "", instance.ErrNoDNSName
 	}
-	inst.Instance.DNSName = freshInst.DNSName
-	return freshInst.DNSName, nil
+	return addr, nil
+
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {
@@ -136,7 +182,7 @@ amazon:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Infof("environs/ec2: opening environment %q", cfg.Name())
+	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -148,7 +194,7 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	if region == "" {
 		fmt.Errorf("region must be specified")
 	}
@@ -156,7 +202,7 @@ func (p environProvider) MetadataLookupParams(region string) (*imagemetadata.Met
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
-	return &imagemetadata.MetadataLookupParams{
+	return &simplestreams.MetadataLookupParams{
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
 		Architectures: []string{"amd64", "i386", "arm"},
@@ -262,12 +308,12 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 	// The bootstrap instance gets machine id "0".  This is not related to
 	// instance ids.  Juju assigns the machine ID.
 	const machineID = "0"
-	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
-	possibleTools, err := environs.FindBootstrapTools(e, cons)
+	logger.Infof("bootstrapping environment %q", e.name)
+	possibleTools, err := tools.FindBootstrapTools(e, cons)
 	if err != nil {
 		return err
 	}
-	err = environs.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
+	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
 	if err != nil {
 		return err
 	}
@@ -308,12 +354,12 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 // getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
 func (e *environ) getImageBaseURLs() ([]string, error) {
 	// Use the default simplestreams base URL.
-	return []string{simplestreams.DefaultBaseURL}, nil
+	return []string{imagemetadata.DefaultBaseURL}, nil
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
-func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLookupParams, error) {
+func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
 	baseURLs, err := e.getImageBaseURLs()
 	if err != nil {
 		return nil, err
@@ -325,7 +371,7 @@ func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLo
 	if !ok {
 		return nil, fmt.Errorf("unknown region %q", region)
 	}
-	return &imagemetadata.MetadataLookupParams{
+	return &simplestreams.MetadataLookupParams{
 		Series:        e.ecfg().DefaultSeries(),
 		Region:        region,
 		Endpoint:      ec2Region.EC2Endpoint,
@@ -337,11 +383,11 @@ func (e *environ) MetadataLookupParams(region string) (*imagemetadata.MetadataLo
 // TODO(bug 1199847): This work can be shared between providers.
 func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
 	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := environs.FindInstanceTools(e, series, cons)
+	possibleTools, err := tools.FindInstanceTools(e, series, cons)
 	if err != nil {
 		return nil, nil, err
 	}
-	err = environs.CheckToolsSeries(possibleTools, series)
+	err = tools.CheckToolsSeries(possibleTools, series)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -355,7 +401,7 @@ const ebsStorage = "ebs"
 // internalStartInstance is the internal version of StartInstance, used by
 // Bootstrap as well as via StartInstance itself.
 // TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools tools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 	series := possibleTools.Series()
 	if len(series) != 1 {
 		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
@@ -376,7 +422,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
@@ -390,7 +436,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
+	logger.Debugf("ec2 user data; %d bytes", len(userData))
 	config := e.Config()
 	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
 	if err != nil {
@@ -423,7 +469,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools to
 		arch:     &spec.Image.Arch,
 		instType: &spec.InstanceType,
 	}
-	log.Infof("environs/ec2: started instance %q", inst.Id())
+	logger.Infof("started instance %q", inst.Id())
 	return inst, inst.hardwareCharacteristics(), nil
 }
 
@@ -531,7 +577,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy(ensureInsts []instance.Instance) error {
-	log.Infof("environs/ec2: destroying environment %q", e.name)
+	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -629,7 +675,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	}
 	for _, p := range resp.Groups[0].IPPerms {
 		if len(p.SourceIPs) != 1 {
-			log.Warningf("environs/ec2: unexpected IP permission found: %v", p)
+			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
@@ -651,7 +697,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", ports)
 	return nil
 }
 
@@ -663,7 +709,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", ports)
 	return nil
 }
 
@@ -735,7 +781,7 @@ func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) erro
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
@@ -748,7 +794,7 @@ func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) err
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: closed ports in security group %s: %v", name, ports)
+	logger.Infof("closed ports in security group %s: %v", name, ports)
 	return nil
 }
 

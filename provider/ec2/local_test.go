@@ -341,8 +341,48 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	c.Assert(*hc.CpuPower, gc.Equals, uint64(100))
 }
 
+func (t *localServerSuite) TestAddresses(c *gc.C) {
+	err := environs.Bootstrap(t.env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
+	series := t.env.Config().DefaultSeries()
+	info, apiInfo, err := t.env.StateInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(info, gc.NotNil)
+	info.Tag = "machine-1"
+	apiInfo.Tag = "machine-1"
+	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	c.Assert(err, gc.IsNil)
+	addrs, err := inst.Addresses()
+	c.Assert(err, gc.IsNil)
+	// Expected values use Address type but really contain a regexp for
+	// the value rather than a valid ip or hostname.
+	expected := []instance.Address{{
+		Value:        "*.testing.invalid",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "*.internal.invalid",
+		Type:         instance.HostName,
+		NetworkScope: instance.NetworkCloudLocal,
+	}, {
+		Value:        "8.0.0.*",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "127.0.0.*",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	c.Assert(addrs, gc.HasLen, len(expected))
+	for i, addr := range addrs {
+		c.Check(addr.Value, gc.Matches, expected[i].Value)
+		c.Check(addr.Type, gc.Equals, expected[i].Type)
+		c.Check(addr.NetworkScope, gc.Equals, expected[i].NetworkScope)
+	}
+}
+
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := t.env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("test")
+	params, err := t.env.(simplestreams.MetadataValidator).MetadataLookupParams("test")
 	c.Assert(err, gc.IsNil)
 	params.Series = "precise"
 	params.Endpoint = "https://ec2.endpoint.com"
@@ -412,7 +452,7 @@ func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
 	urls, err := ec2.GetImageURLs(s.env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(urls), gc.Equals, 1)
-	c.Assert(urls[0], gc.Equals, simplestreams.DefaultBaseURL)
+	c.Assert(urls[0], gc.Equals, imagemetadata.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server

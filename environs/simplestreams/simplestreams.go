@@ -17,6 +17,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
+	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -157,6 +158,7 @@ type MetadataCatalog struct {
 type ItemCollection struct {
 	Items      map[string]interface{} `json:"items"`
 	Arch       string                 `json:"arch"`
+	Version    string                 `json:"version"`
 	RegionName string                 `json:"region"`
 	Endpoint   string                 `json:"endpoint"`
 }
@@ -186,6 +188,61 @@ type IndexMetadata struct {
 	ProductIds       []string    `json:"products"`
 }
 
+// These structs define the model used to describe download mirrors.
+
+type MirrorRefs struct {
+	Mirrors map[string][]MirrorReference `json:"mirrors"`
+	Updated string                       `json:"updated"`
+	Format  string                       `json:"format"`
+}
+
+type MirrorReference struct {
+	Updated  string      `json:"updated"`
+	Format   string      `json:"format"`
+	DataType string      `json:"datatype"`
+	Path     string      `json:"path"`
+	Clouds   []CloudSpec `json:"clouds"`
+}
+
+type MirrorMetadata struct {
+	Updated string                  `json:"updated"`
+	Format  string                  `json:"format"`
+	Mirrors map[string][]MirrorInfo `json:"mirrors"`
+}
+
+type MirrorInfo struct {
+	Clouds    []CloudSpec `json:"clouds"`
+	MirrorURL string      `json:"mirror"`
+	Path      string      `json:"path"`
+}
+
+type MirrorInfoSlice []MirrorInfo
+type MirrorRefSlice []MirrorReference
+
+// filter returns those entries from an MirrorInfo array for which the given
+// match function returns true. It preserves order.
+func (entries MirrorInfoSlice) filter(match func(*MirrorInfo) bool) MirrorInfoSlice {
+	result := MirrorInfoSlice{}
+	for _, mirrorInfo := range entries {
+		if match(&mirrorInfo) {
+			result = append(result, mirrorInfo)
+		}
+	}
+	return result
+}
+
+// filter returns those entries from an MirrorInfo array for which the given
+// match function returns true. It preserves order.
+func (entries MirrorRefSlice) filter(match func(*MirrorReference) bool) MirrorRefSlice {
+	result := MirrorRefSlice{}
+	for _, mirrorRef := range entries {
+		if match(&mirrorRef) {
+			result = append(result, mirrorRef)
+		}
+	}
+	return result
+}
+
 // extractCatalogsForProducts gives you just those catalogs from a
 // cloudImageMetadata that are for the given product IDs.  They are kept in
 // the order of the parameter.
@@ -209,14 +266,15 @@ func (ind *Indices) extractIndexes() IndexMetadataSlice {
 }
 
 // hasCloud tells you whether an IndexMetadata has the given cloud in its
-// Clouds list.
+// Clouds list. If IndexMetadata has no clouds defined, then hasCloud
+// returns true regardless.
 func (metadata *IndexMetadata) hasCloud(cloud CloudSpec) bool {
 	for _, metadataCloud := range metadata.Clouds {
 		if metadataCloud == cloud {
 			return true
 		}
 	}
-	return false
+	return len(metadata.Clouds) == 0
 }
 
 // hasProduct tells you whether an IndexMetadata provides any of the given
@@ -243,9 +301,6 @@ func (entries IndexMetadataSlice) filter(match func(*IndexMetadata) bool) IndexM
 	}
 	return result
 }
-
-// This needs to be a var so we can override it for testing.
-var DefaultBaseURL = "http://cloud-images.ubuntu.com/releases"
 
 var httpClient *http.Client = http.DefaultClient
 
@@ -300,6 +355,37 @@ func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupCons
 		}
 	}
 	return items, nil
+}
+
+// GetMaybeSignedMirror returns a mirror info struct matching the specified content and cloud.
+func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned bool, contentId string, cloudSpec CloudSpec) (*MirrorInfo, error) {
+	var mirrorInfo *MirrorInfo
+	for _, baseURL := range baseURLs {
+		mirrorRefs, err := GetMirrorRefsWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
+		if err != nil {
+			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+				logger.Debugf("cannot load index %q: %v", path.Join(baseURL, indexPath), err)
+				continue
+			}
+			return nil, err
+		}
+		mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
+		if err != nil {
+			if errors.IsNotFoundError(err) {
+				logger.Debugf("skipping index because of error getting latest metadata %q: %v", path.Join(baseURL, indexPath), err)
+				continue
+			}
+			return nil, err
+		}
+		mirrorInfo, err = mirrorRef.getMirrorInfo(baseURL, contentId, cloudSpec, "mirrors:1.0", requireSigned)
+		if err != nil {
+			return nil, err
+		}
+	}
+	if mirrorInfo == nil {
+		return nil, errors.NotFoundf("mirror metadata for %q and cloud %v", contentId, cloudSpec)
+	}
+	return mirrorInfo, nil
 }
 
 // fetchData gets all the data from the given path relative to the given base URL.
@@ -398,6 +484,148 @@ func (indexRef *IndexReference) GetProductsPath(cons LookupConstraint) (string, 
 
 	// Pick arbitrary match.
 	return candidates[0].ProductsFilePath, nil
+}
+
+// GetMirrorRefsWithFormat returns a simplestreams mirrors struct of the specified format.
+// Exported for testing.
+func GetMirrorRefsWithFormat(baseURL, indexPath, format string, requireSigned bool) (*MirrorRefs, error) {
+	data, url, err := fetchData(baseURL, indexPath, requireSigned)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("cannot read index data, %v", err)
+	}
+	var mirrorRefs MirrorRefs
+	err = json.Unmarshal(data, &mirrorRefs)
+	if err != nil {
+		return nil, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+	}
+	if mirrorRefs.Format != format {
+		return nil, fmt.Errorf("unexpected mirror file format %q, expected %q at URL %q", mirrorRefs.Format, format, url)
+	}
+	return &mirrorRefs, nil
+}
+
+// extractMirrorRefs returns just the array of MirrorRef structs for the contentId, in arbitrary order.
+func (mirrorRefs *MirrorRefs) extractMirrorRefs(contentId string) MirrorRefSlice {
+	for id, refs := range mirrorRefs.Mirrors {
+		if id == contentId {
+			return refs
+		}
+	}
+	return nil
+}
+
+// hasCloud tells you whether a MirrorReference has the given cloud in its
+// Clouds list.
+func (mirrorRef *MirrorReference) hasCloud(cloud CloudSpec) bool {
+	for _, refCloud := range mirrorRef.Clouds {
+		if refCloud == cloud {
+			return true
+		}
+	}
+	return false
+}
+
+// GetMirrorReference returns the reference to the metadata file containing mirrors for the specified content and cloud.
+// Exported for testing.
+func (mirrorRefs *MirrorRefs) GetMirrorReference(contentId string, cloud CloudSpec) (*MirrorReference, error) {
+	candidates := mirrorRefs.extractMirrorRefs(contentId)
+	if len(candidates) == 0 {
+		return nil, errors.NotFoundf("mirror data for %q", contentId)
+	}
+	// Restrict by cloud spec.
+	hasRightCloud := func(mirrorRef *MirrorReference) bool {
+		return mirrorRef.hasCloud(cloud)
+	}
+	matchingCandidates := candidates.filter(hasRightCloud)
+	if len(matchingCandidates) == 0 {
+		// No cloud specific mirrors found so look for a non cloud specific mirror.
+		for _, candidate := range candidates {
+			if len(candidate.Clouds) == 0 {
+				logger.Debugf("using default candidate for content id %q are %v", contentId, candidate)
+				return &candidate, nil
+			}
+		}
+		return nil, errors.NotFoundf("index file with cloud %v", cloud)
+	}
+
+	logger.Debugf("candidate matches for content id %q are %v", contentId, candidates)
+
+	// Pick arbitrary match.
+	return &matchingCandidates[0], nil
+}
+
+// getMirrorInfo returns mirror information from the mirror file at the given path for the specified content and cloud.
+func (mirrorRef *MirrorReference) getMirrorInfo(baseURL, contentId string, cloud CloudSpec, format string, requireSigned bool) (*MirrorInfo, error) {
+	metadata, err := GetMirrorMetadataWithFormat(baseURL, mirrorRef.Path, format, requireSigned)
+	if err != nil {
+		return nil, err
+	}
+	mirrorInfo, err := metadata.getMirrorInfo(contentId, cloud)
+	if err != nil {
+		return nil, err
+	}
+	return mirrorInfo, nil
+}
+
+// GetMirrorMetadataWithFormat returns simplestreams mirror data of the specified format.
+// Exported for testing.
+func GetMirrorMetadataWithFormat(baseURL, mirrorPath, format string, requireSigned bool) (*MirrorMetadata, error) {
+	data, url, err := fetchData(baseURL, mirrorPath, requireSigned)
+	if err != nil {
+		if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
+			return nil, err
+		}
+		return nil, fmt.Errorf("cannot read mirror data, %v", err)
+	}
+	var mirrors MirrorMetadata
+	err = json.Unmarshal(data, &mirrors)
+	if err != nil {
+		return nil, fmt.Errorf("cannot unmarshal JSON mirror metadata at URL %q: %v", url, err)
+	}
+	if mirrors.Format != format {
+		return nil, fmt.Errorf("unexpected mirror file format %q, expected %q at URL %q", mirrors.Format, format, url)
+	}
+	return &mirrors, nil
+}
+
+// hasCloud tells you whether an MirrorInfo has the given cloud in its
+// Clouds list.
+func (mirrorInfo *MirrorInfo) hasCloud(cloud CloudSpec) bool {
+	for _, metadataCloud := range mirrorInfo.Clouds {
+		if metadataCloud == cloud {
+			return true
+		}
+	}
+	return false
+}
+
+// getMirrorInfo returns the mirror metadata for the specified content and cloud.
+func (mirrorMetadata *MirrorMetadata) getMirrorInfo(contentId string, cloud CloudSpec) (*MirrorInfo, error) {
+	var candidates MirrorInfoSlice
+	for id, m := range mirrorMetadata.Mirrors {
+		if id == contentId {
+			candidates = m
+			break
+		}
+	}
+	if len(candidates) == 0 {
+		return nil, errors.NotFoundf("mirror info for %q", contentId)
+	}
+
+	// Restrict by cloud spec.
+	hasRightCloud := func(mirrorInfo *MirrorInfo) bool {
+		return mirrorInfo.hasCloud(cloud)
+	}
+	candidates = candidates.filter(hasRightCloud)
+	if len(candidates) == 0 {
+		return nil, errors.NotFoundf("mirror info with cloud %v", cloud)
+	}
+
+	// Pick arbitrary match.
+	return &candidates[0], nil
 }
 
 // utility function to see if element exists in values slice.

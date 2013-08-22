@@ -254,7 +254,7 @@ func (s *MachineSuite) TestMachineSetAgentAlive(c *gc.C) {
 	c.Assert(pinger, gc.NotNil)
 	defer pinger.Stop()
 
-	s.State.Sync()
+	s.State.StartSync()
 	alive, err = s.machine.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, true)
@@ -299,7 +299,7 @@ func (s *MachineSuite) TestMachineWaitAgentAlive(c *gc.C) {
 	err = pinger.Kill()
 	c.Assert(err, gc.IsNil)
 
-	s.State.Sync()
+	s.State.StartSync()
 	alive, err = s.machine.AgentAlive()
 	c.Assert(err, gc.IsNil)
 	c.Assert(alive, gc.Equals, false)

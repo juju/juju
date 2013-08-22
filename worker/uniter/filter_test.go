@@ -232,7 +232,7 @@ func (s *FilterSuite) TestCharmUpgradeEvents(c *gc.C) {
 	err = svc.SetCharm(newCharm, false)
 	c.Assert(err, gc.IsNil)
 	assertChange := func(url *charm.URL) {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case upgradeCharm := <-f.UpgradeEvents():
 			c.Assert(upgradeCharm, gc.DeepEquals, url)
@@ -283,7 +283,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	err = f.SetCharm(s.wpcharm.URL())
 	c.Assert(err, gc.IsNil)
 	assertChange := func() {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case _, ok := <-f.ConfigEvents():
 			c.Assert(ok, gc.Equals, true)
@@ -312,7 +312,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	// that's a bit inconvenient for this change.
 	changeConfig(nil)
 	changeConfig("the curious incident of the dog in the cloud")
-	s.State.Sync()
+	s.State.StartSync()
 	time.Sleep(250 * time.Millisecond)
 	f.DiscardConfigEvent()
 	assertNoChange()
@@ -322,7 +322,7 @@ func (s *FilterSuite) TestConfigEvents(c *gc.C) {
 	f, err = newFilter(s.State, s.unit.Name())
 	c.Assert(err, gc.IsNil)
 	defer f.Stop()
-	s.State.Sync()
+	s.State.StartSync()
 	f.DiscardConfigEvent()
 	assertNoChange()
 
@@ -370,7 +370,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	defer f.Stop()
 
 	assertNoChange := func() {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case ids := <-f.RelationsEvents():
 			c.Fatalf("unexpected relations event %#v", ids)
@@ -383,7 +383,7 @@ func (s *FilterSuite) TestRelationsEvents(c *gc.C) {
 	rel0 := s.addRelation(c)
 	rel1 := s.addRelation(c)
 	assertChange := func(expect []int) {
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case got := <-f.RelationsEvents():
 			c.Assert(got, gc.DeepEquals, expect)

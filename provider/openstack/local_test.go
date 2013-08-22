@@ -480,7 +480,7 @@ func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
 	c.Check(strings.HasSuffix(urls[0], "/juju-dist/"), gc.Equals, true)
 	// The product-streams URL ends with "/imagemetadata".
 	c.Check(strings.HasSuffix(urls[1], "/imagemetadata"), gc.Equals, true)
-	c.Assert(urls[2], gc.Equals, simplestreams.DefaultBaseURL)
+	c.Assert(urls[2], gc.Equals, imagemetadata.DefaultBaseURL)
 }
 
 func (s *localServerSuite) TestFindImageSpecPublicStorage(c *gc.C) {
@@ -497,7 +497,7 @@ func (s *localServerSuite) TestFindImageBadDefaultImage(c *gc.C) {
 }
 
 func (s *localServerSuite) TestValidateImageMetadata(c *gc.C) {
-	params, err := s.Env.(imagemetadata.ImageMetadataValidator).MetadataLookupParams("some-region")
+	params, err := s.Env.(simplestreams.MetadataValidator).MetadataLookupParams("some-region")
 	c.Assert(err, gc.IsNil)
 	params.Series = "raring"
 	image_ids, err := imagemetadata.ValidateImageMetadata(params)

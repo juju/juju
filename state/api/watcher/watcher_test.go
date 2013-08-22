@@ -162,12 +162,12 @@ func (s *watcherSuite) TestWatchUnitsKeepsEvents(c *gc.C) {
 	// ensure they're reported as separate events over the API.
 	err = subordinate.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	err = subordinate.Remove()
 	c.Assert(err, gc.IsNil)
 	err = principal.EnsureDead()
 	c.Assert(err, gc.IsNil)
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 
 	// Expect these changes as 2 separate events, so that
 	// nothing gets lost.
@@ -203,7 +203,7 @@ func (s *watcherSuite) TestStringsWatcherStopsWithPendingSend(c *gc.C) {
 
 	// Ensure the initial event is delivered. Then test the watcher
 	// can be stopped cleanly without reading the pending change.
-	s.BackingState.Sync()
+	s.BackingState.StartSync()
 	statetesting.AssertCanStopWhenSending(c, w)
 	wc.AssertClosed()
 }

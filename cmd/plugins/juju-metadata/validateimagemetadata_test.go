@@ -17,18 +17,18 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
-type ValidateMetadataSuite struct {
+type ValidateImageMetadataSuite struct {
 	home *coretesting.FakeHome
 }
 
-var _ = gc.Suite(&ValidateMetadataSuite{})
+var _ = gc.Suite(&ValidateImageMetadataSuite{})
 
-func runValidateMetadata(c *gc.C, args ...string) error {
+func runValidateImageMetadata(c *gc.C, args ...string) error {
 	_, err := coretesting.RunCommand(c, &ValidateImageMetadataCommand{}, args)
 	return err
 }
 
-var validateInitErrorTests = []struct {
+var validateInitImageErrorTests = []struct {
 	args []string
 	err  string
 }{
@@ -44,25 +44,25 @@ var validateInitErrorTests = []struct {
 	},
 }
 
-func (s *ValidateMetadataSuite) TestInitErrors(c *gc.C) {
-	for i, t := range validateInitErrorTests {
+func (s *ValidateImageMetadataSuite) TestInitErrors(c *gc.C) {
+	for i, t := range validateInitImageErrorTests {
 		c.Logf("test %d", i)
 		err := coretesting.InitCommand(&ValidateImageMetadataCommand{}, t.args)
 		c.Check(err, gc.ErrorMatches, t.err)
 	}
 }
 
-func (s *ValidateMetadataSuite) TestInvalidProviderError(c *gc.C) {
-	err := runValidateMetadata(c, "-p", "foo", "-s", "series", "-r", "region", "-d", "dir")
+func (s *ValidateImageMetadataSuite) TestInvalidProviderError(c *gc.C) {
+	err := runValidateImageMetadata(c, "-p", "foo", "-s", "series", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `no registered provider for "foo"`)
 }
 
-func (s *ValidateMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
-	err := runValidateMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
+func (s *ValidateImageMetadataSuite) TestUnsupportedProviderError(c *gc.C) {
+	err := runValidateImageMetadata(c, "-p", "local", "-s", "series", "-r", "region", "-d", "dir")
 	c.Check(err, gc.ErrorMatches, `local provider does not support image metadata validation`)
 }
 
-func (s *ValidateMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
+func (s *ValidateImageMetadataSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint string) error {
 	im := imagemetadata.ImageMetadata{
 		Id:   id,
 		Arch: "amd64",
@@ -89,15 +89,15 @@ environments:
         region: us-east-1
 `
 
-func (s *ValidateMetadataSuite) SetUpTest(c *gc.C) {
+func (s *ValidateImageMetadataSuite) SetUpTest(c *gc.C) {
 	s.home = coretesting.MakeFakeHome(c, metadataTestEnvConfig)
 }
 
-func (s *ValidateMetadataSuite) TearDownTest(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 }
 
-func (s *ValidateMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
+func (s *ValidateImageMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
 	ec2Region, ok := aws.Regions[region]
 	if !ok {
 		c.Fatalf("unknown ec2 region %q")
@@ -106,7 +106,7 @@ func (s *ValidateMetadataSuite) setupEc2LocalMetadata(c *gc.C, region string) {
 	s.makeLocalMetadata(c, "1234", region, "precise", endpoint)
 }
 
-func (s *ValidateMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
@@ -119,7 +119,7 @@ func (s *ValidateMetadataSuite) TestEc2LocalMetadataUsingEnvironment(c *gc.C) {
 	c.Check(strippedOut, gc.Matches, `matching image ids for region "us-east-1":.*`)
 }
 
-func (s *ValidateMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-west-1")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
@@ -134,7 +134,7 @@ func (s *ValidateMetadataSuite) TestEc2LocalMetadataWithManualParams(c *gc.C) {
 	c.Check(strippedOut, gc.Matches, `matching image ids for region "us-west-1":.*`)
 }
 
-func (s *ValidateMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	s.setupEc2LocalMetadata(c, "us-east-1")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
@@ -152,7 +152,7 @@ func (s *ValidateMetadataSuite) TestEc2LocalMetadataNoMatch(c *gc.C) {
 	c.Assert(code, gc.Equals, 1)
 }
 
-func (s *ValidateMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
@@ -167,7 +167,7 @@ func (s *ValidateMetadataSuite) TestOpenstackLocalMetadataWithManualParams(c *gc
 	c.Check(strippedOut, gc.Matches, `matching image ids for region "region-2":.*`)
 }
 
-func (s *ValidateMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
+func (s *ValidateImageMetadataSuite) TestOpenstackLocalMetadataNoMatch(c *gc.C) {
 	s.makeLocalMetadata(c, "1234", "region-2", "raring", "some-auth-url")
 	ctx := coretesting.Context(c)
 	metadataDir := config.JujuHomePath("")
