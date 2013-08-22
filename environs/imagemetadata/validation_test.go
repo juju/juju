@@ -15,6 +15,7 @@ import (
 )
 
 type ValidateSuite struct {
+	coretesting.LoggingSuite
 	home      *coretesting.FakeHome
 	oldClient *http.Client
 }
@@ -42,6 +43,7 @@ func (s *ValidateSuite) makeLocalMetadata(c *gc.C, id, region, series, endpoint 
 }
 
 func (s *ValidateSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.home = coretesting.MakeEmptyFakeHome(c)
 }
 
@@ -50,6 +52,7 @@ func (s *ValidateSuite) TearDownTest(c *gc.C) {
 	if s.oldClient != nil {
 		simplestreams.SetHttpClient(s.oldClient)
 	}
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *ValidateSuite) TestMatch(c *gc.C) {
