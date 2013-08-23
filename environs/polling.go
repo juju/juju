@@ -11,6 +11,13 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// Use ShortAttempt to poll for short-term events.
+// TODO: This may need tuning for different providers (or even environments).
+var ShortAttempt = utils.AttemptStrategy{
+	Total: 5 * time.Second,
+	Delay: 200 * time.Millisecond,
+}
+
 // A request may fail to due "eventual consistency" semantics, which
 // should resolve fairly quickly.  These delays are specific to the provider
 // and best tuned there.

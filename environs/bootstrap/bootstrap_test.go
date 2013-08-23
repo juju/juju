@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs_test
+package bootstrap_test
 
 import (
 	"fmt"
@@ -10,9 +10,11 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -49,19 +51,19 @@ func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {
 		env.cfg = cfg
 	}
 
-	err := environs.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no admin-secret")
 
 	fixEnv("admin-secret", "whatever")
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-cert")
 
 	fixEnv("ca-cert", testing.CACert)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "environment configuration has no ca-private-key")
 
 	fixEnv("ca-private-key", testing.CAKey)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -69,7 +71,7 @@ func (s *bootstrapSuite) TestBootstrapEmptyConstraints(c *gc.C) {
 	env := newEnviron("foo", useDefaultKeys)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
-	err := environs.Bootstrap(env, constraints.Value{})
+	err := bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.constraints, gc.DeepEquals, constraints.Value{})
@@ -80,7 +82,7 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	cons := constraints.MustParse("cpu-cores=2 mem=4G")
-	err := environs.Bootstrap(env, cons)
+	err := bootstrap.Bootstrap(env, cons)
 	c.Assert(err, gc.IsNil)
 	c.Assert(env.bootstrapCount, gc.Equals, 1)
 	c.Assert(env.constraints, gc.DeepEquals, cons)
@@ -136,7 +138,7 @@ func (e *bootstrapEnviron) Name() string {
 	return e.name
 }
 
-func (e *bootstrapEnviron) Bootstrap(cons constraints.Value) error {
+func (e *bootstrapEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
 	e.bootstrapCount++
 	e.constraints = cons
 	return nil

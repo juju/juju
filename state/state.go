@@ -17,13 +17,13 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -31,6 +31,8 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.state")
 
 // TODO(niemeyer): This must not be exported.
 type D []bson.DocElem
@@ -168,6 +170,12 @@ func (st *State) AddMachine(series string, jobs ...MachineJob) (m *Machine, err 
 // supplied series. The machine's constraints and other configuration will be taken from
 // the supplied params struct.
 func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine, err error) {
+	if params.InstanceId != "" {
+		return nil, fmt.Errorf("cannot specify an instance id when adding a new machine")
+	}
+	if params.Nonce != "" {
+		return nil, fmt.Errorf("cannot specify a nonce when adding a new machine")
+	}
 
 	// TODO(wallyworld) - if a container is required, and when the actual machine characteristics
 	// are made available, we need to check the machine constraints to ensure the container can be
@@ -178,23 +186,15 @@ func (st *State) AddMachineWithConstraints(params *AddMachineParams) (m *Machine
 }
 
 // InjectMachine adds a new machine, corresponding to an existing provider
-// instance, configured to run the supplied jobs on the supplied series, using
-// the specified constraints.
-func (st *State) InjectMachine(series string, cons constraints.Value, instanceId instance.Id, hc instance.HardwareCharacteristics, nonce string, jobs ...MachineJob) (m *Machine, err error) {
-	if instanceId == "" {
+// instance, configured according to the supplied params struct.
+func (st *State) InjectMachine(params *AddMachineParams) (m *Machine, err error) {
+	if params.InstanceId == "" {
 		return nil, fmt.Errorf("cannot inject a machine without an instance id")
 	}
-	if nonce == "" {
+	if params.Nonce == "" {
 		return nil, fmt.Errorf("cannot inject a machine without a nonce")
 	}
-	return st.addMachine(&AddMachineParams{
-		Series:          series,
-		Constraints:     cons,
-		instanceId:      instanceId,
-		characteristics: hc,
-		nonce:           nonce,
-		Jobs:            jobs,
-	})
+	return st.addMachine(params)
 }
 
 // containerRefParams specify how a machineContainers document is to be created.
@@ -274,14 +274,14 @@ func (st *State) addMachineOps(mdoc *machineDoc, metadata *instanceData, cons co
 
 // AddMachineParams encapsulates the parameters used to create a new machine.
 type AddMachineParams struct {
-	Series          string
-	Constraints     constraints.Value
-	ParentId        string
-	ContainerType   instance.ContainerType
-	instanceId      instance.Id
-	characteristics instance.HardwareCharacteristics
-	nonce           string
-	Jobs            []MachineJob
+	Series                  string
+	Constraints             constraints.Value
+	ParentId                string
+	ContainerType           instance.ContainerType
+	InstanceId              instance.Id
+	HardwareCharacteristics instance.HardwareCharacteristics
+	Nonce                   string
+	Jobs                    []MachineJob
 }
 
 // addMachineContainerOps returns txn operations and associated Mongo records used to create a new machine,
@@ -292,14 +292,14 @@ type AddMachineParams struct {
 // 2. AssignToNewMachine, which is used to create a new machine on which to deploy a unit.
 func (st *State) addMachineContainerOps(params *AddMachineParams, cons constraints.Value) ([]txn.Op, *instanceData, *containerRefParams, error) {
 	var instData *instanceData
-	if params.instanceId != "" {
+	if params.InstanceId != "" {
 		instData = &instanceData{
-			InstanceId: params.instanceId,
-			Arch:       params.characteristics.Arch,
-			Mem:        params.characteristics.Mem,
-			RootDisk:   params.characteristics.RootDisk,
-			CpuCores:   params.characteristics.CpuCores,
-			CpuPower:   params.characteristics.CpuPower,
+			InstanceId: params.InstanceId,
+			Arch:       params.HardwareCharacteristics.Arch,
+			Mem:        params.HardwareCharacteristics.Mem,
+			RootDisk:   params.HardwareCharacteristics.RootDisk,
+			CpuCores:   params.HardwareCharacteristics.CpuCores,
+			CpuPower:   params.HardwareCharacteristics.CpuPower,
 		}
 	}
 	var ops []txn.Op
@@ -357,8 +357,8 @@ func (st *State) addMachine(params *AddMachineParams) (m *Machine, err error) {
 		Clean:         true,
 	}
 	if mdoc.ContainerType == "" {
-		mdoc.InstanceId = params.instanceId
-		mdoc.Nonce = params.nonce
+		mdoc.InstanceId = params.InstanceId
+		mdoc.Nonce = params.Nonce
 	}
 	mdoc, machineOps, err := st.addMachineOps(mdoc, instData, cons, containerParams)
 	if err != nil {
@@ -1039,13 +1039,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.watcher.StartSync()
-	st.pwatcher.StartSync()
-}
-
-// Sync forces watchers to resynchronize their state with the
-// database immediately, and waits until all events are known.
-func (st *State) Sync() {
-	st.watcher.Sync()
 	st.pwatcher.Sync()
 }
 
@@ -1132,7 +1125,7 @@ func (st *State) Cleanup() error {
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			log.Warningf("cleanup failed: %v", err)
+			logger.Warningf("cleanup failed: %v", err)
 			continue
 		}
 		ops := []txn.Op{{

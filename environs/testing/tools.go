@@ -8,16 +8,17 @@ import (
 
 	. "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/log"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
-func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*tools.Tools, error) {
+func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*coretools.Tools, error) {
 	data := vers.String()
-	name := tools.StorageName(vers)
+	name := envtools.StorageName(vers)
 	log.Noticef("environs/testing: uploading FAKE tools %s", vers)
 	if err := storage.Put(name, strings.NewReader(data), int64(len(data))); err != nil {
 		return nil, err
@@ -26,19 +27,19 @@ func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*too
 	if err != nil {
 		return nil, err
 	}
-	return &tools.Tools{Version: vers, URL: url}, nil
+	return &coretools.Tools{Version: vers, URL: url}, nil
 }
 
 // UploadFakeToolsVersion puts fake tools in the supplied storage for the
 // supplied version.
-func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *tools.Tools {
+func UploadFakeToolsVersion(c *C, storage environs.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	c.Assert(err, IsNil)
 	return t
 }
 
 // MustUploadFakeToolsVersion acts as UploadFakeToolsVersion, but panics on failure.
-func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *tools.Tools {
+func MustUploadFakeToolsVersion(storage environs.Storage, vers version.Binary) *coretools.Tools {
 	t, err := uploadFakeToolsVersion(storage, vers)
 	if err != nil {
 		panic(err)
@@ -78,12 +79,12 @@ func MustUploadFakeTools(storage environs.Storage) {
 // RemoveFakeTools deletes the fake tools from the supplied storage.
 func RemoveFakeTools(c *C, storage environs.Storage) {
 	toolsVersion := version.Current
-	name := tools.StorageName(toolsVersion)
+	name := envtools.StorageName(toolsVersion)
 	err := storage.Remove(name)
 	c.Check(err, IsNil)
 	if version.Current.Series != config.DefaultSeries {
 		toolsVersion.Series = config.DefaultSeries
-		name := tools.StorageName(toolsVersion)
+		name := envtools.StorageName(toolsVersion)
 		err := storage.Remove(name)
 		c.Check(err, IsNil)
 	}

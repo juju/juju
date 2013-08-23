@@ -4,7 +4,6 @@
 package main
 
 import (
-	"fmt"
 	"path/filepath"
 	"reflect"
 	"time"
@@ -12,23 +11,23 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
+	"launchpad.net/juju-core/worker/deployer"
 )
 
 type MachineSuite struct {
@@ -61,23 +60,32 @@ func (s *MachineSuite) TearDownTest(c *gc.C) {
 	s.agentSuite.TearDownTest(c)
 }
 
+const initialMachinePassword = "machine-password"
+
 // primeAgent adds a new Machine to run the given jobs, and sets up the
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
-func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (*state.Machine, *agent.Conf, *tools.Tools) {
-	nonce := state.BootstrapNonce
-	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", instance.HardwareCharacteristics{}, nonce, jobs...)
+func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
+	m, err := s.State.InjectMachine(&state.AddMachineParams{
+		Series:     "series",
+		InstanceId: "ardbeg-0",
+		Nonce:      state.BootstrapNonce,
+		Jobs:       jobs,
+	})
 	c.Assert(err, gc.IsNil)
-	err = m.SetMongoPassword("machine-password")
+	err = m.SetMongoPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
-	err = m.SetPassword("machine-password")
+	err = m.SetPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
-	conf, tools := s.agentSuite.primeAgent(c, names.MachineTag(m.Id()), "machine-password")
-	conf.MachineNonce = nonce
-	conf.APIInfo.Nonce = conf.MachineNonce
-	err = conf.Write()
+	tag := names.MachineTag(m.Id())
+	if m.IsStateServer() {
+		config, tools = s.agentSuite.primeStateAgent(c, tag, initialMachinePassword)
+	} else {
+		config, tools = s.agentSuite.primeAgent(c, tag, initialMachinePassword)
+	}
+	err = config.Write()
 	c.Assert(err, gc.IsNil)
-	return m, conf, tools
+	return m, config, tools
 }
 
 // newAgent returns a new MachineAgent instance
@@ -129,7 +137,7 @@ func (s *MachineSuite) TestRunStop(c *gc.C) {
 	err := a.Stop()
 	c.Assert(err, gc.IsNil)
 	c.Assert(<-done, gc.IsNil)
-	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(ac.DataDir, "charmcache"))
+	c.Assert(charm.CacheDir, gc.Equals, filepath.Join(ac.DataDir(), "charmcache"))
 }
 
 func (s *MachineSuite) TestWithDeadMachine(c *gc.C) {
@@ -175,9 +183,9 @@ func (s *MachineSuite) TestDyingMachine(c *gc.C) {
 }
 
 func (s *MachineSuite) TestHostUnits(c *gc.C) {
-	m, conf, _ := s.primeAgent(c, state.JobHostUnits)
+	m, _, _ := s.primeAgent(c, state.JobHostUnits)
 	a := s.newAgent(c, m)
-	ctx, reset := patchDeployContext(c, s.BackingState, conf.StateInfo, conf.DataDir)
+	ctx, reset := patchDeployContext(c, s.BackingState)
 	defer reset()
 	go func() { c.Check(a.Run(nil), gc.IsNil) }()
 	defer func() { c.Check(a.Stop(), gc.IsNil) }()
@@ -233,6 +241,19 @@ func (s *MachineSuite) TestHostUnits(c *gc.C) {
 	err = u1.Refresh()
 	c.Assert(err, checkers.Satisfies, errors.IsNotFoundError)
 	ctx.waitDeployed(c)
+}
+
+func patchDeployContext(c *gc.C, st *state.State) (*fakeContext, func()) {
+	ctx := &fakeContext{
+		inited: make(chan struct{}),
+	}
+	orig := newDeployContext
+	newDeployContext = func(dst *apideployer.State, dataDir string) (deployer.Context, error) {
+		ctx.st = st
+		close(ctx.inited)
+		return ctx, nil
+	}
+	return ctx, func() { newDeployContext = orig }
 }
 
 func (s *MachineSuite) TestManageEnviron(c *gc.C) {
@@ -298,23 +319,9 @@ func (s *MachineSuite) TestManageEnviron(c *gc.C) {
 }
 
 func (s *MachineSuite) TestUpgrade(c *gc.C) {
-	m, conf, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
-	addAPIInfo(conf, m)
-	err := conf.Write()
-	c.Assert(err, gc.IsNil)
+	m, _, currentTools := s.primeAgent(c, state.JobManageState, state.JobManageEnviron, state.JobHostUnits)
 	a := s.newAgent(c, m)
 	s.testUpgrade(c, a, currentTools)
-}
-
-// addAPIInfo adds information to the agent's configuration
-// for serving the API.
-func addAPIInfo(conf *agent.Conf, m *state.Machine) {
-	port := testing.FindTCPPort()
-	conf.APIInfo.Addrs = []string{fmt.Sprintf("localhost:%d", port)}
-	conf.APIInfo.CACert = []byte(testing.CACert)
-	conf.StateServerCert = []byte(testing.ServerCert)
-	conf.StateServerKey = []byte(testing.ServerKey)
-	conf.APIPort = port
 }
 
 var fastDialOpts = api.DialOpts{
@@ -322,11 +329,8 @@ var fastDialOpts = api.DialOpts{
 	RetryDelay: 10 * time.Millisecond,
 }
 
-func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test func(*agent.Conf, *state.State)) {
+func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test func(agent.Config, *state.State)) {
 	stm, conf, _ := s.primeAgent(c, job)
-	addAPIInfo(conf, stm)
-	err := conf.Write()
-	c.Assert(err, gc.IsNil)
 	a := s.newAgent(c, stm)
 	defer a.Stop()
 
@@ -347,7 +351,7 @@ func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test fu
 		c.Fatalf("state not opened")
 	}
 
-	err = a.Stop()
+	err := a.Stop()
 	if job == state.JobManageState {
 		// When shutting down, the API server can be shut down before
 		// the other workers that connect to it, so they get an error so
@@ -371,18 +375,18 @@ func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test fu
 }
 
 func (s *MachineSuite) TestManageStateServesAPI(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
-		st, err := api.Open(conf.APIInfo, fastDialOpts)
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
+		st, _, err := conf.OpenAPI(fastDialOpts)
 		c.Assert(err, gc.IsNil)
 		defer st.Close()
-		m, err := st.Machiner().Machine(conf.APIInfo.Tag)
+		m, err := st.Machiner().Machine(conf.Tag())
 		c.Assert(err, gc.IsNil)
 		c.Assert(m.Life(), gc.Equals, params.Alive)
 	})
 }
 
 func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Create a service and unit, and destroy the service.
 		service, err := s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
 		c.Assert(err, gc.IsNil)
@@ -399,7 +403,7 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 
 		// Trigger a sync on the state used by the agent, and wait
 		// for the unit to be removed.
-		agentState.Sync()
+		agentState.StartSync()
 		timeout := time.After(testing.LongWait)
 		for done := false; !done; {
 			select {
@@ -420,7 +424,7 @@ func (s *MachineSuite) TestManageStateRunsCleaner(c *gc.C) {
 }
 
 func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
-	s.assertJobWithState(c, state.JobManageState, func(conf *agent.Conf, agentState *state.State) {
+	s.assertJobWithState(c, state.JobManageState, func(conf agent.Config, agentState *state.State) {
 		// Ensure that the MinUnits worker is alive by doing a simple check
 		// that it responds to state changes: add a service, set its minimum
 		// number of units to one, wait for the worker to add the missing unit.
@@ -433,7 +437,7 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 
 		// Trigger a sync on the state used by the agent, and wait for the unit
 		// to be created.
-		agentState.Sync()
+		agentState.StartSync()
 		timeout := time.After(testing.LongWait)
 		for {
 			select {
@@ -450,38 +454,6 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 			}
 		}
 	})
-}
-
-var serveAPIWithBadConfTests = []struct {
-	change func(c *agent.Conf)
-	err    string
-}{{
-	func(c *agent.Conf) {
-		c.StateServerCert = nil
-	},
-	"configuration does not have state server cert/key",
-}, {
-	func(c *agent.Conf) {
-		c.StateServerKey = nil
-	},
-	"configuration does not have state server cert/key",
-}}
-
-func (s *MachineSuite) TestServeAPIWithBadConf(c *gc.C) {
-	m, conf, _ := s.primeAgent(c, state.JobManageState)
-	addAPIInfo(conf, m)
-	for i, t := range serveAPIWithBadConfTests {
-		c.Logf("test %d: %q", i, t.err)
-		conf1 := *conf
-		t.change(&conf1)
-		err := conf1.Write()
-		c.Assert(err, gc.IsNil)
-		a := s.newAgent(c, m)
-		err = runWithTimeout(a)
-		c.Assert(err, gc.ErrorMatches, t.err)
-		err = refreshConfig(conf)
-		c.Assert(err, gc.IsNil)
-	}
 }
 
 // opRecvTimeout waits for any of the given kinds of operation to
@@ -505,5 +477,5 @@ func opRecvTimeout(c *gc.C, st *state.State, opc <-chan dummy.Operation, kinds .
 
 func (s *MachineSuite) TestOpenAPIState(c *gc.C) {
 	m, _, _ := s.primeAgent(c, state.JobHostUnits)
-	s.testOpenAPIState(c, m, s.newAgent(c, m))
+	s.testOpenAPIState(c, m, s.newAgent(c, m), initialMachinePassword)
 }

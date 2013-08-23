@@ -4,7 +4,7 @@
 package params
 
 import (
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/tools"
 )
 
 // Entity identifies a single entity.
@@ -50,6 +50,18 @@ type StringResult struct {
 // that returns a string or an error.
 type StringResults struct {
 	Results []StringResult
+}
+
+// ResolvedModeResult holds a resolved mode or an error.
+type ResolvedModeResult struct {
+	Error *Error
+	Mode  ResolvedMode
+}
+
+// ResolvedModeResults holds the bulk operation result of an API call
+// that returns a resolved mode or an error.
+type ResolvedModeResults struct {
+	Results []ResolvedModeResult
 }
 
 // StringBoolResult holds the result of an API call that returns a

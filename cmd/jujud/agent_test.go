@@ -15,11 +15,13 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/upgrader"
@@ -46,8 +48,8 @@ func (*toolSuite) TestErrorImportance(c *gc.C) {
 	}
 }
 
-func mkTools(s string) *tools.Tools {
-	return &tools.Tools{
+func mkTools(s string) *coretools.Tools {
+	return &coretools.Tools{
 		Version: version.MustParseBinary(s + "-foo-bar"),
 	}
 }
@@ -108,26 +110,60 @@ type agentSuite struct {
 	testing.JujuConnSuite
 }
 
-// primeAgent writes the configuration file and tools
-// for an agent with the given entity name.
-// It returns the agent's configuration and the current tools.
-func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (*agent.Conf, *tools.Tools) {
+// primeAgent writes the configuration file and tools for an agent with the
+// given entity name.  It returns the agent's configuration and the current
+// tools.
+func (s *agentSuite) primeAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
+	tools := s.primeTools(c, version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	c.Assert(err, gc.IsNil)
+	c.Assert(tools1, gc.DeepEquals, tools)
+
+	stateInfo := s.StateInfo(c)
+	apiInfo := s.APIInfo(c)
+	conf, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:        s.DataDir(),
+			Tag:            tag,
+			Password:       password,
+			Nonce:          state.BootstrapNonce,
+			StateAddresses: stateInfo.Addrs,
+			APIAddresses:   apiInfo.Addrs,
+			CACert:         stateInfo.CACert,
+		})
+	c.Assert(conf.Write(), gc.IsNil)
+	return conf, tools
+}
+
+// primeStateAgent writes the configuration file and tools for an agent with the
+// given entity name.  It returns the agent's configuration and the current
+// tools.
+func (s *agentSuite) primeStateAgent(c *gc.C, tag, password string) (agent.Config, *coretools.Tools) {
 	agentTools := s.primeTools(c, version.Current)
-	tools1, err := tools.ChangeAgentTools(s.DataDir(), tag, version.Current)
+	tools1, err := agenttools.ChangeAgentTools(s.DataDir(), tag, version.Current)
 	c.Assert(err, gc.IsNil)
 	c.Assert(tools1, gc.DeepEquals, agentTools)
 
-	conf := &agent.Conf{
-		DataDir:   s.DataDir(),
-		StateInfo: s.StateInfo(c),
-		APIInfo:   s.APIInfo(c),
-	}
-	conf.StateInfo.Tag = tag
-	conf.StateInfo.Password = password
-	conf.APIInfo.Tag = tag
-	conf.APIInfo.Password = password
-	err = conf.Write()
-	c.Assert(err, gc.IsNil)
+	stateInfo := s.StateInfo(c)
+	port := coretesting.FindTCPPort()
+	apiAddr := []string{fmt.Sprintf("localhost:%d", port)}
+	conf, err := agent.NewStateMachineConfig(
+		agent.StateMachineConfigParams{
+			AgentConfigParams: agent.AgentConfigParams{
+				DataDir:        s.DataDir(),
+				Tag:            tag,
+				Password:       password,
+				Nonce:          state.BootstrapNonce,
+				StateAddresses: stateInfo.Addrs,
+				APIAddresses:   apiAddr,
+				CACert:         stateInfo.CACert,
+			},
+			StateServerCert: []byte(coretesting.ServerCert),
+			StateServerKey:  []byte(coretesting.ServerKey),
+			StatePort:       coretesting.MgoPort,
+			APIPort:         port,
+		})
+	c.Assert(conf.Write(), gc.IsNil)
 	return conf, agentTools
 }
 
@@ -150,48 +186,39 @@ func (s *agentSuite) proposeVersion(c *gc.C, vers version.Number) {
 	c.Assert(err, gc.IsNil)
 }
 
-func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *tools.Tools {
+func (s *agentSuite) uploadTools(c *gc.C, vers version.Binary) *coretools.Tools {
 	tgz := coretesting.TarGz(
 		coretesting.NewTarFile("jujud", 0777, "jujud contents "+vers.String()),
 	)
 	storage := s.Conn.Environ.Storage()
-	err := storage.Put(tools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
+	err := storage.Put(envtools.StorageName(vers), bytes.NewReader(tgz), int64(len(tgz)))
 	c.Assert(err, gc.IsNil)
-	url, err := s.Conn.Environ.Storage().URL(tools.StorageName(vers))
+	url, err := s.Conn.Environ.Storage().URL(envtools.StorageName(vers))
 	c.Assert(err, gc.IsNil)
-	return &tools.Tools{URL: url, Version: vers}
+	return &coretools.Tools{URL: url, Version: vers}
 }
 
 // primeTools sets up the current version of the tools to vers and
 // makes sure that they're available JujuConnSuite's DataDir.
-func (s *agentSuite) primeTools(c *gc.C, vers version.Binary) *tools.Tools {
+func (s *agentSuite) primeTools(c *gc.C, vers version.Binary) *coretools.Tools {
 	err := os.RemoveAll(filepath.Join(s.DataDir(), "tools"))
 	c.Assert(err, gc.IsNil)
 	version.Current = vers
-	agentTools := s.uploadTools(c, vers)
-	resp, err := http.Get(agentTools.URL)
+	tools := s.uploadTools(c, vers)
+	resp, err := http.Get(tools.URL)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
-	err = tools.UnpackTools(s.DataDir(), agentTools, resp.Body)
+	err = agenttools.UnpackTools(s.DataDir(), tools, resp.Body)
 	c.Assert(err, gc.IsNil)
-	return agentTools
+	return tools
 }
 
-func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent) {
+func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd Agent, initialPassword string) {
 	conf, err := agent.ReadConf(s.DataDir(), ent.Tag())
 	c.Assert(err, gc.IsNil)
 
 	// Check that it starts initially and changes the password
-	err = ent.SetPassword("initial")
-	c.Assert(err, gc.IsNil)
-
-	conf.OldPassword = "initial"
-	conf.APIInfo.Password = ""
-	conf.StateInfo.Password = ""
-	err = conf.Write()
-	c.Assert(err, gc.IsNil)
-
-	assertOpen := func(conf *agent.Conf) {
+	assertOpen := func(conf agent.Config) {
 		st, gotEnt, err := openAPIState(conf, agentCmd)
 		c.Assert(err, gc.IsNil)
 		c.Assert(st, gc.NotNil)
@@ -203,44 +230,15 @@ func (s *agentSuite) testOpenAPIState(c *gc.C, ent state.AgentEntity, agentCmd A
 	// Check that the initial password is no longer valid.
 	err = ent.Refresh()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ent.PasswordValid("initial"), gc.Equals, false)
-
-	// Check that the passwords in the configuration are correct.
-	c.Assert(ent.PasswordValid(conf.APIInfo.Password), gc.Equals, true)
-	c.Assert(conf.StateInfo.Password, gc.Equals, conf.APIInfo.Password)
-	c.Assert(conf.OldPassword, gc.Equals, "initial")
-
-	// Read the configuration and check the same
-	c.Assert(refreshConfig(conf), gc.IsNil)
-	c.Assert(ent.PasswordValid(conf.APIInfo.Password), gc.Equals, true)
-	c.Assert(conf.StateInfo.Password, gc.Equals, conf.APIInfo.Password)
-	c.Assert(conf.OldPassword, gc.Equals, "initial")
+	c.Assert(ent.PasswordValid(initialPassword), gc.Equals, false)
 
 	// Read the configuration and check that we can connect with it.
-	c.Assert(refreshConfig(conf), gc.IsNil)
-
+	conf = refreshConfig(c, conf)
 	// Check we can open the API with the new configuration.
-	assertOpen(conf)
-
-	newPassword := conf.StateInfo.Password
-
-	// Change the password in the configuration and check
-	// that it falls back to using the initial password
-	c.Assert(refreshConfig(conf), gc.IsNil)
-	conf.APIInfo.Password = "spurious"
-	conf.OldPassword = newPassword
-	c.Assert(conf.Write(), gc.IsNil)
-	assertOpen(conf)
-
-	// Check that it's changed the password again...
-	c.Assert(conf.APIInfo.Password, gc.Not(gc.Equals), "spurious")
-	c.Assert(conf.APIInfo.Password, gc.Not(gc.Equals), newPassword)
-
-	// ... and that we can still open the state with the new configuration.
 	assertOpen(conf)
 }
 
-func (s *agentSuite) testUpgrade(c *gc.C, agent runner, currentTools *tools.Tools) {
+func (s *agentSuite) testUpgrade(c *gc.C, agent runner, currentTools *coretools.Tools) {
 	newVers := version.Current
 	newVers.Patch++
 	newTools := s.uploadTools(c, newVers)
@@ -252,11 +250,8 @@ func (s *agentSuite) testUpgrade(c *gc.C, agent runner, currentTools *tools.Tool
 	c.Assert(ug.OldTools, gc.DeepEquals, currentTools)
 }
 
-func refreshConfig(c *agent.Conf) error {
-	nc, err := agent.ReadConf(c.DataDir, c.StateInfo.Tag)
-	if err != nil {
-		return err
-	}
-	*c = *nc
-	return nil
+func refreshConfig(c *gc.C, config agent.Config) agent.Config {
+	config, err := agent.ReadConf(config.DataDir(), config.Tag())
+	c.Assert(err, gc.IsNil)
+	return config
 }

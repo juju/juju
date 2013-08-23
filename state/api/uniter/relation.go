@@ -4,6 +4,9 @@
 package uniter
 
 import (
+	"fmt"
+
+	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 )
 
@@ -16,8 +19,8 @@ import (
 // TODO: Once the relation tags format change from "relation-<id>" to
 // "relation-<key>", make the necessary changes here and at
 // server-side. This affects the methods Relation() and KeyRelation()
-// on uniter.State, as well Id() defined here, and any other method
-// taking a relation tag as an argument.
+// on uniter.State, as well Id() and String() defined here, and any
+// other method taking a relation tag as an argument.
 
 // Relation represents a relation between one or two service
 // endpoints.
@@ -26,6 +29,15 @@ type Relation struct {
 	tag  string
 	life params.Life
 	// TODO: Add fields.
+}
+
+// String returns the relation as a string.
+func (r *Relation) String() string {
+	_, relId, err := names.ParseTag(r.tag, names.RelationTagKind)
+	if err != nil {
+		panic(fmt.Sprintf("%q is not a valid relation tag", r.tag))
+	}
+	return relId
 }
 
 // Id returns the integer internal relation key. This is exposed

@@ -409,6 +409,28 @@ func (s *uniterSuite) TestSetPrivateAddress(c *gc.C) {
 	c.Assert(ok, jc.IsTrue)
 }
 
+func (s *uniterSuite) TestResolved(c *gc.C) {
+	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
+	c.Assert(err, gc.IsNil)
+	mode := s.wordpressUnit.Resolved()
+	c.Assert(mode, gc.Equals, state.ResolvedRetryHooks)
+
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: "unit-mysql-0"},
+		{Tag: "unit-wordpress-0"},
+		{Tag: "unit-foo-42"},
+	}}
+	result, err := s.uniter.Resolved(args)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result, gc.DeepEquals, params.ResolvedModeResults{
+		Results: []params.ResolvedModeResult{
+			{Error: apiservertesting.ErrUnauthorized},
+			{Mode: params.ResolvedMode(mode)},
+			{Error: apiservertesting.ErrUnauthorized},
+		},
+	})
+}
+
 func (s *uniterSuite) TestClearResolved(c *gc.C) {
 	err := s.wordpressUnit.SetResolved(state.ResolvedRetryHooks)
 	c.Assert(err, gc.IsNil)
@@ -837,6 +859,12 @@ func (s *uniterSuite) TestProviderType(c *gc.C) {
 	c.Assert(result, gc.DeepEquals, params.StringResult{Result: cfg.Type()})
 }
 
+func (s *uniterSuite) assertInScope(c *gc.C, relUnit *state.RelationUnit, inScope bool) {
+	ok, err := relUnit.InScope()
+	c.Assert(err, gc.IsNil)
+	c.Assert(ok, gc.Equals, inScope)
+}
+
 func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	// Set wordpressUnit's private address first.
 	err := s.wordpressUnit.SetPrivateAddress("1.2.3.4")
@@ -845,7 +873,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	rel := s.addRelation(c, "wordpress", "mysql")
 	relUnit, err := rel.Unit(s.wordpressUnit)
 	c.Assert(err, gc.IsNil)
-	c.Assert(relUnit.InScope(), jc.IsFalse)
+	s.assertInScope(c, relUnit, false)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
@@ -879,7 +907,7 @@ func (s *uniterSuite) TestEnterScope(c *gc.C) {
 	})
 
 	// Verify the scope changes and settings.
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
@@ -896,7 +924,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	}
 	err = relUnit.EnterScope(settings)
 	c.Assert(err, gc.IsNil)
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
@@ -930,7 +958,7 @@ func (s *uniterSuite) TestLeaveScope(c *gc.C) {
 	})
 
 	// Verify the scope changes.
-	c.Assert(relUnit.InScope(), jc.IsFalse)
+	s.assertInScope(c, relUnit, false)
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(readSettings, gc.DeepEquals, settings)
@@ -945,7 +973,7 @@ func (s *uniterSuite) TestReadSettings(c *gc.C) {
 	}
 	err = relUnit.EnterScope(settings)
 	c.Assert(err, gc.IsNil)
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 
 	args := params.RelationUnits{RelationUnits: []params.RelationUnit{
 		{Relation: "relation-42", Unit: "unit-foo-0"},
@@ -990,7 +1018,7 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}
 	err = relUnit.EnterScope(settings)
 	c.Assert(err, gc.IsNil)
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 
 	// First test most of the invalid args tests and try to read the
 	// (unset) remote unit settings.
@@ -1034,10 +1062,10 @@ func (s *uniterSuite) TestReadRemoteSettings(c *gc.C) {
 	}
 	err = relUnit.LeaveScope()
 	c.Assert(err, gc.IsNil)
-	c.Assert(relUnit.InScope(), jc.IsFalse)
+	s.assertInScope(c, relUnit, false)
 	err = relUnit.EnterScope(settings)
 	c.Assert(err, gc.IsNil)
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 
 	// Test the remote unit settings can be read.
 	args = params.RelationUnitPairs{RelationUnitPairs: []params.RelationUnitPair{{
@@ -1065,7 +1093,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 		"other": "stuff",
 	}
 	err = relUnit.EnterScope(settings)
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 
 	newSettings := params.Settings{
 		"some":  "different",
@@ -1102,7 +1130,7 @@ func (s *uniterSuite) TestUpdateSettings(c *gc.C) {
 	})
 
 	// Verify the settings were saved.
-	c.Assert(relUnit.InScope(), jc.IsTrue)
+	s.assertInScope(c, relUnit, true)
 	readSettings, err := relUnit.ReadSettings(s.wordpressUnit.Name())
 	c.Assert(err, gc.IsNil)
 	c.Assert(readSettings, gc.DeepEquals, map[string]interface{}{
