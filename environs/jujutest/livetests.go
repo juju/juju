@@ -12,12 +12,14 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
@@ -99,7 +101,7 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 		_, err := envtools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
-	err := environs.Bootstrap(t.Env, cons)
+	err := bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -314,7 +316,7 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -781,7 +783,9 @@ attempt:
 // available platform.  The first thing start instance should do is find
 // appropriate envtools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, _, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := provider.StartInstance(
+		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
+		testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -793,7 +797,9 @@ func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
-	inst, _, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := provider.StartInstance(
+		t.Env, "4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"),
+		testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -854,7 +860,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

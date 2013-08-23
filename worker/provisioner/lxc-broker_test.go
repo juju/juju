@@ -16,10 +16,12 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -36,7 +38,7 @@ type lxcSuite struct {
 
 type lxcBrokerSuite struct {
 	lxcSuite
-	broker provisioner.Broker
+	broker environs.InstanceBroker
 }
 
 var _ = gc.Suite(&lxcBrokerSuite{})
@@ -85,7 +87,7 @@ func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Insta
 	series := "series"
 	nonce := "fake-nonce"
 	cons := constraints.Value{}
-	lxc, _, err := s.broker.StartInstance(machineId, nonce, series, cons, stateInfo, apiInfo)
+	lxc, _, err := provider.StartInstance(s.broker, machineId, nonce, series, cons, stateInfo, apiInfo)
 	c.Assert(err, gc.IsNil)
 	return lxc
 }

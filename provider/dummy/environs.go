@@ -34,6 +34,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	envtesting "launchpad.net/juju-core/environs/testing"
@@ -46,6 +47,7 @@ import (
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/apiserver"
 	"launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -151,6 +153,7 @@ type environ struct {
 
 var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
 var _ tools.SupportsCustomURLs = (*environ)(nil)
+var _ environs.Environ = (*environ)(nil)
 
 // storage holds the storage for an environState.
 // There are two instances for each environState
@@ -444,7 +447,7 @@ func (e *environ) GetToolsBaseURLs() ([]string, error) {
 	return []string{"dummy-tools-url"}, nil
 }
 
-func (e *environ) Bootstrap(cons constraints.Value) error {
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List, machineID string) error {
 	defer delay()
 	if err := e.checkBroken("Bootstrap"); err != nil {
 		return err
@@ -457,10 +460,6 @@ func (e *environ) Bootstrap(cons constraints.Value) error {
 		return fmt.Errorf("no CA certificate in environment configuration")
 	}
 
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
-	if err != nil {
-		return err
-	}
 	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
 	cfg, err := environs.BootstrapConfig(e.Config())
 	if err != nil {
@@ -551,36 +550,32 @@ func (e *environ) Destroy([]instance.Instance) error {
 	return nil
 }
 
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+// StartInstance is specified in the InstanceBroker interface.
+func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
 	defer delay()
+	machineId := machineConfig.MachineId
 	log.Infof("environs/dummy: dummy startinstance, machine %s", machineId)
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, err
 	}
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
 	e.state.mu.Lock()
 	defer e.state.mu.Unlock()
-	if machineNonce == "" {
+	if machineConfig.MachineNonce == "" {
 		return nil, nil, fmt.Errorf("cannot start instance: missing machine nonce")
 	}
 	if _, ok := e.Config().CACert(); !ok {
 		return nil, nil, fmt.Errorf("no CA certificate in environment configuration")
 	}
-	if info.Tag != names.MachineTag(machineId) {
+	if machineConfig.StateInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
-	if apiInfo.Tag != names.MachineTag(machineId) {
+	if machineConfig.APIInfo.Tag != names.MachineTag(machineId) {
 		return nil, nil, fmt.Errorf("entity tag must match started machine")
 	}
+	log.Infof("environs/dummy: would pick tools from %s", possibleTools)
+	series := possibleTools.OneSeries()
 	i := &dummyInstance{
 		state:     e.state,
 		id:        instance.Id(fmt.Sprintf("%s-%d", e.state.name, e.state.maxId)),
@@ -624,11 +619,11 @@ func (e *environ) StartInstance(machineId, machineNonce string, series string, c
 	e.state.ops <- OpStartInstance{
 		Env:          e.state.name,
 		MachineId:    machineId,
-		MachineNonce: machineNonce,
+		MachineNonce: machineConfig.MachineNonce,
 		Constraints:  cons,
 		Instance:     i,
-		Info:         info,
-		APIInfo:      apiInfo,
+		Info:         machineConfig.StateInfo,
+		APIInfo:      machineConfig.APIInfo,
 		Secret:       e.ecfg().secret(),
 	}
 	return i, hc, nil

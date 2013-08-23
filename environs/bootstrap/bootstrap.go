@@ -1,32 +1,29 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package bootstrap
 
 import (
 	"fmt"
-	"time"
+
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
 
-// Use ShortAttempt to poll for short-term events.
-// TODO: This may need tuning for different providers (or even environments).
-var ShortAttempt = utils.AttemptStrategy{
-	Total: 5 * time.Second,
-	Delay: 200 * time.Millisecond,
-}
+var logger = loggo.GetLogger("juju.environs.boostrap")
 
 // Bootstrap bootstraps the given environment. The supplied constraints are
 // used to provision the instance, and are also set within the bootstrapped
 // environment.
-func Bootstrap(environ Environ, cons constraints.Value) error {
+func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	cfg := environ.Config()
 	if secret := cfg.AdminSecret(); secret == "" {
 		return fmt.Errorf("environment configuration has no admin-secret")
@@ -52,13 +49,26 @@ func Bootstrap(environ Environ, cons constraints.Value) error {
 	if err != nil {
 		return err
 	}
-	return environ.Bootstrap(cons)
+
+	// The bootstrap instance gets machine id "0".  This is not related to
+	// instance ids.  Juju assigns the machine ID.
+	const machineID = "0"
+	logger.Infof("bootstrapping environment %q", environ.Name())
+	newestTools, err := tools.FindBootstrapTools(environ, cons)
+	if err != nil {
+		return err
+	}
+	// ensure we have at least one valid tools
+	if len(newestTools) == 0 {
+		return fmt.Errorf("No bootstrap tools found")
+	}
+	return environ.Bootstrap(cons, newestTools, machineID)
 }
 
 // verifyBootstrapInit does the common initial check before bootstrapping, to
 // confirm that the environment isn't already running, and that the storage
 // works.
-func verifyBootstrapInit(env Environ) error {
+func verifyBootstrapInit(env environs.Environ) error {
 	var err error
 
 	storage := env.Storage()
@@ -67,7 +77,7 @@ func verifyBootstrapInit(env Environ) error {
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
 	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
-		if _, err = LoadState(storage); err != nil {
+		if _, err = environs.LoadState(storage); err != nil {
 			break
 		}
 	}
@@ -78,7 +88,7 @@ func verifyBootstrapInit(env Environ) error {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
-	return VerifyStorage(storage)
+	return environs.VerifyStorage(storage)
 }
 
 // ConfigureBootstrapMachine adds the initial machine into state.  As a part

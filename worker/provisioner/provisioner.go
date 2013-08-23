@@ -155,10 +155,10 @@ func (p *Provisioner) getWatcher() (Watcher, error) {
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getBroker() (Broker, error) {
+func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 	switch p.pt {
 	case ENVIRON:
-		return newEnvironBroker(p.environ), nil
+		return p.environ, nil
 	case LXC:
 		config := p.environ.Config()
 		tools, err := p.getAgentTools()

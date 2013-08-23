@@ -18,14 +18,16 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -93,8 +95,7 @@ func (env *localEnviron) ensureCertOwner() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value) error {
-	logger.Infof("bootstrapping environment %q", env.name)
+func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -138,7 +139,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	}
 	defer stateConnection.Close()
 
-	return env.setupLocalMachineAgent(cons)
+	return env.setupLocalMachineAgent(cons, possibleTools)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -167,15 +168,15 @@ func createLocalStorageListener(dir, address string) (net.Listener, error) {
 
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
-	config, err := provider.newConfig(cfg)
+	ecfg, err := provider.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
 	}
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
-	env.config = config
-	env.name = config.Name()
+	env.config = ecfg
+	env.name = ecfg.Name()
 
 	env.containerManager = lxc.NewContainerManager(
 		lxc.ManagerConfig{
@@ -184,7 +185,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		})
 
 	// Here is the end of normal config setting.
-	if config.bootstrapped() {
+	if ecfg.bootstrapped() {
 		return nil
 	}
 	return env.bootstrapAddressAndStorage(cfg)
@@ -251,31 +252,21 @@ func (env *localEnviron) setupLocalStorage() error {
 	return nil
 }
 
-// StartInstance is specified in the Environ interface.
-func (env *localEnviron) StartInstance(
-	machineId, machineNonce, series string,
-	cons constraints.Value,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	// We pretty much ignore the constraints.
-	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	possibleTools, err := tools.FindInstanceTools(env, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(possibleTools) == 0 {
-		return nil, nil, fmt.Errorf("could not find appropriate tools")
-	}
+// StartInstance is specified in the InstanceBroker interface.
+func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	tools := possibleTools[0]
-	logger.Debugf("tools: %#v", tools)
+	machineId := machineConfig.MachineId
+	series := possibleTools.OneSeries()
+	logger.Debugf("StartInstance: %q, %s", machineId, series)
+	agenttools := possibleTools[0]
+	logger.Debugf("tools: %#v", agenttools)
 
 	network := lxc.DefaultNetworkConfig()
 	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineNonce, network,
-		tools, env.config.Config,
-		stateInfo, apiInfo)
+		machineId, series, machineConfig.MachineNonce, network,
+		agenttools, env.config.Config,
+		machineConfig.StateInfo, machineConfig.APIInfo)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -283,7 +274,7 @@ func (env *localEnviron) StartInstance(
 	return inst, nil, nil
 }
 
-// StopInstances is specified in the Environ interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 	for _, inst := range instances {
 		if inst.Id() == boostrapInstanceId {
@@ -311,7 +302,7 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return insts, nil
 }
 
-// AllInstances is specified in the Environ interface.
+// AllInstances is specified in the InstanceBroker interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
 	instances = append(instances, &localInstance{boostrapInstanceId, env})
 	// Add in all the containers as well.
@@ -434,28 +425,23 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
-func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
+func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List) error {
 	dataDir := env.config.rootDir()
-	toolList, err := tools.FindBootstrapTools(env, cons)
-	if err != nil {
-		return err
-	}
-	// ensure we have at least one valid tools
-	if len(toolList) == 0 {
-		return fmt.Errorf("No bootstrap tools found")
-	}
 	// unpack the first tools into the agent dir.
-	agentTools := toolList[0]
+	agentTools := possibleTools[0]
 	logger.Debugf("tools: %#v", agentTools)
 	// brutally abuse our knowledge of storage to directly open the file
 	toolsUrl, err := url.Parse(agentTools.URL)
+	if err != nil {
+		return err
+	}
 	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
 	logger.Infof("tools location: %v", toolsLocation)
 	toolsFile, err := os.Open(toolsLocation)
 	defer toolsFile.Close()
 	// Again, brutally abuse our knowledge here.
 
-	// The tools that FindBootstrapTools has returned us are based on the
+	// The tools that possible bootstrap tools are based on the
 	// default series in the config.  However we are running potentially on a
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
@@ -477,13 +463,13 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 		osenv.JujuSharedStorageDir:  env.config.sharedStorageDir(),
 		osenv.JujuSharedStorageAddr: env.config.sharedStorageAddr(),
 	}
-	agent := upstart.MachineAgentUpstartService(
+	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
 		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
 
-	agent.InitDir = upstartScriptLocation
-	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
-	if err := agent.Install(); err != nil {
+	agentService.InitDir = upstartScriptLocation
+	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agentService.InitDir)
+	if err := agentService.Install(); err != nil {
 		logger.Errorf("could not install machine agent service: %v", err)
 		return err
 	}
@@ -536,18 +522,18 @@ func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []
 
 func (env *localEnviron) initialStateConfiguration(agentConfig agent.Config, cons constraints.Value) (*state.State, error) {
 	timeout := state.DialOpts{60 * time.Second}
-	bootstrap, err := environs.BootstrapConfig(env.config.Config)
+	bootstrapCfg, err := environs.BootstrapConfig(env.config.Config)
 	if err != nil {
 		return nil, err
 	}
-	st, err := agent.InitialStateConfiguration(agentConfig, bootstrap, timeout)
+	st, err := agent.InitialStateConfiguration(agentConfig, bootstrapCfg, timeout)
 	if err != nil {
 		return nil, err
 	}
 
 	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
 
-	if err := environs.ConfigureBootstrapMachine(
+	if err := bootstrap.ConfigureBootstrapMachine(
 		st, cons, env.config.rootDir(), jobs, instance.Id(boostrapInstanceId), instance.HardwareCharacteristics{}); err != nil {
 		st.Close()
 		return nil, err

@@ -127,7 +127,7 @@ func (s *StorageSuite) TestUploadFakeSeries(c *gc.C) {
 	c.Assert(list, gc.HasLen, 3)
 	expectSeries := []string{"fake", "sham", version.CurrentSeries()}
 	sort.Strings(expectSeries)
-	c.Assert(list.Series(), gc.DeepEquals, expectSeries)
+	c.Assert(list.AllSeries(), gc.DeepEquals, expectSeries)
 	for _, t := range list {
 		c.Logf("checking %s", t.URL)
 		c.Assert(t.Version.Number, gc.Equals, version.CurrentNumber())

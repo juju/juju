@@ -19,12 +19,14 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/openstack"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
@@ -240,7 +242,7 @@ func (s *localServerSuite) TestBootstrapFailsWhenPublicIPError(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.ErrorMatches, "(.|\n)*cannot allocate a public IP as needed(.|\n)*")
 }
 
@@ -269,7 +271,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.New(cfg)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	inst, _ := testing.StartInstance(c, env, "100")
 	err = s.Env.StopInstances([]instance.Instance{inst})
@@ -277,7 +279,7 @@ func (s *localServerSuite) TestStartInstanceWithoutPublicIP(c *gc.C) {
 }
 
 func (s *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	err := environs.Bootstrap(s.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(s.Env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	_, hc := testing.StartInstanceWithConstraints(c, s.Env, "100", constraints.MustParse("mem=1024"))
 	c.Check(*hc.Arch, gc.Equals, "amd64")
@@ -429,7 +431,7 @@ func (s *localServerSuite) TestInstancesBuildSpawning(c *gc.C) {
 // TODO (wallyworld) - this test was copied from the ec2 provider.
 // It should be moved to environs.jujutests.Tests.
 func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
-	err := environs.Bootstrap(s.env, constraints.Value{})
+	err := bootstrap.Bootstrap(s.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -462,7 +464,7 @@ func (s *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst1, _, err := s.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, _, err := provider.StartInstance(s.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 
 	err = s.env.Destroy(append(insts, inst1))

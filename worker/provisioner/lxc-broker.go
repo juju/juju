@@ -10,19 +10,20 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
 )
 
 var lxcLogger = loggo.GetLogger("juju.provisioner.lxc")
 
-var _ Broker = (*lxcBroker)(nil)
+var _ environs.InstanceBroker = (*lxcBroker)(nil)
+var _ tools.HasTools = (*lxcBroker)(nil)
 
-func NewLxcBroker(config *config.Config, tools *tools.Tools) Broker {
+func NewLxcBroker(config *config.Config, tools *tools.Tools) environs.InstanceBroker {
 	return &lxcBroker{
 		manager: lxc.NewContainerManager(lxc.ManagerConfig{Name: "juju"}),
 		config:  config,
@@ -36,7 +37,15 @@ type lxcBroker struct {
 	tools   *tools.Tools
 }
 
-func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series string, cons constraints.Value, info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
+func (broker *lxcBroker) Tools() tools.List {
+	return tools.List{broker.tools}
+}
+
+// StartInstance is specified in the Broker interface.
+func (broker *lxcBroker) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	machineId := machineConfig.MachineId
 	lxcLogger.Infof("starting lxc container for machineId: %s", machineId)
 
 	// Default to using the host network until we can configure.
@@ -46,7 +55,10 @@ func (broker *lxcBroker) StartInstance(machineId, machineNonce string, series st
 	}
 	network := lxc.BridgeNetworkConfig(bridgeDevice)
 
-	inst, err := broker.manager.StartContainer(machineId, series, machineNonce, network, broker.tools, broker.config, info, apiInfo)
+	series := possibleTools.OneSeries()
+	inst, err := broker.manager.StartContainer(
+		machineId, series, machineConfig.MachineNonce, network, possibleTools[0], broker.config,
+		machineConfig.StateInfo, machineConfig.APIInfo)
 	if err != nil {
 		lxcLogger.Errorf("failed to start container: %v", err)
 		return nil, nil, err

@@ -18,11 +18,13 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -237,7 +239,7 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.env.Storage())
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -282,7 +284,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst1, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, hc, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -308,7 +310,7 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
@@ -318,13 +320,13 @@ func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
@@ -333,7 +335,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	_, hc, err := t.env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	_, hc, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -342,7 +344,7 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.env.Config().DefaultSeries()
 	info, apiInfo, err := t.env.StateInfo()
@@ -351,7 +353,7 @@ func (t *localServerSuite) TestAddresses(c *gc.C) {
 	info.Tag = "machine-1"
 	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(t.env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
