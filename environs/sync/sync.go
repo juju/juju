@@ -15,9 +15,10 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/ec2"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -68,13 +69,13 @@ func SyncTools(ctx *SyncContext) error {
 
 	logger.Infof("listing available tools")
 	majorVersion := version.Current.Major
-	sourceTools, err := tools.ReadList(ctx.sourceStorage, majorVersion)
+	sourceTools, err := envtools.ReadList(ctx.sourceStorage, majorVersion)
 	if err != nil {
 		return err
 	}
 	if !ctx.Dev {
 		// No development versions, only released ones.
-		filter := tools.Filter{Released: true}
+		filter := coretools.Filter{Released: true}
 		if sourceTools, err = sourceTools.Match(filter); err != nil {
 			return err
 		}
@@ -92,9 +93,9 @@ func SyncTools(ctx *SyncContext) error {
 	logger.Infof("listing target bucket")
 	ctx.targetStorage = targetEnv.Storage()
 	if ctx.PublicBucket {
-		switch _, err := tools.ReadList(ctx.targetStorage, majorVersion); err {
-		case tools.ErrNoTools:
-		case nil, tools.ErrNoMatches:
+		switch _, err := envtools.ReadList(ctx.targetStorage, majorVersion); err {
+		case envtools.ErrNoTools:
+		case nil, coretools.ErrNoMatches:
 			return fmt.Errorf("private tools present: public tools would be ignored")
 		default:
 			return err
@@ -104,9 +105,9 @@ func SyncTools(ctx *SyncContext) error {
 			return fmt.Errorf("cannot write to public storage")
 		}
 	}
-	targetTools, err := tools.ReadList(ctx.targetStorage, majorVersion)
+	targetTools, err := envtools.ReadList(ctx.targetStorage, majorVersion)
 	switch err {
-	case nil, tools.ErrNoMatches, tools.ErrNoTools:
+	case nil, coretools.ErrNoMatches, envtools.ErrNoTools:
 	default:
 		return err
 	}
@@ -133,7 +134,7 @@ func selectSourceStorage(ctx *SyncContext) (environs.StorageReader, error) {
 }
 
 // copyTools copies a set of tools from the source to the target.
-func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
+func copyTools(tools []*coretools.Tools, ctx *SyncContext) error {
 	for _, tool := range tools {
 		logger.Infof("copying %s from %s", tool.Version, tool.URL)
 		if ctx.DryRun {
@@ -147,8 +148,8 @@ func copyTools(tools []*tools.Tools, ctx *SyncContext) error {
 }
 
 // copyOneToolsPackage copies one tool from the source to the target.
-func copyOneToolsPackage(tool *tools.Tools, ctx *SyncContext) error {
-	toolsName := tools.StorageName(tool.Version)
+func copyOneToolsPackage(tool *coretools.Tools, ctx *SyncContext) error {
+	toolsName := envtools.StorageName(tool.Version)
 	logger.Infof("copying %v", toolsName)
 	srcFile, err := ctx.sourceStorage.Get(toolsName)
 	if err != nil {

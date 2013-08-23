@@ -17,8 +17,7 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/deployer"
@@ -130,6 +129,7 @@ func (s *SimpleContextSuite) TestOldDeployedUnitsCanBeRecalled(c *gc.C) {
 }
 
 type SimpleToolsFixture struct {
+	testing.LoggingSuite
 	dataDir         string
 	initDir         string
 	logDir          string
@@ -141,6 +141,7 @@ type SimpleToolsFixture struct {
 var fakeJujud = "#!/bin/bash\n# fake-jujud\nexit 0\n"
 
 func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
+	fix.LoggingSuite.SetUpTest(c)
 	fix.dataDir = dataDir
 	fix.initDir = c.MkDir()
 	fix.logDir = c.MkDir()
@@ -166,6 +167,7 @@ func (fix *SimpleToolsFixture) SetUp(c *gc.C, dataDir string) {
 
 func (fix *SimpleToolsFixture) TearDown(c *gc.C) {
 	os.Setenv("PATH", fix.origPath)
+	fix.LoggingSuite.TearDownTest(c)
 }
 
 func (fix *SimpleToolsFixture) makeBin(c *gc.C, name, script string) {
@@ -240,20 +242,8 @@ func (fix *SimpleToolsFixture) checkUnitInstalled(c *gc.C, name, password string
 
 	conf, err := agent.ReadConf(fix.dataDir, tag)
 	c.Assert(err, gc.IsNil)
-	c.Assert(conf, gc.DeepEquals, &agent.Conf{
-		DataDir:     fix.dataDir,
-		OldPassword: password,
-		StateInfo: &state.Info{
-			Addrs:  []string{"s1:123", "s2:123"},
-			CACert: []byte("test-cert"),
-			Tag:    tag,
-		},
-		APIInfo: &api.Info{
-			Addrs:  []string{"a1:123", "a2:123"},
-			CACert: []byte("test-cert"),
-			Tag:    tag,
-		},
-	})
+	c.Assert(conf.Tag(), gc.Equals, tag)
+	c.Assert(conf.DataDir(), gc.Equals, fix.dataDir)
 
 	jujudData, err := ioutil.ReadFile(jujudPath)
 	c.Assert(err, gc.IsNil)

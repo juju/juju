@@ -43,10 +43,6 @@ func BucketStorage(b *s3.Bucket) environs.Storage {
 	}
 }
 
-func GetImageURLs(e environs.Environ) ([]string, error) {
-	return e.(*environ).getImageBaseURLs()
-}
-
 var testRoundTripper = &jujutest.ProxyRoundTripper{}
 
 func init() {

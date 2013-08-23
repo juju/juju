@@ -8,7 +8,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
@@ -18,6 +17,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -113,10 +113,10 @@ func (s *upgraderSuite) TestTools(c *gc.C) {
 	s.rawMachine.SetAgentTools(curTools)
 	// Upgrader.Tools returns the *desired* set of tools, not the currently
 	// running set. We want to be upgraded to cur.Version
-	tools, err := s.st.Tools(s.rawMachine.Tag())
+	stateTools, err := s.st.Tools(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(tools.Version, gc.Equals, cur)
-	c.Assert(tools.URL, gc.Not(gc.Equals), "")
+	c.Assert(stateTools.Version, gc.Equals, cur)
+	c.Assert(stateTools.URL, gc.Not(gc.Equals), "")
 }
 
 func (s *upgraderSuite) TestWatchAPIVersion(c *gc.C) {
