@@ -12,6 +12,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -42,8 +43,8 @@ type ProvisionMachineArgs struct {
 	// Constraints are any machine constraints that should be checked.
 	Constraints constraints.Value
 
-	// Tools to install on the machine. If nil, the bootstrap machine's
-	// tools will be used.
+	// Tools to install on the machine. If nil, tools will be automatically
+	// chosen using environs/tools FindInstanceTools.
 	Tools *tools.Tools
 }
 
@@ -179,23 +180,31 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 		return nil, err
 	}
 
-	// We can't use environs.FindInstanceTools, as it chooses the tools based
-	// on the version of the juju tool executing, which might not even exist in
-	// storage. Set the new machine's tools to be the same as those of the
-	// bootstrap machine's.
-	tools := args.tools
-	if tools == nil {
-		bootstrapMachine, err := args.st.Machine("0")
+	if args.tools == nil {
+		// Normally, provisioning is done with configuration loaded from the
+		// state database.  Manual provisioning be initiated from the juju CLI,
+		// whose environment configuration may not reflect the configuration
+		// in state; load configuration from state now.
+		statecfg, err := args.st.EnvironConfig()
 		if err != nil {
 			return nil, err
 		}
-		tools, err = bootstrapMachine.AgentTools()
+		if err = args.env.SetConfig(statecfg); err != nil {
+			return nil, err
+		}
+		possibleTools, err := envtools.FindInstanceTools(args.env, args.series, args.cons)
 		if err != nil {
 			return nil, err
 		}
-		if err = m.SetAgentTools(tools); err != nil {
-			return nil, err
+		possibleTools, err = possibleTools.Match(tools.Filter{Arch: *args.hc.Arch})
+		if err != nil {
+			arches := possibleTools.Arches()
+			return nil, fmt.Errorf("chosen architecture %v not present in %v", *args.hc.Arch, arches)
 		}
+		args.tools = possibleTools[0]
+	}
+	if err = m.SetAgentTools(args.tools); err != nil {
+		return nil, err
 	}
 
 	return m, nil

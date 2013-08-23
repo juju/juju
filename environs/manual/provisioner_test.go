@@ -48,15 +48,12 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	defer sshresponse(c, detectionScript, detectionoutput, 0)()
 	defer sshresponse(c, checkProvisionedScript, "", 0)()
 	m, err := ProvisionMachine(args)
-	c.Assert(err, gc.ErrorMatches, "agent tools for machine 0 not found")
+	c.Assert(err, gc.ErrorMatches, "no matching tools available")
 	c.Assert(m, gc.IsNil)
 
-	m0, err := s.State.Machine("0")
-	c.Assert(err, gc.IsNil)
 	toolsList, err := tools.FindBootstrapTools(s.Conn.Environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	err = m0.SetAgentTools(toolsList[0])
-	c.Assert(err, gc.IsNil)
+	args.Tools = toolsList[0]
 
 	for _, errorCode := range []int{255, 0} {
 		defer sshresponse(c, "", "", errorCode)() // executing script

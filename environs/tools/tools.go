@@ -31,7 +31,7 @@ func FindTools(environ environs.Environ, majorVersion int, filter coretools.Filt
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		log.Infof("environs: filtering tools by version: %s", filter.Number.Major)
+		log.Infof("environs: filtering tools by version: %s", filter.Number)
 	}
 	if filter.Series != "" {
 		log.Infof("environs: filtering tools by series: %s", filter.Series)
