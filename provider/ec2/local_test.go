@@ -344,13 +344,6 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
 }
 
-func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
-	urls, err := ec2.GetImageURLs(s.Env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(urls), gc.Equals, 1)
-	c.Check(urls[0], gc.Equals, imagemetadata.DefaultBaseURL)
-}
-
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
 // behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
