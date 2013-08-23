@@ -328,11 +328,11 @@ func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
 	urls, err := ec2.GetImageURLs(s.Env)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(urls), gc.Equals, 1)
-	c.Assert(urls[0], gc.Equals, imagemetadata.DefaultBaseURL)
+	c.Check(urls[0], gc.Equals, imagemetadata.DefaultBaseURL)
 }
 
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
-// behaves as if it not in the us-east region.
+// behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
 	testing.LoggingSuite
 	restoreEC2Patching func()
