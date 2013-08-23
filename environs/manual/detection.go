@@ -14,6 +14,25 @@ import (
 	"launchpad.net/juju-core/instance"
 )
 
+// checkProvisionedScript is the script to run on the remote machine
+// to check if a machine has already been provisioned.
+//
+// This is a little convoluted to avoid returning an error in the
+// common case of no matching files.
+const checkProvisionedScript = "ls /etc/init/ | grep juju.*\\.conf || exit 0"
+
+// checkProvisioned checks if any juju upstart jobs already
+// exist on the host machine.
+func checkProvisioned(sshHost string) (bool, error) {
+	cmd := exec.Command("ssh", sshHost, "bash")
+	cmd.Stdin = bytes.NewBufferString(checkProvisionedScript)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return false, err
+	}
+	return len(strings.TrimSpace(string(out))) > 0, nil
+}
+
 // detectSeriesHardwareCharacteristics detects the OS series
 // and hardware characteristics of the remote machine by
 // connecting to the machine and executing a bash script.

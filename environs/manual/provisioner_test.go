@@ -46,6 +46,7 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	args.Host = "ubuntu@" + args.Host
 
 	defer sshresponse(c, detectionScript, detectionoutput, 0)()
+	defer sshresponse(c, checkProvisionedScript, "", 0)()
 	m, err := ProvisionMachine(args)
 	c.Assert(err, gc.ErrorMatches, "agent tools for machine 0 not found")
 	c.Assert(m, gc.IsNil)
@@ -58,8 +59,9 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	for _, errorCode := range []int{255, 0} {
-		defer sshresponse(c, "", "", errorCode)()
+		defer sshresponse(c, "", "", errorCode)() // executing script
 		defer sshresponse(c, detectionScript, detectionoutput, 0)()
+		defer sshresponse(c, checkProvisionedScript, "", 0)()
 		m, err = ProvisionMachine(args)
 		if errorCode != 0 {
 			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("exit status %d", errorCode))
@@ -79,11 +81,12 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 		}
 	}
 
-	// XXX Ideally, attempting to provision a machine twice
-	// would fail when attempting to inject into the state DB.
-	// Why would you permit an instance ID to be reused?
-	// Is there not a one-to-one mapping between machine and
-	// instance?
-	//m, err = ProvisionMachine(args)
-	//c.Assert(err, gc.NotNil)
+	// Attempting to provision a machine twice should fail. We effect
+	// this by checking for existing juju upstart configurations.
+	defer sshresponse(c, checkProvisionedScript, "/etc/init/jujud-machine-0.conf", 0)()
+	_, err = ProvisionMachine(args)
+	c.Assert(err, gc.Equals, ErrProvisioned)
+	defer sshresponse(c, checkProvisionedScript, "/etc/init/jujud-machine-0.conf", 255)()
+	_, err = ProvisionMachine(args)
+	c.Assert(err, gc.ErrorMatches, "error checking if provisioned: exit status 255")
 }

@@ -92,13 +92,42 @@ func (cfg *Config) SetDebconfSelections(answers string) {
 // If any packages are specified, "apt-get update"
 // will be called.
 func (cfg *Config) AddPackage(name string) {
+	cfg.attrs["packages"] = append(cfg.Packages(), name)
+}
+
+// Packages returns a list of packages that will be
+// installed on first boot.
+func (cfg *Config) Packages() []string {
 	pkgs, _ := cfg.attrs["packages"].([]string)
-	cfg.attrs["packages"] = append(pkgs, name)
+	return pkgs
 }
 
 func (cfg *Config) addCmd(kind string, c *command) {
+	cfg.attrs[kind] = append(cfg.getCmds(kind), c)
+}
+
+func (cfg *Config) getCmds(kind string) []*command {
 	cmds, _ := cfg.attrs[kind].([]*command)
-	cfg.attrs[kind] = append(cmds, c)
+	return cmds
+}
+
+// RunCmds returns a list of commands that will be
+// run at first boot.
+//
+// Each element in the resultant slice is either a
+// string or []string, corresponding to how the command
+// was added.
+func (cfg *Config) RunCmds() []interface{} {
+	cmds := cfg.getCmds("runcmd")
+	result := make([]interface{}, len(cmds))
+	for i, cmd := range cmds {
+		if cmd.args != nil {
+			result[i] = append([]string{}, cmd.args...)
+		} else {
+			result[i] = cmd.literal
+		}
+	}
+	return result
 }
 
 // AddRunCmd adds a command to be executed

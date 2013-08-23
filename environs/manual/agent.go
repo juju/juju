@@ -8,32 +8,29 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
 	"strings"
 
-	"launchpad.net/juju-core/agent"
+	corecloudinit "launchpad.net/juju-core/cloudinit"
+	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
-	"launchpad.net/juju-core/upstart"
+	"launchpad.net/juju-core/utils"
 )
-
-var defaultDataDir = "/var/lib/juju"
-var defaultLogDir = "/var/log/juju"
-
-const upstartServiceName = "jujud-machine-manual"
 
 type provisionMachineAgentArgs struct {
 	host      string
 	dataDir   string
-	logDir    string
 	envcfg    *config.Config
 	machine   *state.Machine
 	nonce     string
 	stateInfo *state.Info
 	apiInfo   *api.Info
+	cons      constraints.Value
 }
 
 // provisionMachineAgent connects to a machine over SSH,
@@ -65,83 +62,48 @@ func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error)
 		return "", fmt.Errorf("machine %v has no associated agent tools", args.machine)
 	}
 
-	dataDir := args.dataDir
-	if dataDir == "" {
-		dataDir = defaultDataDir
+	// We generate a cloud-init config, which we'll then pull the runcmds
+	// and prerequisite packages out of. Rather than generating a cloud-config,
+	// we'll just generate a shell script.
+	mcfg := environs.NewMachineConfig(args.machine.Id(), args.nonce, args.stateInfo, args.apiInfo)
+	if args.dataDir != "" {
+		mcfg.DataDir = args.dataDir
 	}
-
-	logDir := args.logDir
-	if logDir == "" {
-		logDir = defaultLogDir
-	}
-
-	// TODO(axw) make this configurable? Should be moot
-	// when we have dynamic log level configuration.
-	const logConfig = "--debug"
-
-	serviceEnv := map[string]string{
-		osenv.JujuProviderType: provider.Manual,
-	}
-	upstartConf := upstart.MachineAgentUpstartService(
-		"jujud-"+args.machine.Tag(),
-		path.Join(dataDir, "tools", tools.Version.String()),
-		dataDir,
-		logDir,
-		args.machine.Tag(),
-		args.machine.Id(),
-		logConfig,
-		serviceEnv,
-	)
-	upstartCommands, err := upstartConf.InstallCommands()
+	mcfg.Tools = tools
+	err = environs.FinishMachineConfig(mcfg, args.envcfg, args.cons)
 	if err != nil {
-		return "", fmt.Errorf("error generating upstart configuration: %v", err)
+		return "", err
+	}
+	mcfg.MachineEnvironment[osenv.JujuProviderType] = provider.Manual
+	cloudcfg := corecloudinit.New()
+	if cloudcfg, err = cloudinit.Configure(mcfg, cloudcfg); err != nil {
+		return "", err
 	}
 
-	var agentConf = agent.Conf{
-		DataDir:      dataDir,
-		APIPort:      args.envcfg.APIPort(),
-		APIInfo:      args.apiInfo,
-		StatePort:    args.envcfg.StatePort(),
-		StateInfo:    args.stateInfo,
-		MachineNonce: args.nonce,
-	}
-	agentConfCommands, err := agentConf.WriteCommands()
-	if err != nil {
-		return "", fmt.Errorf("error generating agent configuration: %v", err)
+	// Convert runcmds to a series of shell commands.
+	script := []string{"#!/bin/sh"}
+	for _, cmd := range cloudcfg.RunCmds() {
+		switch cmd := cmd.(type) {
+		case []string:
+			// Quote args, so shell meta-characters are not interpreted.
+			for i, arg := range cmd[1:] {
+				cmd[i] = utils.ShQuote(arg)
+			}
+			script = append(script, strings.Join(cmd, " "))
+		case string:
+			script = append(script, cmd)
+		default:
+			return "", fmt.Errorf("unexpected runcmd type: %T", cmd)
+		}
 	}
 
-	// Finally, run the script remotely.
-	fmtargs := []interface{}{
-		tools.URL, tools.Version,
-		strings.Join(agentConfCommands, "\n"),
-		strings.Join(upstartCommands, "\n"),
+	// The first command is "set -xe", which we want to leave in place.
+	head := []string{script[0]}
+	tail := script[1:]
+	for _, pkg := range cloudcfg.Packages() {
+		cmd := fmt.Sprintf("apt-get -y install %s", utils.ShQuote(pkg))
+		head = append(head, cmd)
 	}
-	return fmt.Sprintf(agentProvisioningScript, fmtargs...), nil
+	script = append(head, tail...)
+	return strings.Join(script, "\n"), nil
 }
-
-const agentProvisioningScript = `#!/bin/bash
-tools_url="%s"
-tools_version="%s"
-
-mkdir -p /var/lib/juju
-mkdir -p /var/log/juju
-
-# Install pre-requisites.
-apt-get -y install git wget
-
-mkdir -p /var/lib/juju/tools/$tools_version
-cd /var/lib/juju/tools/$tools_version
-wget --no-verbose -O - "$tools_url" | tar xz
-if [ $? -ne 0 ]; then
-    echo >&2
-    echo "wget failed: please ensure $(hostname) can access ${tools_url}, and try again" >&2
-    echo >&2
-    exit 1
-fi
-echo "$tools_url" > downloaded-url.txt
-
-# Install agent configuration.
-%s
-
-# Install machine agent upstart service.
-%s`

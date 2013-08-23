@@ -4,6 +4,7 @@
 package manual
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 
@@ -31,10 +32,6 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// LogDir is the log directory for juju.
-	// If left blank, the default location "/var/log/juju" will be used.
-	LogDir string
-
 	// Env is the environment containing the state and API servers the
 	// provisioned machine agent should communicate with.
 	Env environs.Environ
@@ -50,6 +47,10 @@ type ProvisionMachineArgs struct {
 	Tools *tools.Tools
 }
 
+// ErrProvisioned is returned by ProvisionMachine if the target
+// machine has an existing machine agent.
+var ErrProvisioned = errors.New("machine is already provisioned")
+
 // ProvisionMachine provisions a machine agent to an existing host, via
 // an SSH connection to the specified host. The host may optionally be preceded
 // with a login username, as in [user@]host.
@@ -61,6 +62,7 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 		if m != nil && err != nil {
 			m.EnsureDead()
 			m.Remove()
+			m = nil
 		}
 	}()
 
@@ -71,6 +73,15 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	addrs, err := instance.HostAddresses(sshHostWithoutUser)
 	if err != nil {
 		return nil, err
+	}
+
+	provisioned, err := checkProvisioned(args.Host)
+	if err != nil {
+		err = fmt.Errorf("error checking if provisioned: %v", err)
+		return nil, err
+	}
+	if provisioned {
+		return nil, ErrProvisioned
 	}
 
 	hc, series, err := detectSeriesAndHardwareCharacteristics(args.Host)
@@ -87,9 +98,11 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 
 	// Inject a new machine into state.
 	//
-	// TODO(axw) add provider type to machine schema in state, and
-	//           set this machine's provider type to "manual" so providers
-	//           know not to touch it.
+	// There will never be a corresponding "instance" that any provider
+	// knows about. This is fine, and works well with the provisioner
+	// task. The provisioner task will happily remove any and all dead
+	// machines from state, but will ignore the associated instance ID
+	// if it isn't one that the environment provider knows about.
 	instanceId := instance.Id(manualInstancePrefix + sshHostWithoutUser)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	m, err = injectMachine(injectMachineArgs{
@@ -108,22 +121,22 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	}
 	stateInfo, apiInfo, err := setupAuthentication(args.Env, m)
 	if err != nil {
-		return nil, err
+		return m, err
 	}
 
 	// Finally, provision the machine agent.
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:      args.Host,
 		dataDir:   args.DataDir,
-		logDir:    args.LogDir,
 		envcfg:    args.Env.Config(),
 		machine:   m,
 		nonce:     nonce,
 		stateInfo: stateInfo,
 		apiInfo:   apiInfo,
+		cons:      args.Constraints,
 	})
 	if err != nil {
-		return nil, err
+		return m, err
 	}
 
 	logger.Infof("Provisioned machine %v", m)
