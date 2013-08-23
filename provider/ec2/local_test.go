@@ -75,18 +75,8 @@ func registerLocalTests() {
 		Name: "test",
 	}
 
-	gc.Suite(&localServerSuite{
-		Tests: jujutest.Tests{
-			TestConfig: jujutest.TestConfig{localConfigAttrs},
-		},
-	})
-	gc.Suite(&localLiveSuite{
-		LiveTests: LiveTests{
-			LiveTests: jujutest.LiveTests{
-				TestConfig: jujutest.TestConfig{localConfigAttrs},
-			},
-		},
-	})
+	gc.Suite(&localServerSuite{})
+	gc.Suite(&localLiveSuite{})
 	gc.Suite(&localNonUSEastSuite{})
 }
 
@@ -99,6 +89,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
+	t.TestConfig.Config = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
@@ -174,6 +165,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
+	t.TestConfig.Config = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.Tests.SetUpSuite(c)
 }
@@ -297,15 +289,15 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := environs.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := t.env.Config().DefaultSeries()
-	info, apiInfo, err := t.env.StateInfo()
+	series := t.Env.Config().DefaultSeries()
+	info, apiInfo, err := t.Env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
 	apiInfo.Tag = "machine-1"
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := t.Env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	instId := inst.Id()
 	addrs, err := inst.Addresses()
