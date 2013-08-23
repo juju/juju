@@ -19,6 +19,7 @@ import (
 )
 
 type ConfigSuite struct {
+	testing.LoggingSuite
 	savedVars   map[string]string
 	oldJujuHome *testing.FakeHome
 }
@@ -178,6 +179,7 @@ func (t configTest) check(c *gc.C) {
 }
 
 func (s *ConfigSuite) SetUpTest(c *gc.C) {
+	s.LoggingSuite.SetUpTest(c)
 	s.oldJujuHome = testing.MakeEmptyFakeHome(c)
 	s.savedVars = make(map[string]string)
 	for v, val := range envVars {
@@ -191,6 +193,7 @@ func (s *ConfigSuite) TearDownTest(c *gc.C) {
 		os.Setenv(k, v)
 	}
 	s.oldJujuHome.Restore()
+	s.LoggingSuite.TearDownTest(c)
 }
 
 var configTests = []configTest{
@@ -469,16 +472,12 @@ func (s *ConfigDeprecationSuite) TearDownTest(c *gc.C) {
 func (s *ConfigDeprecationSuite) setupLogger(c *gc.C) {
 	var err error
 	s.writer = &testWriter{}
-	s.oldWriter, s.oldLevel, err = loggo.RemoveWriter("default")
-	c.Assert(err, gc.IsNil)
-	err = loggo.RegisterWriter("test", s.writer, loggo.TRACE)
+	err = loggo.RegisterWriter("test", s.writer, loggo.WARNING)
 	c.Assert(err, gc.IsNil)
 }
 
 func (s *ConfigDeprecationSuite) resetLogger(c *gc.C) {
 	_, _, err := loggo.RemoveWriter("test")
-	c.Assert(err, gc.IsNil)
-	err = loggo.RegisterWriter("default", s.oldWriter, s.oldLevel)
 	c.Assert(err, gc.IsNil)
 }
 

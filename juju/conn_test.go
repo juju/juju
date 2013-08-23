@@ -15,6 +15,7 @@ import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -56,7 +57,7 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	delete(attrs, "admin-secret")
@@ -76,7 +77,7 @@ func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *gc.C) {
 func bootstrapEnv(c *gc.C, envName string) {
 	environ, err := environs.NewFromName(envName)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(environ, constraints.Value{})
+	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 }
 
@@ -123,7 +124,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	info, _, err := env.StateInfo()
 	c.Assert(err, gc.IsNil)
@@ -163,7 +164,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// Make a new Conn, which will push the secrets.
@@ -201,7 +202,7 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 		"ca-private-key":  coretesting.CAKey,
 	})
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// Check that Bootstrap has correctly used a hash
@@ -259,7 +260,7 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 	}
 	environ, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(environ, constraints.Value{})
+	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	s.conn, err = juju.NewConn(environ)
 	c.Assert(err, gc.IsNil)

@@ -11,9 +11,10 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/upgrader"
 	"launchpad.net/juju-core/state/watcher"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -27,8 +28,8 @@ var retryAfter = func() <-chan time.Time {
 // an upgrade is ready to be performed and a restart is due.
 type UpgradeReadyError struct {
 	AgentName string
-	OldTools  *tools.Tools
-	NewTools  *tools.Tools
+	OldTools  *coretools.Tools
+	NewTools  *coretools.Tools
 	DataDir   string
 }
 
@@ -40,7 +41,7 @@ func (e *UpgradeReadyError) Error() string {
 // It should be called just before an agent exits, so that
 // it will restart running the new tools.
 func (e *UpgradeReadyError) ChangeAgentTools() error {
-	tools, err := tools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
+	tools, err := agenttools.ChangeAgentTools(e.DataDir, e.AgentName, e.NewTools.Version)
 	if err != nil {
 		return err
 	}
@@ -97,13 +98,13 @@ func (u *Upgrader) Stop() error {
 }
 
 func (u *Upgrader) loop() error {
-	currentTools, err := tools.ReadTools(u.dataDir, version.Current)
+	currentTools, err := agenttools.ReadTools(u.dataDir, version.Current)
 	if err != nil {
 		// Don't abort everything because we can't find the tools directory.
 		// The problem should sort itself out as we will immediately
 		// download some more tools and upgrade.
 		logger.Warningf("cannot read current tools: %v", err)
-		currentTools = &tools.Tools{
+		currentTools = &coretools.Tools{
 			Version: version.Current,
 		}
 	}
@@ -123,7 +124,7 @@ func (u *Upgrader) loop() error {
 	// that we attempt an upgrade even if other workers are dying
 	// all around us.
 	var dying <-chan struct{}
-	var wantTools *tools.Tools
+	var wantTools *coretools.Tools
 	for {
 		select {
 		case _, ok := <-changes:
@@ -162,7 +163,7 @@ func (u *Upgrader) loop() error {
 	}
 }
 
-func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
+func (u *Upgrader) fetchTools(agentTools *coretools.Tools) error {
 	logger.Infof("fetching tools from %q", agentTools.URL)
 	resp, err := http.Get(agentTools.URL)
 	if err != nil {
@@ -172,7 +173,7 @@ func (u *Upgrader) fetchTools(agentTools *tools.Tools) error {
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("bad HTTP response: %v", resp.Status)
 	}
-	err = tools.UnpackTools(u.dataDir, agentTools, resp.Body)
+	err = agenttools.UnpackTools(u.dataDir, agentTools, resp.Body)
 	if err != nil {
 		return fmt.Errorf("cannot unpack tools: %v", err)
 	}
