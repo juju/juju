@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -37,7 +38,7 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	}
 	env, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	conn, err := juju.NewConn(env)

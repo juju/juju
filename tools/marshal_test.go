@@ -7,7 +7,7 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 

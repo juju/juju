@@ -89,7 +89,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
+	charm.CacheDir = filepath.Join(a.Conf.dataDir, "charmcache")
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
@@ -137,7 +137,7 @@ var stateJobs = map[params.MachineJob]bool{
 //
 // If a state worker is necessary, APIWorker calls ensureStateWorker.
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
-	st, entity, err := openAPIState(a.Conf.Conf, a)
+	st, entity, err := openAPIState(a.Conf.config, a)
 	if err != nil {
 		// There was an error connecting to the API,
 		// https://launchpad.net/bugs/1199915 means that we may just
@@ -167,12 +167,12 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
 		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.DataDir), nil
+		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.dataDir), nil
 	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.DataDir)
+			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.dataDir)
 			if err != nil {
 				return nil, err
 			}
@@ -192,9 +192,9 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 }
 
 // StateJobs returns a worker running all the workers that require
-// a *state.State connection.
+// a *state.State cofnnection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	st, entity, err := openState(a.Conf.Conf, a)
+	st, entity, err := openState(a.Conf.config, a)
 	if err != nil {
 		return nil, err
 	}
@@ -202,7 +202,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
-	dataDir := a.Conf.DataDir
+	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
@@ -245,10 +245,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// the agent's configuration file. In the future, we may retrieve
 				// the state server certificate and key from the state, and
 				// this should then change.
-				if len(a.Conf.StateServerCert) == 0 || len(a.Conf.StateServerKey) == 0 {
+				port, cert, key := a.Conf.config.APIServerDetails()
+				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", a.Conf.APIPort), a.Conf.StateServerCert, a.Conf.StateServerKey)
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -275,7 +276,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 		return nil, err
 	}
 	// Check the machine nonce as provisioned matches the agent.Conf value.
-	if !m.CheckProvisioned(a.Conf.MachineNonce) {
+	if !m.CheckProvisioned(a.Conf.config.Nonce()) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
 		log.Errorf("running machine %v agent on inappropriate instance", m)

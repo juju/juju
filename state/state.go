@@ -17,13 +17,13 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/bson"
 	"labix.org/v2/mgo/txn"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/multiwatcher"
@@ -31,6 +31,8 @@ import (
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.state")
 
 // TODO(niemeyer): This must not be exported.
 type D []bson.DocElem
@@ -1037,13 +1039,6 @@ func (st *State) AssignUnit(u *Unit, policy AssignmentPolicy) (err error) {
 // database immediately. This will happen periodically automatically.
 func (st *State) StartSync() {
 	st.watcher.StartSync()
-	st.pwatcher.StartSync()
-}
-
-// Sync forces watchers to resynchronize their state with the
-// database immediately, and waits until all events are known.
-func (st *State) Sync() {
-	st.watcher.Sync()
 	st.pwatcher.Sync()
 }
 
@@ -1130,7 +1125,7 @@ func (st *State) Cleanup() error {
 			err = fmt.Errorf("unknown cleanup kind %q", doc.Kind)
 		}
 		if err != nil {
-			log.Warningf("cleanup failed: %v", err)
+			logger.Warningf("cleanup failed: %v", err)
 			continue
 		}
 		ops := []txn.Op{{

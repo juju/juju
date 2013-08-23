@@ -13,7 +13,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -25,6 +24,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -1116,7 +1116,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 			err = s.State.SetEnvironConfig(cfg)
 			c.Assert(err, gc.IsNil)
 		}
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, gc.Equals, true)
@@ -1169,7 +1169,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
 	c.Assert(err, gc.IsNil)
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// Start watching the configuration.
 	watcher := s.State.WatchEnvironConfig()
@@ -1188,7 +1188,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 		}
 	}()
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// The invalid configuration must not have been generated.
 	select {

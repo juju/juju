@@ -62,12 +62,12 @@ func (w *commonWatcher) Err() error {
 // from more in the next 10ms. The result map describes the existence, or not,
 // of every id observed to have changed. If a value is read from the supplied
 // stop chan, collect returns false immediately.
-func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{}) (map[string]bool, bool) {
+func collect(one watcher.Change, more <-chan watcher.Change, stop <-chan struct{}) (map[interface{}]bool, bool) {
 	var count int
-	result := map[string]bool{}
+	result := map[interface{}]bool{}
 	handle := func(ch watcher.Change) {
 		count++
-		result[ch.Id.(string)] = ch.Revno != -1
+		result[ch.Id] = ch.Revno != -1
 	}
 	handle(one)
 	timeout := time.After(10 * time.Millisecond)
@@ -212,11 +212,12 @@ func (w *lifecycleWatcher) initial() (ids *set.Strings, err error) {
 	return ids, nil
 }
 
-func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[string]bool) error {
+func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool) error {
 	// Separate ids into those thought to exist and those known to be removed.
 	changed := []string{}
 	latest := map[string]Life{}
 	for id, exists := range updates {
+		id := id.(string)
 		if exists {
 			changed = append(changed, id)
 		} else {
@@ -1269,8 +1270,10 @@ func (w *cleanupWatcher) loop() (err error) {
 			return tomb.ErrDying
 		case <-w.st.watcher.Dead():
 			return watcher.MustErr(w.st.watcher)
-		case <-in:
-			// Simply emit event for each change.
+		case ch := <-in:
+			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
+				return tomb.ErrDying
+			}
 			out = w.out
 		case out <- struct{}{}:
 			out = nil
