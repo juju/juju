@@ -4,7 +4,7 @@
 package params
 
 import (
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/tools"
 )
 
 // Entity identifies a single entity.

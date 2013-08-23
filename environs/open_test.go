@@ -4,14 +4,16 @@
 package environs_test
 
 import (
+	"strings"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
-	"strings"
 )
 
 type OpenSuite struct{}
@@ -31,11 +33,11 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "foo",
 		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
+		"ca-private-key":  testing.CAKey,
 	}
 	env, err := environs.NewFromAttrs(config)
 	c.Assert(err, gc.IsNil)
-	c.Assert(env.Bootstrap(constraints.Value{}), gc.IsNil)
+	c.Assert(bootstrap.Bootstrap(env, constraints.Value{}), gc.IsNil)
 }
 
 func (OpenSuite) TestNewUnknownEnviron(c *gc.C) {

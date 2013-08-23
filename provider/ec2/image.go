@@ -9,10 +9,7 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/loggo"
 )
-
-var logger = loggo.GetLogger("juju.environs.ec2")
 
 // signedImageDataOnly is defined here to allow tests to override the content.
 // If true, only inline PGP signed image metadata will be used.

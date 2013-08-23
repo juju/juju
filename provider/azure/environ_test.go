@@ -1208,15 +1208,6 @@ func (*environSuite) TestGetAffinityGroupNameIsConstant(c *gc.C) {
 	c.Check(env.getAffinityGroupName(), gc.Equals, env.getAffinityGroupName())
 }
 
-func (*environSuite) TestGetImageBaseURLs(c *gc.C) {
-	env := makeEnviron(c)
-	urls, err := env.getImageBaseURLs()
-	c.Assert(err, gc.IsNil)
-	// At the moment this is not configurable.  It returns a fixed URL for
-	// the central simplestreams database.
-	c.Check(urls, gc.DeepEquals, []string{imagemetadata.DefaultBaseURL})
-}
-
 func (*environSuite) TestGetImageStreamDefaultsToBlank(c *gc.C) {
 	env := makeEnviron(c)
 	// Hard-coded to default for now.
