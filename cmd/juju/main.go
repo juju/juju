@@ -6,6 +6,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -28,6 +29,10 @@ var x = []byte("\x96\x8c\x99\x8a\x9c\x94\x96\x91\x98\xdf\x9e\x92\x9e\x85\x96\x91
 // to the cmd package. This function is not redundant with main, because it
 // provides an entry point for testing with arbitrary command line arguments.
 func Main(args []string) {
+	if runtime.GOOS == "windows" {
+		// patch the Windows environment so all our code that expects $HOME will work
+		os.Setenv("HOME", os.Getenv("HOMEPATH"))
+	}
 	if err := juju.InitJujuHome(); err != nil {
 		fmt.Fprintf(os.Stderr, "error: %s\n", err)
 		os.Exit(2)
