@@ -80,6 +80,11 @@ func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error)
 		return "", err
 	}
 
+	// TODO(axw): 2013-08-23 bug 1215777
+	// Carry out configuration for ssh-keys-per-user,
+	// machine-updates-authkeys, when that functionality
+	// exists in our cloud-init configuration.
+
 	// Convert runcmds to a series of shell commands.
 	script := []string{"#!/bin/sh"}
 	for _, cmd := range cloudcfg.RunCmds() {
