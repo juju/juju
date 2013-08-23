@@ -152,21 +152,16 @@ func (s *syncSuite) TestSyncing(c *gc.C) {
 			}
 			test.ctx.Target = s.targetEnv
 
-			c.Logf("x1")
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
-			c.Logf("x2")
 
 			targetTools, err := tools.FindAvailableTools(s.targetEnv, 1)
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
-			c.Logf("x3")
 
 			if test.emptyPublic {
-				c.Logf("x4")
 				assertEmpty(c, s.targetEnv.PublicStorage())
 			} else {
-				c.Logf("x5")
 				assertEmpty(c, s.targetEnv.Storage())
 			}
 		}()
