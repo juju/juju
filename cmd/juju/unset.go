@@ -5,8 +5,6 @@ package main
 
 import (
 	"errors"
-	"fmt"
-	"strings"
 
 	"launchpad.net/gnuflag"
 
@@ -62,22 +60,10 @@ func (c *UnsetCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	ch, _, err := service.Charm()
-	if err != nil {
-		return err
-	}
 	if len(c.Options) > 0 {
 		settings := make(charm.Settings)
-		defaultSettings := ch.Config().DefaultSettings()
 		for _, option := range c.Options {
-			defaultSetting, ok := defaultSettings[option]
-			if !ok {
-				if strings.Contains(option, "=") {
-					return fmt.Errorf("invalid setting during unset: %q", option)
-				}
-				return fmt.Errorf("invalid option: %q", option)
-			}
-			settings[option] = defaultSetting
+			settings[option] = nil
 		}
 		return service.UpdateConfigSettings(settings)
 	} else {
