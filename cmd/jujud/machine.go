@@ -297,10 +297,10 @@ func (a *MachineAgent) Tag() string {
 func (m *MachineAgent) uninstallAgent() error {
 	// TODO(axw) get this from agent config when it's available
 	name := os.Getenv("UPSTART_JOB")
-	if name == "" {
-		return fmt.Errorf("not executing within the context of an upstart job")
+	if name != "" {
+		return upstart.NewService(name).Remove()
 	}
-	return upstart.NewService(name).Remove()
+	return nil
 }
 
 // Below pieces are used for testing,to give us access to the *State opened
