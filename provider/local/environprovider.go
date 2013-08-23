@@ -31,13 +31,13 @@ func init() {
 func (environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	logger.Infof("opening environment %q", cfg.Name())
 	if _, ok := cfg.AgentVersion(); !ok {
-		var err error
-		cfg, err = cfg.Apply(map[string]interface{}{
+		newCfg, err := cfg.Apply(map[string]interface{}{
 			"agent-version": version.CurrentNumber().String(),
 		})
 		if err != nil {
 			return nil, err
 		}
+		cfg = newCfg
 	}
 	if err := VerifyPrerequisites(); err != nil {
 		logger.Errorf("failed verification of local provider prerequisites: %v", err)

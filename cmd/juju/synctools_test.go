@@ -112,7 +112,6 @@ func (s *syncToolsSuite) Reset(c *gc.C) {
 }
 
 func (s *syncToolsSuite) TestSyncToolsCommand(c *gc.C) {
-	// makeEmptyFakeHome creates a faked home without tools.
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.description)
 		called := false
