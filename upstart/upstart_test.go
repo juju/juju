@@ -107,12 +107,12 @@ func (s *UpstartSuite) TestStop(c *gc.C) {
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
 	err := os.Remove(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.service.Remove(true), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.StoppedStatus(c)
-	c.Assert(s.service.Remove(true), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }
@@ -120,11 +120,11 @@ func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	c.Assert(s.service.Remove(true), gc.ErrorMatches, ".*exit status 99.*")
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
 	s.MakeTool(c, "stop", "exit 0")
-	c.Assert(s.service.Remove(true), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 	_, err = os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, checkers.Satisfies, os.IsNotExist)
 }

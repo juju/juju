@@ -77,8 +77,18 @@ func (s *Service) Stop() error {
 	return runCommand("stop", s.Name)
 }
 
+// StopAndRemove stops the service and then deletes the service
+// configuration from the init directory.
+func (s *Service) StopAndRemove() error {
+	return s.remove(true)
+}
+
 // Remove deletes the service configuration from the init directory.
-func (s *Service) Remove(stop bool) error {
+func (s *Service) Remove() error {
+	return s.remove(false)
+}
+
+func (s *Service) remove(stop bool) error {
 	if !s.Installed() {
 		return nil
 	}
@@ -159,7 +169,7 @@ func (c *Conf) Install() error {
 		return err
 	}
 	if c.Installed() {
-		if err := c.Remove(true); err != nil {
+		if err := c.StopAndRemove(); err != nil {
 			return fmt.Errorf("upstart: could not remove installed service: %s", err)
 		}
 	}

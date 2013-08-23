@@ -299,7 +299,7 @@ func (m *MachineAgent) uninstallAgent() error {
 	if name == "" {
 		return fmt.Errorf("not executing within the context of an upstart job")
 	}
-	return upstart.NewService(name).Remove(false)
+	return upstart.NewService(name).Remove()
 }
 
 // Below pieces are used for testing,to give us access to the *State opened
