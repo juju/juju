@@ -15,7 +15,7 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
-var logger = loggo.GetLogger("juju.environs.local")
+var logger = loggo.GetLogger("juju.provider.local")
 
 var _ environs.EnvironProvider = (*environProvider)(nil)
 

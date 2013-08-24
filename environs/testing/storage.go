@@ -16,9 +16,9 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/version"
 )
 

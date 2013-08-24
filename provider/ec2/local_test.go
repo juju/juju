@@ -5,7 +5,6 @@ package ec2_test
 
 import (
 	"bytes"
-	"fmt"
 	"regexp"
 	"sort"
 
@@ -19,11 +18,13 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -75,18 +76,8 @@ func registerLocalTests() {
 		Name: "test",
 	}
 
-	gc.Suite(&localServerSuite{
-		Tests: jujutest.Tests{
-			TestConfig: jujutest.TestConfig{localConfigAttrs},
-		},
-	})
-	gc.Suite(&localLiveSuite{
-		LiveTests: LiveTests{
-			LiveTests: jujutest.LiveTests{
-				TestConfig: jujutest.TestConfig{localConfigAttrs},
-			},
-		},
-	})
+	gc.Suite(&localServerSuite{})
+	gc.Suite(&localLiveSuite{})
 	gc.Suite(&localNonUSEastSuite{})
 }
 
@@ -99,6 +90,7 @@ type localLiveSuite struct {
 }
 
 func (t *localLiveSuite) SetUpSuite(c *gc.C) {
+	t.TestConfig.Config = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.srv.startServer(c)
 	t.LiveTests.SetUpSuite(c)
@@ -174,6 +166,7 @@ type localServerSuite struct {
 }
 
 func (t *localServerSuite) SetUpSuite(c *gc.C) {
+	t.TestConfig.Config = localConfigAttrs
 	t.restoreEC2Patching = patchEC2ForTesting()
 	t.Tests.SetUpSuite(c)
 }
@@ -195,7 +188,7 @@ func (t *localServerSuite) TearDownTest(c *gc.C) {
 
 func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	envtesting.UploadFakeTools(c, t.Env.Storage())
-	err := environs.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
 	// check that the state holds the id of the bootstrap machine.
@@ -238,8 +231,9 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 	// provisioning agent.
 	series := t.Env.Config().DefaultSeries()
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst1, hc, err := t.Env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst1, hc, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -265,30 +259,32 @@ func (t *localServerSuite) TestBootstrapInstanceUserDataAndState(c *gc.C) {
 }
 
 func (t *localServerSuite) TestInstanceStatus(c *gc.C) {
-	err := environs.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.Env.Config().DefaultSeries()
 	info, apiInfo, err := t.Env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
 	t.srv.ec2srv.SetInitialInstanceState(ec2test.Terminated)
-	inst, _, err := t.Env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Assert(inst.Status(), gc.Equals, "terminated")
 }
 
 func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
-	err := environs.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 	series := t.Env.Config().DefaultSeries()
 	info, apiInfo, err := t.Env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	_, hc, err := t.Env.StartInstance("1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
+	_, hc, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.MustParse("mem=1024"), info, apiInfo)
 	c.Assert(err, gc.IsNil)
 	c.Check(*hc.Arch, gc.Equals, "amd64")
 	c.Check(*hc.Mem, gc.Equals, uint64(1740))
@@ -297,28 +293,44 @@ func (t *localServerSuite) TestStartInstanceHardwareCharacteristics(c *gc.C) {
 }
 
 func (t *localServerSuite) TestAddresses(c *gc.C) {
-	err := environs.Bootstrap(t.env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
-	series := t.env.Config().DefaultSeries()
-	info, apiInfo, err := t.env.StateInfo()
+	series := t.Env.Config().DefaultSeries()
+	info, apiInfo, err := t.Env.StateInfo()
 	c.Assert(err, gc.IsNil)
 	c.Assert(info, gc.NotNil)
 	info.Tag = "machine-1"
+	info.Password = "password"
 	apiInfo.Tag = "machine-1"
-	inst, _, err := t.env.StartInstance("1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
+	inst, _, err := provider.StartInstance(t.Env, "1", "fake_nonce", series, constraints.Value{}, info, apiInfo)
 	c.Assert(err, gc.IsNil)
-	instId := inst.Id()
 	addrs, err := inst.Addresses()
 	c.Assert(err, gc.IsNil)
-	c.Assert(addrs, gc.DeepEquals, []instance.Address{{
-		Value:        fmt.Sprintf("%s.testing.invalid", instId),
+	// Expected values use Address type but really contain a regexp for
+	// the value rather than a valid ip or hostname.
+	expected := []instance.Address{{
+		Value:        "*.testing.invalid",
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkPublic,
 	}, {
-		Value:        fmt.Sprintf("%s.internal.invalid", instId),
+		Value:        "*.internal.invalid",
 		Type:         instance.HostName,
 		NetworkScope: instance.NetworkCloudLocal,
-	}})
+	}, {
+		Value:        "8.0.0.*",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkPublic,
+	}, {
+		Value:        "127.0.0.*",
+		Type:         instance.Ipv4Address,
+		NetworkScope: instance.NetworkCloudLocal,
+	}}
+	c.Assert(addrs, gc.HasLen, len(expected))
+	for i, addr := range addrs {
+		c.Check(addr.Value, gc.Matches, expected[i].Value)
+		c.Check(addr.Type, gc.Equals, expected[i].Type)
+		c.Check(addr.NetworkScope, gc.Equals, expected[i].NetworkScope)
+	}
 }
 
 func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
@@ -332,15 +344,8 @@ func (t *localServerSuite) TestValidateImageMetadata(c *gc.C) {
 	c.Assert(image_ids, gc.DeepEquals, []string{"ami-00000033", "ami-00000034", "ami-00000035"})
 }
 
-func (s *localServerSuite) TestGetImageURLs(c *gc.C) {
-	urls, err := ec2.GetImageURLs(s.Env)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(urls), gc.Equals, 1)
-	c.Assert(urls[0], gc.Equals, imagemetadata.DefaultBaseURL)
-}
-
 // localNonUSEastSuite is similar to localServerSuite but the S3 mock server
-// behaves as if it not in the us-east region.
+// behaves as if it is not in the us-east region.
 type localNonUSEastSuite struct {
 	testing.LoggingSuite
 	restoreEC2Patching func()

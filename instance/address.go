@@ -39,7 +39,7 @@ type Address struct {
 	NetworkScope
 }
 
-func deriveAddressType(value string) AddressType {
+func DeriveAddressType(value string) AddressType {
 	ip := net.ParseIP(value)
 	if ip != nil {
 		if ip.To4() != nil {
@@ -55,7 +55,7 @@ func deriveAddressType(value string) AddressType {
 }
 
 func NewAddress(value string) Address {
-	addresstype := deriveAddressType(value)
+	addresstype := DeriveAddressType(value)
 	return Address{value, addresstype, "", NetworkUnknown}
 }
 

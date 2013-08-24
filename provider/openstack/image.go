@@ -36,7 +36,7 @@ func findInstanceSpec(e *environ, ic *instances.InstanceConstraint) (*instances.
 		Series:    ic.Series,
 		Arches:    ic.Arches,
 	})
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
 	}

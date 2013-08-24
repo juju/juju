@@ -4,8 +4,10 @@
 package tools
 
 import (
+	"errors"
 	"strings"
 
+	"fmt"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -13,6 +15,8 @@ import (
 // List holds tools available in an environment. The order of tools within
 // a List is not significant.
 type List []*Tools
+
+var ErrNoMatches = errors.New("no matching tools available")
 
 // String returns the versions of the tools in src, separated by semicolons.
 func (src List) String() string {
@@ -23,11 +27,20 @@ func (src List) String() string {
 	return strings.Join(names, ";")
 }
 
-// Series returns all series for which some tools in src were built.
-func (src List) Series() []string {
+// AllSeries returns all series for which some tools in src were built.
+func (src List) AllSeries() []string {
 	return src.collect(func(tools *Tools) string {
 		return tools.Version.Series
 	})
+}
+
+// OneSeries returns the single series for which all tools in src were built.
+func (src List) OneSeries() string {
+	series := src.AllSeries()
+	if len(series) != 1 {
+		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
+	}
+	return series[0]
 }
 
 // Arches returns all architectures for which some tools in src were built.

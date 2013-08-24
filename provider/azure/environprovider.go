@@ -18,7 +18,7 @@ func init() {
 }
 
 // Logger for the Azure provider.
-var logger = loggo.GetLogger("juju.environs.azure")
+var logger = loggo.GetLogger("juju.provider.azure")
 
 type azureEnvironProvider struct{}
 

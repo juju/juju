@@ -6,16 +6,16 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -123,7 +123,7 @@ func (s *ToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version
 	return s.uploadVersions(c, storage, verses...)
 }
 
-var findAvailableToolsTests = []struct {
+var findToolsTests = []struct {
 	info    string
 	major   int
 	private []version.Binary
@@ -133,12 +133,12 @@ var findAvailableToolsTests = []struct {
 }{{
 	info:  "none available anywhere",
 	major: 1,
-	err:   agenttools.ErrNoTools,
+	err:   envtools.ErrNoTools,
 }, {
 	info:    "private tools only, none matching",
 	major:   1,
 	private: v220all,
-	err:     agenttools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }, {
 	info:    "tools found in private bucket",
 	major:   1,
@@ -160,16 +160,16 @@ var findAvailableToolsTests = []struct {
 	major:   1,
 	private: v220all,
 	public:  vAll,
-	err:     agenttools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }}
 
-func (s *ToolsSuite) TestFindAvailableTools(c *gc.C) {
-	for i, test := range findAvailableToolsTests {
+func (s *ToolsSuite) TestFindTools(c *gc.C) {
+	for i, test := range findToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := tools.FindAvailableTools(s.env, test.major)
+		actual, err := envtools.FindTools(s.env, test.major, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -179,7 +179,7 @@ func (s *ToolsSuite) TestFindAvailableTools(c *gc.C) {
 		}
 		source := private
 		if len(source) == 0 {
-			// We only use the public bucket if the private one has *no* agenttools.
+			// We only use the public bucket if the private one has *no* envtools.
 			source = public
 		}
 		expect := map[version.Binary]string{}
@@ -204,7 +204,7 @@ var findBootstrapToolsTests = []struct {
 	info:          "no tools at all",
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoTools,
+	err:           envtools.ErrNoTools,
 }, {
 	info:          "released cli: use newest compatible release version",
 	available:     vAll,
@@ -274,58 +274,58 @@ var findBootstrapToolsTests = []struct {
 	available:     v220all,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: major downgrades bad",
 	available:     v100Xall,
 	cliVersion:    v220p64,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: no matching series",
 	available:     vAll,
 	cliVersion:    v100p64,
 	defaultSeries: "raring",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: no matching arches",
 	available:     vAll,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
 	constraints:   "arch=arm",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: specific bad major 1",
 	available:     vAll,
 	cliVersion:    v220p64,
 	agentVersion:  v120,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: specific bad major 2",
 	available:     vAll,
 	cliVersion:    v120p64,
 	agentVersion:  v220,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: ignore dev tools 1",
 	available:     v110all,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: ignore dev tools 2",
 	available:     v110all,
 	cliVersion:    v120p64,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: ignore dev tools 3",
 	available:     []version.Binary{v1001p64},
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	err:           agenttools.ErrNoMatches,
+	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli with dev setting picks newest matching 1",
 	available:     v100Xall,
@@ -390,7 +390,7 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 		}
 
 		cons := constraints.MustParse(test.constraints)
-		actual, err := tools.FindBootstrapTools(s.env, cons)
+		actual, err := envtools.FindBootstrapTools(s.env, cons)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -425,32 +425,32 @@ var findInstanceToolsTests = []struct {
 	info:         "nothing at all",
 	agentVersion: v120,
 	series:       "precise",
-	err:          agenttools.ErrNoTools,
+	err:          envtools.ErrNoTools,
 }, {
 	info:         "nothing matching 1",
 	available:    v100Xall,
 	agentVersion: v120,
 	series:       "precise",
-	err:          agenttools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 2",
 	available:    v120all,
 	agentVersion: v110,
 	series:       "precise",
-	err:          agenttools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 3",
 	available:    v120q,
 	agentVersion: v120,
 	series:       "precise",
-	err:          agenttools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 4",
 	available:    v120q,
 	agentVersion: v120,
 	series:       "quantal",
 	constraints:  "arch=arm",
-	err:          agenttools.ErrNoMatches,
+	err:          coretools.ErrNoMatches,
 }, {
 	info:         "actual match 1",
 	available:    vAll,
@@ -485,7 +485,7 @@ func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 		}
 
 		cons := constraints.MustParse(test.constraints)
-		actual, err := tools.FindInstanceTools(s.env, test.series, cons)
+		actual, err := envtools.FindInstanceTools(s.env, test.series, cons)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -510,12 +510,12 @@ var findExactToolsTests = []struct {
 }{{
 	info: "nothing available",
 	seek: v100p64,
-	err:  agenttools.ErrNoTools,
+	err:  envtools.ErrNoTools,
 }, {
 	info:    "only non-matches available in private",
 	private: append(v110all, v100p32, v100q64, v1001p64),
 	seek:    v100p64,
-	err:     agenttools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }, {
 	info:    "exact match available in private",
 	private: []version.Binary{v100p64},
@@ -524,7 +524,7 @@ var findExactToolsTests = []struct {
 	info:    "only non-matches available in public",
 	private: append(v110all, v100p32, v100q64, v1001p64),
 	seek:    v100p64,
-	err:     agenttools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in public",
 	public: []version.Binary{v100p64},
@@ -534,7 +534,7 @@ var findExactToolsTests = []struct {
 	private: v110all,
 	public:  []version.Binary{v100p64},
 	seek:    v100p64,
-	err:     agenttools.ErrNoMatches,
+	err:     coretools.ErrNoMatches,
 }}
 
 func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
@@ -543,13 +543,13 @@ func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := tools.FindExactTools(s.env, test.seek)
+		actual, err := envtools.FindExactTools(s.env, test.seek)
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
 			c.Check(actual.Version, gc.Equals, test.seek)
 			source := private
 			if len(source) == 0 {
-				// We only use the public bucket if the private one has *no* agenttools.
+				// We only use the public bucket if the private one has *no* envtools.
 				source = public
 			}
 			c.Check(actual.URL, gc.DeepEquals, source[actual.Version])
@@ -561,14 +561,14 @@ func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 
 // fakeToolsForSeries fakes a Tools object with just enough information for
 // testing the handling its OS series.
-func fakeToolsForSeries(series string) *agenttools.Tools {
-	return &agenttools.Tools{Version: version.Binary{Series: series}}
+func fakeToolsForSeries(series string) *coretools.Tools {
+	return &coretools.Tools{Version: version.Binary{Series: series}}
 }
 
-// fakeToolsList fakes a agenttools.List containing Tools objects for the given
+// fakeToolsList fakes a envtools.List containing Tools objects for the given
 // respective series, in the same number and order.
-func fakeToolsList(series ...string) agenttools.List {
-	list := agenttools.List{}
+func fakeToolsList(series ...string) coretools.List {
+	list := coretools.List{}
 	for _, name := range series {
 		list = append(list, fakeToolsForSeries(name))
 	}
@@ -576,7 +576,7 @@ func fakeToolsList(series ...string) agenttools.List {
 }
 
 func (s *ToolsSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
-	err := tools.CheckToolsSeries(fakeToolsList(), "precise")
+	err := envtools.CheckToolsSeries(fakeToolsList(), "precise")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got \\[\\]")
 }
@@ -585,7 +585,7 @@ func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	names := []string{"precise", "raring"}
 	for _, series := range names {
 		list := fakeToolsList(series)
-		err := tools.CheckToolsSeries(list, series)
+		err := envtools.CheckToolsSeries(list, series)
 		c.Check(err, gc.IsNil)
 	}
 }
@@ -593,20 +593,20 @@ func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 func (s *ToolsSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.C) {
 	series := "quantal"
 	list := fakeToolsList(series, series, series)
-	err := tools.CheckToolsSeries(list, series)
+	err := envtools.CheckToolsSeries(list, series)
 	c.Check(err, gc.IsNil)
 }
 
 func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {
 	list := fakeToolsList("hoary")
-	err := tools.CheckToolsSeries(list, "warty")
+	err := envtools.CheckToolsSeries(list, "warty")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "tools mismatch: expected series warty, got hoary")
 }
 
 func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
 	list := fakeToolsList("precise", "raring")
-	err := tools.CheckToolsSeries(list, "precise")
+	err := envtools.CheckToolsSeries(list, "precise")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got .*")
 }
