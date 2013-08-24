@@ -10,8 +10,8 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -34,7 +34,7 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 		"authorized-keys": "i-am-a-key",
 		"admin-secret":    "foo",
 		"ca-cert":         testing.CACert,
-		"ca-private-key": testing.CAKey,
+		"ca-private-key":  testing.CAKey,
 	})
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
