@@ -11,8 +11,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -94,13 +92,7 @@ func (c *AddUnitCommand) Run(_ *cmd.Context) error {
 	}
 	defer apiconn.Close()
 
-	// params := params.AddServiceUnits{
-	// 	ServiceName:   c.ServiceName,
-	// 	NumUnits:      c.NumUnits,
-	// 	ToMachineSpec: c.ToMachineSpec,
-	// }
-        clientapi, err := apiconn.State.Client()
-        units, err := clientapi.AddServiceUnits(c.ServiceName, c.NumUnits)
-	//_, err = statecmd.AddServiceUnits(apiconn.State, params)
+	clientapi := apiconn.State.Client()
+	_, err = clientapi.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
 	return err
 }
