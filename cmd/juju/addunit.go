@@ -86,19 +86,21 @@ func (c *AddUnitCommand) Init(args []string) error {
 }
 
 // Run connects to the environment specified on the command line
-// and calls conn.AddUnits.
+// and calls AddServiceUnits for the given service.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiconn, err := juju.NewAPIConnFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiconn.Close()
 
-	params := params.AddServiceUnits{
-		ServiceName:   c.ServiceName,
-		NumUnits:      c.NumUnits,
-		ToMachineSpec: c.ToMachineSpec,
-	}
-	_, err = statecmd.AddServiceUnits(conn.State, params)
+	// params := params.AddServiceUnits{
+	// 	ServiceName:   c.ServiceName,
+	// 	NumUnits:      c.NumUnits,
+	// 	ToMachineSpec: c.ToMachineSpec,
+	// }
+        clientapi, err := apiconn.State.Client()
+        units, err := clientapi.AddServiceUnits(c.ServiceName, c.NumUnits)
+	//_, err = statecmd.AddServiceUnits(apiconn.State, params)
 	return err
 }
