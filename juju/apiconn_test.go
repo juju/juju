@@ -49,3 +49,25 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 
 	c.Assert(conn.Close(), gc.IsNil)
 }
+
+func (*NewAPIConnSuite) TestNewAPIConnFromNameDefault(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", we should get it if we ask for ""
+	defaultEnvName := "erewhemos"
+	bootstrapEnv(c, defaultEnvName)
+	apiconn, err := juju.NewAPIConnFromName("")
+	c.Assert(err, gc.IsNil)
+	defer apiconn.Close()
+	c.Assert(apiconn.Environ.Name(), gc.Equals, defaultEnvName)
+}
+
+func (*NewAPIConnSuite) TestNewAPIConnFromNameNotDefault(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", make sure we get the other one.
+	const envName = "erewhemos-2"
+	bootstrapEnv(c, envName)
+	apiconn, err := juju.NewAPIConnFromName(envName)
+	c.Assert(err, gc.IsNil)
+	defer apiconn.Close()
+	c.Assert(apiconn.Environ.Name(), gc.Equals, envName)
+}
