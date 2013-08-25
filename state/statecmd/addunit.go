@@ -26,6 +26,11 @@ func AddServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.
 		return nil, errors.New("must add at least one unit")
 	}
 	if args.NumUnits > 1 && args.ToMachineSpec != "" {
+		// '--num-units' and '--to' are very CLI specific, should we be
+		// returning a more explicit error and having the CLI translate
+		// it into the arguments being supplied? We could use a generic
+		// API error here, but have the CLI pre-vet its arguments in
+		// addition to this code.
 		return nil, errors.New("cannot use --num-units with --to")
 	}
 	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
