@@ -13,7 +13,6 @@ import (
 	"labix.org/v2/mgo/bson"
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -25,6 +24,7 @@ import (
 	statetesting "launchpad.net/juju-core/state/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -279,7 +279,15 @@ func (s *StateSuite) TestAddContainerWithConstraints(c *gc.C) {
 		Constraints:   cons,
 		Jobs:          oneJob,
 	}
+	params.InstanceId = "id"
 	m, err := s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.ErrorMatches, "cannot specify an instance id when adding a new machine")
+	params.InstanceId = ""
+	params.Nonce = "nonce"
+	m, err = s.State.AddMachineWithConstraints(&params)
+	c.Assert(err, gc.ErrorMatches, "cannot specify a nonce when adding a new machine")
+	params.Nonce = ""
+	m, err = s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
 	c.Assert(m.Id(), gc.Equals, "0/lxc/0")
 	c.Assert(m.Series(), gc.Equals, "series")
@@ -307,12 +315,23 @@ func (s *StateSuite) TestAddContainerErrors(c *gc.C) {
 }
 
 func (s *StateSuite) TestInjectMachineErrors(c *gc.C) {
-	hc := instance.HardwareCharacteristics{}
-	_, err := s.State.InjectMachine("", emptyCons, instance.Id("i-minvalid"), hc, state.JobHostUnits)
+	injectMachine := func(series, instanceId, nonce string, jobs ...state.MachineJob) error {
+		params := &state.AddMachineParams{
+			InstanceId: instance.Id(instanceId),
+			Series:     series,
+			Nonce:      nonce,
+			Jobs:       jobs,
+		}
+		_, err := s.State.InjectMachine(params)
+		return err
+	}
+	err := injectMachine("", "i-minvalid", state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no series specified")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id(""), hc, state.JobHostUnits)
+	err = injectMachine("series", "", state.BootstrapNonce, state.JobHostUnits)
 	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without an instance id")
-	_, err = s.State.InjectMachine("series", emptyCons, instance.Id("i-mlazy"), hc)
+	err = injectMachine("series", "i-minvalid", "", state.JobHostUnits)
+	c.Assert(err, gc.ErrorMatches, "cannot inject a machine without a nonce")
+	err = injectMachine("series", state.BootstrapNonce, "i-mlazy")
 	c.Assert(err, gc.ErrorMatches, "cannot add a new machine: no jobs specified")
 }
 
@@ -320,22 +339,31 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	cons := constraints.MustParse("mem=4G")
 	arch := "amd64"
 	mem := uint64(1024)
-	hc := instance.HardwareCharacteristics{
-		Arch: &arch,
-		Mem:  &mem,
+	disk := uint64(1024)
+	params := &state.AddMachineParams{
+		Series:      "series",
+		Constraints: cons,
+		InstanceId:  instance.Id("i-mindustrious"),
+		Nonce:       state.BootstrapNonce,
+		HardwareCharacteristics: instance.HardwareCharacteristics{
+			Arch:     &arch,
+			Mem:      &mem,
+			RootDisk: &disk,
+		},
+		Jobs: []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
 	}
-	m, err := s.State.InjectMachine("series", cons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
+	m, err := s.State.InjectMachine(params)
 	c.Assert(err, gc.IsNil)
-	c.Assert(m.Jobs(), gc.DeepEquals, []state.MachineJob{state.JobHostUnits, state.JobManageEnviron})
+	c.Assert(m.Jobs(), gc.DeepEquals, params.Jobs)
 	instanceId, err := m.InstanceId()
 	c.Assert(err, gc.IsNil)
-	c.Assert(instanceId, gc.Equals, instance.Id("i-mindustrious"))
+	c.Assert(instanceId, gc.Equals, params.InstanceId)
 	mcons, err := m.Constraints()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cons, gc.DeepEquals, mcons)
 	characteristics, err := m.HardwareCharacteristics()
 	c.Assert(err, gc.IsNil)
-	c.Assert(*characteristics, gc.DeepEquals, hc)
+	c.Assert(*characteristics, gc.DeepEquals, params.HardwareCharacteristics)
 
 	// Make sure the bootstrap nonce value is set.
 	c.Assert(m.CheckProvisioned(state.BootstrapNonce), gc.Equals, true)
@@ -343,12 +371,17 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {
 	oneJob := []state.MachineJob{state.JobHostUnits}
-	hc := instance.HardwareCharacteristics{}
-	m0, err := s.State.InjectMachine("series", emptyCons, instance.Id("i-mindustrious"), hc, state.JobHostUnits, state.JobManageEnviron)
+	params := state.AddMachineParams{
+		Series:     "series",
+		InstanceId: instance.Id("i-mindustrious"),
+		Nonce:      state.BootstrapNonce,
+		Jobs:       []state.MachineJob{state.JobHostUnits, state.JobManageEnviron},
+	}
+	m0, err := s.State.InjectMachine(&params)
 	c.Assert(err, gc.IsNil)
 
 	// Add first container.
-	params := state.AddMachineParams{
+	params = state.AddMachineParams{
 		ParentId:      "0",
 		ContainerType: instance.LXC,
 		Series:        "series",
@@ -959,11 +992,24 @@ func (s *StateSuite) TestWatchContainerLifecycle(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertNoChange()
 
+	// Add a nested container of the right type: not reported.
+	params.ParentId = m.Id()
+	params.ContainerType = instance.LXC
+	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+
 	// Add a container of a different machine: not reported.
 	params.ParentId = otherMachine.Id()
 	params.ContainerType = instance.LXC
 	m2, err := s.State.AddMachineWithConstraints(&params)
 	c.Assert(err, gc.IsNil)
+	wc.AssertNoChange()
+	statetesting.AssertStop(c, w)
+
+	w = machine.WatchContainers(instance.LXC)
+	defer statetesting.AssertStop(c, w)
+	wc = statetesting.NewStringsWatcherC(c, s.State, w)
+	wc.AssertChange("0/lxc/0")
 	wc.AssertNoChange()
 
 	// Make the container Dying: reported.
@@ -1070,7 +1116,7 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 			err = s.State.SetEnvironConfig(cfg)
 			c.Assert(err, gc.IsNil)
 		}
-		s.State.Sync()
+		s.State.StartSync()
 		select {
 		case got, ok := <-w.Changes():
 			c.Assert(ok, gc.Equals, true)
@@ -1123,7 +1169,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 	err = settings.UpdateId("e", bson.D{{"$unset", bson.D{{"name", 1}}}})
 	c.Assert(err, gc.IsNil)
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// Start watching the configuration.
 	watcher := s.State.WatchEnvironConfig()
@@ -1142,7 +1188,7 @@ func (s *StateSuite) TestWatchEnvironConfigCorruptConfig(c *gc.C) {
 		}
 	}()
 
-	s.State.Sync()
+	s.State.StartSync()
 
 	// The invalid configuration must not have been generated.
 	select {
@@ -1412,6 +1458,12 @@ var findEntityTests = []struct {
 	tag: "unit-123",
 	err: `"unit-123" is not a valid unit tag`,
 }, {
+	tag: "relation-blah",
+	err: `"relation-blah" is not a valid relation tag`,
+}, {
+	tag: "relation-42",
+	err: "relation 42 not found",
+}, {
 	tag: "unit-foo",
 	err: `"unit-foo" is not a valid unit tag`,
 }, {
@@ -1437,6 +1489,8 @@ var findEntityTests = []struct {
 }, {
 	tag: "service-ser-vice2",
 }, {
+	tag: "relation-0",
+}, {
 	tag: "unit-ser-vice2-0",
 }, {
 	tag: "user-arble",
@@ -1445,11 +1499,12 @@ var findEntityTests = []struct {
 }}
 
 var entityTypes = map[string]interface{}{
-	names.UserTagKind:    (*state.User)(nil),
-	names.EnvironTagKind: (*state.Environment)(nil),
-	names.ServiceTagKind: (*state.Service)(nil),
-	names.UnitTagKind:    (*state.Unit)(nil),
-	names.MachineTagKind: (*state.Machine)(nil),
+	names.UserTagKind:     (*state.User)(nil),
+	names.EnvironTagKind:  (*state.Environment)(nil),
+	names.ServiceTagKind:  (*state.Service)(nil),
+	names.UnitTagKind:     (*state.Unit)(nil),
+	names.MachineTagKind:  (*state.Machine)(nil),
+	names.RelationTagKind: (*state.Relation)(nil),
 }
 
 func (s *StateSuite) TestFindEntity(c *gc.C) {
@@ -1461,6 +1516,13 @@ func (s *StateSuite) TestFindEntity(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddUser("arble", "pass")
 	c.Assert(err, gc.IsNil)
+	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
+	c.Assert(err, gc.IsNil)
+	eps, err := s.State.InferEndpoints([]string{"wordpress", "ser-vice2"})
+	c.Assert(err, gc.IsNil)
+	rel, err := s.State.AddRelation(eps...)
+	c.Assert(err, gc.IsNil)
+	c.Assert(rel.Id(), gc.Equals, 0)
 
 	for i, test := range findEntityTests {
 		c.Logf("test %d: %q", i, test.tag)

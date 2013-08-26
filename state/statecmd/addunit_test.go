@@ -4,7 +4,7 @@
 package statecmd_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/statecmd"
@@ -14,7 +14,7 @@ type AddUnitsSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&AddUnitsSuite{})
+var _ = gc.Suite(&AddUnitsSuite{})
 
 var addUnitsTests = []struct {
 	about            string
@@ -53,14 +53,14 @@ var addUnitsTests = []struct {
 		service:          "dummy-service",
 		numUnits:         5,
 		forceMachineSpec: "0",
-		err:              "cannot use --num-units with --to",
+		err:              "cannot use NumUnits with ToMachineSpec",
 	},
 }
 
-func (s *AddUnitsSuite) TestAddServiceUnits(c *C) {
+func (s *AddUnitsSuite) TestAddServiceUnits(c *gc.C) {
 	charm := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", charm)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for i, t := range addUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
@@ -70,21 +70,21 @@ func (s *AddUnitsSuite) TestAddServiceUnits(c *C) {
 			NumUnits:      t.numUnits,
 		})
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
-			c.Assert(err, IsNil)
-			c.Assert(units, HasLen, t.numUnits)
+			c.Assert(err, gc.IsNil)
+			c.Assert(units, gc.HasLen, t.numUnits)
 			for _, unit := range units {
-				c.Assert(unit.ServiceName(), Equals, t.service)
+				c.Assert(unit.ServiceName(), gc.Equals, t.service)
 			}
 			service, err := s.State.Service(t.service)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			unitCount, err := service.AllUnits()
-			c.Assert(err, IsNil)
-			c.Assert(len(unitCount), Equals, t.expectedUnits)
+			c.Assert(err, gc.IsNil)
+			c.Assert(len(unitCount), gc.Equals, t.expectedUnits)
 		}
 	}
 
 	err = svc.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }

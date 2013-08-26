@@ -15,7 +15,6 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
@@ -23,6 +22,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -452,27 +452,37 @@ func (u *Unit) PrincipalName() (string, bool) {
 	return u.doc.Principal, u.doc.Principal != ""
 }
 
-// PublicAddress returns the public address of the unit and whether it is valid.
-func (u *Unit) PublicAddress() (string, bool) {
-	publicAddress := u.doc.PublicAddress
+// addressesOfMachine returns Addresses of the related machine if present.
+func (u *Unit) addressesOfMachine() []instance.Address {
 	id := u.doc.MachineId
 	if id != "" {
 		m, err := u.st.Machine(id)
-		if err != nil {
-			unitLogger.Errorf("unit %v misses machine id %v", u, id)
-			return "", false
+		if err == nil {
+			return m.Addresses()
 		}
-		addresses := m.Addresses()
-		if len(addresses) > 0 {
-			publicAddress = instance.SelectPublicAddress(addresses)
-		}
+		unitLogger.Errorf("unit %v misses machine id %v", u, id)
+	}
+	return nil
+}
+
+// PublicAddress returns the public address of the unit and whether it is valid.
+func (u *Unit) PublicAddress() (string, bool) {
+	publicAddress := u.doc.PublicAddress
+	addresses := u.addressesOfMachine()
+	if len(addresses) > 0 {
+		publicAddress = instance.SelectPublicAddress(addresses)
 	}
 	return publicAddress, publicAddress != ""
 }
 
 // PrivateAddress returns the private address of the unit and whether it is valid.
 func (u *Unit) PrivateAddress() (string, bool) {
-	return u.doc.PrivateAddress, u.doc.PrivateAddress != ""
+	privateAddress := u.doc.PrivateAddress
+	addresses := u.addressesOfMachine()
+	if len(addresses) > 0 {
+		privateAddress = instance.SelectInternalAddress(addresses, false)
+	}
+	return privateAddress, privateAddress != ""
 }
 
 // Refresh refreshes the contents of the Unit from the underlying
@@ -1078,6 +1088,9 @@ func (u *Unit) findCleanMachineQuery(requireEmpty bool, cons *constraints.Value)
 	}
 	if cons.Mem != nil && *cons.Mem > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"mem", D{{"$gte", *cons.Mem}}})
+	}
+	if cons.RootDisk != nil && *cons.RootDisk > 0 {
+		suitableTerms = append(suitableTerms, bson.DocElem{"rootdisk", D{{"$gte", *cons.RootDisk}}})
 	}
 	if cons.CpuCores != nil && *cons.CpuCores > 0 {
 		suitableTerms = append(suitableTerms, bson.DocElem{"cpucores", D{{"$gte", *cons.CpuCores}}})

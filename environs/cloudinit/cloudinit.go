@@ -11,7 +11,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -71,7 +72,7 @@ type MachineConfig struct {
 	MachineNonce string
 
 	// Tools is juju tools to be used on the new machine.
-	Tools *tools.Tools
+	Tools *coretools.Tools
 
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
@@ -230,36 +231,45 @@ func (cfg *MachineConfig) dataFile(name string) string {
 	return filepath.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
-	info := *cfg.StateInfo
-	apiInfo := *cfg.APIInfo
-	c := &agent.Conf{
-		DataDir:         cfg.DataDir,
-		StateInfo:       &info,
-		APIInfo:         &apiInfo,
-		StateServerCert: cfg.StateServerCert,
-		StateServerKey:  cfg.StateServerKey,
-		StatePort:       cfg.StatePort,
-		APIPort:         cfg.APIPort,
-		MachineNonce:    cfg.MachineNonce,
+func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
+	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
+	// if the machine is a stateServer then to use localhost.  This may be
+	// sufficient, but needs thought in the new world order.
+	var password string
+	if cfg.StateInfo == nil {
+		password = cfg.APIInfo.Password
+	} else {
+		password = cfg.StateInfo.Password
 	}
-	c.OldPassword = cfg.StateInfo.Password
-
-	c.StateInfo.Addrs = cfg.stateHostAddrs()
-	c.StateInfo.Tag = tag
-	c.StateInfo.Password = ""
-
-	c.APIInfo.Addrs = cfg.apiHostAddrs()
-	c.APIInfo.Tag = tag
-	c.APIInfo.Password = ""
-
-	return c
+	var configParams = agent.AgentConfigParams{
+		DataDir:        cfg.DataDir,
+		Tag:            tag,
+		Password:       password,
+		Nonce:          cfg.MachineNonce,
+		StateAddresses: cfg.stateHostAddrs(),
+		APIAddresses:   cfg.apiHostAddrs(),
+		CACert:         cfg.StateInfo.CACert,
+	}
+	if cfg.StateServer {
+		return agent.NewStateMachineConfig(
+			agent.StateMachineConfigParams{
+				AgentConfigParams: configParams,
+				StateServerCert:   cfg.StateServerCert,
+				StateServerKey:    cfg.StateServerKey,
+				StatePort:         cfg.StatePort,
+				APIPort:           cfg.APIPort,
+			})
+	}
+	return agent.NewAgentConfig(configParams)
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (*agent.Conf, error) {
-	acfg := cfg.agentConfig(tag)
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.Config, error) {
+	acfg, err := cfg.agentConfig(tag)
+	if err != nil {
+		return nil, err
+	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, err
@@ -272,7 +282,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := tools.ToolsDir(cfg.DataDir, tag)
+	toolsDir := agenttools.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
@@ -315,7 +325,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return tools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
+	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {

@@ -10,6 +10,7 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/environs/simplestreams"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -196,12 +197,12 @@ func (s *imageSuite) TestFindInstanceSpec(c *gc.C) {
 	for _, t := range findInstanceSpecTests {
 		c.Logf("test: %v", t.desc)
 		t.init()
-		ic := imagemetadata.ImageConstraint{
-			CloudSpec: imagemetadata.CloudSpec{t.region, "ep"},
+		cons := imagemetadata.NewImageConstraint(simplestreams.LookupParams{
+			CloudSpec: simplestreams.CloudSpec{t.region, "ep"},
 			Series:    "precise",
 			Arches:    t.arches,
-		}
-		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), &ic)
+		})
+		imageMeta, err := imagemetadata.GetLatestImageIdMetadata([]byte(jsonImagesContent), cons)
 		c.Assert(err, gc.IsNil)
 		var images []Image
 		for _, imageMetadata := range imageMeta {

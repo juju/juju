@@ -19,7 +19,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state/presence"
 	"launchpad.net/juju-core/state/watcher"
 	"launchpad.net/juju-core/utils"
@@ -66,7 +65,7 @@ func DefaultDialOpts() DialOpts {
 // representing the environment connected to.
 // It returns unauthorizedError if access is unauthorized.
 func Open(info *Info, opts DialOpts) (*State, error) {
-	log.Infof("state: opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
+	logger.Infof("opening state; mongo addresses: %q; entity %q", info.Addrs, info.Tag)
 	if len(info.Addrs) == 0 {
 		return nil, stderrors.New("no mongo addresses")
 	}
@@ -86,12 +85,12 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	dial := func(addr net.Addr) (net.Conn, error) {
 		c, err := net.Dial("tcp", addr.String())
 		if err != nil {
-			log.Errorf("state: connection failed, will retry: %v", err)
+			logger.Debugf("connection failed, will retry: %v", err)
 			return nil, err
 		}
 		cc := tls.Client(c, tlsConfig)
 		if err := cc.Handshake(); err != nil {
-			log.Errorf("state: TLS handshake failed: %v", err)
+			logger.Errorf("TLS handshake failed: %v", err)
 			return nil, err
 		}
 		return cc, nil
@@ -104,7 +103,7 @@ func Open(info *Info, opts DialOpts) (*State, error) {
 	if err != nil {
 		return nil, err
 	}
-	log.Infof("state: connection established")
+	logger.Infof("connection established")
 	st, err := newState(session, info)
 	if err != nil {
 		session.Close()
@@ -134,7 +133,7 @@ func Initialize(info *Info, cfg *config.Config, opts DialOpts) (rst *State, err 
 	} else if !errors.IsNotFoundError(err) {
 		return nil, err
 	}
-	log.Infof("state: initializing environment")
+	logger.Infof("initializing environment")
 	if err := checkEnvironConfig(cfg); err != nil {
 		return nil, err
 	}

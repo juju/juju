@@ -4,7 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/rpc"
 	"launchpad.net/juju-core/rpc/jsoncodec"
 	"launchpad.net/juju-core/testing"
@@ -17,10 +17,10 @@ type suite struct {
 	testing.LoggingSuite
 }
 
-var _ = Suite(&suite{})
+var _ = gc.Suite(&suite{})
 
 func TestPackage(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 type value struct {
@@ -56,7 +56,7 @@ var readTests = []struct {
 	expectBody: &value{X: "result"},
 }}
 
-func (*suite) TestRead(c *C) {
+func (*suite) TestRead(c *gc.C) {
 	for i, test := range readTests {
 		c.Logf("test %d", i)
 		codec := jsoncodec.New(&testConn{
@@ -64,22 +64,22 @@ func (*suite) TestRead(c *C) {
 		})
 		var hdr rpc.Header
 		err := codec.ReadHeader(&hdr)
-		c.Assert(err, IsNil)
-		c.Assert(hdr, DeepEquals, test.expectHdr)
+		c.Assert(err, gc.IsNil)
+		c.Assert(hdr, gc.DeepEquals, test.expectHdr)
 
-		c.Assert(hdr.IsRequest(), Equals, test.expectHdr.IsRequest())
+		c.Assert(hdr.IsRequest(), gc.Equals, test.expectHdr.IsRequest())
 
 		body := reflect.New(reflect.ValueOf(test.expectBody).Type().Elem()).Interface()
 		err = codec.ReadBody(body, test.expectHdr.IsRequest())
-		c.Assert(err, IsNil)
-		c.Assert(body, DeepEquals, test.expectBody)
+		c.Assert(err, gc.IsNil)
+		c.Assert(body, gc.DeepEquals, test.expectBody)
 
 		err = codec.ReadHeader(&hdr)
-		c.Assert(err, Equals, io.EOF)
+		c.Assert(err, gc.Equals, io.EOF)
 	}
 }
 
-func (*suite) TestReadHeaderLogsRequests(c *C) {
+func (*suite) TestReadHeaderLogsRequests(c *gc.C) {
 	msg := `{"RequestId":1,"Type": "foo","Id": "id","Request":"frob","Params":{"X":"param"}}`
 	codec := jsoncodec.New(&testConn{
 		readMsgs: []string{msg, msg, msg},
@@ -87,23 +87,23 @@ func (*suite) TestReadHeaderLogsRequests(c *C) {
 	// Check that logging is off by default
 	var h rpc.Header
 	err := codec.ReadHeader(&h)
-	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, "")
 
 	// Check that we see a log message when we switch logging on.
 	codec.SetLogging(true)
 	err = codec.ReadHeader(&h)
-	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.ReadHeader(&h)
-	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, ".*DEBUG juju rpc/jsoncodec: <- "+regexp.QuoteMeta(msg)+`\n`)
 }
 
-func (*suite) TestWriteMessageLogsRequests(c *C) {
+func (*suite) TestWriteMessageLogsRequests(c *gc.C) {
 	codec := jsoncodec.New(&testConn{})
 	h := rpc.Header{
 		RequestId: 1,
@@ -114,24 +114,24 @@ func (*suite) TestWriteMessageLogsRequests(c *C) {
 
 	// Check that logging is off by default
 	err := codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, "")
 
 	// Check that we see a log message when we switch logging on.
 	codec.SetLogging(true)
 	err = codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	msg := `{"RequestId":1,"Type":"foo","Id":"id","Request":"frob","Params":{"X":"param"}}`
-	c.Assert(c.GetTestLog(), Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(c.GetTestLog(), gc.Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
 
 	// Check that we can switch it off again
 	codec.SetLogging(false)
 	err = codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, IsNil)
-	c.Assert(c.GetTestLog(), Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
+	c.Assert(err, gc.IsNil)
+	c.Assert(c.GetTestLog(), gc.Matches, `.*DEBUG juju rpc/jsoncodec: -> `+regexp.QuoteMeta(msg)+`\n`)
 }
 
-func (*suite) TestConcurrentSetLoggingAndWrite(c *C) {
+func (*suite) TestConcurrentSetLoggingAndWrite(c *gc.C) {
 	// If log messages are not set atomically, this
 	// test will fail when run under the race detector.
 	codec := jsoncodec.New(&testConn{})
@@ -147,11 +147,11 @@ func (*suite) TestConcurrentSetLoggingAndWrite(c *C) {
 		Request:   "frob",
 	}
 	err := codec.WriteMessage(&h, value{X: "param"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	<-done
 }
 
-func (*suite) TestConcurrentSetLoggingAndRead(c *C) {
+func (*suite) TestConcurrentSetLoggingAndRead(c *gc.C) {
 	// If log messages are not set atomically, this
 	// test will fail when run under the race detector.
 	msg := `{"RequestId":1,"Type": "foo","Id": "id","Request":"frob","Params":{"X":"param"}}`
@@ -165,25 +165,25 @@ func (*suite) TestConcurrentSetLoggingAndRead(c *C) {
 	}()
 	var h rpc.Header
 	err := codec.ReadHeader(&h)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	<-done
 }
 
-func (*suite) TestErrorAfterClose(c *C) {
+func (*suite) TestErrorAfterClose(c *gc.C) {
 	conn := &testConn{
 		err: errors.New("some error"),
 	}
 	codec := jsoncodec.New(conn)
 	var hdr rpc.Header
 	err := codec.ReadHeader(&hdr)
-	c.Assert(err, ErrorMatches, "error receiving message: some error")
+	c.Assert(err, gc.ErrorMatches, "error receiving message: some error")
 
 	err = codec.Close()
-	c.Assert(err, IsNil)
-	c.Assert(conn.closed, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(conn.closed, gc.Equals, true)
 
 	err = codec.ReadHeader(&hdr)
-	c.Assert(err, Equals, io.EOF)
+	c.Assert(err, gc.Equals, io.EOF)
 }
 
 var writeTests = []struct {
@@ -215,14 +215,14 @@ var writeTests = []struct {
 	expect: `{"RequestId": 3, "Response": {"X": "result"}}`,
 }}
 
-func (*suite) TestWrite(c *C) {
+func (*suite) TestWrite(c *gc.C) {
 	for i, test := range writeTests {
 		c.Logf("test %d", i)
 		var conn testConn
 		codec := jsoncodec.New(&conn)
 		err := codec.WriteMessage(test.hdr, test.body)
-		c.Assert(err, IsNil)
-		c.Assert(conn.writeMsgs, HasLen, 1)
+		c.Assert(err, gc.IsNil)
+		c.Assert(conn.writeMsgs, gc.HasLen, 1)
 
 		assertJSONEqual(c, conn.writeMsgs[0], test.expect)
 	}
@@ -230,17 +230,17 @@ func (*suite) TestWrite(c *C) {
 
 // assertJSONEqual compares the json strings v0
 // and v1 ignoring white space.
-func assertJSONEqual(c *C, v0, v1 string) {
+func assertJSONEqual(c *gc.C, v0, v1 string) {
 	var m0, m1 interface{}
 	err := json.Unmarshal([]byte(v0), &m0)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = json.Unmarshal([]byte(v1), &m1)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	data0, err := json.Marshal(m0)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	data1, err := json.Marshal(m1)
-	c.Assert(err, IsNil)
-	c.Assert(string(data0), Equals, string(data1))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(data0), gc.Equals, string(data1))
 }
 
 type testConn struct {

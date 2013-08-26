@@ -6,14 +6,17 @@ package main
 import (
 	stderrors "errors"
 	"fmt"
+
 	"launchpad.net/gnuflag"
-	"launchpad.net/juju-core/agent/tools"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -27,12 +30,12 @@ type UpgradeJujuCommand struct {
 	Series      []string
 }
 
-var uploadTools = tools.Upload
+var uploadTools = envtools.Upload
 
 var upgradeJujuDoc = `
 The upgrade-juju command upgrades a running environment by setting a version
 number for all juju agents to run. By default, it chooses the most recent non-
-development version compatible with the command-line tools.
+development version compatible with the command-line envtools.
 
 A development version is defined to be any version with an odd minor version
 or a nonzero build component (for example version 2.1.1, 3.3.0 and 2.0.0.1 are
@@ -94,7 +97,7 @@ func (c *UpgradeJujuCommand) Init(args []string) error {
 
 var errUpToDate = stderrors.New("no upgrades available")
 
-// Run changes the version proposed for the juju tools.
+// Run changes the version proposed for the juju envtools.
 func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
@@ -128,7 +131,7 @@ func (c *UpgradeJujuCommand) Run(_ *cmd.Context) (err error) {
 		return err
 	}
 	log.Infof("upgrade version chosen: %s", v.chosen)
-	// TODO(fwereade): this list may be incomplete, pending tools.Upload change.
+	// TODO(fwereade): this list may be incomplete, pending envtools.Upload change.
 	log.Infof("available tools: %s", v.tools)
 
 	// Write updated config back to state if necessary. Note that this is
@@ -164,7 +167,7 @@ func (c *UpgradeJujuCommand) initVersions(cfg *config.Config, env environs.Envir
 		return nil, errUpToDate
 	}
 	client := version.Current.Number
-	available, err := environs.FindAvailableTools(env, client.Major)
+	available, err := envtools.FindTools(env, client.Major, coretools.Filter{})
 	if err != nil {
 		if !errors.IsNotFoundError(err) {
 			return nil, err
@@ -192,14 +195,14 @@ type upgradeVersions struct {
 	agent  version.Number
 	client version.Number
 	chosen version.Number
-	tools  tools.List
+	tools  coretools.List
 }
 
 // uploadTools compiles jujud from $GOPATH and uploads it into the supplied
 // storage. If no version has been explicitly chosen, the version number
 // reported by the built tools will be based on the client version number.
 // In any case, the version number reported will have a build component higher
-// than that of any otherwise-matching available tools.
+// than that of any otherwise-matching available envtools.
 // uploadTools resets the chosen version and replaces the available tools
 // with the ones just uploaded.
 func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string) error {
@@ -220,15 +223,15 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 	}
 	v.chosen = uploadVersion(v.chosen, v.tools)
 
-	// TODO(fwereade): tools.Upload should return a tools.List, and should
+	// TODO(fwereade): envtools.Upload should return envtools.List, and should
 	// include all the extra series we build, so we can set *that* onto
 	// v.available and maybe one day be able to check that a given upgrade
-	// won't leave out-of-date machines lying around, starved of tools.
+	// won't leave out-of-date machines lying around, starved of envtools.
 	uploaded, err := uploadTools(storage, &v.chosen, series...)
 	if err != nil {
 		return err
 	}
-	v.tools = tools.List{uploaded}
+	v.tools = coretools.List{uploaded}
 	return nil
 }
 
@@ -239,7 +242,7 @@ func (v *upgradeVersions) uploadTools(storage environs.Storage, series []string)
 func (v *upgradeVersions) validate() (err error) {
 	// If not completely specified already, pick a single tools version.
 	v.dev = v.dev || v.chosen.IsDev()
-	filter := tools.Filter{Number: v.chosen, Released: !v.dev}
+	filter := coretools.Filter{Number: v.chosen, Released: !v.dev}
 	if v.tools, err = v.tools.Match(filter); err != nil {
 		return err
 	}
@@ -266,7 +269,7 @@ func (v *upgradeVersions) validate() (err error) {
 
 // uploadVersion returns a copy of the supplied version with a build number
 // higher than any of the supplied tools that share its major, minor and patch.
-func uploadVersion(vers version.Number, existing tools.List) version.Number {
+func uploadVersion(vers version.Number, existing coretools.List) version.Number {
 	vers.Build++
 	for _, t := range existing {
 		if t.Version.Major != vers.Major || t.Version.Minor != vers.Minor || t.Version.Patch != vers.Patch {

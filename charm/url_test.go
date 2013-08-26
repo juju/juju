@@ -8,14 +8,14 @@ import (
 	"fmt"
 
 	"labix.org/v2/mgo/bson"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 )
 
 type URLSuite struct{}
 
-var _ = Suite(&URLSuite{})
+var _ = gc.Suite(&URLSuite{})
 
 var urlTests = []struct {
 	s, err string
@@ -43,16 +43,16 @@ var urlTests = []struct {
 	{"local:name", "charm URL without series: .*", nil},
 }
 
-func (s *URLSuite) TestParseURL(c *C) {
+func (s *URLSuite) TestParseURL(c *gc.C) {
 	for i, t := range urlTests {
 		c.Logf("test %d", i)
 		url, err := charm.ParseURL(t.s)
-		comment := Commentf("ParseURL(%q)", t.s)
+		comment := gc.Commentf("ParseURL(%q)", t.s)
 		if t.err != "" {
-			c.Check(err.Error(), Matches, t.err, comment)
+			c.Check(err.Error(), gc.Matches, t.err, comment)
 		} else {
-			c.Check(url, DeepEquals, t.url, comment)
-			c.Check(t.url.String(), Equals, t.s)
+			c.Check(url, gc.DeepEquals, t.url, comment)
+			c.Check(t.url.String(), gc.Equals, t.s)
 		}
 	}
 }
@@ -76,25 +76,25 @@ var inferTests = []struct {
 	{"cs:foo-1-2", "cs:defseries/foo-1-2"},
 }
 
-func (s *URLSuite) TestInferURL(c *C) {
+func (s *URLSuite) TestInferURL(c *gc.C) {
 	for i, t := range inferTests {
 		c.Logf("test %d", i)
-		comment := Commentf("InferURL(%q, %q)", t.vague, "defseries")
+		comment := gc.Commentf("InferURL(%q, %q)", t.vague, "defseries")
 		inferred, ierr := charm.InferURL(t.vague, "defseries")
 		parsed, perr := charm.ParseURL(t.exact)
 		if parsed != nil {
-			c.Check(inferred, DeepEquals, parsed, comment)
+			c.Check(inferred, gc.DeepEquals, parsed, comment)
 		} else {
 			expect := perr.Error()
 			if t.vague != t.exact {
 				expect = fmt.Sprintf("%s (URL inferred from %q)", expect, t.vague)
 			}
-			c.Check(ierr.Error(), Equals, expect, comment)
+			c.Check(ierr.Error(), gc.Equals, expect, comment)
 		}
 	}
 	u, err := charm.InferURL("~blah", "defseries")
-	c.Assert(u, IsNil)
-	c.Assert(err, ErrorMatches, "cannot infer charm URL with user but no schema: .*")
+	c.Assert(u, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, "cannot infer charm URL with user but no schema: .*")
 }
 
 var inferNoDefaultSeriesTests = []struct {
@@ -109,15 +109,15 @@ var inferNoDefaultSeriesTests = []struct {
 	{"cs:~user/series/foo", "cs:~user/series/foo"},
 }
 
-func (s *URLSuite) TestInferURLNoDefaultSeries(c *C) {
+func (s *URLSuite) TestInferURLNoDefaultSeries(c *gc.C) {
 	for _, t := range inferNoDefaultSeriesTests {
 		inferred, err := charm.InferURL(t.vague, "")
 		if t.exact == "" {
-			c.Assert(err, ErrorMatches, fmt.Sprintf("cannot infer charm URL for %q: no series provided", t.vague))
+			c.Assert(err, gc.ErrorMatches, fmt.Sprintf("cannot infer charm URL for %q: no series provided", t.vague))
 		} else {
 			parsed, err := charm.ParseURL(t.exact)
-			c.Assert(err, IsNil)
-			c.Assert(inferred, DeepEquals, parsed, Commentf(`InferURL(%q, "")`, t.vague))
+			c.Assert(err, gc.IsNil)
+			c.Assert(inferred, gc.DeepEquals, parsed, gc.Commentf(`InferURL(%q, "")`, t.vague))
 		}
 	}
 }
@@ -166,29 +166,29 @@ var validTests = []struct {
 	{charm.IsValidSeries, "pre-c1se", false},
 }
 
-func (s *URLSuite) TestValidCheckers(c *C) {
+func (s *URLSuite) TestValidCheckers(c *gc.C) {
 	for i, t := range validTests {
 		c.Logf("test %d: %s", i, t.string)
-		c.Assert(t.valid(t.string), Equals, t.expect)
+		c.Assert(t.valid(t.string), gc.Equals, t.expect)
 	}
 }
 
-func (s *URLSuite) TestMustParseURL(c *C) {
+func (s *URLSuite) TestMustParseURL(c *gc.C) {
 	url := charm.MustParseURL("cs:series/name")
-	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
+	c.Assert(url, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
 	f := func() { charm.MustParseURL("local:name") }
-	c.Assert(f, PanicMatches, "charm URL without series: .*")
+	c.Assert(f, gc.PanicMatches, "charm URL without series: .*")
 }
 
-func (s *URLSuite) TestWithRevision(c *C) {
+func (s *URLSuite) TestWithRevision(c *gc.C) {
 	url := charm.MustParseURL("cs:series/name")
 	other := url.WithRevision(1)
-	c.Assert(url, DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
-	c.Assert(other, DeepEquals, &charm.URL{"cs", "", "series", "name", 1})
+	c.Assert(url, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", -1})
+	c.Assert(other, gc.DeepEquals, &charm.URL{"cs", "", "series", "name", 1})
 
 	// Should always copy. The opposite behavior is error prone.
-	c.Assert(other.WithRevision(1), Not(Equals), other)
-	c.Assert(other.WithRevision(1), DeepEquals, other)
+	c.Assert(other.WithRevision(1), gc.Not(gc.Equals), other)
+	c.Assert(other.WithRevision(1), gc.DeepEquals, other)
 }
 
 var codecs = []struct {
@@ -202,7 +202,7 @@ var codecs = []struct {
 	Unmarshal: json.Unmarshal,
 }}
 
-func (s *URLSuite) TestCodecs(c *C) {
+func (s *URLSuite) TestCodecs(c *gc.C) {
 	for i, codec := range codecs {
 		c.Logf("codec %d", i)
 		type doc struct {
@@ -210,34 +210,34 @@ func (s *URLSuite) TestCodecs(c *C) {
 		}
 		url := charm.MustParseURL("cs:series/name")
 		data, err := codec.Marshal(doc{url})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var v doc
 		err = codec.Unmarshal(data, &v)
-		c.Assert(v.URL, DeepEquals, url)
+		c.Assert(v.URL, gc.DeepEquals, url)
 
 		data, err = codec.Marshal(doc{})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		err = codec.Unmarshal(data, &v)
-		c.Assert(err, IsNil)
-		c.Assert(v.URL, IsNil)
+		c.Assert(err, gc.IsNil)
+		c.Assert(v.URL, gc.IsNil)
 	}
 }
 
 type QuoteSuite struct{}
 
-var _ = Suite(&QuoteSuite{})
+var _ = gc.Suite(&QuoteSuite{})
 
-func (s *QuoteSuite) TestUnmodified(c *C) {
+func (s *QuoteSuite) TestUnmodified(c *gc.C) {
 	// Check that a string containing only valid
 	// chars stays unmodified.
 	in := "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789.-"
 	out := charm.Quote(in)
-	c.Assert(out, Equals, in)
+	c.Assert(out, gc.Equals, in)
 }
 
-func (s *QuoteSuite) TestQuote(c *C) {
+func (s *QuoteSuite) TestQuote(c *gc.C) {
 	// Check that invalid chars are translated correctly.
 	in := "hello_there/how'are~you-today.sir"
 	out := charm.Quote(in)
-	c.Assert(out, Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
+	c.Assert(out, gc.Equals, "hello_5f_there_2f_how_27_are_7e_you-today.sir")
 }
