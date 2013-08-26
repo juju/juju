@@ -95,4 +95,3 @@ func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	client.Close()
 	client.Close()
 }
-
