@@ -75,7 +75,7 @@ var clientAddServiceUnitsTests = []struct {
 	},
 	{
 		about:    "cannot mix to when adding multiple units",
-		err:      "cannot use --num-units with --to",
+		err:      "cannot use NumUnits with ToMachineSpec",
 		expected: []string{"dummy/0", "dummy/1"},
 		to:       "0",
 	},
