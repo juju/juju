@@ -53,7 +53,7 @@ var addUnitsTests = []struct {
 		service:          "dummy-service",
 		numUnits:         5,
 		forceMachineSpec: "0",
-		err:              "cannot use --num-units with --to",
+		err:              "cannot use NumUnits with ToMachineSpec",
 	},
 }
 
