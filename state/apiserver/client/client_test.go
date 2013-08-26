@@ -61,6 +61,7 @@ func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 
 var clientAddServiceUnitsTests = []struct {
 	about    string
+	service  string // if not set, defaults to 'dummy'
 	expected []string
 	to       string
 	err      string
@@ -86,6 +87,11 @@ var clientAddServiceUnitsTests = []struct {
 		expected: []string{"dummy/3"},
 		to:       "0",
 	},
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
 }
 
 func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
@@ -93,7 +99,11 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range clientAddServiceUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
-		units, err := s.APIState.Client().AddServiceUnits("dummy", len(t.expected), t.to)
+		serviceName := t.service
+		if serviceName == "" {
+			serviceName = "dummy"
+		}
+		units, err := s.APIState.Client().AddServiceUnits(serviceName, len(t.expected), t.to)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
