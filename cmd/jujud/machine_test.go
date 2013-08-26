@@ -13,11 +13,9 @@ import (
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -68,7 +66,12 @@ const initialMachinePassword = "machine-password"
 // machine agent's directory.  It returns the new machine, the
 // agent's configuration and the tools currently running.
 func (s *MachineSuite) primeAgent(c *gc.C, jobs ...state.MachineJob) (m *state.Machine, config agent.Config, tools *tools.Tools) {
-	m, err := s.State.InjectMachine("series", constraints.Value{}, "ardbeg-0", instance.HardwareCharacteristics{}, jobs...)
+	m, err := s.State.InjectMachine(&state.AddMachineParams{
+		Series:     "series",
+		InstanceId: "ardbeg-0",
+		Nonce:      state.BootstrapNonce,
+		Jobs:       jobs,
+	})
 	c.Assert(err, gc.IsNil)
 	err = m.SetMongoPassword(initialMachinePassword)
 	c.Assert(err, gc.IsNil)
