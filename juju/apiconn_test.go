@@ -50,24 +50,28 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 	c.Assert(conn.Close(), gc.IsNil)
 }
 
-func (*NewAPIConnSuite) TestNewAPIConnFromNameDefault(c *gc.C) {
+func (*NewAPIConnSuite) TestNewAPIClientFromNameDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", we should get it if we ask for ""
 	defaultEnvName := "erewhemos"
 	bootstrapEnv(c, defaultEnvName)
-	apiconn, err := juju.NewAPIConnFromName("")
+	apiclient, err := juju.NewAPIClientFromName("")
 	c.Assert(err, gc.IsNil)
-	defer apiconn.Close()
-	c.Assert(apiconn.Environ.Name(), gc.Equals, defaultEnvName)
+	defer apiclient.Close()
+	envInfo, err := apiclient.EnvironmentInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(envInfo.Name, gc.Equals, defaultEnvName)
 }
 
-func (*NewAPIConnSuite) TestNewAPIConnFromNameNotDefault(c *gc.C) {
+func (*NewAPIConnSuite) TestNewAPIClientFromNameNotDefault(c *gc.C) {
 	defer coretesting.MakeMultipleEnvHome(c).Restore()
 	// The default environment is "erewhemos", make sure we get the other one.
 	const envName = "erewhemos-2"
 	bootstrapEnv(c, envName)
-	apiconn, err := juju.NewAPIConnFromName(envName)
+	apiclient, err := juju.NewAPIClientFromName(envName)
 	c.Assert(err, gc.IsNil)
-	defer apiconn.Close()
-	c.Assert(apiconn.Environ.Name(), gc.Equals, envName)
+	defer apiclient.Close()
+	envInfo, err := apiclient.EnvironmentInfo()
+	c.Assert(err, gc.IsNil)
+	c.Assert(envInfo.Name, gc.Equals, envName)
 }

@@ -50,12 +50,16 @@ func (c *APIConn) Close() error {
 	return c.State.Close()
 }
 
-// NewAPIConnFromName returns an APIConn pointing at the environName
-// environment, or the default environment if not specified.
-func NewAPIConnFromName(environName string) (*APIConn, error) {
+// NewAPIClientFromName returns an APIConn pointing at the environName
+// environment, or the default environment if environName is "".
+func NewAPIClientFromName(environName string) (*api.Client, error) {
 	environ, err := environs.NewFromName(environName)
 	if err != nil {
 		return nil, err
 	}
-	return NewAPIConn(environ, api.DefaultDialOpts())
+	apiconn, err := NewAPIConn(environ, api.DefaultDialOpts())
+	if err != nil {
+		return nil, err
+	}
+	return apiconn.State.Client(), nil
 }
