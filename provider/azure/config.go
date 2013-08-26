@@ -23,9 +23,12 @@ var configFields = schema.Fields{
 	"force-image-name":              schema.String(),
 }
 var configDefaults = schema.Defaults{
-	"location":                      "",
-	"management-certificate":        "",
-	"management-certificate-path":   "",
+	"location":                    "",
+	"management-certificate":      "",
+	"management-certificate-path": "",
+	// The default account/container expands to the following base URL:
+	//     https://jujutools.blob.core.windows.net/juju-tools
+	// (append "/tools%2Fjuju-$version-$series-$arch.tgz" for a tools archive.)
 	"public-storage-account-name":   "jujutools",
 	"public-storage-container-name": "juju-tools",
 	// The default is blank, which means "use the first of the base URLs
