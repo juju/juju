@@ -17,7 +17,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"os"
-	"path"
 	"reflect"
 	"sort"
 	"strings"
@@ -330,11 +329,22 @@ type ValueParams struct {
 	ValueTemplate interface{}
 }
 
+// urlJoin returns baseURL + relpath making sure to have a '/' inbetween them
+// This doesn't try to do anything fancy with URL query or parameter bits
+// It also doesn't use path.Join because that normalizes slashes, and you need
+// to keep both slashes in 'http://'.
+func urlJoin(baseURL, relpath string) string {
+	if strings.HasSuffix(baseURL, "/") {
+		return baseURL + relpath
+	}
+	return baseURL + "/" + relpath
+}
+
 // GetMaybeSignedMetadata returns metadata records matching the specified constraint.
 func GetMaybeSignedMetadata(baseURLs []string, indexPath string, cons LookupConstraint, requireSigned bool, params ValueParams) ([]interface{}, error) {
 	var items []interface{}
 	for _, baseURL := range baseURLs {
-		indexURL := path.Join(baseURL, indexPath)
+		indexURL := urlJoin(baseURL, indexPath)
 		indexRef, err := GetIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned, params)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
@@ -366,7 +376,7 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 		mirrorRefs, err := GetMirrorRefsWithFormat(baseURL, indexPath, "index:1.0", requireSigned)
 		if err != nil {
 			if errors.IsNotFoundError(err) || errors.IsUnauthorizedError(err) {
-				logger.Debugf("cannot load index %q: %v", path.Join(baseURL, indexPath), err)
+				logger.Debugf("cannot load index %q: %v", urlJoin(baseURL, indexPath), err)
 				continue
 			}
 			return nil, err
@@ -374,7 +384,7 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 		mirrorRef, err := mirrorRefs.GetMirrorReference(contentId, cloudSpec)
 		if err != nil {
 			if errors.IsNotFoundError(err) {
-				logger.Debugf("skipping index because of error getting latest metadata %q: %v", path.Join(baseURL, indexPath), err)
+				logger.Debugf("skipping index because of error getting latest metadata %q: %v", urlJoin(baseURL, indexPath), err)
 				continue
 			}
 			return nil, err
@@ -393,7 +403,7 @@ func GetMaybeSignedMirror(baseURLs []string, indexPath string, requireSigned boo
 // fetchData gets all the data from the given path relative to the given base URL.
 // It returns the data found and the full URL used.
 func fetchData(baseURL, relpath string, requireSigned bool) (data []byte, dataURL string, err error) {
-	dataURL = path.Join(baseURL, relpath)
+	dataURL = urlJoin(baseURL, relpath)
 	resp, err := httpClient.Get(dataURL)
 	if err != nil {
 		return nil, dataURL, errors.NotFoundf("invalid URL %q", dataURL)
