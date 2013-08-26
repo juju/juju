@@ -9,7 +9,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/log"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/loggo"
@@ -26,22 +25,22 @@ var logger = loggo.GetLogger("juju.environs.tools")
 // If no *available* tools have the supplied major version number, or match the
 // supplied filter, the function returns a *NotFoundError.
 func FindTools(environ environs.Environ, majorVersion int, filter coretools.Filter) (list coretools.List, err error) {
-	log.Infof("environs: reading tools with major version %d", majorVersion)
+	logger.Infof("reading tools with major version %d", majorVersion)
 	defer convertToolsError(&err)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		log.Infof("environs: filtering tools by version: %s", filter.Number.Major)
+		logger.Infof("filtering tools by version: %s", filter.Number.Major)
 	}
 	if filter.Series != "" {
-		log.Infof("environs: filtering tools by series: %s", filter.Series)
+		logger.Infof("filtering tools by series: %s", filter.Series)
 	}
 	if filter.Arch != "" {
-		log.Infof("environs: filtering tools by architecture: %s", filter.Arch)
+		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
 	list, err = ReadList(environ.Storage(), majorVersion)
 	if err == ErrNoTools {
-		log.Infof("environs: falling back to public bucket")
+		logger.Infof("falling back to public bucket")
 		list, err = ReadList(environ.PublicStorage(), majorVersion)
 	}
 	if err != nil {
@@ -79,7 +78,7 @@ func FindBootstrapTools(environ environs.Environ, cons constraints.Value) (list 
 		return FindTools(environ, cliVersion.Major, filter)
 	}
 	if dev := cliVersion.IsDev() || cfg.Development(); !dev {
-		log.Infof("environs: filtering tools by released version")
+		logger.Infof("filtering tools by released version")
 		filter.Released = true
 	}
 	list, err = FindTools(environ, cliVersion.Major, filter)
@@ -90,7 +89,7 @@ func FindBootstrapTools(environ environs.Environ, cons constraints.Value) (list 
 	// We probably still have a mix of versions available; discard older ones
 	// and update environment configuration to use only those remaining.
 	agentVersion, list := list.Newest()
-	log.Infof("environs: picked newest version: %s", agentVersion)
+	logger.Infof("picked newest version: %s", agentVersion)
 	cfg, err = cfg.Apply(map[string]interface{}{
 		"agent-version": agentVersion.String(),
 	})
@@ -135,7 +134,7 @@ func FindInstanceTools(environ environs.Environ, series string, cons constraints
 // which needs to run on every agent and must absolutely *not* in general
 // have access to an environs.Environ.
 func FindExactTools(environ environs.Environ, vers version.Binary) (t *coretools.Tools, err error) {
-	log.Infof("environs: finding exact version %s", vers)
+	logger.Infof("finding exact version %s", vers)
 	filter := coretools.Filter{
 		Number: vers.Number,
 		Series: vers.Series,
