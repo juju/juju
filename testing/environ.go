@@ -29,8 +29,10 @@ func EnvironConfig(c *C) *config.Config {
 	return cfg
 }
 
-const SampleEnvName = "erewhemos"
-const EnvDefault = "default:\n  " + SampleEnvName + "\n"
+const (
+	SampleEnvName = "erewhemos"
+	EnvDefault    = "default:\n  " + SampleEnvName + "\n"
+)
 
 // Environment names below are explicit as it makes them more readable.
 const SingleEnvConfigNoDefault = `

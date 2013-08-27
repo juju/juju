@@ -45,7 +45,7 @@ func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 }
 
 func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
-	attrs := map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -54,12 +54,14 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 		"admin-secret":    "really",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
-	}
-	env, err := environs.NewFromAttrs(attrs)
+	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
 
+	attrs := env.Config().AllAttrs()
 	delete(attrs, "admin-secret")
 	env1, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
@@ -68,14 +70,8 @@ func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
 	c.Assert(err, gc.ErrorMatches, "cannot connect without admin-secret")
 }
 
-func (*NewConnSuite) TestNewConnFromNameGetUnbootstrapped(c *gc.C) {
-	defer coretesting.MakeSampleHome(c).Restore()
-	_, err := juju.NewConnFromName("")
-	c.Assert(err, gc.ErrorMatches, "dummy environment not bootstrapped")
-}
-
 func bootstrapEnv(c *gc.C, envName string) {
-	environ, err := environs.NewFromName(envName)
+	environ, err := environs.PrepareFromName(envName)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -112,7 +108,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
-	attrs := map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -121,8 +117,9 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 		"admin-secret":    "side-effect secret",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
-	}
-	env, err := environs.NewFromAttrs(attrs)
+	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -133,7 +130,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 
 	// Verify we have no secret in the environ config
-	cfg, err := st.EnvironConfig()
+	cfg, err = st.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], gc.IsNil)
 
@@ -152,7 +149,7 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
-	attrs := map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -161,8 +158,9 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 		"admin-secret":    "some secret",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
-	}
-	env, err := environs.NewFromAttrs(attrs)
+	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -173,6 +171,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	defer conn.Close()
 
 	// Make another env with a different secret.
+	attrs := env.Config().AllAttrs()
 	attrs["secret"] = "squirrel"
 	env1, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
@@ -181,7 +180,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	conn, err = juju.NewConn(env1)
 	c.Assert(err, gc.IsNil)
 	defer conn.Close()
-	cfg, err := conn.State.EnvironConfig()
+	cfg, err = conn.State.EnvironConfig()
 	c.Assert(err, gc.IsNil)
 	c.Assert(cfg.UnknownAttrs()["secret"], gc.Equals, "pork")
 
@@ -191,7 +190,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
-	env, err := environs.NewFromAttrs(map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -201,6 +200,8 @@ func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
 	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)
@@ -249,7 +250,7 @@ var _ = gc.Suite(&ConnSuite{})
 func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	attrs := map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -257,8 +258,9 @@ func (s *ConnSuite) SetUpTest(c *gc.C) {
 		"admin-secret":    "deploy-test-secret",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
-	}
-	environ, err := environs.NewFromAttrs(attrs)
+	})
+	c.Assert(err, gc.IsNil)
+	environ, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(environ, constraints.Value{})
 	c.Assert(err, gc.IsNil)

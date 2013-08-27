@@ -24,7 +24,7 @@ type testCerts struct {
 
 func (*EnvironsCertSuite) TestGenerateCertificate(c *gc.C) {
 	defer testing.MakeSampleHome(c).Restore()
-	env, err := NewFromName(testing.SampleEnvName)
+	env, err := PrepareFromName(testing.SampleEnvName)
 	c.Assert(err, gc.IsNil)
 
 	var savedCerts testCerts

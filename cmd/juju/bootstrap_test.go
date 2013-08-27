@@ -305,7 +305,7 @@ func createToolsSource(c *gc.C) string {
 func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 	fake := coretesting.MakeFakeHome(c, envConfig)
 	dummy.Reset()
-	env, err := environs.NewFromName("peckham")
+	env, err := environs.PrepareFromName("peckham")
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, env)
 	return env, fake

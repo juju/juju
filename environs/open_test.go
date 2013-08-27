@@ -11,6 +11,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
@@ -26,7 +27,7 @@ func (OpenSuite) TearDownTest(c *gc.C) {
 
 func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 	// matches *Settings.Map()
-	config := map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "foo",
 		"type":            "dummy",
 		"state-server":    false,
@@ -34,8 +35,9 @@ func (OpenSuite) TestNewDummyEnviron(c *gc.C) {
 		"admin-secret":    "foo",
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  testing.CAKey,
-	}
-	env, err := environs.NewFromAttrs(config)
+	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	c.Assert(bootstrap.Bootstrap(env, constraints.Value{}), gc.IsNil)
 }
@@ -86,7 +88,7 @@ func (s *checkEnvironmentSuite) TearDownTest(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test")
+	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -101,7 +103,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironment(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test")
+	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -122,7 +124,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentFileNotFound(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test")
+	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
 
 	// VerifyStorage is sufficient for our tests and much simpler
@@ -142,7 +144,7 @@ func (s *checkEnvironmentSuite) TestCheckEnvironmentGetFails(c *gc.C) {
 func (s *checkEnvironmentSuite) TestCheckEnvironmentBadContent(c *gc.C) {
 	defer testing.MakeFakeHome(c, checkEnv, "existing").Restore()
 
-	environ, err := environs.NewFromName("test")
+	environ, err := environs.PrepareFromName("test")
 	c.Assert(err, gc.IsNil)
 
 	// We mock a bad (eg. from a Python-juju environment) bootstrap-verify.
