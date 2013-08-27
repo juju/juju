@@ -117,7 +117,7 @@ func (s *DeploySuite) TestSubordinateCharm(c *gc.C) {
 
 func (s *DeploySuite) TestConfig(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	path := setupConfigfile(c, c.MkDir())
+	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, "local:dummy", "dummy-service", "--config", path)
 	c.Assert(err, gc.IsNil)
 	service, err := s.State.Service("dummy-service")
@@ -132,7 +132,7 @@ func (s *DeploySuite) TestConfig(c *gc.C) {
 
 func (s *DeploySuite) TestConfigError(c *gc.C) {
 	coretesting.Charms.BundlePath(s.SeriesPath, "dummy")
-	path := setupConfigfile(c, c.MkDir())
+	path := setupConfigFile(c, c.MkDir())
 	err := runDeploy(c, "local:dummy", "other-service", "--config", path)
 	c.Assert(err, gc.ErrorMatches, `no settings found for "other-service"`)
 	_, err = s.State.Service("other-service")
