@@ -66,19 +66,19 @@ func (s *instanceTest) TestAddresses(c *gc.C) {
 	inst := maasInstance{&obj, s.environ}
 
 	expected := []instance.Address{
-		instance.Address{
+		{
 			"1.2.3.4",
 			instance.Ipv4Address,
 			"",
 			instance.NetworkUnknown,
 		},
-		instance.Address{
+		{
 			"fe80::d806:dbff:fe23:1199",
 			instance.Ipv6Address,
 			"",
 			instance.NetworkUnknown,
 		},
-		instance.Address{
+		{
 			"DNS name",
 			instance.HostName,
 			"",
