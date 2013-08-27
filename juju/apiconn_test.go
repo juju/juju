@@ -9,6 +9,7 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -26,7 +27,7 @@ func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 }
 
 func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
-	attrs := map[string]interface{}{
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -35,8 +36,9 @@ func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
 		"admin-secret":    "really",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
-	}
-	env, err := environs.NewFromAttrs(attrs)
+	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, gc.IsNil)

@@ -18,7 +18,15 @@ import (
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
+	// Prepare prepares an environment for use. Any additional
+	// configuration attributes in the returned environment should
+	// be saved to be used later. If the environment is already
+	// prepared, this call is equivalent to Open.
+	Prepare(cfg *config.Config) (Environ, error)
+
 	// Open opens the environment and returns it.
+	// The configuration must have come from a previously
+	// prepared environment.
 	Open(cfg *config.Config) (Environ, error)
 
 	// Validate ensures that config is a valid configuration for this
@@ -105,6 +113,15 @@ type Storage interface {
 	StorageWriter
 }
 
+// EnvironStorage implements storage access for an environment.
+type EnvironStorage interface {
+	// Storage returns storage specific to the environment.
+	Storage() Storage
+
+	// PublicStorage returns storage shared between environments.
+	PublicStorage() StorageReader
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -158,11 +175,7 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
-	// Storage returns storage specific to the environment.
-	Storage() Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() StorageReader
+	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to
