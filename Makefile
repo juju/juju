@@ -35,6 +35,9 @@ check:
 install:
 	go install -v $(PROJECT)/...
 
+clean:
+	go clean $(PROJECT)/...
+
 else # --------------------------------
 
 build:
@@ -46,6 +49,9 @@ check:
 install:
 	$(error Cannot install package from outside of GOPATH)
 
+clean:
+	$(error Cannot clean package from outside of GOPATH)
+
 endif
 # End of GOPATH-dependent targets.
 
@@ -56,10 +62,6 @@ format:
 # Invoke gofmt's "simplify" option to streamline the source code.
 simplify:
 	gofmt -w -l -s .
-
-# Clean the tree, including removing test executables.
-clean:
-	find . -name '*.test' -print0 | xargs -r0 $(RM) -v
 
 # Install packages required to develop Juju and run tests. The stable
 # PPA includes the required mongodb-server binaries. However, neither
@@ -76,5 +78,5 @@ endif
 
 
 .PHONY: build check install
-.PHONY: format simplify clean
+.PHONY: clean format simplify
 .PHONY: install-dependencies
