@@ -227,7 +227,7 @@ func (s *BootstrapSuite) TestAutoSync(c *gc.C) {
 	code := cmd.Main(&BootstrapCommand{}, ctx, nil)
 	c.Check(code, gc.Equals, 0)
 
-	// Now check the available tools which are the 1.0.0 envtools.
+	// Now check the available tools which are the 1.2.0 envtools.
 	checkTools(c, env, v120All)
 }
 
@@ -265,7 +265,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	code = cmd.Main(&BootstrapCommand{}, ctx, []string{"--source", source})
 	c.Check(code, gc.Equals, 0)
 
-	// Now check the available tools which are the 1.0.0 envtools.
+	// Now check the available tools which are the 1.2.0 envtools.
 	checkTools(c, env, v120All)
 }
 
