@@ -16,8 +16,6 @@ import (
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state" // Only because of state.Info
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/version"
 )
@@ -89,33 +87,29 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	defer removeOnErr(&err, toolsDir)
 
 	// Retrieve the state addresses.
+	// TODO: remove the state addresses when unit agent is API only.
 	stateAddrs, err := ctx.addresser.StateAddresses()
 	if err != nil {
 		return err
 	}
+	logger.Debugf("state addresses: %q", stateAddrs)
 	apiAddrs, err := ctx.addresser.APIAddresses()
 	if err != nil {
 		return err
 	}
-
-	stateInfo := state.Info{
-		Addrs:  stateAddrs,
-		Tag:    tag,
-		CACert: ctx.caCert,
-	}
-	logger.Debugf("state addresses: %q", stateAddrs)
-	apiInfo := api.Info{
-		Addrs:  apiAddrs,
-		Tag:    tag,
-		CACert: ctx.caCert,
-	}
 	logger.Debugf("API addresses: %q", apiAddrs)
-	// Prepare the agent's configuration data.
-	conf := &agent.Conf{
-		DataDir:     ctx.dataDir,
-		OldPassword: initialPassword,
-		StateInfo:   &stateInfo,
-		APIInfo:     &apiInfo,
+	conf, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:        ctx.dataDir,
+			Tag:            tag,
+			Password:       initialPassword,
+			Nonce:          "unused",
+			StateAddresses: stateAddrs,
+			APIAddresses:   apiAddrs,
+			CACert:         ctx.caCert,
+		})
+	if err != nil {
+		return err
 	}
 	if err := conf.Write(); err != nil {
 		return err
@@ -138,7 +132,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
-		"--data-dir", conf.DataDir,
+		"--data-dir", conf.DataDir(),
 		"--unit-name", unitName,
 		"--debug", // TODO: propagate debug state sensibly
 	}, " ")

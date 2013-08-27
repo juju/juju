@@ -5,7 +5,7 @@ package cmd_test
 
 import (
 	"launchpad.net/gnuflag"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
@@ -100,7 +100,7 @@ var outputTests = map[string][]struct {
 	},
 }
 
-func (s *CmdSuite) TestOutputFormat(c *C) {
+func (s *CmdSuite) TestOutputFormat(c *gc.C) {
 	for format, tests := range outputTests {
 		c.Logf("format %s", format)
 		var args []string
@@ -111,26 +111,26 @@ func (s *CmdSuite) TestOutputFormat(c *C) {
 			c.Logf("  test %d", i)
 			ctx := testing.Context(c)
 			result := cmd.Main(&OutputCommand{value: t.value}, ctx, args)
-			c.Assert(result, Equals, 0)
-			c.Assert(bufferString(ctx.Stdout), Equals, t.output)
-			c.Assert(bufferString(ctx.Stderr), Equals, "")
+			c.Assert(result, gc.Equals, 0)
+			c.Assert(bufferString(ctx.Stdout), gc.Equals, t.output)
+			c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 		}
 	}
 
 	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format", "cuneiform"})
-	c.Assert(result, Equals, 2)
-	c.Assert(bufferString(ctx.Stdout), Equals, "")
-	c.Assert(bufferString(ctx.Stderr), Matches, ".*: unknown format \"cuneiform\"\n")
+	c.Assert(result, gc.Equals, 2)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+	c.Assert(bufferString(ctx.Stderr), gc.Matches, ".*: unknown format \"cuneiform\"\n")
 }
 
 // Py juju allowed both --format json and --format=json. This test verifies that juju is
 // being built against a version of the gnuflag library (rev 14 or above) that supports
 // this argument format.
 // LP #1059921
-func (s *CmdSuite) TestFormatAlternativeSyntax(c *C) {
+func (s *CmdSuite) TestFormatAlternativeSyntax(c *gc.C) {
 	ctx := testing.Context(c)
 	result := cmd.Main(&OutputCommand{}, ctx, []string{"--format=json"})
-	c.Assert(result, Equals, 0)
-	c.Assert(bufferString(ctx.Stdout), Equals, "null\n")
+	c.Assert(result, gc.Equals, 0)
+	c.Assert(bufferString(ctx.Stdout), gc.Equals, "null\n")
 }

@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
 )
 
@@ -23,7 +23,7 @@ type MgoSuite struct {
 	server  *exec.Cmd
 }
 
-func (s *MgoSuite) SetUpSuite(c *C) {
+func (s *MgoSuite) SetUpSuite(c *gc.C) {
 	mgo.SetDebug(true)
 	mgo.SetStats(true)
 	dbdir := c.MkDir()
@@ -40,25 +40,25 @@ func (s *MgoSuite) SetUpSuite(c *C) {
 	s.server.Stdout = &s.output
 	s.server.Stderr = &s.output
 	err := s.server.Start()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *MgoSuite) TearDownSuite(c *C) {
+func (s *MgoSuite) TearDownSuite(c *gc.C) {
 	s.server.Process.Kill()
 	s.server.Process.Wait()
 }
 
-func (s *MgoSuite) SetUpTest(c *C) {
+func (s *MgoSuite) SetUpTest(c *gc.C) {
 	err := DropAll("localhost:50017")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	mgo.SetLogger(c)
 	mgo.ResetStats()
 	s.Addr = "127.0.0.1:50017"
 	s.Session, err = mgo.Dial(s.Addr)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *MgoSuite) TearDownTest(c *C) {
+func (s *MgoSuite) TearDownTest(c *gc.C) {
 	if s.Session != nil {
 		s.Session.Close()
 	}

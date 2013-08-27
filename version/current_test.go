@@ -8,14 +8,14 @@ import (
 	"os/exec"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/version"
 )
 
 type CurrentSuite struct{}
 
-var _ = Suite(&CurrentSuite{})
+var _ = gc.Suite(&CurrentSuite{})
 
 var readSeriesTests = []struct {
 	contents string
@@ -47,18 +47,18 @@ DISTRIB_DESCRIPTION="Ubuntu 12.10"`,
 },
 }
 
-func (*CurrentSuite) TestReadSeries(c *C) {
+func (*CurrentSuite) TestReadSeries(c *gc.C) {
 	d := c.MkDir()
 	f := filepath.Join(d, "foo")
 	for i, t := range readSeriesTests {
 		c.Logf("test %d", i)
 		err := ioutil.WriteFile(f, []byte(t.contents), 0666)
-		c.Assert(err, IsNil)
-		c.Assert(version.ReadSeries(f), Equals, t.series)
+		c.Assert(err, gc.IsNil)
+		c.Assert(version.ReadSeries(f), gc.Equals, t.series)
 	}
 }
 
-func (*CurrentSuite) TestCurrentSeries(c *C) {
+func (*CurrentSuite) TestCurrentSeries(c *gc.C) {
 	s := version.CurrentSeries()
 	if s == "unknown" {
 		s = "n/a"
@@ -67,8 +67,8 @@ func (*CurrentSuite) TestCurrentSeries(c *C) {
 	if err != nil {
 		// If the command fails (for instance if we're running on some other
 		// platform) then CurrentSeries should be unknown.
-		c.Assert(s, Equals, "n/a")
+		c.Assert(s, gc.Equals, "n/a")
 	} else {
-		c.Assert(string(out), Equals, "Codename:\t"+s+"\n")
+		c.Assert(string(out), gc.Equals, "Codename:\t"+s+"\n")
 	}
 }

@@ -7,7 +7,7 @@ import (
 	stdtesting "testing"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/juju/testing"
 	coretesting "launchpad.net/juju-core/testing"
@@ -23,37 +23,37 @@ type CleanerSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&CleanerSuite{})
+var _ = gc.Suite(&CleanerSuite{})
 
 var _ worker.NotifyWatchHandler = (*cleaner.Cleaner)(nil)
 
-func (s *CleanerSuite) TestCleaner(c *C) {
+func (s *CleanerSuite) TestCleaner(c *gc.C) {
 	cr := cleaner.NewCleaner(s.State)
-	defer func() { c.Assert(worker.Stop(cr), IsNil) }()
+	defer func() { c.Assert(worker.Stop(cr), gc.IsNil) }()
 
 	needed, err := s.State.NeedsCleanup()
-	c.Assert(err, IsNil)
-	c.Assert(needed, Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(needed, gc.Equals, false)
 
 	_, err = s.State.AddService("wordpress", s.AddTestingCharm(c, "wordpress"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	eps, err := s.State.InferEndpoints([]string{"wordpress", "mysql"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	relM, err := s.State.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	needed, err = s.State.NeedsCleanup()
-	c.Assert(err, IsNil)
-	c.Assert(needed, Equals, false)
+	c.Assert(err, gc.IsNil)
+	c.Assert(needed, gc.Equals, false)
 
 	// Observe destroying of the relation with a watcher.
 	cw := s.State.WatchCleanups()
-	defer func() { c.Assert(cw.Stop(), IsNil) }()
+	defer func() { c.Assert(cw.Stop(), gc.IsNil) }()
 
 	err = relM.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	timeout := time.After(coretesting.LongWait)
 	for {
@@ -65,7 +65,7 @@ func (s *CleanerSuite) TestCleaner(c *C) {
 			c.Fatalf("timed out waiting for cleanup")
 		case <-cw.Changes():
 			needed, err = s.State.NeedsCleanup()
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			if needed {
 				continue
 			}

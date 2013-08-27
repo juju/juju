@@ -9,25 +9,9 @@ import (
 	"launchpad.net/juju-core/environs/simplestreams"
 )
 
-// ImageMetadataValidator instances can provide parameters used to query image
-// metadata to find image information for the specified region. If region is "",
-// then the implementation may use its own default region if it has one,
-// or else returns an error.
-type ImageMetadataValidator interface {
-	MetadataLookupParams(region string) (*MetadataLookupParams, error)
-}
-
-type MetadataLookupParams struct {
-	Region        string
-	Series        string
-	Architectures []string
-	Endpoint      string
-	BaseURLs      []string
-}
-
 // ValidateImageMetadata attempts to load image metadata for the specified cloud attributes and returns
 // any image ids found, or an error if the metadata could not be loaded.
-func ValidateImageMetadata(params *MetadataLookupParams) ([]string, error) {
+func ValidateImageMetadata(params *simplestreams.MetadataLookupParams) ([]string, error) {
 	if params.Series == "" {
 		return nil, fmt.Errorf("required parameter series not specified")
 	}

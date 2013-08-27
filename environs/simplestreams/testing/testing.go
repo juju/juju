@@ -54,7 +54,7 @@ var imageData = map[string]string{
 		   "path": "streams/v1/raring_metadata.json"
 		  },
 		  "com.ubuntu.cloud:released:download": {
-		   "datatype": "image-downloads",
+		   "datatype": "content-download",
 		   "path": "streams/v1/com.ubuntu.cloud:released:download.json",
 		   "updated": "Wed, 01 May 2013 13:30:37 +0000",
 		   "products": [
@@ -62,11 +62,153 @@ var imageData = map[string]string{
 			"com.ubuntu.cloud:server:13.04:amd64"
 		   ],
 		   "format": "products:1.0"
+		  },
+		  "com.ubuntu.juju:released:tools": {
+		   "updated": "Mon, 05 Aug 2013 11:07:04 +0000",
+		   "datatype": "content-download",
+		   "format": "products:1.0",
+		   "products": [
+		     "com.ubuntu.juju:1.13.0:amd64",
+		     "com.ubuntu.juju:1.11.4:arm"
+		   ],
+		   "path": "streams/v1/tools_metadata.json"
 		  }
+		 },
+         "mirrors": {
+          "com.ubuntu.juju:released:tools": [
+             {
+              "datatype": "content-download",
+              "path": "streams/v1/tools_metadata:public-mirrors.json",
+		      "clouds": [
+			   {
+			    "region": "us-east-1",
+			    "endpoint": "https://ec2.us-east-1.amazonaws.com"
+			   }
+		      ],
+              "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
+              "format": "mirrors:1.0"
+             },
+             {
+              "datatype": "content-download",
+              "path": "streams/v1/tools_metadata:more-mirrors.json",
+              "updated": "Wed, 14 Aug 2013 13:46:17 +0000",
+              "format": "mirrors:1.0"
+             }
+		  ]
 		 },
 		 "updated": "Wed, 01 May 2013 13:31:26 +0000",
 		 "format": "index:1.0"
 		}
+`,
+	"/streams/v1/tools_metadata.json": `
+{
+ "content_id": "com.ubuntu.juju:tools",
+ "datatype": "content-download",
+ "updated": "Tue, 04 Jun 2013 13:50:31 +0000",
+ "format": "products:1.0",
+ "products": {
+  "com.ubuntu.juju:1.13.0:amd64": {
+   "version": "1.13.0",
+   "arch": "amd64",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1130preciseamd64": {
+       "release": "precise",
+       "size": 2973595,
+       "path": "tools/releases/20130806/juju-1.13.0-precise-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "447aeb6a934a5eaec4f703eda4ef2dde"
+      },
+      "1130raringamd64": {
+       "release": "raring",
+       "size": 2973173,
+       "path": "tools/releases/20130806/juju-1.13.0-raring-amd64.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:1.11.4:arm": {
+   "version": "1.11.4",
+   "arch": "arm",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1114preciseamd64": {
+       "release": "precise",
+       "size": 1951096,
+       "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
+      },
+      "1114raringamd64": {
+       "release": "raring",
+       "size": 1950327,
+       "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      }
+     }
+    }
+   }
+  }
+ }
+}
+`,
+	"/streams/v1/tools_metadata:public-mirrors.json": `
+{
+  "mirrors": {
+    "com.ubuntu.juju:released:tools": [
+      {
+        "mirror": "http://some-mirror/",
+        "path": "com.ubuntu.juju:download.json",
+        "format": "products:1.0",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-east-1.amazonaws.com",
+            "region": "us-east-1"
+          }
+        ]
+      },
+      {
+        "mirror": "http://another-mirror/",
+        "path": "com.ubuntu.juju:download.json",
+        "format": "products:1.0",
+        "clouds": [
+          {
+            "endpoint": "https://ec2.us-west-1.amazonaws.com",
+            "region": "us-west-1"
+          }
+        ]
+      }
+    ]
+  },
+  "format": "mirrors:1.0",
+  "updated": "Mon, 05 Aug 2013 11:07:04 +0000"
+}
+`,
+	"/streams/v1/tools_metadata:more-mirrors.json": `
+{
+  "mirrors": {
+    "com.ubuntu.juju:released:tools": [
+      {
+        "mirror": "http://big-mirror/",
+        "path": "big:download.json",
+        "clouds": [
+          {
+            "endpoint": "https://some-endpoint.com",
+            "region": "some-region"
+          }
+        ]
+      }
+    ]
+  },
+  "format": "mirrors:1.0",
+  "updated": "Mon, 05 Aug 2013 11:07:04 +0000"
+}
 `,
 	"/streams/v1/image_metadata.json": `
 {
@@ -179,6 +321,7 @@ type LocalLiveSimplestreamsSuite struct {
 	testing.LoggingSuite
 	BaseURL         string
 	RequireSigned   bool
+	DataType        string
 	ValidConstraint simplestreams.LookupConstraint
 }
 
@@ -193,6 +336,7 @@ func (s *LocalLiveSimplestreamsSuite) TearDownSuite(c *gc.C) {
 const (
 	Index_v1   = "index:1.0"
 	Product_v1 = "products:1.0"
+	Mirror_v1  = "mirrors:1.0"
 )
 
 type testConstraint struct {
@@ -230,7 +374,7 @@ type TestItem struct {
 	Endpoint    string `json:"endpoint"`
 }
 
-func (s *LocalLiveSimplestreamsSuite) indexPath() string {
+func (s *LocalLiveSimplestreamsSuite) IndexPath() string {
 	if s.RequireSigned {
 		return simplestreams.DefaultIndexPath + simplestreams.SignedSuffix
 	}
@@ -247,10 +391,10 @@ func (s *LocalLiveSimplestreamsSuite) TestGetIndex(c *gc.C) {
 
 func (s *LocalLiveSimplestreamsSuite) GetIndexRef(format string) (*simplestreams.IndexReference, error) {
 	params := simplestreams.ValueParams{
-		DataType:      "image-ids",
+		DataType:      s.DataType,
 		ValueTemplate: TestItem{},
 	}
-	return simplestreams.GetIndexWithFormat(s.BaseURL, s.indexPath(), format, s.RequireSigned, params)
+	return simplestreams.GetIndexWithFormat(s.BaseURL, s.IndexPath(), format, s.RequireSigned, params)
 }
 
 func (s *LocalLiveSimplestreamsSuite) TestGetIndexWrongFormat(c *gc.C) {

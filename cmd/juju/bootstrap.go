@@ -14,10 +14,12 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/environs/sync"
+	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
@@ -77,12 +79,12 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 		forceVersion := uploadVersion(version.Current.Number, nil)
 		cfg := environ.Config()
 		series := getUploadSeries(cfg, c.Series)
-		tools, err := uploadTools(environ.Storage(), &forceVersion, series...)
+		agenttools, err := uploadTools(environ.Storage(), &forceVersion, series...)
 		if err != nil {
 			return err
 		}
 		cfg, err = cfg.Apply(map[string]interface{}{
-			"agent-version": tools.Version.Number.String(),
+			"agent-version": agenttools.Version.Number.String(),
 		})
 		if err == nil {
 			err = environ.SetConfig(cfg)
@@ -95,7 +97,7 @@ func (c *BootstrapCommand) Run(ctx *cmd.Context) error {
 	if err != nil {
 		return err
 	}
-	return environs.Bootstrap(environ, c.Constraints)
+	return bootstrap.Bootstrap(environ, c.Constraints)
 }
 
 // ensureToolsAvailability verifies the tools are available. If no tools are
@@ -106,7 +108,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 	defer loggo.RemoveWriter("bootstrap")
 
 	// Try to find bootstrap tools.
-	_, err := environs.FindBootstrapTools(env, c.Constraints)
+	_, err := tools.FindBootstrapTools(env, c.Constraints)
 	if errors.IsNotFoundError(err) {
 		// Not tools available, so synchronize.
 		sctx := &sync.SyncContext{
@@ -117,7 +119,7 @@ func (c *BootstrapCommand) ensureToolsAvailability(env environs.Environ, ctx *cm
 			return err
 		}
 		// Synchronization done, try again.
-		_, err = environs.FindBootstrapTools(env, c.Constraints)
+		_, err = tools.FindBootstrapTools(env, c.Constraints)
 	} else if err != nil {
 		return err
 	}

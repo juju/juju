@@ -4,7 +4,7 @@
 package uniter_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/charm/hooks"
 	"launchpad.net/juju-core/utils"
@@ -15,7 +15,7 @@ import (
 
 type StateFileSuite struct{}
 
-var _ = Suite(&StateFileSuite{})
+var _ = gc.Suite(&StateFileSuite{})
 
 var stcurl = charm.MustParseURL("cs:series/service-name-123")
 var relhook = &hook.Info{
@@ -144,32 +144,32 @@ var stateTests = []struct {
 	},
 }
 
-func (s *StateFileSuite) TestStates(c *C) {
+func (s *StateFileSuite) TestStates(c *gc.C) {
 	for i, t := range stateTests {
 		c.Logf("test %d", i)
 		path := filepath.Join(c.MkDir(), "uniter")
 		file := uniter.NewStateFile(path)
 		_, err := file.Read()
-		c.Assert(err, Equals, uniter.ErrNoStateFile)
+		c.Assert(err, gc.Equals, uniter.ErrNoStateFile)
 		write := func() {
 			err := file.Write(t.st.Started, t.st.Op, t.st.OpStep, t.st.Hook, t.st.CharmURL)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		}
 		if t.err != "" {
-			c.Assert(write, PanicMatches, "invalid uniter state: "+t.err)
+			c.Assert(write, gc.PanicMatches, "invalid uniter state: "+t.err)
 			err := utils.WriteYaml(path, &t.st)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			_, err = file.Read()
-			c.Assert(err, ErrorMatches, "cannot read charm state at .*: invalid uniter state: "+t.err)
+			c.Assert(err, gc.ErrorMatches, "cannot read charm state at .*: invalid uniter state: "+t.err)
 			continue
 		}
 		write()
 		st, err := file.Read()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		if st.Hook != nil {
-			c.Assert(st.Hook.Members, HasLen, 0)
+			c.Assert(st.Hook.Members, gc.HasLen, 0)
 			st.Hook.Members = t.st.Hook.Members
 		}
-		c.Assert(*st, DeepEquals, t.st)
+		c.Assert(*st, gc.DeepEquals, t.st)
 	}
 }
