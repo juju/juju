@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package provider
 
 import (
 	"launchpad.net/juju-core/environs/config"
@@ -10,8 +10,12 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-func Providers() map[string]EnvironProvider {
-	return providers
+func GetDNSNames(instances []instance.Instance) []string {
+	return getDNSNames(instances)
+}
+
+func GetStateInfo(cfg *config.Config, hostnames []string) (*state.Info, *api.Info) {
+	return getStateInfo(cfg, hostnames)
 }
 
 func ComposeAddresses(hostnames []string, port int) []string {
