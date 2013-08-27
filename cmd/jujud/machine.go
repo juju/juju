@@ -249,7 +249,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				time.Sleep(3500 * time.Millisecond)
 				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {

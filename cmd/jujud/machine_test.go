@@ -440,7 +440,6 @@ func (s *MachineSuite) TestManageStateRunsMinUnitsWorker(c *gc.C) {
 		agentState.StartSync()
 		timeout := time.After(testing.LongWait)
 		for {
-			c.Logf("trying again")
 			select {
 			case <-timeout:
 				c.Fatalf("unit not created")
