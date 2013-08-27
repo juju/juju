@@ -25,18 +25,18 @@ var logger = loggo.GetLogger("juju.environs.tools")
 func FindTools(storages []environs.StorageReader,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
-	logger.Infof("environs: reading tools with major.minor version %d.%d", majorVersion, minorVersion)
+	logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
 	defer convertToolsError(&err)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Infof("environs: filtering tools by version: %s", filter.Number.Major)
+		logger.Infof("filtering tools by version: %s", filter.Number.Major)
 	}
 	if filter.Series != "" {
-		logger.Infof("environs: filtering tools by series: %s", filter.Series)
+		logger.Infof("filtering tools by series: %s", filter.Series)
 	}
 	if filter.Arch != "" {
-		logger.Infof("environs: filtering tools by architecture: %s", filter.Arch)
+		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
 	for _, storage := range storages {
 		list, err = ReadList(storage, majorVersion, minorVersion)
@@ -77,7 +77,7 @@ func FindBootstrapTools(storages []environs.StorageReader,
 		return FindTools(storages, cliVersion.Major, cliVersion.Minor, filter)
 	}
 	if dev := cliVersion.IsDev() || useDev; !dev {
-		logger.Infof("environs: filtering tools by released version")
+		logger.Infof("filtering tools by released version")
 		filter.Released = true
 	}
 	return FindTools(storages, cliVersion.Major, cliVersion.Minor, filter)
@@ -109,7 +109,7 @@ func FindInstanceTools(storages []environs.StorageReader,
 func FindExactTools(storages []environs.StorageReader,
 	vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
 
-	logger.Infof("environs: finding exact version %s", vers)
+	logger.Infof("finding exact version %s", vers)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	filter := coretools.Filter{

@@ -7,6 +7,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -51,7 +52,9 @@ func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
 	for k, v := range attrs {
 		final[k] = v
 	}
-	env, err := environs.NewFromAttrs(final)
+	cfg, err := config.New(final)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)

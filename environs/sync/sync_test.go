@@ -52,7 +52,7 @@ environments:
         authorized-keys: "not-really-one"
 `)
 	var err error
-	s.targetEnv, err = environs.NewFromName("test-target")
+	s.targetEnv, err = environs.PrepareFromName("test-target")
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
@@ -92,26 +92,21 @@ var tests = []struct {
 }{
 	{
 		description: "copy newest from the filesystem",
-		ctx: &sync.SyncContext{
-			EnvName: "test-target",
-		},
+		ctx:         &sync.SyncContext{},
 		source:      true,
 		tools:       v100all,
 		emptyPublic: true,
 	},
 	{
 		description: "copy newest from the dummy environment",
-		ctx: &sync.SyncContext{
-			EnvName: "test-target",
-		},
+		ctx:         &sync.SyncContext{},
 		tools:       v100all,
 		emptyPublic: true,
 	},
 	{
 		description: "copy newest dev from the dummy environment",
 		ctx: &sync.SyncContext{
-			EnvName: "test-target",
-			Dev:     true,
+			Dev: true,
 		},
 		tools:       v190all,
 		emptyPublic: true,
@@ -119,7 +114,6 @@ var tests = []struct {
 	{
 		description: "copy all from the dummy environment",
 		ctx: &sync.SyncContext{
-			EnvName:     "test-target",
 			AllVersions: true,
 		},
 		tools:       v100all,
@@ -128,7 +122,6 @@ var tests = []struct {
 	{
 		description: "copy all and dev from the dummy environment",
 		ctx: &sync.SyncContext{
-			EnvName:     "test-target",
 			AllVersions: true,
 			Dev:         true,
 		},
@@ -138,7 +131,6 @@ var tests = []struct {
 	{
 		description: "copy to the dummy environment public storage",
 		ctx: &sync.SyncContext{
-			EnvName:      "test-target",
 			PublicBucket: true,
 		},
 		tools:       v100all,
@@ -147,17 +139,18 @@ var tests = []struct {
 }
 
 func (s *syncSuite) TestSyncing(c *gc.C) {
-	for _, test := range tests {
+	for i, test := range tests {
 		// Perform all tests in a "clean" environment.
 		func() {
 			s.setUpTest(c)
 			defer s.tearDownTest(c)
 
-			c.Log(test.description)
+			c.Logf("test %d: %s", i, test.description)
 
 			if test.source {
 				test.ctx.Source = s.localStorage
 			}
+			test.ctx.Target = s.targetEnv
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
@@ -181,7 +174,7 @@ func (s *syncSuite) TestCopyToDummyPublicBlockedByPrivate(c *gc.C) {
 
 	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
 	ctx := &sync.SyncContext{
-		EnvName:      "test-target",
+		Target:       s.targetEnv,
 		PublicBucket: true,
 	}
 	err := sync.SyncTools(ctx)
