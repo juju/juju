@@ -10,7 +10,7 @@ import (
 
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	constants "launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 )
@@ -21,10 +21,10 @@ var _ environs.EnvironProvider = (*environProvider)(nil)
 
 type environProvider struct{}
 
-var provider environProvider
+var providerInstance = &environProvider{}
 
 func init() {
-	environs.RegisterProvider(constants.Local, &environProvider{})
+	environs.RegisterProvider(provider.Local, providerInstance)
 }
 
 // Open implements environs.EnvironProvider.Open.
@@ -145,8 +145,8 @@ func (environProvider) PrivateAddress() (string, error) {
 	return getAddressForInterface("eth0")
 }
 
-func (environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
-	valid, err := provider.Validate(cfg, nil)
+func (p environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
+	valid, err := p.Validate(cfg, nil)
 	if err != nil {
 		return nil, err
 	}

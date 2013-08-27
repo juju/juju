@@ -1,4 +1,5 @@
 package provider_test
+
 import (
 	gc "launchpad.net/gocheck"
 	"testing"

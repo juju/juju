@@ -3,17 +3,6 @@
 
 package environs
 
-import (
-	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
-)
-
 func Providers() map[string]EnvironProvider {
 	return providers
-}
-
-func ComposeAddresses(hostnames []string, port int) []string {
-	return composeAddresses(hostnames, port)
 }
