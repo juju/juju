@@ -14,13 +14,15 @@ import (
 
 var _ = gc.Suite(&ConfigSuite{})
 
-type ConfigSuite struct{}
+type ConfigSuite struct{
+	testing.LoggingSuite
+}
 
 func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	cfg, err := config.New(map[string]interface{}{
 		"name":            "only", // must match the name in environs_test.go
 		"type":            "dummy",
-		"state-server":    true,
+		"state-server":    false,
 		"authorized-keys": "i-am-a-key",
 		"ca-cert":         testing.CACert,
 		"ca-private-key":  "",
@@ -28,6 +30,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
+	defer env.Destroy(nil)
 	expected := map[string]interface{}{
 		"secret": "pork",
 	}
@@ -64,12 +67,12 @@ var firewallModeTests = []struct {
 }
 
 func (*ConfigSuite) TestFirewallMode(c *gc.C) {
-	for _, test := range firewallModeTests {
-		c.Logf("test firewall mode %q", test.configFirewallMode)
+	for i, test := range firewallModeTests {
+		c.Logf("test %d: %s", i, test.configFirewallMode)
 		cfgMap := map[string]interface{}{
 			"name":            "only",
 			"type":            "dummy",
-			"state-server":    true,
+			"state-server":    false,
 			"authorized-keys": "none",
 			"ca-cert":         testing.CACert,
 			"ca-private-key":  "",
@@ -88,6 +91,7 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
 		}
+		defer env.Destroy(nil)
 
 		firewallMode := env.Config().FirewallMode()
 		c.Assert(firewallMode, gc.Equals, test.firewallMode)

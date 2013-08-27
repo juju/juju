@@ -31,6 +31,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"local/runtime/debug"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -42,6 +43,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/schema"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -118,15 +120,19 @@ type environProvider struct {
 	mu  sync.Mutex
 	ops chan<- Operation
 	// We have one state for each environment name
-	state map[string]*environState
+	state map[int]*environState
+	maxStateId int
 }
 
 var providerInstance environProvider
+
+const noStateId = 0
 
 // environState represents the state of an environment.
 // It can be shared between several environ values,
 // so that a given environment can be opened several times.
 type environState struct {
+	id int
 	name          string
 	ops           chan<- Operation
 	mu            sync.Mutex
@@ -135,11 +141,12 @@ type environState struct {
 	globalPorts   map[instance.Port]bool
 	bootstrapped  bool
 	storageDelay  time.Duration
-	storage       *storage
-	publicStorage *storage
+	storage       *storageServer
+	publicStorage *storageServer
 	httpListener  net.Listener
 	apiServer     *apiserver.Server
 	apiState      *state.State
+	callers []byte
 }
 
 // environ represents a client's connection to a given environment's
@@ -153,16 +160,6 @@ type environ struct {
 var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
 var _ tools.SupportsCustomURLs = (*environ)(nil)
 var _ environs.Environ = (*environ)(nil)
-
-// storage holds the storage for an environState.
-// There are two instances for each environState
-// instance, one for public files and one for private.
-type storage struct {
-	path     string // path prefix in http space.
-	state    *environState
-	files    map[string][]byte
-	poisoned map[string]error
-}
 
 // discardOperations discards all Operations written to it.
 var discardOperations chan<- Operation
@@ -197,7 +194,7 @@ func Reset() {
 		s.httpListener.Close()
 		s.destroy()
 	}
-	providerInstance.state = make(map[string]*environState)
+	providerInstance.state = make(map[int]*environState)
 	if testing.MgoAddr != "" {
 		testing.MgoReset()
 	}
@@ -228,7 +225,11 @@ func (state *environState) destroy() {
 // This is so code in the test suite can trigger Syncs, etc that the API server
 // will see, which will then trigger API watchers, etc.
 func (e *environ) GetStateInAPIServer() *state.State {
-	return e.state().apiState
+	st, err := e.state()
+	if err != nil {
+		panic(err)
+	}
+	return st.apiState
 }
 
 // newState creates the state for a new environment with the
@@ -241,8 +242,8 @@ func newState(name string, ops chan<- Operation) *environState {
 		insts:       make(map[instance.Id]*dummyInstance),
 		globalPorts: make(map[instance.Port]bool),
 	}
-	s.storage = newStorage(s, "/"+name+"/private")
-	s.publicStorage = newStorage(s, "/"+name+"/public")
+	s.storage = newStorageServer(s, "/"+name+"/private")
+	s.publicStorage = newStorageServer(s, "/"+name+"/public")
 	s.listen()
 	// TODO(fwereade): get rid of these.
 	envtesting.MustUploadFakeTools(s.publicStorage)
@@ -301,10 +302,12 @@ var configFields = schema.Fields{
 	"state-server": schema.Bool(),
 	"broken":       schema.String(),
 	"secret":       schema.String(),
+	"state-id":  schema.Int(),
 }
 var configDefaults = schema.Defaults{
 	"broken": "",
 	"secret": "pork",
+	"state-id": schema.Omit,
 }
 
 type environConfig struct {
@@ -322,6 +325,11 @@ func (c *environConfig) broken() string {
 
 func (c *environConfig) secret() string {
 	return c.attrs["secret"].(string)
+}
+
+func (c *environConfig) stateId() int {
+	id, _ := c.attrs["state-id"].(int64)
+	return int(id)
 }
 
 func (p *environProvider) newConfig(cfg *config.Config) (*environConfig, error) {
@@ -345,14 +353,18 @@ func (p *environProvider) Validate(cfg, old *config.Config) (valid *config.Confi
 	return cfg.Apply(validated)
 }
 
-func (e *environ) state() *environState {
+func (e *environ) state() (*environState, error) {
+	stateId := e.ecfg().stateId()
+	if stateId == noStateId {
+		return nil, provider.ErrNotPrepared
+	}
 	p := &providerInstance
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if state := p.state[e.name]; state != nil {
-		return state
+	if state := p.state[stateId]; state != nil {
+		return state, nil
 	}
-	panic(fmt.Errorf("environment %q is not prepared", e.name))
+	return nil, provider.ErrDestroyed
 }
 
 func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
@@ -361,6 +373,9 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	ecfg, err := p.newConfig(cfg)
 	if err != nil {
 		return nil, err
+	}
+	if ecfg.stateId() == noStateId {
+		return nil, provider.ErrNotPrepared
 	}
 	env := &environ{
 		name:         ecfg.Name(),
@@ -373,28 +388,44 @@ func (p *environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 }
 
 func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	log.Infof("Prepare called by %s", debug.Callers(1, 30))
+	cfg, err := p.prepare(cfg)
+	if err != nil {
+		return nil, err
+	}
+	return p.Open(cfg)
+}
+
+// prepare is the internal version of Prepare - it prepares the
+// environment but does not open it.
+func (p *environProvider) prepare(cfg *config.Config) (*config.Config, error) {
 	ecfg, err := p.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	p.mu.Lock()
+	defer p.mu.Unlock()
 	name := cfg.Name()
-	state := p.state[name]
-	if state == nil {
-		if ecfg.stateServer() && len(p.state) != 0 {
-			var old string
-			for oldName := range p.state {
-				old = oldName
-				break
-			}
-			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q", old, name))
-		}
-		state = newState(name, p.ops)
-		p.state[name] = state
+	if ecfg.stateId() != noStateId {
+		return cfg, nil
 	}
-	// TODO(rog) add an attribute to the configuration which is required for Open?
-	p.mu.Unlock()
-	return p.Open(cfg)
+	// The environment has not been prepared,
+	// so create it and set its state identifier accordingly.
+	if ecfg.stateServer() && len(p.state) != 0 {
+		for _, old := range p.state {
+			panic(fmt.Errorf("cannot share a state between two dummy environs; old %q; new %q; previously created by %s", old.name, name, old.callers))
+		}
+	}
+	state := newState(name, p.ops)
+	state.callers = debug.Callers(2, 30)
+	p.maxStateId++
+	state.id = p.maxStateId
+	p.state[state.id] = state
+	// Add the state id to the configuration we use to
+	// in the returned environment.
+	return cfg.Apply(map[string]interface{}{
+		"state-id": state.id,
+	})
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
@@ -477,7 +508,10 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 		return fmt.Errorf("cannot make bootstrap config: %v", err)
 	}
 
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if estate.bootstrapped {
@@ -514,7 +548,10 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools coretools.List
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return nil, nil, err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if err := e.checkBroken("StateInfo"); err != nil {
@@ -551,15 +588,23 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 }
 
 func (e *environ) Destroy([]instance.Instance) error {
+	log.Infof("Destroy called by %s", debug.Callers(0, 15))
 	defer delay()
 	if err := e.checkBroken("Destroy"); err != nil {
 		return err
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		if err == provider.ErrDestroyed {
+			return nil
+		}
+		return err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	estate.ops <- OpDestroy{Env: estate.name}
 	estate.destroy()
+	delete(providerInstance.state, estate.id)
 	return nil
 }
 
@@ -573,7 +618,10 @@ func (e *environ) StartInstance(cons constraints.Value, possibleTools coretools.
 	if err := e.checkBroken("StartInstance"); err != nil {
 		return nil, nil, err
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return nil, nil, err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	if machineConfig.MachineNonce == "" {
@@ -649,7 +697,10 @@ func (e *environ) StopInstances(is []instance.Instance) error {
 	if err := e.checkBroken("StopInstance"); err != nil {
 		return err
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for _, i := range is {
@@ -670,7 +721,10 @@ func (e *environ) Instances(ids []instance.Id) (insts []instance.Instance, err e
 	if len(ids) == 0 {
 		return nil, nil
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return nil, err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	notFound := 0
@@ -694,7 +748,10 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 		return nil, err
 	}
 	var insts []instance.Instance
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return nil, err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for _, v := range estate.insts {
@@ -707,7 +764,10 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for opening ports on environment", mode)
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for _, p := range ports {
@@ -720,7 +780,10 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return fmt.Errorf("invalid firewall mode %q for closing ports on environment", mode)
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for _, p := range ports {
@@ -733,7 +796,10 @@ func (e *environ) Ports() (ports []instance.Port, err error) {
 	if mode := e.ecfg().FirewallMode(); mode != config.FwGlobal {
 		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment", mode)
 	}
-	estate := e.state()
+	estate, err := e.state()
+	if err != nil {
+		return nil, err
+	}
 	estate.mu.Lock()
 	defer estate.mu.Unlock()
 	for p := range estate.globalPorts {

@@ -82,23 +82,3 @@ func Unauthorizedf(format string, args ...interface{}) error {
 func NewUnauthorizedError(err error, msg string) error {
 	return unauthorizedError{&errorWrapper{Msg: msg}}
 }
-
-// notBootstrappedError indicates that the environment can't be used because it hasn't been
-// bootstrapped yet.
-type notBootstrappedError struct {
-	*errorWrapper
-}
-
-// IsNotBootstrapped is satisfied by errors created by this package representing an environment
-// that isn't bootstrapped.
-func IsNotBootstrapped(err error) bool {
-	if _, ok := err.(notBootstrappedError); ok {
-		return true
-	}
-	return false
-}
-
-// NewNotBootstrappedError returns a new error which wraps err and satisfies IsNotBootstrapped().
-func NewNotBootstrappedError(err error, msg string) error {
-	return notBootstrappedError{&errorWrapper{Err: err, Msg: msg}}
-}

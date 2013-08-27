@@ -54,12 +54,14 @@ type Tests struct {
 	coretesting.LoggingSuite
 	TestConfig TestConfig
 	Env        environs.Environ
+
+	preparedConfig *config.Config
 }
 
 // Open opens an instance of the testing environment.
 func (t *Tests) Open(c *C) environs.Environ {
-	e, err := environs.NewFromAttrs(t.TestConfig.Config)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
+	e, err := environs.New(t.preparedConfig)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.preparedConfig))
 	c.Assert(e, NotNil)
 	return e
 }
@@ -70,6 +72,7 @@ func (t *Tests) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	t.Env, err = environs.Prepare(cfg)
 	c.Assert(err, IsNil)
+	t.preparedConfig = t.Env.Config()
 }
 
 func (t *Tests) TearDownTest(c *C) {
@@ -77,25 +80,25 @@ func (t *Tests) TearDownTest(c *C) {
 		err := t.Env.Destroy(nil)
 		c.Check(err, IsNil)
 		t.Env = nil
+		t.preparedConfig = nil
 	}
 	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *Tests) TestStartStop(c *C) {
-	e := t.Open(c)
-	envtesting.UploadFakeTools(c, e.Storage())
-	cfg, err := e.Config().Apply(map[string]interface{}{
+	envtesting.UploadFakeTools(c, t.Env.Storage())
+	cfg, err := t.Env.Config().Apply(map[string]interface{}{
 		"agent-version": version.Current.Number.String(),
 	})
 	c.Assert(err, IsNil)
-	err = e.SetConfig(cfg)
+	err = t.Env.SetConfig(cfg)
 	c.Assert(err, IsNil)
 
-	insts, err := e.Instances(nil)
+	insts, err := t.Env.Instances(nil)
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 0)
 
-	inst0, hc := testing.StartInstance(c, e, "0")
+	inst0, hc := testing.StartInstance(c, t.Env, "0")
 	c.Assert(inst0, NotNil)
 	id0 := inst0.Id()
 	// Sanity check for hardware characteristics.
@@ -103,46 +106,44 @@ func (t *Tests) TestStartStop(c *C) {
 	c.Assert(hc.Mem, NotNil)
 	c.Assert(hc.CpuCores, NotNil)
 
-	inst1, _ := testing.StartInstance(c, e, "1")
+	inst1, _ := testing.StartInstance(c, t.Env, "1")
 	c.Assert(inst1, NotNil)
 	id1 := inst1.Id()
 
-	insts, err = e.Instances([]instance.Id{id0, id1})
+	insts, err = t.Env.Instances([]instance.Id{id0, id1})
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Equals, id0)
 	c.Assert(insts[1].Id(), Equals, id1)
 
 	// order of results is not specified
-	insts, err = e.AllInstances()
+	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts, HasLen, 2)
 	c.Assert(insts[0].Id(), Not(Equals), insts[1].Id())
 
-	err = e.StopInstances([]instance.Instance{inst0})
+	err = t.Env.StopInstances([]instance.Instance{inst0})
 	c.Assert(err, IsNil)
 
-	insts, err = e.Instances([]instance.Id{id0, id1})
+	insts, err = t.Env.Instances([]instance.Id{id0, id1})
 	c.Assert(err, Equals, environs.ErrPartialInstances)
 	c.Assert(insts[0], IsNil)
 	c.Assert(insts[1].Id(), Equals, id1)
 
-	insts, err = e.AllInstances()
+	insts, err = t.Env.AllInstances()
 	c.Assert(err, IsNil)
 	c.Assert(insts[0].Id(), Equals, id1)
 }
 
 func (t *Tests) TestBootstrap(c *C) {
-	// TODO tests for Bootstrap(true)
-	e := t.Open(c)
-	err := bootstrap.Bootstrap(e, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, IsNil)
 
-	info, apiInfo, err := e.StateInfo()
+	info, apiInfo, err := t.Env.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
 	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
-	err = bootstrap.Bootstrap(e, constraints.Value{})
+	err = bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
@@ -169,7 +170,7 @@ func (t *Tests) TestBootstrap(c *C) {
 var noRetry = utils.AttemptStrategy{}
 
 func (t *Tests) TestPersistence(c *C) {
-	storage := t.Open(c).Storage()
+	storage := t.Env.Storage()
 
 	names := []string{
 		"aa",

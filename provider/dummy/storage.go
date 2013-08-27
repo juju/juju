@@ -19,15 +19,31 @@ import (
 )
 
 func (e *environ) Storage() environs.Storage {
-	return e.state().storage
+	return &storage{
+		env: e,
+		public: false,
+	}
 }
 
 func (e *environ) PublicStorage() environs.StorageReader {
-	return e.state().publicStorage
+	return &storage{
+		env: e,
+		public: true,
+	}
 }
 
-func newStorage(state *environState, path string) *storage {
-	return &storage{
+// storageServer holds the storage for an environState.
+// There are two instances for each environState
+// instance, one for public files and one for private.
+type storageServer struct {
+	path     string // path prefix in http space.
+	state    *environState
+	files    map[string][]byte
+	poisoned map[string]error
+}
+
+func newStorageServer(state *environState, path string) *storageServer {
+	return &storageServer{
 		state:    state,
 		files:    make(map[string][]byte),
 		path:     path,
@@ -39,12 +55,16 @@ func newStorage(state *environState, path string) *storage {
 // return the given error.
 func Poison(ss environs.Storage, path string, err error) {
 	s := ss.(*storage)
-	s.state.mu.Lock()
-	s.poisoned[path] = err
-	s.state.mu.Unlock()
+	srv, err := s.server()
+	if err != nil {
+		panic("cannot poison destroyed storage")
+	}
+	srv.state.mu.Lock()
+	srv.poisoned[path] = err
+	srv.state.mu.Unlock()
 }
 
-func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (s *storageServer) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "GET" {
 		http.Error(w, "only GET is supported", http.StatusMethodNotAllowed)
 		return
@@ -61,18 +81,10 @@ func (s *storage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	w.Write(data)
 }
 
-func (s *storage) Get(name string) (io.ReadCloser, error) {
-	data, err := s.dataWithDelay(name)
-	if err != nil {
-		return nil, err
-	}
-	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
-}
-
 // dataWithDelay returns the data for the given path,
 // waiting for the configured amount of time before
 // accessing it.
-func (s *storage) dataWithDelay(path string) (data []byte, err error) {
+func (s *storageServer) dataWithDelay(path string) (data []byte, err error) {
 	s.state.mu.Lock()
 	delay := s.state.storageDelay
 	s.state.mu.Unlock()
@@ -89,16 +101,7 @@ func (s *storage) dataWithDelay(path string) (data []byte, err error) {
 	return data, nil
 }
 
-func (s *storage) URL(name string) (string, error) {
-	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
-}
-
-// ConsistencyStrategy is specified in the StorageReader interface.
-func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
-	return utils.AttemptStrategy{}
-}
-
-func (s *storage) Put(name string, r io.Reader, length int64) error {
+func (s *storageServer) Put(name string, r io.Reader, length int64) error {
 	// Allow Put to be poisoned as well.
 	if err := s.poisoned[name]; err != nil {
 		return err
@@ -119,21 +122,37 @@ func (s *storage) Put(name string, r io.Reader, length int64) error {
 	return nil
 }
 
-func (s *storage) Remove(name string) error {
+func (s *storageServer) Get(name string) (io.ReadCloser, error) {
+	data, err := s.dataWithDelay(name)
+	if err != nil {
+		return nil, err
+	}
+	return ioutil.NopCloser(bytes.NewBuffer(data)), nil
+}
+
+func (s *storageServer) URL(name string) (string, error) {
+	return fmt.Sprintf("http://%v%s/%s", s.state.httpListener.Addr(), s.path, name), nil
+}
+
+func (s *storageServer) Remove(name string) error {
 	s.state.mu.Lock()
 	delete(s.files, name)
 	s.state.mu.Unlock()
 	return nil
 }
 
-func (s *storage) RemoveAll() error {
+func (s *storageServer) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{}
+}
+
+func (s *storageServer) RemoveAll() error {
 	s.state.mu.Lock()
 	s.files = make(map[string][]byte)
 	s.state.mu.Unlock()
 	return nil
 }
 
-func (s *storage) List(prefix string) ([]string, error) {
+func (s *storageServer) List(prefix string) ([]string, error) {
 	s.state.mu.Lock()
 	defer s.state.mu.Unlock()
 	var names []string
@@ -144,4 +163,74 @@ func (s *storage) List(prefix string) ([]string, error) {
 	}
 	sort.Strings(names)
 	return names, nil
+}
+
+// storage implements the client side of the Storage interface.
+type storage struct {
+	env *environ
+	public bool
+}
+
+// server returns the server side of the given storage.
+func (s *storage) server() (*storageServer, error) {
+	st, err := s.env.state()
+	if err != nil {
+		return nil, err
+	}
+	if s.public {
+		return st.publicStorage, nil
+	}
+	return st.storage, nil
+}
+
+func (s *storage) Get(name string) (io.ReadCloser, error) {
+	srv, err := s.server()
+	if err != nil {
+		return nil, err
+	}
+	return srv.Get(name)
+}
+
+func (s *storage) URL(name string) (string, error) {
+	srv, err := s.server()
+	if err != nil {
+		return "", err
+	}
+	return srv.URL(name)
+}
+
+func (s *storage) ConsistencyStrategy() utils.AttemptStrategy {
+	return utils.AttemptStrategy{}
+}
+
+func (s *storage) Put(name string, r io.Reader, length int64) error {
+	srv, err := s.server()
+	if err != nil {
+		return err
+	}
+	return srv.Put(name, r, length)
+}
+
+func (s *storage) Remove(name string) error {
+	srv, err := s.server()
+	if err != nil {
+		return err
+	}
+	return srv.Remove(name)
+}
+
+func (s *storage) RemoveAll() error {
+	srv, err := s.server()
+	if err != nil {
+		return err
+	}
+	return srv.RemoveAll()
+}
+
+func (s *storage) List(prefix string) ([]string, error) {
+	srv, err := s.server()
+	if err != nil {
+		return nil, err
+	}
+	return srv.List(prefix)
 }

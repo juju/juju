@@ -26,17 +26,20 @@ func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line i
 	w.c.Output(3, fmt.Sprintf("%s %s %s", level, module, message))
 }
 
-func (t *LoggingSuite) SetUpSuite(c *C)    {}
-func (t *LoggingSuite) TearDownSuite(c *C) {}
-
-func (t *LoggingSuite) SetUpTest(c *C) {
+func (t *LoggingSuite) SetUpSuite(c *C)    {
 	loggo.ResetWriters()
 	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLoggers()
 	loggo.GetLogger("juju").SetLogLevel(loggo.DEBUG)
 }
 
-func (t *LoggingSuite) TearDownTest(c *C) {
+func (t *LoggingSuite) TearDownSuite(c *C) {
 	loggo.ResetLoggers()
 	loggo.ResetWriters()
+}
+
+func (t *LoggingSuite) SetUpTest(c *C) {
+}
+
+func (t *LoggingSuite) TearDownTest(c *C) {
 }

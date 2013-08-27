@@ -61,10 +61,14 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
+	t.prepare(c)
+}
+
+func (t *LiveTests) prepare(c *C) {
 	cfg, err := config.New(t.TestConfig.Config)
 	c.Assert(err, IsNil)
 	e, err := environs.Prepare(cfg)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
+	c.Assert(err, IsNil, Commentf("config %#v", t.TestConfig.Config))
 	c.Assert(e, NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))
@@ -96,6 +100,9 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	if t.bootstrapped {
 		return
 	}
+	if t.Env == nil {
+		t.prepare(c)
+	}
 	// We only build and upload tools if there will be a state agent that
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
@@ -109,8 +116,11 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 }
 
 func (t *LiveTests) Destroy(c *C) {
-	err := t.Env.Destroy(nil)
-	c.Assert(err, IsNil)
+	if t.Env != nil {
+		err := t.Env.Destroy(nil)
+		c.Assert(err, IsNil)
+		t.Env = nil
+	}
 	t.bootstrapped = false
 }
 
