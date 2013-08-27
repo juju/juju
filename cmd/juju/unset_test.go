@@ -33,7 +33,7 @@ func (s *UnsetSuite) SetUpTest(c *gc.C) {
 	setupConfigFile(c, s.dir)
 }
 
-func (s *UnsetSuite) TestUnsetOptionSuccess(c *gc.C) {
+func (s *UnsetSuite) TestUnsetOptionOneByOneSuccess(c *gc.C) {
 	// Set options as preparation.
 	assertSetSuccess(c, s.dir, s.svc, []string{
 		"username=hello",
@@ -48,8 +48,10 @@ func (s *UnsetSuite) TestUnsetOptionSuccess(c *gc.C) {
 		"outlook": "hello@world.tld",
 	})
 	assertUnsetSuccess(c, s.dir, s.svc, []string{"outlook"}, charm.Settings{})
+}
 
-	// Set options as preparation again.
+func (s *UnsetSuite) TestUnsetOptionMultipleAtOnceSuccess(c *gc.C) {
+	// Set options as preparation.
 	assertSetSuccess(c, s.dir, s.svc, []string{
 		"username=hello",
 		"outlook=hello@world.tld",

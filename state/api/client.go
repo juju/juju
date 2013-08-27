@@ -129,10 +129,11 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 }
 
 // AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
+func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
 	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
+		ServiceName:   service,
+		NumUnits:      numUnits,
+		ToMachineSpec: machineSpec,
 	}
 	results := new(params.AddServiceUnitsResults)
 	err := c.st.Call("Client", "", "AddServiceUnits", args, results)
