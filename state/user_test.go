@@ -4,7 +4,7 @@
 package state_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/utils"
@@ -14,60 +14,60 @@ type UserSuite struct {
 	ConnSuite
 }
 
-var _ = Suite(&UserSuite{})
+var _ = gc.Suite(&UserSuite{})
 
-func (s *UserSuite) TestAddUserInvalidNames(c *C) {
+func (s *UserSuite) TestAddUserInvalidNames(c *gc.C) {
 	for _, name := range []string{
 		"foo-bar",
 		"",
 		"0foo",
 	} {
 		u, err := s.State.AddUser(name, "password")
-		c.Assert(err, ErrorMatches, `invalid user name "`+name+`"`)
-		c.Assert(u, IsNil)
+		c.Assert(err, gc.ErrorMatches, `invalid user name "`+name+`"`)
+		c.Assert(u, gc.IsNil)
 	}
 }
 
-func (s *UserSuite) TestAddUser(c *C) {
+func (s *UserSuite) TestAddUser(c *gc.C) {
 	u, err := s.State.AddUser("a", "b")
-	c.Check(u, NotNil)
-	c.Assert(err, IsNil)
+	c.Check(u, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.Name(), Equals, "a")
-	c.Assert(u.PasswordValid("b"), Equals, true)
+	c.Assert(u.Name(), gc.Equals, "a")
+	c.Assert(u.PasswordValid("b"), gc.Equals, true)
 
 	u1, err := s.State.User("a")
-	c.Check(u1, NotNil)
-	c.Assert(err, IsNil)
+	c.Check(u1, gc.NotNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(u1.Name(), Equals, "a")
-	c.Assert(u1.PasswordValid("b"), Equals, true)
+	c.Assert(u1.Name(), gc.Equals, "a")
+	c.Assert(u1.PasswordValid("b"), gc.Equals, true)
 }
 
-func (s *UserSuite) TestSetPassword(c *C) {
+func (s *UserSuite) TestSetPassword(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	testSetPassword(c, func() (state.Authenticator, error) {
 		return s.State.User(u.Name())
 	})
 }
 
-func (s *UserSuite) TestSetPasswordHash(c *C) {
+func (s *UserSuite) TestSetPasswordHash(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	err = u.SetPasswordHash(utils.PasswordHash("foo"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.PasswordValid("foo"), Equals, true)
-	c.Assert(u.PasswordValid("bar"), Equals, false)
+	c.Assert(u.PasswordValid("foo"), gc.Equals, true)
+	c.Assert(u.PasswordValid("bar"), gc.Equals, false)
 }
 
-func (s *UserSuite) TestName(c *C) {
+func (s *UserSuite) TestName(c *gc.C) {
 	u, err := s.State.AddUser("someuser", "")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(u.Name(), Equals, "someuser")
-	c.Assert(u.Tag(), Equals, "user-someuser")
+	c.Assert(u.Name(), gc.Equals, "someuser")
+	c.Assert(u.Tag(), gc.Equals, "user-someuser")
 }

@@ -10,10 +10,9 @@ import (
 	"net/url"
 	"strings"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
@@ -24,10 +23,11 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
-func runStatus(c *C, args ...string) (code int, stdout, stderr []byte) {
+func runStatus(c *gc.C, args ...string) (code int, stdout, stderr []byte) {
 	ctx := coretesting.Context(c)
 	code = cmd.Main(&StatusCommand{}, ctx, args)
 	stdout = ctx.Stdout.(*bytes.Buffer).Bytes()
@@ -39,7 +39,7 @@ type StatusSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = Suite(&StatusSuite{})
+var _ = gc.Suite(&StatusSuite{})
 
 type M map[string]interface{}
 
@@ -55,7 +55,7 @@ func test(summary string, steps ...stepper) testCase {
 }
 
 type stepper interface {
-	step(c *C, ctx *context)
+	step(c *gc.C, ctx *context)
 }
 
 type context struct {
@@ -74,15 +74,15 @@ func (s *StatusSuite) newContext() *context {
 	}
 }
 
-func (s *StatusSuite) resetContext(c *C, ctx *context) {
+func (s *StatusSuite) resetContext(c *gc.C, ctx *context) {
 	for _, up := range ctx.pingers {
 		err := up.Kill()
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 	s.JujuConnSuite.Reset(c)
 }
 
-func (ctx *context) run(c *C, steps []stepper) {
+func (ctx *context) run(c *gc.C, steps []stepper) {
 	for i, s := range steps {
 		c.Logf("step %d", i)
 		c.Logf("%#v", s)
@@ -1232,15 +1232,15 @@ type addMachine struct {
 	job       state.MachineJob
 }
 
-func (am addMachine) step(c *C, ctx *context) {
+func (am addMachine) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
 		Series:      "series",
 		Constraints: am.cons,
 		Jobs:        []state.MachineJob{am.job},
 	}
 	m, err := ctx.st.AddMachineWithConstraints(params)
-	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, am.machineId)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, am.machineId)
 }
 
 type addContainer struct {
@@ -1249,7 +1249,7 @@ type addContainer struct {
 	job       state.MachineJob
 }
 
-func (ac addContainer) step(c *C, ctx *context) {
+func (ac addContainer) step(c *gc.C, ctx *context) {
 	params := &state.AddMachineParams{
 		ParentId:      ac.parentId,
 		ContainerType: instance.LXC,
@@ -1257,58 +1257,58 @@ func (ac addContainer) step(c *C, ctx *context) {
 		Jobs:          []state.MachineJob{ac.job},
 	}
 	m, err := ctx.st.AddMachineWithConstraints(params)
-	c.Assert(err, IsNil)
-	c.Assert(m.Id(), Equals, ac.machineId)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Id(), gc.Equals, ac.machineId)
 }
 
 type startMachine struct {
 	machineId string
 }
 
-func (sm startMachine) step(c *C, ctx *context) {
+func (sm startMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type startMissingMachine struct {
 	machineId string
 }
 
-func (sm startMissingMachine) step(c *C, ctx *context) {
+func (sm startMissingMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sm.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	cons, err := m.Constraints()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned("i-missing", "fake_nonce", hc)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type startAliveMachine struct {
 	machineId string
 }
 
-func (sam startAliveMachine) step(c *C, ctx *context) {
+func (sam startAliveMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sam.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	pinger, err := m.SetAgentAlive()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
 	err = m.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	agentAlive, err := m.AgentAlive()
-	c.Assert(err, IsNil)
-	c.Assert(agentAlive, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
 	cons, err := m.Constraints()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	inst, hc := testing.StartInstanceWithConstraints(c, ctx.conn.Environ, m.Id(), cons)
 	err = m.SetProvisioned(inst.Id(), "fake_nonce", hc)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.pingers[m.Id()] = pinger
 }
 
@@ -1317,25 +1317,25 @@ type setTools struct {
 	tools     *tools.Tools
 }
 
-func (st setTools) step(c *C, ctx *context) {
+func (st setTools) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(st.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = m.SetAgentTools(st.tools)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type addCharm struct {
 	name string
 }
 
-func (ac addCharm) step(c *C, ctx *context) {
+func (ac addCharm) step(c *gc.C, ctx *context) {
 	ch := coretesting.Charms.Dir(ac.name)
 	name, rev := ch.Meta().Name, ch.Revision()
 	curl := charm.MustParseURL(fmt.Sprintf("local:series/%s-%d", name, rev))
 	bundleURL, err := url.Parse(fmt.Sprintf("http://bundles.testing.invalid/%s-%d", name, rev))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	dummy, err := ctx.st.AddCharm(ch, curl, bundleURL, fmt.Sprintf("%s-%d-sha256", name, rev))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.charms[ac.name] = dummy
 }
 
@@ -1344,11 +1344,11 @@ type addService struct {
 	charm string
 }
 
-func (as addService) step(c *C, ctx *context) {
+func (as addService) step(c *gc.C, ctx *context) {
 	ch, ok := ctx.charms[as.charm]
-	c.Assert(ok, Equals, true)
+	c.Assert(ok, gc.Equals, true)
 	_, err := ctx.st.AddService(as.name, ch)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type setServiceExposed struct {
@@ -1356,12 +1356,12 @@ type setServiceExposed struct {
 	exposed bool
 }
 
-func (sse setServiceExposed) step(c *C, ctx *context) {
+func (sse setServiceExposed) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sse.name)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	if sse.exposed {
 		err = s.SetExposed()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 }
 
@@ -1370,15 +1370,15 @@ type addUnit struct {
 	machineId   string
 }
 
-func (au addUnit) step(c *C, ctx *context) {
+func (au addUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(au.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	m, err := ctx.st.Machine(au.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type addAliveUnit struct {
@@ -1386,23 +1386,23 @@ type addAliveUnit struct {
 	machineId   string
 }
 
-func (aau addAliveUnit) step(c *C, ctx *context) {
+func (aau addAliveUnit) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(aau.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	u, err := s.AddUnit()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	pinger, err := u.SetAgentAlive()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.st.StartSync()
 	err = u.WaitAgentAlive(coretesting.LongWait)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	agentAlive, err := u.AgentAlive()
-	c.Assert(err, IsNil)
-	c.Assert(agentAlive, Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(agentAlive, gc.Equals, true)
 	m, err := ctx.st.Machine(aau.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.AssignToMachine(m)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ctx.pingers[u.Name()] = pinger
 }
 
@@ -1410,20 +1410,20 @@ type setUnitsAlive struct {
 	serviceName string
 }
 
-func (sua setUnitsAlive) step(c *C, ctx *context) {
+func (sua setUnitsAlive) step(c *gc.C, ctx *context) {
 	s, err := ctx.st.Service(sua.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	us, err := s.AllUnits()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	for _, u := range us {
 		pinger, err := u.SetAgentAlive()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx.st.StartSync()
 		err = u.WaitAgentAlive(coretesting.LongWait)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		agentAlive, err := u.AgentAlive()
-		c.Assert(err, IsNil)
-		c.Assert(agentAlive, Equals, true)
+		c.Assert(err, gc.IsNil)
+		c.Assert(agentAlive, gc.Equals, true)
 		ctx.pingers[u.Name()] = pinger
 	}
 }
@@ -1434,11 +1434,11 @@ type setUnitStatus struct {
 	statusInfo string
 }
 
-func (sus setUnitStatus) step(c *C, ctx *context) {
+func (sus setUnitStatus) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(sus.unitName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.SetStatus(sus.status, sus.statusInfo)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type openUnitPort struct {
@@ -1447,49 +1447,49 @@ type openUnitPort struct {
 	number   int
 }
 
-func (oup openUnitPort) step(c *C, ctx *context) {
+func (oup openUnitPort) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(oup.unitName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.OpenPort(oup.protocol, oup.number)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type ensureDyingUnit struct {
 	unitName string
 }
 
-func (e ensureDyingUnit) step(c *C, ctx *context) {
+func (e ensureDyingUnit) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(e.unitName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = u.Destroy()
-	c.Assert(err, IsNil)
-	c.Assert(u.Life(), Equals, state.Dying)
+	c.Assert(err, gc.IsNil)
+	c.Assert(u.Life(), gc.Equals, state.Dying)
 }
 
 type ensureDyingService struct {
 	serviceName string
 }
 
-func (e ensureDyingService) step(c *C, ctx *context) {
+func (e ensureDyingService) step(c *gc.C, ctx *context) {
 	svc, err := ctx.st.Service(e.serviceName)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = svc.Destroy()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = svc.Refresh()
-	c.Assert(err, IsNil)
-	c.Assert(svc.Life(), Equals, state.Dying)
+	c.Assert(err, gc.IsNil)
+	c.Assert(svc.Life(), gc.Equals, state.Dying)
 }
 
 type ensureDeadMachine struct {
 	machineId string
 }
 
-func (e ensureDeadMachine) step(c *C, ctx *context) {
+func (e ensureDeadMachine) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(e.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = m.EnsureDead()
-	c.Assert(err, IsNil)
-	c.Assert(m.Life(), Equals, state.Dead)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m.Life(), gc.Equals, state.Dead)
 }
 
 type setMachineStatus struct {
@@ -1498,22 +1498,22 @@ type setMachineStatus struct {
 	statusInfo string
 }
 
-func (sms setMachineStatus) step(c *C, ctx *context) {
+func (sms setMachineStatus) step(c *gc.C, ctx *context) {
 	m, err := ctx.st.Machine(sms.machineId)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = m.SetStatus(sms.status, sms.statusInfo)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type relateServices struct {
 	ep1, ep2 string
 }
 
-func (rs relateServices) step(c *C, ctx *context) {
+func (rs relateServices) step(c *gc.C, ctx *context) {
 	eps, err := ctx.st.InferEndpoints([]string{rs.ep1, rs.ep2})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	_, err = ctx.st.AddRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type addSubordinate struct {
@@ -1521,17 +1521,17 @@ type addSubordinate struct {
 	subService string
 }
 
-func (as addSubordinate) step(c *C, ctx *context) {
+func (as addSubordinate) step(c *gc.C, ctx *context) {
 	u, err := ctx.st.Unit(as.prinUnit)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	eps, err := ctx.st.InferEndpoints([]string{u.ServiceName(), as.subService})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	rel, err := ctx.st.EndpointsRelation(eps...)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	ru, err := rel.Unit(u)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	err = ru.EnterScope(nil)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 type scopedExpect struct {
@@ -1545,7 +1545,7 @@ type expect struct {
 	output M
 }
 
-func (e scopedExpect) step(c *C, ctx *context) {
+func (e scopedExpect) step(c *gc.C, ctx *context) {
 	c.Logf("expect: %s %s", e.what, strings.Join(e.scope, " "))
 
 	// Now execute the command for each format.
@@ -1554,29 +1554,29 @@ func (e scopedExpect) step(c *C, ctx *context) {
 		// Run command with the required format.
 		args := append([]string{"--format", format.name}, e.scope...)
 		code, stdout, stderr := runStatus(c, args...)
-		c.Assert(code, Equals, 0)
-		c.Assert(stderr, HasLen, 0)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(stderr, gc.HasLen, 0)
 
 		// Prepare the output in the same format.
 		buf, err := format.marshal(e.output)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		expected := make(M)
 		err = format.unmarshal(buf, &expected)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Check the output is as expected.
 		actual := make(M)
 		err = format.unmarshal(stdout, &actual)
-		c.Assert(err, IsNil)
-		c.Assert(actual, DeepEquals, expected)
+		c.Assert(err, gc.IsNil)
+		c.Assert(actual, gc.DeepEquals, expected)
 	}
 }
 
-func (e expect) step(c *C, ctx *context) {
+func (e expect) step(c *gc.C, ctx *context) {
 	scopedExpect{e.what, nil, e.output}.step(c, ctx)
 }
 
-func (s *StatusSuite) TestStatusAllFormats(c *C) {
+func (s *StatusSuite) TestStatusAllFormats(c *gc.C) {
 	for i, t := range statusTests {
 		c.Logf("test %d: %s", i, t.summary)
 		func() {
@@ -1588,7 +1588,7 @@ func (s *StatusSuite) TestStatusAllFormats(c *C) {
 	}
 }
 
-func (s *StatusSuite) TestStatusFilterErrors(c *C) {
+func (s *StatusSuite) TestStatusFilterErrors(c *gc.C) {
 	steps := []stepper{
 		addMachine{machineId: "0", job: state.JobManageEnviron},
 		addMachine{machineId: "1", job: state.JobHostUnits},
@@ -1602,17 +1602,17 @@ func (s *StatusSuite) TestStatusFilterErrors(c *C) {
 
 	// Status filters can only fail if the patterns are invalid.
 	code, _, stderr := runStatus(c, "[*")
-	c.Assert(code, Not(Equals), 0)
-	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid characters`+"\n")
+	c.Assert(code, gc.Not(gc.Equals), 0)
+	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
 
 	code, _, stderr = runStatus(c, "//")
-	c.Assert(code, Not(Equals), 0)
-	c.Assert(string(stderr), Equals, `error: pattern "//" contains too many '/' characters`+"\n")
+	c.Assert(code, gc.Not(gc.Equals), 0)
+	c.Assert(string(stderr), gc.Equals, `error: pattern "//" contains too many '/' characters`+"\n")
 
 	// Pattern validity is checked eagerly; if a bad pattern
 	// proceeds a valid, matching pattern, then the bad pattern
 	// will still cause an error.
 	code, _, stderr = runStatus(c, "*", "[*")
-	c.Assert(code, Not(Equals), 0)
-	c.Assert(string(stderr), Equals, `error: pattern "[*" contains invalid characters`+"\n")
+	c.Assert(code, gc.Not(gc.Equals), 0)
+	c.Assert(string(stderr), gc.Equals, `error: pattern "[*" contains invalid characters`+"\n")
 }

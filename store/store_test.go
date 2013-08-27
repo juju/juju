@@ -13,7 +13,7 @@ import (
 	"time"
 
 	"labix.org/v2/mgo/bson"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/store"
@@ -21,11 +21,11 @@ import (
 )
 
 func Test(t *stdtesting.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
-var _ = Suite(&StoreSuite{})
-var _ = Suite(&TrivialSuite{})
+var _ = gc.Suite(&StoreSuite{})
+var _ = gc.Suite(&TrivialSuite{})
 
 type StoreSuite struct {
 	MgoSuite
@@ -36,27 +36,27 @@ type StoreSuite struct {
 
 type TrivialSuite struct{}
 
-func (s *StoreSuite) SetUpSuite(c *C) {
+func (s *StoreSuite) SetUpSuite(c *gc.C) {
 	s.MgoSuite.SetUpSuite(c)
 	s.HTTPSuite.SetUpSuite(c)
 	s.LoggingSuite.SetUpSuite(c)
 }
 
-func (s *StoreSuite) TearDownSuite(c *C) {
+func (s *StoreSuite) TearDownSuite(c *gc.C) {
 	s.LoggingSuite.TearDownSuite(c)
 	s.HTTPSuite.TearDownSuite(c)
 	s.MgoSuite.TearDownSuite(c)
 }
 
-func (s *StoreSuite) SetUpTest(c *C) {
+func (s *StoreSuite) SetUpTest(c *gc.C) {
 	s.MgoSuite.SetUpTest(c)
 	s.LoggingSuite.SetUpTest(c)
 	var err error
 	s.store, err = store.Open(s.Addr)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
-func (s *StoreSuite) TearDownTest(c *C) {
+func (s *StoreSuite) TearDownTest(c *gc.C) {
 	s.LoggingSuite.TearDownTest(c)
 	s.HTTPSuite.TearDownTest(c)
 	if s.store != nil {
@@ -102,90 +102,90 @@ func (d *FakeCharmDir) BundleTo(w io.Writer) error {
 	return err
 }
 
-func (s *StoreSuite) TestCharmPublisherWithRevisionedURL(c *C) {
+func (s *StoreSuite) TestCharmPublisherWithRevisionedURL(c *gc.C) {
 	urls := []*charm.URL{charm.MustParseURL("cs:oneiric/wordpress-0")}
 	pub, err := s.store.CharmPublisher(urls, "some-digest")
-	c.Assert(err, ErrorMatches, "CharmPublisher: got charm URL with revision: cs:oneiric/wordpress-0")
-	c.Assert(pub, IsNil)
+	c.Assert(err, gc.ErrorMatches, "CharmPublisher: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(pub, gc.IsNil)
 }
 
-func (s *StoreSuite) TestCharmPublisher(c *C) {
+func (s *StoreSuite) TestCharmPublisher(c *gc.C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
 	pub, err := s.store.CharmPublisher(urls, "some-digest")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 0)
 
 	err = pub.Publish(testing.Charms.ClonedDir(c.MkDir(), "dummy"))
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	for _, url := range urls {
 		info, rc, err := s.store.OpenCharm(url)
-		c.Assert(err, IsNil)
-		c.Assert(info.Revision(), Equals, 0)
-		c.Assert(info.Digest(), Equals, "some-digest")
+		c.Assert(err, gc.IsNil)
+		c.Assert(info.Revision(), gc.Equals, 0)
+		c.Assert(info.Digest(), gc.Equals, "some-digest")
 		data, err := ioutil.ReadAll(rc)
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 		err = rc.Close()
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		bundle, err := charm.ReadBundleBytes(data)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// The same information must be available by reading the
 		// full charm data...
-		c.Assert(bundle.Meta().Name, Equals, "dummy")
-		c.Assert(bundle.Config().Options["title"].Default, Equals, "My Title")
+		c.Assert(bundle.Meta().Name, gc.Equals, "dummy")
+		c.Assert(bundle.Config().Options["title"].Default, gc.Equals, "My Title")
 
 		// ... and the queriable details.
-		c.Assert(info.Meta().Name, Equals, "dummy")
-		c.Assert(info.Config().Options["title"].Default, Equals, "My Title")
+		c.Assert(info.Meta().Name, gc.Equals, "dummy")
+		c.Assert(info.Config().Options["title"].Default, gc.Equals, "My Title")
 
 		info2, err := s.store.CharmInfo(url)
-		c.Assert(err, IsNil)
-		c.Assert(info2, DeepEquals, info)
+		c.Assert(err, gc.IsNil)
+		c.Assert(info2, gc.DeepEquals, info)
 	}
 }
 
-func (s *StoreSuite) TestCharmPublishError(c *C) {
+func (s *StoreSuite) TestCharmPublishError(c *gc.C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
 	// Publish one successfully to bump the revision so we can
 	// make sure it is being correctly set below.
 	pub, err := s.store.CharmPublisher(urls, "one-digest")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 0)
 	err = pub.Publish(&FakeCharmDir{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	pub, err = s.store.CharmPublisher(urls, "another-digest")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 1)
 	err = pub.Publish(&FakeCharmDir{error: "beforeWrite"})
-	c.Assert(err, ErrorMatches, "beforeWrite")
+	c.Assert(err, gc.ErrorMatches, "beforeWrite")
 
 	pub, err = s.store.CharmPublisher(urls, "another-digest")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 1)
 	err = pub.Publish(&FakeCharmDir{error: "afterWrite"})
-	c.Assert(err, ErrorMatches, "afterWrite")
+	c.Assert(err, gc.ErrorMatches, "afterWrite")
 
 	// Still at the original charm revision that succeeded first.
 	info, err := s.store.CharmInfo(url)
-	c.Assert(err, IsNil)
-	c.Assert(info.Revision(), Equals, 0)
-	c.Assert(info.Digest(), Equals, "one-digest")
+	c.Assert(err, gc.IsNil)
+	c.Assert(info.Revision(), gc.Equals, 0)
+	c.Assert(info.Digest(), gc.Equals, "one-digest")
 }
 
-func (s *StoreSuite) TestCharmInfoNotFound(c *C) {
+func (s *StoreSuite) TestCharmInfoNotFound(c *gc.C) {
 	info, err := s.store.CharmInfo(charm.MustParseURL("cs:oneiric/wordpress"))
-	c.Assert(err, Equals, store.ErrNotFound)
-	c.Assert(info, IsNil)
+	c.Assert(err, gc.Equals, store.ErrNotFound)
+	c.Assert(info, gc.IsNil)
 }
 
-func (s *StoreSuite) TestRevisioning(c *C) {
+func (s *StoreSuite) TestRevisioning(c *gc.C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
@@ -201,75 +201,75 @@ func (s *StoreSuite) TestRevisioning(c *C) {
 
 	for i, t := range tests {
 		pub, err := s.store.CharmPublisher(t.urls, fmt.Sprintf("digest-%d", i))
-		c.Assert(err, IsNil)
-		c.Assert(pub.Revision(), Equals, i)
+		c.Assert(err, gc.IsNil)
+		c.Assert(pub.Revision(), gc.Equals, i)
 
 		err = pub.Publish(&FakeCharmDir{})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	for i, t := range tests {
 		for _, url := range t.urls {
 			url = url.WithRevision(i)
 			info, rc, err := s.store.OpenCharm(url)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			data, err := ioutil.ReadAll(rc)
 			cerr := rc.Close()
-			c.Assert(info.Revision(), Equals, i)
-			c.Assert(url.Revision, Equals, i) // Untouched.
-			c.Assert(cerr, IsNil)
-			c.Assert(string(data), Equals, string(t.data))
-			c.Assert(err, IsNil)
+			c.Assert(info.Revision(), gc.Equals, i)
+			c.Assert(url.Revision, gc.Equals, i) // Untouched.
+			c.Assert(cerr, gc.IsNil)
+			c.Assert(string(data), gc.Equals, string(t.data))
+			c.Assert(err, gc.IsNil)
 		}
 	}
 
 	info, rc, err := s.store.OpenCharm(urlA.WithRevision(1))
-	c.Assert(err, Equals, store.ErrNotFound)
-	c.Assert(info, IsNil)
-	c.Assert(rc, IsNil)
+	c.Assert(err, gc.Equals, store.ErrNotFound)
+	c.Assert(info, gc.IsNil)
+	c.Assert(rc, gc.IsNil)
 }
 
-func (s *StoreSuite) TestLockUpdates(c *C) {
+func (s *StoreSuite) TestLockUpdates(c *gc.C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
 	// Lock update of just B to force a partial conflict.
 	lock1, err := s.store.LockUpdates(urls[1:])
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Partially conflicts with locked update above.
 	lock2, err := s.store.LockUpdates(urls)
-	c.Check(err, Equals, store.ErrUpdateConflict)
-	c.Check(lock2, IsNil)
+	c.Check(err, gc.Equals, store.ErrUpdateConflict)
+	c.Check(lock2, gc.IsNil)
 
 	lock1.Unlock()
 
 	// Trying again should work since lock1 was released.
 	lock3, err := s.store.LockUpdates(urls)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lock3.Unlock()
 }
 
-func (s *StoreSuite) TestLockUpdatesExpires(c *C) {
+func (s *StoreSuite) TestLockUpdatesExpires(c *gc.C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
 	// Initiate an update of B only to force a partial conflict.
 	lock1, err := s.store.LockUpdates(urls[1:])
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Hack time to force an expiration.
 	locks := s.Session.DB("juju").C("locks")
 	selector := bson.M{"_id": urlB.String()}
 	update := bson.M{"time": bson.Now().Add(-store.UpdateTimeout - 10e9)}
 	err = locks.Update(selector, update)
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	// Works due to expiration of previous lock.
 	lock2, err := s.store.LockUpdates(urls)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer lock2.Unlock()
 
 	// The expired lock was forcefully killed. Unlocking it must
@@ -279,11 +279,11 @@ func (s *StoreSuite) TestLockUpdatesExpires(c *C) {
 	// The above statement was a NOOP and lock2 is still in effect,
 	// so attempting another lock must necessarily fail.
 	lock3, err := s.store.LockUpdates(urls)
-	c.Check(err, Equals, store.ErrUpdateConflict)
-	c.Check(lock3, IsNil)
+	c.Check(err, gc.Equals, store.ErrUpdateConflict)
+	c.Check(lock3, gc.IsNil)
 }
 
-func (s *StoreSuite) TestConflictingUpdate(c *C) {
+func (s *StoreSuite) TestConflictingUpdate(c *gc.C) {
 	// This test checks that if for whatever reason the locking
 	// safety-net fails, adding two charms in parallel still
 	// results in a sane outcome.
@@ -291,78 +291,78 @@ func (s *StoreSuite) TestConflictingUpdate(c *C) {
 	urls := []*charm.URL{url}
 
 	pub1, err := s.store.CharmPublisher(urls, "some-digest")
-	c.Assert(err, IsNil)
-	c.Assert(pub1.Revision(), Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub1.Revision(), gc.Equals, 0)
 
 	pub2, err := s.store.CharmPublisher(urls, "some-digest")
-	c.Assert(err, IsNil)
-	c.Assert(pub2.Revision(), Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub2.Revision(), gc.Equals, 0)
 
 	// The first publishing attempt should work.
 	err = pub2.Publish(&FakeCharmDir{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Attempting to finish the second attempt should break,
 	// since it lost the race and the given revision is already
 	// in place.
 	err = pub1.Publish(&FakeCharmDir{})
-	c.Assert(err, Equals, store.ErrUpdateConflict)
+	c.Assert(err, gc.Equals, store.ErrUpdateConflict)
 }
 
-func (s *StoreSuite) TestRedundantUpdate(c *C) {
+func (s *StoreSuite) TestRedundantUpdate(c *gc.C) {
 	urlA := charm.MustParseURL("cs:oneiric/wordpress-a")
 	urlB := charm.MustParseURL("cs:oneiric/wordpress-b")
 	urls := []*charm.URL{urlA, urlB}
 
 	pub, err := s.store.CharmPublisher(urls, "digest-0")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 0)
 	err = pub.Publish(&FakeCharmDir{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// All charms are already on digest-0.
 	pub, err = s.store.CharmPublisher(urls, "digest-0")
-	c.Assert(err, ErrorMatches, "charm is up-to-date")
-	c.Assert(err, Equals, store.ErrRedundantUpdate)
-	c.Assert(pub, IsNil)
+	c.Assert(err, gc.ErrorMatches, "charm is up-to-date")
+	c.Assert(err, gc.Equals, store.ErrRedundantUpdate)
+	c.Assert(pub, gc.IsNil)
 
 	// Now add a second revision just for wordpress-b.
 	pub, err = s.store.CharmPublisher(urls[1:], "digest-1")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 1)
 	err = pub.Publish(&FakeCharmDir{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// Same digest bumps revision because one of them was old.
 	pub, err = s.store.CharmPublisher(urls, "digest-1")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 2)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 2)
 	err = pub.Publish(&FakeCharmDir{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 }
 
 const fakeRevZeroSha = "319095521ac8a62fa1e8423351973512ecca8928c9f62025e37de57c9ef07a53"
 
-func (s *StoreSuite) TestCharmBundleData(c *C) {
+func (s *StoreSuite) TestCharmBundleData(c *gc.C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress")
 	urls := []*charm.URL{url}
 
 	pub, err := s.store.CharmPublisher(urls, "key")
-	c.Assert(err, IsNil)
-	c.Assert(pub.Revision(), Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(pub.Revision(), gc.Equals, 0)
 
 	err = pub.Publish(&FakeCharmDir{})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	info, rc, err := s.store.OpenCharm(url)
-	c.Assert(err, IsNil)
-	c.Check(info.BundleSha256(), Equals, fakeRevZeroSha)
-	c.Check(info.BundleSize(), Equals, int64(len("charm-revision-0")))
+	c.Assert(err, gc.IsNil)
+	c.Check(info.BundleSha256(), gc.Equals, fakeRevZeroSha)
+	c.Check(info.BundleSize(), gc.Equals, int64(len("charm-revision-0")))
 	err = rc.Close()
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 }
 
-func (s *StoreSuite) TestLogCharmEventWithRevisionedURL(c *C) {
+func (s *StoreSuite) TestLogCharmEventWithRevisionedURL(c *gc.C) {
 	url := charm.MustParseURL("cs:oneiric/wordpress-0")
 	event := &store.CharmEvent{
 		Kind:   store.EventPublishError,
@@ -370,15 +370,15 @@ func (s *StoreSuite) TestLogCharmEventWithRevisionedURL(c *C) {
 		URLs:   []*charm.URL{url},
 	}
 	err := s.store.LogCharmEvent(event)
-	c.Assert(err, ErrorMatches, "LogCharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(err, gc.ErrorMatches, "LogCharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
 
 	// This may work in the future, but not now.
 	event, err = s.store.CharmEvent(url, "some-digest")
-	c.Assert(err, ErrorMatches, "CharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
-	c.Assert(event, IsNil)
+	c.Assert(err, gc.ErrorMatches, "CharmEvent: got charm URL with revision: cs:oneiric/wordpress-0")
+	c.Assert(event, gc.IsNil)
 }
 
-func (s *StoreSuite) TestLogCharmEvent(c *C) {
+func (s *StoreSuite) TestLogCharmEvent(c *gc.C) {
 	url1 := charm.MustParseURL("cs:oneiric/wordpress")
 	url2 := charm.MustParseURL("cs:oneiric/mysql")
 	urls := []*charm.URL{url1, url2}
@@ -407,61 +407,61 @@ func (s *StoreSuite) TestLogCharmEvent(c *C) {
 
 	for _, event := range []*store.CharmEvent{event1, event2, event3} {
 		err := s.store.LogCharmEvent(event)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	events := s.Session.DB("juju").C("events")
 	var s1, s2 map[string]interface{}
 
 	err := events.Find(bson.M{"digest": "revKey1"}).One(&s1)
-	c.Assert(err, IsNil)
-	c.Assert(s1["kind"], Equals, int(store.EventPublished))
-	c.Assert(s1["urls"], DeepEquals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
-	c.Assert(s1["warnings"], DeepEquals, []interface{}{"A warning."})
-	c.Assert(s1["errors"], IsNil)
-	c.Assert(s1["time"], DeepEquals, time.Unix(1, 0))
+	c.Assert(err, gc.IsNil)
+	c.Assert(s1["kind"], gc.Equals, int(store.EventPublished))
+	c.Assert(s1["urls"], gc.DeepEquals, []interface{}{"cs:oneiric/wordpress", "cs:oneiric/mysql"})
+	c.Assert(s1["warnings"], gc.DeepEquals, []interface{}{"A warning."})
+	c.Assert(s1["errors"], gc.IsNil)
+	c.Assert(s1["time"], gc.DeepEquals, time.Unix(1, 0))
 
 	err = events.Find(bson.M{"digest": "revKey2", "kind": store.EventPublishError}).One(&s2)
-	c.Assert(err, IsNil)
-	c.Assert(s2["urls"], DeepEquals, []interface{}{"cs:oneiric/wordpress"})
-	c.Assert(s2["warnings"], IsNil)
-	c.Assert(s2["errors"], DeepEquals, []interface{}{"An error."})
-	c.Assert(s2["time"].(time.Time).After(bson.Now().Add(-10e9)), Equals, true)
+	c.Assert(err, gc.IsNil)
+	c.Assert(s2["urls"], gc.DeepEquals, []interface{}{"cs:oneiric/wordpress"})
+	c.Assert(s2["warnings"], gc.IsNil)
+	c.Assert(s2["errors"], gc.DeepEquals, []interface{}{"An error."})
+	c.Assert(s2["time"].(time.Time).After(bson.Now().Add(-10e9)), gc.Equals, true)
 
 	// Mongo stores timestamps in milliseconds, so chop
 	// off the extra bits for comparison.
 	event3.Time = time.Unix(0, event3.Time.UnixNano()/1e6*1e6)
 
 	event, err := s.store.CharmEvent(urls[0], "revKey2")
-	c.Assert(err, IsNil)
-	c.Assert(event, DeepEquals, event3)
+	c.Assert(err, gc.IsNil)
+	c.Assert(event, gc.DeepEquals, event3)
 
 	event, err = s.store.CharmEvent(urls[1], "revKey1")
-	c.Assert(err, IsNil)
-	c.Assert(event, DeepEquals, event1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(event, gc.DeepEquals, event1)
 
 	event, err = s.store.CharmEvent(urls[1], "revKeyX")
-	c.Assert(err, Equals, store.ErrNotFound)
-	c.Assert(event, IsNil)
+	c.Assert(err, gc.Equals, store.ErrNotFound)
+	c.Assert(event, gc.IsNil)
 }
 
-func (s *StoreSuite) TestSumCounters(c *C) {
+func (s *StoreSuite) TestSumCounters(c *gc.C) {
 	req := store.CounterRequest{Key: []string{"a"}}
 	cs, err := s.store.Counters(&req)
-	c.Assert(err, IsNil)
-	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Count: 0}})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cs, gc.DeepEquals, []store.Counter{{Key: req.Key, Count: 0}})
 
 	for i := 0; i < 10; i++ {
 		err := s.store.IncCounter([]string{"a", "b", "c"})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	for i := 0; i < 7; i++ {
 		s.store.IncCounter([]string{"a", "b"})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 	for i := 0; i < 3; i++ {
 		s.store.IncCounter([]string{"a", "z", "b"})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	tests := []struct {
@@ -483,59 +483,59 @@ func (s *StoreSuite) TestSumCounters(c *C) {
 		c.Logf("Test: %#v\n", t)
 		req = store.CounterRequest{Key: t.key, Prefix: t.prefix}
 		cs, err := s.store.Counters(&req)
-		c.Assert(err, IsNil)
-		c.Assert(cs, DeepEquals, []store.Counter{{Key: t.key, Prefix: t.prefix, Count: t.result}})
+		c.Assert(err, gc.IsNil)
+		c.Assert(cs, gc.DeepEquals, []store.Counter{{Key: t.key, Prefix: t.prefix, Count: t.result}})
 	}
 
 	// High-level interface works. Now check that the data is
 	// stored correctly.
 	counters := s.Session.DB("juju").C("stat.counters")
 	docs1, err := counters.Count()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	if docs1 != 3 && docs1 != 4 {
 		fmt.Errorf("Expected 3 or 4 docs in counters collection, got %d", docs1)
 	}
 
 	// Hack times so that the next operation adds another document.
 	err = counters.Update(nil, bson.D{{"$set", bson.D{{"t", 1}}}})
-	c.Check(err, IsNil)
+	c.Check(err, gc.IsNil)
 
 	err = s.store.IncCounter([]string{"a", "b", "c"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	docs2, err := counters.Count()
-	c.Assert(err, IsNil)
-	c.Assert(docs2, Equals, docs1+1)
+	c.Assert(err, gc.IsNil)
+	c.Assert(docs2, gc.Equals, docs1+1)
 
 	req = store.CounterRequest{Key: []string{"a", "b", "c"}}
 	cs, err = s.store.Counters(&req)
-	c.Assert(err, IsNil)
-	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Count: 11}})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cs, gc.DeepEquals, []store.Counter{{Key: req.Key, Count: 11}})
 
 	req = store.CounterRequest{Key: []string{"a"}, Prefix: true}
 	cs, err = s.store.Counters(&req)
-	c.Assert(err, IsNil)
-	c.Assert(cs, DeepEquals, []store.Counter{{Key: req.Key, Prefix: true, Count: 21}})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cs, gc.DeepEquals, []store.Counter{{Key: req.Key, Prefix: true, Count: 21}})
 }
 
-func (s *StoreSuite) TestCountersReadOnlySum(c *C) {
+func (s *StoreSuite) TestCountersReadOnlySum(c *gc.C) {
 	// Summing up an unknown key shouldn't add the key to the database.
 	req := store.CounterRequest{Key: []string{"a", "b", "c"}}
 	_, err := s.store.Counters(&req)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	tokens := s.Session.DB("juju").C("stat.tokens")
 	n, err := tokens.Count()
-	c.Assert(err, IsNil)
-	c.Assert(n, Equals, 0)
+	c.Assert(err, gc.IsNil)
+	c.Assert(n, gc.Equals, 0)
 }
 
-func (s *StoreSuite) TestCountersTokenCaching(c *C) {
+func (s *StoreSuite) TestCountersTokenCaching(c *gc.C) {
 	assertSum := func(i int, want int64) {
 		req := store.CounterRequest{Key: []string{strconv.Itoa(i)}}
 		cs, err := s.store.Counters(&req)
-		c.Assert(err, IsNil)
-		c.Assert(cs[0].Count, Equals, want)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cs[0].Count, gc.Equals, want)
 	}
 	assertSum(100000, 0)
 
@@ -545,7 +545,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	// of genSize entries each.
 	for i := 0; i < genSize*2; i++ {
 		err := s.store.IncCounter([]string{strconv.Itoa(i)})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	// Now go behind the scenes and corrupt all the tokens.
@@ -557,9 +557,9 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	}
 	for iter.Next(&t) {
 		err := tokens.UpdateId(t.Id, bson.M{"$set": bson.M{"t": "corrupted" + t.Token}})
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
-	c.Assert(iter.Err(), IsNil)
+	c.Assert(iter.Err(), gc.IsNil)
 
 	// We can consult the counters for the cached entries still.
 	// First, check that the newest generation is good.
@@ -585,7 +585,7 @@ func (s *StoreSuite) TestCountersTokenCaching(c *C) {
 	}
 }
 
-func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
+func (s *StoreSuite) TestCounterTokenUniqueness(c *gc.C) {
 	var wg0, wg1 sync.WaitGroup
 	wg0.Add(10)
 	wg1.Add(10)
@@ -595,18 +595,18 @@ func (s *StoreSuite) TestCounterTokenUniqueness(c *C) {
 			wg0.Wait()
 			defer wg1.Done()
 			err := s.store.IncCounter([]string{"a"})
-			c.Check(err, IsNil)
+			c.Check(err, gc.IsNil)
 		}()
 	}
 	wg1.Wait()
 
 	req := store.CounterRequest{Key: []string{"a"}}
 	cs, err := s.store.Counters(&req)
-	c.Assert(err, IsNil)
-	c.Assert(cs[0].Count, Equals, int64(10))
+	c.Assert(err, gc.IsNil)
+	c.Assert(cs[0].Count, gc.Equals, int64(10))
 }
 
-func (s *StoreSuite) TestListCounters(c *C) {
+func (s *StoreSuite) TestListCounters(c *gc.C) {
 	incs := [][]string{
 		{"c", "b", "a"}, // Assign internal id c < id b < id a, to make sorting slightly trickier.
 		{"a"},
@@ -624,7 +624,7 @@ func (s *StoreSuite) TestListCounters(c *C) {
 	}
 	for _, key := range incs {
 		err := s.store.IncCounter(key)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 	}
 
 	tests := []struct {
@@ -656,18 +656,18 @@ func (s *StoreSuite) TestListCounters(c *C) {
 
 	// Use a different store to exercise cache filling.
 	st, err := store.Open(s.Addr)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	defer st.Close()
 
 	for i := range tests {
 		req := &store.CounterRequest{Key: tests[i].prefix, Prefix: true, List: true}
 		result, err := st.Counters(req)
-		c.Assert(err, IsNil)
-		c.Assert(result, DeepEquals, tests[i].result)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result, gc.DeepEquals, tests[i].result)
 	}
 }
 
-func (s *StoreSuite) TestListCountersBy(c *C) {
+func (s *StoreSuite) TestListCountersBy(c *gc.C) {
 	incs := []struct {
 		key []string
 		day int
@@ -693,14 +693,14 @@ func (s *StoreSuite) TestListCountersBy(c *C) {
 	counters := s.Session.DB("juju").C("stat.counters")
 	for i, inc := range incs {
 		err := s.store.IncCounter(inc.key)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 
 		// Hack time so counters are assigned to 2012-05-<day>
 		filter := bson.M{"t": bson.M{"$gt": store.TimeToStamp(time.Date(2013, time.January, 1, 0, 0, 0, 0, time.UTC))}}
 		stamp := store.TimeToStamp(day(inc.day))
 		stamp += int32(i) * 60 // Make every entry unique.
 		err = counters.Update(filter, bson.D{{"$set", bson.D{{"t", stamp}}}})
-		c.Check(err, IsNil)
+		c.Check(err, gc.IsNil)
 	}
 
 	tests := []struct {
@@ -807,17 +807,17 @@ func (s *StoreSuite) TestListCountersBy(c *C) {
 
 	for _, test := range tests {
 		result, err := s.store.Counters(&test.request)
-		c.Assert(err, IsNil)
-		c.Assert(result, DeepEquals, test.result)
+		c.Assert(err, gc.IsNil)
+		c.Assert(result, gc.DeepEquals, test.result)
 	}
 }
 
-func (s *TrivialSuite) TestEventString(c *C) {
-	c.Assert(store.EventPublished, Matches, "published")
-	c.Assert(store.EventPublishError, Matches, "publish-error")
+func (s *TrivialSuite) TestEventString(c *gc.C) {
+	c.Assert(store.EventPublished, gc.Matches, "published")
+	c.Assert(store.EventPublishError, gc.Matches, "publish-error")
 	for kind := store.CharmEventKind(1); kind < store.EventKindCount; kind++ {
 		// This guarantees the switch in String is properly
 		// updated with new event kinds.
-		c.Assert(kind.String(), Matches, "[a-z-]+")
+		c.Assert(kind.String(), gc.Matches, "[a-z-]+")
 	}
 }

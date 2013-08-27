@@ -15,12 +15,12 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -125,7 +125,7 @@ func (s *LxcSuite) TestStartContainer(c *gc.C) {
 	c.Assert(scripts[len(scripts)-4:], gc.DeepEquals, []string{
 		"start jujud-machine-1-lxc-0",
 		"install -m 644 /dev/null '/etc/apt/apt.conf.d/99proxy-extra'",
-		fmt.Sprintf("echo '%s' > '/etc/apt/apt.conf.d/99proxy-extra'", configProxyExtra),
+		fmt.Sprintf(`printf '%%s\n' '%s' > '/etc/apt/apt.conf.d/99proxy-extra'`, configProxyExtra),
 		"ifconfig",
 	})
 

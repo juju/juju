@@ -5,7 +5,7 @@ package main
 
 import (
 	"fmt"
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/testing"
 	"strings"
@@ -15,7 +15,7 @@ type GetEnvironmentSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = Suite(&GetEnvironmentSuite{})
+var _ = gc.Suite(&GetEnvironmentSuite{})
 
 var singleValueTests = []struct {
 	key    string
@@ -37,26 +37,26 @@ var singleValueTests = []struct {
 	},
 }
 
-func (s *GetEnvironmentSuite) TestSingleValue(c *C) {
+func (s *GetEnvironmentSuite) TestSingleValue(c *gc.C) {
 
 	for _, t := range singleValueTests {
 		context, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{t.key})
 		if t.err != "" {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		} else {
 			output := strings.TrimSpace(testing.Stdout(context))
-			c.Assert(err, IsNil)
-			c.Assert(output, Equals, t.output)
+			c.Assert(err, gc.IsNil)
+			c.Assert(output, gc.Equals, t.output)
 		}
 	}
 }
 
-func (s *GetEnvironmentSuite) TestTooManyArgs(c *C) {
+func (s *GetEnvironmentSuite) TestTooManyArgs(c *gc.C) {
 	_, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{"name", "type"})
-	c.Assert(err, ErrorMatches, `unrecognized args: \["type"\]`)
+	c.Assert(err, gc.ErrorMatches, `unrecognized args: \["type"\]`)
 }
 
-func (s *GetEnvironmentSuite) TestAllValues(c *C) {
+func (s *GetEnvironmentSuite) TestAllValues(c *gc.C) {
 
 	context, _ := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{})
 	output := strings.TrimSpace(testing.Stdout(context))
@@ -64,7 +64,7 @@ func (s *GetEnvironmentSuite) TestAllValues(c *C) {
 	// Make sure that all the environment keys are there.
 	any := "(.|\n)*" // because . doesn't match new lines.
 	for key := range s.Conn.Environ.Config().AllAttrs() {
-		c.Assert(output, Matches, fmt.Sprintf("%s%s: %s", any, key, any))
+		c.Assert(output, gc.Matches, fmt.Sprintf("%s%s: %s", any, key, any))
 	}
 }
 
@@ -72,7 +72,7 @@ type SetEnvironmentSuite struct {
 	jujutesting.RepoSuite
 }
 
-var _ = Suite(&SetEnvironmentSuite{})
+var _ = gc.Suite(&SetEnvironmentSuite{})
 
 var setEnvInitTests = []struct {
 	args     []string
@@ -105,47 +105,47 @@ var setEnvInitTests = []struct {
 	},
 }
 
-func (s *SetEnvironmentSuite) TestInit(c *C) {
+func (s *SetEnvironmentSuite) TestInit(c *gc.C) {
 
 	for _, t := range setEnvInitTests {
 		command := &SetEnvironmentCommand{}
 		testing.TestInit(c, command, t.args, t.err)
 		if t.expected != nil {
-			c.Assert(command.values, DeepEquals, t.expected)
+			c.Assert(command.values, gc.DeepEquals, t.expected)
 		}
 	}
 }
 
-func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *C) {
+func (s *SetEnvironmentSuite) TestChangeDefaultSeries(c *gc.C) {
 	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
-	c.Assert(stateConfig.DefaultSeries(), Equals, "raring")
+	c.Assert(err, gc.IsNil)
+	c.Assert(stateConfig.DefaultSeries(), gc.Equals, "raring")
 }
 
-func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *C) {
+func (s *SetEnvironmentSuite) TestChangeMultipleValues(c *gc.C) {
 	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=spartan", "broken=nope", "secret=sekrit"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	stateConfig, err := s.State.EnvironConfig()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	attrs := stateConfig.AllAttrs()
-	c.Assert(attrs["default-series"].(string), Equals, "spartan")
-	c.Assert(attrs["broken"].(string), Equals, "nope")
-	c.Assert(attrs["secret"].(string), Equals, "sekrit")
+	c.Assert(attrs["default-series"].(string), gc.Equals, "spartan")
+	c.Assert(attrs["broken"].(string), gc.Equals, "nope")
+	c.Assert(attrs["secret"].(string), gc.Equals, "sekrit")
 }
 
-func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *C) {
+func (s *SetEnvironmentSuite) TestChangeAsCommandPair(c *gc.C) {
 	_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{"default-series=raring"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	context, err := testing.RunCommand(c, &GetEnvironmentCommand{}, []string{"default-series"})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	output := strings.TrimSpace(testing.Stdout(context))
 
-	c.Assert(output, Equals, "raring")
+	c.Assert(output, gc.Equals, "raring")
 }
 
 var immutableConfigTests = map[string]string{
@@ -154,11 +154,11 @@ var immutableConfigTests = map[string]string{
 	"firewall-mode": "global",
 }
 
-func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *C) {
+func (s *SetEnvironmentSuite) TestImmutableConfigValues(c *gc.C) {
 	for name, value := range immutableConfigTests {
 		param := fmt.Sprintf("%s=%s", name, value)
 		_, err := testing.RunCommand(c, &SetEnvironmentCommand{}, []string{param})
 		errorPattern := fmt.Sprintf("cannot change %s from .* to %q", name, value)
-		c.Assert(err, ErrorMatches, errorPattern)
+		c.Assert(err, gc.ErrorMatches, errorPattern)
 	}
 }
