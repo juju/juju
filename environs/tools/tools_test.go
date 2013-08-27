@@ -6,7 +6,6 @@ package tools_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
@@ -123,6 +122,7 @@ func (s *ToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version
 var findToolsTests = []struct {
 	info    string
 	major   int
+	minor   int
 	private []version.Binary
 	public  []version.Binary
 	expect  []version.Binary
@@ -134,21 +134,25 @@ var findToolsTests = []struct {
 }, {
 	info:    "private tools only, none matching",
 	major:   1,
+	minor:   2,
 	private: v220all,
 	err:     coretools.ErrNoMatches,
 }, {
 	info:    "tools found in private bucket",
 	major:   1,
+	minor:   2,
 	private: vAll,
-	expect:  v1all,
+	expect:  v120all,
 }, {
 	info:   "tools found in public bucket",
 	major:  1,
+	minor:  1,
 	public: vAll,
-	expect: v1all,
+	expect: v110all,
 }, {
 	info:    "tools found in both buckets, only taken from private",
 	major:   1,
+	minor:   1,
 	private: v110p,
 	public:  vAll,
 	expect:  v110p,
@@ -158,6 +162,12 @@ var findToolsTests = []struct {
 	private: v220all,
 	public:  vAll,
 	err:     coretools.ErrNoMatches,
+}, {
+	info:   "tools matching major version only",
+	major:  1,
+	minor:  -1,
+	public: vAll,
+	expect: v1all,
 }}
 
 func (s *ToolsSuite) TestFindTools(c *gc.C) {
@@ -166,7 +176,7 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindTools(s.env, test.major, coretools.Filter{})
+		actual, err := envtools.FindTools(environs.StorageInstances(s.env), test.major, test.minor, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -194,7 +204,7 @@ var findBootstrapToolsTests = []struct {
 	defaultSeries string
 	agentVersion  version.Number
 	development   bool
-	constraints   string
+	arch          string
 	expect        []version.Binary
 	err           error
 }{{
@@ -207,62 +217,49 @@ var findBootstrapToolsTests = []struct {
 	available:     vAll,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	expect:        v120p,
+	expect:        v100p,
 }, {
 	info:          "released cli: cli arch ignored",
 	available:     vAll,
 	cliVersion:    v100p32,
 	defaultSeries: "precise",
-	expect:        v120p,
+	expect:        v100p,
 }, {
 	info:          "released cli: cli series ignored",
 	available:     vAll,
 	cliVersion:    v100q64,
 	defaultSeries: "precise",
-	expect:        v120p,
+	expect:        v100p,
 }, {
 	info:          "released cli: series taken from default-series",
-	available:     v100Xall,
-	cliVersion:    v100p64,
+	available:     v120all,
+	cliVersion:    v120p64,
 	defaultSeries: "quantal",
-	expect:        v100q,
+	expect:        v120q,
 }, {
 	info:          "released cli: ignore close dev match",
 	available:     v100Xall,
-	cliVersion:    v120p64,
-	defaultSeries: "precise",
-	expect:        v100p,
-}, {
-	info:          "released cli: use older release version if necessary",
-	available:     v100Xall,
-	cliVersion:    v120p64,
-	defaultSeries: "quantal",
-	expect:        v100q,
-}, {
-	info:          "released cli: ignore irrelevant constraints",
-	available:     v100Xall,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	constraints:   "mem=32G",
 	expect:        v100p,
 }, {
 	info:          "released cli: filter by arch constraints",
 	available:     v120all,
-	cliVersion:    v100p64,
+	cliVersion:    v120p64,
 	defaultSeries: "precise",
-	constraints:   "arch=i386",
+	arch:          "i386",
 	expect:        []version.Binary{v120p32},
 }, {
 	info:          "released cli: specific released version",
 	available:     vAll,
-	cliVersion:    v120p64,
+	cliVersion:    v100p64,
 	agentVersion:  v100,
 	defaultSeries: "precise",
 	expect:        v100p,
 }, {
 	info:          "released cli: specific dev version",
 	available:     vAll,
-	cliVersion:    v120p64,
+	cliVersion:    v110p64,
 	agentVersion:  v110,
 	defaultSeries: "precise",
 	expect:        v110p,
@@ -273,10 +270,22 @@ var findBootstrapToolsTests = []struct {
 	defaultSeries: "precise",
 	err:           coretools.ErrNoMatches,
 }, {
+	info:          "released cli: minor upgrades bad",
+	available:     v120all,
+	cliVersion:    v100p64,
+	defaultSeries: "precise",
+	err:           coretools.ErrNoMatches,
+}, {
 	info:          "released cli: major downgrades bad",
 	available:     v100Xall,
 	cliVersion:    v220p64,
 	defaultSeries: "precise",
+	err:           coretools.ErrNoMatches,
+}, {
+	info:          "released cli: minor downgrades bad",
+	available:     v100Xall,
+	cliVersion:    v120p64,
+	defaultSeries: "quantal",
 	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: no matching series",
@@ -289,7 +298,7 @@ var findBootstrapToolsTests = []struct {
 	available:     vAll,
 	cliVersion:    v100p64,
 	defaultSeries: "precise",
-	constraints:   "arch=arm",
+	arch:          "arm",
 	err:           coretools.ErrNoMatches,
 }, {
 	info:          "released cli: specific bad major 1",
@@ -324,21 +333,6 @@ var findBootstrapToolsTests = []struct {
 	defaultSeries: "precise",
 	err:           coretools.ErrNoMatches,
 }, {
-	info:          "released cli with dev setting picks newest matching 1",
-	available:     v100Xall,
-	cliVersion:    v120q32,
-	defaultSeries: "precise",
-	development:   true,
-	expect:        []version.Binary{v1001p64},
-}, {
-	info:          "released cli with dev setting picks newest matching 2",
-	available:     vAll,
-	cliVersion:    v100q64,
-	defaultSeries: "precise",
-	development:   true,
-	constraints:   "arch=i386",
-	expect:        []version.Binary{v120p32},
-}, {
 	info:          "released cli with dev setting respects agent-version",
 	available:     vAll,
 	cliVersion:    v100q32,
@@ -347,22 +341,9 @@ var findBootstrapToolsTests = []struct {
 	development:   true,
 	expect:        []version.Binary{v1001p64},
 }, {
-	info:          "dev cli picks newest matching 1",
-	available:     v100Xall,
-	cliVersion:    v110q32,
-	defaultSeries: "precise",
-	expect:        []version.Binary{v1001p64},
-}, {
-	info:          "dev cli picks newest matching 2",
-	available:     vAll,
-	cliVersion:    v110q64,
-	defaultSeries: "precise",
-	constraints:   "arch=i386",
-	expect:        []version.Binary{v120p32},
-}, {
 	info:          "dev cli respects agent-version",
 	available:     vAll,
-	cliVersion:    v110q32,
+	cliVersion:    v100q32,
 	agentVersion:  v1001,
 	defaultSeries: "precise",
 	expect:        []version.Binary{v1001p64},
@@ -375,8 +356,10 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			"development":    test.development,
 			"default-series": test.defaultSeries,
 		}
+		var agentVersion *version.Number
 		if test.agentVersion != version.Zero {
 			attrs["agent-version"] = test.agentVersion.String()
+			agentVersion = &test.agentVersion
 		}
 		s.Reset(c, attrs)
 		version.Current = test.cliVersion
@@ -386,8 +369,9 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			s.uploadPublic(c, vAll...)
 		}
 
-		cons := constraints.MustParse(test.constraints)
-		actual, err := envtools.FindBootstrapTools(s.env, cons)
+		cfg := s.env.Config()
+		actual, err := envtools.FindBootstrapTools(
+			environs.StorageInstances(s.env), agentVersion, cfg.DefaultSeries(), &test.arch, cfg.Development())
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -396,17 +380,10 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			continue
 		}
 		expect := map[version.Binary]string{}
-		unique := map[version.Number]bool{}
 		for _, expected := range test.expect {
 			expect[expected] = available[expected]
-			unique[expected.Number] = true
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
-		for expectAgentVersion := range unique {
-			agentVersion, ok := s.env.Config().AgentVersion()
-			c.Check(ok, gc.Equals, true)
-			c.Check(agentVersion, gc.Equals, expectAgentVersion)
-		}
 	}
 }
 
@@ -415,7 +392,7 @@ var findInstanceToolsTests = []struct {
 	available    []version.Binary
 	agentVersion version.Number
 	series       string
-	constraints  string
+	arch         string
 	expect       []version.Binary
 	err          error
 }{{
@@ -446,7 +423,7 @@ var findInstanceToolsTests = []struct {
 	available:    v120q,
 	agentVersion: v120,
 	series:       "quantal",
-	constraints:  "arch=arm",
+	arch:         "arm",
 	err:          coretools.ErrNoMatches,
 }, {
 	info:         "actual match 1",
@@ -465,7 +442,7 @@ var findInstanceToolsTests = []struct {
 	available:    vAll,
 	agentVersion: v110,
 	series:       "quantal",
-	constraints:  "arch=i386",
+	arch:         "i386",
 	expect:       []version.Binary{v110q32},
 }}
 
@@ -481,8 +458,8 @@ func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 			s.uploadPublic(c, vAll...)
 		}
 
-		cons := constraints.MustParse(test.constraints)
-		actual, err := envtools.FindInstanceTools(s.env, test.series, cons)
+		agentVersion, _ := s.env.Config().AgentVersion()
+		actual, err := envtools.FindInstanceTools(environs.StorageInstances(s.env), agentVersion, test.series, &test.arch)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -540,7 +517,7 @@ func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 		s.Reset(c, nil)
 		private := s.uploadPrivate(c, test.private...)
 		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(s.env, test.seek)
+		actual, err := envtools.FindExactTools(environs.StorageInstances(s.env), test.seek.Number, test.seek.Series, test.seek.Arch)
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
 			c.Check(actual.Version, gc.Equals, test.seek)

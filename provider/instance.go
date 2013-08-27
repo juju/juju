@@ -26,7 +26,11 @@ func StartInstance(broker environs.InstanceBroker, machineId, machineNonce strin
 	var err error
 	var possibleTools coretools.List
 	if env, ok := broker.(environs.Environ); ok {
-		possibleTools, err = tools.FindInstanceTools(env, series, cons)
+		agentVersion, ok := env.Config().AgentVersion()
+		if !ok {
+			return nil, nil, fmt.Errorf("no agent version set in environment configuration")
+		}
+		possibleTools, err = tools.FindInstanceTools(environs.StorageInstances(env), agentVersion, series, cons.Arch)
 		if err != nil {
 			return nil, nil, err
 		}
