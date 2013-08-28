@@ -58,7 +58,8 @@ func singletonCode(err error) (string, bool) {
 	defer func() {
 		recover()
 	}()
-	return singletonErrorCodes[err], true
+	code, ok := singletonErrorCodes[err]
+	return code, ok
 }
 
 // ServerError returns an error suitable for returning to an API
