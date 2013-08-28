@@ -41,16 +41,16 @@ clean:
 else # --------------------------------
 
 build:
-	$(error Cannot build; $(CURDIR) is not on GOPATH)
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
 
 check:
-	$(error Cannot check; $(CURDIR) is not on GOPATH)
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
 
 install:
-	$(error Cannot install; $(CURDIR) is not on GOPATH)
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
 
 clean:
-	$(error Cannot clean; $(CURDIR) is not on GOPATH)
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
 
 endif
 # End of GOPATH-dependent targets.
