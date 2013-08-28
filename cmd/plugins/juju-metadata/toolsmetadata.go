@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"path/filepath"
 	"time"
 
 	"launchpad.net/gnuflag"
@@ -47,6 +48,7 @@ func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.fetch, "fetch", true, "fetch tools and compute content size and hash")
 	f.StringVar(&c.metadataDir, "d", "", "local directory to locate tools and store metadata")
+	// TODO(axw) allow user to specify version
 }
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
@@ -66,7 +68,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		env = localdirEnv{env, localstorage.Client(storageAddr)}
 	}
 
-	fmt.Println("Finding tools...")
+	fmt.Fprintln(context.Stdout, "Finding tools...")
 	toolsList, err := tools.FindTools(env, version.Current.Major, coretools.Filter{})
 	if err != nil {
 		return err
@@ -84,7 +86,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		var size int64
 		var sha256hex string
 		if c.fetch {
-			fmt.Println("Fetching tools to generate hash:", t.URL)
+			fmt.Fprintln(context.Stdout, "Fetching tools to generate hash:", t.URL)
 			var sha256hash hash.Hash
 			size, sha256hash, err = fetchToolsHash(t.URL)
 			if err != nil {
@@ -145,19 +147,33 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 
 	storage := env.Storage()
-
-	fmt.Printf("Writing %s to storage\n", toolsIndexMetadataPath)
-	b, err := marshalIndent(&cloud)
-	if err = storage.Put(toolsProductMetadataPath, b, int64(b.Len())); err != nil {
-		return err
+	objects := []struct {
+		path   string
+		object interface{}
+	}{
+		{toolsIndexMetadataPath, &indices},
+		{toolsProductMetadataPath, &cloud},
 	}
-
-	fmt.Printf("Writing %s to storage\n", toolsProductMetadataPath)
-	b, err = marshalIndent(&indices)
-	if err = storage.Put(toolsIndexMetadataPath, b, int64(b.Len())); err != nil {
-		return err
+	for _, object := range objects {
+		var path string
+		if c.metadataDir != "" {
+			path = filepath.Join(c.metadataDir, object.path)
+		} else {
+			objectUrl, err := storage.URL(object.path)
+			if err != nil {
+				return err
+			}
+			path = objectUrl
+		}
+		fmt.Fprintf(context.Stdout, "Writing %s\n", path)
+		buf, err := marshalIndent(object.object)
+		if err != nil {
+			return err
+		}
+		if err = storage.Put(object.path, buf, int64(buf.Len())); err != nil {
+			return err
+		}
 	}
-
 	return nil
 }
 
@@ -195,5 +211,7 @@ func (e localdirEnv) Storage() environs.Storage {
 }
 
 func (e localdirEnv) PublicStorage() environs.StorageReader {
+	// If there's no matching tools in Storage(), FindTools
+	// will fall back to environs.EmptyStorage.
 	return environs.EmptyStorage
 }
