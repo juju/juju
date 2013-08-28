@@ -5,21 +5,23 @@ package agent
 
 import (
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+
+	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/utils"
 )
 
 // formatter112 is the formatter for the 1.12 format.
 type formatter112 struct {
 }
 
-// conf holds information for a given agent.
-type conf struct {
-	// DataDir specifies the path of the data directory used by all
-	// agents
-	dataDir string
-
+// agentConf holds information stored in the agent.conf file.
+type agentConf struct {
 	// StateServerCert and StateServerKey hold the state server
 	// certificate and private key in PEM format.
 	StateServerCert []byte `yaml:",omitempty"`
@@ -55,39 +57,116 @@ type conf struct {
 // Ensure that the formatter112 struct implements the formatter interface.
 var _ formatter = (*formatter112)(nil)
 
-func (*formatter112) read(dirName string) (*configInternal, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*formatter112) configFile(dirName string) string {
+	return path.Join(dirName, "agent.conf")
 }
 
-func (*formatter112) write(dirName string, config *configInternal) error {
-	return fmt.Errorf("not implemented")
+func (formatter *formatter112) read(dirName string) (*configInternal, error) {
+	data, err := ioutil.ReadFile(formatter.configFile(dirName))
+	if err != nil {
+		return nil, err
+	}
+	var conf agentConf
+	if err := goyaml.Unmarshal(data, &conf); err != nil {
+		return nil, err
+	}
+
+	var stateDetails *connectionDetails
+	var caCert []byte
+	var tag string
+	if conf.StateInfo != nil {
+		stateDetails = &connectionDetails{
+			conf.StateInfo.Addrs,
+			conf.StateInfo.Password,
+		}
+		tag = conf.StateInfo.Tag
+		caCert = conf.StateInfo.CACert
+	}
+	var apiDetails *connectionDetails
+	if conf.APIInfo != nil {
+		apiDetails = &connectionDetails{
+			conf.APIInfo.Addrs,
+			conf.APIInfo.Password,
+		}
+		tag = conf.APIInfo.Tag
+		caCert = conf.APIInfo.CACert
+	}
+	return &configInternal{
+		tag:             tag,
+		nonce:           conf.MachineNonce,
+		caCert:          caCert,
+		stateDetails:    stateDetails,
+		apiDetails:      apiDetails,
+		oldPassword:     conf.OldPassword,
+		stateServerCert: conf.StateServerCert,
+		stateServerKey:  conf.StateServerKey,
+		apiPort:         conf.APIPort,
+	}, nil
 }
 
-func (*formatter112) writeCommands(dirName string, config *configInternal) ([]string, error) {
-	return nil, fmt.Errorf("not implemented")
+func (formatter *formatter112) makeAgentConf(config *configInternal) *agentConf {
+	var stateInfo *state.Info
+	var apiInfo *api.Info
+	if config.stateDetails != nil {
+		// It is fine that we are copying the slices for the addresses.
+		stateInfo = &state.Info{
+			Addrs:    config.stateDetails.addresses,
+			Password: config.stateDetails.password,
+			Tag:      config.tag,
+			CACert:   config.caCert,
+		}
+	}
+	if config.apiDetails != nil {
+		apiInfo = &api.Info{
+			Addrs:    config.apiDetails.addresses,
+			Password: config.apiDetails.password,
+			Tag:      config.tag,
+			CACert:   config.caCert,
+		}
+	}
+	return &agentConf{
+		StateServerCert: config.stateServerCert,
+		StateServerKey:  config.stateServerKey,
+		APIPort:         config.apiPort,
+		OldPassword:     config.oldPassword,
+		MachineNonce:    config.nonce,
+		StateInfo:       stateInfo,
+		APIInfo:         apiInfo,
+	}
 }
 
-// ReadConf reads configuration data for the given
-// entity from the given data directory.
-// func xReadConf(dataDir, tag string) (Config, error) {
-// 	dir := tools.Dir(dataDir, tag)
-// 	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	var c conf
-// 	if err := goyaml.Unmarshal(data, &c); err != nil {
-// 		return nil, err
-// 	}
-// 	c.dataDir = dataDir
-// 	if err := c.check(); err != nil {
-// 		return nil, err
-// 	}
-// 	if c.StateInfo != nil {
-// 		c.StateInfo.Tag = tag
-// 	}
-// 	if c.APIInfo != nil {
-// 		c.APIInfo.Tag = tag
-// 	}
-// 	return &c, nil
-// }
+func (formatter *formatter112) write(dirName string, config *configInternal) error {
+	conf := formatter.makeAgentConf(config)
+	data, err := goyaml.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	if err := os.MkdirAll(dirName, 0755); err != nil {
+		return err
+	}
+	newFile := path.Join(dirName, "agent.conf-new")
+	if err := ioutil.WriteFile(newFile, data, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(newFile, formatter.configFile(dirName)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (formatter *formatter112) writeCommands(dirName string, config *configInternal) ([]string, error) {
+	conf := formatter.makeAgentConf(config)
+	data, err := goyaml.Marshal(conf)
+	if err != nil {
+		return nil, err
+	}
+	var commands []string
+	addCommand := func(f string, a ...interface{}) {
+		commands = append(commands, fmt.Sprintf(f, a...))
+	}
+	f := utils.ShQuote(formatter.configFile(dirName))
+	addCommand("mkdir -p %s", utils.ShQuote(dirName))
+	addCommand("install -m %o /dev/null %s", 0600, f)
+	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), f)
+	return commands, nil
+}
