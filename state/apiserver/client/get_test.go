@@ -121,7 +121,7 @@ var getTests = []struct {
 			"skill-level": map[string]interface{}{
 				"description": "A number indicating skill.",
 				"type":        "int",
-                                // TODO(jam): 2013-08-28 bug #1217742
+				// TODO(jam): 2013-08-28 bug #1217742
 				// we have to use float64() here, because the
 				// API does not preserve int types. This used
 				// to be int64() but we end up with a type
@@ -169,11 +169,11 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 }
 
 func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
-        // See the bug http://pad.lv/1217742
-        // ServiceGet ends up pushing a map[string]interface{} which containts
-        // an int64 through a JSON Marshal & Unmarshal which ends up changing
-        // the int64 into a float64. We will fix it if we find it is actually a
-        // problem.
+	// See the bug http://pad.lv/1217742
+	// ServiceGet ends up pushing a map[string]interface{} which containts
+	// an int64 through a JSON Marshal & Unmarshal which ends up changing
+	// the int64 into a float64. We will fix it if we find it is actually a
+	// problem.
 	const nonFloatInt = (int64(1) << 54) + 1
 	const asFloat = float64(nonFloatInt)
 	c.Assert(int64(asFloat), gc.Not(gc.Equals), nonFloatInt)
