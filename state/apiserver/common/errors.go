@@ -65,7 +65,7 @@ func singletonCode(err error) (string, bool) {
 // ServerError returns an error suitable for returning to an API
 // client, with an error code suitable for various kinds of errors
 // generated in packages outside the API.
-func ServerError(err error) (apiError *params.Error) {
+func ServerError(err error) *params.Error {
 	if err == nil {
 		return nil
 	}
