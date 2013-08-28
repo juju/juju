@@ -56,7 +56,12 @@ func ReadList(storage environs.StorageReader, majorVersion, minorVersion int) (c
 			continue
 		}
 		foundAnyTools = true
-		if t.Version.Major != majorVersion || minorVersion >= 0 && t.Version.Minor != minorVersion {
+		// Major version must match specified value.
+		if t.Version.Major != majorVersion {
+			continue
+		}
+		// If specified minor version value supplied, minor version must match.
+		if minorVersion >= 0 && t.Version.Minor != minorVersion {
 			continue
 		}
 		logger.Debugf("found %s", vers)

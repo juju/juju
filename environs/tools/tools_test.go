@@ -60,51 +60,6 @@ func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
 	envtesting.RemoveAllTools(c, s.env)
 }
 
-var (
-	v100    = version.MustParse("1.0.0")
-	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	v100p32 = version.MustParseBinary("1.0.0-precise-i386")
-	v100p   = []version.Binary{v100p64, v100p32}
-
-	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
-	v100q   = []version.Binary{v100q64, v100q32}
-	v100all = append(v100p, v100q...)
-
-	v1001    = version.MustParse("1.0.0.1")
-	v1001p64 = version.MustParseBinary("1.0.0.1-precise-amd64")
-	v100Xall = append(v100all, v1001p64)
-
-	v110    = version.MustParse("1.1.0")
-	v110p64 = version.MustParseBinary("1.1.0-precise-amd64")
-	v110p32 = version.MustParseBinary("1.1.0-precise-i386")
-	v110p   = []version.Binary{v110p64, v110p32}
-
-	v110q64 = version.MustParseBinary("1.1.0-quantal-amd64")
-	v110q32 = version.MustParseBinary("1.1.0-quantal-i386")
-	v110q   = []version.Binary{v110q64, v110q32}
-	v110all = append(v110p, v110q...)
-
-	v120    = version.MustParse("1.2.0")
-	v120p64 = version.MustParseBinary("1.2.0-precise-amd64")
-	v120p32 = version.MustParseBinary("1.2.0-precise-i386")
-	v120p   = []version.Binary{v120p64, v120p32}
-
-	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
-	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
-	v120q   = []version.Binary{v120q64, v120q32}
-	v120all = append(v120p, v120q...)
-	v1all   = append(v100Xall, append(v110all, v120all...)...)
-
-	v220    = version.MustParse("2.2.0")
-	v220p32 = version.MustParseBinary("2.2.0-precise-i386")
-	v220p64 = version.MustParseBinary("2.2.0-precise-amd64")
-	v220q32 = version.MustParseBinary("2.2.0-quantal-i386")
-	v220q64 = version.MustParseBinary("2.2.0-quantal-amd64")
-	v220all = []version.Binary{v220p64, v220p32, v220q64, v220q32}
-	vAll    = append(v1all, v220all...)
-)
-
 func (s *ToolsSuite) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
 	uploaded := map[version.Binary]string{}
 	for _, vers := range verses {
@@ -138,39 +93,39 @@ var findToolsTests = []struct {
 	info:    "private tools only, none matching",
 	major:   1,
 	minor:   2,
-	private: v220all,
+	private: envtesting.V220all,
 	err:     coretools.ErrNoMatches,
 }, {
 	info:    "tools found in private bucket",
 	major:   1,
 	minor:   2,
-	private: vAll,
-	expect:  v120all,
+	private: envtesting.VAll,
+	expect:  envtesting.V120all,
 }, {
 	info:   "tools found in public bucket",
 	major:  1,
 	minor:  1,
-	public: vAll,
-	expect: v110all,
+	public: envtesting.VAll,
+	expect: envtesting.V110all,
 }, {
 	info:    "tools found in both buckets, only taken from private",
 	major:   1,
 	minor:   1,
-	private: v110p,
-	public:  vAll,
-	expect:  v110p,
+	private: envtesting.V110p,
+	public:  envtesting.VAll,
+	expect:  envtesting.V110p,
 }, {
 	info:    "private tools completely block public ones",
 	major:   1,
-	private: v220all,
-	public:  vAll,
+	private: envtesting.V220all,
+	public:  envtesting.VAll,
 	err:     coretools.ErrNoMatches,
 }, {
 	info:   "tools matching major version only",
 	major:  1,
 	minor:  -1,
-	public: vAll,
-	expect: v1all,
+	public: envtesting.VAll,
+	expect: envtesting.V1all,
 }}
 
 func (s *ToolsSuite) TestFindTools(c *gc.C) {
@@ -200,182 +155,30 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 	}
 }
 
-var findBootstrapToolsTests = []struct {
-	info          string
-	available     []version.Binary
-	cliVersion    version.Binary
-	defaultSeries string
-	agentVersion  version.Number
-	development   bool
-	arch          string
-	expect        []version.Binary
-	err           error
-}{{
-	info:          "no tools at all",
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	err:           envtools.ErrNoTools,
-}, {
-	info:          "released cli: use newest compatible release version",
-	available:     vAll,
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	expect:        v100p,
-}, {
-	info:          "released cli: cli arch ignored",
-	available:     vAll,
-	cliVersion:    v100p32,
-	defaultSeries: "precise",
-	expect:        v100p,
-}, {
-	info:          "released cli: cli series ignored",
-	available:     vAll,
-	cliVersion:    v100q64,
-	defaultSeries: "precise",
-	expect:        v100p,
-}, {
-	info:          "released cli: series taken from default-series",
-	available:     v120all,
-	cliVersion:    v120p64,
-	defaultSeries: "quantal",
-	expect:        v120q,
-}, {
-	info:          "released cli: ignore close dev match",
-	available:     v100Xall,
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	expect:        v100p,
-}, {
-	info:          "released cli: filter by arch constraints",
-	available:     v120all,
-	cliVersion:    v120p64,
-	defaultSeries: "precise",
-	arch:          "i386",
-	expect:        []version.Binary{v120p32},
-}, {
-	info:          "released cli: specific released version",
-	available:     vAll,
-	cliVersion:    v100p64,
-	agentVersion:  v100,
-	defaultSeries: "precise",
-	expect:        v100p,
-}, {
-	info:          "released cli: specific dev version",
-	available:     vAll,
-	cliVersion:    v110p64,
-	agentVersion:  v110,
-	defaultSeries: "precise",
-	expect:        v110p,
-}, {
-	info:          "released cli: major upgrades bad",
-	available:     v220all,
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: minor upgrades bad",
-	available:     v120all,
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: major downgrades bad",
-	available:     v100Xall,
-	cliVersion:    v220p64,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: minor downgrades bad",
-	available:     v100Xall,
-	cliVersion:    v120p64,
-	defaultSeries: "quantal",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: no matching series",
-	available:     vAll,
-	cliVersion:    v100p64,
-	defaultSeries: "raring",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: no matching arches",
-	available:     vAll,
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	arch:          "arm",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: specific bad major 1",
-	available:     vAll,
-	cliVersion:    v220p64,
-	agentVersion:  v120,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: specific bad major 2",
-	available:     vAll,
-	cliVersion:    v120p64,
-	agentVersion:  v220,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: ignore dev tools 1",
-	available:     v110all,
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: ignore dev tools 2",
-	available:     v110all,
-	cliVersion:    v120p64,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli: ignore dev tools 3",
-	available:     []version.Binary{v1001p64},
-	cliVersion:    v100p64,
-	defaultSeries: "precise",
-	err:           coretools.ErrNoMatches,
-}, {
-	info:          "released cli with dev setting respects agent-version",
-	available:     vAll,
-	cliVersion:    v100q32,
-	agentVersion:  v1001,
-	defaultSeries: "precise",
-	development:   true,
-	expect:        []version.Binary{v1001p64},
-}, {
-	info:          "dev cli respects agent-version",
-	available:     vAll,
-	cliVersion:    v100q32,
-	agentVersion:  v1001,
-	defaultSeries: "precise",
-	expect:        []version.Binary{v1001p64},
-}}
-
 func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
-	for i, test := range findBootstrapToolsTests {
-		c.Logf("\ntest %d: %s", i, test.info)
+	for i, test := range envtesting.BootstrapToolsTests {
+		c.Logf("\ntest %d: %s", i, test.Info)
 		attrs := map[string]interface{}{
-			"development":    test.development,
-			"default-series": test.defaultSeries,
+			"development":    test.Development,
+			"default-series": test.DefaultSeries,
 		}
 		var agentVersion *version.Number
-		if test.agentVersion != version.Zero {
-			attrs["agent-version"] = test.agentVersion.String()
-			agentVersion = &test.agentVersion
+		if test.AgentVersion != version.Zero {
+			attrs["agent-version"] = test.AgentVersion.String()
+			agentVersion = &test.AgentVersion
 		}
 		s.Reset(c, attrs)
-		version.Current = test.cliVersion
-		available := s.uploadPrivate(c, test.available...)
+		version.Current = test.CliVersion
+		available := s.uploadPrivate(c, test.Available...)
 		if len(available) > 0 {
 			// These should never be chosen.
-			s.uploadPublic(c, vAll...)
+			s.uploadPublic(c, envtesting.VAll...)
 		}
 
 		cfg := s.env.Config()
 		actual, err := envtools.FindBootstrapTools(
-			environs.StorageInstances(s.env), agentVersion, cfg.DefaultSeries(), &test.arch, cfg.Development())
-		if test.err != nil {
+			environs.StorageInstances(s.env), agentVersion, cfg.DefaultSeries(), &test.Arch, cfg.Development())
+		if test.Err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
 			}
@@ -383,7 +186,7 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 			continue
 		}
 		expect := map[version.Binary]string{}
-		for _, expected := range test.expect {
+		for _, expected := range test.Expect {
 			expect[expected] = available[expected]
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
@@ -400,53 +203,53 @@ var findInstanceToolsTests = []struct {
 	err          error
 }{{
 	info:         "nothing at all",
-	agentVersion: v120,
+	agentVersion: envtesting.V120,
 	series:       "precise",
 	err:          envtools.ErrNoTools,
 }, {
 	info:         "nothing matching 1",
-	available:    v100Xall,
-	agentVersion: v120,
+	available:    envtesting.V100Xall,
+	agentVersion: envtesting.V120,
 	series:       "precise",
 	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 2",
-	available:    v120all,
-	agentVersion: v110,
+	available:    envtesting.V120all,
+	agentVersion: envtesting.V110,
 	series:       "precise",
 	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 3",
-	available:    v120q,
-	agentVersion: v120,
+	available:    envtesting.V120q,
+	agentVersion: envtesting.V120,
 	series:       "precise",
 	err:          coretools.ErrNoMatches,
 }, {
 	info:         "nothing matching 4",
-	available:    v120q,
-	agentVersion: v120,
+	available:    envtesting.V120q,
+	agentVersion: envtesting.V120,
 	series:       "quantal",
 	arch:         "arm",
 	err:          coretools.ErrNoMatches,
 }, {
 	info:         "actual match 1",
-	available:    vAll,
-	agentVersion: v1001,
+	available:    envtesting.VAll,
+	agentVersion: envtesting.V1001,
 	series:       "precise",
-	expect:       []version.Binary{v1001p64},
+	expect:       []version.Binary{envtesting.V1001p64},
 }, {
 	info:         "actual match 2",
-	available:    vAll,
-	agentVersion: v120,
+	available:    envtesting.VAll,
+	agentVersion: envtesting.V120,
 	series:       "quantal",
-	expect:       []version.Binary{v120q64, v120q32},
+	expect:       []version.Binary{envtesting.V120q64, envtesting.V120q32},
 }, {
 	info:         "actual match 3",
-	available:    vAll,
-	agentVersion: v110,
+	available:    envtesting.VAll,
+	agentVersion: envtesting.V110,
 	series:       "quantal",
 	arch:         "i386",
-	expect:       []version.Binary{v110q32},
+	expect:       []version.Binary{envtesting.V110q32},
 }}
 
 func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
@@ -458,7 +261,7 @@ func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 		available := s.uploadPrivate(c, test.available...)
 		if len(available) > 0 {
 			// These should never be chosen.
-			s.uploadPublic(c, vAll...)
+			s.uploadPublic(c, envtesting.VAll...)
 		}
 
 		agentVersion, _ := s.env.Config().AgentVersion()
@@ -486,31 +289,31 @@ var findExactToolsTests = []struct {
 	err     error
 }{{
 	info: "nothing available",
-	seek: v100p64,
+	seek: envtesting.V100p64,
 	err:  envtools.ErrNoTools,
 }, {
 	info:    "only non-matches available in private",
-	private: append(v110all, v100p32, v100q64, v1001p64),
-	seek:    v100p64,
+	private: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
+	seek:    envtesting.V100p64,
 	err:     coretools.ErrNoMatches,
 }, {
 	info:    "exact match available in private",
-	private: []version.Binary{v100p64},
-	seek:    v100p64,
+	private: []version.Binary{envtesting.V100p64},
+	seek:    envtesting.V100p64,
 }, {
 	info:    "only non-matches available in public",
-	private: append(v110all, v100p32, v100q64, v1001p64),
-	seek:    v100p64,
+	private: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
+	seek:    envtesting.V100p64,
 	err:     coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in public",
-	public: []version.Binary{v100p64},
-	seek:   v100p64,
+	public: []version.Binary{envtesting.V100p64},
+	seek:   envtesting.V100p64,
 }, {
 	info:    "exact match in public blocked by private",
-	private: v110all,
-	public:  []version.Binary{v100p64},
-	seek:    v100p64,
+	private: envtesting.V110all,
+	public:  []version.Binary{envtesting.V100p64},
+	seek:    envtesting.V100p64,
 	err:     coretools.ErrNoMatches,
 }}
 

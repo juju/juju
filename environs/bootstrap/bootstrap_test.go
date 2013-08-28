@@ -106,101 +106,41 @@ func (s *bootstrapSuite) TestBootstrapSpecifiedConstraints(c *gc.C) {
 	c.Assert(env.constraints, gc.DeepEquals, cons)
 }
 
-var (
-	v100p64 = version.MustParseBinary("1.0.0-precise-amd64")
-	v100p32 = version.MustParseBinary("1.0.0-precise-i386")
-	v100p   = []version.Binary{v100p64, v100p32}
+var bootstrapSetAgentVersionTests = []envtesting.BootstrapToolsTest{
+	{
+		Info:          "released cli with dev setting picks newest matching 1",
+		Available:     envtesting.V100Xall,
+		CliVersion:    envtesting.V100q32,
+		DefaultSeries: "precise",
+		Development:   true,
+		Expect:        []version.Binary{envtesting.V1001p64},
+	}, {
+		Info:          "released cli with dev setting picks newest matching 2",
+		Available:     envtesting.V1all,
+		CliVersion:    envtesting.V120q64,
+		DefaultSeries: "precise",
+		Development:   true,
+		Arch:          "i386",
+		Expect:        []version.Binary{envtesting.V120p32},
+	}, {
+		Info:          "dev cli picks newest matching 1",
+		Available:     envtesting.V110Xall,
+		CliVersion:    envtesting.V110q32,
+		DefaultSeries: "precise",
+		Expect:        []version.Binary{envtesting.V1101p64},
+	}, {
+		Info:          "dev cli picks newest matching 2",
+		Available:     envtesting.V1all,
+		CliVersion:    envtesting.V120q64,
+		DefaultSeries: "precise",
+		Arch:          "i386",
+		Expect:        []version.Binary{envtesting.V120p32},
+	}}
 
-	v100q64 = version.MustParseBinary("1.0.0-quantal-amd64")
-	v100q32 = version.MustParseBinary("1.0.0-quantal-i386")
-	v100q   = []version.Binary{v100q64, v100q32}
-	v100all = append(v100p, v100q...)
-
-	v1001    = version.MustParse("1.0.0.1")
-	v1001p64 = version.MustParseBinary("1.0.0.1-precise-amd64")
-	v100Xall = append(v100all, v1001p64)
-
-	v110p64 = version.MustParseBinary("1.1.0-precise-amd64")
-	v110p32 = version.MustParseBinary("1.1.0-precise-i386")
-	v110p   = []version.Binary{v110p64, v110p32}
-
-	v1101p64 = version.MustParseBinary("1.1.0.1-precise-amd64")
-	v110Xall = append(v110all, v1101p64)
-
-	v110q64 = version.MustParseBinary("1.1.0-quantal-amd64")
-	v110q32 = version.MustParseBinary("1.1.0-quantal-i386")
-	v110q   = []version.Binary{v110q64, v110q32}
-	v110all = append(v110p, v110q...)
-
-	v120p64 = version.MustParseBinary("1.2.0-precise-amd64")
-	v120p32 = version.MustParseBinary("1.2.0-precise-i386")
-	v120p   = []version.Binary{v120p64, v120p32}
-
-	v120q64 = version.MustParseBinary("1.2.0-quantal-amd64")
-	v120q32 = version.MustParseBinary("1.2.0-quantal-i386")
-	v120q   = []version.Binary{v120q64, v120q32}
-	v120all = append(v120p, v120q...)
-	v1all   = append(v100Xall, append(v110all, v120all...)...)
-)
-
-var bootstrapTests = []struct {
-	info          string
-	available     []version.Binary
-	cliVersion    version.Binary
-	defaultSeries string
-	agentVersion  version.Number
-	development   bool
-	arch          string
-	expect        []version.Binary
-	err           error
-}{{
-	info:          "released cli with dev setting picks newest matching 1",
-	available:     v100Xall,
-	cliVersion:    v100q32,
-	defaultSeries: "precise",
-	development:   true,
-	expect:        []version.Binary{v1001p64},
-}, {
-	info:          "released cli with dev setting picks newest matching 2",
-	available:     v1all,
-	cliVersion:    v120q64,
-	defaultSeries: "precise",
-	development:   true,
-	arch:          "i386",
-	expect:        []version.Binary{v120p32},
-}, {
-	info:          "released cli with dev setting respects agent-version",
-	available:     v1all,
-	cliVersion:    v100q32,
-	agentVersion:  v1001,
-	defaultSeries: "precise",
-	development:   true,
-	expect:        []version.Binary{v1001p64},
-}, {
-	info:          "dev cli picks newest matching 1",
-	available:     v110Xall,
-	cliVersion:    v110q32,
-	defaultSeries: "precise",
-	expect:        []version.Binary{v1101p64},
-}, {
-	info:          "dev cli picks newest matching 2",
-	available:     v1all,
-	cliVersion:    v120q64,
-	defaultSeries: "precise",
-	arch:          "i386",
-	expect:        []version.Binary{v120p32},
-}, {
-	info:          "dev cli respects agent-version",
-	available:     v1all,
-	cliVersion:    v100q32,
-	agentVersion:  v1001,
-	defaultSeries: "precise",
-	expect:        []version.Binary{v1001p64},
-}}
-
-func (s *bootstrapSuite) TestBootstrapAgentVersion(c *gc.C) {
-	for i, test := range bootstrapTests {
-		c.Logf("\ntest %d: %s", i, test.info)
+func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
+	allTests := append(envtesting.BootstrapToolsTests, bootstrapSetAgentVersionTests...)
+	for i, test := range allTests {
+		c.Logf("\ntest %d: %s", i, test.Info)
 		dummy.Reset()
 		attrs := map[string]interface{}{
 			"name":            "test",
@@ -210,34 +150,36 @@ func (s *bootstrapSuite) TestBootstrapAgentVersion(c *gc.C) {
 			"authorized-keys": "i-am-a-key",
 			"ca-cert":         coretesting.CACert,
 			"ca-private-key":  coretesting.CAKey,
-			"development":     test.development,
-			"default-series":  test.defaultSeries,
+			"development":     test.Development,
+			"default-series":  test.DefaultSeries,
 		}
-		if test.agentVersion != version.Zero {
-			attrs["agent-version"] = test.agentVersion.String()
+		if test.AgentVersion != version.Zero {
+			attrs["agent-version"] = test.AgentVersion.String()
 		}
 		env, err := environs.NewFromAttrs(attrs)
 		c.Assert(err, gc.IsNil)
+		env, err = environs.Prepare(env.Config())
+		c.Assert(err, gc.IsNil)
 		envtesting.RemoveAllTools(c, env)
 
-		version.Current = test.cliVersion
-		for _, vers := range test.available {
+		version.Current = test.CliVersion
+		for _, vers := range test.Available {
 			envtesting.UploadFakeToolsVersion(c, env.Storage(), vers)
 		}
 
 		cons := constraints.Value{}
-		if test.arch != "" {
-			cons = constraints.MustParse("arch=" + test.arch)
+		if test.Arch != "" {
+			cons = constraints.MustParse("arch=" + test.Arch)
 		}
 		err = bootstrap.Bootstrap(env, cons)
-		if test.err != nil {
+		if test.Err != nil {
 			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 			continue
 		} else {
 			c.Assert(err, gc.IsNil)
 		}
 		unique := map[version.Number]bool{}
-		for _, expected := range test.expect {
+		for _, expected := range test.Expect {
 			unique[expected.Number] = true
 		}
 		for expectAgentVersion := range unique {
