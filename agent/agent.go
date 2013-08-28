@@ -70,44 +70,6 @@ type Config interface {
 	APIServerDetails() (port int, cert, key []byte)
 }
 
-// conf holds information for a given agent.
-type conf struct {
-	// DataDir specifies the path of the data directory used by all
-	// agents
-	dataDir string
-
-	// StateServerCert and StateServerKey hold the state server
-	// certificate and private key in PEM format.
-	StateServerCert []byte `yaml:",omitempty"`
-	StateServerKey  []byte `yaml:",omitempty"`
-
-	StatePort int `yaml:",omitempty"`
-	APIPort   int `yaml:",omitempty"`
-
-	// OldPassword specifies a password that should be
-	// used to connect to the state if StateInfo.Password
-	// is blank or invalid.
-	OldPassword string
-
-	// MachineNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct instance.
-	MachineNonce string
-
-	// StateInfo specifies how the agent should connect to the
-	// state.  The password may be empty if an old password is
-	// specified, or when bootstrapping.
-	StateInfo *state.Info `yaml:",omitempty"`
-
-	// OldAPIPassword specifies a password that should
-	// be used to connect to the API if APIInfo.Password
-	// is blank or invalid.
-	OldAPIPassword string
-
-	// APIInfo specifies how the agent should connect to the
-	// state through the API.
-	APIInfo *api.Info `yaml:",omitempty"`
-}
-
 // Ensure that the configInternal struct implements the Config interface.
 // var _ Config = (*configInternal)(nil)
 

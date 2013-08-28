@@ -29,15 +29,15 @@ import (
 const (
 	formatFilename = "format"
 	currentFormat  = "format 1.14"
-	previousFormat = ""
+	previousFormat = "format 1.12"
 )
 
 // The formatter defines the two methods needed by the formatters for
 // translating to and from the internal, format agnostic, structure.
 type formatter interface {
-	read() (*configInternal, error)
-	write(config *configInternal) error
-	writeCommands() ([]string, error)
+	read(dirName string) (*configInternal, error)
+	write(dirName string, config *configInternal) error
+	writeCommands(dirName string, config *configInternal) ([]string, error)
 }
 
 func readFormat(dirName string) (string, error) {
@@ -49,6 +49,12 @@ func readFormat(dirName string) (string, error) {
 	return strings.TrimSpace(string(contents)), nil
 }
 
-func newFormatter(dirName string) (formatter, error) {
-	return nil, fmt.Errorf("not implemented")
+func newFormatter(format string) (formatter, error) {
+	switch format {
+	case previousFormat:
+		return &formatter112{}, nil
+	case currentFormat:
+		return &formatter114{}, nil
+	}
+	return nil, fmt.Errorf("unknown format")
 }
