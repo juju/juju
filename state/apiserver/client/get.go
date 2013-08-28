@@ -6,12 +6,12 @@ package client
 import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
-func serviceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults, error) {
-	service, err := st.Service(p.ServiceName)
+// ServiceGet returns the configuration for a service.
+func (c *Client) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
+	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
@@ -32,7 +32,7 @@ func serviceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 		}
 	}
 	return params.ServiceGetResults{
-		Service:     p.ServiceName,
+		Service:     args.ServiceName,
 		Charm:       charm.Meta().Name,
 		Config:      configInfo,
 		Constraints: constraints,

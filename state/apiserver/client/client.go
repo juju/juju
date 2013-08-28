@@ -99,11 +99,6 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	return serviceSetSettingsYAML(svc, p.Config)
 }
 
-// ServiceGet returns the configuration for a service.
-func (c *Client) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
-	return serviceGet(c.api.state, args)
-}
-
 // Resolved implements the server side of Client.Resolved.
 func (c *Client) Resolved(p params.Resolved) error {
 	unit, err := c.api.state.Unit(p.UnitName)

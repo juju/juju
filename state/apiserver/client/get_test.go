@@ -166,3 +166,24 @@ func (s *getSuite) TestServiceGet(c *gc.C) {
 		c.Assert(*got, gc.DeepEquals, expect)
 	}
 }
+
+func (s *getSuite) TestServiceGetMaxResolutionInt(c *gc.C) {
+	const nonFloatInt = (int64(1) << 54) + 1
+	const asFloat = float64(nonFloatInt)
+	c.Assert(int64(asFloat), gc.Not(gc.Equals), nonFloatInt)
+	c.Assert(int64(asFloat)+1, gc.Equals, nonFloatInt)
+
+	ch := s.AddTestingCharm(c, "dummy")
+	svc, err := s.State.AddService("test-service", ch)
+	c.Assert(err, gc.IsNil)
+
+	err = svc.UpdateConfigSettings(map[string]interface{}{"skill-level": nonFloatInt})
+	c.Assert(err, gc.IsNil)
+	got, err := s.APIState.Client().ServiceGet(svc.Name())
+	c.Assert(err, gc.IsNil)
+	c.Assert(got.Config["skill-level"], gc.DeepEquals, map[string]interface{}{
+		"description": "A number indicating skill.",
+		"type":        "int",
+		"value":       asFloat,
+	})
+}
