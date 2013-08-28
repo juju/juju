@@ -83,7 +83,7 @@ func (u *Unit) EnsureDead() error {
 }
 
 // Watch returns a watcher for observing changes to the unit.
-func (u *Unit) Watch() (*watcher.NotifyWatcher, error) {
+func (u *Unit) Watch() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
