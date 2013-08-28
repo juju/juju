@@ -55,8 +55,9 @@ clean:
 endif
 # End of GOPATH-dependent targets.
 
-# Reformat source files. Alias for simplify.
-format: simplify
+# Reformat source files.
+format:
+	gofmt -w -l .
 
 # Reformat and simplify source files.
 simplify:
