@@ -112,7 +112,7 @@ func (s *ConfigSuite) TestFilterSettings(c *gc.C) {
 	c.Assert(settings, gc.DeepEquals, charm.Settings{
 		"title":    "something valid",
 		"username": nil,
-		"outlook":  "",
+		"outlook":  nil,
 	})
 }
 
@@ -149,9 +149,9 @@ func (s *ConfigSuite) TestValidateSettings(c *gc.C) {
 			"reticulate-splines": true,
 		},
 	}, {
-		info:   "empty string-typed values stay empty",
+		info:   "empty string-typed values become nil",
 		input:  charm.Settings{"outlook": ""},
-		expect: charm.Settings{"outlook": ""},
+		expect: charm.Settings{"outlook": nil},
 	}, {
 		info: "almost-correctly-typed values are valid",
 		input: charm.Settings{
@@ -279,14 +279,14 @@ func (s *ConfigSuite) TestParseSettingsYAML(c *gc.C) {
 		key:    "blah",
 		expect: settingsWithNils,
 	}, {
-		info: "empty strings for non string options are not accepted",
+		info: "empty strings are considered nil",
 		yaml: `blah:
             outlook: ""
             skill-level: ""
             agility-ratio: ""
             reticulate-splines: ""`,
-		key: "blah",
-		err: `option "skill-level" expected int, got ""`,
+		key:    "blah",
+		expect: settingsWithNils,
 	}, {
 		info: "appropriate strings are valid",
 		yaml: `blah:
@@ -331,13 +331,14 @@ func (s *ConfigSuite) TestParseSettingsStrings(c *gc.C) {
 		input:  map[string]string{},
 		expect: charm.Settings{},
 	}, {
-		info:   "empty strings for string options are valid",
-		input:  map[string]string{"outlook": ""},
-		expect: charm.Settings{"outlook": ""},
-	}, {
-		info:  "empty strings for non string options are invalid",
-		input: map[string]string{"skill-level": ""},
-		err:   `option "skill-level" expected int, got ""`,
+		info: "empty strings are nil values",
+		input: map[string]string{
+			"outlook":            "",
+			"skill-level":        "",
+			"agility-ratio":      "",
+			"reticulate-splines": "",
+		},
+		expect: settingsWithNils,
 	}, {
 		info: "strings are converted",
 		input: map[string]string{

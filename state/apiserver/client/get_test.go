@@ -57,7 +57,9 @@ var getTests = []struct {
 		"title": "Look To Windward",
 		// Same as default.
 		"username": "admin001",
-		// Outlook and skill-level are left unset.
+		// Use default (but there's no charm default)
+		"skill-level": "",
+		// Outlook is left unset.
 	},
 	expect: params.ServiceGetResults{
 		Config: map[string]interface{}{
@@ -89,7 +91,7 @@ var getTests = []struct {
 	about: "deployed service  #2",
 	charm: "dummy",
 	config: map[string]string{
-		// Empty string sets empty string
+		// Empty string gives default
 		"title": "",
 		// Value when there's a default
 		"username": "foobie",
@@ -103,7 +105,8 @@ var getTests = []struct {
 			"title": map[string]interface{}{
 				"description": "A descriptive title used for the service.",
 				"type":        "string",
-				"value":       "",
+				"value":       "My Title",
+				"default":     true,
 			},
 			"outlook": map[string]interface{}{
 				"description": "No default outlook.",
