@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 )
 
@@ -18,7 +18,7 @@ type LoggingSuite struct {
 }
 
 type gocheckWriter struct {
-	c *C
+	c *gc.C
 }
 
 func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line int, timestamp time.Time, message string) {
@@ -26,20 +26,25 @@ func (w *gocheckWriter) Write(level loggo.Level, module, filename string, line i
 	w.c.Output(3, fmt.Sprintf("%s %s %s", level, module, message))
 }
 
-func (t *LoggingSuite) SetUpSuite(c *C)    {
+func (t *LoggingSuite) SetUpSuite(c *gc.C) {
+	t.setUp(c)
+}
+
+func (t *LoggingSuite) TearDownSuite(c *gc.C) {
+	loggo.ResetLoggers()
+	loggo.ResetWriters()
+}
+
+func (t *LoggingSuite) SetUpTest(c *gc.C) {
+	t.setUp(c)
+}
+
+func (t *LoggingSuite) TearDownTest(c *gc.C) {
+}
+
+func (t *LoggingSuite) setUp(c *gc.C) {
 	loggo.ResetWriters()
 	loggo.ReplaceDefaultWriter(&gocheckWriter{c})
 	loggo.ResetLoggers()
 	loggo.GetLogger("juju").SetLogLevel(loggo.DEBUG)
-}
-
-func (t *LoggingSuite) TearDownSuite(c *C) {
-	loggo.ResetLoggers()
-	loggo.ResetWriters()
-}
-
-func (t *LoggingSuite) SetUpTest(c *C) {
-}
-
-func (t *LoggingSuite) TearDownTest(c *C) {
 }
