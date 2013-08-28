@@ -22,31 +22,14 @@ type formatSuite struct {
 
 var _ = gc.Suite(&formatSuite{})
 
-func (*formatSuite) TestReadFormatEmptyDir(c *gc.C) {
-	// Since the previous format didn't have a format file, a missing format
-	// should return the previous format.  Once we are over the hump of
-	// missing format files, a missing format file should generate an error.
-	dir := c.MkDir()
-	format, err := readFormat(dir)
-	c.Assert(format, gc.Equals, previousFormat)
-	c.Assert(err, gc.IsNil)
-}
-
 func (*formatSuite) TestReadFormat(c *gc.C) {
-	dir := c.MkDir()
-	err := ioutil.WriteFile(path.Join(dir, formatFilename), []byte("some format\n"), 0644)
-	c.Assert(err, gc.IsNil)
 	format, err := readFormat(dir)
-	c.Assert(format, gc.Equals, "some format")
+	c.Assert(format, gc.Equals, currentFormat)
 	c.Assert(err, gc.IsNil)
 }
 
 func (*formatSuite) TestNewFormatter(c *gc.C) {
 	formatter, err := newFormatter(currentFormat)
-	c.Assert(formatter, gc.NotNil)
-	c.Assert(err, gc.IsNil)
-
-	formatter, err = newFormatter(previousFormat)
 	c.Assert(formatter, gc.NotNil)
 	c.Assert(err, gc.IsNil)
 
