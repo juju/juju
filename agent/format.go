@@ -56,5 +56,5 @@ func newFormatter(format string) (formatter, error) {
 	case currentFormat:
 		return &formatter114{}, nil
 	}
-	return nil, fmt.Errorf("unknown format")
+	return nil, fmt.Errorf("unknown agent config format")
 }
