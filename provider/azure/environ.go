@@ -254,7 +254,7 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 // StateInfo is specified in the Environ interface.
 func (env *azureEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(env)
+	return provider.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.

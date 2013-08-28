@@ -841,7 +841,7 @@ func (inst *dummyInstance) Addresses() ([]instance.Address, error) {
 }
 
 func (inst *dummyInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(inst)
+	return provider.WaitDNSName(inst)
 }
 
 func (inst *dummyInstance) OpenPorts(machineId string, ports []instance.Port) error {

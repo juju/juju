@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package environs
+package provider
 
 import (
 	"bytes"
@@ -13,6 +13,7 @@ import (
 
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	coreerrors "launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -41,13 +42,13 @@ type BootstrapState struct {
 
 // putState writes the given data to the state file on the given storage.
 // The file's name is as defined in StateFile.
-func putState(storage StorageWriter, data []byte) error {
+func putState(storage environs.StorageWriter, data []byte) error {
 	return storage.Put(StateFile, bytes.NewBuffer(data), int64(len(data)))
 }
 
 // CreateStateFile creates an empty state file on the given storage, and
 // returns its URL.
-func CreateStateFile(storage Storage) (string, error) {
+func CreateStateFile(storage environs.Storage) (string, error) {
 	err := putState(storage, []byte{})
 	if err != nil {
 		return "", fmt.Errorf("cannot create initial state file: %v", err)
@@ -56,7 +57,7 @@ func CreateStateFile(storage Storage) (string, error) {
 }
 
 // SaveState writes the given state to the given storage.
-func SaveState(storage StorageWriter, state *BootstrapState) error {
+func SaveState(storage environs.StorageWriter, state *BootstrapState) error {
 	data, err := goyaml.Marshal(state)
 	if err != nil {
 		return err
@@ -74,7 +75,7 @@ func LoadStateFromURL(url string) (*BootstrapState, error) {
 }
 
 // LoadState reads state from the given storage.
-func LoadState(storage StorageReader) (*BootstrapState, error) {
+func LoadState(storage environs.StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(StateFile)
 	if err != nil {
 		if coreerrors.IsNotFoundError(err) {
@@ -144,7 +145,7 @@ func getStateInfo(config *config.Config, hostnames []string) (*state.Info, *api.
 
 // StateInfo is a reusable implementation of Environ.StateInfo, available to
 // providers that also use the other functionality from this file.
-func StateInfo(env Environ) (*state.Info, *api.Info, error) {
+func StateInfo(env environs.Environ) (*state.Info, *api.Info, error) {
 	st, err := LoadState(env.Storage())
 	if err != nil {
 		return nil, nil, err
@@ -159,7 +160,7 @@ func StateInfo(env Environ) (*state.Info, *api.Info, error) {
 	var hostnames []string
 	for a := LongAttempt.Start(); len(hostnames) == 0 && a.Next(); {
 		insts, err := env.Instances(st.StateInstances)
-		if err != nil && err != ErrPartialInstances {
+		if err != nil && err != environs.ErrPartialInstances {
 			log.Debugf("error getting state instances: %v", err.Error())
 			return nil, nil, err
 		}

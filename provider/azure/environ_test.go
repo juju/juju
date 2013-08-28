@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -480,9 +481,9 @@ func (*environSuite) TestStateInfo(c *gc.C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -833,9 +834,9 @@ func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	// Populate storage.
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -855,9 +856,9 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	// Populate storage.
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)
