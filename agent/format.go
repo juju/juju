@@ -43,6 +43,8 @@ type formatter interface {
 func readFormat(dirName string) (string, error) {
 	formatFile := path.Join(dirName, formatFilename)
 	contents, err := ioutil.ReadFile(formatFile)
+	// Once the previousFormat is defined to have a format file (1.14 or
+	// above), not finding a format file should be a real error.
 	if err != nil {
 		return previousFormat, nil
 	}
