@@ -1,0 +1,30 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// The format tests are white box tests, meaning that the tests are in the
+// same package as the code, as all the format details are internal to the
+// package.
+
+package agent
+
+import (
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing"
+)
+
+type formatSuite struct {
+	testing.LoggingSuite
+}
+
+var _ = gc.Suite(&formatSuite{})
+
+func (*formatSuite) TestReadFormatEmptyDir(c *gc.C) {
+	// Since the previous format didn't have a format file, a missing format
+	// should return the previous format.  Once we are over the hump of
+	// missing format files, a missing format file should generate an error.
+	dir := c.MkDir()
+	format, err := readFormat(dir)
+	c.Assert(format, gc.Equals, previousFormat)
+	c.Assert(err, gc.IsNil)
+}
