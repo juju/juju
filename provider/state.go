@@ -79,7 +79,7 @@ func LoadState(storage environs.StorageReader) (*BootstrapState, error) {
 	r, err := storage.Get(StateFile)
 	if err != nil {
 		if coreerrors.IsNotFoundError(err) {
-			return nil, provider.ErrNotBootstrapped
+			return nil, ErrNotBootstrapped
 		}
 		return nil, err
 	}
