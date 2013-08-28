@@ -6,10 +6,16 @@ package ec2
 import (
 	"fmt"
 	"io/ioutil"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
+
 	"launchpad.net/goamz/aws"
 	"launchpad.net/goamz/ec2"
 	"launchpad.net/goamz/s3"
-	agenttools "launchpad.net/juju-core/agent/tools"
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -17,17 +23,15 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
-	"net/http"
-	"strings"
-	"sync"
-	"time"
 )
+
+var logger = loggo.GetLogger("juju.provider.ec2")
 
 // Use shortAttempt to poll for short-term events.
 var shortAttempt = utils.AttemptStrategy{
@@ -123,6 +127,16 @@ func (inst *ec2Instance) Addresses() ([]instance.Address, error) {
 			Type:         instance.HostName,
 			NetworkScope: instance.NetworkCloudLocal,
 		},
+		{
+			Value:        inst.Instance.IPAddress,
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkPublic,
+		},
+		{
+			Value:        inst.Instance.PrivateIPAddress,
+			Type:         instance.Ipv4Address,
+			NetworkScope: instance.NetworkCloudLocal,
+		},
 	}
 	for _, address := range possibleAddresses {
 		if address.Value != "" {
@@ -170,14 +184,31 @@ amazon:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Infof("environs/ec2: opening environment %q", cfg.Name())
+	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
 	e.name = cfg.Name()
+	if err := e.verifyAllConfig(); err != nil {
+		return nil, err
+	}
+	// Make sure that external clients can't get access to
+	// methods provided to bootstrapper only.
 	return e, nil
+}
+
+func (e *environ) verifyAllConfig() error {
+	// TODO: verify that we have all the configuration data
+	// created by Prepare.
+	return nil
+}
+
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	logger.Infof("preparing environment %q", cfg.Name())
+	// TODO create/verify control bucket if necessary.
+	return p.Open(cfg)
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -291,64 +322,18 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return e.publicStorageUnlocked
 }
 
-// TODO(bug 1199847): Much of this work can be shared between providers.
-func (e *environ) Bootstrap(cons constraints.Value) error {
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids.  Juju assigns the machine ID.
-	const machineID = "0"
-	log.Infof("environs/ec2: bootstrapping environment %q", e.name)
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
-	if err != nil {
-		return err
-	}
-	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
-	if err != nil {
-		return err
-	}
-	stateFileURL, err := environs.CreateStateFile(e.Storage())
-	if err != nil {
-		return err
-	}
-
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-
-	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
-	if err != nil {
-		return fmt.Errorf("cannot start bootstrap instance: %v", err)
-	}
-	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances:  []instance.Id{inst.Id()},
-		Characteristics: []instance.HardwareCharacteristics{*characteristics},
-	})
-	if err != nil {
-		// ignore error on StopInstance because the previous error is
-		// more important.
-		e.StopInstances([]instance.Instance{inst})
-		return fmt.Errorf("cannot save state: %v", err)
-	}
-	// TODO make safe in the case of racing Bootstraps
-	// If two Bootstraps are called concurrently, there's
-	// no way to use S3 to make sure that only one succeeds.
-	// Perhaps consider using SimpleDB for state storage
-	// which would enable that possibility.
-	return nil
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 	return environs.StateInfo(e)
 }
 
-// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) getImageBaseURLs() ([]string, error) {
-	// Use the default simplestreams base URL.
-	return []string{imagemetadata.DefaultBaseURL}, nil
-}
-
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
 	}
@@ -368,41 +353,22 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 	}, nil
 }
 
-// TODO(bug 1199847): This work can be shared between providers.
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-
-	return e.internalStartInstance(cons, possibleTools, machineConfig)
-}
-
 const ebsStorage = "ebs"
 
-// internalStartInstance is the internal version of StartInstance, used by
-// Bootstrap as well as via StartInstance itself.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
+// StartInstance is specified in the InstanceBroker interface.
+func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
 	arches := possibleTools.Arches()
 	storage := ebsStorage
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, nil, err
 	}
+	series := possibleTools.OneSeries()
 	spec, err := findInstanceSpec(baseURLs, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series[0],
+		Series:      series,
 		Arches:      arches,
 		Constraints: cons,
 		Storage:     &storage,
@@ -410,7 +376,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
@@ -424,16 +390,16 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/ec2: ec2 user data; %d bytes", len(userData))
-	config := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
+	logger.Debugf("ec2 user data; %d bytes", len(userData))
+	cfg := e.Config()
+	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
-	var instances *ec2.RunInstancesResp
+	var instResp *ec2.RunInstancesResp
 
 	for a := shortAttempt.Start(); a.Next(); {
-		instances, err = e.ec2().RunInstances(&ec2.RunInstances{
+		instResp, err = e.ec2().RunInstances(&ec2.RunInstances{
 			ImageId:        spec.Image.Id,
 			MinCount:       1,
 			MaxCount:       1,
@@ -448,16 +414,16 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot run instances: %v", err)
 	}
-	if len(instances.Instances) != 1 {
-		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instances.Instances))
+	if len(instResp.Instances) != 1 {
+		return nil, nil, fmt.Errorf("expected 1 started instance, got %d", len(instResp.Instances))
 	}
 	inst := &ec2Instance{
 		e:        e,
-		Instance: &instances.Instances[0],
+		Instance: &instResp.Instances[0],
 		arch:     &spec.Image.Arch,
 		instType: &spec.InstanceType,
 	}
-	log.Infof("environs/ec2: started instance %q", inst.Id())
+	logger.Infof("started instance %q", inst.Id())
 	return inst, inst.hardwareCharacteristics(), nil
 }
 
@@ -565,7 +531,7 @@ func (e *environ) AllInstances() ([]instance.Instance, error) {
 }
 
 func (e *environ) Destroy(ensureInsts []instance.Instance) error {
-	log.Infof("environs/ec2: destroying environment %q", e.name)
+	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -663,7 +629,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 	}
 	for _, p := range resp.Groups[0].IPPerms {
 		if len(p.SourceIPs) != 1 {
-			log.Warningf("environs/ec2: unexpected IP permission found: %v", p)
+			logger.Warningf("unexpected IP permission found: %v", p)
 			continue
 		}
 		for i := p.FromPort; i <= p.ToPort; i++ {
@@ -679,31 +645,31 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 
 func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
 	}
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", ports)
 	return nil
 }
 
 func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
 	}
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", ports)
 	return nil
 }
 
 func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())
@@ -762,33 +728,33 @@ func (e *environ) jujuGroupName() string {
 
 func (inst *ec2Instance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
 func (inst *ec2Instance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/ec2: closed ports in security group %s: %v", name, ports)
+	logger.Infof("closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
 func (inst *ec2Instance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)

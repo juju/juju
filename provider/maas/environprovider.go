@@ -11,7 +11,7 @@ import (
 )
 
 // Logger for the MAAS provider.
-var logger = loggo.GetLogger("juju.environs.maas")
+var logger = loggo.GetLogger("juju.provider.maas")
 
 type maasEnvironProvider struct{}
 
@@ -30,6 +30,11 @@ func (maasEnvironProvider) Open(cfg *config.Config) (environs.Environ, error) {
 		return nil, err
 	}
 	return env, nil
+}
+
+func (p maasEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO any attributes to prepare?
+	return p.Open(cfg)
 }
 
 // Boilerplate config YAML.  Don't mess with the indentation or add newlines!

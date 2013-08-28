@@ -19,8 +19,8 @@ import (
 	"launchpad.net/goose/identity"
 	"launchpad.net/goose/nova"
 	"launchpad.net/goose/swift"
+	"launchpad.net/loggo"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -28,14 +28,16 @@ import (
 	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
 	"launchpad.net/juju-core/environs/simplestreams"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
+
+var logger = loggo.GetLogger("juju.provider.openstack")
 
 type environProvider struct{}
 
@@ -121,7 +123,7 @@ hpcloud:
 }
 
 func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
-	log.Infof("environs/openstack: opening environment %q", cfg.Name())
+	logger.Infof("opening environment %q", cfg.Name())
 	e := new(environ)
 	err := e.SetConfig(cfg)
 	if err != nil {
@@ -129,6 +131,11 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	}
 	e.name = cfg.Name()
 	return e, nil
+}
+
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment
+	return p.Open(cfg)
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to
@@ -227,6 +234,7 @@ type environ struct {
 }
 
 var _ environs.Environ = (*environ)(nil)
+var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
 
 type openstackInstance struct {
 	*nova.ServerDetail
@@ -346,33 +354,33 @@ func (inst *openstackInstance) WaitDNSName() (string, error) {
 
 func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
 	if err := inst.e.openPortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: opened ports in security group %s: %v", name, ports)
+	logger.Infof("opened ports in security group %s: %v", name, ports)
 	return nil
 }
 
 func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
 	if err := inst.e.closePortsInGroup(name, ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: closed ports in security group %s: %v", name, ports)
+	logger.Infof("closed ports in security group %s: %v", name, ports)
 	return nil
 }
 
 func (inst *openstackInstance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
@@ -457,57 +465,15 @@ func (e *environ) PublicStorage() environs.StorageReader {
 	return publicStorage
 }
 
-// TODO(bug 1199847): This work can be shared between providers.
-func (e *environ) Bootstrap(cons constraints.Value) error {
-	// The bootstrap instance gets machine id "0".  This is not related
-	// to instance ids.  Juju assigns the machine ID.
-	const machineID = "0"
-	log.Infof("environs/openstack: bootstrapping environment %q", e.name)
-
-	possibleTools, err := tools.FindBootstrapTools(e, cons)
-	if err != nil {
-		return err
-	}
-	err = tools.CheckToolsSeries(possibleTools, e.Config().DefaultSeries())
-	if err != nil {
-		return err
-	}
-	// The client's authentication may have been reset by FindBootstrapTools() if the agent-version
+func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
+	// The client's authentication may have been reset when finding tools if the agent-version
 	// attribute was updated so we need to re-authenticate. This will be a no-op if already authenticated.
 	// An authenticated client is needed for the URL() call below.
-	err = e.client.Authenticate()
+	err := e.client.Authenticate()
 	if err != nil {
 		return err
 	}
-	stateFileURL, err := environs.CreateStateFile(e.Storage())
-	if err != nil {
-		return err
-	}
-
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-
-	// TODO(wallyworld) - save bootstrap machine metadata
-	inst, characteristics, err := e.internalStartInstance(cons, possibleTools, machineConfig)
-	if err != nil {
-		return fmt.Errorf("cannot start bootstrap instance: %v", err)
-	}
-	err = environs.SaveState(e.Storage(), &environs.BootstrapState{
-		StateInstances:  []instance.Id{inst.Id()},
-		Characteristics: []instance.HardwareCharacteristics{*characteristics},
-	})
-	if err != nil {
-		// ignore error on StopInstance because the previous error is
-		// more important.
-		e.StopInstances([]instance.Instance{inst})
-		return fmt.Errorf("cannot save state: %v", err)
-	}
-	// TODO make safe in the case of racing Bootstraps
-	// If two Bootstraps are called concurrently, there's
-	// no way to use Swift to make sure that only one succeeds.
-	// Perhaps consider using SimpleDB for state storage
-	// which would enable that possibility.
-
-	return nil
+	return provider.StartBootstrapInstance(e, cons, possibleTools, machineID)
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
@@ -571,8 +537,8 @@ func (e *environ) SetConfig(cfg *config.Config) error {
 	return nil
 }
 
-// getImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
-func (e *environ) getImageBaseURLs() ([]string, error) {
+// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *environ) GetImageBaseURLs() ([]string, error) {
 	e.imageBaseMutex.Lock()
 	defer e.imageBaseMutex.Unlock()
 
@@ -595,26 +561,7 @@ func (e *environ) getImageBaseURLs() ([]string, error) {
 	if err == nil {
 		e.imageBaseURLs = append(e.imageBaseURLs, productStreamsURL)
 	}
-	// Add the default simplestreams base URL.
-	e.imageBaseURLs = append(e.imageBaseURLs, imagemetadata.DefaultBaseURL)
-
 	return e.imageBaseURLs, nil
-}
-
-// TODO(bug 1199847): This work can be shared between providers.
-func (e *environ) StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(e, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	machineConfig := environs.NewMachineConfig(machineId, machineNonce, stateInfo, apiInfo)
-	return e.internalStartInstance(cons, possibleTools, machineConfig)
 }
 
 // allocatePublicIP tries to find an available floating IP address, or
@@ -667,27 +614,22 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	return err
 }
 
-// internalStartInstance is the internal version of StartInstance, used by
-// Bootstrap as well as via StartInstance itself.
-// machineConfig will be filled out with further details, but should contain
-// MachineID, MachineNonce, StateInfo, and APIInfo.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (e *environ) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
+// StartInstance is specified in the InstanceBroker interface.
+func (e *environ) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
+
+	series := possibleTools.OneSeries()
 	arches := possibleTools.Arches()
 	spec, err := findInstanceSpec(e, &instances.InstanceConstraint{
 		Region:      e.ecfg().region(),
-		Series:      series[0],
+		Series:      series,
 		Arches:      arches,
 		Constraints: cons,
 	})
 	if err != nil {
 		return nil, nil, err
 	}
-	tools, err := possibleTools.Match(agenttools.Filter{Arch: spec.Image.Arch})
+	tools, err := possibleTools.Match(tools.Filter{Arch: spec.Image.Arch})
 	if err != nil {
 		return nil, nil, fmt.Errorf("chosen architecture %v not present in %v", spec.Image.Arch, arches)
 	}
@@ -701,7 +643,7 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot make user data: %v", err)
 	}
-	log.Debugf("environs/openstack: openstack user data; %d bytes", len(userData))
+	logger.Debugf("openstack user data; %d bytes", len(userData))
 	withPublicIP := e.ecfg().useFloatingIP()
 	var publicIP *nova.FloatingIP
 	if withPublicIP {
@@ -709,11 +651,11 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 			return nil, nil, fmt.Errorf("cannot allocate a public IP as needed: %v", err)
 		} else {
 			publicIP = fip
-			log.Infof("environs/openstack: allocated public IP %s", publicIP.IP)
+			logger.Infof("allocated public IP %s", publicIP.IP)
 		}
 	}
-	config := e.Config()
-	groups, err := e.setUpGroups(machineConfig.MachineId, config.StatePort(), config.APIPort())
+	cfg := e.Config()
+	groups, err := e.setUpGroups(machineConfig.MachineId, cfg.StatePort(), cfg.APIPort())
 	if err != nil {
 		return nil, nil, fmt.Errorf("cannot set up groups: %v", err)
 	}
@@ -748,16 +690,16 @@ func (e *environ) internalStartInstance(cons constraints.Value, possibleTools ag
 		arch:         &spec.Image.Arch,
 		instType:     &spec.InstanceType,
 	}
-	log.Infof("environs/openstack: started instance %q", inst.Id())
+	logger.Infof("started instance %q", inst.Id())
 	if withPublicIP {
 		if err := e.assignPublicIP(publicIP, string(inst.Id())); err != nil {
 			if err := e.terminateInstances([]instance.Id{inst.Id()}); err != nil {
 				// ignore the failure at this stage, just log it
-				log.Debugf("environs/openstack: failed to terminate instance %q: %v", inst.Id(), err)
+				logger.Debugf("failed to terminate instance %q: %v", inst.Id(), err)
 			}
 			return nil, nil, fmt.Errorf("cannot assign public address %s to instance %q: %v", publicIP.IP, inst.Id(), err)
 		}
-		log.Infof("environs/openstack: assigned public IP %s to %q", publicIP.IP, inst.Id())
+		logger.Infof("assigned public IP %s to %q", publicIP.IP, inst.Id())
 	}
 	return inst, inst.hardwareCharacteristics(), nil
 }
@@ -771,7 +713,7 @@ func (e *environ) StopInstances(insts []instance.Instance) error {
 		}
 		ids[i] = instanceValue.Id()
 	}
-	log.Debugf("environs/openstack: terminating instances %v", ids)
+	logger.Debugf("terminating instances %v", ids)
 	return e.terminateInstances(ids)
 }
 
@@ -862,7 +804,7 @@ func (e *environ) AllInstances() (insts []instance.Instance, err error) {
 }
 
 func (e *environ) Destroy(ensureInsts []instance.Instance) error {
-	log.Infof("environs/openstack: destroying environment %q", e.name)
+	logger.Infof("destroying environment %q", e.name)
 	insts, err := e.AllInstances()
 	if err != nil {
 		return fmt.Errorf("cannot get instances: %v", err)
@@ -930,7 +872,7 @@ func (e *environ) openPortsInGroup(name string, ports []instance.Port) error {
 		})
 		if err != nil {
 			// TODO: if err is not rule already exists, raise?
-			log.Debugf("error creating security group rule: %v", err.Error())
+			logger.Debugf("error creating security group rule: %v", err.Error())
 		}
 	}
 	return nil
@@ -984,31 +926,31 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 
 func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
 	}
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: opened ports in global group: %v", ports)
+	logger.Infof("opened ports in global group: %v", ports)
 	return nil
 }
 
 func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
 	}
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
 		return err
 	}
-	log.Infof("environs/openstack: closed ports in global group: %v", ports)
+	logger.Infof("closed ports in global group: %v", ports)
 	return nil
 }
 
 func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())
@@ -1125,7 +1067,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 			err = nil
 		}
 		if err != nil && firstErr == nil {
-			log.Debugf("environs/openstack: error terminating instance %q: %v", id, err)
+			logger.Debugf("error terminating instance %q: %v", id, err)
 			firstErr = err
 		}
 	}
@@ -1135,7 +1077,7 @@ func (e *environ) terminateInstances(ids []instance.Id) error {
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
-	baseURLs, err := e.getImageBaseURLs()
+	baseURLs, err := imagemetadata.GetMetadataURLs(e)
 	if err != nil {
 		return nil, err
 	}

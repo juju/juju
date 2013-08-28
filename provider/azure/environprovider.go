@@ -18,7 +18,7 @@ func init() {
 }
 
 // Logger for the Azure provider.
-var logger = loggo.GetLogger("juju.environs.azure")
+var logger = loggo.GetLogger("juju.provider.azure")
 
 type azureEnvironProvider struct{}
 
@@ -37,6 +37,12 @@ func (prov azureEnvironProvider) Open(cfg *config.Config) (environs.Environ, err
 		return nil, err
 	}
 	return environ, nil
+}
+
+// Prepare is specified in the EnvironProvider interface.
+func (prov azureEnvironProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment as necessary
+	return prov.Open(cfg)
 }
 
 // PublicAddress is specified in the EnvironProvider interface.

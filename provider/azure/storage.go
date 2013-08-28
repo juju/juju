@@ -90,9 +90,12 @@ func (storage *azureStorage) URL(name string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	// 10 years should be good enough.
-	expires := time.Now().AddDate(10, 0, 0)
-	return context.GetAnonymousFileURL(storage.getContainer(), name, expires), nil
+	if context.Key != "" {
+		// 10 years should be good enough.
+		expires := time.Now().AddDate(10, 0, 0)
+		return context.GetAnonymousFileURL(storage.getContainer(), name, expires), nil
+	}
+	return context.GetFileURL(storage.getContainer(), name), nil
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.

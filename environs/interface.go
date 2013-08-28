@@ -12,12 +12,21 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
 // A EnvironProvider represents a computing and storage provider.
 type EnvironProvider interface {
+	// Prepare prepares an environment for use. Any additional
+	// configuration attributes in the returned environment should
+	// be saved to be used later. If the environment is already
+	// prepared, this call is equivalent to Open.
+	Prepare(cfg *config.Config) (Environ, error)
+
 	// Open opens the environment and returns it.
+	// The configuration must have come from a previously
+	// prepared environment.
 	Open(cfg *config.Config) (Environ, error)
 
 	// Validate ensures that config is a valid configuration for this
@@ -104,6 +113,15 @@ type Storage interface {
 	StorageWriter
 }
 
+// EnvironStorage implements storage access for an environment.
+type EnvironStorage interface {
+	// Storage returns storage specific to the environment.
+	Storage() Storage
+
+	// PublicStorage returns storage shared between environments.
+	PublicStorage() StorageReader
+}
+
 // An Environ represents a juju environment as specified
 // in the environments.yaml file.
 //
@@ -119,6 +137,8 @@ type Storage interface {
 // implementation.  The typical provider implementation needs locking to
 // avoid undefined behaviour when the configuration changes.
 type Environ interface {
+	InstanceBroker
+
 	// Name returns the Environ's name.
 	Name() string
 
@@ -132,7 +152,7 @@ type Environ interface {
 	//
 	// The supplied constraints are used to choose the initial instance
 	// specification, and will be stored in the new environment's state.
-	Bootstrap(cons constraints.Value) error
+	Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error
 
 	// StateInfo returns information on the state initialized
 	// by Bootstrap.
@@ -147,18 +167,6 @@ type Environ interface {
 	// values previously obtained from Storage and PublicStorage.
 	SetConfig(cfg *config.Config) error
 
-	// StartInstance asks for a new instance to be created, associated
-	// with the provided machine identifier. The given info describes
-	// the juju state for the new instance to connect to. The nonce,
-	// which must be unique within an environment, is used by juju to
-	// protect against the consequences of multiple instances being
-	// started with the same machine id.
-	StartInstance(machineId, machineNonce string, series string, cons constraints.Value,
-		info *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error)
-
-	// StopInstances shuts down the given instances.
-	StopInstances([]instance.Instance) error
-
 	// Instances returns a slice of instances corresponding to the
 	// given instance ids.  If no instances were found, but there
 	// was no other error, it will return ErrNoInstances.  If
@@ -167,15 +175,7 @@ type Environ interface {
 	// will be returned.
 	Instances(ids []instance.Id) ([]instance.Instance, error)
 
-	// AllInstances returns all instances currently known to the
-	// environment.
-	AllInstances() ([]instance.Instance, error)
-
-	// Storage returns storage specific to the environment.
-	Storage() Storage
-
-	// PublicStorage returns storage shared between environments.
-	PublicStorage() StorageReader
+	EnvironStorage
 
 	// Destroy shuts down all known machines and destroys the
 	// rest of the environment. A list of instances known to

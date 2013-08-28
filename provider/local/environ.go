@@ -18,14 +18,16 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
@@ -93,8 +95,7 @@ func (env *localEnviron) ensureCertOwner() error {
 }
 
 // Bootstrap is specified in the Environ interface.
-func (env *localEnviron) Bootstrap(cons constraints.Value) error {
-	logger.Infof("bootstrapping environment %q", env.name)
+func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) error {
 	if !env.config.runningAsRoot {
 		return fmt.Errorf("bootstrapping a local environment must be done as root")
 	}
@@ -125,19 +126,20 @@ func (env *localEnviron) Bootstrap(cons constraints.Value) error {
 	// Need to write out the agent file for machine-0 before initializing
 	// state, as as part of that process, it will reset the password in the
 	// agent file.
-	if err := env.writeBootstrapAgentConfFile(cert, key); err != nil {
+	agentConfig, err := env.writeBootstrapAgentConfFile(env.config.AdminSecret(), cert, key)
+	if err != nil {
 		return err
 	}
 
 	// Have to initialize the state configuration with localhost so we get
 	// "special" permissions.
-	stateConnection, err := env.initialStateConfiguration(boostrapInstanceId, cons)
+	stateConnection, err := env.initialStateConfiguration(agentConfig, cons)
 	if err != nil {
 		return err
 	}
 	defer stateConnection.Close()
 
-	return env.setupLocalMachineAgent(cons)
+	return env.setupLocalMachineAgent(cons, possibleTools)
 }
 
 // StateInfo is specified in the Environ interface.
@@ -166,15 +168,15 @@ func createLocalStorageListener(dir, address string) (net.Listener, error) {
 
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
-	config, err := provider.newConfig(cfg)
+	ecfg, err := provider.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
 	}
 	env.localMutex.Lock()
 	defer env.localMutex.Unlock()
-	env.config = config
-	env.name = config.Name()
+	env.config = ecfg
+	env.name = ecfg.Name()
 
 	env.containerManager = lxc.NewContainerManager(
 		lxc.ManagerConfig{
@@ -183,7 +185,7 @@ func (env *localEnviron) SetConfig(cfg *config.Config) error {
 		})
 
 	// Here is the end of normal config setting.
-	if config.bootstrapped() {
+	if ecfg.bootstrapped() {
 		return nil
 	}
 	return env.bootstrapAddressAndStorage(cfg)
@@ -250,31 +252,21 @@ func (env *localEnviron) setupLocalStorage() error {
 	return nil
 }
 
-// StartInstance is specified in the Environ interface.
-func (env *localEnviron) StartInstance(
-	machineId, machineNonce, series string,
-	cons constraints.Value,
-	stateInfo *state.Info,
-	apiInfo *api.Info,
-) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	// We pretty much ignore the constraints.
-	logger.Debugf("StartInstance: %q, %s", machineId, series)
-	possibleTools, err := tools.FindInstanceTools(env, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	if len(possibleTools) == 0 {
-		return nil, nil, fmt.Errorf("could not find appropriate tools")
-	}
+// StartInstance is specified in the InstanceBroker interface.
+func (env *localEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (instance.Instance, *instance.HardwareCharacteristics, error) {
 
-	tools := possibleTools[0]
-	logger.Debugf("tools: %#v", tools)
+	machineId := machineConfig.MachineId
+	series := possibleTools.OneSeries()
+	logger.Debugf("StartInstance: %q, %s", machineId, series)
+	agenttools := possibleTools[0]
+	logger.Debugf("tools: %#v", agenttools)
 
 	network := lxc.DefaultNetworkConfig()
 	inst, err := env.containerManager.StartContainer(
-		machineId, series, machineNonce, network,
-		tools, env.config.Config,
-		stateInfo, apiInfo)
+		machineId, series, machineConfig.MachineNonce, network,
+		agenttools, env.config.Config,
+		machineConfig.StateInfo, machineConfig.APIInfo)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -282,7 +274,7 @@ func (env *localEnviron) StartInstance(
 	return inst, nil, nil
 }
 
-// StopInstances is specified in the Environ interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *localEnviron) StopInstances(instances []instance.Instance) error {
 	for _, inst := range instances {
 		if inst.Id() == boostrapInstanceId {
@@ -310,7 +302,7 @@ func (env *localEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return insts, nil
 }
 
-// AllInstances is specified in the Environ interface.
+// AllInstances is specified in the InstanceBroker interface.
 func (env *localEnviron) AllInstances() (instances []instance.Instance, err error) {
 	instances = append(instances, &localInstance{boostrapInstanceId, env})
 	// Add in all the containers as well.
@@ -433,28 +425,23 @@ func (env *localEnviron) setupLocalMongoService() ([]byte, []byte, error) {
 	return cert, key, nil
 }
 
-func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
+func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value, possibleTools tools.List) error {
 	dataDir := env.config.rootDir()
-	toolList, err := tools.FindBootstrapTools(env, cons)
-	if err != nil {
-		return err
-	}
-	// ensure we have at least one valid tools
-	if len(toolList) == 0 {
-		return fmt.Errorf("No bootstrap tools found")
-	}
 	// unpack the first tools into the agent dir.
-	agentTools := toolList[0]
+	agentTools := possibleTools[0]
 	logger.Debugf("tools: %#v", agentTools)
 	// brutally abuse our knowledge of storage to directly open the file
 	toolsUrl, err := url.Parse(agentTools.URL)
+	if err != nil {
+		return err
+	}
 	toolsLocation := filepath.Join(env.config.storageDir(), toolsUrl.Path)
 	logger.Infof("tools location: %v", toolsLocation)
 	toolsFile, err := os.Open(toolsLocation)
 	defer toolsFile.Close()
 	// Again, brutally abuse our knowledge here.
 
-	// The tools that FindBootstrapTools has returned us are based on the
+	// The tools that possible bootstrap tools are based on the
 	// default series in the config.  However we are running potentially on a
 	// different series.  When the machine agent is started, it will be
 	// looking based on the current series, so we need to override the series
@@ -476,13 +463,13 @@ func (env *localEnviron) setupLocalMachineAgent(cons constraints.Value) error {
 		osenv.JujuSharedStorageDir:  env.config.sharedStorageDir(),
 		osenv.JujuSharedStorageAddr: env.config.sharedStorageAddr(),
 	}
-	agent := upstart.MachineAgentUpstartService(
+	agentService := upstart.MachineAgentUpstartService(
 		env.machineAgentServiceName(),
 		toolsDir, dataDir, logDir, tag, machineId, logConfig, machineEnvironment)
 
-	agent.InitDir = upstartScriptLocation
-	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agent.InitDir)
-	if err := agent.Install(); err != nil {
+	agentService.InitDir = upstartScriptLocation
+	logger.Infof("installing service %s to %s", env.machineAgentServiceName(), agentService.InitDir)
+	if err := agentService.Install(); err != nil {
 		logger.Errorf("could not install machine agent service: %v", err)
 		return err
 	}
@@ -493,62 +480,60 @@ func (env *localEnviron) findBridgeAddress() (string, error) {
 	return getAddressForInterface(lxcBridgeName)
 }
 
-func (env *localEnviron) writeBootstrapAgentConfFile(cert, key []byte) error {
-	info, apiInfo, err := env.StateInfo()
-	if err != nil {
-		logger.Errorf("failed to get state info to write bootstrap agent file: %v", err)
-		return err
-	}
+func (env *localEnviron) writeBootstrapAgentConfFile(secret string, cert, key []byte) (agent.Config, error) {
 	tag := names.MachineTag("0")
-	info.Tag = tag
-	apiInfo.Tag = tag
-	conf := &agent.Conf{
-		DataDir:         env.config.rootDir(),
-		StateInfo:       info,
-		APIInfo:         apiInfo,
-		StateServerCert: cert,
-		StateServerKey:  key,
-		StatePort:       env.config.StatePort(),
-		APIPort:         env.config.APIPort(),
-		MachineNonce:    state.BootstrapNonce,
-	}
-	if err := conf.Write(); err != nil {
-		logger.Errorf("failed to write bootstrap agent file: %v", err)
-		return err
-	}
-	return nil
-}
-
-func (env *localEnviron) initialStateConfiguration(addr string, cons constraints.Value) (*state.State, error) {
+	passwordHash := utils.PasswordHash(secret)
 	// We don't check the existance of the CACert here as if it wasn't set, we
 	// wouldn't get this far.
 	cfg := env.config.Config
 	caCert, _ := cfg.CACert()
-	addr = fmt.Sprintf("%s:%d", addr, cfg.StatePort())
-	info := &state.Info{
-		Addrs:  []string{addr},
-		CACert: caCert,
-	}
-	timeout := state.DialOpts{60 * time.Second}
-	bootstrap, err := environs.BootstrapConfig(cfg)
+	// NOTE: the state address HAS to be localhost, otherwise the mongo
+	// initialization fails.  There is some magic code somewhere in the mongo
+	// connection code that treats connections from localhost as special, and
+	// will raise unauthorized errors during the initialization if the caller
+	// is not connected from localhost.
+	stateAddress := fmt.Sprintf("localhost:%d", cfg.StatePort())
+	apiAddress := fmt.Sprintf("localhost:%d", cfg.APIPort())
+	config, err := agent.NewStateMachineConfig(
+		agent.StateMachineConfigParams{
+			AgentConfigParams: agent.AgentConfigParams{
+				DataDir:        env.config.rootDir(),
+				Tag:            tag,
+				Password:       passwordHash,
+				Nonce:          state.BootstrapNonce,
+				StateAddresses: []string{stateAddress},
+				APIAddresses:   []string{apiAddress},
+				CACert:         caCert,
+			},
+			StateServerCert: cert,
+			StateServerKey:  key,
+			StatePort:       cfg.StatePort(),
+			APIPort:         cfg.APIPort(),
+		})
 	if err != nil {
 		return nil, err
 	}
-	st, err := state.Initialize(info, bootstrap, timeout)
-	if err != nil {
-		logger.Errorf("failed to initialize state: %v", err)
+	if err := config.Write(); err != nil {
+		logger.Errorf("failed to write bootstrap agent file: %v", err)
 		return nil, err
 	}
-	logger.Debugf("state initialized")
+	return config, nil
+}
 
-	passwordHash := utils.PasswordHash(cfg.AdminSecret())
-	if err := environs.BootstrapUsers(st, cfg, passwordHash); err != nil {
-		st.Close()
+func (env *localEnviron) initialStateConfiguration(agentConfig agent.Config, cons constraints.Value) (*state.State, error) {
+	timeout := state.DialOpts{60 * time.Second}
+	bootstrapCfg, err := environs.BootstrapConfig(env.config.Config)
+	if err != nil {
 		return nil, err
 	}
+	st, err := agent.InitialStateConfiguration(agentConfig, bootstrapCfg, timeout)
+	if err != nil {
+		return nil, err
+	}
+
 	jobs := []state.MachineJob{state.JobManageEnviron, state.JobManageState}
 
-	if err := environs.ConfigureBootstrapMachine(
+	if err := bootstrap.ConfigureBootstrapMachine(
 		st, cons, env.config.rootDir(), jobs, instance.Id(boostrapInstanceId), instance.HardwareCharacteristics{}); err != nil {
 		st.Close()
 		return nil, err

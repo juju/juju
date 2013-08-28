@@ -14,6 +14,8 @@ import (
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -64,7 +66,10 @@ func (t *Tests) Open(c *C) environs.Environ {
 
 func (t *Tests) SetUpTest(c *C) {
 	t.LoggingSuite.SetUpTest(c)
-	t.Env = t.Open(c)
+	cfg, err := config.New(t.TestConfig.Config)
+	c.Assert(err, IsNil)
+	t.Env, err = environs.Prepare(cfg)
+	c.Assert(err, IsNil)
 }
 
 func (t *Tests) TearDownTest(c *C) {
@@ -130,18 +135,18 @@ func (t *Tests) TestStartStop(c *C) {
 func (t *Tests) TestBootstrap(c *C) {
 	// TODO tests for Bootstrap(true)
 	e := t.Open(c)
-	err := environs.Bootstrap(e, constraints.Value{})
+	err := bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, IsNil)
 
 	info, apiInfo, err := e.StateInfo()
 	c.Check(info.Addrs, Not(HasLen), 0)
 	c.Check(apiInfo.Addrs, Not(HasLen), 0)
 
-	err = environs.Bootstrap(e, constraints.Value{})
+	err = bootstrap.Bootstrap(e, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	e2 := t.Open(c)
-	err = environs.Bootstrap(e2, constraints.Value{})
+	err = bootstrap.Bootstrap(e2, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	info2, apiInfo2, err := e2.StateInfo()
@@ -154,10 +159,10 @@ func (t *Tests) TestBootstrap(c *C) {
 	// Open again because Destroy invalidates old environments.
 	e3 := t.Open(c)
 
-	err = environs.Bootstrap(e3, constraints.Value{})
+	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(e3, constraints.Value{})
+	err = bootstrap.Bootstrap(e3, constraints.Value{})
 	c.Assert(err, NotNil)
 }
 

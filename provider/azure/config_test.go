@@ -13,7 +13,9 @@ import (
 	"launchpad.net/juju-core/testing"
 )
 
-type configSuite struct{}
+type configSuite struct {
+	testing.LoggingSuite
+}
 
 var _ = gc.Suite(&configSuite{})
 
@@ -226,4 +228,18 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 		"management-certificate": certificate,
 	}
 	c.Check(secretAttrs, gc.DeepEquals, expectedAttrs)
+}
+
+func (*configSuite) TestConfigDefaults(c *gc.C) {
+	configMap := makeAzureConfigMap(c)
+	delete(configMap, "public-storage-account-name")
+	delete(configMap, "public-storage-container-name")
+	config, err := config.New(configMap)
+	c.Assert(err, gc.IsNil)
+	provider := azureEnvironProvider{}
+	config, err = provider.Validate(config, nil)
+	c.Assert(err, gc.IsNil)
+	attrs := config.AllAttrs()
+	c.Assert(attrs["public-storage-account-name"], gc.Equals, "jujutools")
+	c.Assert(attrs["public-storage-container-name"], gc.Equals, "juju-tools")
 }

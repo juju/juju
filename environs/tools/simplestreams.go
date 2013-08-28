@@ -16,12 +16,11 @@ func init() {
 }
 
 const (
-	JujuTools = "juju-tools"
+	ContentDownload = "content-download"
 )
 
 // This needs to be a var so we can override it for testing.
-// TODO(wallyworld) - use real URL when known.
-var DefaultBaseURL = "http://juju-dist.s3.amazonaws.com/"
+var DefaultBaseURL = "http://juju.canonical.com/tools"
 
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
@@ -60,7 +59,7 @@ type ToolsMetadata struct {
 // then unsigned data is used.
 func Fetch(baseURLs []string, indexPath string, cons *ToolsConstraint, onlySigned bool) ([]*ToolsMetadata, error) {
 	params := simplestreams.ValueParams{
-		DataType:      JujuTools,
+		DataType:      ContentDownload,
 		FilterFunc:    appendMatchingTools,
 		ValueTemplate: ToolsMetadata{},
 	}

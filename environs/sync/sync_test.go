@@ -11,13 +11,13 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/sync"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -52,7 +52,7 @@ environments:
         authorized-keys: "not-really-one"
 `)
 	var err error
-	s.targetEnv, err = environs.NewFromName("test-target")
+	s.targetEnv, err = environs.PrepareFromName("test-target")
 	c.Assert(err, gc.IsNil)
 	envtesting.RemoveAllTools(c, s.targetEnv)
 
@@ -92,26 +92,21 @@ var tests = []struct {
 }{
 	{
 		description: "copy newest from the filesystem",
-		ctx: &sync.SyncContext{
-			EnvName: "test-target",
-		},
+		ctx:         &sync.SyncContext{},
 		source:      true,
 		tools:       v100all,
 		emptyPublic: true,
 	},
 	{
 		description: "copy newest from the dummy environment",
-		ctx: &sync.SyncContext{
-			EnvName: "test-target",
-		},
+		ctx:         &sync.SyncContext{},
 		tools:       v100all,
 		emptyPublic: true,
 	},
 	{
 		description: "copy newest dev from the dummy environment",
 		ctx: &sync.SyncContext{
-			EnvName: "test-target",
-			Dev:     true,
+			Dev: true,
 		},
 		tools:       v190all,
 		emptyPublic: true,
@@ -119,7 +114,6 @@ var tests = []struct {
 	{
 		description: "copy all from the dummy environment",
 		ctx: &sync.SyncContext{
-			EnvName:     "test-target",
 			AllVersions: true,
 		},
 		tools:       v100all,
@@ -128,7 +122,6 @@ var tests = []struct {
 	{
 		description: "copy all and dev from the dummy environment",
 		ctx: &sync.SyncContext{
-			EnvName:     "test-target",
 			AllVersions: true,
 			Dev:         true,
 		},
@@ -138,7 +131,6 @@ var tests = []struct {
 	{
 		description: "copy to the dummy environment public storage",
 		ctx: &sync.SyncContext{
-			EnvName:      "test-target",
 			PublicBucket: true,
 		},
 		tools:       v100all,
@@ -147,22 +139,23 @@ var tests = []struct {
 }
 
 func (s *syncSuite) TestSyncing(c *gc.C) {
-	for _, test := range tests {
+	for i, test := range tests {
 		// Perform all tests in a "clean" environment.
 		func() {
 			s.setUpTest(c)
 			defer s.tearDownTest(c)
 
-			c.Log(test.description)
+			c.Logf("test %d: %s", i, test.description)
 
 			if test.source {
 				test.ctx.Source = s.localStorage
 			}
+			test.ctx.Target = s.targetEnv
 
 			err := sync.SyncTools(test.ctx)
 			c.Assert(err, gc.IsNil)
 
-			targetTools, err := tools.FindAvailableTools(s.targetEnv, 1)
+			targetTools, err := envtools.FindTools(s.targetEnv, 1, coretools.Filter{})
 			c.Assert(err, gc.IsNil)
 			assertToolsList(c, targetTools, test.tools)
 
@@ -181,7 +174,7 @@ func (s *syncSuite) TestCopyToDummyPublicBlockedByPrivate(c *gc.C) {
 
 	envtesting.UploadFakeToolsVersion(c, s.targetEnv.Storage(), v200p64)
 	ctx := &sync.SyncContext{
-		EnvName:      "test-target",
+		Target:       s.targetEnv,
 		PublicBucket: true,
 	}
 	err := sync.SyncTools(ctx)
@@ -205,7 +198,7 @@ var (
 // putBinary stores a faked binary in the test directory.
 func putBinary(c *gc.C, storagePath string, v version.Binary) {
 	data := v.String()
-	name := agenttools.StorageName(v)
+	name := envtools.StorageName(v)
 	filename := filepath.Join(storagePath, name)
 	dir := filepath.Dir(filename)
 	err := os.MkdirAll(dir, 0755)
@@ -215,14 +208,14 @@ func putBinary(c *gc.C, storagePath string, v version.Binary) {
 }
 
 func assertEmpty(c *gc.C, storage environs.StorageReader) {
-	list, err := agenttools.ReadList(storage, 1)
+	list, err := envtools.ReadList(storage, 1)
 	if len(list) > 0 {
 		c.Logf("got unexpected tools: %s", list)
 	}
-	c.Assert(err, gc.Equals, agenttools.ErrNoTools)
+	c.Assert(err, gc.Equals, envtools.ErrNoTools)
 }
 
-func assertToolsList(c *gc.C, list agenttools.List, expected []version.Binary) {
+func assertToolsList(c *gc.C, list coretools.List, expected []version.Binary) {
 	urls := list.URLs()
 	c.Check(urls, gc.HasLen, len(expected))
 	for _, vers := range expected {

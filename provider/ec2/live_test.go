@@ -21,6 +21,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/ec2"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -139,7 +140,7 @@ func (t *LiveTests) TestInstanceAttributes(c *gc.C) {
 
 func (t *LiveTests) TestStartInstanceConstraints(c *gc.C) {
 	cons := constraints.MustParse("mem=2G")
-	inst, hc, err := t.Env.StartInstance("31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
+	inst, hc, err := provider.StartInstance(t.Env, "31", "fake_nonce", config.DefaultSeries, cons, testing.FakeStateInfo("31"), testing.FakeAPIInfo("31"))
 	c.Assert(err, gc.IsNil)
 	defer t.Env.StopInstances([]instance.Instance{inst})
 	ec2inst := ec2.InstanceEC2(inst)

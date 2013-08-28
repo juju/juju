@@ -11,6 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
@@ -146,6 +147,10 @@ func runCommand(ctx *cmd.Context, com cmd.Command, args ...string) (opc chan dum
 }
 
 func (*CmdSuite) TestDestroyEnvironmentCommand(c *gc.C) {
+	// Prepare the environment so we can destroy it.
+	_, err := environs.PrepareFromName("")
+	c.Assert(err, gc.IsNil)
+
 	// normal destroy
 	opc, errc := runCommand(nil, new(DestroyEnvironmentCommand), "--yes")
 	c.Check(<-errc, gc.IsNil)
@@ -190,6 +195,10 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 	c.Check(<-opc, gc.IsNil)
 	c.Check(<-errc, gc.ErrorMatches, "Environment destruction aborted")
 
+	// Prepare the environment so we can destroy it.
+	_, err := environs.PrepareFromName("")
+	c.Assert(err, gc.IsNil)
+
 	// "--yes" passed: no confirmation request.
 	stdin.Reset()
 	stdout.Reset()
@@ -200,6 +209,10 @@ func (*CmdSuite) TestDestroyEnvironmentCommandConfirmation(c *gc.C) {
 
 	// Any of casing of "y" and "yes" will confirm.
 	for _, answer := range []string{"y", "Y", "yes", "YES"} {
+		// Prepare the environment so we can destroy it.
+		_, err := environs.PrepareFromName("")
+		c.Assert(err, gc.IsNil)
+
 		stdin.Reset()
 		stdout.Reset()
 		stdin.WriteString(answer)

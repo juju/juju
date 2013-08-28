@@ -6,10 +6,10 @@ package upgrader
 import (
 	"fmt"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/state/api/common"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
+	"launchpad.net/juju-core/tools"
 )
 
 // State provides access to an upgrader worker's view of the state.
@@ -64,7 +64,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	return result.Tools, nil
 }
 
-func (st *State) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
+func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},

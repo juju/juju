@@ -11,17 +11,16 @@ import (
 
 	"launchpad.net/gwacl"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/imagemetadata"
 	"launchpad.net/juju-core/environs/instances"
-	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils/parallel"
 )
 
@@ -155,33 +154,6 @@ func (env *azureEnviron) getSnapshot() *azureEnviron {
 	return &snap
 }
 
-// startBootstrapInstance starts the bootstrap instance for this environment.
-func (env *azureEnviron) startBootstrapInstance(cons constraints.Value) (instance.Instance, error) {
-	// The bootstrap instance gets machine id "0".  This is not related to
-	// instance ids or anything in Azure.  Juju assigns the machine ID.
-	const machineID = "0"
-
-	// Create an empty bootstrap state file so we can get its URL.
-	// It will be updated with the instance id and hardware characteristics
-	// after the bootstrap instance is started.
-	stateFileURL, err := environs.CreateStateFile(env.Storage())
-	if err != nil {
-		return nil, err
-	}
-	machineConfig := environs.NewBootstrapMachineConfig(machineID, stateFileURL)
-
-	logger.Debugf("bootstrapping environment %q", env.Name())
-	possibleTools, err := tools.FindBootstrapTools(env, cons)
-	if err != nil {
-		return nil, err
-	}
-	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
-	if err != nil {
-		return nil, fmt.Errorf("cannot start bootstrap instance: %v", err)
-	}
-	return inst, nil
-}
-
 // getAffinityGroupName returns the name of the affinity group used by all
 // the Services in this environment.
 func (env *azureEnviron) getAffinityGroupName() string {
@@ -254,10 +226,8 @@ func (env *azureEnviron) getContainerName() string {
 }
 
 // Bootstrap is specified in the Environ interface.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
-	// TODO(bug 1199847). The creation of the affinity group and the
-	// virtual network is specific to the Azure provider.
+func (env *azureEnviron) Bootstrap(cons constraints.Value, possibleTools tools.List, machineID string) (err error) {
+	// The creation of the affinity group and the virtual network is specific to the Azure provider.
 	err = env.createAffinityGroup()
 	if err != nil {
 		return err
@@ -278,29 +248,8 @@ func (env *azureEnviron) Bootstrap(cons constraints.Value) (err error) {
 			env.deleteVirtualNetwork()
 		}
 	}()
-
-	inst, err := env.startBootstrapInstance(cons)
-	if err != nil {
-		return err
-	}
-	// TODO(wallyworld) - save hardware characteristics
-	err = environs.SaveState(
-		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{inst.Id()}})
-	if err != nil {
-		err2 := env.StopInstances([]instance.Instance{inst})
-		if err2 != nil {
-			// Failure upon failure.  Log it, but return the
-			// original error.
-			logger.Errorf("cannot release failed bootstrap instance: %v", err2)
-		}
-		return fmt.Errorf("cannot save state: %v", err)
-	}
-
-	// TODO make safe in the case of racing Bootstraps
-	// If two Bootstraps are called concurrently, there's
-	// no way to make sure that only one succeeds.
-	return nil
+	err = provider.StartBootstrapInstance(env, cons, possibleTools, machineID)
+	return err
 }
 
 // StateInfo is specified in the Environ interface.
@@ -413,36 +362,26 @@ func (env *azureEnviron) selectInstanceTypeAndImage(cons constraints.Value, seri
 		Arches:      architectures,
 		Constraints: cons,
 	}
-	spec, err := findInstanceSpec(ecfg.imageStream(), constraint)
+	spec, err := findInstanceSpec(env, ecfg.imageStream(), constraint)
 	if err != nil {
 		return "", "", err
 	}
 	return spec.InstanceType.Id, spec.Image.Id, nil
 }
 
-// internalStartInstance does the provider-specific work of starting an
-// instance.  The code in StartInstance is actually largely agnostic across
-// the EC2/OpenStack/MAAS/Azure providers.
-// The instance will be set up for the same series for which you pass tools.
-// All tools in possibleTools must be for the same series.
-// machineConfig will be filled out with further details, but should contain
-// MachineID, MachineNonce, StateInfo, and APIInfo.
-// TODO(bug 1199847): Some of this work can be shared between providers.
-func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleTools agenttools.List, machineConfig *cloudinit.MachineConfig) (_ instance.Instance, err error) {
+// StartInstance is specified in the InstanceBroker interface.
+func (env *azureEnviron) StartInstance(cons constraints.Value, possibleTools tools.List,
+	machineConfig *cloudinit.MachineConfig) (_ instance.Instance, _ *instance.HardwareCharacteristics, err error) {
+
 	// Declaring "err" in the function signature so that we can "defer"
 	// any cleanup that needs to run during error returns.
 
-	series := possibleTools.Series()
-	if len(series) != 1 {
-		panic(fmt.Errorf("should have gotten tools for one series, got %v", series))
-	}
-
 	err = environs.FinishMachineConfig(machineConfig, env.Config(), cons)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	// Pick tools.  Needed for the custom data (which is what we normally
+	// Pick envtools.  Needed for the custom data (which is what we normally
 	// call userdata).
 	machineConfig.Tools = possibleTools[0]
 	logger.Infof("picked tools %q", machineConfig.Tools)
@@ -450,12 +389,12 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// Compose userdata.
 	userData, err := makeCustomData(machineConfig)
 	if err != nil {
-		return nil, fmt.Errorf("custom data: %v", err)
+		return nil, nil, fmt.Errorf("custom data: %v", err)
 	}
 
 	azure, err := env.getManagementAPI()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer env.releaseManagementAPI(azure)
 
@@ -463,7 +402,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	location := snap.ecfg.location()
 	service, err := newHostedService(azure.ManagementAPI, env.getEnvPrefix(), env.getAffinityGroupName(), location)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	serviceName := service.ServiceName
 
@@ -477,9 +416,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 		}
 	}()
 
-	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series[0], location)
+	series := possibleTools.OneSeries()
+	instanceType, sourceImageName, err := env.selectInstanceTypeAndImage(cons, series, location)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	// virtualNetworkName is the virtual network to which all the
@@ -497,7 +437,7 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 
 	err = azure.AddDeployment(deployment, serviceName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var inst instance.Instance
@@ -519,9 +459,10 @@ func (env *azureEnviron) internalStartInstance(cons constraints.Value, possibleT
 	// above can perform its check.
 	inst, err = env.getInstance(serviceName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return inst, nil
+	// TODO(bug 1193998) - return instance hardware characteristics as well
+	return inst, &instance.HardwareCharacteristics{}, nil
 }
 
 // getInstance returns an up-to-date version of the instance with the given
@@ -556,7 +497,7 @@ func (env *azureEnviron) newOSDisk(sourceImageName string) *gwacl.OSVirtualHardD
 // getInitialEndpoints returns a slice of the endpoints every instance should have open
 // (ssh port, etc).
 func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
-	config := env.Config()
+	cfg := env.Config()
 	return []gwacl.InputEndpoint{
 		{
 			LocalPort: 22,
@@ -566,16 +507,16 @@ func (env *azureEnviron) getInitialEndpoints() []gwacl.InputEndpoint {
 		},
 		// TODO: Ought to have this only for state servers.
 		{
-			LocalPort: config.StatePort(),
+			LocalPort: cfg.StatePort(),
 			Name:      "stateport",
-			Port:      config.StatePort(),
+			Port:      cfg.StatePort(),
 			Protocol:  "tcp",
 		},
 		// TODO: Ought to have this only for API servers.
 		{
-			LocalPort: config.APIPort(),
+			LocalPort: cfg.APIPort(),
 			Name:      "apiport",
-			Port:      config.APIPort(),
+			Port:      cfg.APIPort(),
 			Protocol:  "tcp",
 		}}
 }
@@ -615,24 +556,6 @@ func (env *azureEnviron) newDeployment(role *gwacl.Role, deploymentName string, 
 	return gwacl.NewDeploymentForCreateVMDeployment(deploymentName, deploymentSlot, deploymentLabel, []gwacl.Role{*role}, virtualNetworkName)
 }
 
-// StartInstance is specified in the Environ interface.
-// TODO(bug 1199847): This work can be shared between providers.
-func (env *azureEnviron) StartInstance(machineID, machineNonce string, series string, cons constraints.Value,
-	stateInfo *state.Info, apiInfo *api.Info) (instance.Instance, *instance.HardwareCharacteristics, error) {
-	possibleTools, err := tools.FindInstanceTools(env, series, cons)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = tools.CheckToolsSeries(possibleTools, series)
-	if err != nil {
-		return nil, nil, err
-	}
-	machineConfig := environs.NewMachineConfig(machineID, machineNonce, stateInfo, apiInfo)
-	// TODO(bug 1193998) - return instance hardware characteristics as well.
-	inst, err := env.internalStartInstance(cons, possibleTools, machineConfig)
-	return inst, nil, err
-}
-
 // Spawn this many goroutines to issue requests for destroying services.
 // TODO: this is currently set to 1 because of a problem in Azure:
 // removing Services in the same affinity group concurrently causes a conflict.
@@ -640,7 +563,7 @@ func (env *azureEnviron) StartInstance(machineID, machineNonce string, series st
 // This has been reported to Windows Azure.
 var maxConcurrentDeletes = 1
 
-// StopInstances is specified in the Environ interface.
+// StartInstance is specified in the InstanceBroker interface.
 func (env *azureEnviron) StopInstances(instances []instance.Instance) error {
 	// Each Juju instance is an Azure Service (instance==service), destroy
 	// all the Azure services.
@@ -701,7 +624,7 @@ func (env *azureEnviron) Instances(ids []instance.Id) ([]instance.Instance, erro
 	return instances, nil
 }
 
-// AllInstances is specified in the Environ interface.
+// AllInstances is specified in the InstanceBroker interface.
 func (env *azureEnviron) AllInstances() ([]instance.Instance, error) {
 	// The instance list is built using the list of all the Azure
 	// Services (instance==service).
@@ -968,12 +891,17 @@ func (env *azureEnviron) getPublicStorageContext() (*gwacl.StorageContext, error
 	return &context, nil
 }
 
-// getImageBaseURLs returns the base URLs for this environment's simplestreams
-// database.  In other words, where it should look for information on the
-// available images.
-func (env *azureEnviron) getImageBaseURLs() ([]string, error) {
-	// Hard-coded to the central Simplestreams database for now.
-	return []string{imagemetadata.DefaultBaseURL}, nil
+// baseURLs specifies an Azure specific location where we look for simplestreams information.
+// It contains the central databases for the released and daily streams, but this may
+// become more configurable.  This variable is here as a placeholder, but also
+// as an injection point for tests.
+var baseURLs = []string{
+	"http://cloud-images.ubuntu.com/daily",
+}
+
+// GetImageBaseURLs returns a list of URLs which are used to search for simplestreams image metadata.
+func (e *azureEnviron) GetImageBaseURLs() ([]string, error) {
+	return baseURLs, nil
 }
 
 // getImageStream returns the name of the simplestreams stream from which

@@ -129,10 +129,11 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 }
 
 // AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
+func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
 	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
+		ServiceName:   service,
+		NumUnits:      numUnits,
+		ToMachineSpec: machineSpec,
 	}
 	results := new(params.AddServiceUnitsResults)
 	err := c.st.Call("Client", "", "AddServiceUnits", args, results)
@@ -231,4 +232,12 @@ func (c *Client) GetAnnotations(tag string) (map[string]string, error) {
 func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
 	return c.st.Call("Client", "", "SetAnnotations", args, nil)
+}
+
+// Close closes the Client's underlying State connection
+// Client is unique among the api.State facades in closing its own State
+// connection, but it is conventional to use a Client object without any access
+// to its underlying state connection.
+func (c *Client) Close() error {
+	return c.st.Close()
 }

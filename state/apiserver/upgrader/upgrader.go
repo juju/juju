@@ -6,13 +6,13 @@ package upgrader
 import (
 	"errors"
 
-	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/tools"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
+	agenttools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -86,7 +86,7 @@ func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
 	// in state, or even in the API servers
-	return tools.FindExactTools(env, requested)
+	return envtools.FindExactTools(env, requested)
 }
 
 // Tools finds the Tools necessary for the given agents.

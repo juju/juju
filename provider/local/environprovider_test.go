@@ -23,7 +23,7 @@ func (s *baseProviderSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.home = testing.MakeFakeHomeNoEnvironments(c, "test")
-	loggo.GetLogger("juju.environs.local").SetLogLevel(loggo.TRACE)
+	loggo.GetLogger("juju.provider.local").SetLogLevel(loggo.TRACE)
 	s.restore = local.MockAddressForInterface()
 }
 
