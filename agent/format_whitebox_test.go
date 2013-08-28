@@ -8,6 +8,9 @@
 package agent
 
 import (
+	"io/ioutil"
+	"path"
+
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
@@ -26,5 +29,14 @@ func (*formatSuite) TestReadFormatEmptyDir(c *gc.C) {
 	dir := c.MkDir()
 	format, err := readFormat(dir)
 	c.Assert(format, gc.Equals, previousFormat)
+	c.Assert(err, gc.IsNil)
+}
+
+func (*formatSuite) TestReadFormat(c *gc.C) {
+	dir := c.MkDir()
+	err := ioutil.WriteFile(path.Join(dir, formatFilename), []byte("some format\n"), 0644)
+	c.Assert(err, gc.IsNil)
+	format, err := readFormat(dir)
+	c.Assert(format, gc.Equals, "some format")
 	c.Assert(err, gc.IsNil)
 }

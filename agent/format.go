@@ -5,6 +5,9 @@ package agent
 
 import (
 	"fmt"
+	"io/ioutil"
+	"path"
+	"strings"
 )
 
 // The format file in the agent config directory is used to identify the
@@ -24,6 +27,7 @@ import (
 // format.
 
 const (
+	formatFilename = "format"
 	currentFormat  = "format 1.14"
 	previousFormat = ""
 )
@@ -37,7 +41,12 @@ type formatter interface {
 }
 
 func readFormat(dirName string) (string, error) {
-	return previousFormat, nil
+	formatFile := path.Join(dirName, formatFilename)
+	contents, err := ioutil.ReadFile(formatFile)
+	if err != nil {
+		return previousFormat, nil
+	}
+	return strings.TrimSpace(string(contents)), nil
 }
 
 func newFormatter(dirName string) (formatter, error) {
