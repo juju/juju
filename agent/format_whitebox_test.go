@@ -8,9 +8,6 @@
 package agent
 
 import (
-	"io/ioutil"
-	"path"
-
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/testing"
@@ -23,7 +20,7 @@ type formatSuite struct {
 var _ = gc.Suite(&formatSuite{})
 
 func (*formatSuite) TestReadFormat(c *gc.C) {
-	format, err := readFormat(dir)
+	format, err := readFormat("ignored")
 	c.Assert(format, gc.Equals, currentFormat)
 	c.Assert(err, gc.IsNil)
 }

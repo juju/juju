@@ -5,9 +5,6 @@ package agent
 
 import (
 	"fmt"
-	"io/ioutil"
-	"path"
-	"strings"
 )
 
 // The format file in the agent config directory is used to identify the
