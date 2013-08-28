@@ -61,7 +61,9 @@ func (s *clientSuite) TestClientServiceSetYAML(c *gc.C) {
 
 var clientAddServiceUnitsTests = []struct {
 	about    string
+	service  string // if not set, defaults to 'dummy'
 	expected []string
+	to       string
 	err      string
 }{
 	{
@@ -72,6 +74,24 @@ var clientAddServiceUnitsTests = []struct {
 		about: "fails trying to add zero units",
 		err:   "must add at least one unit",
 	},
+	{
+		about:    "cannot mix to when adding multiple units",
+		err:      "cannot use NumUnits with ToMachineSpec",
+		expected: []string{"dummy/0", "dummy/1"},
+		to:       "0",
+	},
+	{
+		// Note: chained-state, we add 1 unit here, but the 3 units
+		// from the first condition still exist
+		about:    "force the unit onto bootstrap machine",
+		expected: []string{"dummy/3"},
+		to:       "0",
+	},
+	{
+		about:   "unknown service name",
+		service: "unknown-service",
+		err:     `service "unknown-service" not found`,
+	},
 }
 
 func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
@@ -79,7 +99,11 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	for i, t := range clientAddServiceUnitsTests {
 		c.Logf("test %d. %s", i, t.about)
-		units, err := s.APIState.Client().AddServiceUnits("dummy", len(t.expected))
+		serviceName := t.service
+		if serviceName == "" {
+			serviceName = "dummy"
+		}
+		units, err := s.APIState.Client().AddServiceUnits(serviceName, len(t.expected), t.to)
 		if t.err != "" {
 			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
@@ -87,6 +111,12 @@ func (s *clientSuite) TestClientAddServiceUnits(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(units, gc.DeepEquals, t.expected)
 	}
+	// Test that we actually assigned the unit to machine 0
+	forcedUnit, err := s.BackingState.Unit("dummy/3")
+	c.Assert(err, gc.IsNil)
+	assignedMachine, err := forcedUnit.AssignedMachineId()
+	c.Assert(err, gc.IsNil)
+	c.Assert(assignedMachine, gc.Equals, "0")
 }
 
 var clientCharmInfoTests = []struct {
@@ -230,24 +260,6 @@ func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
 		_, err = s.APIState.Client().GetAnnotations(id)
 		c.Assert(err, gc.ErrorMatches, expected)
 	}
-}
-
-func (s *clientSuite) TestClientServiceGet(c *gc.C) {
-	s.setUpScenario(c)
-	results, err := s.APIState.Client().ServiceGet("wordpress")
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, &params.ServiceGetResults{
-		Service: "wordpress",
-		Charm:   "wordpress",
-		Config: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"type":        "string",
-				"value":       "My Title",
-				"description": "A descriptive title used for the blog.",
-				"default":     true,
-			},
-		},
-	})
 }
 
 func (s *clientSuite) TestClientServiceExpose(c *gc.C) {

@@ -26,7 +26,7 @@ func (*ConfigSuite) TestSecretAttrs(c *gc.C) {
 		"ca-private-key":  "",
 	})
 	c.Assert(err, gc.IsNil)
-	env, err := environs.New(cfg)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	expected := map[string]interface{}{
 		"secret": "pork",
@@ -83,7 +83,7 @@ func (*ConfigSuite) TestFirewallMode(c *gc.C) {
 			continue
 		}
 
-		env, err := environs.New(cfg)
+		env, err := environs.Prepare(cfg)
 		if err != nil {
 			c.Assert(err, gc.ErrorMatches, test.errorMsg)
 			continue
