@@ -45,8 +45,6 @@ func (option Option) validate(name string, value interface{}) (_ interface{}, er
 	if checker := optionTypeCheckers[option.Type]; checker != nil {
 		if value, err = checker.Coerce(value, nil); err != nil {
 			return nil, err
-		} else if value == "" {
-			value = nil
 		}
 		return value, nil
 	}
@@ -64,9 +62,6 @@ var optionTypeCheckers = map[string]schema.Checker{
 // returns an error if it cannot be parsed to the correct type. Empty
 // string values are returned as nil.
 func (option Option) parse(name, str string) (_ interface{}, err error) {
-	if str == "" {
-		return nil, nil
-	}
 	defer option.error(&err, name, str)
 	switch option.Type {
 	case "string":
