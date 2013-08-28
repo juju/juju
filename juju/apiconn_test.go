@@ -87,11 +87,12 @@ func (*NewAPIClientSuite) TestNameNotDefault(c *gc.C) {
 	c.Assert(envInfo.Name, gc.Equals, envName)
 }
 
+// TODO(jam): 2013-08-27 This should move somewhere in api.*
 func (*NewAPIClientSuite) TestMultipleCloseOk(c *gc.C) {
 	defer coretesting.MakeSampleHome(c).Restore()
 	bootstrapEnv(c, "")
 	client, _ := juju.NewAPIClientFromName("")
-	client.Close()
-	client.Close()
-	client.Close()
+	c.Assert(client.Close(), gc.IsNil)
+	c.Assert(client.Close(), gc.IsNil)
+	c.Assert(client.Close(), gc.IsNil)
 }
