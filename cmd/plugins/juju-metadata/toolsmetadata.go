@@ -4,6 +4,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -17,15 +18,21 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	coretools "launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/utils"
 )
+
+const toolsIndexMetadataPath = "tools/streams/v1/index.json"
+const toolsProductMetadataPath = "tools/streams/v1/com.ubuntu.juju:released:tools.json"
 
 // ToolsMetadataCommand is used to write out a boilerplate environments.yaml file.
 type ToolsMetadataCommand struct {
 	cmd.EnvCommandBase
-	fetch bool
+	fetch       bool
+	metadataDir string
 }
 
 func (c *ToolsMetadataCommand) Info() *cmd.Info {
@@ -38,12 +45,24 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.fetch, "fetch", true, "fetch tools and compute content size and hash")
+	f.StringVar(&c.metadataDir, "d", "", "local directory to locate tools and store metadata")
 }
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	env, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		return err
+	}
+
+	if c.metadataDir != "" {
+		c.metadataDir = utils.NormalizePath(c.metadataDir)
+		listener, err := localstorage.Serve("127.0.0.1:0", c.metadataDir)
+		if err != nil {
+			return err
+		}
+		defer listener.Close()
+		storageAddr := listener.Addr().String()
+		env = localdirEnv{env, localstorage.Client(storageAddr)}
 	}
 
 	fmt.Println("Finding tools...")
@@ -119,30 +138,34 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 			Updated:          updated,
 			Format:           "products:1.0",
 			DataType:         "content-download",
-			ProductsFilePath: "streams/v1/com.ubuntu.juju:released:tools.json",
+			ProductsFilePath: toolsProductMetadataPath,
 			ProductIds:       productIds,
 		},
 	}
 
-	out := context.Stdout
-	data, err := json.MarshalIndent(&indices, "", "    ")
-	if err != nil {
+	storage := env.Storage()
+
+	fmt.Printf("Writing %s to storage\n", toolsIndexMetadataPath)
+	b, err := marshalIndent(&cloud)
+	if err = storage.Put(toolsProductMetadataPath, b, int64(b.Len())); err != nil {
 		return err
 	}
-	if _, err = out.Write(data); err != nil {
+
+	fmt.Printf("Writing %s to storage\n", toolsProductMetadataPath)
+	b, err = marshalIndent(&indices)
+	if err = storage.Put(toolsIndexMetadataPath, b, int64(b.Len())); err != nil {
 		return err
 	}
-	fmt.Fprintln(out)
-	fmt.Fprintln(out)
-	data, err = json.MarshalIndent(&cloud, "", "    ")
-	if err != nil {
-		return err
-	}
-	if _, err = out.Write(data); err != nil {
-		return err
-	}
-	fmt.Fprintln(out)
+
 	return nil
+}
+
+func marshalIndent(v interface{}) (*bytes.Buffer, error) {
+	out, err := json.MarshalIndent(v, "", "    ")
+	if err != nil {
+		return nil, err
+	}
+	return bytes.NewBuffer(out), nil
 }
 
 // fetchToolsHash fetches the file at the specified URL,
@@ -157,4 +180,19 @@ func fetchToolsHash(url string) (size float64, sha256hash hash.Hash, err error) 
 	sizeint, err := io.Copy(sha256hash, resp.Body)
 	resp.Body.Close()
 	return float64(sizeint), sha256hash, err
+}
+
+// localdirEnv wraps an Environ, returning a localstorage Storage
+// implementation, and ensuring no PublicStorage is available.
+type localdirEnv struct {
+	environs.Environ
+	storage environs.Storage
+}
+
+func (e localdirEnv) Storage() environs.Storage {
+	return e.storage
+}
+
+func (e localdirEnv) PublicStorage() environs.StorageReader {
+	return environs.EmptyStorage
 }
