@@ -71,9 +71,18 @@ var errorTransformTests = []struct {
 	err:  stderrors.New("an error"),
 	code: "",
 }, {
+	err:  unhashableError{"foo"},
+	code: "",
+}, {
 	err:  nil,
 	code: "",
 }}
+
+type unhashableError []string
+
+func (err unhashableError) Error() string {
+	return err[0]
+}
 
 func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	for _, t := range errorTransformTests {

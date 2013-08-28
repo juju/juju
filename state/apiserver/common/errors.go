@@ -51,14 +51,24 @@ var singletonErrorCodes = map[error]string{
 	ErrNotProvisioned:            params.CodeNotProvisioned,
 }
 
+func singletonCode(err error) string {
+	// All error types may not be hashable; deal with
+	// that by catching the panic if we try to look up
+	// a non-hashable type.
+	defer func() {
+		recover()
+	}()
+	return singletonErrorCodes[err]
+}
+
 // ServerError returns an error suitable for returning to an API
 // client, with an error code suitable for various kinds of errors
 // generated in packages outside the API.
-func ServerError(err error) *params.Error {
+func ServerError(err error) (apiError *params.Error) {
 	if err == nil {
 		return nil
 	}
-	code := singletonErrorCodes[err]
+	code := singletonCode(err)
 	switch {
 	case code != "":
 	case errors.IsUnauthorizedError(err):
