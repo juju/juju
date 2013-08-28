@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
@@ -621,12 +622,12 @@ type InitJujuHomeSuite struct {
 var _ = gc.Suite(&InitJujuHomeSuite{})
 
 func (s *InitJujuHomeSuite) SetUpTest(c *gc.C) {
-	s.originalHome = os.Getenv("HOME")
+	s.originalHome = osenv.Home()
 	s.originalJujuHome = os.Getenv("JUJU_HOME")
 }
 
 func (s *InitJujuHomeSuite) TearDownTest(c *gc.C) {
-	os.Setenv("HOME", s.originalHome)
+	osenv.SetHome(s.originalHome)
 	os.Setenv("JUJU_HOME", s.originalJujuHome)
 }
 
@@ -639,7 +640,7 @@ func (s *InitJujuHomeSuite) TestJujuHome(c *gc.C) {
 
 func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
 	os.Setenv("JUJU_HOME", "")
-	os.Setenv("HOME", "/my/home/")
+	osenv.SetHome("/my/home/")
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.IsNil)
 	c.Assert(config.JujuHome(), gc.Equals, "/my/home/.juju")
@@ -647,7 +648,7 @@ func (s *InitJujuHomeSuite) TestHome(c *gc.C) {
 
 func (s *InitJujuHomeSuite) TestError(c *gc.C) {
 	os.Setenv("JUJU_HOME", "")
-	os.Setenv("HOME", "")
+	osenv.SetHome("")
 	err := juju.InitJujuHome()
 	c.Assert(err, gc.ErrorMatches, "cannot determine juju home.*")
 }

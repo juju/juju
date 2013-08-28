@@ -18,6 +18,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/dummy"
@@ -194,11 +195,11 @@ func (s *JujuConnSuite) setUpConn(c *C) {
 		panic("JujuConnSuite.setUpConn without teardown")
 	}
 	s.RootDir = c.MkDir()
-	s.oldHome = os.Getenv("HOME")
+	s.oldHome = osenv.Home()
 	home := filepath.Join(s.RootDir, "/home/ubuntu")
 	err := os.MkdirAll(home, 0777)
 	c.Assert(err, IsNil)
-	os.Setenv("HOME", home)
+	osenv.SetHome(home)
 
 	dataDir := filepath.Join(s.RootDir, "/var/lib/juju")
 	err = os.MkdirAll(dataDir, 0777)
@@ -252,7 +253,7 @@ func (s *JujuConnSuite) tearDownConn(c *C) {
 	dummy.Reset()
 	s.Conn = nil
 	s.State = nil
-	os.Setenv("HOME", s.oldHome)
+	osenv.SetHome(s.oldHome)
 	s.oldHome = ""
 	s.RootDir = ""
 }

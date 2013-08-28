@@ -22,6 +22,7 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
@@ -380,9 +381,9 @@ func (conn *Conn) AddUnits(svc *state.Service, n int, machineIdSpec string) ([]*
 func InitJujuHome() error {
 	jujuHome := os.Getenv("JUJU_HOME")
 	if jujuHome == "" {
-		home := os.Getenv("HOME")
+		home := osenv.Home()
 		if home == "" {
-			return stderrors.New("cannot determine juju home, neither $JUJU_HOME nor $HOME are set")
+			return stderrors.New("cannot determine juju home, neither $JUJU_HOME nor user's home are set")
 		}
 		jujuHome = filepath.Join(home, ".juju")
 	}
