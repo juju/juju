@@ -7,7 +7,7 @@ $(warning You need to set up a GOPATH.  See the README file.)
 endif
 
 PROJECT := launchpad.net/juju-core
-PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PACKAGE))
+PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
 define DEPENDENCIES
   build-essential
