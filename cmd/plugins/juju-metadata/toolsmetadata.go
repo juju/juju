@@ -7,10 +7,13 @@ import (
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
+	"hash"
+	"io"
+	"net/http"
 	"net/url"
 	"time"
 
-	//"launchpad.net/gnuflag"
+	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
@@ -22,6 +25,7 @@ import (
 // ToolsMetadataCommand is used to write out a boilerplate environments.yaml file.
 type ToolsMetadataCommand struct {
 	cmd.EnvCommandBase
+	fetch bool
 }
 
 func (c *ToolsMetadataCommand) Info() *cmd.Info {
@@ -31,12 +35,10 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 	}
 }
 
-//func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
-//}
-
-//func (c *ToolsMetadataCommand) Init(args []string) error {
-//	return cmd.CheckEmpty(args)
-//}
+func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.EnvCommandBase.SetFlags(f)
+	f.BoolVar(&c.fetch, "fetch", true, "fetch tools and compute content size and hash")
+}
 
 func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	env, err := environs.NewFromName(c.EnvName)
@@ -44,6 +46,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		return err
 	}
 
+	fmt.Println("Finding tools...")
 	toolsList, err := tools.FindTools(env, 1, coretools.Filter{})
 	if err != nil {
 		return err
@@ -59,7 +62,16 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		urlPath := u.Path[1:]
 
 		var size float64
-		sha256hash := sha256.New()
+		var sha256hex string
+		if c.fetch {
+			fmt.Println("Fetching tools to generate hash:", t.URL)
+			var sha256hash hash.Hash
+			size, sha256hash, err = fetchToolsHash(t.URL)
+			if err != nil {
+				return err
+			}
+			sha256hex = fmt.Sprintf("%x", sha256hash.Sum(nil))
+		}
 
 		metadata[i] = &tools.ToolsMetadata{
 			Release:  t.Version.Series,
@@ -68,7 +80,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 			Path:     urlPath,
 			FileType: "tar.gz",
 			Size:     size,
-			SHA256:   fmt.Sprintf("%x", sha256hash.Sum(nil)),
+			SHA256:   sha256hex,
 		}
 	}
 
@@ -131,4 +143,18 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 	fmt.Fprintln(out)
 	return nil
+}
+
+// fetchToolsHash fetches the file at the specified URL,
+// and calculates its size in bytes and computes a SHA256
+// hash of its contents.
+func fetchToolsHash(url string) (size float64, sha256hash hash.Hash, err error) {
+	resp, err := http.Get(url)
+	if err != nil {
+		return 0, nil, err
+	}
+	sha256hash = sha256.New()
+	sizeint, err := io.Copy(sha256hash, resp.Body)
+	resp.Body.Close()
+	return float64(sizeint), sha256hash, err
 }
