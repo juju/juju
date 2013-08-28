@@ -5,12 +5,9 @@ package agent
 
 import (
 	"fmt"
-	"io/ioutil"
-	"os"
 	"path"
 	"regexp"
 
-	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs/config"
@@ -69,46 +66,26 @@ type Config interface {
 	APIServerDetails() (port int, cert, key []byte)
 }
 
-// conf holds information for a given agent.
-type conf struct {
-	// DataDir specifies the path of the data directory used by all
-	// agents
-	dataDir string
+// Ensure that the configInternal struct implements the Config interface.
+var _ Config = (*configInternal)(nil)
 
-	// StateServerCert and StateServerKey hold the state server
-	// certificate and private key in PEM format.
-	StateServerCert []byte `yaml:",omitempty"`
-	StateServerKey  []byte `yaml:",omitempty"`
-
-	StatePort int `yaml:",omitempty"`
-	APIPort   int `yaml:",omitempty"`
-
-	// OldPassword specifies a password that should be
-	// used to connect to the state if StateInfo.Password
-	// is blank or invalid.
-	OldPassword string
-
-	// MachineNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct instance.
-	MachineNonce string
-
-	// StateInfo specifies how the agent should connect to the
-	// state.  The password may be empty if an old password is
-	// specified, or when bootstrapping.
-	StateInfo *state.Info `yaml:",omitempty"`
-
-	// OldAPIPassword specifies a password that should
-	// be used to connect to the API if APIInfo.Password
-	// is blank or invalid.
-	OldAPIPassword string
-
-	// APIInfo specifies how the agent should connect to the
-	// state through the API.
-	APIInfo *api.Info `yaml:",omitempty"`
+type connectionDetails struct {
+	addresses []string
+	password  string
 }
 
-// Ensure that conf implements Config.
-var _ Config = (*conf)(nil)
+type configInternal struct {
+	dataDir         string
+	tag             string
+	nonce           string
+	caCert          []byte
+	stateDetails    *connectionDetails
+	apiDetails      *connectionDetails
+	oldPassword     string
+	stateServerCert []byte
+	stateServerKey  []byte
+	apiPort         int
+}
 
 type AgentConfigParams struct {
 	DataDir        string
@@ -120,7 +97,7 @@ type AgentConfigParams struct {
 	CACert         []byte
 }
 
-func newConfig(params AgentConfigParams) (*conf, error) {
+func newConfig(params AgentConfigParams) (*configInternal, error) {
 	if params.DataDir == "" {
 		return nil, requiredError("data directory")
 	}
@@ -135,33 +112,31 @@ func newConfig(params AgentConfigParams) (*conf, error) {
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
-	var stateInfo *state.Info
+	var stateDetails *connectionDetails
 	if len(params.StateAddresses) > 0 {
-		stateInfo = &state.Info{
-			Addrs:  params.StateAddresses,
-			Tag:    params.Tag,
-			CACert: params.CACert,
+		stateDetails = &connectionDetails{
+			addresses: params.StateAddresses,
 		}
 	}
-	var apiInfo *api.Info
+	var apiDetails *connectionDetails
 	if len(params.APIAddresses) > 0 {
-		apiInfo = &api.Info{
-			Addrs:  params.APIAddresses,
-			Tag:    params.Tag,
-			CACert: params.CACert,
+		apiDetails = &connectionDetails{
+			addresses: params.APIAddresses,
 		}
 	}
-	conf := &conf{
+	config := &configInternal{
 		dataDir:      params.DataDir,
-		OldPassword:  params.Password,
-		StateInfo:    stateInfo,
-		APIInfo:      apiInfo,
-		MachineNonce: params.Nonce,
+		tag:          params.Tag,
+		nonce:        params.Nonce,
+		caCert:       params.CACert,
+		stateDetails: stateDetails,
+		apiDetails:   apiDetails,
+		oldPassword:  params.Password,
 	}
-	if err := conf.check(); err != nil {
+	if err := config.check(); err != nil {
 		return nil, err
 	}
-	return conf, nil
+	return config, nil
 }
 
 // NewAgentConfig returns a new config object suitable for use for a unit
@@ -186,15 +161,14 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	if params.StateServerKey == nil {
 		return nil, requiredError("state server key")
 	}
-	conf, err := newConfig(params.AgentConfigParams)
+	config, err := newConfig(params.AgentConfigParams)
 	if err != nil {
 		return nil, err
 	}
-	conf.StateServerCert = params.StateServerCert
-	conf.StateServerKey = params.StateServerKey
-	conf.StatePort = params.StatePort
-	conf.APIPort = params.APIPort
-	return conf, nil
+	config.stateServerCert = params.StateServerCert
+	config.stateServerKey = params.StateServerKey
+	config.apiPort = params.APIPort
+	return config, nil
 }
 
 // Dir returns the agent-specific data directory.
@@ -206,25 +180,26 @@ func Dir(dataDir, agentName string) string {
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
 	dir := Dir(dataDir, tag)
-	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
+
+	formatter, err := newFormatter(previousFormat)
 	if err != nil {
 		return nil, err
 	}
-	var c conf
-	if err := goyaml.Unmarshal(data, &c); err != nil {
+
+	config, err := formatter.read(dir)
+	if err != nil {
 		return nil, err
 	}
-	c.dataDir = dataDir
-	if err := c.check(); err != nil {
+	config.dataDir = dataDir
+	if err := config.check(); err != nil {
 		return nil, err
 	}
-	if c.StateInfo != nil {
-		c.StateInfo.Tag = tag
-	}
-	if c.APIInfo != nil {
-		c.APIInfo.Tag = tag
-	}
-	return &c, nil
+	return config, nil
+	// Read the format for the dir.
+	// Create a formatter for the format
+	// Read in the config
+	// If the format isn't the current format, call the upgrade function, and
+	// write out using the new formatter.
 }
 
 func requiredError(what string) error {
@@ -232,53 +207,45 @@ func requiredError(what string) error {
 }
 
 // File returns the path of the given file in the agent's directory.
-func (c *conf) File(name string) string {
+func (c *configInternal) File(name string) string {
 	return path.Join(c.Dir(), name)
 }
 
-func (c *conf) confFile() string {
-	return c.File("agent.conf")
-}
-
-func (c *conf) DataDir() string {
+func (c *configInternal) DataDir() string {
 	return c.dataDir
 }
 
-func (c *conf) Nonce() string {
-	return c.MachineNonce
+func (c *configInternal) Nonce() string {
+	return c.nonce
 }
 
-func (c *conf) APIServerDetails() (port int, cert, key []byte) {
-	return c.APIPort, c.StateServerCert, c.StateServerKey
+func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
+	return c.apiPort, c.stateServerCert, c.stateServerKey
 }
 
 // Tag returns the tag of the entity on whose behalf the state connection will
 // be made.
-func (c *conf) Tag() string {
-	if c.StateInfo != nil {
-		return c.StateInfo.Tag
-	}
-	return c.APIInfo.Tag
+func (c *configInternal) Tag() string {
+	return c.tag
 }
 
 // Dir returns the agent's directory.
-func (c *conf) Dir() string {
-	return Dir(c.dataDir, c.Tag())
+func (c *configInternal) Dir() string {
+	return Dir(c.dataDir, c.tag)
 }
 
 // Check checks that the configuration has all the required elements.
-func (c *conf) check() error {
-	if c.StateInfo == nil && c.APIInfo == nil {
+func (c *configInternal) check() error {
+	if c.stateDetails == nil && c.apiDetails == nil {
 		return requiredError("state or API addresses")
 	}
-	if c.StateInfo != nil {
-		if err := checkAddrs(c.StateInfo.Addrs, "state server address"); err != nil {
+	if c.stateDetails != nil {
+		if err := checkAddrs(c.stateDetails.addresses, "state server address"); err != nil {
 			return err
 		}
 	}
-	// TODO(rog) make APIInfo mandatory
-	if c.APIInfo != nil {
-		if err := checkAddrs(c.APIInfo.Addrs, "API server address"); err != nil {
+	if c.apiDetails != nil {
+		if err := checkAddrs(c.apiDetails.addresses, "API server address"); err != nil {
 			return err
 		}
 	}
@@ -299,17 +266,17 @@ func checkAddrs(addrs []string, what string) error {
 	return nil
 }
 
-func (c *conf) PasswordHash() string {
+func (c *configInternal) PasswordHash() string {
 	var password string
-	if c.StateInfo == nil {
-		password = c.APIInfo.Password
+	if c.stateDetails == nil {
+		password = c.apiDetails.password
 	} else {
-		password = c.StateInfo.Password
+		password = c.stateDetails.password
 	}
 	return utils.PasswordHash(password)
 }
 
-func (c *conf) GenerateNewPassword() (string, error) {
+func (c *configInternal) GenerateNewPassword() (string, error) {
 	newPassword, err := utils.RandomPassword()
 	if err != nil {
 		return "", err
@@ -318,15 +285,15 @@ func (c *conf) GenerateNewPassword() (string, error) {
 	// to write the configuration file, the configuration will
 	// still be valid.
 	other := *c
-	if c.StateInfo != nil {
-		stateInfo := *c.StateInfo
-		stateInfo.Password = newPassword
-		other.StateInfo = &stateInfo
+	if c.stateDetails != nil {
+		stateDetails := *c.stateDetails
+		stateDetails.password = newPassword
+		other.stateDetails = &stateDetails
 	}
-	if c.APIInfo != nil {
-		apiInfo := *c.APIInfo
-		apiInfo.Password = newPassword
-		other.APIInfo = &apiInfo
+	if c.apiDetails != nil {
+		apiDetails := *c.apiDetails
+		apiDetails.password = newPassword
+		other.apiDetails = &apiDetails
 	}
 
 	if err := other.Write(); err != nil {
@@ -337,47 +304,25 @@ func (c *conf) GenerateNewPassword() (string, error) {
 }
 
 // Write writes the agent configuration.
-func (c *conf) Write() error {
-	if err := c.check(); err != nil {
-		return err
-	}
-	data, err := goyaml.Marshal(c)
+func (c *configInternal) Write() error {
+
+	formatter, err := newFormatter(previousFormat)
 	if err != nil {
 		return err
 	}
-	if err := os.MkdirAll(c.Dir(), 0755); err != nil {
-		return err
-	}
-	f := c.File("agent.conf-new")
-	if err := ioutil.WriteFile(f, data, 0600); err != nil {
-		return err
-	}
-	if err := os.Rename(f, c.confFile()); err != nil {
-		return err
-	}
-	return nil
+	return formatter.write(c.Dir(), c)
 }
 
 // WriteCommands returns shell commands to write the agent
 // configuration.  It returns an error if the configuration does not
 // have all the right elements.
-func (c *conf) WriteCommands() ([]string, error) {
-	if err := c.check(); err != nil {
-		return nil, err
-	}
-	data, err := goyaml.Marshal(c)
+func (c *configInternal) WriteCommands() ([]string, error) {
+
+	formatter, err := newFormatter(previousFormat)
 	if err != nil {
 		return nil, err
 	}
-	var cmds []string
-	addCmd := func(f string, a ...interface{}) {
-		cmds = append(cmds, fmt.Sprintf(f, a...))
-	}
-	f := utils.ShQuote(c.confFile())
-	addCmd("mkdir -p %s", utils.ShQuote(c.Dir()))
-	addCmd("install -m %o /dev/null %s", 0600, f)
-	addCmd(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), f)
-	return cmds, nil
+	return formatter.writeCommands(c.Dir(), c)
 }
 
 // OpenAPI tries to open the state using the given Conf.  If it
@@ -385,9 +330,14 @@ func (c *conf) WriteCommands() ([]string, error) {
 // to the state should be changed accordingly - the caller should write the
 // configuration with StateInfo.Password set to newPassword, then
 // set the entity's password accordingly.
-func (c *conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
-	info := *c.APIInfo
-	info.Nonce = c.MachineNonce
+func (c *configInternal) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string, err error) {
+	info := api.Info{
+		Addrs:    c.apiDetails.addresses,
+		Password: c.apiDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+		Nonce:    c.nonce,
+	}
 	if info.Password != "" {
 		st, err := api.Open(&info, dialOpts)
 		if err == nil {
@@ -401,7 +351,7 @@ func (c *conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 		// password but before changing it, so we'll try again
 		// with the old password.
 	}
-	info.Password = c.OldPassword
+	info.Password = c.oldPassword
 	st, err = api.Open(&info, dialOpts)
 	if err != nil {
 		return nil, "", err
@@ -418,8 +368,13 @@ func (c *conf) OpenAPI(dialOpts api.DialOpts) (st *api.State, newPassword string
 }
 
 // OpenState tries to open the state using the given Conf.
-func (c *conf) OpenState() (*state.State, error) {
-	info := *c.StateInfo
+func (c *configInternal) OpenState() (*state.State, error) {
+	info := state.Info{
+		Addrs:    c.stateDetails.addresses,
+		Password: c.stateDetails.password,
+		CACert:   c.caCert,
+		Tag:      c.tag,
+	}
 	if info.Password != "" {
 		st, err := state.Open(&info, state.DefaultDialOpts())
 		if err == nil {
@@ -431,14 +386,16 @@ func (c *conf) OpenState() (*state.State, error) {
 			return nil, err
 		}
 	}
-	info.Password = c.OldPassword
+	info.Password = c.oldPassword
 	return state.Open(&info, state.DefaultDialOpts())
 }
 
 func InitialStateConfiguration(agentConfig Config, cfg *config.Config, timeout state.DialOpts) (*state.State, error) {
-	c := agentConfig.(*conf)
-	info := *c.StateInfo
-	info.Tag = ""
+	c := agentConfig.(*configInternal)
+	info := state.Info{
+		Addrs:  c.stateDetails.addresses,
+		CACert: c.caCert,
+	}
 	logger.Debugf("initializing address %v", info.Addrs)
 	st, err := state.Initialize(&info, cfg, timeout)
 	if err != nil {
@@ -451,7 +408,7 @@ func InitialStateConfiguration(agentConfig Config, cfg *config.Config, timeout s
 	}
 	logger.Debugf("state initialized")
 
-	if err := bootstrapUsers(st, cfg, c.OldPassword); err != nil {
+	if err := bootstrapUsers(st, cfg, c.oldPassword); err != nil {
 		st.Close()
 		return nil, err
 	}
