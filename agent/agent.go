@@ -13,7 +13,6 @@ import (
 	"launchpad.net/goyaml"
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/state"
@@ -174,10 +173,15 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	return conf, nil
 }
 
+// Dir returns the agent-specific data directory.
+func Dir(dataDir, agentName string) string {
+	return path.Join(dataDir, "agents", agentName)
+}
+
 // ReadConf reads configuration data for the given
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
-	dir := tools.Dir(dataDir, tag)
+	dir := Dir(dataDir, tag)
 	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
 	if err != nil {
 		return nil, err
@@ -235,7 +239,7 @@ func (c *conf) Tag() string {
 
 // Dir returns the agent's directory.
 func (c *conf) Dir() string {
-	return tools.Dir(c.dataDir, c.Tag())
+	return Dir(c.dataDir, c.Tag())
 }
 
 // Check checks that the configuration has all the required elements.
