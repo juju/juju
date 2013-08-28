@@ -181,7 +181,7 @@ func Dir(dataDir, agentName string) string {
 func ReadConf(dataDir, tag string) (Config, error) {
 	dir := Dir(dataDir, tag)
 
-	formatter, err := newFormatter(previousFormat)
+	formatter, err := newFormatter(currentFormat)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +306,7 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 // Write writes the agent configuration.
 func (c *configInternal) Write() error {
 
-	formatter, err := newFormatter(previousFormat)
+	formatter, err := newFormatter(currentFormat)
 	if err != nil {
 		return err
 	}
@@ -318,7 +318,7 @@ func (c *configInternal) Write() error {
 // have all the right elements.
 func (c *configInternal) WriteCommands() ([]string, error) {
 
-	formatter, err := newFormatter(previousFormat)
+	formatter, err := newFormatter(currentFormat)
 	if err != nil {
 		return nil, err
 	}

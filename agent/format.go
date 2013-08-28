@@ -28,8 +28,7 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = "format 1.14"
-	previousFormat = "format 1.12"
+	currentFormat  = "format 1.12"
 )
 
 // The formatter defines the two methods needed by the formatters for
@@ -41,22 +40,13 @@ type formatter interface {
 }
 
 func readFormat(dirName string) (string, error) {
-	formatFile := path.Join(dirName, formatFilename)
-	contents, err := ioutil.ReadFile(formatFile)
-	// Once the previousFormat is defined to have a format file (1.14 or
-	// above), not finding a format file should be a real error.
-	if err != nil {
-		return previousFormat, nil
-	}
-	return strings.TrimSpace(string(contents)), nil
+	return currentFormat, nil
 }
 
 func newFormatter(format string) (formatter, error) {
 	switch format {
-	case previousFormat:
-		return &formatter112{}, nil
 	case currentFormat:
-		return &formatter114{}, nil
+		return &formatter112{}, nil
 	}
 	return nil, fmt.Errorf("unknown agent config format")
 }
