@@ -64,7 +64,7 @@ func (st *State) Tools(tag string) (*tools.Tools, error) {
 	return result.Tools, nil
 }
 
-func (st *State) WatchAPIVersion(agentTag string) (*watcher.NotifyWatcher, error) {
+func (st *State) WatchAPIVersion(agentTag string) (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: agentTag}},
