@@ -412,7 +412,7 @@ func (suite *environSuite) TestStateInfoFailsIfNoStateInstances(c *gc.C) {
 
 	_, _, err := env.StateInfo()
 
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *environSuite) TestDestroy(c *gc.C) {

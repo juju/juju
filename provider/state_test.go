@@ -110,7 +110,7 @@ func (suite *StateSuite) TestLoadStateMissingFile(c *gc.C) {
 
 	_, err := provider.LoadState(storage)
 
-	c.Check(err, jc.Satisfies, errors.IsNotBootstrapped)
+	c.Check(err, gc.Equals, environs.ErrNotBootstrapped)
 }
 
 func (suite *StateSuite) TestLoadStateIntegratesWithSaveState(c *gc.C) {

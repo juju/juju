@@ -561,7 +561,7 @@ func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
 		return nil, nil, errors.New("dummy environment has no state configured")
 	}
 	if !estate.bootstrapped {
-		return nil, nil, errors.New("dummy environment not bootstrapped")
+		return nil, nil, environs.ErrNotBootstrapped
 	}
 	return stateInfo(), &api.Info{
 		Addrs:  []string{estate.apiServer.Addr()},

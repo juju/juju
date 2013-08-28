@@ -57,8 +57,11 @@ type EnvironProvider interface {
 	PrivateAddress() (string, error)
 }
 
-var ErrNoInstances = errors.New("no instances found")
-var ErrPartialInstances = errors.New("only some instances were found")
+var (
+	ErrNoInstances = errors.New("no instances found")
+	ErrPartialInstances = errors.New("only some instances were found")
+	ErrNotBootstrapped = errors.New("environment is not bootstrapped")
+)
 
 // A StorageReader can retrieve and list files from a storage provider.
 type StorageReader interface {

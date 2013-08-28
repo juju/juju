@@ -12,7 +12,6 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/tools"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
@@ -70,6 +69,10 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 // confirm that the environment isn't already running, and that the storage
 // works.
 func verifyBootstrapInit(env environs.Environ) error {
+	// TODO(rog) this feels like a layering violation - providers
+	// should not necessarily be required to store their bootstrap
+	// state in a file. This verification should probably
+	// be moved into provider and called by the providers themselves.
 	var err error
 
 	storage := env.Storage()
@@ -85,7 +88,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 	if err == nil {
 		return fmt.Errorf("environment is already bootstrapped")
 	}
-	if !errors.IsNotBootstrapped(err) {
+	if err != environs.ErrNotBootstrapped {
 		return fmt.Errorf("cannot query old bootstrap state: %v", err)
 	}
 
