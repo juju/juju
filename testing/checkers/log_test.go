@@ -14,16 +14,16 @@ type LogMatchesSuite struct{}
 
 var _ = gc.Suite(&LogMatchesSuite{})
 
-func (s *LogMatchesSuite) TestMatchSimpleMessages(c *gc.C) {
+func (s *LogMatchesSuite) TestMatchSimpleMessage(c *gc.C) {
 	log := []loggo.TestLogValues{
 		{Level: loggo.INFO, Message: "foo"},
 		{Level: loggo.INFO, Message: "bar"},
 	}
-	c.Check(log, jc.LogMatches, []jc.SimpleMessages{
+	c.Check(log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "foo"},
 		{loggo.INFO, "bar"},
 	})
-	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessages{
+	c.Check(log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
 		{loggo.INFO, "foo"},
 		{loggo.DEBUG, "bar"},
 	})
@@ -50,7 +50,7 @@ func (s *LogMatchesSuite) TestFromLogMatches(c *gc.C) {
 	logger.Tracef("hidden")
 	c.Check(tw.Log, jc.LogMatches, []string{"foo", "bar"})
 	c.Check(tw.Log, gc.Not(jc.LogMatches), []string{"foo", "bad"})
-	c.Check(tw.Log, gc.Not(jc.LogMatches), []jc.SimpleMessages{
+	c.Check(tw.Log, gc.Not(jc.LogMatches), []jc.SimpleMessage{
 		{loggo.INFO, "foo"},
 		{loggo.INFO, "bar"},
 	})

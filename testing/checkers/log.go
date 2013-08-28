@@ -10,13 +10,13 @@ import (
 	"launchpad.net/loggo"
 )
 
-type SimpleMessages struct {
+type SimpleMessage struct {
 	Level   loggo.Level
 	Message string
 }
 
-func logToSimpleMessages(log []loggo.TestLogValues) []SimpleMessages {
-	out := make([]SimpleMessages, len(log))
+func logToSimpleMessages(log []loggo.TestLogValues) []SimpleMessage {
+	out := make([]SimpleMessage, len(log))
 	for i, val := range log {
 		out[i].Level = val.Level
 		out[i].Message = val.Message
@@ -29,15 +29,15 @@ type logMatches struct {
 }
 
 func (checker *logMatches) Check(params []interface{}, names []string) (result bool, error string) {
-	var obtained []SimpleMessages
+	var obtained []SimpleMessage
 	switch params[0].(type) {
 	case []loggo.TestLogValues:
 		obtained = logToSimpleMessages(params[0].([]loggo.TestLogValues))
 	default:
-		return false, "Obtained value must be of type []loggo.TestLogValues or SimpleMessages"
+		return false, "Obtained value must be of type []loggo.TestLogValues or SimpleMessage"
 	}
 	switch params[1].(type) {
-	case []SimpleMessages:
+	case []SimpleMessage:
 		return reflect.DeepEqual(obtained, params[1]), ""
 	case []string:
 		asString := make([]string, len(obtained))
@@ -46,15 +46,14 @@ func (checker *logMatches) Check(params []interface{}, names []string) (result b
 		}
 		return reflect.DeepEqual(asString, params[1]), ""
 	default:
-		return false, "Expected value must be of type []string or []SimpleMessages"
+		return false, "Expected value must be of type []string or []SimpleMessage"
 	}
-	return false, "bork bork bork"
 }
 
 // LogMatches checks whether a given TestLogValues actually contains the log
 // messages we expected. If you compare it against a list of strings, we only
 // compare that the strings in the messages are correct. You can alternatively
-// pass a slice of SimpleMessages and we will check that the log levels are
+// pass a slice of SimpleMessage and we will check that the log levels are
 // also correct.
 var LogMatches gc.Checker = &logMatches{
 	&gc.CheckerInfo{Name: "LogMatches", Params: []string{"obtained", "expected"}},

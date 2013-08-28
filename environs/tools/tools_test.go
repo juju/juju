@@ -197,7 +197,7 @@ func (s *ToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
 	// properly formed.
-	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessages{
+	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
 		{loggo.INFO, "filtering tools by version: 1.2.3"},
 		{loggo.DEBUG, "reading v1.* tools"},
