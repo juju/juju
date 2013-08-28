@@ -41,16 +41,16 @@ clean:
 else # --------------------------------
 
 build:
-	$(error Cannot build package outside of GOPATH)
+	$(error Cannot build; $(CURDIR) is not on GOPATH)
 
 check:
-	$(error Cannot check package outside of GOPATH)
+	$(error Cannot check; $(CURDIR) is not on GOPATH)
 
 install:
-	$(error Cannot install package from outside of GOPATH)
+	$(error Cannot install; $(CURDIR) is not on GOPATH)
 
 clean:
-	$(error Cannot clean package from outside of GOPATH)
+	$(error Cannot clean; $(CURDIR) is not on GOPATH)
 
 endif
 # End of GOPATH-dependent targets.
