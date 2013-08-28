@@ -5,6 +5,7 @@ package simplestreams_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -424,6 +425,19 @@ func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
 		c.Check(mirrorInfo.MirrorURL, gc.Equals, t.mirrorURL)
 		c.Check(mirrorInfo.Path, gc.Equals, t.path)
 	}
+}
+
+func (s *simplestreamsSuite) TestItemsMapUnmarshal(c *gc.C) {
+	// Ensure that unmarshalling a simplestreams.ItemMap
+	// directly (not through ParseCloudMetadata) doesn't
+	// cause any surprises.
+	var m simplestreams.ItemsMap
+	err := json.Unmarshal([]byte(`{"a": "b", "c": 123}`), &m)
+	c.Assert(err, gc.IsNil)
+	c.Assert(m, gc.DeepEquals, simplestreams.ItemsMap{
+		"a": "b",
+		"c": float64(123),
+	})
 }
 
 var testSigningKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----

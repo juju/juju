@@ -23,6 +23,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/version"
 )
 
 const toolsIndexMetadataPath = "tools/streams/v1/index.json"
@@ -66,7 +67,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	}
 
 	fmt.Println("Finding tools...")
-	toolsList, err := tools.FindTools(env, 1, coretools.Filter{})
+	toolsList, err := tools.FindTools(env, version.Current.Major, coretools.Filter{})
 	if err != nil {
 		return err
 	}
@@ -80,7 +81,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		// We strip the leading /, to be consistent with image metadata.
 		urlPath := u.Path[1:]
 
-		var size float64
+		var size int64
 		var sha256hex string
 		if c.fetch {
 			fmt.Println("Fetching tools to generate hash:", t.URL)
@@ -171,15 +172,15 @@ func marshalIndent(v interface{}) (*bytes.Buffer, error) {
 // fetchToolsHash fetches the file at the specified URL,
 // and calculates its size in bytes and computes a SHA256
 // hash of its contents.
-func fetchToolsHash(url string) (size float64, sha256hash hash.Hash, err error) {
+func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return 0, nil, err
 	}
 	sha256hash = sha256.New()
-	sizeint, err := io.Copy(sha256hash, resp.Body)
+	size, err = io.Copy(sha256hash, resp.Body)
 	resp.Body.Close()
-	return float64(sizeint), sha256hash, err
+	return size, sha256hash, err
 }
 
 // localdirEnv wraps an Environ, returning a localstorage Storage
