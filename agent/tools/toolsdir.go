@@ -33,11 +33,6 @@ func ToolsDir(dataDir, agentName string) string {
 	return path.Join(dataDir, "tools", agentName)
 }
 
-// Dir returns the agent-specific data directory.
-func Dir(dataDir, agentName string) string {
-	return path.Join(dataDir, "agents", agentName)
-}
-
 // UnpackTools reads a set of juju tools in gzipped tar-archive
 // format and unpacks them into the appropriate tools directory
 // within dataDir. If a valid tools directory already exists,

@@ -189,7 +189,7 @@ func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
 func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
 	confName := fmt.Sprintf("jujud-%s.conf", tag)
 	confPath = filepath.Join(fix.initDir, confName)
-	agentDir = tools.Dir(fix.dataDir, tag)
+	agentDir = agent.Dir(fix.dataDir, tag)
 	toolsDir = tools.ToolsDir(fix.dataDir, tag)
 	syslogConfPath = filepath.Join(fix.syslogConfigDir, fmt.Sprintf("26-juju-%s.conf", tag))
 	return
