@@ -146,9 +146,8 @@ func (u *Upgrader) loop() error {
 			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
 			wantTools, err = u.st.Tools(u.tag)
 			if err != nil {
-				logger.Errorf("failed to find tools matching new requested version %v: %v", wantVersion, err)
-				retry = retryAfter()
-				continue
+				// Not being able to lookup Tools is considered fatal
+				return err
 			}
 			// The worker cannot be stopped while we're downloading
 			// the tools - this means that even if the API is going down
