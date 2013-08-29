@@ -1153,7 +1153,6 @@ func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
 	})
 }
 
-
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	cur := version.Current.Number
 	err := statetesting.SetAgentVersion(s.State, cur)
