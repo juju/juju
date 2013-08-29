@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 // State provides access to an upgrader worker's view of the state.
@@ -41,6 +42,31 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 		return err
 	}
 	return results.OneError()
+}
+
+func (st *State) DesiredVersion(tag string) (version.Number, error) {
+	var results params.AgentVersionResults
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: tag}},
+	}
+	err := st.caller.Call("Upgrader", "", "DesiredVersion", args, &results)
+	if err != nil {
+		// TODO: Not directly tested
+		return version.Number{}, err
+	}
+	if len(results.Results) != 1 {
+		// TODO: Not directly tested
+		return version.Number{}, fmt.Errorf("expected one result, got %d", len(results.Results))
+	}
+	result := results.Results[0]
+	if err := result.Error; err != nil {
+		return version.Number{}, err
+	}
+	if result.Version == nil {
+		// TODO: Not directly tested
+		return version.Number{}, fmt.Errorf("received no error, but got a nil Version")
+	}
+	return *result.Version, nil
 }
 
 func (st *State) Tools(tag string) (*tools.Tools, error) {
