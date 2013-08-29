@@ -14,7 +14,7 @@ import (
 
 const format116 = "format 1.16"
 
-// formatter116 is the formatter for the 1.14 format.
+// formatter116 is the formatter for the 1.16 format.
 type formatter116 struct {
 }
 
