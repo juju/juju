@@ -816,6 +816,20 @@ func (s *StateSuite) TestWatchServicesLifecycle(c *gc.C) {
 	wc.AssertNoChange()
 }
 
+func (s *StateSuite) TestWatchServicesDiesOnStateClose(c *gc.C) {
+	// This test is testing logic in watcher.lifecycleWatcher,
+	// which is also used by:
+	//     Service.WatchUnits
+	//     Service.WatchRelations
+	//     State.WatchEnviron
+	//     Machine.WatchContainers
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchServices()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *StateSuite) TestWatchMachinesBulkEvents(c *gc.C) {
 	// Alive machine...
 	alive, err := s.State.AddMachine("series", state.JobHostUnits)
@@ -1789,6 +1803,14 @@ func (s *StateSuite) TestWatchMinUnits(c *gc.C) {
 	wc.AssertClosed()
 }
 
+func (s *StateSuite) TestWatchMinUnitsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchMinUnits()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *StateSuite) TestNestingLevel(c *gc.C) {
 	c.Assert(state.NestingLevel("0"), gc.Equals, 0)
 	c.Assert(state.NestingLevel("0/lxc/1"), gc.Equals, 1)
@@ -1811,4 +1833,32 @@ func (s *StateSuite) TestContainerTypeFromId(c *gc.C) {
 	c.Assert(state.ContainerTypeFromId("0"), gc.Equals, instance.ContainerType(""))
 	c.Assert(state.ContainerTypeFromId("0/lxc/1"), gc.Equals, instance.LXC)
 	c.Assert(state.ContainerTypeFromId("0/lxc/1/kvm/0"), gc.Equals, instance.KVM)
+}
+
+type waiter interface {
+	Wait() error
+}
+
+// testWatcherDiesWhenStateCloses calls the given function to start a watcher,
+// closes the state and checks that the watcher dies with the expected error.
+// The watcher should already have consumed the first
+// event, otherwise the watcher's initialisation logic may
+// interact with the closed state, causing it to return an
+// unexpected error (often "Closed explictly").
+func testWatcherDiesWhenStateCloses(c *gc.C, startWatcher func(c *gc.C, st *state.State) waiter) {
+	st, err := state.Open(state.TestingStateInfo(), state.TestingDialOpts())
+	c.Assert(err, gc.IsNil)
+	watcher := startWatcher(c, st)
+	err = st.Close()
+	c.Assert(err, gc.IsNil)
+	done := make(chan error)
+	go func() {
+		done <- watcher.Wait()
+	}()
+	select {
+	case err := <-done:
+		c.Assert(err, gc.Equals, state.ErrStateClosed)
+	case <-time.After(testing.LongWait):
+		c.Fatalf("watcher %T did not exit when state closed", watcher)
+	}
 }

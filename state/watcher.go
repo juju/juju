@@ -26,6 +26,8 @@ var watchLogger = loggo.GetLogger("juju.state.watch")
 // NotifyWatcher generates signals when something changes, but it does not
 // return any content for those changes
 type NotifyWatcher interface {
+	Kill()
+	Wait() error
 	Stop() error
 	Err() error
 	Changes() <-chan struct{}
@@ -34,6 +36,8 @@ type NotifyWatcher interface {
 // StringsWatcher generates signals when something changes, returning
 // the changes as a list of strings.
 type StringsWatcher interface {
+	Kill()
+	Wait() error
 	Stop() error
 	Err() error
 	Changes() <-chan []string
@@ -48,7 +52,18 @@ type commonWatcher struct {
 // Stop stops the watcher, and returns any error encountered while running
 // or shutting down.
 func (w *commonWatcher) Stop() error {
+	w.Kill()
+	return w.Wait()
+}
+
+// Kill kills the watcher without waiting for it to shut down.
+func (w *commonWatcher) Kill() {
 	w.tomb.Kill(nil)
+}
+
+// Wait waits for the watcher to die and returns any
+// error encountered when it was running.
+func (w *commonWatcher) Wait() error {
 	return w.tomb.Wait()
 }
 
@@ -257,7 +272,18 @@ func (w *lifecycleWatcher) merge(ids *set.Strings, updates map[interface{}]bool)
 	return nil
 }
 
-func (w *lifecycleWatcher) loop() (err error) {
+// ErrStateClosed is returned from watchers if their underlying
+// state connection has been closed.
+var ErrStateClosed = fmt.Errorf("state has been closed")
+
+func stateWatcherDead(w *watcher.Watcher) error {
+	if err := w.Err(); err != nil {
+		return err
+	}
+	return ErrStateClosed
+}
+
+func (w *lifecycleWatcher) loop() error {
 	in := make(chan watcher.Change)
 	w.st.watcher.WatchCollectionWithFilter(w.coll.Name, in, w.filter)
 	defer w.st.watcher.UnwatchCollection(w.coll.Name, in)
@@ -271,7 +297,7 @@ func (w *lifecycleWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case ch := <-in:
 			updates, ok := collect(ch, in, w.tomb.Dying())
 			if !ok {
@@ -363,10 +389,9 @@ func (w *minUnitsWatcher) loop() (err error) {
 		select {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
-		case change, ok := <-ch:
-			if !ok {
-				return watcher.MustErr(w.st.watcher)
-			}
+		case <-w.st.watcher.Dead():
+			return stateWatcherDead(w.st.watcher)
+		case change := <-ch:
 			if err = w.merge(serviceNames, change); err != nil {
 				return err
 			}
@@ -480,7 +505,7 @@ func (w *RelationScopeWatcher) loop() error {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-ch:
@@ -629,7 +654,7 @@ func (w *RelationUnitsWatcher) loop() (err error) {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c, ok := <-w.sw.Changes():
@@ -834,7 +859,7 @@ func (w *unitsWatcher) loop(coll, id string, revno int64) error {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case c := <-w.in:
@@ -900,7 +925,7 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case settings, ok := <-sw.Changes():
@@ -967,7 +992,7 @@ func (w *settingsWatcher) loop(key string) (err error) {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-ch:
@@ -1067,7 +1092,7 @@ func (w *entityWatcher) loop(coll *mgo.Collection, key string) (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case ch := <-in:
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying
@@ -1202,7 +1227,7 @@ func (w *machineUnitsWatcher) loop() (err error) {
 	for {
 		select {
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-machineCh:
@@ -1269,7 +1294,7 @@ func (w *cleanupWatcher) loop() (err error) {
 		case <-w.tomb.Dying():
 			return tomb.ErrDying
 		case <-w.st.watcher.Dead():
-			return watcher.MustErr(w.st.watcher)
+			return stateWatcherDead(w.st.watcher)
 		case ch := <-in:
 			if _, ok := collect(ch, in, w.tomb.Dying()); !ok {
 				return tomb.ErrDying

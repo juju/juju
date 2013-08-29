@@ -296,6 +296,7 @@ func (st *State) Close() error {
 		err3 = st.allManager.Stop()
 	}
 	st.mu.Unlock()
+//	time.Sleep(50 * time.Millisecond)
 	st.db.Session.Close()
 	for _, err := range []error{err1, err2, err3} {
 		if err != nil {
