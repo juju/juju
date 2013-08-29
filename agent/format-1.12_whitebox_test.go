@@ -65,3 +65,13 @@ func (s *format112Suite) TestRead(c *gc.C) {
 	readConfig.dataDir = config.dataDir
 	c.Assert(readConfig, gc.DeepEquals, config)
 }
+
+func (s *format112Suite) TestWriteCommands(c *gc.C) {
+	config := s.newConfig(c)
+	commands, err := s.formatter.writeCommands(config)
+	c.Assert(err, gc.IsNil)
+	c.Assert(commands, gc.HasLen, 3)
+	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
+	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
+}
