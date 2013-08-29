@@ -18,7 +18,6 @@ import (
 	"net/http"
 	"os"
 	"reflect"
-	"runtime"
 	"sort"
 	"strings"
 	"sync"
@@ -156,71 +155,56 @@ type MetadataCatalog struct {
 }
 
 type ItemCollection struct {
-	Items      ItemsMap `json:"items"`
-	Arch       string   `json:"arch,omitempty"`
-	Version    string   `json:"version,omitempty"`
-	RegionName string   `json:"region,omitempty"`
-	Endpoint   string   `json:"endpoint,omitempty"`
+	rawItems   map[string]*json.RawMessage
+	Items      map[string]interface{} `json:"items"`
+	Arch       string                 `json:"arch,omitempty"`
+	Version    string                 `json:"version,omitempty"`
+	RegionName string                 `json:"region,omitempty"`
+	Endpoint   string                 `json:"endpoint,omitempty"`
 }
 
-// ItemsMap is a map suitable for unmarshaling a
-// JSON object, which will store the corresponding
-// bytes to be later unmarshalled into a map of
-// a specific type.
-//
-// Note that if ItemsMap is only unmarshalled in
-// this way if it is done so through ParseCoudMetadata;
-// otherwise standard JSON object unmarshalling takes
-// place.
-type ItemsMap map[string]interface{}
-
-func (c *ItemsMap) UnmarshalJSON(b []byte) error {
-	// This is seriously hacky, but unfortunately there's
-	// no way to pass context through a JSON decoder.
-	const parseCloudMetadata = "launchpad.net/juju-core/environs/simplestreams.ParseCloudMetadata"
-	pcs := make([]uintptr, 30) // more than enough, in case encoding/json changes.
-	pcs = pcs[:runtime.Callers(1, pcs)]
-	var found bool
-	for _, pc := range pcs {
-		if runtime.FuncForPC(pc).Name() == parseCloudMetadata {
-			found = true
-			break
-		}
-	}
-	*c = ItemsMap(make(map[string]interface{}))
-	if found {
-		(*c)[""] = append([]byte{}, b...)
-		return nil
-	}
-	m := (map[string]interface{})(*c)
-	return json.Unmarshal(b, &m)
+// itemCollection is a clone of ItemCollection, but
+// does not implement json.Unmarshaler.
+type itemCollection struct {
+	Items      map[string]*json.RawMessage `json:"items"`
+	Arch       string                      `json:"arch,omitempty"`
+	Version    string                      `json:"version,omitempty"`
+	RegionName string                      `json:"region,omitempty"`
+	Endpoint   string                      `json:"endpoint,omitempty"`
 }
 
-// construct must be called on an ItemsMap that was unmarshalled
-// with the above UnmarshalJSON method, if and only if the
-// unmarshalling was initiated from ParseCloudMetadata.
-//
-// This method unmarshals the stored []byte into a map of
-// type map[string]*T, where T corresponds to the reflected
-// type parameter. The values of the map are then populated
-// into the ItemsMap map[string]interface{}.
-func (c *ItemsMap) construct(itemType reflect.Type) error {
-	b, ok := (*c)[""].([]byte)
-	if !ok {
-		return fmt.Errorf(`expected a map with a single "" key, have %v`, *c)
-	}
-	delete(*c, "")
-	itemMapType := reflect.MapOf(reflect.TypeOf(""), reflect.PtrTo(itemType))
-	itemMapValuePtr := reflect.New(itemMapType)
-	err := json.Unmarshal(b, itemMapValuePtr.Interface())
-	if err != nil {
+// ItemsCollection.UnmarshalJSON unmarshals the ItemCollection,
+// storing the raw bytes for each item. These can later be
+// unmarshalled again into product-specific types.
+func (c *ItemCollection) UnmarshalJSON(b []byte) error {
+	var raw itemCollection
+	if err := json.Unmarshal(b, &raw); err != nil {
 		return err
 	}
-	cItems := reflect.ValueOf(*c)
-	itemMapValue := itemMapValuePtr.Elem()
-	for _, key := range itemMapValue.MapKeys() {
-		value := itemMapValue.MapIndex(key)
-		cItems.SetMapIndex(key, value)
+	c.rawItems = raw.Items
+	c.Items = make(map[string]interface{}, len(raw.Items))
+	c.Arch = raw.Arch
+	c.Version = raw.Version
+	c.RegionName = raw.RegionName
+	c.Endpoint = raw.Endpoint
+	for key, rawv := range raw.Items {
+		var v interface{}
+		if err := json.Unmarshal([]byte(*rawv), &v); err != nil {
+			return err
+		}
+		c.Items[key] = v
+	}
+	return nil
+}
+
+func (c *ItemCollection) construct(itemType reflect.Type) error {
+	for key, rawv := range c.rawItems {
+		itemValuePtr := reflect.New(itemType)
+		err := json.Unmarshal([]byte(*rawv), itemValuePtr.Interface())
+		if err != nil {
+			return err
+		}
+		c.Items[key] = itemValuePtr.Interface()
 	}
 	return nil
 }
@@ -769,7 +753,7 @@ func (metadata *CloudMetadata) applyAliases() {
 func (metadata *CloudMetadata) construct(valueType reflect.Type) error {
 	for _, metadataCatalog := range metadata.Products {
 		for _, ItemCollection := range metadataCatalog.Items {
-			if err := ItemCollection.Items.construct(valueType); err != nil {
+			if err := ItemCollection.construct(valueType); err != nil {
 				return err
 			}
 		}

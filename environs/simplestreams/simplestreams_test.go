@@ -427,17 +427,27 @@ func (s *simplestreamsSuite) TestGetMaybeSignedMirror(c *gc.C) {
 	}
 }
 
-func (s *simplestreamsSuite) TestItemsMapUnmarshal(c *gc.C) {
-	// Ensure that unmarshalling a simplestreams.ItemMap
+func (s *simplestreamsSuite) TestItemCollectionMarshalling(c *gc.C) {
+	// Ensure that unmarshalling a simplestreams.ItemCollection
 	// directly (not through ParseCloudMetadata) doesn't
 	// cause any surprises.
-	var m simplestreams.ItemsMap
-	err := json.Unmarshal([]byte(`{"a": "b", "c": 123}`), &m)
+	var m simplestreams.ItemCollection
+	m.Items = make(map[string]interface{})
+	err := json.Unmarshal([]byte(`{
+        "items": {
+            "a": "b",
+            "c": 123
+        }
+    }`), &m)
 	c.Assert(err, gc.IsNil)
-	c.Assert(m, gc.DeepEquals, simplestreams.ItemsMap{
+	c.Assert(m.Items, gc.DeepEquals, map[string]interface{}{
 		"a": "b",
 		"c": float64(123),
 	})
+	// Ensure marshalling works as expected, too.
+	b, err := json.Marshal(&m)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(b), gc.Equals, `{"items":{"a":"b","c":123}}`)
 }
 
 var testSigningKey = `-----BEGIN PGP PRIVATE KEY BLOCK-----
