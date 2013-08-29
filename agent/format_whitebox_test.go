@@ -34,6 +34,8 @@ func (*formatSuite) TestReadFormatEmptyDir(c *gc.C) {
 
 func (*formatSuite) TestReadFormat(c *gc.C) {
 	dir := c.MkDir()
+	// Make sure that the write adds the carriage return to show that
+	// this is stripped off for the returned format.
 	err := ioutil.WriteFile(path.Join(dir, formatFilename), []byte("some format\n"), 0644)
 	c.Assert(err, gc.IsNil)
 	format, err := readFormat(dir)
