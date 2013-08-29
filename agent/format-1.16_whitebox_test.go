@@ -43,6 +43,16 @@ func (s *format116Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
 	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
 	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
+
+	formatLocation := path.Join(config.Dir(), formatFilename)
+	fileInfo, err = os.Stat(formatLocation)
+	c.Assert(err, gc.IsNil)
+	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
+	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0644))
+	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
+
+	formatContent, err := readFormat(config.Dir())
+	c.Assert(formatContent, gc.Equals, format116)
 }
 
 func (s *format116Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
