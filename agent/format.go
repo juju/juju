@@ -6,8 +6,11 @@ package agent
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
 	"path"
 	"strings"
+
+	"launchpad.net/juju-core/utils"
 )
 
 // The format file in the agent config directory is used to identify the
@@ -28,7 +31,7 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = "format 1.16"
+	currentFormat  = format116
 	previousFormat = "format 1.12"
 )
 
@@ -40,9 +43,12 @@ type formatter interface {
 	writeCommands(dirName string, config *configInternal) ([]string, error)
 }
 
+func formatFile(dirName string) string {
+	return path.Join(dirName, formatFilename)
+}
+
 func readFormat(dirName string) (string, error) {
-	formatFile := path.Join(dirName, formatFilename)
-	contents, err := ioutil.ReadFile(formatFile)
+	contents, err := ioutil.ReadFile(formatFile(dirName))
 	// Once the previousFormat is defined to have a format file (1.14 or
 	// above), not finding a format file should be a real error.
 	if err != nil {
@@ -59,4 +65,29 @@ func newFormatter(format string) (formatter, error) {
 		return &formatter116{}, nil
 	}
 	return nil, fmt.Errorf("unknown agent config format")
+}
+
+func writeFormatFile(dirName string, format string) error {
+	if err := os.MkdirAll(dirName, 0755); err != nil {
+		return err
+	}
+	newFile := path.Join(dirName, formatFilename+"-new")
+	if err := ioutil.WriteFile(newFile, []byte(format+"\n"), 0644); err != nil {
+		return err
+	}
+	return os.Rename(newFile, formatFile(dirName))
+}
+
+func writeFileCommands(filename, contents string, permission int) []string {
+	quotedFilename := utils.ShQuote(filename)
+	return []string{
+		fmt.Sprintf("install -m %o /dev/null %s", permission, formatFile),
+		fmt.Sprintf(`printf '%%s\n' %s > %s`, utils.ShQuote(contents), quotedFilename),
+	}
+}
+
+func writeCommandsForFormat(dirName, format string) []string {
+	commands := []string{"mkdir -p " + utils.ShQuote(dirName)}
+	commands = append(commands, writeFileCommands(formatFile(dirName), format, 0644)...)
+	return commands
 }

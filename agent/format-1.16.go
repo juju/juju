@@ -4,90 +4,140 @@
 package agent
 
 import (
-	"fmt"
+	"encoding/base64"
+	"io/ioutil"
+	"os"
+	"path"
 
-	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/goyaml"
 )
+
+const format116 = "format 1.16"
 
 // formatter116 is the formatter for the 1.14 format.
 type formatter116 struct {
 }
 
-// conf holds information for a given agent.
-type xconf struct {
-	// DataDir specifies the path of the data directory used by all
-	// agents
-	dataDir string
+// format116Serialization holds information for a given agent.
+type format116Serialization struct {
+	Tag   string
+	Nonce string
+	// CACert is base64 encoded
+	CACert         string
+	StateAddresses []string `yaml:",omitempty"`
+	StatePassword  string   `yaml:",omitempty"`
 
-	// StateServerCert and StateServerKey hold the state server
-	// certificate and private key in PEM format.
-	StateServerCert []byte `yaml:",omitempty"`
-	StateServerKey  []byte `yaml:",omitempty"`
+	APIAddresses []string `yaml:",omitempty"`
+	APIPassword  string   `yaml:",omitempty"`
 
-	StatePort int `yaml:",omitempty"`
-	APIPort   int `yaml:",omitempty"`
-
-	// OldPassword specifies a password that should be
-	// used to connect to the state if StateInfo.Password
-	// is blank or invalid.
 	OldPassword string
 
-	// MachineNonce is set at provisioning/bootstrap time and used to
-	// ensure the agent is running on the correct instance.
-	MachineNonce string
-
-	// StateInfo specifies how the agent should connect to the
-	// state.  The password may be empty if an old password is
-	// specified, or when bootstrapping.
-	StateInfo *state.Info `yaml:",omitempty"`
-
-	// OldAPIPassword specifies a password that should
-	// be used to connect to the API if APIInfo.Password
-	// is blank or invalid.
-	OldAPIPassword string
-
-	// APIInfo specifies how the agent should connect to the
-	// state through the API.
-	APIInfo *api.Info `yaml:",omitempty"`
+	// Only state server machiens have this config.
+	StateServerCert string `yaml:",omitempty"`
+	StateServerKey  string `yaml:",omitempty"`
+	APIPort         int    `yaml:",omitempty"`
 }
 
 // Ensure that the formatter116 struct implements the formatter interface.
 var _ formatter = (*formatter116)(nil)
 
-func (*formatter116) read(dirName string) (*configInternal, error) {
-	return nil, fmt.Errorf("not implemented")
+func (*formatter116) configFile(dirName string) string {
+	return path.Join(dirName, "agent.conf")
 }
 
-func (*formatter116) write(dirName string, config *configInternal) error {
-	return fmt.Errorf("not implemented")
+func (formatter *formatter116) read(dirName string) (*configInternal, error) {
+	data, err := ioutil.ReadFile(formatter.configFile(dirName))
+	if err != nil {
+		return nil, err
+	}
+	var format format116Serialization
+	if err := goyaml.Unmarshal(data, &format); err != nil {
+		return nil, err
+	}
+	caCert, err := base64.StdEncoding.DecodeString(format.CACert)
+	if err != nil {
+		return nil, err
+	}
+	stateServerCert, err := base64.StdEncoding.DecodeString(format.StateServerCert)
+	if err != nil {
+		return nil, err
+	}
+	stateServerKey, err := base64.StdEncoding.DecodeString(format.StateServerKey)
+	if err != nil {
+		return nil, err
+	}
+	config := &configInternal{
+		tag:             format.Tag,
+		nonce:           format.Nonce,
+		caCert:          caCert,
+		oldPassword:     format.OldPassword,
+		stateServerCert: stateServerCert,
+		stateServerKey:  stateServerKey,
+		apiPort:         format.APIPort,
+	}
+	if len(format.StateAddresses) > 0 {
+		config.stateDetails = &connectionDetails{
+			format.StateAddresses,
+			format.StatePassword,
+		}
+	}
+	if len(format.APIAddresses) > 0 {
+		config.apiDetails = &connectionDetails{
+			format.APIAddresses,
+			format.APIPassword,
+		}
+	}
+	return config, nil
 }
 
-func (*formatter116) writeCommands(dirName string, config *configInternal) ([]string, error) {
-	return nil, fmt.Errorf("not implemented")
+func (formatter *formatter116) makeFormat(config *configInternal) *format116Serialization {
+	format := &format116Serialization{
+		Tag:             config.tag,
+		Nonce:           config.nonce,
+		CACert:          base64.StdEncoding.EncodeToString(config.caCert),
+		OldPassword:     config.oldPassword,
+		StateServerCert: base64.StdEncoding.EncodeToString(config.stateServerCert),
+		StateServerKey:  base64.StdEncoding.EncodeToString(config.stateServerKey),
+		APIPort:         config.apiPort,
+	}
+	if config.stateDetails != nil {
+		format.StateAddresses = config.stateDetails.addresses
+		format.StatePassword = config.stateDetails.password
+	}
+	if config.apiDetails != nil {
+		format.APIAddresses = config.apiDetails.addresses
+		format.APIPassword = config.apiDetails.password
+	}
+	return format
 }
 
-// ReadConf reads configuration data for the given
-// entity from the given data directory.
-// func xReadConf(dataDir, tag string) (Config, error) {
-// 	dir := tools.Dir(dataDir, tag)
-// 	data, err := ioutil.ReadFile(path.Join(dir, "agent.conf"))
-// 	if err != nil {
-// 		return nil, err
-// 	}
-// 	var c conf
-// 	if err := goyaml.Unmarshal(data, &c); err != nil {
-// 		return nil, err
-// 	}
-// 	c.dataDir = dataDir
-// 	if err := c.check(); err != nil {
-// 		return nil, err
-// 	}
-// 	if c.StateInfo != nil {
-// 		c.StateInfo.Tag = tag
-// 	}
-// 	if c.APIInfo != nil {
-// 		c.APIInfo.Tag = tag
-// 	}
-// 	return &c, nil
-// }
+func (formatter *formatter116) write(dirName string, config *configInternal) error {
+	conf := formatter.makeFormat(config)
+	data, err := goyaml.Marshal(conf)
+	if err != nil {
+		return err
+	}
+	if err := writeFormatFile(dirName, format116); err != nil {
+		return err
+	}
+	newFile := path.Join(dirName, "agent.conf-new")
+	if err := ioutil.WriteFile(newFile, data, 0600); err != nil {
+		return err
+	}
+	if err := os.Rename(newFile, formatter.configFile(dirName)); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (formatter *formatter116) writeCommands(dirName string, config *configInternal) ([]string, error) {
+	conf := formatter.makeFormat(config)
+	data, err := goyaml.Marshal(conf)
+	if err != nil {
+		return nil, err
+	}
+	commands := writeCommandsForFormat(dirName, format116)
+	commands = append(commands,
+		writeFileCommands(formatter.configFile(dirName), string(data), 0600)...)
+	return commands, nil
+}
