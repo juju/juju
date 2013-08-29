@@ -17,14 +17,14 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-type format112Suite struct {
+type format116Suite struct {
 	testing.LoggingSuite
-	formatter formatter112
+	formatter formatter116
 }
 
-var _ = gc.Suite(&format112Suite{})
+var _ = gc.Suite(&format116Suite{})
 
-func (s *format112Suite) newConfig(c *gc.C) *configInternal {
+func (s *format116Suite) newConfig(c *gc.C) *configInternal {
 	params := agentParams
 	params.DataDir = c.MkDir()
 	config, err := newConfig(params)
@@ -32,7 +32,7 @@ func (s *format112Suite) newConfig(c *gc.C) *configInternal {
 	return config
 }
 
-func (s *format112Suite) TestWriteAgentConfig(c *gc.C) {
+func (s *format116Suite) TestWriteAgentConfig(c *gc.C) {
 	config := s.newConfig(c)
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
@@ -45,7 +45,7 @@ func (s *format112Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
 }
 
-func (s *format112Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
+func (s *format116Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 	// The readConfig is missing the dataDir initially.
@@ -58,22 +58,24 @@ func (s *format112Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	c.Assert(readConfig, gc.DeepEquals, config)
 }
 
-func (s *format112Suite) TestRead(c *gc.C) {
+func (s *format116Suite) TestRead(c *gc.C) {
 	config := s.newConfig(c)
 	s.assertWriteAndRead(c, config)
 }
 
-func (s *format112Suite) TestWriteCommands(c *gc.C) {
+func (s *format116Suite) TestWriteCommands(c *gc.C) {
 	config := s.newConfig(c)
 	commands, err := s.formatter.writeCommands(config)
 	c.Assert(err, gc.IsNil)
-	c.Assert(commands, gc.HasLen, 3)
+	c.Assert(commands, gc.HasLen, 5)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
-	c.Assert(commands[1], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
+	c.Assert(commands[1], gc.Matches, `install -m 644 /dev/null '\S+/agents/omg/format'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/format'`)
+	c.Assert(commands[3], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
+	c.Assert(commands[4], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
 }
 
-func (s *format112Suite) TestReadWriteStateConfig(c *gc.C) {
+func (s *format116Suite) TestReadWriteStateConfig(c *gc.C) {
 	stateParams := StateMachineConfigParams{
 		AgentConfigParams: agentParams,
 		StateServerCert:   []byte("some special cert"),

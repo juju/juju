@@ -22,6 +22,17 @@ type formatSuite struct {
 
 var _ = gc.Suite(&formatSuite{})
 
+// The agentParams are used by the specific formatter whitebox tests, and is
+// located here for easy reuse.
+var agentParams = AgentConfigParams{
+	Tag:            "omg",
+	Password:       "sekrit",
+	CACert:         []byte("ca cert"),
+	StateAddresses: []string{"localhost:1234"},
+	APIAddresses:   []string{"localhost:1235"},
+	Nonce:          "a nonce",
+}
+
 func (*formatSuite) TestReadFormatEmptyDir(c *gc.C) {
 	// Since the previous format didn't have a format file, a missing format
 	// should return the previous format.  Once we are over the hump of

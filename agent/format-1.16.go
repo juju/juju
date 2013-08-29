@@ -32,7 +32,7 @@ type format116Serialization struct {
 
 	OldPassword string
 
-	// Only state server machiens have this config.
+	// Only state server machines have these next three items
 	StateServerCert string `yaml:",omitempty"`
 	StateServerKey  string `yaml:",omitempty"`
 	APIPort         int    `yaml:",omitempty"`
