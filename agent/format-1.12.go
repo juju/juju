@@ -168,9 +168,9 @@ func (formatter *formatter112) writeCommands(config *configInternal) ([]string, 
 	addCommand := func(f string, a ...interface{}) {
 		commands = append(commands, fmt.Sprintf(f, a...))
 	}
-	f := utils.ShQuote(formatter.configFile(dirName))
+	filename := utils.ShQuote(formatter.configFile(dirName))
 	addCommand("mkdir -p %s", utils.ShQuote(dirName))
-	addCommand("install -m %o /dev/null %s", 0600, f)
-	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), f)
+	addCommand("install -m %o /dev/null %s", 0600, filename)
+	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), filename)
 	return commands, nil
 }
