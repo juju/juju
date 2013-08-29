@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
@@ -142,7 +143,7 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 			Format:           "products:1.0",
 			DataType:         "content-download",
 			ProductsFilePath: toolsProductMetadataPath,
-			ProductIds:       productIds,
+			ProductIds:       set.NewStrings(productIds...).SortedValues(),
 		},
 	}
 
