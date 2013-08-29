@@ -45,6 +45,15 @@ func (*formatter116) configFile(dirName string) string {
 	return path.Join(dirName, "agent.conf")
 }
 
+// decode makes sure that for an empty string we have a nil slice,
+// not an empty slice, which is what the DecodeString returns.
+func (*formatter116) decode(value string) (result []byte, err error) {
+	if value != "" {
+		result, err = base64.StdEncoding.DecodeString(value)
+	}
+	return
+}
+
 func (formatter *formatter116) read(dirName string) (*configInternal, error) {
 	data, err := ioutil.ReadFile(formatter.configFile(dirName))
 	if err != nil {
@@ -54,15 +63,15 @@ func (formatter *formatter116) read(dirName string) (*configInternal, error) {
 	if err := goyaml.Unmarshal(data, &format); err != nil {
 		return nil, err
 	}
-	caCert, err := base64.StdEncoding.DecodeString(format.CACert)
+	caCert, err := formatter.decode(format.CACert)
 	if err != nil {
 		return nil, err
 	}
-	stateServerCert, err := base64.StdEncoding.DecodeString(format.StateServerCert)
+	stateServerCert, err := formatter.decode(format.StateServerCert)
 	if err != nil {
 		return nil, err
 	}
-	stateServerKey, err := base64.StdEncoding.DecodeString(format.StateServerKey)
+	stateServerKey, err := formatter.decode(format.StateServerKey)
 	if err != nil {
 		return nil, err
 	}
