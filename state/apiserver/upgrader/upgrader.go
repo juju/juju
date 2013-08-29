@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
@@ -89,20 +90,28 @@ func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env
 	return envtools.FindExactTools(env, requested)
 }
 
+func (u *UpgraderAPI) getGlobalAgentVersion() (version.Number, *config.Config, error) {
+	// Get the Agent Version requested in the Environment Config
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return version.Number{}, nil, err
+	}
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		return version.Number{}, nil, errors.New("agent version not set in environment config")
+	}
+	return agentVersion, cfg, nil
+}
+
 // DesiredVersion reports the Agent Version that we want that agent to be running
 func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.AgentVersionResults, error) {
 	results := make([]params.AgentVersionResult, len(args.Entities))
 	if len(args.Entities) == 0 {
 		return params.AgentVersionResults{}, nil
 	}
-	// For now, all agents get the same proposed version
-	cfg, err := u.st.EnvironConfig()
+	agentVersion, _, err := u.getGlobalAgentVersion()
 	if err != nil {
-		return params.AgentVersionResults{}, err
-	}
-	agentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		return params.AgentVersionResults{}, errors.New("agent version not set in environment config")
+		return params.AgentVersionResults{}, common.ServerError(err)
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -121,14 +130,9 @@ func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, err
 	if len(args.Entities) == 0 {
 		return params.AgentToolsResults{}, nil
 	}
-	// For now, all agents get the same proposed version
-	cfg, err := u.st.EnvironConfig()
+	agentVersion, cfg, err := u.getGlobalAgentVersion()
 	if err != nil {
-		return params.AgentToolsResults{}, err
-	}
-	agentVersion, ok := cfg.AgentVersion()
-	if !ok {
-		return params.AgentToolsResults{}, errors.New("agent version not set in environment config")
+		return params.AgentToolsResults{}, common.ServerError(err)
 	}
 	env, err := environs.New(cfg)
 	if err != nil {
