@@ -347,7 +347,7 @@ func (inst *openstackInstance) DNSName() (string, error) {
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(inst)
+	return provider.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
@@ -477,7 +477,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(e)
+	return provider.StateInfo(e)
 }
 
 func (e *environ) Config() *config.Config {
@@ -605,7 +605,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
-	for a := environs.LongAttempt.Start(); a.Next(); {
+	for a := provider.LongAttempt.Start(); a.Next(); {
 		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil
