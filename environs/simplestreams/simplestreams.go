@@ -18,6 +18,7 @@ import (
 	"net/http"
 	"os"
 	"reflect"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
@@ -247,9 +248,11 @@ func (entries MirrorRefSlice) filter(match func(*MirrorReference) bool) MirrorRe
 // the order of the parameter.
 func (metadata *CloudMetadata) extractCatalogsForProducts(productIds []string) []MetadataCatalog {
 	result := []MetadataCatalog{}
-	for _, id := range productIds {
-		if catalog, ok := metadata.Products[id]; ok {
-			result = append(result, catalog)
+	for id, catalog := range metadata.Products {
+		for _, pid := range productIds {
+			if productIdMatches(pid, id) {
+				result = append(result, catalog)
+			}
 		}
 	}
 	return result
@@ -636,10 +639,22 @@ func (mirrorMetadata *MirrorMetadata) getMirrorInfo(contentId string, cloud Clou
 	return &candidates[0], nil
 }
 
-// utility function to see if element exists in values slice.
+// productIdMatches returns true if the product id expression equals or matches the product id.
+func productIdMatches(matchExpr, productId string) bool {
+	if matchExpr == productId {
+		return true
+	}
+	re, err := regexp.Compile(matchExpr)
+	if err != nil {
+		return false
+	}
+	return re.MatchString(productId)
+}
+
+// utility function to see if any of values matches element.
 func containsString(values []string, element string) bool {
 	for _, value := range values {
-		if value == element {
+		if productIdMatches(value, element) {
 			return true
 		}
 	}
@@ -886,7 +901,7 @@ func GetLatestMetadata(metadata *CloudMetadata, cons LookupConstraint, filterFun
 		for product := range metadata.Products {
 			availableProducts = append(availableProducts, product)
 		}
-		logger.Debugf("index has no images for product ids %v; it does have product ids %v", prodIds, availableProducts)
+		logger.Debugf("index has no records for product ids %v; it does have product ids %v", prodIds, availableProducts)
 	}
 
 	var matchingItems []interface{}

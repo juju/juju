@@ -69,7 +69,9 @@ var imageData = map[string]string{
 		   "format": "products:1.0",
 		   "products": [
 		     "com.ubuntu.juju:1.13.0:amd64",
-		     "com.ubuntu.juju:1.11.4:arm"
+		     "com.ubuntu.juju:1.11.4:arm",
+		     "com.ubuntu.juju:1.11.5:arm",
+		     "com.ubuntu.juju:2.0.1:arm"
 		   ],
 		   "path": "streams/v1/tools_metadata.json"
 		  }
@@ -131,25 +133,66 @@ var imageData = map[string]string{
     }
    }
   },
+  "com.ubuntu.juju:2.0.1:arm": {
+   "version": "2.0.1",
+   "arch": "arm",
+   "versions": {
+    "20130806": {
+     "items": {
+      "201precisearm": {
+       "release": "precise",
+       "size": 1951096,
+       "path": "tools/releases/20130806/juju-2.0.1-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
+      },
+      "201raringarm": {
+       "release": "raring",
+       "size": 1950327,
+       "path": "tools/releases/20130806/juju-2.0.1-raring-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      }
+     }
+    }
+   }
+  },
   "com.ubuntu.juju:1.11.4:arm": {
    "version": "1.11.4",
    "arch": "arm",
    "versions": {
     "20130806": {
      "items": {
-      "1114preciseamd64": {
+      "1114precisearm": {
        "release": "precise",
        "size": 1951096,
        "path": "tools/releases/20130806/juju-1.11.4-precise-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "f65a92b3b41311bdf398663ee1c5cd0c"
       },
-      "1114raringamd64": {
+      "1114raringarm": {
        "release": "raring",
        "size": 1950327,
        "path": "tools/releases/20130806/juju-1.11.4-raring-arm.tgz",
        "ftype": "tar.gz",
        "sha256": "6472014e3255e3fe7fbd3550ef3f0a11"
+      }
+     }
+    }
+   }
+  },
+  "com.ubuntu.juju:1.11.5:arm": {
+   "version": "1.11.5",
+   "arch": "arm",
+   "versions": {
+    "20130806": {
+     "items": {
+      "1115precisearm": {
+       "release": "precise",
+       "size": 2031281,
+       "path": "tools/releases/20130806/juju-1.11.5-precise-arm.tgz",
+       "ftype": "tar.gz",
+       "sha256": "df07ac5e1fb4232d4e9aa2effa57918a"
       }
      }
     }

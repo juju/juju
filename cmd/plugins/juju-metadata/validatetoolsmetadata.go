@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 
 	"launchpad.net/gnuflag"
@@ -26,12 +27,17 @@ type ValidateToolsMetadataCommand struct {
 	series       string
 	region       string
 	endpoint     string
-	version      string
+	exactVersion string
+	partVersion  string
+	major        int
+	minor        int
 }
 
 var validateToolsMetadataDoc = `
 validate-tools loads simplestreams metadata and validates the contents by looking for tools
-belonging to the specified series, version, and architecture, for the specified cloud.
+belonging to the specified series, architecture, for the specified cloud. If version is
+specified, tools matching the exact specified version are found. It is also possible to just
+specify the major (and optionally minor) version numbers to search for.
 
 The cloud specificaton comes from the current Juju environment, as specified in the usual way
 from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV. Series, Region, and Endpoint
@@ -47,6 +53,12 @@ Examples:
 
 - validate using the current environment settings but with Juju version 1.11.4
  juju metadata validate-tools -j 1.11.4
+
+- validate using the current environment settings but with Juju major version 2
+ juju metadata validate-tools -m 2
+
+- validate using the current environment settings but with Juju major.minor version 2.1
+ juju metadata validate-tools -m 2.1
 
 - validate using the current environment settings and list all tools found for any series
  juju metadata validate-tools --series=
@@ -84,8 +96,10 @@ func (c *ValidateToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.StringVar(&c.series, "series", "", "")
 	f.StringVar(&c.region, "r", "", "the region for which to validate (overrides env config region)")
 	f.StringVar(&c.endpoint, "u", "", "the cloud endpoint URL for which to validate (overrides env config endpoint)")
-	f.StringVar(&c.version, "j", "current", "the Juju version (use 'current' for current version)")
-	f.StringVar(&c.version, "juju-version", "", "")
+	f.StringVar(&c.exactVersion, "j", "current", "the Juju version (use 'current' for current version)")
+	f.StringVar(&c.exactVersion, "juju-version", "", "")
+	f.StringVar(&c.partVersion, "m", "", "the Juju major[.minor] version")
+	f.StringVar(&c.partVersion, "majorminor-version", "", "")
 }
 
 func (c *ValidateToolsMetadataCommand) Init(args []string) error {
@@ -97,8 +111,23 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 			return fmt.Errorf("metadata directory required if provider type is specified")
 		}
 	}
-	if c.version == "current" {
-		c.version = version.CurrentNumber().String()
+	if c.exactVersion == "current" {
+		c.exactVersion = version.CurrentNumber().String()
+	}
+	c.minor = -1
+	if c.partVersion != "" {
+		parts := strings.Split(c.partVersion, ".")
+		var err error
+		c.major, err = strconv.Atoi(parts[0])
+		if err != nil {
+			return fmt.Errorf("invalid major version number %s: %v", parts[0], err)
+		}
+		if len(parts) > 1 {
+			c.minor, err = strconv.Atoi(parts[1])
+			if err != nil {
+				return fmt.Errorf("invalid minor version number %s: %v", parts[1], err)
+			}
+		}
 	}
 	return c.EnvCommandBase.Init(args)
 }
@@ -159,7 +188,9 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 
 	versions, err := tools.ValidateToolsMetadata(&tools.ToolsMetadataLookupParams{
 		MetadataLookupParams: *params,
-		Version:              c.version,
+		Version:              c.exactVersion,
+		Major:                c.major,
+		Minor:                c.minor,
 	})
 	if err != nil {
 		return err

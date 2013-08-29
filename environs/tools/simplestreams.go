@@ -8,7 +8,9 @@ package tools
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/environs/simplestreams"
+	"launchpad.net/juju-core/version"
 )
 
 func init() {
@@ -25,19 +27,33 @@ var DefaultBaseURL = "http://juju.canonical.com/tools"
 // ToolsConstraint defines criteria used to find a tools metadata record.
 type ToolsConstraint struct {
 	simplestreams.LookupParams
-	Version string
+	Version      version.Number
+	MajorVersion int
+	MinorVersion int
 }
 
-// NewToolsConstraint returns a ToolsConstraint based on params.
-func NewToolsConstraint(version string, params simplestreams.LookupParams) *ToolsConstraint {
-	return &ToolsConstraint{LookupParams: params, Version: version}
+// NewVersionedToolsConstraint returns a ToolsConstraint for a tools with a specific version.
+func NewVersionedToolsConstraint(vers string, params simplestreams.LookupParams) *ToolsConstraint {
+	versNum := version.MustParse(vers)
+	return &ToolsConstraint{LookupParams: params, Version: versNum}
+}
+
+// NewGeneralToolsConstraint returns a ToolsConstraint for tools with matching major/minor version numbers.
+func NewGeneralToolsConstraint(majorVersion, minorVersion int, params simplestreams.LookupParams) *ToolsConstraint {
+	return &ToolsConstraint{LookupParams: params, Version: version.Zero, MajorVersion: majorVersion, MinorVersion: minorVersion}
 }
 
 // Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
 func (tc *ToolsConstraint) Ids() ([]string, error) {
 	ids := make([]string, len(tc.Arches))
 	for i, arch := range tc.Arches {
-		ids[i] = fmt.Sprintf("com.ubuntu.juju:%s:%s", tc.Version, arch)
+		if tc.Version != version.Zero {
+			ids[i] = fmt.Sprintf(`com.ubuntu.juju:%s:%s`, tc.Version, arch)
+		} else if tc.MinorVersion < 0 {
+			ids[i] = fmt.Sprintf(`com\.ubuntu\.juju:%d\.([0-9])*\.([0-9])*:%s`, tc.MajorVersion, arch)
+		} else {
+			ids[i] = fmt.Sprintf(`com\.ubuntu\.juju:%d\.%d\.([0-9])*:%s`, tc.MajorVersion, tc.MinorVersion, arch)
+		}
 	}
 	return ids, nil
 }
@@ -83,7 +99,7 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 	toolsMap := make(map[string]*ToolsMetadata, len(matchingTools))
 	for _, val := range matchingTools {
 		tm := val.(*ToolsMetadata)
-		toolsMap[tm.Release] = tm
+		toolsMap[fmt.Sprintf("%s-%s", tm.Release, tm.Version)] = tm
 	}
 	for _, val := range tools {
 		tm := val.(*ToolsMetadata)
@@ -91,7 +107,22 @@ func appendMatchingTools(matchingTools []interface{}, tools map[string]interface
 		if consSeries != "" && consSeries != tm.Release {
 			continue
 		}
-		if _, ok := toolsMap[tm.Release]; !ok {
+		if toolsConstraint, ok := cons.(*ToolsConstraint); ok {
+			tmNumber := version.MustParse(tm.Version)
+			if toolsConstraint.Version == version.Zero {
+				if toolsConstraint.MajorVersion != tmNumber.Major {
+					continue
+				}
+				if toolsConstraint.MinorVersion >= 0 && toolsConstraint.MinorVersion != tmNumber.Minor {
+					continue
+				}
+			} else {
+				if toolsConstraint.Version != tmNumber {
+					continue
+				}
+			}
+		}
+		if _, ok := toolsMap[fmt.Sprintf("%s-%s", tm.Release, tm.Version)]; !ok {
 			matchingTools = append(matchingTools, tm)
 		}
 	}
