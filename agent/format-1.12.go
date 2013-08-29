@@ -137,7 +137,8 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *agentConf 
 	}
 }
 
-func (formatter *formatter112) write(dirName string, config *configInternal) error {
+func (formatter *formatter112) write(config *configInternal) error {
+	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {
@@ -156,7 +157,8 @@ func (formatter *formatter112) write(dirName string, config *configInternal) err
 	return nil
 }
 
-func (formatter *formatter112) writeCommands(dirName string, config *configInternal) ([]string, error) {
+func (formatter *formatter112) writeCommands(config *configInternal) ([]string, error) {
+	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {

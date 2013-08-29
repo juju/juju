@@ -34,8 +34,8 @@ var currentFormatter = &formatter112{}
 // translating to and from the internal, format agnostic, structure.
 type formatter interface {
 	read(dirName string) (*configInternal, error)
-	write(dirName string, config *configInternal) error
-	writeCommands(dirName string, config *configInternal) ([]string, error)
+	write(config *configInternal) error
+	writeCommands(config *configInternal) ([]string, error)
 }
 
 func readFormat(dirName string) (string, error) {
