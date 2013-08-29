@@ -111,7 +111,8 @@ func (formatter *formatter116) makeFormat(config *configInternal) *format116Seri
 	return format
 }
 
-func (formatter *formatter116) write(dirName string, config *configInternal) error {
+func (formatter *formatter116) write(config *configInternal) error {
+	dirName := config.Dir()
 	conf := formatter.makeFormat(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {
@@ -130,7 +131,8 @@ func (formatter *formatter116) write(dirName string, config *configInternal) err
 	return nil
 }
 
-func (formatter *formatter116) writeCommands(dirName string, config *configInternal) ([]string, error) {
+func (formatter *formatter116) writeCommands(config *configInternal) ([]string, error) {
+	dirName := config.Dir()
 	conf := formatter.makeFormat(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {

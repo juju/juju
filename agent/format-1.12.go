@@ -110,7 +110,6 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *format112S
 	format := &format112Serialization{
 		StateServerCert: config.stateServerCert,
 		StateServerKey:  config.stateServerKey,
-		StatePort:       config.statePort,
 		APIPort:         config.apiPort,
 		OldPassword:     config.oldPassword,
 		MachineNonce:    config.nonce,

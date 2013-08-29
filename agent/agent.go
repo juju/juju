@@ -176,7 +176,7 @@ func Dir(dataDir, agentName string) string {
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
 	dir := Dir(dataDir, tag)
-	format, err := readFormat(dirName)
+	format, err := readFormat(dir)
 	if err != nil {
 		return nil, err
 	}
