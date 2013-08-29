@@ -54,3 +54,13 @@ func (*formatSuite) TestNewFormatter(c *gc.C) {
 	c.Assert(formatter, gc.IsNil)
 	c.Assert(err, gc.ErrorMatches, "unknown agent config format")
 }
+
+func (*formatSuite) TestWriteFormat(c *gc.C) {
+	dir := c.MkDir()
+	testDir := path.Join(dir, "test")
+	err := writeFormatFile(testDir, "some format")
+	c.Assert(err, gc.IsNil)
+	format, err := readFormat(testDir)
+	c.Assert(format, gc.Equals, "some format")
+	c.Assert(err, gc.IsNil)
+}
