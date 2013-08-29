@@ -20,7 +20,7 @@ Leankit cards in the Merged lane should be documented in the release notes if ap
 
 LP Bugs marked fixed comitted should be similarly documented and moved to fixed released. Bugs in progress should be moved to the next milestone (and milestone created if necessary).
 
-note: this process does admit the real possiblity of commits which have no leankit card, or LP bug, will be missed. 
+note: this process does admit the real possiblity that commits which have no leankit card or LP bug, will be missed. 
 
 Step 2. Tag the release
 =======================
