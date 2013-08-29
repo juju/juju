@@ -89,6 +89,32 @@ func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env
 	return envtools.FindExactTools(env, requested)
 }
 
+// DesiredVersion reports the Agent Version that we want that agent to be running
+func (u *UpgraderAPI) DesiredVersion(args params.Entities) (params.AgentVersionResults, error) {
+	results := make([]params.AgentVersionResult, len(args.Entities))
+	if len(args.Entities) == 0 {
+		return params.AgentVersionResults{}, nil
+	}
+	// For now, all agents get the same proposed version
+	cfg, err := u.st.EnvironConfig()
+	if err != nil {
+		return params.AgentVersionResults{}, err
+	}
+	agentVersion, ok := cfg.AgentVersion()
+	if !ok {
+		return params.AgentVersionResults{}, errors.New("agent version not set in environment config")
+	}
+	for i, entity := range args.Entities {
+		err := common.ErrPerm
+		if u.authorizer.AuthOwner(entity.Tag) {
+			results[i].Version = &agentVersion
+			err = nil
+		}
+		results[i].Error = common.ServerError(err)
+	}
+	return params.AgentVersionResults{results}, nil
+}
+
 // Tools finds the Tools necessary for the given agents.
 func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, error) {
 	results := make([]params.AgentToolsResult, len(args.Entities))
