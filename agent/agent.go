@@ -112,26 +112,22 @@ func newConfig(params AgentConfigParams) (*configInternal, error) {
 	}
 	// Note that the password parts of the state and api information are
 	// blank.  This is by design.
-	var stateDetails *connectionDetails
+	config := &configInternal{
+		dataDir:     params.DataDir,
+		tag:         params.Tag,
+		nonce:       params.Nonce,
+		caCert:      params.CACert,
+		oldPassword: params.Password,
+	}
 	if len(params.StateAddresses) > 0 {
-		stateDetails = &connectionDetails{
+		config.stateDetails = &connectionDetails{
 			addresses: params.StateAddresses,
 		}
 	}
-	var apiDetails *connectionDetails
 	if len(params.APIAddresses) > 0 {
-		apiDetails = &connectionDetails{
+		config.apiDetails = &connectionDetails{
 			addresses: params.APIAddresses,
 		}
-	}
-	config := &configInternal{
-		dataDir:      params.DataDir,
-		tag:          params.Tag,
-		nonce:        params.Nonce,
-		caCert:       params.CACert,
-		stateDetails: stateDetails,
-		apiDetails:   apiDetails,
-		oldPassword:  params.Password,
 	}
 	if err := config.check(); err != nil {
 		return nil, err
