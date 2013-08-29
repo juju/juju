@@ -13,11 +13,22 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
-// EmptyStorage holds a StorageReader object that contains no files and
-// offers no URLs.
-var EmptyStorage StorageReader = emptyStorage{}
+// EmptyStorage composes EmptyStorageReader and EmptyStorageWriter.
+var EmptyStorage Storage = struct {
+	StorageReader
+	StorageWriter
+}{EmptyStorageReader, EmptyStorageWriter}
 
-type emptyStorage struct{}
+// EmptyStorageReader is a StorageReader implementation that contains no
+// files and offers no URLs.
+var EmptyStorageReader StorageReader = emptyStorageReader{}
+
+// EmptyStorageReader is a StorageWriter object that produces an error
+// for all operations.
+var EmptyStorageWriter StorageWriter = emptyStorageWriter{}
+
+type emptyStorageReader struct{}
+type emptyStorageWriter struct{}
 
 // File named `verificationFilename` in the storage will contain
 // `verificationContent`.  This is also used to differentiate between
@@ -29,21 +40,33 @@ const verificationContent = "juju-core storage writing verified: ok\n"
 var VerifyStorageError error = fmt.Errorf(
 	"provider storage is not writable")
 
-func (s emptyStorage) Get(name string) (io.ReadCloser, error) {
+func (s emptyStorageReader) Get(name string) (io.ReadCloser, error) {
 	return nil, errors.NotFoundf("file %q", name)
 }
 
-func (s emptyStorage) URL(name string) (string, error) {
+func (s emptyStorageReader) URL(name string) (string, error) {
 	return "", fmt.Errorf("file %q not found", name)
 }
 
 // ConsistencyStrategy is specified in the StorageReader interface.
-func (s emptyStorage) ConsistencyStrategy() utils.AttemptStrategy {
+func (s emptyStorageReader) ConsistencyStrategy() utils.AttemptStrategy {
 	return utils.AttemptStrategy{}
 }
 
-func (s emptyStorage) List(prefix string) ([]string, error) {
+func (s emptyStorageReader) List(prefix string) ([]string, error) {
 	return nil, nil
+}
+
+func (s emptyStorageWriter) Put(name string, r io.Reader, length int64) error {
+	return fmt.Errorf("cannot put file %q to empty storage", name)
+}
+
+func (s emptyStorageWriter) Remove(name string) error {
+	return fmt.Errorf("cannot remove file %q from empty storage", name)
+}
+
+func (s emptyStorageWriter) RemoveAll() error {
+	return fmt.Errorf("cannot remove files from empty storage")
 }
 
 func VerifyStorage(storage Storage) error {

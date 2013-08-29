@@ -36,6 +36,21 @@ func (s *EmptyStorageSuite) TestList(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *EmptyStorageSuite) TestPut(c *gc.C) {
+	err := environs.EmptyStorage.Put("anything", nil, 0)
+	c.Assert(err, gc.ErrorMatches, `cannot put file "anything" to empty storage`)
+}
+
+func (s *EmptyStorageSuite) TestRemove(c *gc.C) {
+	err := environs.EmptyStorage.Remove("anything")
+	c.Assert(err, gc.ErrorMatches, `cannot remove file "anything" from empty storage`)
+}
+
+func (s *EmptyStorageSuite) TestRemoveAll(c *gc.C) {
+	err := environs.EmptyStorage.RemoveAll()
+	c.Assert(err, gc.ErrorMatches, `cannot remove files from empty storage`)
+}
+
 type verifyStorageSuite struct{}
 
 var _ = gc.Suite(&verifyStorageSuite{})
