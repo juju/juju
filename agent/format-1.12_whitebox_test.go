@@ -1,0 +1,67 @@
+// Copyright 2013 Canonical Ltd.
+// Licensed under the AGPLv3, see LICENCE file for details.
+
+// The format tests are white box tests, meaning that the tests are in the
+// same package as the code, as all the format details are internal to the
+// package.
+
+package agent
+
+import (
+	"os"
+	"path"
+
+	gc "launchpad.net/gocheck"
+
+	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
+)
+
+type format112Suite struct {
+	testing.LoggingSuite
+	formatter formatter112
+}
+
+var _ = gc.Suite(&format112Suite{})
+
+func (s *format112Suite) newConfig(c *gc.C) *configInternal {
+	testDir := c.MkDir()
+	config, err := newConfig(AgentConfigParams{
+		DataDir:        testDir,
+		Tag:            "omg",
+		Password:       "sekrit",
+		CACert:         []byte("ca cert"),
+		StateAddresses: []string{"localhost:1234"},
+		APIAddresses:   []string{"localhost:1235"},
+		Nonce:          "a nonce",
+	})
+	c.Assert(err, gc.IsNil)
+	return config
+}
+
+func (s *format112Suite) TestWriteAgentConfig(c *gc.C) {
+	config := s.newConfig(c)
+	err := s.formatter.write(config)
+	c.Assert(err, gc.IsNil)
+
+	expectedLocation := path.Join(config.Dir(), "agent.conf")
+	fileInfo, err := os.Stat(expectedLocation)
+	c.Assert(err, gc.IsNil)
+	c.Assert(fileInfo.Mode().IsRegular(), jc.IsTrue)
+	c.Assert(fileInfo.Mode().Perm(), gc.Equals, os.FileMode(0600))
+	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
+}
+
+func (s *format112Suite) TestRead(c *gc.C) {
+	config := s.newConfig(c)
+	err := s.formatter.write(config)
+	c.Assert(err, gc.IsNil)
+	// The readConfig is missing the dataDir initially.
+	readConfig, err := s.formatter.read(config.Dir())
+	c.Assert(err, gc.IsNil)
+	c.Assert(readConfig.dataDir, gc.Equals, "")
+	// This is put in by the ReadConf method that we are avoiding using
+	// becuase it will have side-effects soon around migrating configs.
+	readConfig.dataDir = config.dataDir
+	c.Assert(readConfig, gc.DeepEquals, config)
+}
