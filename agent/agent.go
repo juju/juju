@@ -180,8 +180,13 @@ func Dir(dataDir, agentName string) string {
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
 	dir := Dir(dataDir, tag)
+	// Read the format for the dir.
+	// Create a formatter for the format
+	// Read in the config
+	// If the format isn't the current format, call the upgrade function, and
+	// write out using the new formatter.
 
-	formatter, err := newFormatter(previousFormat)
+	formatter, err := newFormatter(currentFormat)
 	if err != nil {
 		return nil, err
 	}
@@ -306,7 +311,7 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 // Write writes the agent configuration.
 func (c *configInternal) Write() error {
 
-	formatter, err := newFormatter(previousFormat)
+	formatter, err := newFormatter(currentFormat)
 	if err != nil {
 		return err
 	}
@@ -318,7 +323,7 @@ func (c *configInternal) Write() error {
 // have all the right elements.
 func (c *configInternal) WriteCommands() ([]string, error) {
 
-	formatter, err := newFormatter(previousFormat)
+	formatter, err := newFormatter(currentFormat)
 	if err != nil {
 		return nil, err
 	}

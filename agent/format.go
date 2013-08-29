@@ -28,7 +28,7 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = "format 1.14"
+	currentFormat  = "format 1.16"
 	previousFormat = "format 1.12"
 )
 
@@ -56,7 +56,7 @@ func newFormatter(format string) (formatter, error) {
 	case previousFormat:
 		return &formatter112{}, nil
 	case currentFormat:
-		return &formatter114{}, nil
+		return &formatter116{}, nil
 	}
 	return nil, fmt.Errorf("unknown agent config format")
 }

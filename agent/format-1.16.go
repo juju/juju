@@ -10,8 +10,8 @@ import (
 	"launchpad.net/juju-core/state/api"
 )
 
-// formatter114 is the formatter for the 1.14 format.
-type formatter114 struct {
+// formatter116 is the formatter for the 1.14 format.
+type formatter116 struct {
 }
 
 // conf holds information for a given agent.
@@ -52,18 +52,18 @@ type xconf struct {
 	APIInfo *api.Info `yaml:",omitempty"`
 }
 
-// Ensure that the formatter114 struct implements the formatter interface.
-var _ formatter = (*formatter114)(nil)
+// Ensure that the formatter116 struct implements the formatter interface.
+var _ formatter = (*formatter116)(nil)
 
-func (*formatter114) read(dirName string) (*configInternal, error) {
+func (*formatter116) read(dirName string) (*configInternal, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
-func (*formatter114) write(dirName string, config *configInternal) error {
+func (*formatter116) write(dirName string, config *configInternal) error {
 	return fmt.Errorf("not implemented")
 }
 
-func (*formatter114) writeCommands(dirName string, config *configInternal) ([]string, error) {
+func (*formatter116) writeCommands(dirName string, config *configInternal) ([]string, error) {
 	return nil, fmt.Errorf("not implemented")
 }
 
