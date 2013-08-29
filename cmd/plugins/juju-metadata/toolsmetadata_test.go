@@ -16,9 +16,11 @@ import (
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
+	_ "launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/version"
 )
@@ -30,18 +32,12 @@ type ToolsMetadataSuite struct {
 
 var _ = gc.Suite(&ToolsMetadataSuite{})
 
-const localTestEnvConfig = `
-environments:
-  local:
-    type: local
-`
-
 func (s *ToolsMetadataSuite) SetUpTest(c *gc.C) {
-	s.home = coretesting.MakeFakeHome(c, localTestEnvConfig)
-	env, err := environs.NewFromName("local")
+	s.home = coretesting.MakeSampleHome(c)
+	env, err := environs.NewFromName("erewhemos")
 	c.Assert(err, gc.IsNil)
 	s.env = env
-    envtesting.RemoveAllTools(c, s.env)
+	envtesting.RemoveAllTools(c, s.env)
 }
 
 func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
@@ -108,7 +104,7 @@ Writing http://.*/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `
 
 func (s *ToolsMetadataSuite) TestGenerateStorage(c *gc.C) {
-	storage := s.env.Storage()
+	storage := s.env.PublicStorage().(environs.Storage)
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
 		envtesting.UploadFakeToolsVersion(c, storage, binary)
@@ -132,17 +128,20 @@ Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `
 
 func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
-	storage := s.env.Storage()
+	storageDir := c.MkDir()
+	listener, err := localstorage.Serve("127.0.0.1:0", storageDir)
+	c.Assert(err, gc.IsNil)
+	defer listener.Close()
+	storage := localstorage.Client(listener.Addr().String())
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
 		envtesting.UploadFakeToolsVersion(c, storage, binary)
 	}
-	localStorageDir := config.JujuHomePath(filepath.Join("local", "storage"))
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", localStorageDir})
+	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", storageDir})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	expected := fmt.Sprintf(expectedOutputDirectory, localStorageDir, localStorageDir)
+	expected := fmt.Sprintf(expectedOutputDirectory, storageDir, storageDir)
 	c.Assert(output, gc.Matches, expected)
 	metadata := s.parseMetadata(c)
 	_ = metadata
@@ -171,7 +170,7 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
 	}
-	storage := s.env.Storage()
+	storage := s.env.PublicStorage().(environs.Storage)
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
 		envtesting.UploadFakeToolsVersion(c, storage, binary)
@@ -189,7 +188,7 @@ Writing http://.*/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
 	metadata := s.parseMetadata(c)
-    _ = metadata
-    // FIXME(axw) doesn't work.
+	_ = metadata
+	// FIXME(axw) doesn't work.
 	//c.Assert(metadata, gc.HasLen, 2)
 }
