@@ -178,13 +178,7 @@ func Dir(dataDir, agentName string) string {
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
 	dir := Dir(dataDir, tag)
-
-	formatter, err := newFormatter(currentFormat)
-	if err != nil {
-		return nil, err
-	}
-
-	config, err := formatter.read(dir)
+	config, err := currentFormatter.read(dir)
 	if err != nil {
 		return nil, err
 	}
@@ -303,24 +297,14 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 
 // Write writes the agent configuration.
 func (c *configInternal) Write() error {
-
-	formatter, err := newFormatter(currentFormat)
-	if err != nil {
-		return err
-	}
-	return formatter.write(c.Dir(), c)
+	return currentFormatter.write(c.Dir(), c)
 }
 
 // WriteCommands returns shell commands to write the agent
 // configuration.  It returns an error if the configuration does not
 // have all the right elements.
 func (c *configInternal) WriteCommands() ([]string, error) {
-
-	formatter, err := newFormatter(currentFormat)
-	if err != nil {
-		return nil, err
-	}
-	return formatter.writeCommands(c.Dir(), c)
+	return currentFormatter.writeCommands(c.Dir(), c)
 }
 
 // OpenAPI tries to open the state using the given Conf.  If it
