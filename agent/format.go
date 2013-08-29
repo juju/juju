@@ -81,7 +81,7 @@ func writeFormatFile(dirName string, format string) error {
 func writeFileCommands(filename, contents string, permission int) []string {
 	quotedFilename := utils.ShQuote(filename)
 	return []string{
-		fmt.Sprintf("install -m %o /dev/null %s", permission, formatFile),
+		fmt.Sprintf("install -m %o /dev/null %s", permission, quotedFilename),
 		fmt.Sprintf(`printf '%%s\n' %s > %s`, utils.ShQuote(contents), quotedFilename),
 	}
 }
