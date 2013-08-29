@@ -1145,6 +1145,15 @@ func (s *StateSuite) TestWatchEnvironConfig(c *gc.C) {
 	assertChange(attrs{"fancy-new-key": "arbitrary-value"})
 }
 
+func (s *StateSuite) TestWatchEnvironConfigDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchEnvironConfig()
+		<-w.Changes()
+		return w
+	})
+}
+
+
 func (s *StateSuite) TestWatchForEnvironConfigChanges(c *gc.C) {
 	cur := version.Current.Number
 	err := statetesting.SetAgentVersion(s.State, cur)
@@ -1682,6 +1691,14 @@ func (s *StateSuite) TestWatchCleanups(c *gc.C) {
 	// Stop watcher, check closed.
 	statetesting.AssertStop(c, w)
 	wc.AssertClosed()
+}
+
+func (s *StateSuite) TestWatchCleanupsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		w := st.WatchCleanups()
+		<-w.Changes()
+		return w
+	})
 }
 
 func (s *StateSuite) TestWatchCleanupsBulk(c *gc.C) {
