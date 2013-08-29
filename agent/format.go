@@ -35,6 +35,8 @@ const (
 	previousFormat = "format 1.12"
 )
 
+var currentFormatter = &formatter116{}
+
 // The formatter defines the two methods needed by the formatters for
 // translating to and from the internal, format agnostic, structure.
 type formatter interface {
@@ -59,10 +61,10 @@ func readFormat(dirName string) (string, error) {
 
 func newFormatter(format string) (formatter, error) {
 	switch format {
+	case currentFormat:
+		return currentFormatter, nil
 	case previousFormat:
 		return &formatter112{}, nil
-	case currentFormat:
-		return &formatter116{}, nil
 	}
 	return nil, fmt.Errorf("unknown agent config format")
 }

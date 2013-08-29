@@ -176,17 +176,15 @@ func Dir(dataDir, agentName string) string {
 // entity from the given data directory.
 func ReadConf(dataDir, tag string) (Config, error) {
 	dir := Dir(dataDir, tag)
-	// Read the format for the dir.
-	// Create a formatter for the format
-	// Read in the config
-	// If the format isn't the current format, call the upgrade function, and
-	// write out using the new formatter.
-
-	formatter, err := newFormatter(currentFormat)
+	format, err := readFormat(dirName)
 	if err != nil {
 		return nil, err
 	}
-
+	logger.Debugf("Reading agent config, format: %s", format)
+	formatter, err := newFormatter(format)
+	if err != nil {
+		return nil, err
+	}
 	config, err := formatter.read(dir)
 	if err != nil {
 		return nil, err
@@ -195,12 +193,17 @@ func ReadConf(dataDir, tag string) (Config, error) {
 	if err := config.check(); err != nil {
 		return nil, err
 	}
+
+	if format != currentFormat {
+		// Migrate the config to the new format.
+		// Write the content out in the new format.
+		if err := currentFormatter.write(config); err != nil {
+			logger.Errorf("Problem writing the agent config out in format: %s, %v", currentFormat, err)
+			return nil, err
+		}
+	}
+
 	return config, nil
-	// Read the format for the dir.
-	// Create a formatter for the format
-	// Read in the config
-	// If the format isn't the current format, call the upgrade function, and
-	// write out using the new formatter.
 }
 
 func requiredError(what string) error {
