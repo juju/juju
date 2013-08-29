@@ -63,4 +63,18 @@ func (*formatSuite) TestWriteFormat(c *gc.C) {
 	format, err := readFormat(testDir)
 	c.Assert(format, gc.Equals, "some format")
 	c.Assert(err, gc.IsNil)
+	// Make sure the carriage return is there as it makes catting the file nicer.
+	content, err := ioutil.ReadFile(path.Join(testDir, formatFilename))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Equals, "some format\n")
+}
+
+func (*formatSuite) TestWriteCommandsForFormat(c *gc.C) {
+	dir := c.MkDir()
+	testDir := path.Join(dir, "test")
+	commands := writeCommandsForFormat(testDir, "some format")
+	c.Assert(commands, gc.HasLen, 3)
+	c.Assert(commands[0], gc.Matches, `mkdir -p \S+`)
+	c.Assert(commands[1], gc.Matches, `install -m 644 /dev/null '\S+/format'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '.*' > '\S+/format'`)
 }
