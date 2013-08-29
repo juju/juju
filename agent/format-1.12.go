@@ -135,7 +135,8 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *agentConf 
 	}
 }
 
-func (formatter *formatter112) write(dirName string, config *configInternal) error {
+func (formatter *formatter112) write(config *configInternal) error {
+	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {
@@ -154,7 +155,8 @@ func (formatter *formatter112) write(dirName string, config *configInternal) err
 	return nil
 }
 
-func (formatter *formatter112) writeCommands(dirName string, config *configInternal) ([]string, error) {
+func (formatter *formatter112) writeCommands(config *configInternal) ([]string, error) {
+	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
 	if err != nil {
@@ -164,9 +166,9 @@ func (formatter *formatter112) writeCommands(dirName string, config *configInter
 	addCommand := func(f string, a ...interface{}) {
 		commands = append(commands, fmt.Sprintf(f, a...))
 	}
-	f := utils.ShQuote(formatter.configFile(dirName))
+	filename := utils.ShQuote(formatter.configFile(dirName))
 	addCommand("mkdir -p %s", utils.ShQuote(dirName))
-	addCommand("install -m %o /dev/null %s", 0600, f)
-	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), f)
+	addCommand("install -m %o /dev/null %s", 0600, filename)
+	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), filename)
 	return commands, nil
 }
