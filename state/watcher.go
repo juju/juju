@@ -25,7 +25,7 @@ var watchLogger = loggo.GetLogger("juju.state.watch")
 
 // Watcher is implemented by all watchers; the actual
 // changes channel is returned by a watcher-specific
-// Changes method. 
+// Changes method.
 type Watcher interface {
 	// Kill asks the watcher to stop without waiting for it do so.
 	Kill()
