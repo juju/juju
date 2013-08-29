@@ -24,17 +24,19 @@ type format112Suite struct {
 
 var _ = gc.Suite(&format112Suite{})
 
+var agentParams = AgentConfigParams{
+	Tag:            "omg",
+	Password:       "sekrit",
+	CACert:         []byte("ca cert"),
+	StateAddresses: []string{"localhost:1234"},
+	APIAddresses:   []string{"localhost:1235"},
+	Nonce:          "a nonce",
+}
+
 func (s *format112Suite) newConfig(c *gc.C) *configInternal {
-	testDir := c.MkDir()
-	config, err := newConfig(AgentConfigParams{
-		DataDir:        testDir,
-		Tag:            "omg",
-		Password:       "sekrit",
-		CACert:         []byte("ca cert"),
-		StateAddresses: []string{"localhost:1234"},
-		APIAddresses:   []string{"localhost:1235"},
-		Nonce:          "a nonce",
-	})
+	params := agentParams
+	params.DataDir = c.MkDir()
+	config, err := newConfig(params)
 	c.Assert(err, gc.IsNil)
 	return config
 }
