@@ -83,58 +83,53 @@ func (s *detectionSuite) TestDetectHardwareCharacteristics(c *gc.C) {
 		summary        string
 		scriptResponse []string
 		expectedHc     string
-	}{
-		{
-			"Single CPU socket, single core, no hyper-threading",
-			[]string{"edgy", "armv4", "MemTotal: 4096 kB", "processor: 0"},
-			"arch=arm cpu-cores=1 mem=4M",
+	}{{
+		"Single CPU socket, single core, no hyper-threading",
+		[]string{"edgy", "armv4", "MemTotal: 4096 kB", "processor: 0"},
+		"arch=arm cpu-cores=1 mem=4M",
+	}, {
+		"Single CPU socket, single core, hyper-threading",
+		[]string{
+			"edgy", "armv4", "MemTotal: 4096 kB",
+			"processor: 0",
+			"physical id: 0",
+			"cpu cores: 1",
+			"processor: 1",
+			"physical id: 0",
+			"cpu cores: 1",
 		},
-		{
-			"Single CPU socket, single core, hyper-threading",
-			[]string{
-				"edgy", "armv4", "MemTotal: 4096 kB",
-				"processor: 0",
-				"physical id: 0",
-				"cpu cores: 1",
-				"processor: 1",
-				"physical id: 0",
-				"cpu cores: 1",
-			},
-			"arch=arm cpu-cores=1 mem=4M",
+		"arch=arm cpu-cores=1 mem=4M",
+	}, {
+		"Single CPU socket, dual-core, no hyper-threading",
+		[]string{
+			"edgy", "armv4", "MemTotal: 4096 kB",
+			"processor: 0",
+			"physical id: 0",
+			"cpu cores: 2",
+			"processor: 1",
+			"physical id: 0",
+			"cpu cores: 2",
 		},
-		{
-			"Single CPU socket, dual-core, no hyper-threading",
-			[]string{
-				"edgy", "armv4", "MemTotal: 4096 kB",
-				"processor: 0",
-				"physical id: 0",
-				"cpu cores: 2",
-				"processor: 1",
-				"physical id: 0",
-				"cpu cores: 2",
-			},
-			"arch=arm cpu-cores=2 mem=4M",
+		"arch=arm cpu-cores=2 mem=4M",
+	}, {
+		"Dual CPU socket, each single-core, hyper-threading",
+		[]string{
+			"edgy", "armv4", "MemTotal: 4096 kB",
+			"processor: 0",
+			"physical id: 0",
+			"cpu cores: 1",
+			"processor: 1",
+			"physical id: 0",
+			"cpu cores: 1",
+			"processor: 2",
+			"physical id: 1",
+			"cpu cores: 1",
+			"processor: 3",
+			"physical id: 1",
+			"cpu cores: 1",
 		},
-		{
-			"Dual CPU socket, each single-core, hyper-threading",
-			[]string{
-				"edgy", "armv4", "MemTotal: 4096 kB",
-				"processor: 0",
-				"physical id: 0",
-				"cpu cores: 1",
-				"processor: 1",
-				"physical id: 0",
-				"cpu cores: 1",
-				"processor: 2",
-				"physical id: 1",
-				"cpu cores: 1",
-				"processor: 3",
-				"physical id: 1",
-				"cpu cores: 1",
-			},
-			"arch=arm cpu-cores=2 mem=4M",
-		},
-	}
+		"arch=arm cpu-cores=2 mem=4M",
+	}}
 	for i, test := range tests {
 		c.Logf("test %d: %s", i, test.summary)
 		scriptResponse := strings.Join(test.scriptResponse, "\n")

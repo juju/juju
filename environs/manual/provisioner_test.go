@@ -27,7 +27,6 @@ func (s *provisionerSuite) getArgs(c *gc.C) ProvisionMachineArgs {
 	c.Assert(err, gc.IsNil)
 	return ProvisionMachineArgs{
 		Host:  hostname,
-		Env:   s.Conn.Environ,
 		State: s.State,
 	}
 }
@@ -72,9 +71,6 @@ func (s *provisionerSuite) TestProvisionMachine(c *gc.C) {
 			instanceId, err := m.InstanceId()
 			c.Assert(err, gc.IsNil)
 			c.Assert(instanceId, gc.Equals, instance.Id("manual:"+hostname))
-			tools, err := m.AgentTools()
-			c.Assert(err, gc.IsNil)
-			c.Assert(tools, gc.DeepEquals, toolsList[0])
 		}
 	}
 

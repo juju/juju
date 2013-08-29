@@ -10,10 +10,9 @@ import (
 
 	"launchpad.net/loggo"
 
-	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -33,15 +32,8 @@ type ProvisionMachineArgs struct {
 	// If left blank, the default location "/var/lib/juju" will be used.
 	DataDir string
 
-	// Env is the environment containing the state and API servers the
-	// provisioned machine agent should communicate with.
-	Env environs.Environ
-
 	// State is the *state.State object to register the machine with.
 	State *state.State
-
-	// Constraints are any machine constraints that should be checked.
-	Constraints constraints.Value
 
 	// Tools to install on the machine. If nil, tools will be automatically
 	// chosen using environs/tools FindInstanceTools.
@@ -66,6 +58,13 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 			m = nil
 		}
 	}()
+
+	var env environs.Environ
+	if conn, err := juju.NewConnFromState(args.State); err != nil {
+		return nil, err
+	} else {
+		env = conn.Environ
+	}
 
 	sshHostWithoutUser := args.Host
 	if at := strings.Index(sshHostWithoutUser, "@"); at != -1 {
@@ -107,20 +106,17 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	instanceId := instance.Id(manualInstancePrefix + sshHostWithoutUser)
 	nonce := fmt.Sprintf("%s:%s", instanceId, uuid.String())
 	m, err = injectMachine(injectMachineArgs{
-		env:        args.Env,
 		st:         args.State,
 		instanceId: instanceId,
 		addrs:      addrs,
 		series:     series,
 		hc:         hc,
-		cons:       args.Constraints,
-		tools:      args.Tools,
 		nonce:      nonce,
 	})
 	if err != nil {
 		return nil, err
 	}
-	stateInfo, apiInfo, err := setupAuthentication(args.Env, m)
+	stateInfo, apiInfo, err := setupAuthentication(env, m)
 	if err != nil {
 		return m, err
 	}
@@ -129,12 +125,14 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	err = provisionMachineAgent(provisionMachineAgentArgs{
 		host:      args.Host,
 		dataDir:   args.DataDir,
-		envcfg:    args.Env.Config(),
+		env:       env,
 		machine:   m,
 		nonce:     nonce,
 		stateInfo: stateInfo,
 		apiInfo:   apiInfo,
-		cons:      args.Constraints,
+		series:    series,
+		arch:      *hc.Arch,
+		tools:     args.Tools,
 	})
 	if err != nil {
 		return m, err
@@ -145,14 +143,11 @@ func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 }
 
 type injectMachineArgs struct {
-	env        environs.Environ
 	st         *state.State
 	instanceId instance.Id
 	addrs      []instance.Address
 	series     string
 	hc         instance.HardwareCharacteristics
-	cons       constraints.Value
-	tools      *tools.Tools
 	nonce      string
 }
 
@@ -164,10 +159,8 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 			m.Remove()
 		}
 	}()
-
 	m, err = args.st.InjectMachine(&state.AddMachineParams{
 		Series:                  args.series,
-		Constraints:             args.cons,
 		InstanceId:              args.instanceId,
 		HardwareCharacteristics: args.hc,
 		Nonce: args.nonce,
@@ -179,34 +172,6 @@ func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 	if err = m.SetAddresses(args.addrs); err != nil {
 		return nil, err
 	}
-
-	if args.tools == nil {
-		// Normally, provisioning is done with configuration loaded from the
-		// state database.  Manual provisioning be initiated from the juju CLI,
-		// whose environment configuration may not reflect the configuration
-		// in state; load configuration from state now.
-		statecfg, err := args.st.EnvironConfig()
-		if err != nil {
-			return nil, err
-		}
-		if err = args.env.SetConfig(statecfg); err != nil {
-			return nil, err
-		}
-		possibleTools, err := envtools.FindInstanceTools(args.env, args.series, args.cons)
-		if err != nil {
-			return nil, err
-		}
-		possibleTools, err = possibleTools.Match(tools.Filter{Arch: *args.hc.Arch})
-		if err != nil {
-			arches := possibleTools.Arches()
-			return nil, fmt.Errorf("chosen architecture %v not present in %v", *args.hc.Arch, arches)
-		}
-		args.tools = possibleTools[0]
-	}
-	if err = m.SetAgentTools(args.tools); err != nil {
-		return nil, err
-	}
-
 	return m, nil
 }
 

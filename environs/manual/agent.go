@@ -14,29 +14,32 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
-	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
 type provisionMachineAgentArgs struct {
 	host      string
 	dataDir   string
-	envcfg    *config.Config
+	env       environs.Environ
 	machine   *state.Machine
 	nonce     string
 	stateInfo *state.Info
 	apiInfo   *api.Info
-	cons      constraints.Value
+	series    string
+	arch      string
+	tools     *tools.Tools
 }
 
 // provisionMachineAgent connects to a machine over SSH,
 // copies across the tools, and installs a machine agent.
 func provisionMachineAgent(args provisionMachineAgentArgs) error {
-	script, err := provisionMachineAgentSCript(args)
+	script, err := provisionMachineAgentScript(args)
 	if err != nil {
 		return err
 	}
@@ -56,10 +59,14 @@ func provisionMachineAgent(args provisionMachineAgentArgs) error {
 
 // provisionMachineAgentScript generates the script necessary
 // to install a machine agent on the specified host.
-func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error) {
-	tools, err := args.machine.AgentTools()
-	if err != nil {
-		return "", fmt.Errorf("machine %v has no associated agent tools", args.machine)
+func provisionMachineAgentScript(args provisionMachineAgentArgs) (string, error) {
+	tools := args.tools
+	if tools == nil {
+		var err error
+		tools, err = findMachineAgentTools(args.env, args.series, args.arch)
+		if err != nil {
+			return "", err
+		}
 	}
 
 	// We generate a cloud-init config, which we'll then pull the runcmds
@@ -70,7 +77,7 @@ func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error)
 		mcfg.DataDir = args.dataDir
 	}
 	mcfg.Tools = tools
-	err = environs.FinishMachineConfig(mcfg, args.envcfg, args.cons)
+	err := environs.FinishMachineConfig(mcfg, args.env.Config(), constraints.Value{})
 	if err != nil {
 		return "", err
 	}
@@ -82,8 +89,7 @@ func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error)
 
 	// TODO(axw): 2013-08-23 bug 1215777
 	// Carry out configuration for ssh-keys-per-user,
-	// machine-updates-authkeys, when that functionality
-	// exists in our cloud-init configuration.
+	// machine-updates-authkeys, using cloud-init config.
 
 	// Convert runcmds to a series of shell commands.
 	script := []string{"#!/bin/sh"}
@@ -111,4 +117,17 @@ func provisionMachineAgentSCript(args provisionMachineAgentArgs) (string, error)
 	}
 	script = append(head, tail...)
 	return strings.Join(script, "\n"), nil
+}
+
+func findMachineAgentTools(env environs.Environ, series, arch string) (*tools.Tools, error) {
+	possibleTools, err := envtools.FindInstanceTools(env, series, constraints.Value{})
+	if err != nil {
+		return nil, err
+	}
+	arches := possibleTools.Arches()
+	possibleTools, err = possibleTools.Match(tools.Filter{Arch: arch})
+	if err != nil {
+		return nil, fmt.Errorf("chosen architecture %v not present in %v", arch, arches)
+	}
+	return possibleTools[0], nil
 }

@@ -92,10 +92,8 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 
 	if c.SSHHost != "" {
 		args := manual.ProvisionMachineArgs{
-			Host:        c.SSHHost,
-			Env:         conn.Environ,
-			State:       conn.State,
-			Constraints: c.Constraints,
+			Host:  c.SSHHost,
+			State: conn.State,
 		}
 		_, err = manual.ProvisionMachine(args)
 		return err
