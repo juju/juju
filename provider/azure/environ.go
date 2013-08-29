@@ -70,8 +70,9 @@ type azureEnviron struct {
 	storageAccountKey string
 }
 
-// azureEnviron implements Environ.
+// azureEnviron implements Environ and HasIdAttributes.
 var _ environs.Environ = (*azureEnviron)(nil)
+var _ environs.HasIdAttributes = (*azureEnviron)(nil)
 
 // NewEnviron creates a new azureEnviron.
 func NewEnviron(cfg *config.Config) (*azureEnviron, error) {
@@ -918,4 +919,13 @@ func (env *azureEnviron) getImageMetadataSigningRequired() bool {
 	// Hard-coded to true for now.  Once we support custom base URLs,
 	// this may have to change.
 	return true
+}
+
+// IdAttributes is specified in the HasIdAttributes interface.
+func (env *azureEnviron) IdAttributes() (map[string]string, error) {
+	ecfg := env.getSnapshot().ecfg
+	return map[string]string{
+		"region":   ecfg.location(),
+		"endpoint": string(gwacl.GetEndpoint(ecfg.location())),
+	}, nil
 }

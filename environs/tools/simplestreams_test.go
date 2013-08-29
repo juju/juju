@@ -39,7 +39,7 @@ var liveUrls = map[string]liveTestData{
 	},
 }
 
-func Test(t *testing.T) {
+func setupSimpleStreamsTests(t *testing.T) {
 	if *live {
 		if *vendor == "" {
 			t.Fatal("missing vendor")
@@ -58,7 +58,6 @@ func Test(t *testing.T) {
 			}), testData.requireSigned)
 	}
 	registerSimpleStreamsTests()
-	gc.TestingT(t)
 }
 
 func registerSimpleStreamsTests() {

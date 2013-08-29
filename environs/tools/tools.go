@@ -6,14 +6,61 @@ package tools
 import (
 	"fmt"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
+
+// NewFindTools returns a List containing all tools with a given
+// major.minor version number available at the urls, filtered by filter.
+// It is called NewFindTools because the legacy functionality is still present
+// but deprecated. Once the legacy find tools is removed, this will be renamed.
+// If minorVersion = -1, then only majorVersion is considered.
+// At each URL, simplestreams metadata is used to search for the tools.
+// If no *available* tools have the supplied major.minor version number, or match the
+// supplied filter, the function returns a *NotFoundError.
+func NewFindTools(urls []string, cloudSpec simplestreams.CloudSpec,
+	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+
+	var toolsConstraint *ToolsConstraint
+	if filter.Number == version.Zero {
+		toolsConstraint = NewVersionedToolsConstraint(filter.Number.String(), simplestreams.LookupParams{
+			CloudSpec: cloudSpec,
+			Series:    filter.Series,
+		})
+	} else {
+		toolsConstraint = NewGeneralToolsConstraint(majorVersion, minorVersion, simplestreams.LookupParams{
+			CloudSpec: cloudSpec,
+			Series:    filter.Series,
+		})
+	}
+	if filter.Arch != "" {
+		toolsConstraint.Arches = []string{filter.Arch}
+	}
+	toolsMetadata, err := Fetch(urls, simplestreams.DefaultIndexPath, toolsConstraint, false)
+	if err != nil {
+		return nil, err
+	}
+	list = make(coretools.List, len(toolsMetadata))
+	for i, metadata := range toolsMetadata {
+		list[i] = &coretools.Tools{
+			Version: version.MustParseBinary(metadata.Version),
+			URL:     metadata.Path,
+		}
+	}
+	if filter.Series != "" {
+		if err := checkToolsSeries(list, filter.Series); err != nil {
+			return nil, err
+		}
+	}
+	return list, err
+}
 
 // FindTools returns a List containing all tools with a given
 // major.minor version number available in the storages, filtered by filter.
@@ -22,8 +69,22 @@ var logger = loggo.GetLogger("juju.environs.tools")
 // *only* tools that storage are available for use.
 // If no *available* tools have the supplied major.minor version number, or match the
 // supplied filter, the function returns a *NotFoundError.
-func FindTools(storages []environs.StorageReader,
-	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+func FindTools(cloud environs.HasConfig, majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
+
+	var cloudSpec simplestreams.CloudSpec
+	if inst, ok := cloud.(environs.HasIdAttributes); ok {
+		cfg, err := inst.IdAttributes()
+		if err != nil {
+			return nil, err
+		}
+		cloudSpec = simplestreams.CloudSpec{
+			Region:   cfg["region"],
+			Endpoint: cfg["endpoint"],
+		}
+	}
+	if cloudSpec.Region != cloudSpec.Endpoint && (cloudSpec.Region == "" || cloudSpec.Endpoint == "") {
+		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
+	}
 
 	logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
 	defer convertToolsError(&err)
@@ -38,22 +99,18 @@ func FindTools(storages []environs.StorageReader,
 	if filter.Arch != "" {
 		logger.Infof("filtering tools by architecture: %s", filter.Arch)
 	}
-	for _, storage := range storages {
-		list, err = ReadList(storage, majorVersion, minorVersion)
-		if err != ErrNoTools {
-			break
-		}
-	}
+
+	urls, err := GetMetadataURLs(cloud)
 	if err != nil {
 		return nil, err
 	}
-	list, err = list.Match(filter)
-	if err != nil {
-		return nil, err
-	}
-	if filter.Series != "" {
-		if err := checkToolsSeries(list, filter.Series); err != nil {
-			return nil, err
+	list, err = NewFindTools(urls, cloudSpec, majorVersion, minorVersion, filter)
+	if err != nil || len(list) == 0 {
+		if env, ok := cloud.(environs.Environ); ok {
+			list, err = LegacyFindTools(
+				[]environs.StorageReader{env.Storage(), env.PublicStorage()}, majorVersion, minorVersion, filter)
+		} else {
+			return nil, fmt.Errorf("cannot find legacy tools without an environment")
 		}
 	}
 	return list, err
@@ -62,7 +119,7 @@ func FindTools(storages []environs.StorageReader,
 // FindBootstrapTools returns a ToolsList containing only those tools with
 // which it would be reasonable to launch an environment's first machine, given the supplied constraints.
 // If a specific agent version is not requested, all tools matching the current major.minor version are chosen.
-func FindBootstrapTools(storages []environs.StorageReader,
+func FindBootstrapTools(cloud environs.HasConfig,
 	vers *version.Number, series string, arch *string, useDev bool) (list coretools.List, err error) {
 
 	// Construct a tools filter.
@@ -74,13 +131,13 @@ func FindBootstrapTools(storages []environs.StorageReader,
 	if vers != nil {
 		// If we already have an explicit agent version set, we're done.
 		filter.Number = *vers
-		return FindTools(storages, cliVersion.Major, cliVersion.Minor, filter)
+		return FindTools(cloud, cliVersion.Major, cliVersion.Minor, filter)
 	}
 	if dev := cliVersion.IsDev() || useDev; !dev {
 		logger.Infof("filtering tools by released version")
 		filter.Released = true
 	}
-	return FindTools(storages, cliVersion.Major, cliVersion.Minor, filter)
+	return FindTools(cloud, cliVersion.Major, cliVersion.Minor, filter)
 }
 
 func stringOrEmpty(pstr *string) string {
@@ -92,7 +149,7 @@ func stringOrEmpty(pstr *string) string {
 
 // FindInstanceTools returns a ToolsList containing only those tools with which
 // it would be reasonable to start a new instance, given the supplied series and arch.
-func FindInstanceTools(storages []environs.StorageReader,
+func FindInstanceTools(cloud environs.HasConfig,
 	vers version.Number, series string, arch *string) (list coretools.List, err error) {
 
 	// Construct a tools filter.
@@ -102,11 +159,11 @@ func FindInstanceTools(storages []environs.StorageReader,
 		Series: series,
 		Arch:   stringOrEmpty(arch),
 	}
-	return FindTools(storages, vers.Major, vers.Minor, filter)
+	return FindTools(cloud, vers.Major, vers.Minor, filter)
 }
 
 // FindExactTools returns only the tools that match the supplied version.
-func FindExactTools(storages []environs.StorageReader,
+func FindExactTools(cloud environs.HasConfig,
 	vers version.Number, series string, arch string) (t *coretools.Tools, err error) {
 
 	logger.Infof("finding exact version %s", vers)
@@ -117,7 +174,7 @@ func FindExactTools(storages []environs.StorageReader,
 		Series: series,
 		Arch:   arch,
 	}
-	availaleTools, err := FindTools(storages, vers.Major, vers.Minor, filter)
+	availaleTools, err := FindTools(cloud, vers.Major, vers.Minor, filter)
 	if err != nil {
 		return nil, err
 	}

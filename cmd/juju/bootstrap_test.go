@@ -25,6 +25,7 @@ import (
 type BootstrapSuite struct {
 	coretesting.LoggingSuite
 	coretesting.MgoSuite
+	envtesting.ToolsSuite
 }
 
 var _ = gc.Suite(&BootstrapSuite{})
@@ -37,6 +38,7 @@ func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 func (s *BootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.ToolsSuite.SetUpTest(c)
 }
 
 func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
@@ -45,6 +47,7 @@ func (s *BootstrapSuite) TearDownSuite(c *gc.C) {
 }
 
 func (s *BootstrapSuite) TearDownTest(c *gc.C) {
+	s.ToolsSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	dummy.Reset()
@@ -102,7 +105,7 @@ func (test bootstrapTest) run(c *gc.C) {
 		for i := 0; i < uploadCount; i++ {
 			c.Check((<-opc).(dummy.OpPutFile).Env, gc.Equals, "peckham")
 		}
-		list, err := envtools.FindTools(environs.StorageInstances(env), version.Current.Major, version.Current.Minor, coretools.Filter{})
+		list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 		c.Check(err, gc.IsNil)
 		c.Logf("found: " + list.String())
 		urls := list.URLs()
@@ -255,7 +258,7 @@ func (s *BootstrapSuite) TestAutoSyncLocalSource(c *gc.C) {
 	c.Check(code, gc.Equals, 1)
 
 	// Now check that there are no tools available.
-	_, err := envtools.FindTools(environs.StorageInstances(env), version.Current.Major, version.Current.Minor, coretools.Filter{})
+	_, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Assert(err, gc.ErrorMatches, "no tools available")
 
 	// Bootstrap the environment with the valid source. This time
@@ -313,7 +316,7 @@ func makeEmptyFakeHome(c *gc.C) (environs.Environ, *coretesting.FakeHome) {
 
 // checkTools check if the environment contains the passed envtools.
 func checkTools(c *gc.C, env environs.Environ, expected []version.Binary) {
-	list, err := envtools.FindTools(environs.StorageInstances(env), version.Current.Major, version.Current.Minor, coretools.Filter{})
+	list, err := envtools.FindTools(env, version.Current.Major, version.Current.Minor, coretools.Filter{})
 	c.Check(err, gc.IsNil)
 	c.Logf("found: " + list.String())
 	urls := list.URLs()

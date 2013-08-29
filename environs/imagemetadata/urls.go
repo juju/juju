@@ -11,12 +11,12 @@ type SupportsCustomURLs interface {
 }
 
 // GetMetadataURLs returns the URLs to use when looking for simplestreams image id metadata.
-func GetMetadataURLs(e environs.Environ) ([]string, error) {
+func GetMetadataURLs(cloud environs.HasConfig) ([]string, error) {
 	var urls []string
-	if userURL, ok := e.Config().ImageMetadataURL(); ok {
+	if userURL, ok := cloud.Config().ImageMetadataURL(); ok {
 		urls = append(urls, userURL)
 	}
-	if custom, ok := e.(SupportsCustomURLs); ok {
+	if custom, ok := cloud.(SupportsCustomURLs); ok {
 		customURLs, err := custom.GetImageBaseURLs()
 		if err != nil {
 			return nil, err

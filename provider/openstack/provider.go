@@ -235,6 +235,7 @@ type environ struct {
 
 var _ environs.Environ = (*environ)(nil)
 var _ imagemetadata.SupportsCustomURLs = (*environ)(nil)
+var _ environs.HasIdAttributes = (*environ)(nil)
 
 type openstackInstance struct {
 	*nova.ServerDetail
@@ -1090,5 +1091,13 @@ func (e *environ) MetadataLookupParams(region string) (*simplestreams.MetadataLo
 		Endpoint:      e.ecfg().authURL(),
 		BaseURLs:      baseURLs,
 		Architectures: []string{"amd64", "arm"},
+	}, nil
+}
+
+// IdAttributes is specified in the HasIdAttributes interface.
+func (e *environ) IdAttributes() (map[string]string, error) {
+	return map[string]string{
+		"region":   e.ecfg().region(),
+		"endpoint": e.ecfg().authURL(),
 	}, nil
 }

@@ -81,7 +81,7 @@ func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
 	// in state, or even in the API servers
-	return envtools.FindExactTools(environs.StorageInstances(env), agentVersion, existingTools.Version.Series, existingTools.Version.Arch)
+	return envtools.FindExactTools(env, agentVersion, existingTools.Version.Series, existingTools.Version.Arch)
 }
 
 // Tools finds the Tools necessary for the given agents.

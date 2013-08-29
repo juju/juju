@@ -10,6 +10,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
@@ -17,12 +18,19 @@ import (
 
 type NewAPIConnSuite struct {
 	coretesting.LoggingSuite
+	envtesting.ToolsSuite
 }
 
 var _ = gc.Suite(&NewAPIConnSuite{})
 
+func (cs *NewAPIConnSuite) SetUpTest(c *gc.C) {
+	cs.LoggingSuite.SetUpTest(c)
+	cs.ToolsSuite.SetUpTest(c)
+}
+
 func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
+	cs.ToolsSuite.TearDownTest(c)
 	cs.LoggingSuite.TearDownTest(c)
 }
 

@@ -35,17 +35,21 @@ const (
 type bootstrapSuite struct {
 	home *coretesting.FakeHome
 	coretesting.LoggingSuite
+	envtesting.ToolsSuite
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.ToolsSuite.SetUpTest(c)
 	s.home = coretesting.MakeFakeHomeNoEnvironments(c, "foo")
 }
 
 func (s *bootstrapSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
+	s.ToolsSuite.TearDownTest(c)
+	s.LoggingSuite.TearDownTest(c)
 }
 
 func (s *bootstrapSuite) TestBootstrapNeedsSettings(c *gc.C) {

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
@@ -37,6 +38,7 @@ import (
 // in the suite, stored in Env, and Destroyed after the suite has completed.
 type LiveTests struct {
 	coretesting.LoggingSuite
+	envtesting.ToolsSuite
 
 	// TestConfig contains the configuration attributes for opening an environment.
 	TestConfig TestConfig
@@ -70,6 +72,11 @@ func (t *LiveTests) SetUpSuite(c *C) {
 	c.Logf("environment configuration: %#v", publicAttrs(e))
 }
 
+func (t *LiveTests) SetUpTest(c *C) {
+	t.LoggingSuite.SetUpTest(c)
+	t.ToolsSuite.SetUpTest(c)
+}
+
 func publicAttrs(e environs.Environ) map[string]interface{} {
 	cfg := e.Config()
 	secrets, err := e.Provider().SecretAttrs(cfg)
@@ -90,6 +97,11 @@ func (t *LiveTests) TearDownSuite(c *C) {
 		t.Env = nil
 	}
 	t.LoggingSuite.TearDownSuite(c)
+}
+
+func (t *LiveTests) TearDownTest(c *C) {
+	t.ToolsSuite.TearDownTest(c)
+	t.LoggingSuite.TearDownTest(c)
 }
 
 func (t *LiveTests) BootstrapOnce(c *C) {

@@ -16,6 +16,21 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// ToolsSuite is used as a fixture to stub out the default tools URL so we
+// don't hit the real internet during tests.
+type ToolsSuite struct {
+	origDefaultURL string
+}
+
+func (s *ToolsSuite) SetUpTest(c *C) {
+	s.origDefaultURL = envtools.DefaultBaseURL
+	envtools.DefaultBaseURL = ""
+}
+
+func (s *ToolsSuite) TearDownTest(c *C) {
+	envtools.DefaultBaseURL = s.origDefaultURL
+}
+
 func uploadFakeToolsVersion(storage environs.Storage, vers version.Binary) (*coretools.Tools, error) {
 	data := vers.String()
 	name := envtools.StorageName(vers)

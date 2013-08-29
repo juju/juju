@@ -21,13 +21,81 @@ import (
 type ToolsSuite struct {
 	env environs.Environ
 	testing.LoggingSuite
+	envtesting.ToolsSuite
 	origCurrentVersion version.Binary
+	helper             toolsTestHelper
 }
 
-var _ = gc.Suite(&ToolsSuite{})
+type LegacyToolsSuite struct {
+	ToolsSuite
+}
+
+type SimpleStreamsToolsSuite struct {
+	ToolsSuite
+}
+
+func setupToolsTests() {
+	gc.Suite(&ToolsListSuite{})
+	gc.Suite(&LegacyToolsSuite{ToolsSuite: ToolsSuite{helper: &LegacyToolsHelper{}}})
+	gc.Suite(&SimpleStreamsToolsSuite{ToolsSuite: ToolsSuite{helper: &SimpleStreamsToolsHelper{}}})
+}
+
+// toolsTestHelper defines tools manipulation functions which are implemented differently for
+// legacy and simplestreams tools tests.
+type toolsTestHelper interface {
+	uploadCustom(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string
+	uploadPublic(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string
+	removeTools(c *gc.C, env environs.Environ)
+}
+
+// LegacyToolsHelper implements helper functions for legacy tools tests.
+type LegacyToolsHelper struct{}
+
+func (h *LegacyToolsHelper) removeTools(c *gc.C, env environs.Environ) {
+	envtesting.RemoveAllTools(c, env)
+}
+
+func (h *LegacyToolsHelper) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	for _, vers := range verses {
+		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
+	}
+	return uploaded
+}
+
+func (h *LegacyToolsHelper) uploadCustom(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
+	return h.uploadVersions(c, env.Storage(), verses...)
+}
+
+func (h *LegacyToolsHelper) uploadPublic(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
+	storage := env.PublicStorage().(environs.Storage)
+	return h.uploadVersions(c, storage, verses...)
+}
+
+// SimpleStreamsToolsHelper implements helper functions for simplestreams tools tests.
+type SimpleStreamsToolsHelper struct{}
+
+func (h *SimpleStreamsToolsHelper) removeTools(c *gc.C, env environs.Environ) {
+	//	todo
+}
+
+func (h *SimpleStreamsToolsHelper) uploadVersions(c *gc.C, verses ...version.Binary) map[version.Binary]string {
+	uploaded := map[version.Binary]string{}
+	//todo
+	return uploaded
+}
+
+func (h *SimpleStreamsToolsHelper) uploadCustom(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
+	return h.uploadVersions(c, verses...)
+}
+
+func (h *SimpleStreamsToolsHelper) uploadPublic(c *gc.C, env environs.Environ, verses ...version.Binary) map[version.Binary]string {
+	return h.uploadVersions(c, verses...)
+}
 
 func (s *ToolsSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
+	s.ToolsSuite.SetUpTest(c)
 	s.origCurrentVersion = version.Current
 	s.Reset(c, nil)
 }
@@ -35,6 +103,7 @@ func (s *ToolsSuite) SetUpTest(c *gc.C) {
 func (s *ToolsSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	version.Current = s.origCurrentVersion
+	s.ToolsSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
@@ -57,69 +126,52 @@ func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	s.env = env
-	envtesting.RemoveAllTools(c, s.env)
-}
-
-func (s *ToolsSuite) uploadVersions(c *gc.C, storage environs.Storage, verses ...version.Binary) map[version.Binary]string {
-	uploaded := map[version.Binary]string{}
-	for _, vers := range verses {
-		uploaded[vers] = envtesting.UploadFakeToolsVersion(c, storage, vers).URL
-	}
-	return uploaded
-}
-
-func (s *ToolsSuite) uploadPrivate(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	return s.uploadVersions(c, s.env.Storage(), verses...)
-}
-
-func (s *ToolsSuite) uploadPublic(c *gc.C, verses ...version.Binary) map[version.Binary]string {
-	storage := s.env.PublicStorage().(environs.Storage)
-	return s.uploadVersions(c, storage, verses...)
+	s.helper.removeTools(c, s.env)
 }
 
 var findToolsTests = []struct {
-	info    string
-	major   int
-	minor   int
-	private []version.Binary
-	public  []version.Binary
-	expect  []version.Binary
-	err     error
+	info   string
+	major  int
+	minor  int
+	custom []version.Binary
+	public []version.Binary
+	expect []version.Binary
+	err    error
 }{{
 	info:  "none available anywhere",
 	major: 1,
 	err:   envtools.ErrNoTools,
 }, {
-	info:    "private tools only, none matching",
-	major:   1,
-	minor:   2,
-	private: envtesting.V220all,
-	err:     coretools.ErrNoMatches,
+	info:   "custom/private tools only, none matching",
+	major:  1,
+	minor:  2,
+	custom: envtesting.V220all,
+	err:    coretools.ErrNoMatches,
 }, {
-	info:    "tools found in private bucket",
-	major:   1,
-	minor:   2,
-	private: envtesting.VAll,
-	expect:  envtesting.V120all,
+	info:   "custom tools found",
+	major:  1,
+	minor:  2,
+	custom: envtesting.VAll,
+	expect: envtesting.V120all,
 }, {
-	info:   "tools found in public bucket",
+	info:   "public tools found",
 	major:  1,
 	minor:  1,
 	public: envtesting.VAll,
 	expect: envtesting.V110all,
 }, {
-	info:    "tools found in both buckets, only taken from private",
-	major:   1,
-	minor:   1,
-	private: envtesting.V110p,
-	public:  envtesting.VAll,
-	expect:  envtesting.V110p,
+	info:   "public and custom tools found, only taken from custom",
+	major:  1,
+	minor:  1,
+	custom: envtesting.V110p,
+	public: envtesting.VAll,
+	expect: envtesting.V110p,
 }, {
-	info:    "private tools completely block public ones",
-	major:   1,
-	private: envtesting.V220all,
-	public:  envtesting.VAll,
-	err:     coretools.ErrNoMatches,
+	info:   "custom tools completely block public ones",
+	major:  1,
+	custom: envtesting.V220all,
+	public: envtesting.VAll,
+	err:    coretools.ErrNoMatches,
 }, {
 	info:   "tools matching major version only",
 	major:  1,
@@ -132,9 +184,9 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 	for i, test := range findToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.Reset(c, nil)
-		private := s.uploadPrivate(c, test.private...)
-		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindTools(environs.StorageInstances(s.env), test.major, test.minor, coretools.Filter{})
+		custom := s.helper.uploadCustom(c, s.env, test.custom...)
+		public := s.helper.uploadPublic(c, s.env, test.public...)
+		actual, err := envtools.FindTools(s.env, test.major, test.minor, coretools.Filter{})
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -142,9 +194,9 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
 			continue
 		}
-		source := private
+		source := custom
 		if len(source) == 0 {
-			// We only use the public bucket if the private one has *no* envtools.
+			// We only use the public tools if there are *no* custom tools.
 			source = public
 		}
 		expect := map[version.Binary]string{}
@@ -169,15 +221,15 @@ func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
 		}
 		s.Reset(c, attrs)
 		version.Current = test.CliVersion
-		available := s.uploadPrivate(c, test.Available...)
+		available := s.helper.uploadCustom(c, s.env, test.Available...)
 		if len(available) > 0 {
 			// These should never be chosen.
-			s.uploadPublic(c, envtesting.VAll...)
+			s.helper.uploadPublic(c, s.env, envtesting.VAll...)
 		}
 
 		cfg := s.env.Config()
 		actual, err := envtools.FindBootstrapTools(
-			environs.StorageInstances(s.env), agentVersion, cfg.DefaultSeries(), &test.Arch, cfg.Development())
+			s.env, agentVersion, cfg.DefaultSeries(), &test.Arch, cfg.Development())
 		if test.Err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -258,14 +310,14 @@ func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 		s.Reset(c, map[string]interface{}{
 			"agent-version": test.agentVersion.String(),
 		})
-		available := s.uploadPrivate(c, test.available...)
+		available := s.helper.uploadCustom(c, s.env, test.available...)
 		if len(available) > 0 {
 			// These should never be chosen.
-			s.uploadPublic(c, envtesting.VAll...)
+			s.helper.uploadPublic(c, s.env, envtesting.VAll...)
 		}
 
 		agentVersion, _ := s.env.Config().AgentVersion()
-		actual, err := envtools.FindInstanceTools(environs.StorageInstances(s.env), agentVersion, test.series, &test.arch)
+		actual, err := envtools.FindInstanceTools(s.env, agentVersion, test.series, &test.arch)
 		if test.err != nil {
 			if len(actual) > 0 {
 				c.Logf(actual.String())
@@ -282,54 +334,54 @@ func (s *ToolsSuite) TestFindInstanceTools(c *gc.C) {
 }
 
 var findExactToolsTests = []struct {
-	info    string
-	private []version.Binary
-	public  []version.Binary
-	seek    version.Binary
-	err     error
+	info   string
+	custom []version.Binary
+	public []version.Binary
+	seek   version.Binary
+	err    error
 }{{
 	info: "nothing available",
 	seek: envtesting.V100p64,
 	err:  envtools.ErrNoTools,
 }, {
-	info:    "only non-matches available in private",
-	private: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
-	seek:    envtesting.V100p64,
-	err:     coretools.ErrNoMatches,
+	info:   "only non-matches available in custom",
+	custom: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
+	seek:   envtesting.V100p64,
+	err:    coretools.ErrNoMatches,
 }, {
-	info:    "exact match available in private",
-	private: []version.Binary{envtesting.V100p64},
-	seek:    envtesting.V100p64,
+	info:   "exact match available in custom",
+	custom: []version.Binary{envtesting.V100p64},
+	seek:   envtesting.V100p64,
 }, {
-	info:    "only non-matches available in public",
-	private: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
-	seek:    envtesting.V100p64,
-	err:     coretools.ErrNoMatches,
+	info:   "only non-matches available in public",
+	custom: append(envtesting.V110all, envtesting.V100p32, envtesting.V100q64, envtesting.V1001p64),
+	seek:   envtesting.V100p64,
+	err:    coretools.ErrNoMatches,
 }, {
 	info:   "exact match available in public",
 	public: []version.Binary{envtesting.V100p64},
 	seek:   envtesting.V100p64,
 }, {
-	info:    "exact match in public blocked by private",
-	private: envtesting.V110all,
-	public:  []version.Binary{envtesting.V100p64},
-	seek:    envtesting.V100p64,
-	err:     coretools.ErrNoMatches,
+	info:   "exact match in public blocked by custom",
+	custom: envtesting.V110all,
+	public: []version.Binary{envtesting.V100p64},
+	seek:   envtesting.V100p64,
+	err:    coretools.ErrNoMatches,
 }}
 
 func (s *ToolsSuite) TestFindExactTools(c *gc.C) {
 	for i, test := range findExactToolsTests {
 		c.Logf("\ntest %d: %s", i, test.info)
 		s.Reset(c, nil)
-		private := s.uploadPrivate(c, test.private...)
-		public := s.uploadPublic(c, test.public...)
-		actual, err := envtools.FindExactTools(environs.StorageInstances(s.env), test.seek.Number, test.seek.Series, test.seek.Arch)
+		custom := s.helper.uploadCustom(c, s.env, test.custom...)
+		public := s.helper.uploadPublic(c, s.env, test.public...)
+		actual, err := envtools.FindExactTools(s.env, test.seek.Number, test.seek.Series, test.seek.Arch)
 		if test.err == nil {
 			c.Check(err, gc.IsNil)
 			c.Check(actual.Version, gc.Equals, test.seek)
-			source := private
+			source := custom
 			if len(source) == 0 {
-				// We only use the public bucket if the private one has *no* envtools.
+				// We only use public tools if there are *no* private tools.
 				source = public
 			}
 			c.Check(actual.URL, gc.DeepEquals, source[actual.Version])
@@ -355,13 +407,15 @@ func fakeToolsList(series ...string) coretools.List {
 	return list
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
+type ToolsListSuite struct{}
+
+func (s *ToolsListSuite) TestCheckToolsSeriesRequiresTools(c *gc.C) {
 	err := envtools.CheckToolsSeries(fakeToolsList(), "precise")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "expected single series, got \\[\\]")
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
+func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	names := []string{"precise", "raring"}
 	for _, series := range names {
 		list := fakeToolsList(series)
@@ -370,21 +424,21 @@ func (s *ToolsSuite) TestCheckToolsSeriesAcceptsOneSetOfTools(c *gc.C) {
 	}
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.C) {
+func (s *ToolsListSuite) TestCheckToolsSeriesAcceptsMultipleForSameSeries(c *gc.C) {
 	series := "quantal"
 	list := fakeToolsList(series, series, series)
 	err := envtools.CheckToolsSeries(list, series)
 	c.Check(err, gc.IsNil)
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {
+func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForOtherSeries(c *gc.C) {
 	list := fakeToolsList("hoary")
 	err := envtools.CheckToolsSeries(list, "warty")
 	c.Assert(err, gc.NotNil)
 	c.Check(err, gc.ErrorMatches, "tools mismatch: expected series warty, got hoary")
 }
 
-func (s *ToolsSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
+func (s *ToolsListSuite) TestCheckToolsSeriesRejectsToolsForMixedSeries(c *gc.C) {
 	list := fakeToolsList("precise", "raring")
 	err := envtools.CheckToolsSeries(list, "precise")
 	c.Assert(err, gc.NotNil)

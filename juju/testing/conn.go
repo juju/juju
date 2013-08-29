@@ -16,6 +16,7 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/names"
@@ -48,6 +49,7 @@ type JujuConnSuite struct {
 	// distinct environments.
 	testing.LoggingSuite
 	testing.MgoSuite
+	envtesting.ToolsSuite
 	Conn         *juju.Conn
 	State        *state.State
 	APIConn      *juju.APIConn
@@ -133,11 +135,13 @@ func (s *JujuConnSuite) SetUpTest(c *C) {
 	s.oldJujuHome = config.SetJujuHome(c.MkDir())
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
+	s.ToolsSuite.SetUpTest(c)
 	s.setUpConn(c)
 }
 
 func (s *JujuConnSuite) TearDownTest(c *C) {
 	s.tearDownConn(c)
+	s.ToolsSuite.TearDownTest(c)
 	s.MgoSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 	config.SetJujuHome(s.oldJujuHome)

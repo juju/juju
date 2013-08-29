@@ -11,12 +11,12 @@ type SupportsCustomURLs interface {
 }
 
 // GetMetadataURLs returns the URLs to use when looking for simplestreams tools metadata.
-func GetMetadataURLs(e environs.Environ) ([]string, error) {
+func GetMetadataURLs(cloud environs.HasConfig) ([]string, error) {
 	var urls []string
-	if userURL, ok := e.Config().ToolsURL(); ok {
+	if userURL, ok := cloud.Config().ToolsURL(); ok {
 		urls = append(urls, userURL)
 	}
-	if custom, ok := e.(SupportsCustomURLs); ok {
+	if custom, ok := cloud.(SupportsCustomURLs); ok {
 		customURLs, err := custom.GetToolsBaseURLs()
 		if err != nil {
 			return nil, err
