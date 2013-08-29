@@ -31,7 +31,8 @@ import (
 const toolsIndexMetadataPath = "tools/streams/v1/index.json"
 const toolsProductMetadataPath = "tools/streams/v1/com.ubuntu.juju:released:tools.json"
 
-// ToolsMetadataCommand is used to write out a boilerplate environments.yaml file.
+// ToolsMetadataCommand is used to generate simplestreams metadata for
+// juju tools.
 type ToolsMetadataCommand struct {
 	cmd.EnvCommandBase
 	fetch       bool
@@ -67,6 +68,13 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		defer listener.Close()
 		storageAddr := listener.Addr().String()
 		env = localdirEnv{env, localstorage.Client(storageAddr)}
+	}
+	env = noPrivateStorageEnv{env}
+
+	// Ensure we have a writeable PublicStorage.
+	storage, ok := env.PublicStorage().(environs.Storage)
+	if !ok {
+		return fmt.Errorf("cannot write to public storage")
 	}
 
 	fmt.Fprintln(context.Stdout, "Finding tools...")
@@ -147,7 +155,6 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		},
 	}
 
-	storage := env.Storage()
 	objects := []struct {
 		path   string
 		object interface{}
@@ -200,19 +207,25 @@ func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
 	return size, sha256hash, err
 }
 
+// noPrivateStorageEnv wraps an Environ, returning EmptyStorage
+// for its private storage.
+type noPrivateStorageEnv struct {
+	environs.Environ
+}
+
+func (e noPrivateStorageEnv) Storage() environs.Storage {
+	// If there's no matching tools in Storage(), FindTools
+	// will fall back to PublicStorage().
+	return environs.EmptyStorage
+}
+
 // localdirEnv wraps an Environ, returning a localstorage Storage
-// implementation, and ensuring no PublicStorage is available.
+// implementation for its PublicStorage.
 type localdirEnv struct {
 	environs.Environ
 	storage environs.Storage
 }
 
-func (e localdirEnv) Storage() environs.Storage {
-	return e.storage
-}
-
 func (e localdirEnv) PublicStorage() environs.StorageReader {
-	// If there's no matching tools in Storage(), FindTools
-	// will fall back to environs.EmptyStorage.
-	return environs.EmptyStorage
+	return e.storage
 }
