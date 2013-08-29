@@ -25,7 +25,7 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = "format 1.12"
+	currentFormat  = format112
 )
 
 var currentFormatter = &formatter112{}

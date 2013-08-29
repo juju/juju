@@ -115,7 +115,6 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *format112S
 		APIPort:         config.apiPort,
 		OldPassword:     config.oldPassword,
 		MachineNonce:    config.nonce,
-		APIInfo:         apiInfo,
 	}
 	if config.stateDetails != nil {
 		// It is fine that we are copying the slices for the addresses.
