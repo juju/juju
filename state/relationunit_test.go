@@ -17,6 +17,8 @@ import (
 	"launchpad.net/juju-core/testing/checkers"
 )
 
+// TODO test RelationUnit.Watch (lp:1218362)
+
 type RelationUnitSuite struct {
 	ConnSuite
 }
