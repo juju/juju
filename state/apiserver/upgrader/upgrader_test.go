@@ -246,6 +246,24 @@ func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
 	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
 }
 
+func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.rawMachine.Tag()},
+		{Tag: "machine-12345"},
+	}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+
+	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results[1].Version, gc.IsNil)
+
+}
+
 func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
 	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
 	results, err := s.upgrader.DesiredVersion(args)

@@ -125,7 +125,7 @@ func (u *Upgrader) loop() error {
 	// all around us.
 	var dying <-chan struct{}
 	var wantTools *coretools.Tools
-	var wantVersion *version.Number
+	var wantVersion version.Number
 	for {
 		select {
 		case _, ok := <-changes:
@@ -142,7 +142,7 @@ func (u *Upgrader) loop() error {
 		case <-dying:
 			return nil
 		}
-		if wantVersion != nil && *wantVersion != currentTools.Version.Number {
+		if wantVersion != currentTools.Version.Number {
 			logger.Infof("upgrade requested from %v to %v", currentTools.Version, wantVersion)
 			wantTools, err = u.st.Tools(u.tag)
 			if err != nil {

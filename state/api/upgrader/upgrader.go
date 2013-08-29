@@ -44,7 +44,7 @@ func (st *State) SetTools(tag string, tools *tools.Tools) error {
 	return results.OneError()
 }
 
-func (st *State) DesiredVersion(tag string) (*version.Number, error) {
+func (st *State) DesiredVersion(tag string) (version.Number, error) {
 	var results params.AgentVersionResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: tag}},
@@ -52,17 +52,21 @@ func (st *State) DesiredVersion(tag string) (*version.Number, error) {
 	err := st.caller.Call("Upgrader", "", "DesiredVersion", args, &results)
 	if err != nil {
 		// TODO: Not directly tested
-		return nil, err
+		return version.Number{}, err
 	}
 	if len(results.Results) != 1 {
 		// TODO: Not directly tested
-		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return version.Number{}, fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if err := result.Error; err != nil {
-		return nil, err
+		return version.Number{}, err
 	}
-	return result.Version, nil
+	if result.Version == nil {
+		// TODO: Not directly tested
+		return version.Number{}, fmt.Errorf("received no error, but got a nil Version")
+	}
+	return *result.Version, nil
 }
 
 func (st *State) Tools(tag string) (*tools.Tools, error) {

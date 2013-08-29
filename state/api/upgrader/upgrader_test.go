@@ -152,6 +152,5 @@ func (s *upgraderSuite) TestDesiredVersion(c *gc.C) {
 	// currently running set. We want to be upgraded to cur.Version
 	stateVersion, err := s.st.DesiredVersion(s.rawMachine.Tag())
 	c.Assert(err, gc.IsNil)
-	c.Assert(stateVersion, gc.NotNil)
-	c.Assert(*stateVersion, gc.Equals, cur.Number)
+	c.Assert(stateVersion, gc.Equals, cur.Number)
 }
