@@ -11,7 +11,7 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/state/api"
+	apiWatcher "launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/state/watcher"
 	coretesting "launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
@@ -39,6 +39,7 @@ func (s *notifyWorkerSuite) SetUpTest(c *gc.C) {
 }
 
 func (s *notifyWorkerSuite) TearDownTest(c *gc.C) {
+	worker.SetMustErr(nil)
 	s.stopWorker(c)
 	s.LoggingSuite.TearDownTest(c)
 }
@@ -56,7 +57,7 @@ type notifyHandler struct {
 
 var _ worker.NotifyWatchHandler = (*notifyHandler)(nil)
 
-func (nh *notifyHandler) SetUp() (api.NotifyWatcher, error) {
+func (nh *notifyHandler) SetUp() (apiWatcher.NotifyWatcher, error) {
 	nh.mu.Lock()
 	defer nh.mu.Unlock()
 	nh.actions = append(nh.actions, "setup")
@@ -118,7 +119,7 @@ type testNotifyWatcher struct {
 	stopError error
 }
 
-var _ api.NotifyWatcher = (*testNotifyWatcher)(nil)
+var _ apiWatcher.NotifyWatcher = (*testNotifyWatcher)(nil)
 
 func (tnw *testNotifyWatcher) Changes() <-chan struct{} {
 	return tnw.changes
@@ -312,23 +313,10 @@ func (c CannedErrer) Err() error {
 	return c.err
 }
 
-type setMustErr interface {
-	SetMustErr(func(watcher.Errer) error) func(watcher.Errer) error
-}
-
 func (s *notifyWorkerSuite) TestDefaultClosedHandler(c *gc.C) {
-	h, ok := s.worker.(setMustErr)
-	c.Assert(ok, jc.IsTrue)
-	old := h.SetMustErr(noopHandler)
-	noErr := CannedErrer{nil}
-	stillAlive := CannedErrer{tomb.ErrStillAlive}
-	customErr := CannedErrer{fmt.Errorf("my special error")}
-
-	// The default handler should be watcher.MustErr which panics if the
-	// Errer doesn't actually have an error
-	c.Assert(func() { old(noErr) }, gc.PanicMatches, "watcher was stopped cleanly")
-	c.Assert(func() { old(stillAlive) }, gc.PanicMatches, "watcher is still running")
-	c.Assert(old(customErr), gc.Equals, customErr.Err())
+	// Roundabout check for function equality.
+	// Is this test really worth it?
+	c.Assert(fmt.Sprintf("%p", worker.MustErr()), gc.Equals, fmt.Sprintf("%p", watcher.MustErr))
 }
 
 func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
@@ -337,7 +325,7 @@ func (s *notifyWorkerSuite) TestErrorsOnStillAliveButClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	s.worker.(setMustErr).SetMustErr(triggeredHandler)
+	worker.SetMustErr(triggeredHandler)
 	s.actor.watcher.SetStopError(tomb.ErrStillAlive)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
@@ -357,7 +345,7 @@ func (s *notifyWorkerSuite) TestErrorsOnClosedChannel(c *gc.C) {
 		foundErr = errer.Err()
 		return foundErr
 	}
-	s.worker.(setMustErr).SetMustErr(triggeredHandler)
+	worker.SetMustErr(triggeredHandler)
 	s.actor.watcher.Stop()
 	err := waitShort(c, s.worker)
 	// If the foundErr is nil, we would have panic-ed (see TestDefaultClosedHandler)

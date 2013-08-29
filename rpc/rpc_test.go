@@ -520,6 +520,16 @@ func (*suite) TestErrorAfterClientClose(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 }
 
+func (*suite) TestClientCloseIdempotent(c *gc.C) {
+	client, _ := newRPCClientServer(c, &Root{}, nil, false)
+	err := client.Close()
+	c.Assert(err, gc.IsNil)
+	err = client.Close()
+	c.Assert(err, gc.IsNil)
+	err = client.Close()
+	c.Assert(err, gc.IsNil)
+}
+
 type KillerRoot struct {
 	killed bool
 	Root
@@ -677,8 +687,9 @@ func newRPCClientServer(c *gc.C, root interface{}, tfErr func(error) error, bidi
 }
 
 func closeClient(c *gc.C, client *rpc.Conn, srvDone <-chan error) {
-	client.Close()
-	err := chanReadError(c, srvDone, "server done")
+	err := client.Close()
+	c.Assert(err, gc.IsNil)
+	err = chanReadError(c, srvDone, "server done")
 	c.Assert(err, gc.IsNil)
 }
 

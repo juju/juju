@@ -5,7 +5,6 @@ package main
 
 import (
 	"bytes"
-	"io/ioutil"
 
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
@@ -16,13 +15,11 @@ import (
 	coretesting "launchpad.net/juju-core/testing"
 )
 
-// juju get and set tests (because one needs the other)
-
-type ConfigSuite struct {
+type GetSuite struct {
 	testing.JujuConnSuite
 }
 
-var _ = gc.Suite(&ConfigSuite{})
+var _ = gc.Suite(&GetSuite{})
 
 var getTests = []struct {
 	service  string
@@ -65,7 +62,7 @@ var getTests = []struct {
 	// TODO(dfc) add set tests
 }
 
-func (s *ConfigSuite) TestGetConfig(c *gc.C) {
+func (s *GetSuite) TestGetConfig(c *gc.C) {
 	sch := s.AddTestingCharm(c, "dummy")
 	svc, err := s.State.AddService("dummy-service", sch)
 	c.Assert(err, gc.IsNil)
@@ -90,75 +87,4 @@ func (s *ConfigSuite) TestGetConfig(c *gc.C) {
 		c.Assert(err, gc.IsNil)
 		c.Assert(actual, gc.DeepEquals, expected)
 	}
-}
-
-var setTests = []struct {
-	about  string
-	args   []string       // command to be executed
-	expect charm.Settings // resulting configuration of the dummy service.
-	err    string         // error regex
-}{{
-	about: "invalid option",
-	args:  []string{"foo", "bar"},
-	err:   "error: invalid option: \"foo\"\n",
-}, {
-	about: "whack option",
-	args:  []string{"=bar"},
-	err:   "error: invalid option: \"=bar\"\n",
-}, {
-	about: "--config missing",
-	args:  []string{"--config", "missing.yaml"},
-	err:   "error.*no such file or directory\n",
-}, {
-	about: "set with options",
-	args:  []string{"username=hello"},
-	expect: charm.Settings{
-		"username": "hello",
-	},
-}, {
-	about: "set with option values containing =",
-	args:  []string{"username=hello=foo"},
-	expect: charm.Settings{
-		"username": "hello=foo",
-	},
-}, {
-	about: "--config $FILE test",
-	args:  []string{"--config", "testconfig.yaml"},
-	expect: charm.Settings{
-		"username":    "admin001",
-		"skill-level": int64(9000), // charm int types are int64
-	},
-},
-}
-
-func (s *ConfigSuite) TestSetConfig(c *gc.C) {
-	sch := s.AddTestingCharm(c, "dummy")
-	svc, err := s.State.AddService("dummy-service", sch)
-	c.Assert(err, gc.IsNil)
-	dir := c.MkDir()
-	setupConfigfile(c, dir)
-	for i, t := range setTests {
-		args := append([]string{"dummy-service"}, t.args...)
-		c.Logf("test %d. %s", i, t.about)
-		ctx := coretesting.ContextForDir(c, dir)
-		code := cmd.Main(&SetCommand{}, ctx, args)
-		if t.err != "" {
-			c.Check(code, gc.Not(gc.Equals), 0)
-			c.Assert(ctx.Stderr.(*bytes.Buffer).String(), gc.Matches, t.err)
-		} else {
-			c.Check(code, gc.Equals, 0)
-			settings, err := svc.ConfigSettings()
-			c.Assert(err, gc.IsNil)
-			c.Assert(settings, gc.DeepEquals, t.expect)
-		}
-	}
-}
-
-func setupConfigfile(c *gc.C, dir string) string {
-	ctx := coretesting.ContextForDir(c, dir)
-	path := ctx.AbsPath("testconfig.yaml")
-	content := []byte("dummy-service:\n  skill-level: 9000\n  username: admin001\n\n")
-	err := ioutil.WriteFile(path, content, 0666)
-	c.Assert(err, gc.IsNil)
-	return path
 }

@@ -5,9 +5,11 @@ package tools_test
 
 import (
 	gc "launchpad.net/gocheck"
+	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/config"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
@@ -52,7 +54,9 @@ func (s *ToolsSuite) Reset(c *gc.C, attrs map[string]interface{}) {
 	for k, v := range attrs {
 		final[k] = v
 	}
-	env, err := environs.NewFromAttrs(final)
+	cfg, err := config.New(final)
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
 	s.env = env
 	envtesting.RemoveAllTools(c, s.env)
@@ -185,6 +189,24 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 		}
 		c.Check(actual.URLs(), gc.DeepEquals, expect)
 	}
+}
+
+func (s *ToolsSuite) TestFindToolsFiltering(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("filter-tester")
+	_, err := envtools.FindTools(s.env, 1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	// This is slightly overly prescriptive, but feel free to change or add
+	// messages. This still helps to ensure that all log messages are
+	// properly formed.
+	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
+		{loggo.INFO, "reading tools with major version 1"},
+		{loggo.INFO, "filtering tools by version: 1.2.3"},
+		{loggo.DEBUG, "reading v1.* tools"},
+		{loggo.INFO, "falling back to public bucket"},
+		{loggo.DEBUG, "reading v1.* tools"},
+	})
 }
 
 var findBootstrapToolsTests = []struct {
