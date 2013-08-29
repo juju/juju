@@ -100,6 +100,7 @@ func (formatter *formatter112) read(dirName string) (*configInternal, error) {
 		oldPassword:     conf.OldPassword,
 		stateServerCert: conf.StateServerCert,
 		stateServerKey:  conf.StateServerKey,
+		statePort:       conf.StatePort,
 		apiPort:         conf.APIPort,
 	}, nil
 }
@@ -127,6 +128,7 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *agentConf 
 	return &agentConf{
 		StateServerCert: config.stateServerCert,
 		StateServerKey:  config.stateServerKey,
+		StatePort:       config.statePort,
 		APIPort:         config.apiPort,
 		OldPassword:     config.oldPassword,
 		MachineNonce:    config.nonce,

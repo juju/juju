@@ -84,6 +84,7 @@ type configInternal struct {
 	oldPassword     string
 	stateServerCert []byte
 	stateServerKey  []byte
+	statePort       int
 	apiPort         int
 }
 
@@ -167,6 +168,7 @@ func NewStateMachineConfig(params StateMachineConfigParams) (Config, error) {
 	}
 	config.stateServerCert = params.StateServerCert
 	config.stateServerKey = params.StateServerKey
+	config.statePort = params.StatePort
 	config.apiPort = params.APIPort
 	return config, nil
 }
