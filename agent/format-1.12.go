@@ -16,12 +16,14 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+const format112 = "format 1.12"
+
 // formatter112 is the formatter for the 1.12 format.
 type formatter112 struct {
 }
 
-// agentConf holds information stored in the agent.conf file.
-type agentConf struct {
+// format112Serialization holds information stored in the agent.conf file.
+type format112Serialization struct {
 	// StateServerCert and StateServerKey hold the state server
 	// certificate and private key in PEM format.
 	StateServerCert []byte `yaml:",omitempty"`
@@ -66,7 +68,7 @@ func (formatter *formatter112) read(dirName string) (*configInternal, error) {
 	if err != nil {
 		return nil, err
 	}
-	var conf agentConf
+	var conf format112Serialization
 	if err := goyaml.Unmarshal(data, &conf); err != nil {
 		return nil, err
 	}
@@ -104,12 +106,18 @@ func (formatter *formatter112) read(dirName string) (*configInternal, error) {
 	}, nil
 }
 
-func (formatter *formatter112) makeAgentConf(config *configInternal) *agentConf {
-	var stateInfo *state.Info
-	var apiInfo *api.Info
+func (formatter *formatter112) makeAgentConf(config *configInternal) *format112Serialization {
+	format := &format112Serialization{
+		StateServerCert: config.stateServerCert,
+		StateServerKey:  config.stateServerKey,
+		StatePort:       config.statePort,
+		APIPort:         config.apiPort,
+		OldPassword:     config.oldPassword,
+		MachineNonce:    config.nonce,
+	}
 	if config.stateDetails != nil {
 		// It is fine that we are copying the slices for the addresses.
-		stateInfo = &state.Info{
+		format.StateInfo = &state.Info{
 			Addrs:    config.stateDetails.addresses,
 			Password: config.stateDetails.password,
 			Tag:      config.tag,
@@ -117,22 +125,14 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *agentConf 
 		}
 	}
 	if config.apiDetails != nil {
-		apiInfo = &api.Info{
+		format.APIInfo = &api.Info{
 			Addrs:    config.apiDetails.addresses,
 			Password: config.apiDetails.password,
 			Tag:      config.tag,
 			CACert:   config.caCert,
 		}
 	}
-	return &agentConf{
-		StateServerCert: config.stateServerCert,
-		StateServerKey:  config.stateServerKey,
-		APIPort:         config.apiPort,
-		OldPassword:     config.oldPassword,
-		MachineNonce:    config.nonce,
-		StateInfo:       stateInfo,
-		APIInfo:         apiInfo,
-	}
+	return format
 }
 
 func (formatter *formatter112) write(config *configInternal) error {

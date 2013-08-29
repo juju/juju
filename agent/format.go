@@ -32,7 +32,7 @@ import (
 const (
 	formatFilename = "format"
 	currentFormat  = format116
-	previousFormat = "format 1.12"
+	previousFormat = format112
 )
 
 var currentFormatter = &formatter116{}
