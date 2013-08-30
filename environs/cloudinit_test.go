@@ -9,12 +9,12 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
