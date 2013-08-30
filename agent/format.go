@@ -9,6 +9,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"sync"
 
 	"launchpad.net/juju-core/utils"
 )
@@ -38,6 +39,16 @@ const (
 var (
 	currentFormatter  = &formatter116{}
 	previousFormatter = &formatter112{}
+
+	// The configWriterMutex should be locked before any writing to disk
+	// during the write commands, and unlocked when the writing is complete.
+	// This process wide lock should stop any unintended concurrent writes.
+	// This may happen when mutliple go-routines may be adding things to the
+	// agent config, and wanting to persist them to disk. To ensure that the
+	// correct data is written to disk, the mutex should be locked prior to
+	// generating any disk state.  This way calls that might get interleaved
+	// would always write the most recent state to disk.
+	configWriterMutex sync.Mutex
 )
 
 // The formatter defines the two methods needed by the formatters for
