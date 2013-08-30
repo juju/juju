@@ -21,6 +21,14 @@ import (
 
 var logger = loggo.GetLogger("juju.agent")
 
+const (
+	ProviderType      = "PROVIDER_TYPE"
+	StorageDir        = "STORAGE_DIR"
+	StorageAddr       = "STORAGE_ADDR"
+	SharedStorageDir  = "SHARED_STORAGE_DIR"
+	SharedStorageAddr = "SHARED_STORAGE_ADDR"
+)
+
 type Config interface {
 	// DataDir returns the data directory. Each agent has a subdirectory
 	// containing the configuration files.
@@ -65,6 +73,11 @@ type Config interface {
 
 	// APIServerDetails returns the details needed to run an API server.
 	APIServerDetails() (port int, cert, key []byte)
+
+	// Get the value associated with the key.
+	Value(key string) string
+	// Set the value for the specified key.
+	SetValue(key, value string)
 }
 
 // Ensure that the configInternal struct implements the Config interface.
@@ -96,6 +109,7 @@ type configInternal struct {
 	stateServerCert []byte
 	stateServerKey  []byte
 	apiPort         int
+	values          map[string]string
 }
 
 type AgentConfigParams struct {
@@ -106,6 +120,7 @@ type AgentConfigParams struct {
 	StateAddresses []string
 	APIAddresses   []string
 	CACert         []byte
+	Values         map[string]string
 }
 
 func newConfig(params AgentConfigParams) (*configInternal, error) {
@@ -129,6 +144,7 @@ func newConfig(params AgentConfigParams) (*configInternal, error) {
 		nonce:       params.Nonce,
 		caCert:      params.CACert,
 		oldPassword: params.Password,
+		values:      params.Values,
 	}
 	if len(params.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -142,6 +158,9 @@ func newConfig(params AgentConfigParams) (*configInternal, error) {
 	}
 	if err := config.check(); err != nil {
 		return nil, err
+	}
+	if config.values == nil {
+		config.values = make(map[string]string)
 	}
 	return config, nil
 }
@@ -207,6 +226,7 @@ func ReadConf(dataDir, tag string) (Config, error) {
 
 	if format != currentFormat {
 		// Migrate the config to the new format.
+		currentFormatter.migrate(config)
 		// Write the content out in the new format.
 		if err := currentFormatter.write(config); err != nil {
 			logger.Errorf("Problem writing the agent config out in format: %s, %v", currentFormat, err)
@@ -232,6 +252,18 @@ func (c *configInternal) DataDir() string {
 
 func (c *configInternal) Nonce() string {
 	return c.nonce
+}
+
+func (c *configInternal) Value(key string) string {
+	return c.values[key]
+}
+
+func (c *configInternal) SetValue(key, value string) {
+	if value == "" {
+		delete(c.values, key)
+	} else {
+		c.values[key] = value
+	}
 }
 
 func (c *configInternal) APIServerDetails() (port int, cert, key []byte) {
