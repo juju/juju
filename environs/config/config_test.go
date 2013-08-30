@@ -4,6 +4,7 @@
 package config_test
 
 import (
+	"fmt"
 	stdtesting "testing"
 	"time"
 
@@ -28,7 +29,22 @@ type ConfigSuite struct {
 
 var _ = gc.Suite(&ConfigSuite{})
 
-type attrs map[string]interface{}
+// sampleConfig holds a configuration with all required
+// attributes set.
+var sampleConfig = attrs{
+	"type":                      "my-type",
+	"name":                      "my-name",
+	"authorized-keys":           "my-keys",
+	"firewall-mode":             config.FwInstance,
+	"admin-secret":              "foo",
+	"unknown":                   "my-unknown",
+	"ca-cert":                   caCert,
+	"ssl-hostname-verification": true,
+	"development":               false,
+	"state-port":                1234,
+	"api-port":                  4321,
+	"default-series":            "precise",
+}
 
 type configTest struct {
 	about       string
@@ -402,7 +418,74 @@ var configTests = []configTest{
 			"api-port": "illegal",
 		},
 		err: `api-port: expected number, got "illegal"`,
+	}, {
+		about:       "Sample configuration",
+		useDefaults: config.UseDefaults,
+		attrs:       sampleConfig,
+	}, {
+		about:       "No defaults: sample configuration",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig,
+	}, {
+		about:       "No defaults: with ca-cert-path",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.merge(attrs{"ca-cert-path": "arble"}),
+		err:         `attribute "ca-cert-path" is not allowed in configuration`,
+	}, {
+		about:       "No defaults: with ca-private-key-path",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.merge(attrs{"ca-private-key-path": "arble"}),
+		err:         `attribute "ca-private-key-path" is not allowed in configuration`,
+	}, {
+		about:       "No defaults: with authorized-keys-path",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.merge(attrs{"authorized-keys-path": "arble"}),
+		err:         `attribute "authorized-keys-path" is not allowed in configuration`,
+	}, {
+		about:       "No defaults: missing authorized-keys",
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.delete("authorized-keys"),
+		err:         `authorized-keys missing from environment configuration`,
 	},
+	missingAttributeNoDefault("default-series"),
+	missingAttributeNoDefault("firewall-mode"),
+	missingAttributeNoDefault("development"),
+	missingAttributeNoDefault("ssl-hostname-verification"),
+	missingAttributeNoDefault("state-port"),
+	missingAttributeNoDefault("api-port"),
+}
+
+func missingAttributeNoDefault(attrName string) configTest {
+	return configTest{
+		about:       fmt.Sprintf("No default: missing %s", attrName),
+		useDefaults: config.NoDefaults,
+		attrs:       sampleConfig.delete(attrName),
+		err:         fmt.Sprintf("%s: expected [a-z]+, got nothing", attrName),
+	}
+}
+
+type attrs map[string]interface{}
+
+func (a attrs) merge(with attrs) attrs {
+	new := make(attrs)
+	for attr, val := range a {
+		new[attr] = val
+	}
+	for attr, val := range with {
+		new[attr] = val
+	}
+	return new
+}
+
+func (a attrs) delete(attrNames ...string) attrs {
+	new := make(attrs)
+	for attr, val := range a {
+		new[attr] = val
+	}
+	for _, attr := range attrNames {
+		delete(new, attr)
+	}
+	return new
 }
 
 type testFile struct {
@@ -552,10 +635,10 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(agentVersion, gc.Equals, version.Zero)
 	}
 
-	if statePort, _ := test.attrs["state-port"].(int); statePort != 0 {
+	if statePort, ok := test.attrs["state-port"]; ok {
 		c.Assert(cfg.StatePort(), gc.Equals, statePort)
 	}
-	if apiPort, _ := test.attrs["api-port"].(int); apiPort != 0 {
+	if apiPort, ok := test.attrs["api-port"]; ok {
 		c.Assert(cfg.APIPort(), gc.Equals, apiPort)
 	}
 
@@ -581,21 +664,17 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 		c.Assert(cfg.AuthorizedKeys(), gc.Equals, keys)
 	} else {
 		// Content of all the files that are read by default.
-		want := "dsa\nrsa\nidentity\n"
-		c.Assert(cfg.AuthorizedKeys(), gc.Equals, want)
+		c.Assert(cfg.AuthorizedKeys(), gc.Equals, "dsa\nrsa\nidentity\n")
 	}
 
 	cert, certPresent := cfg.CACert()
 	if path, _ := test.attrs["ca-cert-path"].(string); path != "" {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, path))
-	} else if v, ok := test.attrs["ca-cert"].(string); v != "" {
+	} else if v, ok := test.attrs["ca-cert"]; ok {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, v)
-	} else if ok {
-		c.Check(cert, gc.HasLen, 0)
-		c.Assert(certPresent, jc.IsFalse)
-	} else if home.FileExists(".juju/my-name-cert.pem") {
+	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-cert.pem") {
 		c.Assert(certPresent, jc.IsTrue)
 		c.Assert(string(cert), gc.Equals, home.FileContents(c, "my-name-cert.pem"))
 	} else {
@@ -607,13 +686,10 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if path, _ := test.attrs["ca-private-key-path"].(string); path != "" {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, path))
-	} else if v, ok := test.attrs["ca-private-key"].(string); v != "" {
+	} else if v, ok := test.attrs["ca-private-key"]; ok {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, v)
-	} else if ok {
-		c.Check(key, gc.HasLen, 0)
-		c.Assert(keyPresent, jc.IsFalse)
-	} else if home.FileExists(".juju/my-name-private-key.pem") {
+	} else if bool(test.useDefaults) && home.FileExists(".juju/my-name-private-key.pem") {
 		c.Assert(keyPresent, jc.IsTrue)
 		c.Assert(string(key), gc.Equals, home.FileContents(c, "my-name-private-key.pem"))
 	} else {

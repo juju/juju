@@ -111,10 +111,8 @@ func New(withDefaults Defaulting, attrs map[string]interface{}) (*Config, error)
 }
 
 func (c *Config) fillInDefaults() error {
-	logger.Infof("filling in defaults; defaults map: %#v", defaults)
-	// For backward compatibility purposes,
-	// we treat as unset string valued attributes that are
-	// set to the empty string, and fill
+	// For backward compatibility purposes, we treat as unset string
+	// valued attributes that are set to the empty string, and fill
 	// out their defaults accordingly.
 	c.fillInStringDefault("default-series")
 	c.fillInStringDefault("firewall-mode")
@@ -150,10 +148,7 @@ func (c *Config) fillInDefaults() error {
 
 func (c *Config) fillInStringDefault(attr string) {
 	if c.asString(attr) == "" {
-		logger.Infof("filling in default %#v for attr %q", defaults[attr], attr)
 		c.m[attr] = defaults[attr]
-	} else {
-		logger.Infof("not filling in default for %q (attr is %q)", attr, c.asString(attr))
 	}
 }
 
