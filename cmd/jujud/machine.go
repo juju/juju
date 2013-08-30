@@ -222,7 +222,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	if providerType == provider.Local && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
-			return localstorage.NewWorker(), nil
+			return localstorage.NewWorker(a.Conf.config), nil
 		})
 	}
 	for _, job := range m.Jobs() {
