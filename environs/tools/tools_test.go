@@ -208,12 +208,11 @@ func (s *ToolsSuite) TestFindTools(c *gc.C) {
 	}
 }
 
-func (s *ToolsSuite) TestFindToolsFiltering(c *gc.C) {
+func (s *LegacyToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	tw := &loggo.TestWriter{}
 	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
 	defer loggo.RemoveWriter("filter-tester")
-	_, err := envtools.FindTools(
-		environs.StorageInstances(s.env), 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+	_, err := envtools.FindTools(s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
 	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	// This is slightly overly prescriptive, but feel free to change or add
 	// messages. This still helps to ensure that all log messages are
@@ -221,9 +220,33 @@ func (s *ToolsSuite) TestFindToolsFiltering(c *gc.C) {
 	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
 		{loggo.INFO, "reading tools with major version 1"},
 		{loggo.INFO, "filtering tools by version: 1.2.3"},
+		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
+		{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
 		{loggo.DEBUG, "reading v1.* tools"},
 		{loggo.DEBUG, "reading v1.* tools"},
 	})
+}
+
+func (s *SimpleStreamsToolsSuite) TestFindToolsFiltering(c *gc.C) {
+	tw := &loggo.TestWriter{}
+	c.Assert(loggo.RegisterWriter("filter-tester", tw, loggo.DEBUG), gc.IsNil)
+	defer loggo.RemoveWriter("filter-tester")
+	_, err := envtools.FindTools(s.env, 1, -1, coretools.Filter{Number: version.Number{Major: 1, Minor: 2, Patch: 3}})
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
+	// This is slightly overly prescriptive, but feel free to change or add
+	// messages. This still helps to ensure that all log messages are
+	// properly formed.
+	c.Check(tw.Log, jc.LogMatches, []jc.SimpleMessage{
+			{loggo.INFO, "reading tools with major version 1"},
+			{loggo.INFO, "filtering tools by version: 1.2.3"},
+			{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.sjson": invalid URL "dummy-tools-url/streams/v1/index.sjson" not found`},
+			{loggo.DEBUG, `cannot load index "dummy-tools-url/streams/v1/index.json": invalid URL "dummy-tools-url/streams/v1/index.json" not found`},
+			{loggo.DEBUG, "reading v1.* tools"},
+			{loggo.DEBUG, "reading v1.* tools"},
+			{loggo.DEBUG, "found 1.13.3-precise-amd64"},
+			{loggo.DEBUG, "found 1.13.3-raring-amd64"},
+			{loggo.ERROR, `cannot match tools.Filter{Released:false, Number:version.Number{Major:1, Minor:2, Patch:3, Build:0}, Series:"", Arch:""}`},
+		})
 }
 
 func (s *ToolsSuite) TestFindBootstrapTools(c *gc.C) {
