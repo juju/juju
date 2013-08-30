@@ -12,7 +12,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/upstart"
 )
 
@@ -107,26 +107,41 @@ func (s *UpstartSuite) TestStop(c *gc.C) {
 func (s *UpstartSuite) TestRemoveMissing(c *gc.C) {
 	err := os.Remove(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
-	c.Assert(s.service.Remove(), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 }
 
 func (s *UpstartSuite) TestRemoveStopped(c *gc.C) {
 	s.StoppedStatus(c)
-	c.Assert(s.service.Remove(), gc.IsNil)
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestRemoveRunning(c *gc.C) {
 	s.RunningStatus(c)
 	s.MakeTool(c, "stop", "exit 99")
-	c.Assert(s.service.Remove(), gc.ErrorMatches, ".*exit status 99.*")
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
 	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
 	c.Assert(err, gc.IsNil)
 	s.MakeTool(c, "stop", "exit 0")
+	c.Assert(s.service.StopAndRemove(), gc.IsNil)
+	_, err = os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
+}
+
+func (s *UpstartSuite) TestStopAndRemove(c *gc.C) {
+	s.RunningStatus(c)
+	s.MakeTool(c, "stop", "exit 99")
+
+	// StopAndRemove will fail, as it calls stop.
+	c.Assert(s.service.StopAndRemove(), gc.ErrorMatches, ".*exit status 99.*")
+	_, err := os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
+	c.Assert(err, gc.IsNil)
+
+	// Plain old Remove will succeed.
 	c.Assert(s.service.Remove(), gc.IsNil)
 	_, err = os.Stat(filepath.Join(s.service.InitDir, "some-service.conf"))
-	c.Assert(err, checkers.Satisfies, os.IsNotExist)
+	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
 func (s *UpstartSuite) TestInstallErrors(c *gc.C) {
@@ -236,5 +251,5 @@ func (s *UpstartSuite) TestInstallAlreadyRunning(c *gc.C) {
 	conf := s.dummyConf(c)
 	err = conf.Install()
 	c.Assert(err, gc.IsNil)
-	c.Assert(&conf.Service, checkers.Satisfies, (*upstart.Service).Running)
+	c.Assert(&conf.Service, jc.Satisfies, (*upstart.Service).Running)
 }
