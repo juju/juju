@@ -202,7 +202,6 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
-	dataDir := a.Conf.dataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC

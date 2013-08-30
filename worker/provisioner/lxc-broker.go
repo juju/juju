@@ -4,8 +4,6 @@
 package provisioner
 
 import (
-	"os"
-
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/agent"
@@ -15,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/tools"
 )
 
