@@ -9,8 +9,8 @@ import (
 
 	"launchpad.net/gwacl"
 
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/worker/firewaller"
 )
@@ -55,7 +55,7 @@ func (azInstance *azureInstance) DNSName() (string, error) {
 
 // WaitDNSName is specified in the Instance interface.
 func (azInstance *azureInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(azInstance)
+	return provider.WaitDNSName(azInstance)
 }
 
 // OpenPorts is specified in the Instance interface.

@@ -233,3 +233,11 @@ func (c *Client) SetAnnotations(tag string, pairs map[string]string) error {
 	args := params.SetAnnotations{tag, pairs}
 	return c.st.Call("Client", "", "SetAnnotations", args, nil)
 }
+
+// Close closes the Client's underlying State connection
+// Client is unique among the api.State facades in closing its own State
+// connection, but it is conventional to use a Client object without any access
+// to its underlying state connection.
+func (c *Client) Close() error {
+	return c.st.Close()
+}

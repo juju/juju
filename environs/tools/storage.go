@@ -39,7 +39,11 @@ func StorageName(vers version.Binary) string {
 // If minorVersion = -1, then only majorVersion is considered.
 // If store contains no such tools, it returns ErrNoMatches.
 func ReadList(storage environs.StorageReader, majorVersion, minorVersion int) (coretools.List, error) {
-	logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
+	if minorVersion >= 0 {
+		logger.Debugf("reading v%d.%d tools", majorVersion, minorVersion)
+	} else {
+		logger.Debugf("reading v%d.* tools", majorVersion)
+	}
 	names, err := storage.List(toolPrefix)
 	if err != nil {
 		return nil, err

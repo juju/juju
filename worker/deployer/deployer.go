@@ -10,9 +10,9 @@ import (
 
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
-	"launchpad.net/juju-core/state/api"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/worker"
@@ -63,7 +63,7 @@ func isNotFoundOrUnauthorized(err error) bool {
 	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
 }
 
-func (d *Deployer) SetUp() (api.StringsWatcher, error) {
+func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
 	machine, err := d.st.Machine(d.machineTag)
 	if err != nil {
 		return nil, err

@@ -86,12 +86,16 @@ func FindTools(cloud environs.HasConfig, majorVersion, minorVersion int, filter 
 		return nil, fmt.Errorf("cannot find tools without a complete cloud configuration")
 	}
 
-	logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
+	if minorVersion >= 0 {
+		logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
+	} else {
+		logger.Infof("reading tools with major version %d", majorVersion)
+	}
 	defer convertToolsError(&err)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Infof("filtering tools by version: %s", filter.Number.Major)
+		logger.Infof("filtering tools by version: %s", filter.Number)
 	}
 	if filter.Series != "" {
 		logger.Infof("filtering tools by series: %s", filter.Series)

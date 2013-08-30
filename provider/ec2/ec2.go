@@ -161,7 +161,7 @@ func (inst *ec2Instance) DNSName() (string, error) {
 }
 
 func (inst *ec2Instance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(inst)
+	return provider.WaitDNSName(inst)
 }
 
 func (p environProvider) BoilerplateConfig() string {
@@ -328,7 +328,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(e)
+	return provider.StateInfo(e)
 }
 
 // MetadataLookupParams returns parameters which are used to query image metadata to

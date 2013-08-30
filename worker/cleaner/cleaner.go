@@ -6,7 +6,7 @@ package cleaner
 import (
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/state"
-	"launchpad.net/juju-core/state/api"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -21,7 +21,7 @@ func NewCleaner(st *state.State) worker.Worker {
 	return worker.NewNotifyWorker(&Cleaner{st: st})
 }
 
-func (c *Cleaner) SetUp() (api.NotifyWatcher, error) {
+func (c *Cleaner) SetUp() (watcher.NotifyWatcher, error) {
 	return c.st.WatchCleanups(), nil
 }
 

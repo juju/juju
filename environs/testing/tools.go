@@ -221,7 +221,7 @@ var BootstrapToolsTests = []BootstrapToolsTest{
 		DefaultSeries: "precise",
 		Expect:        V100p,
 	}, {
-		Info:          "released cli: filter by Arch constraints",
+		Info:          "released cli: filter by arch constraints",
 		Available:     V120all,
 		CliVersion:    V120p64,
 		DefaultSeries: "precise",
