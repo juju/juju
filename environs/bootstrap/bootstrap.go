@@ -57,7 +57,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	newestTools, err := tools.FindBootstrapTools(environ, cons)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot find bootstrap tools: %v", err)
 	}
 	// ensure we have at least one valid tools
 	if len(newestTools) == 0 {
