@@ -112,6 +112,7 @@ func (s *FirewallerSuite) setGlobalMode(c *gc.C) {
 	attrs := s.Conn.Environ.Config().AllAttrs()
 	delete(attrs, "admin-secret")
 	delete(attrs, "ca-private-key")
+	attrs["firewall-mode"] = config.FwGlobal
 	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	err = s.State.SetEnvironConfig(newConfig)
