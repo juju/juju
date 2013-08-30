@@ -75,7 +75,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.Li
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(env)
+	return provider.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a

@@ -4,7 +4,6 @@
 package rpc
 
 import (
-	"errors"
 	"fmt"
 	"io"
 	"reflect"
@@ -212,11 +211,17 @@ func (conn *Conn) Dead() <-chan struct{} {
 // the Killer interface, its Kill method will be called.  The codec will
 // then be closed only when all its outstanding server calls have
 // completed.
+//
+// Calling Close multiple times is not an error.
 func (conn *Conn) Close() error {
 	conn.mutex.Lock()
 	if conn.closing {
 		conn.mutex.Unlock()
-		return errors.New("already closed")
+		// Golang's net/rpc returns rpc.ErrShutdown if you ask to close
+		// a closing or shutdown connection. Our choice is that Close
+		// is an idempotent way to ask for resources to be released and
+		// isn't a failure if called multiple times.
+		return nil
 	}
 	conn.closing = true
 	// Kill server requests if appropriate.  Client requests will be

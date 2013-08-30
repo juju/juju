@@ -75,7 +75,7 @@ func (suite *environSuite) makeEnviron() *maasEnviron {
 }
 
 func (suite *environSuite) setupFakeProviderStateFile(c *gc.C) {
-	suite.testMAASObject.TestServer.NewFile(environs.StateFile, []byte("test file content"))
+	suite.testMAASObject.TestServer.NewFile(provider.StateFile, []byte("test file content"))
 }
 
 func (suite *environSuite) setupFakeTools(c *gc.C) {
@@ -246,7 +246,7 @@ func (suite *environSuite) TestStartInstanceStartsInstance(c *gc.C) {
 
 	// Test the instance id is correctly recorded for the bootstrap node.
 	// Check that the state holds the id of the bootstrap machine.
-	stateData, err := environs.LoadState(env.Storage())
+	stateData, err := provider.LoadState(env.Storage())
 	c.Assert(err, gc.IsNil)
 	c.Assert(stateData.StateInstances, gc.HasLen, 1)
 	insts, err := env.AllInstances()
@@ -392,9 +392,9 @@ func (suite *environSuite) TestStateInfo(c *gc.C) {
 	input := `{"system_id": "system_id", "hostname": "` + hostname + `"}`
 	node := suite.testMAASObject.TestServer.NewNode(input)
 	testInstance := &maasInstance{&node, suite.environ}
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
+		&provider.BootstrapState{StateInstances: []instance.Id{testInstance.Id()}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()

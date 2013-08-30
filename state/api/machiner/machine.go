@@ -67,7 +67,7 @@ func (m *Machine) EnsureDead() error {
 }
 
 // Watch returns a watcher for observing changes to the machine.
-func (m *Machine) Watch() (*watcher.NotifyWatcher, error) {
+func (m *Machine) Watch() (watcher.NotifyWatcher, error) {
 	var results params.NotifyWatchResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: m.tag}},
