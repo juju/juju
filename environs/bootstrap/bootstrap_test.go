@@ -100,7 +100,7 @@ func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
 	defer cleanup()
 	envtesting.RemoveFakeTools(c, env.Storage())
 	err := bootstrap.Bootstrap(env, constraints.Value{})
-	c.Assert(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
 }
 
 type bootstrapEnviron struct {
