@@ -101,7 +101,7 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
 		"admin-secret": "side-effect secret",
-		"secret": "pork",
+		"secret":       "pork",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

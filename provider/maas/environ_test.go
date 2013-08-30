@@ -51,10 +51,10 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
 	attrs := testing.FakeConfig.Merge(testing.Attrs{
-		"name":            suite.environ.Name(),
-		"type":            "maas",
-		"maas-oauth":      "a:b:c",
-		"maas-server":     suite.testMAASObject.TestServer.URL,
+		"name":        suite.environ.Name(),
+		"type":        "maas",
+		"maas-oauth":  "a:b:c",
+		"maas-server": suite.testMAASObject.TestServer.URL,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	if err != nil {

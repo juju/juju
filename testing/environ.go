@@ -20,7 +20,7 @@ var FakeConfig = Attrs{
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "fish",
 	"ca-cert":                   CACert,
-	"ca-private-key":	CAKey,
+	"ca-private-key":            CAKey,
 	"ssl-hostname-verification": true,
 	"development":               false,
 	"state-port":                1234,

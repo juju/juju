@@ -23,15 +23,15 @@ var _ = gc.Suite(&configSuite{})
 // It's just the bare minimum to produce a configuration object.
 func makeBaseConfigMap() map[string]interface{} {
 	return map[string]interface{}{
-		"name":           "testenv",
-		"type":           "azure",
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
+		"name":                      "testenv",
+		"type":                      "azure",
+		"ca-cert":                   testing.CACert,
+		"ca-private-key":            testing.CAKey,
 		"development":               false,
 		"state-port":                1234,
 		"api-port":                  4321,
 		"default-series":            "precise",
-		"firewall-mode": config.FwInstance,
+		"firewall-mode":             config.FwInstance,
 		"ssl-hostname-verification": true,
 		"authorized-keys":           "my-keys",
 	}

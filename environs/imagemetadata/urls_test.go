@@ -6,9 +6,9 @@ package imagemetadata_test
 import (
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/imagemetadata"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 

@@ -24,9 +24,9 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
 	attrs := testing.FakeConfig.Merge(testing.Attrs{
-		"type":            "maas",
-		"maas-oauth":      oauth,
-		"maas-server":     "http://maas.testing.invalid/maas/",
+		"type":        "maas",
+		"maas-oauth":  oauth,
+		"maas-server": "http://maas.testing.invalid/maas/",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -79,9 +79,9 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "wrongly-formatted-oauth-string"
 	attrs := testing.FakeConfig.Merge(testing.Attrs{
-		"type":            "maas",
-		"maas-oauth":      oauth,
-		"maas-server":     "http://maas.testing.invalid/maas/",
+		"type":        "maas",
+		"maas-oauth":  oauth,
+		"maas-server": "http://maas.testing.invalid/maas/",
 	})
 	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

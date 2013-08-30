@@ -7,8 +7,8 @@ import (
 	"fmt"
 	gc "launchpad.net/gocheck"
 	jujutesting "launchpad.net/juju-core/juju/testing"
-	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/testing"
 	"strings"
 )
 

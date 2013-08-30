@@ -291,7 +291,7 @@ func (m b64yaml) encode() string {
 var testConfig = b64yaml(
 	dummy.SampleConfig.Merge(
 		testing.Attrs{
-			"state-server": false,
+			"state-server":  false,
 			"agent-version": "3.4.5",
 		},
 	).Delete("admin-secret", "ca-private-key")).encode()

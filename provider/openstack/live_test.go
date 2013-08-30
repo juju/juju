@@ -38,15 +38,15 @@ func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 	//  secret-key: $OS_PASSWORD
 	//
 	attrs := coretesting.FakeConfig.Merge(coretesting.Attrs{
-		"name":            "sample-" + randomName(),
-		"type":            "openstack",
-		"auth-mode":       "userpass",
-		"control-bucket":  "juju-test-" + randomName(),
-		"username":        cred.User,
-		"password":        cred.Secrets,
-		"region":          cred.Region,
-		"auth-url":        cred.URL,
-		"tenant-name":     cred.TenantName,
+		"name":           "sample-" + randomName(),
+		"type":           "openstack",
+		"auth-mode":      "userpass",
+		"control-bucket": "juju-test-" + randomName(),
+		"username":       cred.User,
+		"password":       cred.Secrets,
+		"region":         cred.Region,
+		"auth-url":       cred.URL,
+		"tenant-name":    cred.TenantName,
 	})
 	return attrs
 }

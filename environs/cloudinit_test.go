@@ -11,11 +11,11 @@ import (
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju/osenv"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/testing"
@@ -30,7 +30,7 @@ var dummySampleConfig = dummy.SampleConfig.Merge(testing.Attrs{
 	"state-server": false,
 })
 
-type CloudInitSuite struct{
+type CloudInitSuite struct {
 	testing.LoggingSuite
 }
 
@@ -60,8 +60,8 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	attrs := dummySampleConfig.Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 		"admin-secret":    "lisboan-pork",
-		"agent-version": "1.2.3",
-		"state-server": false,
+		"agent-version":   "1.2.3",
+		"state-server":    false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)

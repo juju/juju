@@ -492,10 +492,10 @@ func (t *testWriter) Write(level loggo.Level, module, filename string, line int,
 func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
 	s.setupEnvCredentials()
 	attrs := testing.FakeConfig.Merge(testing.Attrs{
-		"name":            "testenv",
-		"type":            "openstack",
-		"control-bucket":  "x",
-		deprecatedKey:     value,
+		"name":           "testenv",
+		"type":           "openstack",
+		"control-bucket": "x",
+		deprecatedKey:    value,
 	})
 	_, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)

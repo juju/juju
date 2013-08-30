@@ -237,11 +237,11 @@ func (s *JujuConnSuite) setUpConn(c *gc.C) {
 
 func (s *JujuConnSuite) writeSampleConfig(c *gc.C, path string) {
 	attrs := dummy.SampleConfig.Merge(testing.Attrs{
-		"admin-secret": AdminSecret,
+		"admin-secret":  AdminSecret,
 		"agent-version": version.Current.Number.String(),
 	}).Delete("name")
 	whole := map[string]interface{}{
-		"environments": map[string]interface{} {
+		"environments": map[string]interface{}{
 			"dummyenv": attrs,
 		},
 	}
