@@ -6,9 +6,9 @@ package maas
 import (
 	gc "launchpad.net/gocheck"
 
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
-	"launchpad.net/juju-core/version"
 )
 
 type configSuite struct {
@@ -28,21 +28,11 @@ func copyAttrs(src, dest map[string]interface{}) {
 
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
-	defaults := map[string]interface{}{
+	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
 		"name":            "testenv",
 		"type":            "maas",
-		"admin-secret":    "ssshhhhhh",
-		"authorized-keys": "I-am-not-a-real-key",
-		"agent-version":   version.CurrentNumber().String(),
-		// These are not needed by MAAS, but juju-core breaks without them. Needs
-		// fixing there.
-		"ca-cert":        testing.CACert,
-		"ca-private-key": testing.CAKey,
-	}
-	cfg := make(map[string]interface{})
-	copyAttrs(defaults, cfg)
-	copyAttrs(values, cfg)
-	env, err := environs.NewFromAttrs(cfg)
+	}).Merge(values)
+	env, err := environs.NewFromAttrs(attrs)
 	if err != nil {
 		return nil, err
 	}

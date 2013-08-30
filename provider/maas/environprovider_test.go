@@ -7,9 +7,11 @@ import (
 	"io/ioutil"
 
 	gc "launchpad.net/gocheck"
-
 	"launchpad.net/goyaml"
+
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/testing"
 )
 
 type EnvironProviderSuite struct {
@@ -22,14 +24,12 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
-	attrs := map[string]interface{}{
+	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+		"type":            "maas",
 		"maas-oauth":      oauth,
 		"maas-server":     "http://maas.testing.invalid/maas/",
-		"name":            "wheee",
-		"type":            "maas",
-		"authorized-keys": "I-am-not-a-real-key",
-	}
-	config, err := config.New(attrs)
+	})
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	secretAttrs, err := suite.environ.Provider().SecretAttrs(config)
@@ -79,14 +79,12 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "wrongly-formatted-oauth-string"
-	attrs := map[string]interface{}{
+	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+		"type":            "maas",
 		"maas-oauth":      oauth,
 		"maas-server":     "http://maas.testing.invalid/maas/",
-		"name":            "wheee",
-		"type":            "maas",
-		"authorized-keys": "I-am-not-a-real-key",
-	}
-	config, err := config.New(attrs)
+	})
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := suite.environ.Provider().Open(config)
 	// When Open() fails (i.e. returns a non-nil error), it returns an
