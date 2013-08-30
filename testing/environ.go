@@ -16,7 +16,7 @@ import (
 // EnvironConfig returns a default environment configuration suitable for
 // testing.
 func EnvironConfig(c *C) *config.Config {
-	cfg, err := config.New(map[string]interface{}{
+	cfg, err := config.New(config.NoDefaults, map[string]interface{}{
 		"type":            "test",
 		"name":            "test-name",
 		"default-series":  "test-series",

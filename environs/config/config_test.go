@@ -31,20 +31,23 @@ var _ = gc.Suite(&ConfigSuite{})
 type attrs map[string]interface{}
 
 type configTest struct {
-	about string
-	attrs map[string]interface{}
-	err   string
+	about       string
+	useDefaults config.Defaulting
+	attrs       map[string]interface{}
+	err         string
 }
 
 var configTests = []configTest{
 	{
-		about: "The minimum good configuration",
+		about:       "The minimum good configuration",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type": "my-type",
 			"name": "my-name",
 		},
 	}, {
-		about: "Metadata URLs",
+		about:       "Metadata URLs",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":               "my-type",
 			"name":               "my-name",
@@ -52,35 +55,40 @@ var configTests = []configTest{
 			"tools-url":          "tools-url",
 		},
 	}, {
-		about: "Explicit series",
+		about:       "Explicit series",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"default-series": "my-series",
 		},
 	}, {
-		about: "Implicit series with empty value",
+		about:       "Implicit series with empty value",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"default-series": "",
 		},
 	}, {
-		about: "Explicit authorized-keys",
+		about:       "Explicit authorized-keys",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 		},
 	}, {
-		about: "Load authorized-keys from path",
+		about:       "Load authorized-keys from path",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":                 "my-type",
 			"name":                 "my-name",
 			"authorized-keys-path": "~/.ssh/authorized_keys2",
 		},
 	}, {
-		about: "CA cert & key from path",
+		about:       "CA cert & key from path",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":                "my-type",
 			"name":                "my-name",
@@ -88,7 +96,8 @@ var configTests = []configTest{
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
-		about: "CA cert & key from path; cert attribute set too",
+		about:       "CA cert & key from path; cert attribute set too",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":                "my-type",
 			"name":                "my-name",
@@ -97,15 +106,17 @@ var configTests = []configTest{
 			"ca-private-key-path": "cakey2.pem",
 		},
 	}, {
-		about: "CA cert & key from ~ path",
+		about:       "CA cert & key from ~ path",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":                "my-type",
 			"name":                "my-name",
 			"ca-cert-path":        "~/othercert.pem",
 			"ca-private-key-path": "~/otherkey.pem",
 		},
-	}, {
+	}, /* {
 		about: "CA cert only from ~ path",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -114,14 +125,16 @@ var configTests = []configTest{
 		},
 	}, {
 		about: "CA cert only as attribute",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
 			"ca-cert":        caCert,
 			"ca-private-key": "",
 		},
-	}, {
-		about: "CA cert and key as attributes",
+	}, */{
+		about:       "CA cert and key as attributes",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -129,7 +142,8 @@ var configTests = []configTest{
 			"ca-private-key": caKey,
 		},
 	}, {
-		about: "Mismatched CA cert and key",
+		about:       "Mismatched CA cert and key",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -138,7 +152,8 @@ var configTests = []configTest{
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: private key does not match public key",
 	}, {
-		about: "Invalid CA cert",
+		about:       "Invalid CA cert",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":    "my-type",
 			"name":    "my-name",
@@ -146,7 +161,8 @@ var configTests = []configTest{
 		},
 		err: `bad CA certificate/key in configuration: (asn1:|ASN\.1) syntax error:.*`,
 	}, {
-		about: "Invalid CA key",
+		about:       "Invalid CA key",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -154,8 +170,9 @@ var configTests = []configTest{
 			"ca-private-key": invalidCAKey,
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
-	}, {
+	}, /* {
 		about: "No CA cert or key",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -164,6 +181,7 @@ var configTests = []configTest{
 		},
 	}, {
 		about: "CA key but no cert",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -173,6 +191,7 @@ var configTests = []configTest{
 		err: "bad CA certificate/key in configuration: crypto/tls:.*",
 	}, {
 		about: "No CA key",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":           "my-type",
 			"name":           "my-name",
@@ -180,8 +199,9 @@ var configTests = []configTest{
 			"ca-private-key": "",
 		},
 		err: "bad CA certificate/key in configuration: no certificates found",
-	}, {
-		about: "CA cert specified as non-existent file",
+	}, */{
+		about:       "CA cert specified as non-existent file",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":         "my-type",
 			"name":         "my-name",
@@ -189,7 +209,8 @@ var configTests = []configTest{
 		},
 		err: `open .*\.juju/no-such-file: .*`,
 	}, {
-		about: "CA key specified as non-existent file",
+		about:       "CA key specified as non-existent file",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":                "my-type",
 			"name":                "my-name",
@@ -197,7 +218,8 @@ var configTests = []configTest{
 		},
 		err: `open .*\.juju/no-such-file: .*`,
 	}, {
-		about: "Specified agent version",
+		about:       "Specified agent version",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -205,7 +227,8 @@ var configTests = []configTest{
 			"agent-version":   "1.2.3",
 		},
 	}, {
-		about: "Specified development flag",
+		about:       "Specified development flag",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -213,7 +236,8 @@ var configTests = []configTest{
 			"development":     true,
 		},
 	}, {
-		about: "Specified admin secret",
+		about:       "Specified admin secret",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -222,7 +246,8 @@ var configTests = []configTest{
 			"admin-secret":    "pork",
 		},
 	}, {
-		about: "Invalid development flag",
+		about:       "Invalid development flag",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -231,7 +256,8 @@ var configTests = []configTest{
 		},
 		err: "development: expected bool, got \"true\"",
 	}, {
-		about: "Invalid agent version",
+		about:       "Invalid agent version",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -240,68 +266,85 @@ var configTests = []configTest{
 		},
 		err: `invalid agent version in environment configuration: "2"`,
 	}, {
-		about: "Missing type",
+		about:       "Missing type",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"name": "my-name",
 		},
 		err: "type: expected string, got nothing",
 	}, {
-		about: "Empty type",
+		about:       "Empty type",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"name": "my-name",
 			"type": "",
 		},
 		err: "empty type in environment configuration",
 	}, {
-		about: "Missing name",
+		about:       "Missing name",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type": "my-type",
 		},
 		err: "name: expected string, got nothing",
 	}, {
-		about: "Bad name, no slash",
+		about:       "Bad name, no slash",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"name": "foo/bar",
 			"type": "my-type",
 		},
 		err: "environment name contains unsafe characters",
 	}, {
-		about: "Bad name, no backslash",
+		about:       "Bad name, no backslash",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"name": "foo\\bar",
 			"type": "my-type",
 		},
 		err: "environment name contains unsafe characters",
 	}, {
-		about: "Empty name",
+		about:       "Empty name",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type": "my-type",
 			"name": "",
 		},
 		err: "empty name in environment configuration",
 	}, {
-		about: "Default firewall mode",
+		about:       "Default firewall mode",
+		useDefaults: config.UseDefaults,
+		attrs: attrs{
+			"type": "my-type",
+			"name": "my-name",
+		},
+	}, {
+		about:       "Empty firewall mode",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
-			"firewall-mode": config.FwDefault,
+			"firewall-mode": "",
 		},
 	}, {
-		about: "Instance firewall mode",
+		about:       "Instance firewall mode",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"firewall-mode": config.FwInstance,
 		},
 	}, {
-		about: "Global firewall mode",
+		about:       "Global firewall mode",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
 			"firewall-mode": config.FwGlobal,
 		},
 	}, {
-		about: "Illegal firewall mode",
+		about:       "Illegal firewall mode",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":          "my-type",
 			"name":          "my-name",
@@ -309,14 +352,16 @@ var configTests = []configTest{
 		},
 		err: "invalid firewall mode in environment configuration: .*",
 	}, {
-		about: "ssl-hostname-verification off",
+		about:       "ssl-hostname-verification off",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type": "my-type",
 			"name": "my-name",
 			"ssl-hostname-verification": false,
 		},
 	}, {
-		about: "ssl-hostname-verification incorrect",
+		about:       "ssl-hostname-verification incorrect",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type": "my-type",
 			"name": "my-name",
@@ -324,14 +369,16 @@ var configTests = []configTest{
 		},
 		err: `ssl-hostname-verification: expected bool, got "yes please"`,
 	}, {
-		about: "Explicit state port",
+		about:       "Explicit state port",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":       "my-type",
 			"name":       "my-name",
 			"state-port": 37042,
 		},
 	}, {
-		about: "Invalid state port",
+		about:       "Invalid state port",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":       "my-type",
 			"name":       "my-name",
@@ -339,14 +386,16 @@ var configTests = []configTest{
 		},
 		err: `state-port: expected number, got "illegal"`,
 	}, {
-		about: "Explicit API port",
+		about:       "Explicit API port",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":     "my-type",
 			"name":     "my-name",
 			"api-port": 77042,
 		},
 	}, {
-		about: "Invalid API port",
+		about:       "Invalid API port",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":     "my-type",
 			"name":     "my-name",
@@ -385,14 +434,16 @@ func (*ConfigSuite) TestConfig(c *gc.C) {
 
 var noCertFilesTests = []configTest{
 	{
-		about: "Unspecified certificate and key",
+		about:       "Unspecified certificate and key",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 		},
 	}, {
-		about: "Unspecified certificate, specified key",
+		about:       "Unspecified certificate, specified key",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -414,33 +465,37 @@ func (*ConfigSuite) TestConfigNoCertFiles(c *gc.C) {
 
 var emptyCertFilesTests = []configTest{
 	{
-		about: "Cert unspecified; key specified",
+		about:       "Cert unspecified; key specified",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"ca-private-key":  caKey,
 		},
-		err: `bad CA certificate/key in configuration: crypto/tls: .*`,
+		err: `file ".*/my-name-cert.pem" is empty`,
 	}, {
-		about: "Cert and key unspecified",
+		about:       "Cert and key unspecified",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 		},
-		err: `bad CA certificate/key in configuration: crypto/tls: .*`,
+		err: `file ".*/my-name-cert.pem" is empty`,
 	}, {
-		about: "Cert specified, key unspecified",
+		about:       "Cert specified, key unspecified",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
 			"authorized-keys": "my-keys",
 			"ca-cert":         caCert,
 		},
-		err: "bad CA certificate/key in configuration: crypto/tls: .*",
-	}, {
+		err: `file ".*/my-name-private-key.pem" is empty`,
+	}, /* {
 		about: "Cert and key specified as absent",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -450,6 +505,7 @@ var emptyCertFilesTests = []configTest{
 		},
 	}, {
 		about: "Cert specified as absent",
+		useDefaults: config.UseDefaults,
 		attrs: attrs{
 			"type":            "my-type",
 			"name":            "my-name",
@@ -457,7 +513,7 @@ var emptyCertFilesTests = []configTest{
 			"ca-cert":         "",
 		},
 		err: "bad CA certificate/key in configuration: crypto/tls: .*",
-	},
+	}, */
 }
 
 func (*ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
@@ -475,7 +531,7 @@ func (*ConfigSuite) TestConfigEmptyCertFiles(c *gc.C) {
 }
 
 func (test configTest) check(c *gc.C, home *testing.FakeHome) {
-	cfg, err := config.New(test.attrs)
+	cfg, err := config.New(test.useDefaults, test.attrs)
 	if test.err != "" {
 		c.Check(cfg, gc.IsNil)
 		c.Assert(err, gc.ErrorMatches, test.err)
@@ -511,11 +567,9 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	} else {
 		c.Assert(cfg.DefaultSeries(), gc.Equals, config.DefaultSeries)
 	}
-
 	if m, _ := test.attrs["firewall-mode"].(string); m != "" {
-		c.Assert(cfg.FirewallMode(), gc.Equals, config.FirewallMode(m))
+		c.Assert(cfg.FirewallMode(), gc.Equals, m)
 	}
-
 	if secret, _ := test.attrs["admin-secret"].(string); secret != "" {
 		c.Assert(cfg.AdminSecret(), gc.Equals, secret)
 	}
@@ -592,16 +646,17 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"type":                      "my-type",
 		"name":                      "my-name",
 		"authorized-keys":           "my-keys",
-		"firewall-mode":             string(config.FwDefault),
+		"firewall-mode":             config.FwInstance,
 		"admin-secret":              "foo",
 		"unknown":                   "my-unknown",
-		"ca-private-key":            "",
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
-		"image-metadata-url":        "",
-		"tools-url":                 "",
+		"development":               false,
+		"state-port":                1234,
+		"api-port":                  4321,
+		"default-series":            "precise",
 	}
-	cfg, err := config.New(attrs)
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	// These attributes are added if not set.
@@ -660,7 +715,7 @@ var validationTests = []validationTest{{
 	err:   `cannot change state-port from 37017 to 42`,
 }, {
 	about: "Cannot change the api-port",
-	old:   attrs{"api-port": config.DefaultApiPort},
+	old:   attrs{"api-port": config.DefaultAPIPort},
 	new:   attrs{"api-port": 42},
 	err:   `cannot change api-port from 17070 to 42`,
 }, {
@@ -668,13 +723,13 @@ var validationTests = []validationTest{{
 	old:   attrs{"state-port": config.DefaultStatePort},
 }, {
 	about: "Can change the api-port from explicit-default to implicit-default",
-	old:   attrs{"api-port": config.DefaultApiPort},
+	old:   attrs{"api-port": config.DefaultAPIPort},
 }, {
 	about: "Can change the state-port from implicit-default to explicit-default",
 	new:   attrs{"state-port": config.DefaultStatePort},
 }, {
 	about: "Can change the api-port from implicit-default to explicit-default",
-	new:   attrs{"api-port": config.DefaultApiPort},
+	new:   attrs{"api-port": config.DefaultAPIPort},
 }, {
 	about: "Cannot change the state-port from implicit-default to different value",
 	new:   attrs{"state-port": 42},
@@ -711,7 +766,7 @@ func (*ConfigSuite) TestValidateUnknownAttrs(c *gc.C) {
 		{".juju/myenv-cert.pem", caCert},
 		{".juju/myenv-private-key.pem", caKey},
 	}).Restore()
-	cfg, err := config.New(map[string]interface{}{
+	cfg, err := config.New(config.UseDefaults, map[string]interface{}{
 		"name":    "myenv",
 		"type":    "other",
 		"known":   "this",
@@ -757,7 +812,7 @@ func newTestConfig(c *gc.C, explicit attrs) *config.Config {
 	for key, value := range explicit {
 		final[key] = value
 	}
-	result, err := config.New(final)
+	result, err := config.New(config.UseDefaults, final)
 	c.Assert(err, gc.IsNil)
 	return result
 }
@@ -793,7 +848,7 @@ func (*ConfigSuite) TestGenerateStateServerCertAndKey(c *gc.C) {
 			"ca-private-key": testing.CAKey,
 		},
 	}} {
-		cfg, err := config.New(test.configValues)
+		cfg, err := config.New(config.UseDefaults, test.configValues)
 		c.Assert(err, gc.IsNil)
 		certPEM, keyPEM, err := cfg.GenerateStateServerCertAndKey()
 		if test.errMatch == "" {
