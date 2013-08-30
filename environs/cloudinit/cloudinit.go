@@ -249,7 +249,7 @@ func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
 		StateAddresses: cfg.stateHostAddrs(),
 		APIAddresses:   cfg.apiHostAddrs(),
 		CACert:         cfg.StateInfo.CACert,
-		Values:         cfg.AgentConfig,
+		Values:         cfg.AgentEnvironment,
 	}
 	if cfg.StateServer {
 		return agent.NewStateMachineConfig(
@@ -288,7 +288,7 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, logConfig, nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)

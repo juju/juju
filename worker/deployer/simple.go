@@ -13,7 +13,6 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/agent/tools"
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/log/syslog"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/upstart"
