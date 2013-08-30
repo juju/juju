@@ -36,14 +36,7 @@ var _ = gc.Suite(&StorageSuite{})
 
 func (s *StorageSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "test",
-		"type":            "dummy",
-		"state-server":    false,
-		"authorized-keys": "i-am-a-key",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
-	})
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
 	c.Assert(err, gc.IsNil)
 	s.env, err = environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
