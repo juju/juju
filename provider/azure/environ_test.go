@@ -507,21 +507,6 @@ func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.Creat
 	return &body
 }
 
-// makeServiceNameAlreadyTakenError simulates the AzureError you get when
-// trying to create a hosted service with a name that's already taken.
-func makeServiceNameAlreadyTakenError(c *gc.C) []byte {
-	// At the time of writing, this is the exact kind of error that Azure
-	// returns in this situation.
-	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("POST request failed"),
-		HTTPStatus: http.StatusConflict,
-		Code:       "ConflictError",
-		Message:    "The specified DNS name is already taken.",
-	})
-	c.Assert(err, gc.IsNil)
-	return errorBody
-}
-
 // makeNonAvailabilityResponse simulates a reply to the
 // CheckHostedServiceNameAvailability call saying that a name is not available.
 func makeNonAvailabilityResponse(c *gc.C) []byte {
