@@ -56,7 +56,7 @@ type DialOpts struct {
 // parameters for contacting a state server.
 func DefaultDialOpts() DialOpts {
 	return DialOpts{
-		Timeout: 30 * time.Second,
+		Timeout: 10 * time.Minute,
 	}
 }
 
