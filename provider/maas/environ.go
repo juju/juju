@@ -250,7 +250,8 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 		return nil, nil, err
 	}
 	// Explicitly specify that the lxc containers use the network bridge defined above.
-	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
+	// FIXME before submitting.
+	machineConfig.AgentEnvironment[osenv.JujuLxcBridge] = "br0"
 	userdata, err := environs.ComposeUserData(
 		machineConfig,
 		runCmd,

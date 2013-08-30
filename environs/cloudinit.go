@@ -70,10 +70,10 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
 	mcfg.AuthorizedKeys = authKeys
-	if mcfg.MachineEnvironment == nil {
-		mcfg.MachineEnvironment = make(map[string]string)
+	if mcfg.AgentEnvironment == nil {
+		mcfg.AgentEnvironment = make(map[string]string)
 	}
-	mcfg.MachineEnvironment[osenv.JujuProviderType] = cfg.Type()
+	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
 	if !mcfg.StateServer {
 		return nil
 	}
