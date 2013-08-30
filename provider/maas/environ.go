@@ -249,6 +249,8 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
 		return nil, nil, err
 	}
+	// TODO(thumper): 2013-08-28 bug 1217614
+	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
 	userdata, err := environs.ComposeUserData(
