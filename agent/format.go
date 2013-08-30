@@ -46,6 +46,8 @@ type formatter interface {
 	read(dirName string) (*configInternal, error)
 	write(config *configInternal) error
 	writeCommands(config *configInternal) ([]string, error)
+	// Migrate is called when upgrading from the previous format to the current format.
+	migrate(config *configInternal)
 }
 
 func formatFile(dirName string) string {
