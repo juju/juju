@@ -4,23 +4,9 @@
 package osenv
 
 import (
-	"fmt"
 	"os"
 	"path"
 	"path/filepath"
-	"runtime"
-)
-
-const (
-	JujuEnv               = "JUJU_ENV"
-	JujuHome              = "JUJU_HOME"
-	JujuRepository        = "JUJU_REPOSITORY"
-	JujuLxcBridge         = "JUJU_LXC_BRIDGE"
-	JujuProviderType      = "JUJU_PROVIDER_TYPE"
-	JujuStorageDir        = "JUJU_STORAGE_DIR"
-	JujuStorageAddr       = "JUJU_STORAGE_ADDR"
-	JujuSharedStorageDir  = "JUJU_SHARED_STORAGE_DIR"
-	JujuSharedStorageAddr = "JUJU_SHARED_STORAGE_ADDR"
 )
 
 // Home returns the os-specific home path as specified in the environment
