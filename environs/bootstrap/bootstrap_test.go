@@ -34,10 +34,6 @@ type bootstrapSuite struct {
 	testing.LoggingSuite
 }
 
-func TestPackage(t *stdtesting.T) {
-	gc.TestingT(t)
-}
-
 var _ = gc.Suite(&bootstrapSuite{})
 
 func (s *bootstrapSuite) SetUpTest(c *gc.C) {
@@ -125,7 +121,6 @@ func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
 			"ca-cert",
 			"ca-private-key",
 			"admin-secret",
-			"authorized-keys",
 		)
 	}
 	cfg, err := config.New(config.NoDefaults, m)
