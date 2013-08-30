@@ -27,6 +27,13 @@ func makeBaseConfigMap() map[string]interface{} {
 		"type":           "azure",
 		"ca-cert":        testing.CACert,
 		"ca-private-key": testing.CAKey,
+		"development":               false,
+		"state-port":                1234,
+		"api-port":                  4321,
+		"default-series":            "precise",
+		"firewall-mode": config.FwInstance,
+		"ssl-hostname-verification": true,
+		"authorized-keys":           "my-keys",
 	}
 }
 
@@ -83,7 +90,7 @@ func createTempFile(c *gc.C, content []byte) string {
 func (*configSuite) TestValidateAcceptsNilOldConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
-	config, err := config.New(attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	result, err := provider.Validate(config, nil)
 	c.Assert(err, gc.IsNil)
@@ -93,9 +100,9 @@ func (*configSuite) TestValidateAcceptsNilOldConfig(c *gc.C) {
 func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	provider := azureEnvironProvider{}
-	oldConfig, err := config.New(attrs)
+	oldConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	result, err := provider.Validate(newConfig, oldConfig)
 	c.Assert(err, gc.IsNil)
@@ -105,11 +112,11 @@ func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 func (*configSuite) TestValidateChecksConfigChanges(c *gc.C) {
 	provider := azureEnvironProvider{}
 	oldAttrs := makeBaseConfigMap()
-	oldConfig, err := config.New(oldAttrs)
+	oldConfig, err := config.New(config.NoDefaults, oldAttrs)
 	c.Assert(err, gc.IsNil)
 	newAttrs := makeBaseConfigMap()
 	newAttrs["name"] = "different-name"
-	newConfig, err := config.New(newAttrs)
+	newConfig, err := config.New(config.NoDefaults, newAttrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, oldConfig)
 	c.Check(err, gc.NotNil)
@@ -136,7 +143,7 @@ func (*configSuite) TestValidateParsesAzureConfig(c *gc.C) {
 	}
 	attrs := makeConfigMap(azureConfig)
 	provider := azureEnvironProvider{}
-	config, err := config.New(attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(config)
 	c.Assert(err, gc.IsNil)
@@ -158,7 +165,7 @@ func (*configSuite) TestValidateReadsCertFile(c *gc.C) {
 	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = certFile
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	azConfig, err := provider.newConfig(newConfig)
 	c.Assert(err, gc.IsNil)
@@ -171,7 +178,7 @@ func (*configSuite) TestChecksExistingCertFile(c *gc.C) {
 	delete(attrs, "management-certificate")
 	attrs["management-certificate-path"] = nonExistingCertPath
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*"+nonExistingCertPath+": no such file or directory.*")
@@ -181,7 +188,7 @@ func (*configSuite) TestChecksPublicStorageAccountNameCannotBeDefinedAlone(c *gc
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-container-name"] = ""
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
@@ -191,7 +198,7 @@ func (*configSuite) TestChecksPublicStorageContainerNameCannotBeDefinedAlone(c *
 	attrs := makeAzureConfigMap(c)
 	attrs["public-storage-account-name"] = ""
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*both or none of them.*")
@@ -201,7 +208,7 @@ func (*configSuite) TestChecksLocationIsRequired(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	attrs["location"] = ""
 	provider := azureEnvironProvider{}
-	newConfig, err := config.New(attrs)
+	newConfig, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, nil)
 	c.Check(err, gc.ErrorMatches, ".*environment has no location.*")
@@ -217,7 +224,7 @@ func (*configSuite) TestSecretAttrsReturnsSensitiveAttributes(c *gc.C) {
 	attrs := makeAzureConfigMap(c)
 	certificate := "certificate"
 	attrs["management-certificate"] = certificate
-	config, err := config.New(attrs)
+	config, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 
 	provider := azureEnvironProvider{}
@@ -234,7 +241,7 @@ func (*configSuite) TestConfigDefaults(c *gc.C) {
 	configMap := makeAzureConfigMap(c)
 	delete(configMap, "public-storage-account-name")
 	delete(configMap, "public-storage-container-name")
-	config, err := config.New(configMap)
+	config, err := config.New(config.NoDefaults, configMap)
 	c.Assert(err, gc.IsNil)
 	provider := azureEnvironProvider{}
 	config, err = provider.Validate(config, nil)
