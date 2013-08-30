@@ -19,30 +19,13 @@ type configSuite struct {
 
 var _ = gc.Suite(&configSuite{})
 
-// makeBaseConfigMap creates a minimal map of standard configuration items.
-// It's just the bare minimum to produce a configuration object.
-func makeBaseConfigMap() map[string]interface{} {
-	return map[string]interface{}{
-		"name":                      "testenv",
-		"type":                      "azure",
-		"ca-cert":                   testing.CACert,
-		"ca-private-key":            testing.CAKey,
-		"development":               false,
-		"state-port":                1234,
-		"api-port":                  4321,
-		"default-series":            "precise",
-		"firewall-mode":             config.FwInstance,
-		"ssl-hostname-verification": true,
-		"authorized-keys":           "my-keys",
-	}
-}
-
-func makeConfigMap(configMap map[string]interface{}) map[string]interface{} {
-	conf := makeBaseConfigMap()
-	for k, v := range configMap {
-		conf[k] = v
-	}
-	return conf
+// makeConfigMap creates a minimal map of standard configuration items,
+// adds the given extra items to that and returns it.
+func makeConfigMap(extra map[string]interface{}) map[string]interface{} {
+	return testing.FakeConfig.Merge(testing.Attrs{
+		"name": "testenv",
+		"type": "azure",
+	}).Merge(extra)
 }
 
 var testCert = `
@@ -111,11 +94,11 @@ func (*configSuite) TestValidateAcceptsUnchangedConfig(c *gc.C) {
 
 func (*configSuite) TestValidateChecksConfigChanges(c *gc.C) {
 	provider := azureEnvironProvider{}
-	oldAttrs := makeBaseConfigMap()
-	oldConfig, err := config.New(config.NoDefaults, oldAttrs)
+	oldConfig, err := config.New(config.NoDefaults, makeConfigMap(nil))
 	c.Assert(err, gc.IsNil)
-	newAttrs := makeBaseConfigMap()
-	newAttrs["name"] = "different-name"
+	newAttrs := makeConfigMap(map[string]interface{}{
+		"name": "different-name",
+	})
 	newConfig, err := config.New(config.NoDefaults, newAttrs)
 	c.Assert(err, gc.IsNil)
 	_, err = provider.Validate(newConfig, oldConfig)
