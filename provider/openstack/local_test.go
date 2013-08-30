@@ -99,14 +99,14 @@ func registerLocalTests() {
 		LiveTests: LiveTests{
 			cred: cred,
 			LiveTests: jujutest.LiveTests{
-				TestConfig: jujutest.TestConfig{config},
+				TestConfig: config,
 			},
 		},
 	})
 	gc.Suite(&localServerSuite{
 		cred: cred,
 		Tests: jujutest.Tests{
-			TestConfig: jujutest.TestConfig{config},
+			TestConfig: config,
 		},
 	})
 	gc.Suite(&publicBucketSuite{
@@ -202,7 +202,7 @@ func (s *localServerSuite) TearDownSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
-	s.TestConfig = s.TestConfig.Merge(testing.Attrs{
+	s.TestConfig = s.TestConfig.Merge(coretesting.Attrs{
 		"auth-url": s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)

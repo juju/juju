@@ -14,6 +14,7 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/environs"
+	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 )
@@ -66,7 +67,7 @@ type configTest struct {
 	authURL       string
 	accessKey     string
 	secretKey     string
-	firewallMode  config.FirewallMode
+	firewallMode  string
 	err           string
 }
 
@@ -491,13 +492,12 @@ func (t *testWriter) Write(level loggo.Level, module, filename string, line int,
 
 func (s *ConfigDeprecationSuite) setupEnv(c *gc.C, deprecatedKey, value string) {
 	s.setupEnvCredentials()
-	attrs := map[string]interface{}{
+	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
 		"name":            "testenv",
 		"type":            "openstack",
 		"control-bucket":  "x",
-		"authorized-keys": "fakekey",
 		deprecatedKey:     value,
-	}
+	})
 	_, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
 }
