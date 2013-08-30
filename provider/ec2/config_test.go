@@ -50,7 +50,7 @@ type configTest struct {
 	pbucketRegion string
 	accessKey     string
 	secretKey     string
-	firewallMode  config.FirewallMode
+	firewallMode  string
 	err           string
 }
 

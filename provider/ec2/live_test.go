@@ -59,7 +59,7 @@ func registerAmazonTests() {
 	}
 	gc.Suite(&LiveTests{
 		LiveTests: jujutest.LiveTests{
-			TestConfig:     jujutest.TestConfig{attrs},
+			TestConfig:     attrs,
 			Attempt:        *ec2.ShortAttempt,
 			CanOpenState:   true,
 			HasProvisioner: true,
@@ -78,7 +78,7 @@ type LiveTests struct {
 func (t *LiveTests) SetUpSuite(c *gc.C) {
 	t.LoggingSuite.SetUpSuite(c)
 	// TODO: Share code from jujutest.LiveTests for creating environment
-	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	e, err := environs.NewFromAttrs(t.TestConfig)
 	c.Assert(err, gc.IsNil)
 
 	// Environ.PublicStorage() is read only.
@@ -227,8 +227,8 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	perms := info[0].IPPerms
 	c.Assert(perms, gc.HasLen, 6)
 	checkPortAllowed(c, perms, 22)    // SSH
-	checkPortAllowed(c, perms, 37017) // MongoDB
-	checkPortAllowed(c, perms, 17070) // API
+	checkPortAllowed(c, perms, envtesting.FakeConfig["state-port"].(int))
+	checkPortAllowed(c, perms, envtesting.FakeConfig["api-port"].(int))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
