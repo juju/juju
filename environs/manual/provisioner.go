@@ -53,6 +53,7 @@ var ErrProvisioned = errors.New("machine is already provisioned")
 func ProvisionMachine(args ProvisionMachineArgs) (m *state.Machine, err error) {
 	defer func() {
 		if m != nil && err != nil {
+			logger.Errorf("provisioning failed, removing machine %v", m)
 			m.EnsureDead()
 			m.Remove()
 			m = nil
@@ -155,6 +156,7 @@ type injectMachineArgs struct {
 func injectMachine(args injectMachineArgs) (m *state.Machine, err error) {
 	defer func() {
 		if m != nil && err != nil {
+			logger.Errorf("injecting into state failed, removing machine %v", m)
 			m.EnsureDead()
 			m.Remove()
 		}
