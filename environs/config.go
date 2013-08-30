@@ -204,6 +204,7 @@ func BootstrapConfig(cfg *config.Config) (*config.Config, error) {
 
 	// We never want to push admin-secret or the root CA private key to the cloud.
 	delete(m, "admin-secret")
+	delete(m, "ca-private-key")
 	if cfg, err = config.New(config.NoDefaults, m); err != nil {
 		return nil, err
 	}

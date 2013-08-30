@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/cert"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
@@ -23,12 +24,18 @@ import (
 	"launchpad.net/juju-core/version"
 )
 
+// dummySampleConfig is the dummy sample config but
+// will not run a state server.
+var dummySampleConfig = dummy.SampleConfig.Merge(testing.Attrs{
+	"state-server": false,
+})
+
 type CloudInitSuite struct{}
 
 var _ = gc.Suite(&CloudInitSuite{})
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
-	attrs := dummy.SampleConfig.Merge(testing.Attrs{
+	attrs := dummySampleConfig.Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
@@ -48,9 +55,11 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
-	attrs := dummy.SampleConfig.Merge(testing.Attrs{
+	attrs := dummySampleConfig.Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
 		"admin-secret":    "lisboan-pork",
+		"agent-version": "1.2.3",
+		"state-server": false,
 	})
 	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
@@ -60,7 +69,7 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	}
 	cons := constraints.MustParse("mem=1T cpu-power=999999999")
 	err = environs.FinishMachineConfig(mcfg, cfg, cons)
-	c.Check(err, gc.IsNil)
+	c.Assert(err, gc.IsNil)
 	c.Check(mcfg.AuthorizedKeys, gc.Equals, "we-are-the-keys")
 	password := utils.PasswordHash("lisboan-pork")
 	c.Check(mcfg.APIInfo, gc.DeepEquals, &api.Info{
@@ -73,8 +82,8 @@ func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
 	c.Check(mcfg.APIPort, gc.Equals, cfg.APIPort())
 	c.Check(mcfg.Constraints, gc.DeepEquals, cons)
 
-	oldAttrs["ca-private-key"] = ""
-	oldAttrs["admin-secret"] = ""
+	delete(oldAttrs, "ca-private-key")
+	delete(oldAttrs, "admin-secret")
 	delete(oldAttrs, "secret")
 	c.Check(mcfg.Config.AllAttrs(), gc.DeepEquals, oldAttrs)
 	srvCertPEM := mcfg.StateServerCert
@@ -97,7 +106,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
-	envConfig, err := config.New(testing.SampleConfig)
+	envConfig, err := config.New(config.NoDefaults, dummySampleConfig)
 	c.Assert(err, gc.IsNil)
 
 	cfg := &cloudinit.MachineConfig{

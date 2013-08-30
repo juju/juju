@@ -420,14 +420,13 @@ func (p *environProvider) Prepare(cfg *config.Config) (environs.Environ, error) 
 }
 
 func (*environProvider) SecretAttrs(cfg *config.Config) (map[string]interface{}, error) {
-	m := make(map[string]interface{})
 	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		return nil, err
 	}
-	m["secret"] = ecfg.secret()
-	return m, nil
-
+	return map[string]interface{}{
+		"secret": ecfg.secret(),
+	}, nil
 }
 
 func (*environProvider) PublicAddress() (string, error) {
