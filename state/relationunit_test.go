@@ -19,6 +19,8 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
+type RUs []*state.RelationUnit
+
 type RelationUnitSuite struct {
 	ConnSuite
 }
@@ -743,15 +745,13 @@ func addRU(c *gc.C, svc *state.Service, rel *state.Relation, principal *state.Un
 	return u, ru
 }
 
-type RUs []*state.RelationUnit
-
-type OriginalRelationUnitSuite struct {
+type WatchScopeSuite struct {
 	ConnSuite
 }
 
-var _ = gc.Suite(&OriginalRelationUnitSuite{})
+var _ = gc.Suite(&WatchScopeSuite{})
 
-func (s *OriginalRelationUnitSuite) TestPeerRelationUnitWatch(c *gc.C) {
+func (s *WatchScopeSuite) TestPeer(c *gc.C) {
 	// Create a service and get a peer relation.
 	riak, err := s.State.AddService("riak", s.AddTestingCharm(c, "riak"))
 	c.Assert(err, gc.IsNil)
@@ -889,7 +889,7 @@ func (s *OriginalRelationUnitSuite) TestPeerRelationUnitWatch(c *gc.C) {
 	// will be handled by the deferred kill/stop calls. Phew.
 }
 
-func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnitWatch(c *gc.C) {
+func (s *WatchScopeSuite) TestProviderRequirerGlobal(c *gc.C) {
 	// Create a pair of services and a relation between them.
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
@@ -1030,7 +1030,7 @@ func (s *OriginalRelationUnitSuite) TestGlobalProReqRelationUnitWatch(c *gc.C) {
 	// Cleanup handled by defers as before.
 }
 
-func (s *OriginalRelationUnitSuite) TestContainerProReqRelationUnitWatch(c *gc.C) {
+func (s *WatchScopeSuite) TestProviderRequirerContainer(c *gc.C) {
 	// Create a pair of services and a relation between them.
 	mysql, err := s.State.AddService("mysql", s.AddTestingCharm(c, "mysql"))
 	c.Assert(err, gc.IsNil)
@@ -1194,7 +1194,7 @@ func changeSettings(c *gc.C, ru *state.RelationUnit) *state.Settings {
 	return node
 }
 
-func (s *OriginalRelationUnitSuite) assertChange(
+func (s *WatchScopeSuite) assertChange(
 	c *gc.C, w *state.RelationUnitsWatcher,
 	changed map[string]map[string]interface{},
 	departed []string,
@@ -1215,7 +1215,7 @@ func (s *OriginalRelationUnitSuite) assertChange(
 	}
 }
 
-func (s *OriginalRelationUnitSuite) assertNoChange(c *gc.C, w *state.RelationUnitsWatcher) {
+func (s *WatchScopeSuite) assertNoChange(c *gc.C, w *state.RelationUnitsWatcher) {
 	s.State.StartSync()
 	select {
 	case ch := <-w.Changes():
