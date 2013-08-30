@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"path"
 	"regexp"
 	"sort"
 	"strings"
@@ -61,13 +62,13 @@ func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, storage environs.StorageRead
 	toolsIndexMetadata := indexRef.Indexes["com.ubuntu.juju:released:tools"]
 	c.Assert(toolsIndexMetadata, gc.NotNil)
 
-	reader, err := storage.Get(toolsIndexMetadata.ProductsFilePath)
+	reader, err := storage.Get("tools/" + toolsIndexMetadata.ProductsFilePath)
 	c.Assert(err, gc.IsNil)
 	defer reader.Close()
 	data, err := ioutil.ReadAll(reader)
 	c.Assert(err, gc.IsNil)
 
-	url, err := storage.URL(toolsIndexMetadata.ProductsFilePath)
+	url := path.Join(baseURL, toolsIndexMetadata.ProductsFilePath)
 	c.Assert(err, gc.IsNil)
 	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, tools.ToolsMetadata{})
 	c.Assert(err, gc.IsNil)
@@ -146,7 +147,7 @@ func (s *ToolsMetadataSuite) TestGenerateStorage(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputStorage)
-	metadata := s.parseMetadata(c, storage)
+	metadata := s.parseMetadata(c, s.env.Storage())
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -221,7 +222,7 @@ Writing http://.*/tools/streams/v1/index\.json
 Writing http://.*/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
-	metadata := s.parseMetadata(c, storage)
+	metadata := s.parseMetadata(c, s.env.Storage())
 	c.Assert(metadata, gc.HasLen, 2)
 	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
