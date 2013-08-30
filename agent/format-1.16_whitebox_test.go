@@ -13,7 +13,6 @@ import (
 
 	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -105,11 +104,11 @@ func (s *format116Suite) TestReadWriteStateConfig(c *gc.C) {
 }
 
 func (s *format116Suite) TestMigrate(c *gc.C) {
-	defer testing.PatchEnvironment(osenv.JujuProviderType, "provider type")()
-	defer testing.PatchEnvironment(osenv.JujuStorageDir, "storage dir")()
-	defer testing.PatchEnvironment(osenv.JujuStorageAddr, "storage addr")()
-	defer testing.PatchEnvironment(osenv.JujuSharedStorageDir, "shared storage dir")()
-	defer testing.PatchEnvironment(osenv.JujuSharedStorageAddr, "shared storage addr")()
+	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
+	defer testing.PatchEnvironment(JujuStorageDir, "storage dir")()
+	defer testing.PatchEnvironment(JujuStorageAddr, "storage addr")()
+	defer testing.PatchEnvironment(JujuSharedStorageDir, "shared storage dir")()
+	defer testing.PatchEnvironment(JujuSharedStorageAddr, "shared storage addr")()
 
 	config := s.newConfig(c)
 	s.formatter.migrate(config)
@@ -126,7 +125,7 @@ func (s *format116Suite) TestMigrate(c *gc.C) {
 }
 
 func (s *format116Suite) TestMigrateOnlySetsExisting(c *gc.C) {
-	defer testing.PatchEnvironment(osenv.JujuProviderType, "provider type")()
+	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
 
 	config := s.newConfig(c)
 	s.formatter.migrate(config)

@@ -10,11 +10,18 @@ import (
 	"path"
 
 	"launchpad.net/goyaml"
-
-	"launchpad.net/juju-core/juju/osenv"
 )
 
-const format116 = "format 1.16"
+const (
+	format116 = "format 1.16"
+	// Old environment variables that are now stored in agent config.
+	JujuLxcBridge         = "JUJU_LXC_BRIDGE"
+	JujuProviderType      = "JUJU_PROVIDER_TYPE"
+	JujuStorageDir        = "JUJU_STORAGE_DIR"
+	JujuStorageAddr       = "JUJU_STORAGE_ADDR"
+	JujuSharedStorageDir  = "JUJU_SHARED_STORAGE_DIR"
+	JujuSharedStorageAddr = "JUJU_SHARED_STORAGE_ADDR"
+)
 
 // formatter116 is the formatter for the 1.16 format.
 type formatter116 struct {
@@ -163,19 +170,19 @@ func (*formatter116) migrate(config *configInternal) {
 		environment string
 		config      string
 	}{{
-		osenv.JujuProviderType,
+		JujuProviderType,
 		ProviderType,
 	}, {
-		osenv.JujuStorageDir,
+		JujuStorageDir,
 		StorageDir,
 	}, {
-		osenv.JujuStorageAddr,
+		JujuStorageAddr,
 		StorageAddr,
 	}, {
-		osenv.JujuSharedStorageDir,
+		JujuSharedStorageDir,
 		SharedStorageDir,
 	}, {
-		osenv.JujuSharedStorageAddr,
+		JujuSharedStorageAddr,
 		SharedStorageAddr,
 	}} {
 		value := os.Getenv(name.environment)
