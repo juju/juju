@@ -91,3 +91,19 @@ func (*formatSuite) TestWriteCommandsForFormat(c *gc.C) {
 	c.Assert(commands[1], gc.Matches, `install -m 644 /dev/null '\S+/format'`)
 	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '.*' > '\S+/format'`)
 }
+
+func (*formatSuite) TestReadPreviousFormatWritesNew(c *gc.C) {
+	params := agentParams
+	params.DataDir = c.MkDir()
+	config, err := newConfig(params)
+	c.Assert(err, gc.IsNil)
+
+	err = previousFormatter.write(config)
+	c.Assert(err, gc.IsNil)
+
+	_, err = ReadConf(params.DataDir, params.Tag)
+	c.Assert(err, gc.IsNil)
+	format, err := readFormat(config.Dir())
+	c.Assert(err, gc.IsNil)
+	c.Assert(format, gc.Equals, currentFormat)
+}

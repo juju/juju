@@ -35,7 +35,10 @@ const (
 	previousFormat = format112
 )
 
-var currentFormatter = &formatter116{}
+var (
+	currentFormatter  = &formatter116{}
+	previousFormatter = &formatter112{}
+)
 
 // The formatter defines the two methods needed by the formatters for
 // translating to and from the internal, format agnostic, structure.
@@ -64,7 +67,7 @@ func newFormatter(format string) (formatter, error) {
 	case currentFormat:
 		return currentFormatter, nil
 	case previousFormat:
-		return &formatter112{}, nil
+		return previousFormatter, nil
 	}
 	return nil, fmt.Errorf("unknown agent config format")
 }
