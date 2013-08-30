@@ -103,6 +103,7 @@ func (formatter *formatter112) read(dirName string) (*configInternal, error) {
 		stateServerCert: conf.StateServerCert,
 		stateServerKey:  conf.StateServerKey,
 		apiPort:         conf.APIPort,
+		values:          map[string]string{},
 	}, nil
 }
 
@@ -170,4 +171,7 @@ func (formatter *formatter112) writeCommands(config *configInternal) ([]string, 
 	addCommand("install -m %o /dev/null %s", 0600, filename)
 	addCommand(`printf '%%s\n' %s > %s`, utils.ShQuote(string(data)), filename)
 	return commands, nil
+}
+
+func (*formatter112) migrate(config *configInternal) {
 }
