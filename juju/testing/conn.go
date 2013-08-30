@@ -11,6 +11,7 @@ import (
 
 	. "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
@@ -285,4 +286,19 @@ func (s *JujuConnSuite) AddTestingCharm(c *C, name string) *state.Charm {
 	sch, err := s.Conn.PutCharm(curl, repo, false)
 	c.Assert(err, IsNil)
 	return sch
+}
+
+func (s *JujuConnSuite) AgentConfigForTag(c *C, tag string) agent.Config {
+	config, err := agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:        s.DataDir(),
+			Tag:            tag,
+			Password:       "dummy-secret",
+			Nonce:          "nonce",
+			StateAddresses: s.StateInfo(c).Addrs,
+			APIAddresses:   s.APIInfo(c).Addrs,
+			CACert:         []byte(testing.CACert),
+		})
+	c.Assert(err, IsNil)
+	return config
 }
