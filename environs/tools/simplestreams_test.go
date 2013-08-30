@@ -233,3 +233,44 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:1.10.1:amd64"})
 }
+
+func (s *productSpecSuite) TestLargeNumber(c *gc.C) {
+	json := `{
+        "updated": "Fri, 30 Aug 2013 16:12:58 +0800",
+        "format": "products:1.0",
+        "products": {
+            "com.ubuntu.juju:1.10.0:amd64": {
+                "version": "1.10.0",
+                "arch": "amd64",
+                "versions": {
+                    "20133008": {
+                        "items": {
+                            "1.10.0-precise-amd64": {
+                                "release": "precise",
+                                "version": "1.10.0",
+                                "arch": "amd64",
+                                "size": 9223372036854775807,
+                                "path": "releases/juju-1.10.0-precise-amd64.tgz",
+                                "ftype": "tar.gz",
+                                "sha256": ""
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }`
+	cloudMetadata, err := simplestreams.ParseCloudMetadata([]byte(json), "products:1.0", "", tools.ToolsMetadata{})
+	c.Assert(err, gc.IsNil)
+	c.Assert(cloudMetadata.Products, gc.HasLen, 1)
+	product := cloudMetadata.Products["com.ubuntu.juju:1.10.0:amd64"]
+	c.Assert(product, gc.NotNil)
+	c.Assert(product.Items, gc.HasLen, 1)
+	version := product.Items["20133008"]
+	c.Assert(version, gc.NotNil)
+	c.Assert(version.Items, gc.HasLen, 1)
+	item := version.Items["1.10.0-precise-amd64"]
+	c.Assert(item, gc.NotNil)
+	c.Assert(item, gc.FitsTypeOf, &tools.ToolsMetadata{})
+	c.Assert(item.(*tools.ToolsMetadata).Size, gc.Equals, int64(9223372036854775807))
+}
