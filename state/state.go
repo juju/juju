@@ -117,7 +117,7 @@ func (st *State) EnvironConfig() (*config.Config, error) {
 		return nil, err
 	}
 	attrs := settings.Map()
-	return config.New(attrs)
+	return config.New(config.NoDefaults, attrs)
 }
 
 // checkEnvironConfig returns an error if the config is definitely invalid.

@@ -202,7 +202,7 @@ func (s *localServerSuite) TearDownSuite(c *gc.C) {
 func (s *localServerSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.srv.start(c, s.cred)
-	s.TestConfig.UpdateConfig(map[string]interface{}{
+	s.TestConfig = s.TestConfig.Merge(testing.Attrs{
 		"auth-url": s.cred.URL,
 	})
 	s.Tests.SetUpTest(c)

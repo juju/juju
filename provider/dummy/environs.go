@@ -52,6 +52,27 @@ import (
 	"launchpad.net/juju-core/utils"
 )
 
+// SampleConfig holds an environment configuration with all required
+// attributes set.
+var SampleConfig = testing.Attrs{
+	"type":                      "dummy",
+	"name":                      "only",
+	"authorized-keys":           "my-keys",
+	"firewall-mode":             config.FwInstance,
+	"admin-secret":              "fish",
+
+	"ca-cert":                   testing.CACert,
+	"ca-private-key":	testing.CAKey,
+	"ssl-hostname-verification": true,
+	"development":               false,
+	"state-port":                1234,
+	"api-port":                  4321,
+	"default-series":            "precise",
+
+	"secret": "pork",
+	"state-server": true,
+}
+
 // stateInfo returns a *state.Info which allows clients to connect to the
 // shared dummy state, if it exists.
 func stateInfo() *state.Info {
@@ -754,7 +775,7 @@ type dummyInstance struct {
 	id           instance.Id
 	machineId    string
 	series       string
-	firewallMode config.FirewallMode
+	firewallMode string
 }
 
 func (inst *dummyInstance) Id() instance.Id {

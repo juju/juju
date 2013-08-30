@@ -28,13 +28,10 @@ type CloudInitSuite struct{}
 var _ = gc.Suite(&CloudInitSuite{})
 
 func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "barbara",
-		"type":            "dummy",
+	attrs := dummy.SampleConfig.Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  "",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	mcfg := &cloudinit.MachineConfig{
 		StateInfo: &state.Info{Tag: "not touched"},
@@ -51,17 +48,11 @@ func (s *CloudInitSuite) TestFinishInstanceConfig(c *gc.C) {
 }
 
 func (s *CloudInitSuite) TestFinishBootstrapConfig(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "barbara",
-		"type":            "dummy",
-		"admin-secret":    "lisboan-pork",
+	attrs := dummy.SampleConfig.Merge(testing.Attrs{
 		"authorized-keys": "we-are-the-keys",
-		"agent-version":   "1.2.3",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-		"state-server":    false,
-		"secret":          "british-horse",
+		"admin-secret":    "lisboan-pork",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	oldAttrs := cfg.AllAttrs()
 	mcfg := &cloudinit.MachineConfig{
@@ -106,13 +97,7 @@ func (*CloudInitSuite) TestUserData(c *gc.C) {
 		URL:     "http://foo.com/tools/juju1.2.3-linux-amd64.tgz",
 		Version: version.MustParseBinary("1.2.3-linux-amd64"),
 	}
-	envConfig, err := config.New(map[string]interface{}{
-		"type":            "maas",
-		"name":            "foo",
-		"default-series":  "series",
-		"authorized-keys": "keys",
-		"ca-cert":         testing.CACert,
-	})
+	envConfig, err := config.New(testing.SampleConfig)
 	c.Assert(err, gc.IsNil)
 
 	cfg := &cloudinit.MachineConfig{

@@ -39,7 +39,7 @@ type LiveTests struct {
 	coretesting.LoggingSuite
 
 	// TestConfig contains the configuration attributes for opening an environment.
-	TestConfig TestConfig
+	TestConfig coretesting.Attrs
 
 	// Env holds the currently opened environment.
 	Env environs.Environ
@@ -61,10 +61,10 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	cfg, err := config.New(t.TestConfig.Config)
-	c.Assert(err, IsNil)
+	cfg, err := config.New(config.NoDefaults, t.TestConfig)
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig))
 	e, err := environs.Prepare(cfg)
-	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
+	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig))
 	c.Assert(e, NotNil)
 	t.Env = e
 	c.Logf("environment configuration: %#v", publicAttrs(e))

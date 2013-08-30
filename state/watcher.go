@@ -907,7 +907,7 @@ func (w *EnvironConfigWatcher) loop() (err error) {
 			if !ok {
 				return watcher.MustErr(sw)
 			}
-			cfg, err = config.New(settings.Map())
+			cfg, err = config.New(config.NoDefaults, settings.Map())
 			if err == nil {
 				out = w.out
 			} else {

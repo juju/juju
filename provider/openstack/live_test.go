@@ -89,7 +89,7 @@ func (t *LiveTests) SetUpSuite(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	publicBucketURL, err := cl.MakeServiceURL("object-store", nil)
 	c.Assert(err, gc.IsNil)
-	t.TestConfig.UpdateConfig(map[string]interface{}{
+	t.TestConfig = t.TestConfig.Merge(testing.Attrs{
 		"public-bucket-url": publicBucketURL,
 		"auth-url":          t.cred.URL,
 	})

@@ -9,28 +9,18 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/jujutest"
-	_ "launchpad.net/juju-core/provider/dummy"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/testing"
 )
 
 func init() {
-	attrs := map[string]interface{}{
-		"name":            "only",
-		"type":            "dummy",
-		"state-server":    true,
-		"secret":          "pork",
-		"admin-secret":    "fish",
-		"authorized-keys": "foo",
-		"ca-cert":         testing.CACert,
-		"ca-private-key":  testing.CAKey,
-	}
 	gc.Suite(&jujutest.LiveTests{
-		TestConfig:     jujutest.TestConfig{attrs},
+		TestConfig:     dummy.SampleConfig,
 		CanOpenState:   true,
 		HasProvisioner: false,
 	})
 	gc.Suite(&jujutest.Tests{
-		TestConfig: jujutest.TestConfig{attrs},
+		TestConfig: dummy.SampleConfig,
 	})
 }
 
