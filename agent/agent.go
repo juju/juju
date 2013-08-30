@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"path"
 	"regexp"
+	"sync"
 
 	"launchpad.net/loggo"
 
@@ -68,6 +69,16 @@ type Config interface {
 
 // Ensure that the configInternal struct implements the Config interface.
 var _ Config = (*configInternal)(nil)
+
+// The configWriterMutex should be locked before any writing to disk
+// during the write commands, and unlocked when the writing is complete.
+// This process wide lock should stop any unintended concurrent writes.
+// This may happen when mutliple go-routines may be adding things to the
+// agent config, and wanting to persist them to disk. To ensure that the
+// correct data is written to disk, the mutex should be locked prior to
+// generating any disk state.  This way calls that might get interleaved
+// would always write the most recent state to disk.
+var configWriterMutex sync.Mutex
 
 type connectionDetails struct {
 	addresses []string
@@ -309,6 +320,9 @@ func (c *configInternal) GenerateNewPassword() (string, error) {
 
 // Write writes the agent configuration.
 func (c *configInternal) Write() error {
+	// Lock is taken prior to generating any content to write.
+	configWriterMutex.Lock()
+	defer configWriterMutex.Unlock()
 	return currentFormatter.write(c)
 }
 

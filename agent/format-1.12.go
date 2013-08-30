@@ -135,9 +135,6 @@ func (formatter *formatter112) makeAgentConf(config *configInternal) *format112S
 }
 
 func (formatter *formatter112) write(config *configInternal) error {
-	// Lock is taken prior to generating any content to write.
-	configWriterMutex.Lock()
-	defer configWriterMutex.Unlock()
 	dirName := config.Dir()
 	conf := formatter.makeAgentConf(config)
 	data, err := goyaml.Marshal(conf)
