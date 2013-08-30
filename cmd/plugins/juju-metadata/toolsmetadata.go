@@ -4,20 +4,21 @@
 package main
 
 import (
-	"bytes"
 	"crypto/sha256"
 	"fmt"
 	"hash"
 	"io"
+	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/environs/tools"
 	coretools "launchpad.net/juju-core/tools"
@@ -46,7 +47,7 @@ func (c *ToolsMetadataCommand) Info() *cmd.Info {
 func (c *ToolsMetadataCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.EnvCommandBase.SetFlags(f)
 	f.BoolVar(&c.fetch, "fetch", true, "fetch tools and compute content size and hash")
-	f.StringVar(&c.metadataDir, "d", "", "local directory to locate tools and store metadata")
+	f.StringVar(&c.metadataDir, "d", "", "local directory in which to store metadata")
 	// TODO(axw) allow user to specify version
 }
 
@@ -54,17 +55,6 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 	env, err := environs.NewFromName(c.EnvName)
 	if err != nil {
 		return err
-	}
-
-	if c.metadataDir != "" {
-		c.metadataDir = utils.NormalizePath(c.metadataDir)
-		listener, err := localstorage.Serve("127.0.0.1:0", c.metadataDir)
-		if err != nil {
-			return err
-		}
-		defer listener.Close()
-		storageAddr := listener.Addr().String()
-		env = localdirEnv{env, localstorage.Client(storageAddr)}
 	}
 
 	fmt.Fprintln(context.Stdout, "Finding tools...")
@@ -106,6 +96,11 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		}
 	}
 
+	if c.metadataDir == "" {
+		c.metadataDir = config.JujuHome()
+	}
+	c.metadataDir = utils.NormalizePath(c.metadataDir)
+
 	index, products, err := tools.MarshalToolsMetadataJSON(metadata)
 	if err != nil {
 		return err
@@ -114,30 +109,25 @@ func (c *ToolsMetadataCommand) Run(context *cmd.Context) error {
 		path string
 		data []byte
 	}{
-		{pathPrefix + simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
-		{pathPrefix + tools.ProductMetadataPath, products},
+		{simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix, index},
+		{tools.ProductMetadataPath, products},
 	}
 	for _, object := range objects {
-		var path string
-		if c.metadataDir != "" {
-			path = filepath.Join(c.metadataDir, object.path)
-		} else {
-			objectUrl, err := env.Storage().URL(object.path)
-			if err != nil {
-				return err
-			}
-			path = objectUrl
-		}
+		path := filepath.Join(c.metadataDir, pathPrefix, object.path)
 		fmt.Fprintf(context.Stdout, "Writing %s\n", path)
-		buf := bytes.NewBuffer(object.data)
-		if err != nil {
-			return err
-		}
-		if err = env.Storage().Put(object.path, buf, int64(buf.Len())); err != nil {
+		if err = writeFile(path, object.data); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+func writeFile(path string, data []byte) error {
+	dir := filepath.Dir(path)
+	if err := os.MkdirAll(dir, 0755); err != nil && !os.IsExist(err) {
+		return err
+	}
+	return ioutil.WriteFile(path, data, 0644)
 }
 
 // fetchToolsHash fetches the file at the specified URL,
@@ -152,15 +142,4 @@ func fetchToolsHash(url string) (size int64, sha256hash hash.Hash, err error) {
 	size, err = io.Copy(sha256hash, resp.Body)
 	resp.Body.Close()
 	return size, sha256hash, err
-}
-
-// localdirEnv wraps an Environ, returning a localstorage Storage for its
-// private storage.
-type localdirEnv struct {
-	environs.Environ
-	storage environs.Storage
-}
-
-func (e localdirEnv) Storage() environs.Storage {
-	return e.storage
 }

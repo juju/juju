@@ -7,7 +7,9 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
+	"net/http"
 	"path"
+	"path/filepath"
 	"regexp"
 	"sort"
 	"strings"
@@ -16,7 +18,7 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/localstorage"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
@@ -45,13 +47,17 @@ func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 }
 
-func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, storage environs.StorageReader) []*tools.ToolsMetadata {
-	baseURL, err := storage.URL("tools")
-	c.Assert(err, gc.IsNil)
+func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, metadataDir string) []*tools.ToolsMetadata {
 	params := simplestreams.ValueParams{
 		DataType:      tools.ContentDownload,
 		ValueTemplate: tools.ToolsMetadata{},
 	}
+
+	baseURL := "file://" + metadataDir + "/tools"
+	transport := &http.Transport{}
+	transport.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
+	old := simplestreams.SetHttpClient(&http.Client{Transport: transport})
+	defer simplestreams.SetHttpClient(old)
 
 	const requireSigned = false
 	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
@@ -62,10 +68,7 @@ func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, storage environs.StorageRead
 	toolsIndexMetadata := indexRef.Indexes["com.ubuntu.juju:released:tools"]
 	c.Assert(toolsIndexMetadata, gc.NotNil)
 
-	reader, err := storage.Get("tools/" + toolsIndexMetadata.ProductsFilePath)
-	c.Assert(err, gc.IsNil)
-	defer reader.Close()
-	data, err := ioutil.ReadAll(reader)
+	data, err := ioutil.ReadFile(filepath.Join(metadataDir, "tools", toolsIndexMetadata.ProductsFilePath))
 	c.Assert(err, gc.IsNil)
 
 	url := path.Join(baseURL, toolsIndexMetadata.ProductsFilePath)
@@ -131,12 +134,12 @@ Fetching tools to generate hash: http://.*/tools/juju-1\.13\.0-precise-amd64\.tg
 	return strings.TrimSpace(expected)
 }
 
-var expectedOutputStorage = expectedOutputCommon + `
-Writing http://.*/tools/streams/v1/index\.json
-Writing http://.*/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
+var expectedOutputDirectory = expectedOutputCommon + `
+Writing %s/tools/streams/v1/index\.json
+Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `
 
-func (s *ToolsMetadataSuite) TestGenerateStorage(c *gc.C) {
+func (s *ToolsMetadataSuite) TestGenerateDefaultDirectory(c *gc.C) {
 	storage := s.env.PublicStorage().(environs.Storage)
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
@@ -146,8 +149,10 @@ func (s *ToolsMetadataSuite) TestGenerateStorage(c *gc.C) {
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	c.Assert(output, gc.Matches, expectedOutputStorage)
-	metadata := s.parseMetadata(c, s.env.Storage())
+	metadataDir := config.JujuHome()
+	expected := fmt.Sprintf(expectedOutputDirectory, metadataDir, metadataDir)
+	c.Assert(output, gc.Matches, expected)
+	metadata := s.parseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -157,28 +162,20 @@ func (s *ToolsMetadataSuite) TestGenerateStorage(c *gc.C) {
 	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
-var expectedOutputDirectory = expectedOutputCommon + `
-Writing %s/tools/streams/v1/index\.json
-Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
-`
-
 func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
-	storageDir := c.MkDir()
-	listener, err := localstorage.Serve("127.0.0.1:0", storageDir)
-	c.Assert(err, gc.IsNil)
-	defer listener.Close()
-	storage := localstorage.Client(listener.Addr().String())
+	metadataDir := c.MkDir()
+	storage := s.env.PublicStorage().(environs.Storage)
 	for _, versionString := range versionStrings {
 		binary := version.MustParseBinary(versionString)
 		envtesting.UploadFakeToolsVersion(c, storage, binary)
 	}
 	ctx := coretesting.Context(c)
-	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", storageDir})
+	code := cmd.Main(&ToolsMetadataCommand{}, ctx, []string{"-d", metadataDir})
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
-	expected := fmt.Sprintf(expectedOutputDirectory, storageDir, storageDir)
+	expected := fmt.Sprintf(expectedOutputDirectory, metadataDir, metadataDir)
 	c.Assert(output, gc.Matches, expected)
-	metadata := s.parseMetadata(c, storage)
+	metadata := s.parseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, len(versionStrings))
 	obtainedVersionStrings := make([]string, len(versionStrings))
 	for i, metadata := range metadata {
@@ -214,15 +211,16 @@ func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	code := cmd.Main(&ToolsMetadataCommand{}, ctx, nil)
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
+	metadataDir := config.JujuHome()
 	expectedOutput := fmt.Sprintf(`
 Finding tools\.\.\.
 Fetching tools to generate hash: http://.*/tools/juju-%s\.tgz
 Fetching tools to generate hash: http://.*/tools/juju-%s\.tgz
-Writing http://.*/tools/streams/v1/index\.json
-Writing http://.*/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
-`[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
+Writing %s/tools/streams/v1/index\.json
+Writing %s/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
+`[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]), metadataDir, metadataDir)
 	c.Assert(output, gc.Matches, expectedOutput)
-	metadata := s.parseMetadata(c, s.env.Storage())
+	metadata := s.parseMetadata(c, metadataDir)
 	c.Assert(metadata, gc.HasLen, 2)
 	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
 		Release:  "precise",
