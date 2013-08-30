@@ -258,7 +258,7 @@ func (s *productSpecSuite) TestId(c *gc.C) {
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:1.13.0:amd64"})
+	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.juju:1.13.0:amd64"})
 }
 
 func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
@@ -268,7 +268,7 @@ func (s *productSpecSuite) TestIdMultiArch(c *gc.C) {
 	})
 	ids, err := toolsConstraint.Ids()
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{
+	sstesting.AssertIdsMatch(c, ids, []string{
 		"com.ubuntu.juju:1.11.3:amd64",
 		"com.ubuntu.juju:1.11.3:arm"})
 }
@@ -283,7 +283,7 @@ func (s *productSpecSuite) TestIdWithNonDefaultRelease(c *gc.C) {
 		c.Fatalf(`Unable to lookup series "lucid", you may need to: apt-get install distro-info`)
 	}
 	c.Assert(err, gc.IsNil)
-	c.Assert(ids, gc.DeepEquals, []string{"com.ubuntu.juju:1.10.1:amd64"})
+	sstesting.AssertIdsMatch(c, ids, []string{"com.ubuntu.juju:1.10.1:amd64"})
 }
 
 func (s *productSpecSuite) TestIdWithMajorVersionOnly(c *gc.C) {

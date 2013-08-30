@@ -11,6 +11,7 @@ import (
 
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/version"
+	"regexp"
 )
 
 func init() {
@@ -48,7 +49,7 @@ func (tc *ToolsConstraint) Ids() ([]string, error) {
 	ids := make([]string, len(tc.Arches))
 	for i, arch := range tc.Arches {
 		if tc.Version != version.Zero {
-			ids[i] = fmt.Sprintf(`com.ubuntu.juju:%s:%s`, tc.Version, arch)
+			ids[i] = regexp.QuoteMeta(fmt.Sprintf(`com.ubuntu.juju:%s:%s`, tc.Version, arch))
 		} else if tc.MinorVersion < 0 {
 			ids[i] = fmt.Sprintf(`com\.ubuntu\.juju:%d\.([0-9])*\.([0-9])*:%s`, tc.MajorVersion, arch)
 		} else {

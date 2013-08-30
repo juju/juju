@@ -122,11 +122,13 @@ func (c *ValidateToolsMetadataCommand) Init(args []string) error {
 		if err != nil {
 			return fmt.Errorf("invalid major version number %s: %v", parts[0], err)
 		}
-		if len(parts) > 1 {
+		if len(parts) == 2 {
 			c.minor, err = strconv.Atoi(parts[1])
 			if err != nil {
 				return fmt.Errorf("invalid minor version number %s: %v", parts[1], err)
 			}
+		} else if len(parts) > 2 {
+			return fmt.Errorf("invalid major.minor version number %s", c.partVersion)
 		}
 	}
 	return c.EnvCommandBase.Init(args)

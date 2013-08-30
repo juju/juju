@@ -8,12 +8,14 @@ package testing
 import (
 	"fmt"
 	"net/http"
+	"regexp"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/environs/simplestreams"
 	"launchpad.net/juju-core/testing"
+	jc "launchpad.net/juju-core/testing/checkers"
 )
 
 var imageData = map[string]string{
@@ -397,7 +399,7 @@ func (tc *testConstraint) Ids() ([]string, error) {
 	}
 	ids := make([]string, len(tc.Arches))
 	for i, arch := range tc.Arches {
-		ids[i] = fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, arch)
+		ids[i] = regexp.QuoteMeta(fmt.Sprintf("com.ubuntu.cloud:server:%s:%s", version, arch))
 	}
 	return ids, nil
 }
@@ -405,6 +407,13 @@ func (tc *testConstraint) Ids() ([]string, error) {
 func init() {
 	// Ensure out test struct can have its tags extracted.
 	simplestreams.RegisterStructTags(TestItem{})
+}
+
+func AssertIdsMatch(c *gc.C, regexps, expected []string) {
+	for i, exp := range regexps {
+		re := regexp.MustCompile("^" + exp + "$")
+		c.Assert(re.MatchString(expected[i]), jc.IsTrue)
+	}
 }
 
 type TestItem struct {
