@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -12,11 +13,15 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/tools"
-	"launchpad.net/juju-core/version"
 )
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
+}
 
 const (
 	useDefaultKeys = true
@@ -100,20 +105,16 @@ type bootstrapEnviron struct {
 }
 
 func newEnviron(name string, defaultKeys bool) *bootstrapEnviron {
-	m := map[string]interface{}{
-		"name":            name,
-		"type":            "test",
-		"ca-cert":         "",
-		"ca-private-key":  "",
-		"authorized-keys": "",
+	m := dummy.SampleConfig
+	if !defaultKeys {
+		m = m.Delete(
+			"ca-cert",
+			"ca-private-key",
+			"admin-secret",
+			"authorized-keys",
+		)
 	}
-	if defaultKeys {
-		m["ca-cert"] = testing.CACert
-		m["ca-private-key"] = testing.CAKey
-		m["admin-secret"] = version.Current.Number.String()
-		m["authorized-keys"] = "foo"
-	}
-	cfg, err := config.New(m)
+	cfg, err := config.New(config.NoDefaults, m)
 	if err != nil {
 		panic(fmt.Errorf("cannot create config from %#v: %v", m, err))
 	}
