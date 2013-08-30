@@ -193,7 +193,8 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 // StateJobs returns a worker running all the workers that require
 // a *state.State cofnnection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	st, entity, err := openState(a.Conf.config, a)
+	agentConfig := a.Conf.config
+	st, entity, err := openState(agentConfig, a)
 	if err != nil {
 		return nil, err
 	}
@@ -211,18 +212,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	providerType := a.Conf.config.Value(agent.ProviderType)
+	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
-			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
+			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, agentConfig), nil
 		})
 	}
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	if providerType == provider.Local && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
-			return localstorage.NewWorker(a.Conf.config), nil
+			return localstorage.NewWorker(agentConfig), nil
 		})
 	}
 	for _, job := range m.Jobs() {
@@ -231,7 +232,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir), nil
+				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, agentConfig), nil
 			})
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
