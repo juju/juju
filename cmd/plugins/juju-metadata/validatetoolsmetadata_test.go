@@ -45,6 +45,9 @@ var validateInitToolsErrorTests = []struct {
 	}, {
 		args: []string{"-s", "series", "-r", "region", "-m", "2.x"},
 		err:  `invalid minor version number x: .*`,
+	}, {
+		args: []string{"-s", "series", "-r", "region", "-m", "2.2.1"},
+		err:  `invalid major.minor version number 2.2.1`,
 	},
 }
 

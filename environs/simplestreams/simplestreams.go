@@ -37,7 +37,10 @@ type CloudSpec struct {
 }
 
 type LookupConstraint interface {
-	// Generates a string array representing product ids formed similarly to an ISCSI qualified name (IQN).
+	// Generates a string array representing product ids or id gragments.
+	// Ids are formed similarly to an ISCSI qualified name (IQN).
+	// Since id's may be fragments corresponding to more than one product, matching is done
+	// using regexp. Since id's may contain '.', these need to be quoted accordingly.
 	Ids() ([]string, error)
 	// Returns the constraint parameters.
 	Params() LookupParams
@@ -641,10 +644,7 @@ func (mirrorMetadata *MirrorMetadata) getMirrorInfo(contentId string, cloud Clou
 
 // productIdMatches returns true if the product id expression equals or matches the product id.
 func productIdMatches(matchExpr, productId string) bool {
-	if matchExpr == productId {
-		return true
-	}
-	re, err := regexp.Compile(matchExpr)
+	re, err := regexp.Compile("^" + matchExpr + "$")
 	if err != nil {
 		return false
 	}
