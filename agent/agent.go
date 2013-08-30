@@ -22,6 +22,7 @@ import (
 var logger = loggo.GetLogger("juju.agent")
 
 const (
+	LxcBridge         = "LXC_BRIDGE"
 	ProviderType      = "PROVIDER_TYPE"
 	StorageDir        = "STORAGE_DIR"
 	StorageAddr       = "STORAGE_ADDR"

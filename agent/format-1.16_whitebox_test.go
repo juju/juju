@@ -104,6 +104,7 @@ func (s *format116Suite) TestReadWriteStateConfig(c *gc.C) {
 }
 
 func (s *format116Suite) TestMigrate(c *gc.C) {
+	defer testing.PatchEnvironment(JujuLxcBridge, "lxc bridge")()
 	defer testing.PatchEnvironment(JujuProviderType, "provider type")()
 	defer testing.PatchEnvironment(JujuStorageDir, "storage dir")()
 	defer testing.PatchEnvironment(JujuStorageAddr, "storage addr")()
@@ -114,6 +115,7 @@ func (s *format116Suite) TestMigrate(c *gc.C) {
 	s.formatter.migrate(config)
 
 	expected := map[string]string{
+		LxcBridge:         "lxc bridge",
 		ProviderType:      "provider type",
 		StorageDir:        "storage dir",
 		StorageAddr:       "storage addr",

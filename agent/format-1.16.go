@@ -173,6 +173,9 @@ func (*formatter116) migrate(config *configInternal) {
 		JujuProviderType,
 		ProviderType,
 	}, {
+		JujuLxcBridge,
+		LxcBridge,
+	}, {
 		JujuStorageDir,
 		StorageDir,
 	}, {
