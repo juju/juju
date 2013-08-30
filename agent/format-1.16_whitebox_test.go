@@ -80,7 +80,7 @@ func (s *format116Suite) TestWriteCommands(c *gc.C) {
 	c.Assert(commands, gc.HasLen, 5)
 	c.Assert(commands[0], gc.Matches, `mkdir -p '\S+/agents/omg'`)
 	c.Assert(commands[1], gc.Matches, `install -m 644 /dev/null '\S+/agents/omg/format'`)
-	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/format'`)
+	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '.*' > '\S+/agents/omg/format'`)
 	c.Assert(commands[3], gc.Matches, `install -m 600 /dev/null '\S+/agents/omg/agent.conf'`)
 	c.Assert(commands[4], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
 }
