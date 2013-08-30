@@ -13,7 +13,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
@@ -170,7 +169,7 @@ func (suite *StateSuite) TestComposeAddressesSuffixesAddresses(c *gc.C) {
 
 func (suite *StateSuite) TestGetStateInfo(c *gc.C) {
 	cert := testing.CACert
-	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig.Merge(testing.Attrs{
 		"ca-cert":    cert,
 		"state-port": 123,
 		"api-port":   456,

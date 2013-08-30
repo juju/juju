@@ -6,7 +6,6 @@ package maas
 import (
 	gc "launchpad.net/gocheck"
 
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/testing"
 )
@@ -28,7 +27,7 @@ func copyAttrs(src, dest map[string]interface{}) {
 
 // newConfig creates a MAAS environment config from attributes.
 func newConfig(values map[string]interface{}) (*maasEnvironConfig, error) {
-	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig.Merge(testing.Attrs{
 		"name":            "testenv",
 		"type":            "maas",
 	}).Merge(values)

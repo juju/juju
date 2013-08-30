@@ -50,7 +50,7 @@ func getTestConfig(name, server, oauth, secret string) *config.Config {
 
 // makeEnviron creates a functional maasEnviron for a test.
 func (suite *environSuite) makeEnviron() *maasEnviron {
-	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig.Merge(testing.Attrs{
 		"name":            suite.environ.Name(),
 		"type":            "maas",
 		"maas-oauth":      "a:b:c",

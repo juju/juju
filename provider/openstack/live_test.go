@@ -37,7 +37,7 @@ func makeTestConfig(cred *identity.Credentials) map[string]interface{} {
 	//  access-key: $OS_USERNAME
 	//  secret-key: $OS_PASSWORD
 	//
-	attrs := envtesting.FakeConfig.Merge(coretesting.Attrs{
+	attrs := coretesting.FakeConfig.Merge(coretesting.Attrs{
 		"name":            "sample-" + randomName(),
 		"type":            "openstack",
 		"auth-mode":       "userpass",

@@ -9,7 +9,6 @@ import (
 	gc "launchpad.net/gocheck"
 	"launchpad.net/goyaml"
 
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/testing"
 )
@@ -24,7 +23,7 @@ func (suite *EnvironProviderSuite) TestSecretAttrsReturnsSensitiveMAASAttributes
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "aa:bb:cc"
-	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig.Merge(testing.Attrs{
 		"type":            "maas",
 		"maas-oauth":      oauth,
 		"maas-server":     "http://maas.testing.invalid/maas/",
@@ -79,7 +78,7 @@ func (suite *EnvironProviderSuite) TestOpenReturnsNilInterfaceUponFailure(c *gc.
 	testJujuHome := c.MkDir()
 	defer config.SetJujuHome(config.SetJujuHome(testJujuHome))
 	const oauth = "wrongly-formatted-oauth-string"
-	attrs := envtesting.FakeConfig.Merge(testing.Attrs{
+	attrs := testing.FakeConfig.Merge(testing.Attrs{
 		"type":            "maas",
 		"maas-oauth":      oauth,
 		"maas-server":     "http://maas.testing.invalid/maas/",

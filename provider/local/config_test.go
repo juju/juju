@@ -12,7 +12,6 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/provider/local"
 	"launchpad.net/juju-core/testing"
@@ -38,7 +37,7 @@ func (s *configSuite) TearDownTest(c *gc.C) {
 }
 
 func minimalConfigValues() map[string]interface{} {
-	return envtesting.FakeConfig.Merge(testing.Attrs{
+	return testing.FakeConfig.Merge(testing.Attrs{
 		"name": "test",
 		"type": provider.Local,
 	})

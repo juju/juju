@@ -54,7 +54,7 @@ func (s *ProviderSuite) TestMetadata(c *gc.C) {
 	c.Assert(addr, gc.Equals, "private.dummy.address.invalid")
 }
 
-var localConfigAttrs = envtesting.FakeConfig.Merge(testing.Attrs{
+var localConfigAttrs = testing.FakeConfig.Merge(testing.Attrs{
 	"name":                 "sample",
 	"type":                 "ec2",
 	"region":               "test",

@@ -16,7 +16,6 @@ import (
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/cloudinit"
 	"launchpad.net/juju-core/environs/config"
-	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
@@ -42,7 +41,7 @@ type cloudinitTest struct {
 }
 
 func minimalConfig(c *gc.C) *config.Config {
-	cfg, err := config.New(config.NoDefaults, envtesting.FakeConfig)
+	cfg, err := config.New(config.NoDefaults, testing.FakeConfig)
 	c.Assert(err, gc.IsNil)
 	return cfg
 }

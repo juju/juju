@@ -16,8 +16,8 @@ import (
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
-	"launchpad.net/juju-core/environs/jujutest"
 	envtesting "launchpad.net/juju-core/environs/testing"
+	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/testing"
@@ -227,8 +227,8 @@ func (t *LiveTests) TestInstanceGroups(c *gc.C) {
 	perms := info[0].IPPerms
 	c.Assert(perms, gc.HasLen, 6)
 	checkPortAllowed(c, perms, 22)    // SSH
-	checkPortAllowed(c, perms, envtesting.FakeConfig["state-port"].(int))
-	checkPortAllowed(c, perms, envtesting.FakeConfig["api-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeConfig["state-port"].(int))
+	checkPortAllowed(c, perms, coretesting.FakeConfig["api-port"].(int))
 	checkSecurityGroupAllowed(c, perms, groups[0])
 
 	// The old machine group should have been reused also.
