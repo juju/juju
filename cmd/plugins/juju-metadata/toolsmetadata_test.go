@@ -6,22 +6,22 @@ package main
 import (
 	"bytes"
 	"fmt"
-	"net/http"
-	"path/filepath"
+	"io/ioutil"
 	"regexp"
+	"sort"
 	"strings"
 
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/environs/simplestreams"
 	envtesting "launchpad.net/juju-core/environs/testing"
 	"launchpad.net/juju-core/environs/tools"
 	_ "launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
+	"launchpad.net/juju-core/utils/set"
 	"launchpad.net/juju-core/version"
 )
 
@@ -44,26 +44,58 @@ func (s *ToolsMetadataSuite) TearDownTest(c *gc.C) {
 	s.home.Restore()
 }
 
-func (s *ToolsMetadataSuite) parseMetadata(c *gc.C) []*tools.ToolsMetadata {
-	localStorageDir := config.JujuHomePath(filepath.Join("local", "storage"))
-	transport := &http.Transport{}
-	transport.RegisterProtocol("file", http.NewFileTransport(http.Dir("/")))
-	client := &http.Client{Transport: transport}
-	defer func(old *http.Client) {
-		simplestreams.SetHttpClient(old)
-	}(simplestreams.SetHttpClient(client))
-
-	toolsConstraint := tools.NewToolsConstraint(
-		version.CurrentNumber().String(),
-		simplestreams.LookupParams{
-			Arches: []string{"amd64", "arm", "i386"},
-		},
-	)
-	urls := []string{"file://" + localStorageDir}
-	indexPath := "tools/" + simplestreams.DefaultIndexPath
-	metadata, err := tools.Fetch(urls, indexPath, toolsConstraint, false)
+func (s *ToolsMetadataSuite) parseMetadata(c *gc.C, storage environs.StorageReader) []*tools.ToolsMetadata {
+	baseURL, err := storage.URL("tools")
 	c.Assert(err, gc.IsNil)
-	return metadata
+	params := simplestreams.ValueParams{
+		DataType:      tools.ContentDownload,
+		ValueTemplate: tools.ToolsMetadata{},
+	}
+
+	const requireSigned = false
+	indexPath := simplestreams.DefaultIndexPath + simplestreams.UnsignedSuffix
+	indexRef, err := simplestreams.GetIndexWithFormat(baseURL, indexPath, "index:1.0", requireSigned, params)
+	c.Assert(err, gc.IsNil)
+	c.Assert(indexRef.Indexes, gc.HasLen, 1)
+
+	toolsIndexMetadata := indexRef.Indexes["com.ubuntu.juju:released:tools"]
+	c.Assert(toolsIndexMetadata, gc.NotNil)
+
+	reader, err := storage.Get(toolsIndexMetadata.ProductsFilePath)
+	c.Assert(err, gc.IsNil)
+	defer reader.Close()
+	data, err := ioutil.ReadAll(reader)
+	c.Assert(err, gc.IsNil)
+
+	url, err := storage.URL(toolsIndexMetadata.ProductsFilePath)
+	c.Assert(err, gc.IsNil)
+	cloudMetadata, err := simplestreams.ParseCloudMetadata(data, "products:1.0", url, tools.ToolsMetadata{})
+	c.Assert(err, gc.IsNil)
+
+	toolsMetadataMap := make(map[string]*tools.ToolsMetadata)
+	var expectedProductIds set.Strings
+	var toolsVersions set.Strings
+	for _, mc := range cloudMetadata.Products {
+		for _, items := range mc.Items {
+			for key, item := range items.Items {
+				toolsMetadata := item.(*tools.ToolsMetadata)
+				toolsMetadataMap[key] = toolsMetadata
+				toolsVersions.Add(key)
+				productId := fmt.Sprintf("com.ubuntu.juju:%s:%s", toolsMetadata.Version, toolsMetadata.Arch)
+				expectedProductIds.Add(productId)
+			}
+		}
+	}
+
+	// Make sure index's product IDs are all represented in the products metadata.
+	sort.Strings(toolsIndexMetadata.ProductIds)
+	c.Assert(toolsIndexMetadata.ProductIds, gc.DeepEquals, expectedProductIds.SortedValues())
+
+	toolsMetadata := make([]*tools.ToolsMetadata, len(toolsMetadataMap))
+	for i, key := range toolsVersions.SortedValues() {
+		toolsMetadata[i] = toolsMetadataMap[key]
+	}
+	return toolsMetadata
 }
 
 var currentVersionStrings = []string{
@@ -114,12 +146,14 @@ func (s *ToolsMetadataSuite) TestGenerateStorage(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	c.Assert(output, gc.Matches, expectedOutputStorage)
-	metadata := s.parseMetadata(c)
-	_ = metadata
-	// FIXME(axw) this doesn't work; check with wallyworld how
-	// to fetch all metadata. It only returns data for the
-	// first matching arch.
-	//c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	metadata := s.parseMetadata(c, storage)
+	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	obtainedVersionStrings := make([]string, len(versionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
 var expectedOutputDirectory = expectedOutputCommon + `
@@ -143,12 +177,14 @@ func (s *ToolsMetadataSuite) TestGenerateDirectory(c *gc.C) {
 	output := ctx.Stdout.(*bytes.Buffer).String()
 	expected := fmt.Sprintf(expectedOutputDirectory, storageDir, storageDir)
 	c.Assert(output, gc.Matches, expected)
-	metadata := s.parseMetadata(c)
-	_ = metadata
-	// FIXME(axw) this doesn't work; check with wallyworld how
-	// to fetch all metadata. It only returns data for the
-	// first matching arch.
-	//c.Assert(metadata, gc.HasLen, len(currentVersionStrings))
+	metadata := s.parseMetadata(c, storage)
+	c.Assert(metadata, gc.HasLen, len(versionStrings))
+	obtainedVersionStrings := make([]string, len(versionStrings))
+	for i, metadata := range metadata {
+		s := fmt.Sprintf("%s-%s-%s", metadata.Version, metadata.Release, metadata.Arch)
+		obtainedVersionStrings[i] = s
+	}
+	c.Assert(obtainedVersionStrings, gc.DeepEquals, versionStrings)
 }
 
 func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
@@ -164,8 +200,6 @@ func (s *ToolsMetadataSuite) TestNoTools(c *gc.C) {
 func (s *ToolsMetadataSuite) TestPatchLevels(c *gc.C) {
 	currentVersion := version.CurrentNumber()
 	currentVersion.Build = 0
-	patchVersion := currentVersion
-	patchVersion.Build = 1
 	versionStrings := [...]string{
 		currentVersion.String() + "-precise-amd64",
 		currentVersion.String() + ".1-precise-amd64",
@@ -187,8 +221,24 @@ Writing http://.*/tools/streams/v1/index\.json
 Writing http://.*/tools/streams/v1/com\.ubuntu\.juju:released:tools\.json
 `[1:], regexp.QuoteMeta(versionStrings[0]), regexp.QuoteMeta(versionStrings[1]))
 	c.Assert(output, gc.Matches, expectedOutput)
-	metadata := s.parseMetadata(c)
-	_ = metadata
-	// FIXME(axw) doesn't work.
-	//c.Assert(metadata, gc.HasLen, 2)
+	metadata := s.parseMetadata(c, storage)
+	c.Assert(metadata, gc.HasLen, 2)
+	c.Assert(metadata[0], gc.DeepEquals, &tools.ToolsMetadata{
+		Release:  "precise",
+		Version:  currentVersion.String(),
+		Arch:     "amd64",
+		Size:     20,
+		Path:     "erewhemos/public/tools/juju-1.13.3-precise-amd64.tgz",
+		FileType: "tar.gz",
+		SHA256:   "9268ba87201b1514171cc09334db6f680e1e013f5ae584f1b43252c743eea841",
+	})
+	c.Assert(metadata[1], gc.DeepEquals, &tools.ToolsMetadata{
+		Release:  "precise",
+		Version:  currentVersion.String() + ".1",
+		Arch:     "amd64",
+		Size:     22,
+		Path:     "erewhemos/public/tools/juju-1.13.3.1-precise-amd64.tgz",
+		FileType: "tar.gz",
+		SHA256:   "da07c1bb59f18f4426cf6ecadefedee58845f11bab9ed7de8fd68fc90a1bb26f",
+	})
 }
