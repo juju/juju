@@ -17,6 +17,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/provider"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -287,12 +288,10 @@ func (m b64yaml) encode() string {
 	return base64.StdEncoding.EncodeToString(data)
 }
 
-var testConfig = b64yaml{
-	"name":            "dummyenv",
-	"type":            "dummy",
-	"state-server":    false,
-	"agent-version":   "1.2.3",
-	"authorized-keys": "i-am-a-key",
-	"ca-cert":         testing.CACert,
-	"ca-private-key":  "",
-}.encode()
+var testConfig = b64yaml(
+	dummy.SampleConfig.Merge(
+		testing.Attrs{
+			"state-server": false,
+			"agent-version": "3.4.5",
+		},
+	).Delete("admin-secret", "ca-private-key")).encode()
