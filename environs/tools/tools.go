@@ -25,12 +25,16 @@ var logger = loggo.GetLogger("juju.environs.tools")
 func FindTools(storages []environs.StorageReader,
 	majorVersion, minorVersion int, filter coretools.Filter) (list coretools.List, err error) {
 
-	logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
+	if minorVersion >= 0 {
+		logger.Infof("reading tools with major.minor version %d.%d", majorVersion, minorVersion)
+	} else {
+		logger.Infof("reading tools with major version %d", majorVersion)
+	}
 	defer convertToolsError(&err)
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Infof("filtering tools by version: %s", filter.Number.Major)
+		logger.Infof("filtering tools by version: %s", filter.Number)
 	}
 	if filter.Series != "" {
 		logger.Infof("filtering tools by series: %s", filter.Series)

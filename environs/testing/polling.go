@@ -4,7 +4,7 @@
 package testing
 
 import (
-	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -66,6 +66,6 @@ func PatchAttemptStrategies(strategies ...*utils.AttemptStrategy) func() {
 	// The one irregularity here is that LongAttempt goes on the list of
 	// strategies that need patching.  To keep testing simple, we treat
 	// the given attempts and LongAttempt as a single slice from here on.
-	combinedStrategies := append(strategies, &environs.LongAttempt, &environs.ShortAttempt)
+	combinedStrategies := append(strategies, &provider.LongAttempt, &provider.ShortAttempt)
 	return internalPatchAttemptStrategies(combinedStrategies)
 }

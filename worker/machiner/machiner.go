@@ -6,9 +6,9 @@ import (
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/errors"
-	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/state/api/machiner"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/state/api/watcher"
 	"launchpad.net/juju-core/worker"
 )
 
@@ -33,7 +33,7 @@ func isNotFoundOrUnauthorized(err error) bool {
 	return errors.IsNotFoundError(err) || params.ErrCode(err) == params.CodeUnauthorized
 }
 
-func (mr *Machiner) SetUp() (api.NotifyWatcher, error) {
+func (mr *Machiner) SetUp() (watcher.NotifyWatcher, error) {
 	// Find which machine we're responsible for.
 	m, err := mr.st.Machine(mr.tag)
 	if isNotFoundOrUnauthorized(err) {

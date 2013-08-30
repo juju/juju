@@ -262,24 +262,6 @@ func (s *clientSuite) TestClientAnnotationsBadEntity(c *gc.C) {
 	}
 }
 
-func (s *clientSuite) TestClientServiceGet(c *gc.C) {
-	s.setUpScenario(c)
-	results, err := s.APIState.Client().ServiceGet("wordpress")
-	c.Assert(err, gc.IsNil)
-	c.Assert(results, gc.DeepEquals, &params.ServiceGetResults{
-		Service: "wordpress",
-		Charm:   "wordpress",
-		Config: map[string]interface{}{
-			"blog-title": map[string]interface{}{
-				"type":        "string",
-				"value":       "My Title",
-				"description": "A descriptive title used for the blog.",
-				"default":     true,
-			},
-		},
-	})
-}
-
 func (s *clientSuite) TestClientServiceExpose(c *gc.C) {
 	s.setUpScenario(c)
 	serviceName := "wordpress"
