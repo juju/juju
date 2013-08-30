@@ -30,7 +30,9 @@ var dummySampleConfig = dummy.SampleConfig.Merge(testing.Attrs{
 	"state-server": false,
 })
 
-type CloudInitSuite struct{}
+type CloudInitSuite struct{
+	testing.LoggingSuite
+}
 
 var _ = gc.Suite(&CloudInitSuite{})
 

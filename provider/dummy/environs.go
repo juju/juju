@@ -60,7 +60,6 @@ var SampleConfig = testing.Attrs{
 	"authorized-keys":           "my-keys",
 	"firewall-mode":             config.FwInstance,
 	"admin-secret":              "fish",
-
 	"ca-cert":                   testing.CACert,
 	"ca-private-key":	testing.CAKey,
 	"ssl-hostname-verification": true,
