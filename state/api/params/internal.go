@@ -5,6 +5,7 @@ package params
 
 import (
 	"launchpad.net/juju-core/tools"
+	"launchpad.net/juju-core/version"
 )
 
 // Entity identifies a single entity.
@@ -259,6 +260,18 @@ type AgentGetEntitiesResult struct {
 	Life  Life
 	Jobs  []MachineJob
 	Error *Error
+}
+
+// AgentVersionResult holds the version and possibly error for a given
+// DesiredVersion request
+type AgentVersionResult struct {
+	Version *version.Number
+	Error   *Error
+}
+
+// AgentVersionResults is a list of versions for the requested entities
+type AgentVersionResults struct {
+	Results []AgentVersionResult
 }
 
 // AgentToolsResult holds the tools and possibly error for a given AgentTools request

@@ -1,24 +1,17 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The statecmd package is a temporary package
-// to put code that's used by both cmd/juju and state/api.
-// It is intended to wither away to nothing as functionality
-// gets absorbed into state and state/api as appropriate
-// when the command-line commands can invoke the
-// API directly.
-package statecmd
+package client
 
 import (
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 )
 
-// ServiceGet returns the configuration for the named service.
-func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults, error) {
-	service, err := st.Service(p.ServiceName)
+// ServiceGet returns the configuration for a service.
+func (c *Client) ServiceGet(args params.ServiceGet) (params.ServiceGetResults, error) {
+	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return params.ServiceGetResults{}, err
 	}
@@ -39,7 +32,7 @@ func ServiceGet(st *state.State, p params.ServiceGet) (params.ServiceGetResults,
 		}
 	}
 	return params.ServiceGetResults{
-		Service:     p.ServiceName,
+		Service:     args.ServiceName,
 		Charm:       charm.Meta().Name,
 		Config:      configInfo,
 		Constraints: constraints,

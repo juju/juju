@@ -133,6 +133,11 @@ func (p environProvider) Open(cfg *config.Config) (environs.Environ, error) {
 	return e, nil
 }
 
+func (p environProvider) Prepare(cfg *config.Config) (environs.Environ, error) {
+	// TODO prepare environment
+	return p.Open(cfg)
+}
+
 // MetadataLookupParams returns parameters which are used to query image metadata to
 // find matching image information.
 func (p environProvider) MetadataLookupParams(region string) (*simplestreams.MetadataLookupParams, error) {
@@ -342,14 +347,14 @@ func (inst *openstackInstance) DNSName() (string, error) {
 }
 
 func (inst *openstackInstance) WaitDNSName() (string, error) {
-	return environs.WaitDNSName(inst)
+	return provider.WaitDNSName(inst)
 }
 
 // TODO: following 30 lines nearly verbatim from environs/ec2
 
 func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for opening ports on instance: %q",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
@@ -362,7 +367,7 @@ func (inst *openstackInstance) OpenPorts(machineId string, ports []instance.Port
 
 func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Port) error {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return fmt.Errorf("invalid firewall mode for closing ports on instance: %q",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
@@ -375,7 +380,7 @@ func (inst *openstackInstance) ClosePorts(machineId string, ports []instance.Por
 
 func (inst *openstackInstance) Ports(machineId string) ([]instance.Port, error) {
 	if inst.e.Config().FirewallMode() != config.FwInstance {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from instance: %q",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from instance",
 			inst.e.Config().FirewallMode())
 	}
 	name := inst.e.machineGroupName(machineId)
@@ -472,7 +477,7 @@ func (e *environ) Bootstrap(cons constraints.Value, possibleTools tools.List, ma
 }
 
 func (e *environ) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(e)
+	return provider.StateInfo(e)
 }
 
 func (e *environ) Config() *config.Config {
@@ -600,7 +605,7 @@ func (e *environ) assignPublicIP(fip *nova.FloatingIP, serverId string) (err err
 	}
 	// At startup nw_info is not yet cached so this may fail
 	// temporarily while the server is being built
-	for a := environs.LongAttempt.Start(); a.Next(); {
+	for a := provider.LongAttempt.Start(); a.Next(); {
 		err = e.nova().AddServerFloatingIP(serverId, fip.IP)
 		if err == nil {
 			return nil
@@ -921,7 +926,7 @@ func (e *environ) portsInGroup(name string) (ports []instance.Port, err error) {
 
 func (e *environ) OpenPorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for opening ports on environment: %q",
+		return fmt.Errorf("invalid firewall mode %q for opening ports on environment",
 			e.Config().FirewallMode())
 	}
 	if err := e.openPortsInGroup(e.globalGroupName(), ports); err != nil {
@@ -933,7 +938,7 @@ func (e *environ) OpenPorts(ports []instance.Port) error {
 
 func (e *environ) ClosePorts(ports []instance.Port) error {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return fmt.Errorf("invalid firewall mode for closing ports on environment: %q",
+		return fmt.Errorf("invalid firewall mode %q for closing ports on environment",
 			e.Config().FirewallMode())
 	}
 	if err := e.closePortsInGroup(e.globalGroupName(), ports); err != nil {
@@ -945,7 +950,7 @@ func (e *environ) ClosePorts(ports []instance.Port) error {
 
 func (e *environ) Ports() ([]instance.Port, error) {
 	if e.Config().FirewallMode() != config.FwGlobal {
-		return nil, fmt.Errorf("invalid firewall mode for retrieving ports from environment: %q",
+		return nil, fmt.Errorf("invalid firewall mode %q for retrieving ports from environment",
 			e.Config().FirewallMode())
 	}
 	return e.portsInGroup(e.globalGroupName())

@@ -24,6 +24,7 @@ import (
 	"launchpad.net/juju-core/environs/localstorage"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -480,9 +481,9 @@ func (*environSuite) TestStateInfo(c *gc.C) {
 	env := makeEnviron(c)
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
+		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id(instanceID)}})
 	c.Assert(err, gc.IsNil)
 
 	stateInfo, apiInfo, err := env.StateInfo()
@@ -504,21 +505,6 @@ func parseCreateServiceRequest(c *gc.C, request *gwacl.X509Request) *gwacl.Creat
 	err := xml.Unmarshal(request.Payload, &body)
 	c.Assert(err, gc.IsNil)
 	return &body
-}
-
-// makeServiceNameAlreadyTakenError simulates the AzureError you get when
-// trying to create a hosted service with a name that's already taken.
-func makeServiceNameAlreadyTakenError(c *gc.C) []byte {
-	// At the time of writing, this is the exact kind of error that Azure
-	// returns in this situation.
-	errorBody, err := xml.Marshal(gwacl.AzureError{
-		error:      fmt.Errorf("POST request failed"),
-		HTTPStatus: http.StatusConflict,
-		Code:       "ConflictError",
-		Message:    "The specified DNS name is already taken.",
-	})
-	c.Assert(err, gc.IsNil)
-	return errorBody
 }
 
 // makeNonAvailabilityResponse simulates a reply to the
@@ -833,9 +819,9 @@ func (*environSuite) TestDestroyDoesNotCleanStorageIfError(c *gc.C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	// Populate storage.
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	responses := []gwacl.DispatcherResponse{
 		gwacl.NewDispatcherResponse(nil, http.StatusBadRequest, nil),
@@ -855,9 +841,9 @@ func (*environSuite) TestDestroyCleansUpStorage(c *gc.C) {
 	cleanup := setDummyStorage(c, env)
 	defer cleanup()
 	// Populate storage.
-	err := environs.SaveState(
+	err := provider.SaveState(
 		env.Storage(),
-		&environs.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
+		&provider.BootstrapState{StateInstances: []instance.Id{instance.Id("test-id")}})
 	c.Assert(err, gc.IsNil)
 	services := []gwacl.HostedServiceDescriptor{}
 	responses := getAzureServiceListResponse(c, services)

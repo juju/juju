@@ -25,6 +25,7 @@ import (
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	"launchpad.net/juju-core/tools"
@@ -118,7 +119,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 	// Before we write the agent config file, we need to make sure the
 	// instance is saved in the StateInfo.
 	bootstrapId := instance.Id(boostrapInstanceId)
-	if err := environs.SaveState(env.Storage(), &environs.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
+	if err := provider.SaveState(env.Storage(), &provider.BootstrapState{StateInstances: []instance.Id{bootstrapId}}); err != nil {
 		logger.Errorf("failed to save state instances: %v", err)
 		return err
 	}
@@ -144,7 +145,7 @@ func (env *localEnviron) Bootstrap(cons constraints.Value, possibleTools tools.L
 
 // StateInfo is specified in the Environ interface.
 func (env *localEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(env)
+	return provider.StateInfo(env)
 }
 
 // Config is specified in the Environ interface.
@@ -168,7 +169,7 @@ func createLocalStorageListener(dir, address string) (net.Listener, error) {
 
 // SetConfig is specified in the Environ interface.
 func (env *localEnviron) SetConfig(cfg *config.Config) error {
-	ecfg, err := provider.newConfig(cfg)
+	ecfg, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
@@ -214,7 +215,7 @@ func (env *localEnviron) bootstrapAddressAndStorage(cfg *config.Config) error {
 		logger.Errorf("failed to apply new addresses to config: %v", err)
 		return err
 	}
-	config, err := provider.newConfig(cfg)
+	config, err := providerInstance.newConfig(cfg)
 	if err != nil {
 		logger.Errorf("failed to create new environ config: %v", err)
 		return err
@@ -345,7 +346,7 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 	logger.Infof("removing service %s", env.machineAgentServiceName())
 	machineAgent := upstart.NewService(env.machineAgentServiceName())
 	machineAgent.InitDir = upstartScriptLocation
-	if err := machineAgent.Remove(); err != nil {
+	if err := machineAgent.StopAndRemove(); err != nil {
 		logger.Errorf("could not remove machine agent service: %v", err)
 		return err
 	}
@@ -353,7 +354,7 @@ func (env *localEnviron) Destroy(insts []instance.Instance) error {
 	logger.Infof("removing service %s", env.mongoServiceName())
 	mongo := upstart.NewService(env.mongoServiceName())
 	mongo.InitDir = upstartScriptLocation
-	if err := mongo.Remove(); err != nil {
+	if err := mongo.StopAndRemove(); err != nil {
 		logger.Errorf("could not remove mongo service: %v", err)
 		return err
 	}
@@ -385,7 +386,7 @@ func (env *localEnviron) Ports() ([]instance.Port, error) {
 
 // Provider is specified in the Environ interface.
 func (env *localEnviron) Provider() environs.EnvironProvider {
-	return &provider
+	return providerInstance
 }
 
 // setupLocalMongoService returns the cert and key if there was no error.

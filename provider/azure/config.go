@@ -23,11 +23,14 @@ var configFields = schema.Fields{
 	"force-image-name":              schema.String(),
 }
 var configDefaults = schema.Defaults{
-	"location":                      "",
-	"management-certificate":        "",
-	"management-certificate-path":   "",
-	"public-storage-account-name":   "",
-	"public-storage-container-name": "",
+	"location":                    "",
+	"management-certificate":      "",
+	"management-certificate-path": "",
+	// The default account/container expands to the following base URL:
+	//     https://jujutools.blob.core.windows.net/juju-tools
+	// (append "/tools%2Fjuju-$version-$series-$arch.tgz" for a tools archive.)
+	"public-storage-account-name":   "jujutools",
+	"public-storage-container-name": "juju-tools",
 	// The default is blank, which means "use the first of the base URLs
 	// that has a matching image."  The first base URL is for "released",
 	// which is what we want, but also a blank default will be easier on
@@ -136,8 +139,8 @@ const boilerplateYAML = `azure:
   storage-account-name: ghedlkjhw54e
   # Public Storage info (account name and container name) denoting a public
   # container holding the juju tools.
-  # public-storage-account-name: public-storage-account
-  # public-storage-container-name: public-storage-container-name
+  # public-storage-account-name: jujutools
+  # public-storage-container-name: juju-tools
   # Override OS image selection with a fixed image for all deployments.
   # Most useful for developers.
   # force-image-name: b39f27a8b8c64d52b05eac6a62ebad85__Ubuntu-13_10-amd64-server-DEVELOPMENT-20130713-Juju_ALPHA-en-us-30GB
