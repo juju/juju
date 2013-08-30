@@ -10,6 +10,8 @@ import (
 	"path"
 
 	"launchpad.net/goyaml"
+
+	"launchpad.net/juju-core/juju/osenv"
 )
 
 const format116 = "format 1.16"
@@ -31,6 +33,7 @@ type format116Serialization struct {
 	APIPassword  string   `yaml:",omitempty"`
 
 	OldPassword string
+	Values      map[string]string
 
 	// Only state server machines have these next three items
 	StateServerCert string `yaml:",omitempty"`
@@ -83,6 +86,7 @@ func (formatter *formatter116) read(dirName string) (*configInternal, error) {
 		stateServerCert: stateServerCert,
 		stateServerKey:  stateServerKey,
 		apiPort:         format.APIPort,
+		values:          format.Values,
 	}
 	if len(format.StateAddresses) > 0 {
 		config.stateDetails = &connectionDetails{
@@ -108,6 +112,7 @@ func (formatter *formatter116) makeFormat(config *configInternal) *format116Seri
 		StateServerCert: base64.StdEncoding.EncodeToString(config.stateServerCert),
 		StateServerKey:  base64.StdEncoding.EncodeToString(config.stateServerKey),
 		APIPort:         config.apiPort,
+		Values:          config.values,
 	}
 	if config.stateDetails != nil {
 		format.StateAddresses = config.stateDetails.addresses
@@ -151,4 +156,31 @@ func (formatter *formatter116) writeCommands(config *configInternal) ([]string, 
 	commands = append(commands,
 		writeFileCommands(formatter.configFile(dirName), string(data), 0600)...)
 	return commands, nil
+}
+
+func (*formatter116) migrate(config *configInternal) {
+	for _, name := range []struct {
+		environment string
+		config      string
+	}{{
+		osenv.JujuProviderType,
+		ProviderType,
+	}, {
+		osenv.JujuStorageDir,
+		StorageDir,
+	}, {
+		osenv.JujuStorageAddr,
+		StorageAddr,
+	}, {
+		osenv.JujuSharedStorageDir,
+		SharedStorageDir,
+	}, {
+		osenv.JujuSharedStorageAddr,
+		SharedStorageAddr,
+	}} {
+		value := os.Getenv(name.environment)
+		if value != "" {
+			config.values[name.config] = value
+		}
+	}
 }

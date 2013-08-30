@@ -13,6 +13,7 @@ import (
 
 	gc "launchpad.net/gocheck"
 
+	"launchpad.net/juju-core/juju/osenv"
 	"launchpad.net/juju-core/testing"
 	jc "launchpad.net/juju-core/testing/checkers"
 )
@@ -94,10 +95,45 @@ func (s *format116Suite) TestReadWriteStateConfig(c *gc.C) {
 		APIPort:           23456,
 	}
 	stateParams.DataDir = c.MkDir()
+	stateParams.Values = map[string]string{"foo": "bar", "wibble": "wobble"}
 	configInterface, err := NewStateMachineConfig(stateParams)
 	c.Assert(err, gc.IsNil)
 	config, ok := configInterface.(*configInternal)
 	c.Assert(ok, jc.IsTrue)
 
 	s.assertWriteAndRead(c, config)
+}
+
+func (s *format116Suite) TestMigrate(c *gc.C) {
+	defer testing.PatchEnvironment(osenv.JujuProviderType, "provider type")()
+	defer testing.PatchEnvironment(osenv.JujuStorageDir, "storage dir")()
+	defer testing.PatchEnvironment(osenv.JujuStorageAddr, "storage addr")()
+	defer testing.PatchEnvironment(osenv.JujuSharedStorageDir, "shared storage dir")()
+	defer testing.PatchEnvironment(osenv.JujuSharedStorageAddr, "shared storage addr")()
+
+	config := s.newConfig(c)
+	s.formatter.migrate(config)
+
+	expected := map[string]string{
+		ProviderType:      "provider type",
+		StorageDir:        "storage dir",
+		StorageAddr:       "storage addr",
+		SharedStorageDir:  "shared storage dir",
+		SharedStorageAddr: "shared storage addr",
+	}
+
+	c.Assert(config.values, gc.DeepEquals, expected)
+}
+
+func (s *format116Suite) TestMigrateOnlySetsExisting(c *gc.C) {
+	defer testing.PatchEnvironment(osenv.JujuProviderType, "provider type")()
+
+	config := s.newConfig(c)
+	s.formatter.migrate(config)
+
+	expected := map[string]string{
+		ProviderType: "provider type",
+	}
+
+	c.Assert(config.values, gc.DeepEquals, expected)
 }
