@@ -119,8 +119,8 @@ start jujud-machine-0
 	}, {
 		// raring state server
 		cfg: cloudinit.MachineConfig{
-			MachineId:          "0",
-			AuthorizedKeys:     "sshkey1",
+			MachineId:        "0",
+			AuthorizedKeys:   "sshkey1",
 			AgentEnvironment: map[string]string{agent.ProviderType: "dummy"},
 			// raring provides mongo in the archive
 			Tools:           newSimpleTools("1.2.3-raring-amd64"),
@@ -220,7 +220,7 @@ start jujud-machine-99
 			MachineId:            "2/lxc/1",
 			MachineContainerType: "lxc",
 			AuthorizedKeys:       "sshkey1",
-			AgentEnvironment:   map[string]string{agent.ProviderType: "dummy"},
+			AgentEnvironment:     map[string]string{agent.ProviderType: "dummy"},
 			DataDir:              environs.DataDir,
 			StateServer:          false,
 			Tools:                newSimpleTools("1.2.3-linux-amd64"),
