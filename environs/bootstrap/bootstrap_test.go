@@ -5,6 +5,7 @@ package bootstrap_test
 
 import (
 	"fmt"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -26,6 +27,10 @@ const (
 type bootstrapSuite struct {
 	home *testing.FakeHome
 	testing.LoggingSuite
+}
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
