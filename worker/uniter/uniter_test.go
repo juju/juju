@@ -29,6 +29,7 @@ import (
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/juju/testing"
 	"launchpad.net/juju-core/state"
+	"launchpad.net/juju-core/provider/dummy"
 	"launchpad.net/juju-core/state/api/params"
 	coretesting "launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/testing/checkers"
@@ -1044,15 +1045,11 @@ func (serveCharm) step(c *gc.C, ctx *context) {
 type createServiceAndUnit struct{}
 
 func (createServiceAndUnit) step(c *gc.C, ctx *context) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "testenv",
-		"type":            "dummy",
-		"default-series":  "abominable",
-		"agent-version":   "1.2.3",
-		"authorized-keys": "we-are-the-keys",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  "",
-	})
+	attrs := dummy.SampleConfig.Delete("admin-secret").Merge(
+		coretesting.Attrs{
+			"agent-version": "1.2.3",
+		})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	err = ctx.st.SetEnvironConfig(cfg)
 	c.Assert(err, gc.IsNil)
