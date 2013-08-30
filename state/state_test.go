@@ -366,7 +366,7 @@ func (s *StateSuite) TestInjectMachine(c *gc.C) {
 	c.Assert(*characteristics, gc.DeepEquals, params.HardwareCharacteristics)
 
 	// Make sure the bootstrap nonce value is set.
-	c.Assert(m.CheckProvisioned(state.BootstrapNonce), gc.Equals, true)
+	c.Assert(m.CheckProvisioned(params.Nonce), gc.Equals, true)
 }
 
 func (s *StateSuite) TestAddContainerToInjectedMachine(c *gc.C) {

@@ -38,6 +38,12 @@ func (*fakeNotifyWatcher) Stop() error {
 	return nil
 }
 
+func (*fakeNotifyWatcher) Kill() {}
+
+func (*fakeNotifyWatcher) Wait() error {
+	return nil
+}
+
 func (*fakeNotifyWatcher) Err() error {
 	return nil
 }
