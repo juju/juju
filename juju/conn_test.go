@@ -45,16 +45,7 @@ func (cs *NewConnSuite) TearDownTest(c *gc.C) {
 }
 
 func (*NewConnSuite) TestNewConnWithoutAdminSecret(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"secret":          "pork",
-		"admin-secret":    "really",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
-	})
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -108,16 +99,11 @@ func (*NewConnSuite) TestNewConnFromNameNotDefault(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"secret":          "pork",
-		"admin-secret":    "side-effect secret",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
+	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+		"admin-secret": "side-effect secret",
+		"secret": "pork",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -149,16 +135,10 @@ func (cs *NewConnSuite) TestConnStateSecretsSideEffect(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"secret":          "pork",
-		"admin-secret":    "some secret",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
+	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+		"secret": "pork",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -171,7 +151,7 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 	defer conn.Close()
 
 	// Make another env with a different secret.
-	attrs := env.Config().AllAttrs()
+	attrs = env.Config().AllAttrs()
 	attrs["secret"] = "squirrel"
 	env1, err := environs.NewFromAttrs(attrs)
 	c.Assert(err, gc.IsNil)
@@ -190,16 +170,10 @@ func (cs *NewConnSuite) TestConnStateDoesNotUpdateExistingSecrets(c *gc.C) {
 }
 
 func (cs *NewConnSuite) TestConnWithPassword(c *gc.C) {
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"secret":          "squirrel",
-		"admin-secret":    "nutkin",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
+	attrs := dummy.SampleConfig.Merge(coretesting.Attrs{
+		"admin-secret": "nutkin",
 	})
+	cfg, err := config.New(config.NoDefaults, attrs)
 	c.Assert(err, gc.IsNil)
 	env, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -250,15 +224,7 @@ var _ = gc.Suite(&ConnSuite{})
 func (s *ConnSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.MgoSuite.SetUpTest(c)
-	cfg, err := config.New(map[string]interface{}{
-		"name":            "erewhemos",
-		"type":            "dummy",
-		"state-server":    true,
-		"authorized-keys": "i-am-a-key",
-		"admin-secret":    "deploy-test-secret",
-		"ca-cert":         coretesting.CACert,
-		"ca-private-key":  coretesting.CAKey,
-	})
+	cfg, err := config.New(config.NoDefaults, dummy.SampleConfig)
 	c.Assert(err, gc.IsNil)
 	environ, err := environs.Prepare(cfg)
 	c.Assert(err, gc.IsNil)
@@ -297,7 +263,7 @@ func (s *ConnSuite) TearDownSuite(c *gc.C) {
 func (s *ConnSuite) TestNewConnFromState(c *gc.C) {
 	conn, err := juju.NewConnFromState(s.conn.State)
 	c.Assert(err, gc.IsNil)
-	c.Assert(conn.Environ.Name(), gc.Equals, "erewhemos")
+	c.Assert(conn.Environ.Name(), gc.Equals, dummy.SampleConfig["name"])
 }
 
 func (s *ConnSuite) TestPutCharmBasic(c *gc.C) {
