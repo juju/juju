@@ -75,7 +75,7 @@ func (env *maasEnviron) Bootstrap(cons constraints.Value, possibleTools tools.Li
 
 // StateInfo is specified in the Environ interface.
 func (env *maasEnviron) StateInfo() (*state.Info, *api.Info, error) {
-	return environs.StateInfo(env)
+	return provider.StateInfo(env)
 }
 
 // ecfg returns the environment's maasEnvironConfig, and protects it with a
@@ -201,11 +201,7 @@ func (environ *maasEnviron) startNode(node gomaasapi.MAASObject, series string, 
 // createBridgeNetwork returns a string representing the upstart command to
 // create a bridged eth0.
 func createBridgeNetwork() string {
-	return `cat > /etc/network/interfaces << EOF
-auto lo
-iface lo inet loopback
-
-auto eth0
+	return `cat > /etc/network/eth0.config << EOF
 iface eth0 inet manual
 
 auto br0
@@ -213,6 +209,12 @@ iface br0 inet dhcp
   bridge_ports eth0
 EOF
 `
+}
+
+// linkBridgeInInterfaces adds the file created by createBridgeNetwork to the
+// interfaces file.
+func linkBridgeInInterfaces() string {
+	return `sed -i "s/iface eth0 inet dhcp/source \/etc\/network\/eth0.config/" /etc/network/interfaces`
 }
 
 // StartInstance is specified in the InstanceBroker interface.
@@ -247,12 +249,15 @@ func (environ *maasEnviron) StartInstance(cons constraints.Value, possibleTools 
 	if err := environs.FinishMachineConfig(machineConfig, environ.Config(), cons); err != nil {
 		return nil, nil, err
 	}
+	// TODO(thumper): 2013-08-28 bug 1217614
+	// The machine envronment config values are being moved to the agent config.
 	// Explicitly specify that the lxc containers use the network bridge defined above.
 	machineConfig.MachineEnvironment[osenv.JujuLxcBridge] = "br0"
 	userdata, err := environs.ComposeUserData(
 		machineConfig,
 		runCmd,
 		createBridgeNetwork(),
+		linkBridgeInInterfaces(),
 		"service networking restart",
 	)
 	if err != nil {

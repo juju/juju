@@ -222,3 +222,55 @@ func (s *upgraderSuite) TestSetTools(c *gc.C) {
 	c.Check(realTools.Version.Build, gc.Equals, cur.Build)
 	c.Check(realTools.URL, gc.Equals, "")
 }
+
+func (s *upgraderSuite) TestDesiredVersionNothing(c *gc.C) {
+	// Not an error to watch nothing
+	results, err := s.upgrader.DesiredVersion(params.Entities{})
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 0)
+}
+
+func (s *upgraderSuite) TestDesiredVersionRefusesWrongAgent(c *gc.C) {
+	anAuthorizer := s.authorizer
+	anAuthorizer.Tag = "machine-12354"
+	anUpgrader, err := upgrader.NewUpgraderAPI(s.State, s.resources, anAuthorizer)
+	c.Check(err, gc.IsNil)
+	args := params.Entities{
+		Entities: []params.Entity{{Tag: s.rawMachine.Tag()}},
+	}
+	results, err := anUpgrader.DesiredVersion(args)
+	// It is not an error to make the request, but the specific item is rejected
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	toolResult := results.Results[0]
+	c.Assert(toolResult.Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+}
+
+func (s *upgraderSuite) TestDesiredVersionNoticesMixedAgents(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{
+		{Tag: s.rawMachine.Tag()},
+		{Tag: "machine-12345"},
+	}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 2)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+
+	c.Assert(results.Results[1].Error, gc.DeepEquals, apiservertesting.ErrUnauthorized)
+	c.Assert(results.Results[1].Version, gc.IsNil)
+
+}
+
+func (s *upgraderSuite) TestDesiredVersionForAgent(c *gc.C) {
+	args := params.Entities{Entities: []params.Entity{{Tag: s.rawMachine.Tag()}}}
+	results, err := s.upgrader.DesiredVersion(args)
+	c.Assert(err, gc.IsNil)
+	c.Check(results.Results, gc.HasLen, 1)
+	c.Assert(results.Results[0].Error, gc.IsNil)
+	agentVersion := results.Results[0].Version
+	c.Assert(agentVersion, gc.NotNil)
+	c.Check(*agentVersion, gc.DeepEquals, version.Current.Number)
+}

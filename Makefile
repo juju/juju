@@ -1,40 +1,82 @@
+#
 # Makefile for juju-core.
-PROJECT=launchpad.net/juju-core
+#
 
-# Default target.  Compile, just to see if it will.
+ifndef GOPATH
+$(warning You need to set up a GOPATH.  See the README file.)
+endif
+
+PROJECT := launchpad.net/juju-core
+PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
+
+define DEPENDENCIES
+  build-essential
+  bzr
+  distro-info-data
+  git-core
+  golang
+  mercurial
+  mongodb-server
+  zip
+endef
+
+default: build
+
+# Start of GOPATH-dependent targets. Some targets only make sense -
+# and will only work - when this tree is found on the GOPATH.
+ifeq ($(CURDIR),$(PROJECT_DIR))
+
 build:
 	go build $(PROJECT)/...
 
-# Run tests.
 check:
 	go test $(PROJECT)/...
 
-# Reformat the source files.
-format:
-	go fmt $(PROJECT)/...
-
-# Install juju into $GOPATH/bin.
 install:
 	go install -v $(PROJECT)/...
 
-# Install packages required to develop Juju and run tests.
-install-dependencies:
-	@echo Adding juju PPAs for golang and mongodb-server
-	@sudo apt-add-repository ppa:juju/golang
-	# The stable PPA includes the required mongodb-server binaries.
-	@sudo apt-add-repository ppa:juju/stable
-	@sudo apt-get update
-	@echo Installing dependencies
-	@sudo apt-get install golang mongodb-server build-essential bzr \
-		zip git-core mercurial distro-info-data
-	@if [ -z "$(GOPATH)" ]; then \
-		echo; \
-		echo "You need to set up a GOPATH.  See the README file."; \
-	fi
+clean:
+	go clean $(PROJECT)/...
 
-# Invoke gofmt's "simplify" option to streamline the source code.
+else # --------------------------------
+
+build:
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
+
+check:
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
+
+install:
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
+
+clean:
+	$(error Cannot $@; $(CURDIR) is not on GOPATH)
+
+endif
+# End of GOPATH-dependent targets.
+
+# Reformat source files.
+format:
+	gofmt -w -l .
+
+# Reformat and simplify source files.
 simplify:
-	find "$(GOPATH)/src/$(PROJECT)/" -name \*.go | xargs gofmt -w -s
+	gofmt -w -l -s .
+
+# Install packages required to develop Juju and run tests. The stable
+# PPA includes the required mongodb-server binaries. However, neither
+# PPA works on Saucy just yet.
+install-dependencies:
+ifneq ($(shell lsb_release -cs),saucy)
+	@echo Adding juju PPAs for golang and mongodb-server
+	@sudo apt-add-repository --yes ppa:juju/golang
+	@sudo apt-add-repository --yes ppa:juju/stable
+	@sudo apt-get update
+endif
+	@echo Installing dependencies
+	@sudo apt-get --yes install $(strip $(DEPENDENCIES))
 
 
-.PHONY: build check format install-dependencies simplify
+.PHONY: build check install
+.PHONY: clean format simplify
+.PHONY: install-dependencies

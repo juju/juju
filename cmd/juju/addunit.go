@@ -11,8 +11,6 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"launchpad.net/juju-core/state/api/params"
-	"launchpad.net/juju-core/state/statecmd"
 )
 
 // UnitCommandBase provides support for commands which deploy units. It handles the parsing
@@ -86,19 +84,14 @@ func (c *AddUnitCommand) Init(args []string) error {
 }
 
 // Run connects to the environment specified on the command line
-// and calls conn.AddUnits.
+// and calls AddServiceUnits for the given service.
 func (c *AddUnitCommand) Run(_ *cmd.Context) error {
-	conn, err := juju.NewConnFromName(c.EnvName)
+	apiclient, err := juju.NewAPIClientFromName(c.EnvName)
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
+	defer apiclient.Close()
 
-	params := params.AddServiceUnits{
-		ServiceName:   c.ServiceName,
-		NumUnits:      c.NumUnits,
-		ToMachineSpec: c.ToMachineSpec,
-	}
-	_, err = statecmd.AddServiceUnits(conn.State, params)
+	_, err = apiclient.AddServiceUnits(c.ServiceName, c.NumUnits, c.ToMachineSpec)
 	return err
 }

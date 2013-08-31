@@ -325,8 +325,8 @@ func (s *MachineSuite) TestUpgrade(c *gc.C) {
 }
 
 var fastDialOpts = api.DialOpts{
-	Timeout:    1 * time.Second,
-	RetryDelay: 10 * time.Millisecond,
+	Timeout:    testing.LongWait,
+	RetryDelay: testing.ShortWait,
 }
 
 func (s *MachineSuite) assertJobWithState(c *gc.C, job state.MachineJob, test func(agent.Config, *state.State)) {

@@ -49,3 +49,18 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 func (c *APIConn) Close() error {
 	return c.State.Close()
 }
+
+// NewAPIClientFromName returns an api.Client connected to the API Server for
+// the environName environment. If environName is "" the default environment
+// will be used.
+func NewAPIClientFromName(environName string) (*api.Client, error) {
+	environ, err := environs.NewFromName(environName)
+	if err != nil {
+		return nil, err
+	}
+	apiconn, err := NewAPIConn(environ, api.DefaultDialOpts())
+	if err != nil {
+		return nil, err
+	}
+	return apiconn.State.Client(), nil
+}
