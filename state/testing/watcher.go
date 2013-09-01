@@ -51,9 +51,8 @@ type NotifyWatcher interface {
 // the behaviour of any watcher that uses a <-chan struct{}.
 type NotifyWatcherC struct {
 	*C
-	State    *state.State
-	Watcher  NotifyWatcher
-	FullSync bool
+	State   *state.State
+	Watcher NotifyWatcher
 }
 
 // NewNotifyWatcherC returns a NotifyWatcherC that checks for aggressive
@@ -63,18 +62,6 @@ func NewNotifyWatcherC(c *C, st *state.State, w NotifyWatcher) NotifyWatcherC {
 		C:       c,
 		State:   st,
 		Watcher: w,
-	}
-}
-
-// NewLaxNotifyWatcherC returns a NotifyWatcherC that runs a full watcher
-// sync before reading from the watcher's Changes channel, and hence cannot
-// verify real-world coalescence behaviour.
-func NewLaxNotifyWatcherC(c *C, st *state.State, w NotifyWatcher) NotifyWatcherC {
-	return NotifyWatcherC{
-		C:        c,
-		State:    st,
-		Watcher:  w,
-		FullSync: true,
 	}
 }
 
@@ -88,11 +75,7 @@ func (c NotifyWatcherC) AssertNoChange() {
 }
 
 func (c NotifyWatcherC) AssertOneChange() {
-	if c.FullSync {
-		c.State.Sync()
-	} else {
-		c.State.StartSync()
-	}
+	c.State.StartSync()
 	select {
 	case _, ok := <-c.Watcher.Changes():
 		c.Assert(ok, Equals, true)
@@ -115,9 +98,8 @@ func (c NotifyWatcherC) AssertClosed() {
 // the behaviour of any watcher that uses a <-chan []string.
 type StringsWatcherC struct {
 	*C
-	State    *state.State
-	Watcher  StringsWatcher
-	FullSync bool
+	State   *state.State
+	Watcher StringsWatcher
 }
 
 // NewStringsWatcherC returns a StringsWatcherC that checks for aggressive
@@ -127,18 +109,6 @@ func NewStringsWatcherC(c *C, st *state.State, w StringsWatcher) StringsWatcherC
 		C:       c,
 		State:   st,
 		Watcher: w,
-	}
-}
-
-// NewLaxStringsWatcherC returns a StringsWatcherC that runs a full watcher
-// sync before reading from the watcher's Changes channel, and hence cannot
-// verify real-world coalescence behaviour.
-func NewLaxStringsWatcherC(c *C, st *state.State, w StringsWatcher) StringsWatcherC {
-	return StringsWatcherC{
-		C:        c,
-		State:    st,
-		Watcher:  w,
-		FullSync: true,
 	}
 }
 
@@ -156,14 +126,18 @@ func (c StringsWatcherC) AssertNoChange() {
 	}
 }
 
+func (c StringsWatcherC) AssertChange(expect ...string) {
+	c.assertChange(false, expect...)
+}
+
+func (c StringsWatcherC) AssertChangeInSingleEvent(expect ...string) {
+	c.assertChange(true, expect...)
+}
+
 // AssertChange asserts the given list of changes was reported by
 // the watcher, but does not assume there are no following changes.
-func (c StringsWatcherC) AssertChange(expect ...string) {
-	if c.FullSync {
-		c.State.Sync()
-	} else {
-		c.State.StartSync()
-	}
+func (c StringsWatcherC) assertChange(single bool, expect ...string) {
+	c.State.StartSync()
 	timeout := time.After(testing.LongWait)
 	var actual []string
 loop:
@@ -172,7 +146,7 @@ loop:
 		case changes, ok := <-c.Watcher.Changes():
 			c.Assert(ok, Equals, true)
 			actual = append(actual, changes...)
-			if len(actual) >= len(expect) {
+			if single || len(actual) >= len(expect) {
 				break loop
 			}
 		case <-timeout:

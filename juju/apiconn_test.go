@@ -4,12 +4,14 @@
 package juju_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/environs/dummy"
+	"launchpad.net/juju-core/environs/bootstrap"
+	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/juju"
+	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
 )
 
@@ -17,15 +19,15 @@ type NewAPIConnSuite struct {
 	coretesting.LoggingSuite
 }
 
-var _ = Suite(&NewAPIConnSuite{})
+var _ = gc.Suite(&NewAPIConnSuite{})
 
-func (cs *NewAPIConnSuite) TearDownTest(c *C) {
+func (cs *NewAPIConnSuite) TearDownTest(c *gc.C) {
 	dummy.Reset()
 	cs.LoggingSuite.TearDownTest(c)
 }
 
-func (*NewAPIConnSuite) TestNewConn(c *C) {
-	attrs := map[string]interface{}{
+func (*NewAPIConnSuite) TestNewConn(c *gc.C) {
+	cfg, err := config.New(map[string]interface{}{
 		"name":            "erewhemos",
 		"type":            "dummy",
 		"state-server":    true,
@@ -34,17 +36,40 @@ func (*NewAPIConnSuite) TestNewConn(c *C) {
 		"admin-secret":    "really",
 		"ca-cert":         coretesting.CACert,
 		"ca-private-key":  coretesting.CAKey,
-	}
-	env, err := environs.NewFromAttrs(attrs)
-	c.Assert(err, IsNil)
-	err = environs.Bootstrap(env, constraints.Value{})
-	c.Assert(err, IsNil)
+	})
+	c.Assert(err, gc.IsNil)
+	env, err := environs.Prepare(cfg)
+	c.Assert(err, gc.IsNil)
+	err = bootstrap.Bootstrap(env, constraints.Value{})
+	c.Assert(err, gc.IsNil)
 
 	conn, err := juju.NewConn(env)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(conn.Environ, Equals, env)
-	c.Assert(conn.State, NotNil)
+	c.Assert(conn.Environ, gc.Equals, env)
+	c.Assert(conn.State, gc.NotNil)
 
-	c.Assert(conn.Close(), IsNil)
+	c.Assert(conn.Close(), gc.IsNil)
+}
+
+func (*NewAPIConnSuite) TestNewAPIConnFromNameDefault(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", we should get it if we ask for ""
+	defaultEnvName := "erewhemos"
+	bootstrapEnv(c, defaultEnvName)
+	apiconn, err := juju.NewAPIConnFromName("")
+	c.Assert(err, gc.IsNil)
+	defer apiconn.Close()
+	c.Assert(apiconn.Environ.Name(), gc.Equals, defaultEnvName)
+}
+
+func (*NewAPIConnSuite) TestNewAPIConnFromNameNotDefault(c *gc.C) {
+	defer coretesting.MakeMultipleEnvHome(c).Restore()
+	// The default environment is "erewhemos", make sure we get the other one.
+	const envName = "erewhemos-2"
+	bootstrapEnv(c, envName)
+	apiconn, err := juju.NewAPIConnFromName(envName)
+	c.Assert(err, gc.IsNil)
+	defer apiconn.Close()
+	c.Assert(apiconn.Environ.Name(), gc.Equals, envName)
 }

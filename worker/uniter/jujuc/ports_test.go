@@ -4,7 +4,7 @@
 package jujuc_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils/set"
@@ -15,7 +15,7 @@ type PortsSuite struct {
 	ContextSuite
 }
 
-var _ = Suite(&PortsSuite{})
+var _ = gc.Suite(&PortsSuite{})
 
 var portsTests = []struct {
 	cmd    []string
@@ -28,17 +28,17 @@ var portsTests = []struct {
 	{[]string{"close-port", "9999/UDP"}, set.NewStrings("99/tcp", "123/udp")},
 }
 
-func (s *PortsSuite) TestOpenClose(c *C) {
+func (s *PortsSuite) TestOpenClose(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsTests {
 		com, err := jujuc.NewCommand(hctx, t.cmd[0])
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
-		c.Assert(code, Equals, 0)
-		c.Assert(bufferString(ctx.Stdout), Equals, "")
-		c.Assert(bufferString(ctx.Stderr), Equals, "")
-		c.Assert(hctx.ports, DeepEquals, t.expect)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(bufferString(ctx.Stdout), gc.Equals, "")
+		c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
+		c.Assert(hctx.ports, gc.DeepEquals, t.expect)
 	}
 }
 
@@ -55,24 +55,24 @@ var badPortsTests = []struct {
 	{[]string{"123", "haha"}, `unrecognized args: \["haha"\]`},
 }
 
-func (s *PortsSuite) TestBadArgs(c *C) {
+func (s *PortsSuite) TestBadArgs(c *gc.C) {
 	for _, name := range []string{"open-port", "close-port"} {
 		for _, t := range badPortsTests {
 			hctx := s.GetHookContext(c, -1, "")
 			com, err := jujuc.NewCommand(hctx, name)
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 			err = testing.InitCommand(com, t.args)
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 		}
 	}
 }
 
-func (s *PortsSuite) TestHelp(c *C) {
+func (s *PortsSuite) TestHelp(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	open, err := jujuc.NewCommand(hctx, "open-port")
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	flags := testing.NewFlagSet()
-	c.Assert(string(open.Info().Help(flags)), Equals, `
+	c.Assert(string(open.Info().Help(flags)), gc.Equals, `
 usage: open-port <port>[/<protocol>]
 purpose: register a port to open
 
@@ -80,8 +80,8 @@ The port will only be open while the service is exposed.
 `[1:])
 
 	close, err := jujuc.NewCommand(hctx, "close-port")
-	c.Assert(err, IsNil)
-	c.Assert(string(close.Info().Help(flags)), Equals, `
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(close.Info().Help(flags)), gc.Equals, `
 usage: close-port <port>[/<protocol>]
 purpose: ensure a port is always closed
 `[1:])
@@ -96,16 +96,16 @@ var portsFormatDeprectaionTests = []struct {
 	{[]string{"close-port", "--format", "foo", "80/TCP"}},
 }
 
-func (s *PortsSuite) TestOpenCloseDeprecation(c *C) {
+func (s *PortsSuite) TestOpenCloseDeprecation(c *gc.C) {
 	hctx := s.GetHookContext(c, -1, "")
 	for _, t := range portsFormatDeprectaionTests {
 		name := t.cmd[0]
 		com, err := jujuc.NewCommand(hctx, name)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		ctx := testing.Context(c)
 		code := cmd.Main(com, ctx, t.cmd[1:])
-		c.Assert(code, Equals, 0)
-		c.Assert(testing.Stdout(ctx), Equals, "")
-		c.Assert(testing.Stderr(ctx), Equals, "--format flag deprecated for command \""+name+"\"")
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(testing.Stdout(ctx), gc.Equals, "")
+		c.Assert(testing.Stderr(ctx), gc.Equals, "--format flag deprecated for command \""+name+"\"")
 	}
 }

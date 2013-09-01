@@ -53,7 +53,7 @@ hg-checkout https://code.google.com/p/go.net tip code.google.com/p/go.net
 hg-checkout https://code.google.com/p/go.crypto tip code.google.com/p/go.crypto
 
 bzr-checkout lp:~gophers/gnuflag/trunk -1 launchpad.net/gnuflag
-bzr-checkout lp:~gophers/goamz/trunk -1 launchpad.net/goamz
+bzr-checkout lp:goamz -1 launchpad.net/goamz
 bzr-checkout lp:gocheck -1 launchpad.net/gocheck
 bzr-checkout lp:golxc -1 launchpad.net/golxc
 bzr-checkout lp:gomaasapi -1 launchpad.net/gomaasapi
@@ -69,8 +69,8 @@ bzr-checkout lp:tomb -1 launchpad.net/tomb
 GOPATH=$WORK go build -v launchpad.net/juju-core/...
 
 # tar it up
-TARFILE=$WORK/juju-core_${VERSION}.tar.gz
+TARFILE=`pwd`/juju-core_${VERSION}.tar.gz
 cd $WORK/..
-tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr .
+tar cfz $TARFILE --exclude .hg --exclude .git --exclude .bzr juju-core_${VERSION}
 
 echo "release tarball: ${TARFILE}"

@@ -11,13 +11,13 @@ import (
 	"labix.org/v2/mgo"
 	"labix.org/v2/mgo/txn"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/presence"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 )
 
@@ -67,6 +67,7 @@ type machineDoc struct {
 	Jobs          []MachineJob
 	PasswordHash  string
 	Clean         bool
+	Addresses     []address
 	// Deprecated. InstanceId, now lives on instanceData.
 	// This attribute is retained so that data from existing machines can be read.
 	// SCHEMACHANGE
@@ -118,6 +119,7 @@ type instanceData struct {
 	InstanceId instance.Id `bson:"instanceid"`
 	Arch       *string     `bson:"arch,omitempty"`
 	Mem        *uint64     `bson:"mem,omitempty"`
+	RootDisk   *uint64     `bson:"rootdisk,omitempty"`
 	CpuCores   *uint64     `bson:"cpucores,omitempty"`
 	CpuPower   *uint64     `bson:"cpupower,omitempty"`
 	TxnRevno   int64       `bson:"txn-revno"`
@@ -132,6 +134,7 @@ func (m *Machine) HardwareCharacteristics() (*instance.HardwareCharacteristics, 
 	}
 	hc.Arch = instData.Arch
 	hc.Mem = instData.Mem
+	hc.RootDisk = instData.RootDisk
 	hc.CpuCores = instData.CpuCores
 	hc.CpuPower = instData.CpuPower
 	return hc, nil
@@ -164,6 +167,16 @@ func (m *Machine) Life() Life {
 // Jobs returns the responsibilities that must be fulfilled by m's agent.
 func (m *Machine) Jobs() []MachineJob {
 	return m.doc.Jobs
+}
+
+// IsStateServer returns true if the machine has a JobManageState job.
+func (m *Machine) IsStateServer() bool {
+	for _, job := range m.doc.Jobs {
+		if job == JobManageState {
+			return true
+		}
+	}
+	return false
 }
 
 // AgentTools returns the tools that the agent is currently running.
@@ -535,6 +548,7 @@ func (m *Machine) SetProvisioned(id instance.Id, nonce string, characteristics *
 		InstanceId: id,
 		Arch:       characteristics.Arch,
 		Mem:        characteristics.Mem,
+		RootDisk:   characteristics.RootDisk,
 		CpuCores:   characteristics.CpuCores,
 		CpuPower:   characteristics.CpuPower,
 	}
@@ -583,6 +597,37 @@ func IsNotProvisionedError(err error) bool {
 		return true
 	}
 	return false
+}
+
+// Addresses returns any hostnames and ips associated with a machine
+func (m *Machine) Addresses() (addresses []instance.Address) {
+	for _, address := range m.doc.Addresses {
+		addresses = append(addresses, address.InstanceAddress())
+	}
+	return
+}
+
+// SetAddresses records any addresses related to the machine
+func (m *Machine) SetAddresses(addresses []instance.Address) (err error) {
+	var stateAddresses []address
+	for _, address := range addresses {
+		stateAddresses = append(stateAddresses, NewAddress(address))
+	}
+
+	ops := []txn.Op{
+		{
+			C:      m.st.machines.Name,
+			Id:     m.doc.Id,
+			Assert: notDeadDoc,
+			Update: D{{"$set", D{{"addresses", stateAddresses}}}},
+		},
+	}
+
+	if err = m.st.runTransaction(ops); err != nil {
+		return fmt.Errorf("cannot set addresses of machine %v: %v", m, onAbort(err, errDead))
+	}
+	m.doc.Addresses = stateAddresses
+	return nil
 }
 
 func (e *NotProvisionedError) Error() string {

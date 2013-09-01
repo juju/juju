@@ -5,6 +5,7 @@ package main
 
 import (
 	"errors"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
@@ -13,7 +14,7 @@ import (
 
 // UnexposeCommand is responsible exposing services.
 type UnexposeCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 }
 

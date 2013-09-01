@@ -4,13 +4,13 @@
 package instance_test
 
 import (
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/instance"
 )
 
 type HardwareSuite struct{}
 
-var _ = Suite(&HardwareSuite{})
+var _ = gc.Suite(&HardwareSuite{})
 
 var parseHardwareTests = []struct {
 	summary string
@@ -172,28 +172,72 @@ var parseHardwareTests = []struct {
 		err:     `bad "mem" characteristic: already set`,
 	},
 
+	// "root-disk" in detail.
+	{
+		summary: "set root-disk empty",
+		args:    []string{"root-disk="},
+	}, {
+		summary: "set root-disk zero",
+		args:    []string{"root-disk=0"},
+	}, {
+		summary: "set root-disk without suffix",
+		args:    []string{"root-disk=512"},
+	}, {
+		summary: "set root-disk with M suffix",
+		args:    []string{"root-disk=512M"},
+	}, {
+		summary: "set root-disk with G suffix",
+		args:    []string{"root-disk=1.5G"},
+	}, {
+		summary: "set root-disk with T suffix",
+		args:    []string{"root-disk=36.2T"},
+	}, {
+		summary: "set root-disk with P suffix",
+		args:    []string{"root-disk=18.9P"},
+	}, {
+		summary: "set nonsense root-disk 1",
+		args:    []string{"root-disk=cheese"},
+		err:     `bad "root-disk" characteristic: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense root-disk 2",
+		args:    []string{"root-disk=-1"},
+		err:     `bad "root-disk" characteristic: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "set nonsense root-disk 3",
+		args:    []string{"root-disk=32Y"},
+		err:     `bad "root-disk" characteristic: must be a non-negative float with optional M/G/T/P suffix`,
+	}, {
+		summary: "double set root-disk together",
+		args:    []string{"root-disk=1G  root-disk=2G"},
+		err:     `bad "root-disk" characteristic: already set`,
+	}, {
+		summary: "double set root-disk separately",
+		args:    []string{"root-disk=1G", "root-disk=2G"},
+		err:     `bad "root-disk" characteristic: already set`,
+	},
+
 	// Everything at once.
 	{
 		summary: "kitchen sink together",
-		args:    []string{" mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
+		args:    []string{" root-disk=4G mem=2T  arch=i386  cpu-cores=4096 cpu-power=9001"},
 	}, {
 		summary: "kitchen sink separately",
-		args:    []string{"mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
+		args:    []string{"root-disk=4G", "mem=2T", "cpu-cores=4096", "cpu-power=9001", "arch=arm"},
 	},
 }
 
-func (s *HardwareSuite) TestParseHardware(c *C) {
+func (s *HardwareSuite) TestParseHardware(c *gc.C) {
 	for i, t := range parseHardwareTests {
 		c.Logf("test %d: %s", i, t.summary)
 		hwc, err := instance.ParseHardware(t.args...)
 		if t.err == "" {
-			c.Assert(err, IsNil)
+			c.Assert(err, gc.IsNil)
 		} else {
-			c.Assert(err, ErrorMatches, t.err)
+			c.Assert(err, gc.ErrorMatches, t.err)
 			continue
 		}
 		cons1, err := instance.ParseHardware(hwc.String())
-		c.Assert(err, IsNil)
-		c.Assert(cons1, DeepEquals, hwc)
+		c.Assert(err, gc.IsNil)
+		c.Assert(cons1, gc.DeepEquals, hwc)
 	}
 }

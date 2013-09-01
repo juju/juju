@@ -5,18 +5,20 @@ package main
 
 import (
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/bzr"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/log"
-	"os"
-	"strings"
-	"time"
 )
 
 type PublishCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	URL       string
 	CharmPath string
 

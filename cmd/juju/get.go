@@ -7,6 +7,7 @@ import (
 	"errors"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
@@ -15,7 +16,7 @@ import (
 
 // GetCommand retrieves the configuration of a service.
 type GetCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName string
 	out         cmd.Output
 }

@@ -9,18 +9,25 @@ import (
 	"strings"
 
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 )
 
-// SetCommand updates the configuration of a service
+// SetCommand updates the configuration of a service.
 type SetCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	ServiceName     string
 	SettingsStrings map[string]string
 	SettingsYAML    cmd.FileVar
 }
+
+const setDoc = `
+Set one or more configuration options for the specified service. See also
+the unset command to set one or more configuration options for a specified
+service to their default.
+`
 
 func (c *SetCommand) Info() *cmd.Info {
 	return &cmd.Info{

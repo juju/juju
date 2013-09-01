@@ -23,14 +23,11 @@ type API struct {
 // with the given authorizer representing the currently logged in client.
 func NewAPI(st *state.State, auth common.Authorizer) (*API, error) {
 	// Agents are defined to be any user that's not a client user.
-	if auth.AuthClient() {
+	if !auth.AuthMachineAgent() && !auth.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	getCanChange := func() (common.AuthFunc, error) {
-		// TODO(go1.1): method expression
-		return func(tag string) bool {
-			return auth.AuthOwner(tag)
-		}, nil
+		return auth.AuthOwner, nil
 	}
 	return &API{
 		PasswordChanger: common.NewPasswordChanger(st, getCanChange),
@@ -59,8 +56,13 @@ func (api *API) getEntity(tag string) (result params.AgentGetEntitiesResult, err
 		err = common.ErrPerm
 		return
 	}
-	entity, err := api.st.Lifer(tag)
+	entity0, err := api.st.FindEntity(tag)
 	if err != nil {
+		return
+	}
+	entity, ok := entity0.(state.Lifer)
+	if !ok {
+		err = common.NotSupportedError(tag, "life cycles")
 		return
 	}
 	result.Life = params.Life(entity.Life().String())

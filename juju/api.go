@@ -49,3 +49,13 @@ func NewAPIConn(environ environs.Environ, dialOpts api.DialOpts) (*APIConn, erro
 func (c *APIConn) Close() error {
 	return c.State.Close()
 }
+
+// NewAPIConnFromName returns an APIConn pointing at the environName
+// environment, or the default environment if not specified.
+func NewAPIConnFromName(environName string) (*APIConn, error) {
+	environ, err := environs.NewFromName(environName)
+	if err != nil {
+		return nil, err
+	}
+	return NewAPIConn(environ, api.DefaultDialOpts())
+}

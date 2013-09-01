@@ -111,6 +111,13 @@ func (c *Client) ServiceDeploy(charmUrl string, serviceName string, numUnits int
 	return c.st.Call("Client", "", "ServiceDeploy", params, nil)
 }
 
+// ServiceUpdate updates the service attributes, including charm URL,
+// minimum number of units, settings and constraints.
+// TODO(frankban) deprecate redundant API calls that this supercedes.
+func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
+	return c.st.Call("Client", "", "ServiceUpdate", args, nil)
+}
+
 // ServiceSetCharm sets the charm for a given service.
 func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool) error {
 	args := params.ServiceSetCharm{
@@ -122,10 +129,11 @@ func (c *Client) ServiceSetCharm(serviceName string, charmUrl string, force bool
 }
 
 // AddServiceUnits adds a given number of units to a service.
-func (c *Client) AddServiceUnits(service string, numUnits int) ([]string, error) {
+func (c *Client) AddServiceUnits(service string, numUnits int, machineSpec string) ([]string, error) {
 	args := params.AddServiceUnits{
-		ServiceName: service,
-		NumUnits:    numUnits,
+		ServiceName:   service,
+		NumUnits:      numUnits,
+		ToMachineSpec: machineSpec,
 	}
 	results := new(params.AddServiceUnitsResults)
 	err := c.st.Call("Client", "", "AddServiceUnits", args, results)

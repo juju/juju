@@ -5,20 +5,20 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"path/filepath"
 	"time"
 
 	"launchpad.net/gnuflag"
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/cmd"
-	localstorage "launchpad.net/juju-core/environs/local/storage"
-	"launchpad.net/juju-core/environs/provider"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
+	localstorage "launchpad.net/juju-core/provider/local/storage"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver"
@@ -27,8 +27,10 @@ import (
 	"launchpad.net/juju-core/worker/firewaller"
 	"launchpad.net/juju-core/worker/logger"
 	"launchpad.net/juju-core/worker/machiner"
+	"launchpad.net/juju-core/worker/minunitsworker"
 	"launchpad.net/juju-core/worker/provisioner"
 	"launchpad.net/juju-core/worker/resumer"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 const bootstrapMachineId = "0"
@@ -87,11 +89,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	if err := a.Conf.read(a.Tag()); err != nil {
 		return err
 	}
-	if err := EnsureWeHaveLXC(a.Conf.DataDir, a.Tag()); err != nil {
-		log.Errorf("we were unable to install the lxc package, unable to continue: %v", err)
-		return err
-	}
-	charm.CacheDir = filepath.Join(a.Conf.DataDir, "charmcache")
+	charm.CacheDir = filepath.Join(a.Conf.dataDir, "charmcache")
 
 	// ensureStateWorker ensures that there is a worker that
 	// connects to the state that runs within itself all the workers
@@ -102,10 +100,7 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 	// called many times - StartWorker does nothing if there is
 	// already a worker started with the given name.
 	ensureStateWorker := func() {
-		a.runner.StartWorker("state", func() (worker.Worker, error) {
-			// TODO(rog) go1.1: use method expression
-			return a.StateWorker()
-		})
+		a.runner.StartWorker("state", a.StateWorker)
 	}
 	if a.MachineId == bootstrapMachineId {
 		// If we're bootstrapping, we don't have an API
@@ -120,7 +115,6 @@ func (a *MachineAgent) Run(_ *cmd.Context) error {
 		ensureStateWorker()
 	}
 	a.runner.StartWorker("api", func() (worker.Worker, error) {
-		// TODO(rog) go1.1: use method expression
 		return a.APIWorker(ensureStateWorker)
 	})
 	err := agentDone(a.runner.Wait())
@@ -143,7 +137,7 @@ var stateJobs = map[params.MachineJob]bool{
 //
 // If a state worker is necessary, APIWorker calls ensureStateWorker.
 func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error) {
-	st, entity, err := openAPIState(a.Conf.Conf, a)
+	st, entity, err := openAPIState(a.Conf.config, a)
 	if err != nil {
 		// There was an error connecting to the API,
 		// https://launchpad.net/bugs/1199915 means that we may just
@@ -171,10 +165,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 	runner.StartWorker("machiner", func() (worker.Worker, error) {
 		return machiner.NewMachiner(st.Machiner(), a.Tag()), nil
 	})
+	runner.StartWorker("upgrader", func() (worker.Worker, error) {
+		// TODO(rog) use id instead of *Machine (or introduce Clone method)
+		return upgrader.New(st.Upgrader(), a.Tag(), a.Conf.dataDir), nil
+	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.DataDir)
+			deployerTask, err := newDeployer(st.Deployer(), a.Tag(), a.Conf.dataDir)
 			if err != nil {
 				return nil, err
 			}
@@ -194,31 +192,21 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 }
 
 // StateJobs returns a worker running all the workers that require
-// a *state.State connection.
+// a *state.State cofnnection.
 func (a *MachineAgent) StateWorker() (worker.Worker, error) {
-	st, entity, err := openState(a.Conf.Conf, a)
+	agentConfig := a.Conf.config
+	st, entity, err := openState(agentConfig, a)
 	if err != nil {
 		return nil, err
-	}
-	// If this fails, other bits will fail, so we just log the error, and
-	// let the other failures actually restart runners
-	if err := EnsureAPIInfo(a.Conf.Conf, st, entity); err != nil {
-		log.Warningf("failed to EnsureAPIInfo: %v", err)
 	}
 	reportOpenedState(st)
 	m := entity.(*state.Machine)
 	// TODO(rog) use more discriminating test for errors
 	// rather than taking everything down indiscriminately.
-	dataDir := a.Conf.DataDir
 	runner := worker.NewRunner(allFatal, moreImportant)
-	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		// TODO(rog) use id instead of *Machine (or introduce Clone method)
-		return NewUpgrader(st, m, dataDir), nil
-	})
 	runner.StartWorker("logger", func() (worker.Worker, error) {
 		return logger.NewLogger(st), nil
 	})
-
 	// At this stage, since we don't embed lxc containers, just start an lxc
 	// provisioner task for non-lxc containers.  Since we have only LXC
 	// containers and normal machines, this effectively means that we only
@@ -227,18 +215,18 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 	// containers, it is likely that we will want an LXC provisioner on a KVM
 	// machine, and once we get nested LXC containers, we can remove this
 	// check.
-	providerType := os.Getenv("JUJU_PROVIDER_TYPE")
+	providerType := agentConfig.Value(agent.ProviderType)
 	if providerType != provider.Local && m.ContainerType() != instance.LXC {
 		workerName := fmt.Sprintf("%s-provisioner", provisioner.LXC)
 		runner.StartWorker(workerName, func() (worker.Worker, error) {
-			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, dataDir), nil
+			return provisioner.NewProvisioner(provisioner.LXC, st, a.MachineId, agentConfig), nil
 		})
 	}
 	// Take advantage of special knowledge here in that we will only ever want
 	// the storage provider on one machine, and that is the "bootstrap" node.
 	if providerType == provider.Local && m.Id() == bootstrapMachineId {
 		runner.StartWorker("local-storage", func() (worker.Worker, error) {
-			return localstorage.NewWorker(), nil
+			return localstorage.NewWorker(agentConfig), nil
 		})
 	}
 	for _, job := range m.Jobs() {
@@ -247,7 +235,7 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 			// Implemented in APIWorker.
 		case state.JobManageEnviron:
 			runner.StartWorker("environ-provisioner", func() (worker.Worker, error) {
-				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, dataDir), nil
+				return provisioner.NewProvisioner(provisioner.ENVIRON, st, a.MachineId, agentConfig), nil
 			})
 			runner.StartWorker("firewaller", func() (worker.Worker, error) {
 				return firewaller.NewFirewaller(st), nil
@@ -260,10 +248,11 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// the agent's configuration file. In the future, we may retrieve
 				// the state server certificate and key from the state, and
 				// this should then change.
-				if len(a.Conf.StateServerCert) == 0 || len(a.Conf.StateServerKey) == 0 {
+				port, cert, key := a.Conf.config.APIServerDetails()
+				if len(cert) == 0 || len(key) == 0 {
 					return nil, &fatalError{"configuration does not have state server cert/key"}
 				}
-				return apiserver.NewServer(st, fmt.Sprintf(":%d", a.Conf.APIPort), a.Conf.StateServerCert, a.Conf.StateServerKey)
+				return apiserver.NewServer(st, fmt.Sprintf(":%d", port), cert, key)
 			})
 			runner.StartWorker("cleaner", func() (worker.Worker, error) {
 				return cleaner.NewCleaner(st), nil
@@ -273,6 +262,9 @@ func (a *MachineAgent) StateWorker() (worker.Worker, error) {
 				// because we can't figure out how to do so without brutalising
 				// the transaction log.
 				return resumer.NewResumer(st), nil
+			})
+			runner.StartWorker("minunitsworker", func() (worker.Worker, error) {
+				return minunitsworker.NewMinUnitsWorker(st), nil
 			})
 		default:
 			log.Warningf("ignoring unknown job %q", job)
@@ -287,7 +279,7 @@ func (a *MachineAgent) Entity(st *state.State) (AgentState, error) {
 		return nil, err
 	}
 	// Check the machine nonce as provisioned matches the agent.Conf value.
-	if !m.CheckProvisioned(a.Conf.MachineNonce) {
+	if !m.CheckProvisioned(a.Conf.config.Nonce()) {
 		// The agent is running on a different machine to the one it
 		// should be according to state. It must stop immediately.
 		log.Errorf("running machine %v agent on inappropriate instance", m)

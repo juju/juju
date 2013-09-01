@@ -33,6 +33,10 @@ type Watcher struct {
 	// omitted from this map and are considered to have revno -1.
 	current map[watchKey]int64
 
+	// needSync is set when a synchronization should take
+	// place.
+	needSync bool
+
 	// syncEvents and requestEvents contain the events to be
 	// dispatched to the watcher channels. They're queued during
 	// processing and flushed at the end to simplify the algorithm.
@@ -44,16 +48,8 @@ type Watcher struct {
 	// the the goroutine loop.
 	request chan interface{}
 
-	// syncDone contains pending done channels from sync requests.
-	syncDone []chan bool
-
 	// lastId is the most recent transaction id observed by a sync.
 	lastId interface{}
-
-	// next will dispatch when it's time to sync the database
-	// knowledge. It's maintained here so that Sync and StartSync
-	// can manipulate it to force a sync sooner.
-	next <-chan time.Time
 }
 
 // A Change holds information about a document change.
@@ -152,9 +148,7 @@ type reqUnwatch struct {
 	ch  chan<- Change
 }
 
-type reqSync struct {
-	done chan bool
-}
+type reqSync struct{}
 
 func (w *Watcher) sendReq(req interface{}) {
 	select {
@@ -205,18 +199,7 @@ func (w *Watcher) UnwatchCollection(collection string, ch chan<- Change) {
 
 // StartSync forces the watcher to load new events from the database.
 func (w *Watcher) StartSync() {
-	w.sendReq(reqSync{nil})
-}
-
-// Sync forces the watcher to load new events from the database and blocks
-// until all events have been dispatched.
-func (w *Watcher) Sync() {
-	done := make(chan bool)
-	w.sendReq(reqSync{done})
-	select {
-	case <-done:
-	case <-w.tomb.Dying():
-	}
+	w.sendReq(reqSync{})
 }
 
 // Period is the delay between each sync.
@@ -225,31 +208,30 @@ var Period time.Duration = 5 * time.Second
 
 // loop implements the main watcher loop.
 func (w *Watcher) loop() error {
-	w.next = time.After(0)
+	next := time.After(Period)
+	w.needSync = true
 	if err := w.initLastId(); err != nil {
 		return err
 	}
 	for {
-		select {
-		case <-w.tomb.Dying():
-			return tomb.ErrDying
-		case <-w.next:
-			w.next = time.After(Period)
-			syncDone := w.syncDone
-			w.syncDone = nil
+		if w.needSync {
 			if err := w.sync(); err != nil {
 				return err
 			}
 			w.flush()
-			for _, done := range syncDone {
-				close(done)
-			}
+			next = time.After(Period)
+		}
+		select {
+		case <-w.tomb.Dying():
+			return tomb.ErrDying
+		case <-next:
+			next = time.After(Period)
+			w.needSync = true
 		case req := <-w.request:
 			w.handle(req)
 			w.flush()
 		}
 	}
-	panic("not reached")
 }
 
 // flush sends all pending events to their respective channels.
@@ -295,10 +277,7 @@ func (w *Watcher) handle(req interface{}) {
 	debugf("state/watcher: got request: %#v", req)
 	switch r := req.(type) {
 	case reqSync:
-		w.next = time.After(0)
-		if r.done != nil {
-			w.syncDone = append(w.syncDone, r.done)
-		}
+		w.needSync = true
 	case reqWatch:
 		for _, info := range w.watches[r.key] {
 			if info.ch == r.info.ch {
@@ -364,6 +343,7 @@ func (w *Watcher) initLastId() error {
 // sync updates the watcher knowledge from the database, and
 // queues events to observing channels.
 func (w *Watcher) sync() error {
+	w.needSync = false
 	// Iterate through log events in reverse insertion order (newest first).
 	iter := w.log.Find(nil).Batch(10).Sort("-$natural").Iter()
 	seen := make(map[watchKey]bool)

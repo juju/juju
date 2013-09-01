@@ -10,7 +10,7 @@ import (
 
 // isMachineWithJob returns whether the given entity is a machine that
 // is configured to run the given job.
-func isMachineWithJob(e state.TaggedAuthenticator, j state.MachineJob) bool {
+func isMachineWithJob(e state.Authenticator, j state.MachineJob) bool {
 	m, ok := e.(*state.Machine)
 	if !ok {
 		return false
@@ -24,12 +24,12 @@ func isMachineWithJob(e state.TaggedAuthenticator, j state.MachineJob) bool {
 }
 
 // isAgent returns whether the given entity is an agent.
-func isAgent(e state.TaggedAuthenticator) bool {
+func isAgent(e state.Authenticator) bool {
 	_, isUser := e.(*state.User)
 	return !isUser
 }
 
-func setPassword(e state.TaggedAuthenticator, password string) error {
+func setPassword(e state.Authenticator, password string) error {
 	// Catch expected common case of mispelled
 	// or missing Password parameter.
 	if password == "" {

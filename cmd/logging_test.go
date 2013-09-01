@@ -7,7 +7,7 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/loggo"
 
 	"launchpad.net/juju-core/cmd"
@@ -19,85 +19,85 @@ type LogSuite struct {
 	restore func()
 }
 
-var _ = Suite(&LogSuite{})
+var _ = gc.Suite(&LogSuite{})
 
-func (s *LogSuite) SetUpTest(c *C) {
+func (s *LogSuite) SetUpTest(c *gc.C) {
 	s.restore = testing.PatchEnvironment("JUJU_LOGGING_CONFIG", "")
 }
 
-func (s *LogSuite) TearDownTest(c *C) {
+func (s *LogSuite) TearDownTest(c *gc.C) {
 	s.restore()
 }
 
-func (s *LogSuite) TestAddFlags(c *C) {
+func (s *LogSuite) TestAddFlags(c *gc.C) {
 	l := &cmd.Log{}
 	f := testing.NewFlagSet()
 	l.AddFlags(f)
 
 	err := f.Parse(false, []string{})
-	c.Assert(err, IsNil)
-	c.Assert(l.Path, Equals, "")
-	c.Assert(l.Verbose, Equals, false)
-	c.Assert(l.Debug, Equals, false)
-	c.Assert(l.Config, Equals, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(l.Path, gc.Equals, "")
+	c.Assert(l.Verbose, gc.Equals, false)
+	c.Assert(l.Debug, gc.Equals, false)
+	c.Assert(l.Config, gc.Equals, "")
 
 	err = f.Parse(false, []string{"--log-file", "foo", "--verbose", "--debug",
 		"--log-config=juju.cmd=INFO;juju.worker.deployer=DEBUG"})
-	c.Assert(err, IsNil)
-	c.Assert(l.Path, Equals, "foo")
-	c.Assert(l.Verbose, Equals, true)
-	c.Assert(l.Debug, Equals, true)
-	c.Assert(l.Config, Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
+	c.Assert(err, gc.IsNil)
+	c.Assert(l.Path, gc.Equals, "foo")
+	c.Assert(l.Verbose, gc.Equals, true)
+	c.Assert(l.Debug, gc.Equals, true)
+	c.Assert(l.Config, gc.Equals, "juju.cmd=INFO;juju.worker.deployer=DEBUG")
 }
 
-func (s *LogSuite) TestVerboseSetsLogLevel(c *C) {
+func (s *LogSuite) TestVerboseSetsLogLevel(c *gc.C) {
 	l := &cmd.Log{Verbose: true}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(loggo.GetLogger("").LogLevel(), Equals, loggo.INFO)
+	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.INFO)
 }
 
-func (s *LogSuite) TestDebugSetsLogLevel(c *C) {
+func (s *LogSuite) TestDebugSetsLogLevel(c *gc.C) {
 	l := &cmd.Log{Debug: true}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
-	c.Assert(loggo.GetLogger("").LogLevel(), Equals, loggo.DEBUG)
+	c.Assert(loggo.GetLogger("").LogLevel(), gc.Equals, loggo.DEBUG)
 }
 
-func (s *LogSuite) TestStderr(c *C) {
+func (s *LogSuite) TestStderr(c *gc.C) {
 	l := &cmd.Log{Verbose: true, Config: "<root>=INFO"}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), Matches, `^.* INFO .* hello\n`)
+	c.Assert(bufferString(ctx.Stderr), gc.Matches, `^.* INFO .* hello\n`)
 }
 
-func (s *LogSuite) TestRelPathLog(c *C) {
+func (s *LogSuite) TestRelPathLog(c *gc.C) {
 	l := &cmd.Log{Path: "foo.log", Config: "<root>=INFO"}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	content, err := ioutil.ReadFile(filepath.Join(ctx.Dir, "foo.log"))
-	c.Assert(err, IsNil)
-	c.Assert(string(content), Matches, `^.* INFO .* hello\n`)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
 }
 
-func (s *LogSuite) TestAbsPathLog(c *C) {
+func (s *LogSuite) TestAbsPathLog(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "foo.log")
 	l := &cmd.Log{Path: path, Config: "<root>=INFO"}
 	ctx := testing.Context(c)
 	err := l.Start(ctx)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	log.Infof("hello")
-	c.Assert(bufferString(ctx.Stderr), Equals, "")
+	c.Assert(bufferString(ctx.Stderr), gc.Equals, "")
 	content, err := ioutil.ReadFile(path)
-	c.Assert(err, IsNil)
-	c.Assert(string(content), Matches, `^.* INFO .* hello\n`)
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(content), gc.Matches, `^.* INFO .* hello\n`)
 }

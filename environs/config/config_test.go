@@ -44,6 +44,14 @@ var configTests = []configTest{
 			"name": "my-name",
 		},
 	}, {
+		about: "Metadata URLs",
+		attrs: attrs{
+			"type":               "my-type",
+			"name":               "my-name",
+			"image-metadata-url": "image-url",
+			"tools-url":          "tools-url",
+		},
+	}, {
 		about: "Explicit series",
 		attrs: attrs{
 			"type":           "my-type",
@@ -570,6 +578,21 @@ func (test configTest) check(c *gc.C, home *testing.FakeHome) {
 	if v, ok := test.attrs["ssl-hostname-verification"]; ok {
 		c.Assert(cfg.SSLHostnameVerification(), gc.Equals, v)
 	}
+
+	url, urlPresent := cfg.ImageMetadataURL()
+	if v, ok := test.attrs["image-metadata-url"]; ok {
+		c.Assert(url, gc.Equals, v)
+		c.Assert(urlPresent, jc.IsTrue)
+	} else {
+		c.Assert(urlPresent, jc.IsFalse)
+	}
+	url, urlPresent = cfg.ToolsURL()
+	if v, ok := test.attrs["tools-url"]; ok {
+		c.Assert(url, gc.Equals, v)
+		c.Assert(urlPresent, jc.IsTrue)
+	} else {
+		c.Assert(urlPresent, jc.IsFalse)
+	}
 }
 
 func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
@@ -585,6 +608,8 @@ func (*ConfigSuite) TestConfigAttrs(c *gc.C) {
 		"ca-private-key":            "",
 		"ca-cert":                   caCert,
 		"ssl-hostname-verification": true,
+		"image-metadata-url":        "",
+		"tools-url":                 "",
 	}
 	cfg, err := config.New(attrs)
 	c.Assert(err, gc.IsNil)

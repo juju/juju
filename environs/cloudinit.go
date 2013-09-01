@@ -6,6 +6,7 @@ package environs
 import (
 	"fmt"
 
+	"launchpad.net/juju-core/agent"
 	coreCloudinit "launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/cloudinit"
@@ -54,8 +55,8 @@ func NewBootstrapMachineConfig(machineID, stateInfoURL string) *cloudinit.Machin
 // inspecting a plain config.Config and the machine constraints at the last
 // moment before bootstrapping. It assumes that the supplied Config comes from
 // an environment that has passed through all the validation checks in the
-// Bootstrap func, and that has set an agent-version (via FindBootstrapTools,
-// or otherwise).
+// Bootstrap func, and that has set an agent-version (via finding the tools to,
+// use for bootstrap, or otherwise).
 // TODO(fwereade) This function is not meant to be "good" in any serious way:
 // it is better that this functionality be collected in one place here than
 // that it be spread out across 3 or 4 providers, but this is its only
@@ -69,7 +70,10 @@ func FinishMachineConfig(mcfg *cloudinit.MachineConfig, cfg *config.Config, cons
 		return fmt.Errorf("environment configuration has no authorized-keys")
 	}
 	mcfg.AuthorizedKeys = authKeys
-	mcfg.ProviderType = cfg.Type()
+	if mcfg.AgentEnvironment == nil {
+		mcfg.AgentEnvironment = make(map[string]string)
+	}
+	mcfg.AgentEnvironment[agent.ProviderType] = cfg.Type()
 	if !mcfg.StateServer {
 		return nil
 	}

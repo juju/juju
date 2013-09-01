@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state/api/params"
@@ -13,7 +14,7 @@ import (
 
 // DestroyRelationCommand causes an existing service relation to be shut down.
 type DestroyRelationCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	Endpoints []string
 }
 

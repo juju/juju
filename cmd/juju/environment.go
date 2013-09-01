@@ -5,16 +5,18 @@ package main
 
 import (
 	"fmt"
+	"strings"
+
 	"launchpad.net/gnuflag"
+
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/juju"
-	"strings"
 )
 
 // GetEnvironmentCommand is able to output either the entire environment or
 // the requested value in a format of the user's choosing.
 type GetEnvironmentCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	key string
 	out cmd.Output
 }
@@ -81,7 +83,7 @@ type attributes map[string]interface{}
 
 // SetEnvironment
 type SetEnvironmentCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	values attributes
 }
 
@@ -100,7 +102,7 @@ func (c *SetEnvironmentCommand) Info() *cmd.Info {
 	}
 }
 
-// SetFlags handled entirely by EnvCommandBase
+// SetFlags handled entirely by cmd.EnvCommandBase
 
 func (c *SetEnvironmentCommand) Init(args []string) (err error) {
 	if len(args) == 0 {

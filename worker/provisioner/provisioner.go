@@ -10,12 +10,14 @@ import (
 	"launchpad.net/loggo"
 	"launchpad.net/tomb"
 
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/agent"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/watcher"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker"
 )
@@ -33,13 +35,13 @@ var (
 
 // Provisioner represents a running provisioning worker.
 type Provisioner struct {
-	pt        ProvisionerType
-	st        *state.State
-	machineId string // Which machine runs the provisioner.
-	dataDir   string
-	machine   *state.Machine
-	environ   environs.Environ
-	tomb      tomb.Tomb
+	pt          ProvisionerType
+	st          *state.State
+	machineId   string // Which machine runs the provisioner.
+	machine     *state.Machine
+	environ     environs.Environ
+	agentConfig agent.Config
+	tomb        tomb.Tomb
 
 	configObserver
 }
@@ -61,12 +63,12 @@ func (o *configObserver) notify(cfg *config.Config) {
 // NewProvisioner returns a new Provisioner. When new machines
 // are added to the state, it allocates instances from the environment
 // and allocates them to the new machines.
-func NewProvisioner(pt ProvisionerType, st *state.State, machineId, dataDir string) *Provisioner {
+func NewProvisioner(pt ProvisionerType, st *state.State, machineId string, agentConfig agent.Config) *Provisioner {
 	p := &Provisioner{
-		pt:        pt,
-		st:        st,
-		machineId: machineId,
-		dataDir:   dataDir,
+		pt:          pt,
+		st:          st,
+		machineId:   machineId,
+		agentConfig: agentConfig,
 	}
 	go func() {
 		defer p.tomb.Done()
@@ -127,7 +129,6 @@ func (p *Provisioner) loop() error {
 			}
 		}
 	}
-	panic("not reached")
 }
 
 func (p *Provisioner) getMachine() (*state.Machine, error) {
@@ -155,10 +156,10 @@ func (p *Provisioner) getWatcher() (Watcher, error) {
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getBroker() (Broker, error) {
+func (p *Provisioner) getBroker() (environs.InstanceBroker, error) {
 	switch p.pt {
 	case ENVIRON:
-		return newEnvironBroker(p.environ), nil
+		return p.environ, nil
 	case LXC:
 		config := p.environ.Config()
 		tools, err := p.getAgentTools()
@@ -166,15 +167,16 @@ func (p *Provisioner) getBroker() (Broker, error) {
 			logger.Errorf("cannot get tools from machine for lxc broker")
 			return nil, err
 		}
-		return NewLxcBroker(config, tools), nil
+		return NewLxcBroker(config, tools, p.agentConfig), nil
 	}
 	return nil, fmt.Errorf("unknown provisioner type")
 }
 
-func (p *Provisioner) getAgentTools() (*tools.Tools, error) {
-	tools, err := tools.ReadTools(p.dataDir, version.Current)
+func (p *Provisioner) getAgentTools() (*coretools.Tools, error) {
+	dataDir := p.agentConfig.DataDir()
+	tools, err := agenttools.ReadTools(dataDir, version.Current)
 	if err != nil {
-		logger.Errorf("cannot read agent tools from %q", p.dataDir)
+		logger.Errorf("cannot read agent tools from %q", dataDir)
 		return nil, err
 	}
 	return tools, nil

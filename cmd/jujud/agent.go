@@ -11,7 +11,6 @@ import (
 	"launchpad.net/gnuflag"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/log"
@@ -20,8 +19,10 @@ import (
 	apiagent "launchpad.net/juju-core/state/api/agent"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
 	"launchpad.net/juju-core/state/api/params"
+	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/worker"
 	"launchpad.net/juju-core/worker/deployer"
+	"launchpad.net/juju-core/worker/upgrader"
 )
 
 // requiredError is useful when complaining about missing command-line options.
@@ -31,8 +32,8 @@ func requiredError(name string) error {
 
 // AgentConf handles command-line flags shared by all agents.
 type AgentConf struct {
-	*agent.Conf
 	dataDir string
+	config  agent.Config
 }
 
 // addFlags injects common agent flags into f.
@@ -47,10 +48,9 @@ func (c *AgentConf) checkArgs(args []string) error {
 	return cmd.CheckEmpty(args)
 }
 
-func (c *AgentConf) read(tag string) error {
-	var err error
-	c.Conf, err = agent.ReadConf(c.dataDir, tag)
-	return err
+func (c *AgentConf) read(tag string) (err error) {
+	c.config, err = agent.ReadConf(c.dataDir, tag)
+	return
 }
 
 func importance(err error) int {
@@ -64,7 +64,6 @@ func importance(err error) int {
 	case err == worker.ErrTerminateAgent:
 		return 3
 	}
-	panic("unreachable")
 }
 
 // moreImportant returns whether err0 is
@@ -75,7 +74,7 @@ func moreImportant(err0, err1 error) bool {
 }
 
 func isUpgraded(err error) bool {
-	_, ok := err.(*UpgradeReadyError)
+	_, ok := err.(*upgrader.UpgradeReadyError)
 	return ok
 }
 
@@ -124,8 +123,8 @@ func isleep(d time.Duration, stop <-chan struct{}) bool {
 	return true
 }
 
-func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
-	st, err := c.OpenState()
+func openState(agentConfig agent.Config, a Agent) (*state.State, AgentState, error) {
+	st, err := agentConfig.OpenState()
 	if err != nil {
 		return nil, nil, err
 	}
@@ -140,13 +139,13 @@ func openState(c *agent.Conf, a Agent) (*state.State, AgentState, error) {
 	return st, entity, nil
 }
 
-func openAPIState(c *agent.Conf, a Agent) (*api.State, *apiagent.Entity, error) {
+func openAPIState(agentConfig agent.Config, a Agent) (*api.State, *apiagent.Entity, error) {
 	// We let the API dial fail immediately because the
 	// runner's loop outside the caller of openAPIState will
 	// keep on retrying. If we block for ages here,
 	// then the worker that's calling this cannot
 	// be interrupted.
-	st, newPassword, err := c.OpenAPI(api.DialOpts{})
+	st, newPassword, err := agentConfig.OpenAPI(api.DialOpts{})
 	if err != nil {
 		return nil, nil, err
 	}
@@ -158,26 +157,10 @@ func openAPIState(c *agent.Conf, a Agent) (*api.State, *apiagent.Entity, error) 
 		st.Close()
 		return nil, nil, err
 	}
-	if newPassword == "" {
-		return st, entity, nil
-	}
-	// Make a copy of the configuration so that if we fail
-	// to write the configuration file, the configuration will
-	// still be valid.
-	c1 := *c
-	stateInfo := *c.StateInfo
-	c1.StateInfo = &stateInfo
-	apiInfo := *c.APIInfo
-	c1.APIInfo = &apiInfo
-
-	c1.StateInfo.Password = newPassword
-	c1.APIInfo.Password = newPassword
-	if err := c1.Write(); err != nil {
-		return nil, nil, err
-	}
-	*c = c1
-	if err := entity.SetPassword(newPassword); err != nil {
-		return nil, nil, err
+	if newPassword != "" {
+		if err := entity.SetPassword(newPassword); err != nil {
+			return nil, nil, err
+		}
 	}
 	return st, entity, nil
 
@@ -189,7 +172,7 @@ func agentDone(err error) error {
 	if err == worker.ErrTerminateAgent {
 		err = nil
 	}
-	if ug, ok := err.(*UpgradeReadyError); ok {
+	if ug, ok := err.(*upgrader.UpgradeReadyError); ok {
 		if err := ug.ChangeAgentTools(); err != nil {
 			// Return and let upstart deal with the restart.
 			return err
@@ -237,7 +220,7 @@ var newDeployContext = func(st *apideployer.State, dataDir string) (deployer.Con
 	return deployer.NewSimpleContext(dataDir, caCert, st), nil
 }
 
-func newDeployer(st *apideployer.State, machineTag string, dataDir string) (*deployer.Deployer, error) {
+func newDeployer(st *apideployer.State, machineTag string, dataDir string) (worker.Worker, error) {
 	ctx, err := newDeployContext(st, dataDir)
 	if err != nil {
 		return nil, err

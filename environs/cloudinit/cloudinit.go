@@ -11,7 +11,7 @@ import (
 	"launchpad.net/goyaml"
 
 	"launchpad.net/juju-core/agent"
-	"launchpad.net/juju-core/agent/tools"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/cloudinit"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs/config"
@@ -20,6 +20,7 @@ import (
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/upstart"
 	"launchpad.net/juju-core/utils"
 )
@@ -71,7 +72,7 @@ type MachineConfig struct {
 	MachineNonce string
 
 	// Tools is juju tools to be used on the new machine.
-	Tools *tools.Tools
+	Tools *coretools.Tools
 
 	// DataDir holds the directory that juju state will be put in the new
 	// machine.
@@ -92,8 +93,9 @@ type MachineConfig struct {
 	// commands cannot work.
 	AuthorizedKeys string
 
-	// ProviderType refers to the type of the provider that created the machine.
-	ProviderType string
+	// AgentEnvironment defines additional configuration variables to set in
+	// the machine agent config.
+	AgentEnvironment map[string]string
 
 	// Config holds the initial environment configuration.
 	Config *config.Config
@@ -103,12 +105,6 @@ type MachineConfig struct {
 
 	// StateInfoURL is the URL of a file which contains information about the state server machines.
 	StateInfoURL string
-}
-
-func addScripts(c *cloudinit.Config, scripts ...string) {
-	for _, s := range scripts {
-		c.AddRunCmd(s)
-	}
 }
 
 func base64yaml(m *config.Config) string {
@@ -137,14 +133,14 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		c.AddPackage("lxc")
 	}
 
-	addScripts(c,
+	c.AddScripts(
 		"set -xe", // ensure we run all the scripts or abort.
 		fmt.Sprintf("mkdir -p %s", cfg.DataDir),
 		"mkdir -p /var/log/juju")
 
 	// Make a directory for the tools to live in, then fetch the
 	// tools and unarchive them into it.
-	addScripts(c,
+	c.AddScripts(
 		"bin="+shquote(cfg.jujuTools()),
 		"mkdir -p $bin",
 		fmt.Sprintf("wget --no-verbose -O - %s | tar xz -C $bin", shquote(cfg.Tools.URL)),
@@ -169,11 +165,11 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 
 	if cfg.StateServer {
 		if cfg.NeedMongoPPA() {
-			c.AddAptSource("ppa:juju/experimental", "1024R/C8068B11")
+			c.AddAptSource("ppa:juju/stable", "1024R/C8068B11")
 		}
 		c.AddPackage("mongodb-server")
 		certKey := string(cfg.StateServerCert) + string(cfg.StateServerKey)
-		addFile(c, cfg.dataFile("server.pem"), certKey, 0600)
+		c.AddFile(cfg.dataFile("server.pem"), certKey, 0600)
 		if err := cfg.addMongoToBoot(c); err != nil {
 			return nil, err
 		}
@@ -184,7 +180,7 @@ func Configure(cfg *MachineConfig, c *cloudinit.Config) (*cloudinit.Config, erro
 		if err != nil {
 			return nil, err
 		}
-		addScripts(c,
+		c.AddScripts(
 			fmt.Sprintf("echo %s > %s", shquote(cfg.StateInfoURL), BootstrapStateURLFile),
 			cfg.jujuTools()+"/jujud bootstrap-state"+
 				" --data-dir "+shquote(cfg.DataDir)+
@@ -219,60 +215,60 @@ func (cfg *MachineConfig) addLogging(c *cloudinit.Config) error {
 	if err != nil {
 		return err
 	}
-	addScripts(c,
-		fmt.Sprintf("cat > /etc/rsyslog.d/25-juju.conf << 'EOF'\n%sEOF\n", string(content)),
-	)
+	c.AddFile("/etc/rsyslog.d/25-juju.conf", string(content), 0600)
 	c.AddRunCmd("restart rsyslog")
 	return nil
-}
-
-func addFile(c *cloudinit.Config, filename, data string, mode uint) {
-	p := shquote(filename)
-	addScripts(c,
-		fmt.Sprintf("echo %s > %s", shquote(data), p),
-		fmt.Sprintf("chmod %o %s", mode, p),
-	)
 }
 
 func (cfg *MachineConfig) dataFile(name string) string {
 	return filepath.Join(cfg.DataDir, name)
 }
 
-func (cfg *MachineConfig) agentConfig(tag string) *agent.Conf {
-	info := *cfg.StateInfo
-	apiInfo := *cfg.APIInfo
-	c := &agent.Conf{
-		DataDir:         cfg.DataDir,
-		StateInfo:       &info,
-		APIInfo:         &apiInfo,
-		StateServerCert: cfg.StateServerCert,
-		StateServerKey:  cfg.StateServerKey,
-		StatePort:       cfg.StatePort,
-		APIPort:         cfg.APIPort,
-		MachineNonce:    cfg.MachineNonce,
+func (cfg *MachineConfig) agentConfig(tag string) (agent.Config, error) {
+	// TODO for HAState: the stateHostAddrs and apiHostAddrs here assume that
+	// if the machine is a stateServer then to use localhost.  This may be
+	// sufficient, but needs thought in the new world order.
+	var password string
+	if cfg.StateInfo == nil {
+		password = cfg.APIInfo.Password
+	} else {
+		password = cfg.StateInfo.Password
 	}
-	c.OldPassword = cfg.StateInfo.Password
-
-	c.StateInfo.Addrs = cfg.stateHostAddrs()
-	c.StateInfo.Tag = tag
-	c.StateInfo.Password = ""
-
-	c.APIInfo.Addrs = cfg.apiHostAddrs()
-	c.APIInfo.Tag = tag
-	c.APIInfo.Password = ""
-
-	return c
+	var configParams = agent.AgentConfigParams{
+		DataDir:        cfg.DataDir,
+		Tag:            tag,
+		Password:       password,
+		Nonce:          cfg.MachineNonce,
+		StateAddresses: cfg.stateHostAddrs(),
+		APIAddresses:   cfg.apiHostAddrs(),
+		CACert:         cfg.StateInfo.CACert,
+		Values:         cfg.AgentEnvironment,
+	}
+	if cfg.StateServer {
+		return agent.NewStateMachineConfig(
+			agent.StateMachineConfigParams{
+				AgentConfigParams: configParams,
+				StateServerCert:   cfg.StateServerCert,
+				StateServerKey:    cfg.StateServerKey,
+				StatePort:         cfg.StatePort,
+				APIPort:           cfg.APIPort,
+			})
+	}
+	return agent.NewAgentConfig(configParams)
 }
 
 // addAgentInfo adds agent-required information to the agent's directory
 // and returns the agent directory name.
-func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (*agent.Conf, error) {
-	acfg := cfg.agentConfig(tag)
+func (cfg *MachineConfig) addAgentInfo(c *cloudinit.Config, tag string) (agent.Config, error) {
+	acfg, err := cfg.agentConfig(tag)
+	if err != nil {
+		return nil, err
+	}
 	cmds, err := acfg.WriteCommands()
 	if err != nil {
 		return nil, err
 	}
-	addScripts(c, cmds...)
+	c.AddScripts(cmds...)
 	return acfg, nil
 }
 
@@ -280,23 +276,23 @@ func (cfg *MachineConfig) addMachineAgentToBoot(c *cloudinit.Config, tag, machin
 	// Make the agent run via a symbolic link to the actual tools
 	// directory, so it can upgrade itself without needing to change
 	// the upstart script.
-	toolsDir := tools.ToolsDir(cfg.DataDir, tag)
+	toolsDir := agenttools.ToolsDir(cfg.DataDir, tag)
 	// TODO(dfc) ln -nfs, so it doesn't fail if for some reason that the target already exists
-	addScripts(c, fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
+	c.AddScripts(fmt.Sprintf("ln -s %v %s", cfg.Tools.Version, shquote(toolsDir)))
 
 	name := "jujud-" + tag
-	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, cfg.Config.LoggingConfig(), cfg.ProviderType)
+	conf := upstart.MachineAgentUpstartService(name, toolsDir, cfg.DataDir, "/var/log/juju/", tag, machineId, cfg.Config.LoggingConfig(), nil)
 	cmds, err := conf.InstallCommands()
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the %s agent: %v", tag, err)
 	}
-	addScripts(c, cmds...)
+	c.AddScripts(cmds...)
 	return nil
 }
 
 func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	dbDir := filepath.Join(cfg.DataDir, "db")
-	addScripts(c,
+	c.AddScripts(
 		"mkdir -p "+dbDir+"/journal",
 		// Otherwise we get three files with 100M+ each, which takes time.
 		"dd bs=1M count=1 if=/dev/zero of="+dbDir+"/journal/prealloc.0",
@@ -309,7 +305,7 @@ func (cfg *MachineConfig) addMongoToBoot(c *cloudinit.Config) error {
 	if err != nil {
 		return fmt.Errorf("cannot make cloud-init upstart script for the state database: %v", err)
 	}
-	addScripts(c, cmds...)
+	c.AddScripts(cmds...)
 	return nil
 }
 
@@ -323,7 +319,7 @@ func versionDir(toolsURL string) string {
 }
 
 func (cfg *MachineConfig) jujuTools() string {
-	return tools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
+	return agenttools.SharedToolsDir(cfg.DataDir, cfg.Tools.Version)
 }
 
 func (cfg *MachineConfig) stateHostAddrs() []string {
@@ -390,9 +386,6 @@ func verifyConfig(cfg *MachineConfig) (err error) {
 	}
 	if len(cfg.APIInfo.CACert) == 0 {
 		return fmt.Errorf("missing API CA certificate")
-	}
-	if cfg.ProviderType == "" {
-		return fmt.Errorf("missing provider type")
 	}
 	if cfg.StateServer {
 		if cfg.Config == nil {

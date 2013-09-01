@@ -6,13 +6,13 @@ package upgrader
 import (
 	"errors"
 
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/environs"
-	"launchpad.net/juju-core/names"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/apiserver/common"
 	"launchpad.net/juju-core/state/watcher"
+	agenttools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
@@ -29,8 +29,7 @@ func NewUpgraderAPI(
 	resources *common.Resources,
 	authorizer common.Authorizer,
 ) (*UpgraderAPI, error) {
-	// TODO: Unit agents are also allowed to use this API
-	if !authorizer.AuthMachineAgent() {
+	if !authorizer.AuthMachineAgent() && !authorizer.AuthUnitAgent() {
 		return nil, common.ErrPerm
 	}
 	return &UpgraderAPI{st: st, resources: resources, authorizer: authorizer}, nil
@@ -62,20 +61,20 @@ func (u *UpgraderAPI) WatchAPIVersion(args params.Entities) (params.NotifyWatchR
 	return result, nil
 }
 
-func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.Number, env environs.Environ) (*tools.Tools, error) {
-	if !u.authorizer.AuthOwner(entity.Tag) {
+func (u *UpgraderAPI) oneAgentTools(tag string, agentVersion version.Number, env environs.Environ) (*agenttools.Tools, error) {
+	if !u.authorizer.AuthOwner(tag) {
 		return nil, common.ErrPerm
 	}
-	id, err := names.MachineFromTag(entity.Tag)
+	entity0, err := u.findEntity(tag)
 	if err != nil {
 		return nil, err
 	}
-	machine, err := u.st.Machine(id)
-	if err != nil {
-		return nil, err
+	entity, ok := entity0.(state.AgentTooler)
+	if !ok {
+		return nil, common.NotSupportedError(tag, "agent tools")
 	}
-	// TODO: Support Unit as well as Machine
-	existingTools, err := machine.AgentTools()
+
+	existingTools, err := entity.AgentTools()
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +86,7 @@ func (u *UpgraderAPI) oneAgentTools(entity params.Entity, agentVersion version.N
 	// TODO(jam): Avoid searching the provider for every machine
 	// that wants to upgrade. The information could just be cached
 	// in state, or even in the API servers
-	return environs.FindExactTools(env, requested)
+	return envtools.FindExactTools(env, requested)
 }
 
 // Tools finds the Tools necessary for the given agents.
@@ -110,7 +109,7 @@ func (u *UpgraderAPI) Tools(args params.Entities) (params.AgentToolsResults, err
 		return params.AgentToolsResults{}, err
 	}
 	for i, entity := range args.Entities {
-		agentTools, err := u.oneAgentTools(entity, agentVersion, env)
+		agentTools, err := u.oneAgentTools(entity.Tag, agentVersion, env)
 		if err == nil {
 			results[i].Tools = agentTools
 		}
@@ -131,17 +130,25 @@ func (u *UpgraderAPI) SetTools(args params.SetAgentsTools) (params.ErrorResults,
 	return results, nil
 }
 
-func (u *UpgraderAPI) setOneAgentTools(tag string, tools *tools.Tools) error {
+func (u *UpgraderAPI) setOneAgentTools(tag string, tools *agenttools.Tools) error {
 	if !u.authorizer.AuthOwner(tag) {
 		return common.ErrPerm
 	}
-	// We assume that any entity that we can upgrade will
-	// have a Life, which is certainly true now, but is
-	// an assumption that may need revisiting at some point.
-	entity0, err := u.st.Lifer(tag)
+	entity, err := u.findEntity(tag)
 	if err != nil {
 		return err
 	}
-	entity := entity0.(state.SetAgentTooler)
 	return entity.SetAgentTools(tools)
+}
+
+func (u *UpgraderAPI) findEntity(tag string) (state.AgentTooler, error) {
+	entity0, err := u.st.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	entity, ok := entity0.(state.AgentTooler)
+	if !ok {
+		return nil, common.NotSupportedError(tag, "agent tools")
+	}
+	return entity, nil
 }

@@ -11,7 +11,7 @@ import (
 	"text/template"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/testing"
 	. "launchpad.net/juju-core/testing/checkers"
 )
@@ -22,79 +22,60 @@ type PluginSuite struct {
 	home    *testing.FakeHome
 }
 
-var _ = Suite(&PluginSuite{})
+var _ = gc.Suite(&PluginSuite{})
 
-func (suite *PluginSuite) SetUpTest(c *C) {
+func (suite *PluginSuite) SetUpTest(c *gc.C) {
 	suite.LoggingSuite.SetUpTest(c)
 	suite.oldPath = os.Getenv("PATH")
 	suite.home = testing.MakeSampleHome(c)
 	os.Setenv("PATH", "/bin:"+testing.HomePath())
 }
 
-func (suite *PluginSuite) TearDownTest(c *C) {
+func (suite *PluginSuite) TearDownTest(c *gc.C) {
 	suite.home.Restore()
 	os.Setenv("PATH", suite.oldPath)
 	suite.LoggingSuite.TearDownTest(c)
 }
 
-func (*PluginSuite) TestFindPlugins(c *C) {
+func (*PluginSuite) TestFindPlugins(c *gc.C) {
 	plugins := findPlugins()
-	c.Assert(plugins, DeepEquals, []string{})
+	c.Assert(plugins, gc.DeepEquals, []string{})
 }
 
-func (suite *PluginSuite) TestFindPluginsOrder(c *C) {
+func (suite *PluginSuite) TestFindPluginsOrder(c *gc.C) {
 	suite.makePlugin("foo", 0744)
 	suite.makePlugin("bar", 0654)
 	suite.makePlugin("baz", 0645)
 	plugins := findPlugins()
-	c.Assert(plugins, DeepEquals, []string{"juju-bar", "juju-baz", "juju-foo"})
+	c.Assert(plugins, gc.DeepEquals, []string{"juju-bar", "juju-baz", "juju-foo"})
 }
 
-func (suite *PluginSuite) TestFindPluginsIgnoreNotExec(c *C) {
+func (suite *PluginSuite) TestFindPluginsIgnoreNotExec(c *gc.C) {
 	suite.makePlugin("foo", 0644)
 	suite.makePlugin("bar", 0666)
 	plugins := findPlugins()
-	c.Assert(plugins, DeepEquals, []string{})
+	c.Assert(plugins, gc.DeepEquals, []string{})
 }
 
-func (suite *PluginSuite) TestRunPluginExising(c *C) {
+func (suite *PluginSuite) TestRunPluginExising(c *gc.C) {
 	suite.makePlugin("foo", 0755)
 	ctx := testing.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
-	c.Assert(err, IsNil)
-	c.Assert(testing.Stdout(ctx), Equals, "foo erewhemos some params\n")
-	c.Assert(testing.Stderr(ctx), Equals, "")
+	c.Assert(err, gc.IsNil)
+	c.Assert(testing.Stdout(ctx), gc.Equals, "foo some params\n")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 }
 
-func (suite *PluginSuite) TestRunPluginExisingJujuEnv(c *C) {
-	suite.makePlugin("foo", 0755)
-	os.Setenv("JUJU_ENV", "omg")
-	ctx := testing.Context(c)
-	err := RunPlugin(ctx, "foo", []string{"some params"})
-	c.Assert(err, IsNil)
-	c.Assert(testing.Stdout(ctx), Equals, "foo omg some params\n")
-	c.Assert(testing.Stderr(ctx), Equals, "")
-}
-
-func (suite *PluginSuite) TestRunPluginExisingDashE(c *C) {
-	suite.makePlugin("foo", 0755)
-	ctx := testing.Context(c)
-	err := RunPlugin(ctx, "foo", []string{"-e plugins-rock some params"})
-	c.Assert(err, IsNil)
-	c.Assert(testing.Stdout(ctx), Equals, "foo plugins-rock some params\n")
-	c.Assert(testing.Stderr(ctx), Equals, "")
-}
-
-func (suite *PluginSuite) TestRunPluginWithFailing(c *C) {
+func (suite *PluginSuite) TestRunPluginWithFailing(c *gc.C) {
 	suite.makeFailingPlugin("foo", 2)
 	ctx := testing.Context(c)
 	err := RunPlugin(ctx, "foo", []string{"some params"})
-	c.Assert(err, ErrorMatches, "exit status 2")
-	c.Assert(testing.Stdout(ctx), Equals, "failing\n")
-	c.Assert(testing.Stderr(ctx), Equals, "")
+	c.Assert(err, gc.ErrorMatches, "exit status 2")
+	c.Assert(testing.Stdout(ctx), gc.Equals, "failing\n")
+	c.Assert(testing.Stderr(ctx), gc.Equals, "")
 }
 
-func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
+func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *gc.C) {
 	// Make plugins that will deadlock if we don't start them in parallel.
 	// Each plugin depends on another one being started before they will
 	// complete. They make a full loop, so no sequential ordering will ever
@@ -121,24 +102,24 @@ func (suite *PluginSuite) TestGatherDescriptionsInParallel(c *C) {
 		c.Fatalf("Took too more than %fs to complete.", waitTime.Seconds())
 	}
 
-	c.Assert(results, HasLen, 4)
-	c.Assert(results[0].name, Equals, "bar")
-	c.Assert(results[0].description, Equals, "bar description")
-	c.Assert(results[1].name, Equals, "baz")
-	c.Assert(results[1].description, Equals, "baz description")
-	c.Assert(results[2].name, Equals, "error")
-	c.Assert(results[2].description, Equals, "error occurred running 'juju-error --description'")
-	c.Assert(results[3].name, Equals, "foo")
-	c.Assert(results[3].description, Equals, "foo description")
+	c.Assert(results, gc.HasLen, 4)
+	c.Assert(results[0].name, gc.Equals, "bar")
+	c.Assert(results[0].description, gc.Equals, "bar description")
+	c.Assert(results[1].name, gc.Equals, "baz")
+	c.Assert(results[1].description, gc.Equals, "baz description")
+	c.Assert(results[2].name, gc.Equals, "error")
+	c.Assert(results[2].description, gc.Equals, "error occurred running 'juju-error --description'")
+	c.Assert(results[3].name, gc.Equals, "foo")
+	c.Assert(results[3].description, gc.Equals, "foo description")
 }
 
-func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *C) {
+func (suite *PluginSuite) TestHelpPluginsWithNoPlugins(c *gc.C) {
 	output := badrun(c, 0, "help", "plugins")
 	c.Assert(output, HasPrefix, PluginTopicText)
 	c.Assert(output, HasSuffix, "\n\nNo plugins found.\n")
 }
 
-func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *C) {
+func (suite *PluginSuite) TestHelpPluginsWithPlugins(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	suite.makeFullPlugin(PluginParams{Name: "bar"})
 	output := badrun(c, 0, "help", "plugins")
@@ -151,24 +132,41 @@ foo  foo description
 	c.Assert(output, HasSuffix, expectedPlugins)
 }
 
-func (suite *PluginSuite) TestHelpPluginName(c *C) {
+func (suite *PluginSuite) TestHelpPluginName(c *gc.C) {
 	suite.makeFullPlugin(PluginParams{Name: "foo"})
 	output := badrun(c, 0, "help", "foo")
 	expectedHelp := `foo longer help
 
 something useful
 `
-	c.Assert(output, Matches, expectedHelp)
+	c.Assert(output, gc.Matches, expectedHelp)
 }
 
-func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *C) {
+func (suite *PluginSuite) TestHelpPluginNameNotAPlugin(c *gc.C) {
 	output := badrun(c, 0, "help", "foo")
 	expectedHelp := "error: unknown command or topic for foo\n"
-	c.Assert(output, Matches, expectedHelp)
+	c.Assert(output, gc.Matches, expectedHelp)
+}
+
+func (suite *PluginSuite) TestHelpAsArg(c *gc.C) {
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	output := badrun(c, 0, "foo", "--help")
+	expectedHelp := `foo longer help
+
+something useful
+`
+	c.Assert(output, gc.Matches, expectedHelp)
+}
+
+func (suite *PluginSuite) TestDebugAsArg(c *gc.C) {
+	suite.makeFullPlugin(PluginParams{Name: "foo"})
+	output := badrun(c, 0, "foo", "--debug")
+	expectedDebug := "some debug\n"
+	c.Assert(output, gc.Matches, expectedDebug)
 }
 
 func (suite *PluginSuite) makePlugin(name string, perm os.FileMode) {
-	content := fmt.Sprintf("#!/bin/bash\necho %s $JUJU_ENV $*", name)
+	content := fmt.Sprintf("#!/bin/bash\necho %s $*", name)
 	filename := testing.HomePath(JujuPluginPrefix + name)
 	ioutil.WriteFile(filename, []byte(content), perm)
 }
@@ -204,6 +202,11 @@ if [ "$1" = "--help" ]; then
   echo "{{.Name}} longer help"
   echo ""
   echo "something useful"
+  exit {{.ExitStatus}}
+fi
+
+if [ "$1" = "--debug" ]; then
+  echo "some debug"
   exit {{.ExitStatus}}
 fi
 

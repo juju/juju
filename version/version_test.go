@@ -9,16 +9,16 @@ import (
 	"strings"
 	"testing"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 	"launchpad.net/juju-core/version"
 )
 
 type suite struct{}
 
-var _ = Suite(suite{})
+var _ = gc.Suite(suite{})
 
 func Test(t *testing.T) {
-	TestingT(t)
+	gc.TestingT(t)
 }
 
 // N.B. The FORCE-VERSION logic is tested in the environs package.
@@ -43,20 +43,20 @@ var cmpTests = []struct {
 	{"2.0.1.10", "2.0.0.0", false, false},
 }
 
-func (suite) TestComparison(c *C) {
+func (suite) TestComparison(c *gc.C) {
 	for i, test := range cmpTests {
 		c.Logf("test %d", i)
 		v1, err := version.Parse(test.v1)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		v2, err := version.Parse(test.v2)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		less := v1.Less(v2)
 		gt := v2.Less(v1)
-		c.Check(less, Equals, test.less)
+		c.Check(less, gc.Equals, test.less)
 		if test.eq {
-			c.Check(gt, Equals, false)
+			c.Check(gt, gc.Equals, false)
 		} else {
-			c.Check(gt, Equals, !test.less)
+			c.Check(gt, gc.Equals, !test.less)
 		}
 	}
 }
@@ -107,17 +107,17 @@ var parseTests = []struct {
 	err: "invalid version.*",
 }}
 
-func (suite) TestParse(c *C) {
+func (suite) TestParse(c *gc.C) {
 	for i, test := range parseTests {
 		c.Logf("test %d", i)
 		got, err := version.Parse(test.v)
 		if test.err != "" {
-			c.Assert(err, ErrorMatches, test.err)
+			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, IsNil)
-			c.Assert(got, Equals, test.expect)
-			c.Check(got.IsDev(), Equals, test.dev)
-			c.Check(got.String(), Equals, test.v)
+			c.Assert(err, gc.IsNil)
+			c.Assert(got, gc.Equals, test.expect)
+			c.Check(got.IsDev(), gc.Equals, test.dev)
+			c.Check(got.String(), gc.Equals, test.v)
 		}
 	}
 }
@@ -153,15 +153,15 @@ var parseBinaryTests = []struct {
 	err: "invalid binary version.*",
 }}
 
-func (suite) TestParseBinary(c *C) {
+func (suite) TestParseBinary(c *gc.C) {
 	for i, test := range parseBinaryTests {
 		c.Logf("test 1: %d", i)
 		got, err := version.ParseBinary(test.v)
 		if test.err != "" {
-			c.Assert(err, ErrorMatches, test.err)
+			c.Assert(err, gc.ErrorMatches, test.err)
 		} else {
-			c.Assert(err, IsNil)
-			c.Assert(got, Equals, test.expect)
+			c.Assert(err, gc.IsNil)
+			c.Assert(got, gc.Equals, test.expect)
 		}
 	}
 
@@ -175,11 +175,11 @@ func (suite) TestParseBinary(c *C) {
 			Arch:   "b",
 		}
 		if test.err != "" {
-			c.Assert(err, ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
+			c.Assert(err, gc.ErrorMatches, strings.Replace(test.err, "version", "binary version", 1))
 		} else {
-			c.Assert(err, IsNil)
-			c.Assert(got, Equals, expect)
-			c.Check(got.IsDev(), Equals, test.dev)
+			c.Assert(err, gc.IsNil)
+			c.Assert(got, gc.Equals, expect)
+			c.Check(got.IsDev(), gc.Equals, test.dev)
 		}
 	}
 }
@@ -198,7 +198,7 @@ var marshallers = []struct {
 	bson.Unmarshal,
 }}
 
-func (suite) TestBinaryMarshalUnmarshal(c *C) {
+func (suite) TestBinaryMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
@@ -206,15 +206,15 @@ func (suite) TestBinaryMarshalUnmarshal(c *C) {
 		}
 		v := doc{version.MustParseBinary("1.2.3-foo-bar")}
 		data, err := m.marshal(v)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var nv doc
 		err = m.unmarshal(data, &nv)
-		c.Assert(err, IsNil)
-		c.Assert(v, Equals, nv)
+		c.Assert(err, gc.IsNil)
+		c.Assert(v, gc.Equals, nv)
 	}
 }
 
-func (suite) TestNumberMarshalUnmarshal(c *C) {
+func (suite) TestNumberMarshalUnmarshal(c *gc.C) {
 	for _, m := range marshallers {
 		c.Logf("encoding %v", m.name)
 		type doc struct {
@@ -222,10 +222,10 @@ func (suite) TestNumberMarshalUnmarshal(c *C) {
 		}
 		v := doc{version.MustParse("1.2.3")}
 		data, err := m.marshal(&v)
-		c.Assert(err, IsNil)
+		c.Assert(err, gc.IsNil)
 		var nv doc
 		err = m.unmarshal(data, &nv)
-		c.Assert(err, IsNil)
-		c.Assert(v, Equals, nv)
+		c.Assert(err, gc.IsNil)
+		c.Assert(v, gc.Equals, nv)
 	}
 }

@@ -8,9 +8,11 @@ import (
 
 	"launchpad.net/tomb"
 
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api/params"
 	"launchpad.net/juju-core/state/watcher"
@@ -39,7 +41,7 @@ func NewProvisionerTask(
 	machineId string,
 	machineGetter MachineGetter,
 	watcher Watcher,
-	broker Broker,
+	broker environs.InstanceBroker,
 	auth AuthenticationProvider,
 ) ProvisionerTask {
 	task := &provisionerTask{
@@ -61,7 +63,7 @@ type provisionerTask struct {
 	machineId      string
 	machineGetter  MachineGetter
 	machineWatcher Watcher
-	broker         Broker
+	broker         environs.InstanceBroker
 	tomb           tomb.Tomb
 	auth           AuthenticationProvider
 
@@ -118,7 +120,6 @@ func (task *provisionerTask) loop() error {
 			}
 		}
 	}
-	panic("not reached")
 }
 
 func (task *provisionerTask) processMachines(ids []string) error {
@@ -332,7 +333,7 @@ func (task *provisionerTask) startMachine(machine *state.Machine) error {
 	// part is a badge, specifying the tag of the machine the provisioner
 	// is running on, while the second part is a random UUID.
 	nonce := fmt.Sprintf("%s:%s", names.MachineTag(task.machineId), uuid.String())
-	inst, metadata, err := task.broker.StartInstance(machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
+	inst, metadata, err := provider.StartInstance(task.broker, machine.Id(), nonce, machine.Series(), cons, stateInfo, apiInfo)
 	if err != nil {
 		// Set the state to error, so the machine will be skipped next
 		// time until the error is resolved, but don't return an

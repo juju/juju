@@ -82,7 +82,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 	names := environments.Names()
 	sort.Strings(names)
 
-	currentEnv := readCurrentEnvironment()
+	currentEnv := cmd.ReadCurrentEnvironment()
 	if currentEnv == "" {
 		currentEnv = environments.Default
 	}
@@ -102,7 +102,7 @@ func (c *SwitchCommand) Run(ctx *cmd.Context) error {
 		if !validEnvironmentName(c.EnvName, names) {
 			return fmt.Errorf("%q is not a name of an existing defined environment", c.EnvName)
 		}
-		if err := writeCurrentEnvironment(c.EnvName); err != nil {
+		if err := cmd.WriteCurrentEnvironment(c.EnvName); err != nil {
 			return err
 		}
 		fmt.Fprintf(ctx.Stdout, "Changed default environment from %s to %q\n", env(), c.EnvName)

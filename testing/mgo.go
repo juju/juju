@@ -32,6 +32,9 @@ var (
 	// MgoTestPackage.
 	MgoAddr string
 
+	// MgoPort holds the port used by the shared MongoDB server.
+	MgoPort int
+
 	// mgoServer holds the running MongoDB command.
 	mgoServer *exec.Cmd
 
@@ -65,7 +68,8 @@ func startMgoServer() error {
 	if err != nil {
 		return fmt.Errorf("cannot write cert/key PEM: %v", err)
 	}
-	mgoport := strconv.Itoa(FindTCPPort())
+	MgoPort = FindTCPPort()
+	mgoport := strconv.Itoa(MgoPort)
 	mgoargs := []string{
 		"--auth",
 		"--dbpath", dbdir,
@@ -78,6 +82,7 @@ func startMgoServer() error {
 		"--noprealloc",
 		"--smallfiles",
 		"--nojournal",
+		"--nounixsocket",
 	}
 	server := exec.Command("mongod", mgoargs...)
 	out, err := server.StdoutPipe()

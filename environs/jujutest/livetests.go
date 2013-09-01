@@ -9,20 +9,23 @@ import (
 	"io"
 	"io/ioutil"
 	. "launchpad.net/gocheck"
-	"launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
+	"launchpad.net/juju-core/environs/bootstrap"
 	"launchpad.net/juju-core/environs/config"
+	envtools "launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/state/api"
 	statetesting "launchpad.net/juju-core/state/testing"
 	coretesting "launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/utils"
 	"launchpad.net/juju-core/version"
 	"strings"
@@ -58,7 +61,9 @@ type LiveTests struct {
 
 func (t *LiveTests) SetUpSuite(c *C) {
 	t.LoggingSuite.SetUpSuite(c)
-	e, err := environs.NewFromAttrs(t.TestConfig.Config)
+	cfg, err := config.New(t.TestConfig.Config)
+	c.Assert(err, IsNil)
+	e, err := environs.Prepare(cfg)
 	c.Assert(err, IsNil, Commentf("opening environ %#v", t.TestConfig.Config))
 	c.Assert(e, NotNil)
 	t.Env = e
@@ -95,10 +100,10 @@ func (t *LiveTests) BootstrapOnce(c *C) {
 	// we could connect to (actual live tests, rather than local-only)
 	cons := constraints.MustParse("mem=2G")
 	if t.CanOpenState {
-		_, err := tools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
+		_, err := envtools.Upload(t.Env.Storage(), nil, config.DefaultSeries)
 		c.Assert(err, IsNil)
 	}
-	err := environs.Bootstrap(t.Env, cons)
+	err := bootstrap.Bootstrap(t.Env, cons)
 	c.Assert(err, IsNil)
 	t.bootstrapped = true
 }
@@ -239,13 +244,13 @@ func (t *LiveTests) TestPorts(c *C) {
 
 	// Check errors when acting on environment.
 	err = t.Env.OpenPorts([]instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on environment: "instance"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "instance" for opening ports on environment`)
 
 	err = t.Env.ClosePorts([]instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on environment: "instance"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "instance" for closing ports on environment`)
 
 	_, err = t.Env.Ports()
-	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from environment: "instance"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "instance" for retrieving ports from environment`)
 }
 
 func (t *LiveTests) TestGlobalPorts(c *C) {
@@ -301,19 +306,19 @@ func (t *LiveTests) TestGlobalPorts(c *C) {
 
 	// Check errors when acting on instances.
 	err = inst1.OpenPorts("1", []instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for opening ports on instance: "global"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "global" for opening ports on instance`)
 
 	err = inst1.ClosePorts("1", []instance.Port{{"tcp", 80}})
-	c.Assert(err, ErrorMatches, `invalid firewall mode for closing ports on instance: "global"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "global" for closing ports on instance`)
 
 	_, err = inst1.Ports("1")
-	c.Assert(err, ErrorMatches, `invalid firewall mode for retrieving ports from instance: "global"`)
+	c.Assert(err, ErrorMatches, `invalid firewall mode "global" for retrieving ports from instance`)
 }
 
 func (t *LiveTests) TestBootstrapMultiple(c *C) {
 	t.BootstrapOnce(c)
 
-	err := environs.Bootstrap(t.Env, constraints.Value{})
+	err := bootstrap.Bootstrap(t.Env, constraints.Value{})
 	c.Assert(err, ErrorMatches, "environment is already bootstrapped")
 
 	c.Logf("destroy env")
@@ -546,7 +551,7 @@ func (t *LiveTests) TestCheckEnvironmentOnConnectBadVerificationFile(c *C) {
 
 type tooler interface {
 	Life() state.Life
-	AgentTools() (*tools.Tools, error)
+	AgentTools() (*coretools.Tools, error)
 	Refresh() error
 	String() string
 }
@@ -557,7 +562,7 @@ type watcher interface {
 }
 
 type toolsWaiter struct {
-	lastTools *tools.Tools
+	lastTools *coretools.Tools
 	// changes is a chan of struct{} so that it can
 	// be used with different kinds of entity watcher.
 	changes chan struct{}
@@ -603,7 +608,7 @@ func (w *toolsWaiter) Stop() error {
 
 // NextTools returns the next changed tools, waiting
 // until the tools are actually set.
-func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
+func (w *toolsWaiter) NextTools(c *C) (*coretools.Tools, error) {
 	for _ = range w.changes {
 		err := w.tooler.Refresh()
 		if err != nil {
@@ -632,7 +637,7 @@ func (w *toolsWaiter) NextTools(c *C) (*tools.Tools, error) {
 
 // waitAgentTools waits for the given agent
 // to start and returns the tools that it is running.
-func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
+func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *coretools.Tools {
 	c.Logf("waiting for %v to signal agent version", w.tooler.String())
 	tools, err := w.NextTools(c)
 	c.Assert(err, IsNil)
@@ -644,9 +649,9 @@ func waitAgentTools(c *C, w *toolsWaiter, expect version.Binary) *tools.Tools {
 // all the provided watchers upgrade to the requested version.
 func (t *LiveTests) checkUpgrade(c *C, conn *juju.Conn, newVersion version.Binary, waiters ...*toolsWaiter) {
 	c.Logf("putting testing version of juju tools")
-	upgradeTools, err := tools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
+	upgradeTools, err := envtools.Upload(t.Env.Storage(), &newVersion.Number, newVersion.Series)
 	c.Assert(err, IsNil)
-	// tools.Upload always returns tools for the series on which the tests are running.
+	// envtools.Upload always returns tools for the series on which the tests are running.
 	// We are only interested in checking the version.Number below so need to fake the
 	// upgraded tools series to match that of newVersion.
 	upgradeTools.Version.Series = newVersion.Series
@@ -676,7 +681,7 @@ func (t *LiveTests) assertStartInstance(c *C, m *state.Machine) {
 		c.Assert(err, IsNil)
 		instId, err := m.InstanceId()
 		if err != nil {
-			c.Assert(state.IsNotProvisionedError(err), IsTrue)
+			c.Assert(state.IsNotProvisionedError(err), jc.IsTrue)
 			continue
 		}
 		_, err = t.Env.Instances([]instance.Id{instId})
@@ -715,7 +720,7 @@ func assertInstanceId(c *C, m *state.Machine, inst instance.Instance) {
 		c.Assert(err, IsNil)
 		gotId, err = m.InstanceId()
 		if err != nil {
-			c.Assert(state.IsNotProvisionedError(err), IsTrue)
+			c.Assert(state.IsNotProvisionedError(err), jc.IsTrue)
 			if inst == nil {
 				return
 			}
@@ -778,22 +783,25 @@ attempt:
 
 // Check that we can't start an instance running tools that correspond with no
 // available platform.  The first thing start instance should do is find
-// appropriate tools.
+// appropriate envtools.
 func (t *LiveTests) TestStartInstanceOnUnknownPlatform(c *C) {
-	inst, _, err := t.Env.StartInstance("4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := provider.StartInstance(
+		t.Env, "4", "fake_nonce", "unknownseries", constraints.Value{}, testing.FakeStateInfo("4"),
+		testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
 	}
 	c.Assert(inst, IsNil)
-	var notFoundError *errors.NotFoundError
-	c.Assert(err, FitsTypeOf, notFoundError)
+	c.Assert(err, jc.Satisfies, errors.IsNotFoundError)
 	c.Assert(err, ErrorMatches, "no matching tools available")
 }
 
 // Check that we can't start an instance with an empty nonce value.
 func (t *LiveTests) TestStartInstanceWithEmptyNonceFails(c *C) {
-	inst, _, err := t.Env.StartInstance("4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"), testing.FakeAPIInfo("4"))
+	inst, _, err := provider.StartInstance(
+		t.Env, "4", "", config.DefaultSeries, constraints.Value{}, testing.FakeStateInfo("4"),
+		testing.FakeAPIInfo("4"))
 	if inst != nil {
 		err := t.Env.StopInstances([]instance.Instance{inst})
 		c.Check(err, IsNil)
@@ -838,14 +846,14 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	// already bootstrapped.
 	t.Destroy(c)
 
-	currentName := tools.StorageName(current)
-	otherName := tools.StorageName(other)
+	currentName := envtools.StorageName(current)
+	otherName := envtools.StorageName(other)
 	envStorage := env.Storage()
 	dummyStorage := dummyenv.Storage()
 
 	defer envStorage.Remove(otherName)
 
-	_, err = tools.Upload(dummyStorage, &current.Number)
+	_, err = envtools.Upload(dummyStorage, &current.Number)
 	c.Assert(err, IsNil)
 
 	// This will only work while cross-compiling across releases is safe,
@@ -854,7 +862,7 @@ func (t *LiveTests) TestBootstrapWithDefaultSeries(c *C) {
 	err = storageCopy(dummyStorage, currentName, envStorage, otherName)
 	c.Assert(err, IsNil)
 
-	err = environs.Bootstrap(env, constraints.Value{})
+	err = bootstrap.Bootstrap(env, constraints.Value{})
 	c.Assert(err, IsNil)
 	defer env.Destroy(nil)
 

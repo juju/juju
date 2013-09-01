@@ -4,7 +4,9 @@
 package client
 
 import (
+	"errors"
 	"fmt"
+
 	"launchpad.net/juju-core/charm"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/state"
@@ -79,21 +81,13 @@ func (c *Client) WatchAll() (params.AllWatcherId, error) {
 	}, nil
 }
 
-// ServiceSet implements the server side of Client.ServerSet.
+// ServiceSet implements the server side of Client.ServiceSet.
 func (c *Client) ServiceSet(p params.ServiceSet) error {
 	svc, err := c.api.state.Service(p.ServiceName)
 	if err != nil {
 		return err
 	}
-	ch, _, err := svc.Charm()
-	if err != nil {
-		return err
-	}
-	changes, err := ch.Config().ParseSettingsStrings(p.Options)
-	if err != nil {
-		return err
-	}
-	return svc.UpdateConfigSettings(changes)
+	return serviceSetSettingsStrings(svc, p.Options)
 }
 
 // ServiceSetYAML implements the server side of Client.ServerSetYAML.
@@ -102,15 +96,7 @@ func (c *Client) ServiceSetYAML(p params.ServiceSetYAML) error {
 	if err != nil {
 		return err
 	}
-	ch, _, err := svc.Charm()
-	if err != nil {
-		return err
-	}
-	changes, err := ch.Config().ParseSettingsYAML([]byte(p.Config), p.ServiceName)
-	if err != nil {
-		return err
-	}
-	return svc.UpdateConfigSettings(changes)
+	return serviceSetSettingsYAML(svc, p.Config)
 }
 
 // ServiceGet returns the configuration for a service.
@@ -182,13 +168,46 @@ func (c *Client) ServiceDeploy(args params.ServiceDeploy) error {
 	return err
 }
 
-// ServiceSetCharm sets the charm for a given service.
-func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
+// ServiceUpdate updates the service attributes, including charm URL,
+// minimum number of units, settings and constraints.
+// All parameters in params.ServiceUpdate except the service name are optional.
+func (c *Client) ServiceUpdate(args params.ServiceUpdate) error {
 	service, err := c.api.state.Service(args.ServiceName)
 	if err != nil {
 		return err
 	}
-	curl, err := charm.ParseURL(args.CharmUrl)
+	// Set the charm for the given service.
+	if args.CharmUrl != "" {
+		if err = serviceSetCharm(c.api.state, service, args.CharmUrl, args.ForceCharmUrl); err != nil {
+			return err
+		}
+	}
+	// Set the minimum number of units for the given service.
+	if args.MinUnits != nil {
+		if err = service.SetMinUnits(*args.MinUnits); err != nil {
+			return err
+		}
+	}
+	// Set up service's settings.
+	if args.SettingsYAML != "" {
+		if err = serviceSetSettingsYAML(service, args.SettingsYAML); err != nil {
+			return err
+		}
+	} else if len(args.SettingsStrings) > 0 {
+		if err = serviceSetSettingsStrings(service, args.SettingsStrings); err != nil {
+			return err
+		}
+	}
+	// Update service's constraints.
+	if args.Constraints != nil {
+		return service.SetConstraints(*args.Constraints)
+	}
+	return nil
+}
+
+// serviceSetCharm sets the charm for the given service.
+func serviceSetCharm(state *state.State, service *state.Service, url string, force bool) error {
+	curl, err := charm.ParseURL(url)
 	if err != nil {
 		return err
 	}
@@ -198,7 +217,7 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if curl.Revision < 0 {
 		return fmt.Errorf("charm url must include revision")
 	}
-	conn, err := juju.NewConnFromState(c.api.state)
+	conn, err := juju.NewConnFromState(state)
 	if err != nil {
 		return err
 	}
@@ -206,12 +225,72 @@ func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
 	if err != nil {
 		return err
 	}
-	return service.SetCharm(ch, args.Force)
+	return service.SetCharm(ch, force)
+}
+
+// serviceSetSettingsYAML updates the settings for the given service,
+// taking the configuration from a YAML string.
+func serviceSetSettingsYAML(service *state.Service, settings string) error {
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsYAML([]byte(settings), service.Name())
+	if err != nil {
+		return err
+	}
+	return service.UpdateConfigSettings(changes)
+}
+
+// serviceSetSettingsStrings updates the settings for the given service,
+// taking the configuration from a map of strings.
+func serviceSetSettingsStrings(service *state.Service, settings map[string]string) error {
+	ch, _, err := service.Charm()
+	if err != nil {
+		return err
+	}
+	changes, err := ch.Config().ParseSettingsStrings(settings)
+	if err != nil {
+		return err
+	}
+	return service.UpdateConfigSettings(changes)
+}
+
+// ServiceSetCharm sets the charm for a given service.
+func (c *Client) ServiceSetCharm(args params.ServiceSetCharm) error {
+	service, err := c.api.state.Service(args.ServiceName)
+	if err != nil {
+		return err
+	}
+	return serviceSetCharm(c.api.state, service, args.CharmUrl, args.Force)
+}
+
+// addServiceUnits adds a given number of units to a service.
+// TODO(jam): 2013-08-26 https://pad.lv/1216830
+// The functionality on conn.AddUnits should get pulled up into
+// state/apiserver/client, but currently we still have conn.DeployService that
+// depends on it. When that changes, clean up this function.
+func addServiceUnits(state *state.State, args params.AddServiceUnits) ([]*state.Unit, error) {
+	conn, err := juju.NewConnFromState(state)
+	if err != nil {
+		return nil, err
+	}
+	service, err := state.Service(args.ServiceName)
+	if err != nil {
+		return nil, err
+	}
+	if args.NumUnits < 1 {
+		return nil, errors.New("must add at least one unit")
+	}
+	if args.NumUnits > 1 && args.ToMachineSpec != "" {
+		return nil, errors.New("cannot use NumUnits with ToMachineSpec")
+	}
+	return conn.AddUnits(service, args.NumUnits, args.ToMachineSpec)
 }
 
 // AddServiceUnits adds a given number of units to a service.
 func (c *Client) AddServiceUnits(args params.AddServiceUnits) (params.AddServiceUnitsResults, error) {
-	units, err := statecmd.AddServiceUnits(c.api.state, args)
+	units, err := addServiceUnits(c.api.state, args)
 	if err != nil {
 		return params.AddServiceUnitsResults{}, err
 	}
@@ -295,20 +374,33 @@ func (c *Client) EnvironmentInfo() (api.EnvironmentInfo, error) {
 
 // GetAnnotations returns annotations about a given entity.
 func (c *Client) GetAnnotations(args params.GetAnnotations) (params.GetAnnotationsResults, error) {
-	entity, err := c.api.state.Annotator(args.Tag)
+	nothing := params.GetAnnotationsResults{}
+	entity, err := c.findEntity(args.Tag)
 	if err != nil {
-		return params.GetAnnotationsResults{}, err
+		return nothing, err
 	}
 	ann, err := entity.Annotations()
 	if err != nil {
-		return params.GetAnnotationsResults{}, err
+		return nothing, err
 	}
 	return params.GetAnnotationsResults{Annotations: ann}, nil
 }
 
+func (c *Client) findEntity(tag string) (state.Annotator, error) {
+	entity0, err := c.api.state.FindEntity(tag)
+	if err != nil {
+		return nil, err
+	}
+	entity, ok := entity0.(state.Annotator)
+	if !ok {
+		return nil, common.NotSupportedError(tag, "annotations")
+	}
+	return entity, nil
+}
+
 // SetAnnotations stores annotations about a given entity.
 func (c *Client) SetAnnotations(args params.SetAnnotations) error {
-	entity, err := c.api.state.Annotator(args.Tag)
+	entity, err := c.findEntity(args.Tag)
 	if err != nil {
 		return err
 	}

@@ -10,18 +10,23 @@ import (
 	"path/filepath"
 	"time"
 
-	. "launchpad.net/gocheck"
+	gc "launchpad.net/gocheck"
 
-	"launchpad.net/juju-core/agent/tools"
+	"launchpad.net/juju-core/agent"
+	agenttools "launchpad.net/juju-core/agent/tools"
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/container/lxc"
 	"launchpad.net/juju-core/container/lxc/mock"
+	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/instance"
 	jujutesting "launchpad.net/juju-core/juju/testing"
+	"launchpad.net/juju-core/names"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	coretesting "launchpad.net/juju-core/testing"
-	. "launchpad.net/juju-core/testing/checkers"
+	jc "launchpad.net/juju-core/testing/checkers"
+	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 	"launchpad.net/juju-core/worker/provisioner"
 )
@@ -34,22 +39,23 @@ type lxcSuite struct {
 
 type lxcBrokerSuite struct {
 	lxcSuite
-	broker provisioner.Broker
+	broker      environs.InstanceBroker
+	agentConfig agent.Config
 }
 
-var _ = Suite(&lxcBrokerSuite{})
+var _ = gc.Suite(&lxcBrokerSuite{})
 
-func (s *lxcSuite) SetUpSuite(c *C) {
+func (s *lxcSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.TestSuite.SetUpSuite(c)
 }
 
-func (s *lxcSuite) TearDownSuite(c *C) {
+func (s *lxcSuite) TearDownSuite(c *gc.C) {
 	s.TestSuite.TearDownSuite(c)
 	s.LoggingSuite.TearDownSuite(c)
 }
 
-func (s *lxcSuite) SetUpTest(c *C) {
+func (s *lxcSuite) SetUpTest(c *gc.C) {
 	s.LoggingSuite.SetUpTest(c)
 	s.TestSuite.SetUpTest(c)
 	s.events = make(chan mock.Event)
@@ -61,71 +67,102 @@ func (s *lxcSuite) SetUpTest(c *C) {
 	s.TestSuite.Factory.AddListener(s.events)
 }
 
-func (s *lxcSuite) TearDownTest(c *C) {
+func (s *lxcSuite) TearDownTest(c *gc.C) {
 	close(s.events)
 	s.TestSuite.TearDownTest(c)
 	s.LoggingSuite.TearDownTest(c)
 }
 
-func (s *lxcBrokerSuite) SetUpTest(c *C) {
+func (s *lxcBrokerSuite) SetUpTest(c *gc.C) {
 	s.lxcSuite.SetUpTest(c)
-	tools := &tools.Tools{
+	tools := &coretools.Tools{
 		Version: version.MustParseBinary("2.3.4-foo-bar"),
 		URL:     "http://tools.testing.invalid/2.3.4-foo-bar.tgz",
 	}
-	s.broker = provisioner.NewLxcBroker(coretesting.EnvironConfig(c), tools)
+	config := coretesting.EnvironConfig(c)
+	var err error
+	s.agentConfig, err = agent.NewAgentConfig(
+		agent.AgentConfigParams{
+			DataDir:      "/not/used/here",
+			Tag:          "tag",
+			Password:     "dummy-secret",
+			Nonce:        "nonce",
+			APIAddresses: []string{"10.0.0.1:1234"},
+			CACert:       []byte(coretesting.CACert),
+		})
+	c.Assert(err, gc.IsNil)
+	s.broker = provisioner.NewLxcBroker(config, tools, s.agentConfig)
 }
 
-func (s *lxcBrokerSuite) startInstance(c *C, machineId string) instance.Instance {
+func (s *lxcBrokerSuite) startInstance(c *gc.C, machineId string) instance.Instance {
 	stateInfo := jujutesting.FakeStateInfo(machineId)
 	apiInfo := jujutesting.FakeAPIInfo(machineId)
 
 	series := "series"
 	nonce := "fake-nonce"
 	cons := constraints.Value{}
-	lxc, _, err := s.broker.StartInstance(machineId, nonce, series, cons, stateInfo, apiInfo)
-	c.Assert(err, IsNil)
+	lxc, _, err := provider.StartInstance(s.broker, machineId, nonce, series, cons, stateInfo, apiInfo)
+	c.Assert(err, gc.IsNil)
 	return lxc
 }
 
-func (s *lxcBrokerSuite) TestStartInstance(c *C) {
+func (s *lxcBrokerSuite) TestStartInstance(c *gc.C) {
 	machineId := "1/lxc/0"
 	lxc := s.startInstance(c, machineId)
-	c.Assert(lxc.Id(), Equals, instance.Id("juju-machine-1-lxc-0"))
-	c.Assert(s.lxcContainerDir(lxc), IsDirectory)
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
 	s.assertInstances(c, lxc)
+	// Uses default network config
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = lxcbr0")
 }
 
-func (s *lxcBrokerSuite) TestStopInstance(c *C) {
+func (s *lxcBrokerSuite) TestStartInstanceWithBridgeEnviron(c *gc.C) {
+	s.agentConfig.SetValue(agent.LxcBridge, "br0")
+	machineId := "1/lxc/0"
+	lxc := s.startInstance(c, machineId)
+	c.Assert(lxc.Id(), gc.Equals, instance.Id("juju-machine-1-lxc-0"))
+	c.Assert(s.lxcContainerDir(lxc), jc.IsDirectory)
+	s.assertInstances(c, lxc)
+	// Uses default network config
+	lxcConfContents, err := ioutil.ReadFile(filepath.Join(s.ContainerDir, string(lxc.Id()), "lxc.conf"))
+	c.Assert(err, gc.IsNil)
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.type = veth")
+	c.Assert(string(lxcConfContents), jc.Contains, "lxc.network.link = br0")
+}
+
+func (s *lxcBrokerSuite) TestStopInstance(c *gc.C) {
 	lxc0 := s.startInstance(c, "1/lxc/0")
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	lxc2 := s.startInstance(c, "1/lxc/2")
 
 	err := s.broker.StopInstances([]instance.Instance{lxc0})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertInstances(c, lxc1, lxc2)
-	c.Assert(s.lxcContainerDir(lxc0), DoesNotExist)
-	c.Assert(s.lxcRemovedContainerDir(lxc0), IsDirectory)
+	c.Assert(s.lxcContainerDir(lxc0), jc.DoesNotExist)
+	c.Assert(s.lxcRemovedContainerDir(lxc0), jc.IsDirectory)
 
 	err = s.broker.StopInstances([]instance.Instance{lxc1, lxc2})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.assertInstances(c)
 }
 
-func (s *lxcBrokerSuite) TestAllInstances(c *C) {
+func (s *lxcBrokerSuite) TestAllInstances(c *gc.C) {
 	lxc0 := s.startInstance(c, "1/lxc/0")
 	lxc1 := s.startInstance(c, "1/lxc/1")
 	s.assertInstances(c, lxc0, lxc1)
 
 	err := s.broker.StopInstances([]instance.Instance{lxc1})
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	lxc2 := s.startInstance(c, "1/lxc/2")
 	s.assertInstances(c, lxc0, lxc2)
 }
 
-func (s *lxcBrokerSuite) assertInstances(c *C, inst ...instance.Instance) {
+func (s *lxcBrokerSuite) assertInstances(c *gc.C, inst ...instance.Instance) {
 	results, err := s.broker.AllInstances()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	coretesting.MatchInstances(c, results, inst...)
 }
 
@@ -144,54 +181,56 @@ type lxcProvisionerSuite struct {
 	events    chan mock.Event
 }
 
-var _ = Suite(&lxcProvisionerSuite{})
+var _ = gc.Suite(&lxcProvisionerSuite{})
 
-func (s *lxcProvisionerSuite) SetUpSuite(c *C) {
+func (s *lxcProvisionerSuite) SetUpSuite(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpSuite(c)
 	s.lxcSuite.SetUpSuite(c)
 }
 
-func (s *lxcProvisionerSuite) TearDownSuite(c *C) {
+func (s *lxcProvisionerSuite) TearDownSuite(c *gc.C) {
 	s.lxcSuite.TearDownSuite(c)
 	s.CommonProvisionerSuite.TearDownSuite(c)
 }
 
-func (s *lxcProvisionerSuite) SetUpTest(c *C) {
+func (s *lxcProvisionerSuite) SetUpTest(c *gc.C) {
 	s.CommonProvisionerSuite.SetUpTest(c)
 	s.lxcSuite.SetUpTest(c)
 	// Write the tools file.
-	toolsDir := tools.SharedToolsDir(s.DataDir(), version.Current)
-	c.Assert(os.MkdirAll(toolsDir, 0755), IsNil)
+	toolsDir := agenttools.SharedToolsDir(s.DataDir(), version.Current)
+	c.Assert(os.MkdirAll(toolsDir, 0755), gc.IsNil)
 	urlPath := filepath.Join(toolsDir, "downloaded-url.txt")
 	err := ioutil.WriteFile(urlPath, []byte("http://testing.invalid/tools"), 0644)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	// The lxc provisioner actually needs the machine it is being created on
 	// to be in state, in order to get the watcher.
 	m, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.machineId = m.Id()
 
 	s.events = make(chan mock.Event, 25)
 	s.Factory.AddListener(s.events)
 }
 
-func (s *lxcProvisionerSuite) expectStarted(c *C, machine *state.Machine) string {
+func (s *lxcProvisionerSuite) expectStarted(c *gc.C, machine *state.Machine) string {
+	s.State.StartSync()
 	event := <-s.events
-	c.Assert(event.Action, Equals, mock.Started)
+	c.Assert(event.Action, gc.Equals, mock.Started)
 	err := machine.Refresh()
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	s.waitInstanceId(c, machine, instance.Id(event.InstanceId))
 	return event.InstanceId
 }
 
-func (s *lxcProvisionerSuite) expectStopped(c *C, instId string) {
+func (s *lxcProvisionerSuite) expectStopped(c *gc.C, instId string) {
+	s.State.StartSync()
 	event := <-s.events
-	c.Assert(event.Action, Equals, mock.Stopped)
-	c.Assert(event.InstanceId, Equals, instId)
+	c.Assert(event.Action, gc.Equals, mock.Stopped)
+	c.Assert(event.InstanceId, gc.Equals, instId)
 }
 
-func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
+func (s *lxcProvisionerSuite) expectNoEvents(c *gc.C) {
 	select {
 	case event := <-s.events:
 		c.Fatalf("unexpected event %#v", event)
@@ -200,33 +239,35 @@ func (s *lxcProvisionerSuite) expectNoEvents(c *C) {
 	}
 }
 
-func (s *lxcProvisionerSuite) TearDownTest(c *C) {
+func (s *lxcProvisionerSuite) TearDownTest(c *gc.C) {
 	close(s.events)
 	s.lxcSuite.TearDownTest(c)
 	s.CommonProvisionerSuite.TearDownTest(c)
 }
 
-func (s *lxcProvisionerSuite) newLxcProvisioner() *provisioner.Provisioner {
-	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, s.DataDir())
+func (s *lxcProvisionerSuite) newLxcProvisioner(c *gc.C) *provisioner.Provisioner {
+	machineTag := names.MachineTag(s.machineId)
+	agentConfig := s.AgentConfigForTag(c, machineTag)
+	return provisioner.NewProvisioner(provisioner.LXC, s.State, s.machineId, agentConfig)
 }
 
-func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *C) {
-	p := s.newLxcProvisioner()
-	c.Assert(p.Stop(), IsNil)
+func (s *lxcProvisionerSuite) TestProvisionerStartStop(c *gc.C) {
+	p := s.newLxcProvisioner(c)
+	c.Assert(p.Stop(), gc.IsNil)
 }
 
-func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *C) {
-	p := s.newLxcProvisioner()
+func (s *lxcProvisionerSuite) TestDoesNotStartEnvironMachines(c *gc.C) {
+	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 
 	// Check that an instance is not provisioned when the machine is created.
 	_, err := s.State.AddMachine(config.DefaultSeries, state.JobHostUnits)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 
 	s.expectNoEvents(c)
 }
 
-func (s *lxcProvisionerSuite) addContainer(c *C) *state.Machine {
+func (s *lxcProvisionerSuite) addContainer(c *gc.C) *state.Machine {
 	params := state.AddMachineParams{
 		ParentId:      s.machineId,
 		ContainerType: instance.LXC,
@@ -234,12 +275,12 @@ func (s *lxcProvisionerSuite) addContainer(c *C) *state.Machine {
 		Jobs:          []state.MachineJob{state.JobHostUnits},
 	}
 	container, err := s.State.AddMachineWithConstraints(&params)
-	c.Assert(err, IsNil)
+	c.Assert(err, gc.IsNil)
 	return container
 }
 
-func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *C) {
-	p := s.newLxcProvisioner()
+func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *gc.C) {
+	p := s.newLxcProvisioner(c)
 	defer stop(c, p)
 
 	container := s.addContainer(c)
@@ -247,7 +288,7 @@ func (s *lxcProvisionerSuite) TestContainerStartedAndStopped(c *C) {
 	instId := s.expectStarted(c, container)
 
 	// ...and removed, along with the machine, when the machine is Dead.
-	c.Assert(container.EnsureDead(), IsNil)
+	c.Assert(container.EnsureDead(), gc.IsNil)
 	s.expectStopped(c, instId)
 	s.waitRemoved(c, container)
 }

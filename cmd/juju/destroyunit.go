@@ -16,7 +16,7 @@ import (
 
 // DestroyUnitCommand is responsible for destroying service units.
 type DestroyUnitCommand struct {
-	EnvCommandBase
+	cmd.EnvCommandBase
 	UnitNames []string
 }
 
@@ -44,7 +44,7 @@ func (c *DestroyUnitCommand) Init(args []string) error {
 
 // Run connects to the environment specified on the command line and destroys
 // units therein.
-func (c *DestroyUnitCommand) Run(_ *cmd.Context) (err error) {
+func (c *DestroyUnitCommand) Run(_ *cmd.Context) error {
 	conn, err := juju.NewConnFromName(c.EnvName)
 	if err != nil {
 		return err
