@@ -141,9 +141,10 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 		Desc:    "juju unit agent for " + unitName,
 		Cmd:     cmd,
 		Out:     logPath,
-		// Propagate the provider type enviroment variable.
+		// Propagate the provider type and container type enviroment variables.
 		Env: map[string]string{
-			osenv.JujuProviderType: os.Getenv(osenv.JujuProviderType),
+			osenv.JujuProviderType:  os.Getenv(osenv.JujuProviderType),
+			osenv.JujuContainerType: os.Getenv(osenv.JujuContainerType),
 		},
 	}
 	return uconf.Install()
@@ -171,11 +172,11 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 	if svc == nil || !svc.Installed() {
 		return fmt.Errorf("unit %q is not deployed", unitName)
 	}
-	if err := svc.Remove(); err != nil {
+	if err := svc.StopAndRemove(); err != nil {
 		return err
 	}
 	tag := names.UnitTag(unitName)
-	agentDir := tools.Dir(ctx.dataDir, tag)
+	agentDir := agent.Dir(ctx.dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
