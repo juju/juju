@@ -6,11 +6,12 @@ package tools
 import (
 	"fmt"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")

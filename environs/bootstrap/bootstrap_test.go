@@ -5,7 +5,7 @@ package bootstrap_test
 
 import (
 	"fmt"
-	"testing"
+	stdtesting "testing"
 
 	gc "launchpad.net/gocheck"
 
@@ -15,15 +15,13 @@ import (
 	"launchpad.net/juju-core/environs/config"
 	"launchpad.net/juju-core/environs/localstorage"
 	envtesting "launchpad.net/juju-core/environs/testing"
-	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/provider/dummy"
 	coretesting "launchpad.net/juju-core/testing"
-	jc "launchpad.net/juju-core/testing/checkers"
 	"launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
 )
 
-func Test(t *testing.T) {
+func Test(t *stdtesting.T) {
 	gc.TestingT(t)
 }
 
@@ -35,6 +33,10 @@ const (
 type bootstrapSuite struct {
 	home *coretesting.FakeHome
 	coretesting.LoggingSuite
+}
+
+func TestPackage(t *stdtesting.T) {
+	gc.TestingT(t)
 }
 
 var _ = gc.Suite(&bootstrapSuite{})
@@ -173,7 +175,7 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 		}
 		err = bootstrap.Bootstrap(env, cons)
 		if test.Err != nil {
-			c.Check(err, jc.Satisfies, errors.IsNotFoundError)
+			c.Check(err, gc.ErrorMatches, ".*"+test.Err.Error())
 			continue
 		} else {
 			c.Assert(err, gc.IsNil)
@@ -188,6 +190,15 @@ func (s *bootstrapSuite) TestBootstrapTools(c *gc.C) {
 			c.Check(agentVersion, gc.Equals, expectAgentVersion)
 		}
 	}
+}
+
+func (s *bootstrapSuite) TestBootstrapNeedsTools(c *gc.C) {
+	env := newEnviron("foo", useDefaultKeys)
+	cleanup := setDummyStorage(c, env)
+	defer cleanup()
+	envtesting.RemoveFakeTools(c, env.Storage())
+	err := bootstrap.Bootstrap(env, constraints.Value{})
+	c.Check(err, gc.ErrorMatches, "cannot find bootstrap tools: no tools available")
 }
 
 type bootstrapEnviron struct {
@@ -233,6 +244,7 @@ func setDummyStorage(c *gc.C, env *bootstrapEnviron) func() {
 	listener, err := localstorage.Serve("127.0.0.1:0", c.MkDir())
 	c.Assert(err, gc.IsNil)
 	env.storage = localstorage.Client(listener.Addr().String())
+	envtesting.UploadFakeTools(c, env.storage)
 	return func() { listener.Close() }
 }
 
@@ -260,5 +272,5 @@ func (e *bootstrapEnviron) Storage() environs.Storage {
 }
 
 func (e *bootstrapEnviron) PublicStorage() environs.StorageReader {
-	return nil
+	return environs.EmptyStorage
 }

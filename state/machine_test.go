@@ -615,6 +615,23 @@ func (s *MachineSuite) TestWatchMachine(c *gc.C) {
 	testing.NewNotifyWatcherC(c, s.State, w).AssertOneChange()
 }
 
+func (s *MachineSuite) TestWatchDiesOnStateClose(c *gc.C) {
+	// This test is testing logic in watcher.entityWatcher, which
+	// is also used by:
+	//	Machine.WatchHardwareCharacteristics
+	//	Service.Watch
+	//	Unit.Watch
+	//	State.WatchForEnvironConfigChanges
+	//	Unit.WatchConfigSettings
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		m, err := st.Machine(s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		w := m.Watch()
+		<-w.Changes()
+		return w
+	})
+}
+
 func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	// Start a watch on an empty machine; check no units reported.
 	w := s.machine.WatchPrincipalUnits()
@@ -708,6 +725,18 @@ func (s *MachineSuite) TestWatchPrincipalUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("mysql/1")
 	wc.AssertNoChange()
+}
+
+func (s *MachineSuite) TestWatchPrincipalUnitsDiesOnStateClose(c *gc.C) {
+	// This test is testing logic in watcher.unitsWatcher, which
+	// is also used by Unit.WatchSubordinateUnits.
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		m, err := st.Machine(s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		w := m.WatchPrincipalUnits()
+		<-w.Changes()
+		return w
+	})
 }
 
 func (s *MachineSuite) TestWatchUnits(c *gc.C) {
@@ -804,6 +833,16 @@ func (s *MachineSuite) TestWatchUnits(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	wc.AssertChange("mysql/1", "logging/0")
 	wc.AssertNoChange()
+}
+
+func (s *MachineSuite) TestWatchUnitsDiesOnStateClose(c *gc.C) {
+	testWatcherDiesWhenStateCloses(c, func(c *gc.C, st *state.State) waiter {
+		m, err := st.Machine(s.machine.Id())
+		c.Assert(err, gc.IsNil)
+		w := m.WatchUnits()
+		<-w.Changes()
+		return w
+	})
 }
 
 func (s *MachineSuite) TestAnnotatorForMachine(c *gc.C) {

@@ -6,6 +6,7 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/utils"
 )
 
 var (
@@ -62,6 +63,6 @@ func MockAddressForInterface() func() {
 		return "127.0.0.1", nil
 	}
 	return func() {
-		getAddressForInterface = getAddressForInterfaceImpl
+		getAddressForInterface = utils.GetAddressForInterface
 	}
 }
