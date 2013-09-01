@@ -63,7 +63,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 		return nil, err
 	}
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
+		return nil, fmt.Errorf("%s", resp.Status)
 	}
 	defer resp.Body.Close()
 	body, err := ioutil.ReadAll(resp.Body)

@@ -14,6 +14,7 @@ import (
 	"launchpad.net/juju-core/environs/tools"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/version"
 )
@@ -56,7 +57,7 @@ func Bootstrap(environ environs.Environ, cons constraints.Value) error {
 	logger.Infof("bootstrapping environment %q", environ.Name())
 	newestTools, err := tools.FindBootstrapTools(environ, cons)
 	if err != nil {
-		return err
+		return fmt.Errorf("cannot find bootstrap tools: %v", err)
 	}
 	// ensure we have at least one valid tools
 	if len(newestTools) == 0 {
@@ -77,7 +78,7 @@ func verifyBootstrapInit(env environs.Environ) error {
 	// removed by Destroy, and eventual consistency has not caught
 	// up yet, so we retry to verify if that is happening.
 	for a := storage.ConsistencyStrategy().Start(); a.Next(); {
-		if _, err = environs.LoadState(storage); err != nil {
+		if _, err = provider.LoadState(storage); err != nil {
 			break
 		}
 	}
