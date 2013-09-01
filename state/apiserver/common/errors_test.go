@@ -1,7 +1,7 @@
 // Copyright 2012, 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-package apiserver_test
+package common_test
 
 import (
 	stderrors "errors"
@@ -71,9 +71,18 @@ var errorTransformTests = []struct {
 	err:  stderrors.New("an error"),
 	code: "",
 }, {
+	err:  unhashableError{"foo"},
+	code: "",
+}, {
 	err:  nil,
 	code: "",
 }}
+
+type unhashableError []string
+
+func (err unhashableError) Error() string {
+	return err[0]
+}
 
 func (s *errorsSuite) TestErrorTransform(c *gc.C) {
 	for _, t := range errorTransformTests {

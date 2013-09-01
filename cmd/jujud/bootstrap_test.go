@@ -13,10 +13,10 @@ import (
 
 	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/constraints"
-	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/environs/jujutest"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/instance"
+	"launchpad.net/juju-core/provider"
 	"launchpad.net/juju-core/state"
 	"launchpad.net/juju-core/testing"
 	"launchpad.net/juju-core/utils"
@@ -43,12 +43,12 @@ func init() {
 func (s *BootstrapSuite) SetUpSuite(c *gc.C) {
 	s.LoggingSuite.SetUpSuite(c)
 	s.MgoSuite.SetUpSuite(c)
-	stateInfo := environs.BootstrapState{
+	stateInfo := provider.BootstrapState{
 		StateInstances: []instance.Id{instance.Id("dummy.instance.id")},
 	}
 	stateData, err := goyaml.Marshal(stateInfo)
 	c.Assert(err, gc.IsNil)
-	content := map[string]string{"/" + environs.StateFile: string(stateData)}
+	content := map[string]string{"/" + provider.StateFile: string(stateData)}
 	testRoundTripper.Sub = jujutest.NewCannedRoundTripper(content, nil)
 	s.providerStateURLFile = filepath.Join(c.MkDir(), "provider-state-url")
 	providerStateURLFile = s.providerStateURLFile
