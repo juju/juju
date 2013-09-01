@@ -257,6 +257,25 @@ func (S) TestOutput(c *gc.C) {
 	}
 }
 
+func (S) TestRunCmds(c *gc.C) {
+	cfg := cloudinit.New()
+	c.Assert(cfg.RunCmds(), gc.HasLen, 0)
+	cfg.AddScripts("a", "b")
+	cfg.AddRunCmdArgs("c", "d")
+	cfg.AddRunCmd("e")
+	c.Assert(cfg.RunCmds(), gc.DeepEquals, []interface{}{
+		"a", "b", []string{"c", "d"}, "e",
+	})
+}
+
+func (S) TestPackages(c *gc.C) {
+	cfg := cloudinit.New()
+	c.Assert(cfg.Packages(), gc.HasLen, 0)
+	cfg.AddPackage("a b c")
+	cfg.AddPackage("d!")
+	c.Assert(cfg.Packages(), gc.DeepEquals, []string{"a b c", "d!"})
+}
+
 //#cloud-config
 //packages:
 //- juju
