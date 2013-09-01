@@ -6,12 +6,13 @@ package tools
 import (
 	"fmt"
 
+	"launchpad.net/loggo"
+
 	"launchpad.net/juju-core/constraints"
 	"launchpad.net/juju-core/environs"
 	"launchpad.net/juju-core/errors"
 	coretools "launchpad.net/juju-core/tools"
 	"launchpad.net/juju-core/version"
-	"launchpad.net/loggo"
 )
 
 var logger = loggo.GetLogger("juju.environs.tools")
@@ -30,7 +31,7 @@ func FindTools(environ environs.Environ, majorVersion int, filter coretools.Filt
 	// Construct a tools filter.
 	// Discard all that are known to be irrelevant.
 	if filter.Number != version.Zero {
-		logger.Infof("filtering tools by version: %s", filter.Number.Major)
+		logger.Infof("filtering tools by version: %s", filter.Number)
 	}
 	if filter.Series != "" {
 		logger.Infof("filtering tools by series: %s", filter.Series)

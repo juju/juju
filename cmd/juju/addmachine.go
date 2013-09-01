@@ -11,12 +11,23 @@ import (
 
 	"launchpad.net/juju-core/cmd"
 	"launchpad.net/juju-core/constraints"
+	"launchpad.net/juju-core/environs/manual"
 	"launchpad.net/juju-core/instance"
 	"launchpad.net/juju-core/juju"
 	"launchpad.net/juju-core/log"
 	"launchpad.net/juju-core/names"
 	"launchpad.net/juju-core/state"
 )
+
+// sshHostPrefix is the prefix for a machine to be "manually provisioned".
+const sshHostPrefix = "ssh:"
+
+var addMachineDoc = `
+Machines are created in a clean state and ready to have units deployed.
+
+This command also supports configuring existing machines via SSH. The
+target machine must be able to communicate with the API servers, and
+be able to access the environment storage.`[1:]
 
 // AddMachineCommand starts a new machine and registers it in the environment.
 type AddMachineCommand struct {
@@ -27,14 +38,15 @@ type AddMachineCommand struct {
 	Constraints   constraints.Value
 	MachineId     string
 	ContainerType instance.ContainerType
+	SSHHost       string
 }
 
 func (c *AddMachineCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "add-machine",
-		Args:    "[<container>:machine | <container>]",
+		Args:    "[<container>:machine | <container> | ssh:[user@]host]",
 		Purpose: "start a new, empty machine and optionally a container, or add a container to a machine",
-		Doc:     "Machines are created in a clean state and ready to have units deployed.",
+		Doc:     addMachineDoc,
 	}
 }
 
@@ -55,14 +67,18 @@ func (c *AddMachineCommand) Init(args []string) error {
 	if containerSpec == "" {
 		return nil
 	}
-	// container arg can either be 'type:machine' or 'type'
-	if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
-		if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
-			return fmt.Errorf("malformed container argument %q", containerSpec)
+	if strings.HasPrefix(containerSpec, sshHostPrefix) {
+		c.SSHHost = containerSpec[len(sshHostPrefix):]
+	} else {
+		// container arg can either be 'type:machine' or 'type'
+		if c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec); err != nil {
+			if names.IsMachine(containerSpec) || !cmd.IsMachineOrNewContainer(containerSpec) {
+				return fmt.Errorf("malformed container argument %q", containerSpec)
+			}
+			sep := strings.Index(containerSpec, ":")
+			c.MachineId = containerSpec[sep+1:]
+			c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
 		}
-		sep := strings.Index(containerSpec, ":")
-		c.MachineId = containerSpec[sep+1:]
-		c.ContainerType, err = instance.ParseSupportedContainerType(containerSpec[:sep])
 	}
 	return err
 }
@@ -73,6 +89,15 @@ func (c *AddMachineCommand) Run(_ *cmd.Context) error {
 		return err
 	}
 	defer conn.Close()
+
+	if c.SSHHost != "" {
+		args := manual.ProvisionMachineArgs{
+			Host:  c.SSHHost,
+			State: conn.State,
+		}
+		_, err = manual.ProvisionMachine(args)
+		return err
+	}
 
 	series := c.Series
 	if series == "" {

@@ -49,7 +49,7 @@ func StartBootstrapInstance(env environs.Environ, cons constraints.Value, possib
 	// Create an empty bootstrap state file so we can get its URL.
 	// It will be updated with the instance id and hardware characteristics
 	// after the bootstrap instance is started.
-	stateFileURL, err := environs.CreateStateFile(env.Storage())
+	stateFileURL, err := CreateStateFile(env.Storage())
 	if err != nil {
 		return err
 	}
@@ -62,9 +62,9 @@ func StartBootstrapInstance(env environs.Environ, cons constraints.Value, possib
 	if hw != nil {
 		characteristics = []instance.HardwareCharacteristics{*hw}
 	}
-	err = environs.SaveState(
+	err = SaveState(
 		env.Storage(),
-		&environs.BootstrapState{
+		&BootstrapState{
 			StateInstances:  []instance.Id{inst.Id()},
 			Characteristics: characteristics,
 		})

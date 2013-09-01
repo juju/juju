@@ -4,7 +4,8 @@
 package osenv
 
 const (
-	JujuEnv        = "JUJU_ENV"
-	JujuHome       = "JUJU_HOME"
-	JujuRepository = "JUJU_REPOSITORY"
+	JujuEnv           = "JUJU_ENV"
+	JujuHome          = "JUJU_HOME"
+	JujuRepository    = "JUJU_REPOSITORY"
+	JujuContainerType = "JUJU_CONTAINER_TYPE"
 )

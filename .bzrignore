@@ -7,3 +7,4 @@ cmd/charmload/charmload
 ./TAGS
 .emacs.desktop
 .emacs.desktop.lock
+*.test

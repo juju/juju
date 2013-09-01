@@ -6,10 +6,11 @@ import (
 	gc "launchpad.net/gocheck"
 
 	"launchpad.net/juju-core/environs/config"
+	"launchpad.net/juju-core/utils"
 )
 
 var (
-	Provider      = provider
+	Provider      = providerInstance
 	SudoCallerIds = sudoCallerIds
 )
 
@@ -31,20 +32,20 @@ func SetUpstartScriptLocation(location string) (old string) {
 // ConfigNamespace returns the result of the namespace call on the
 // localConfig.
 func ConfigNamespace(cfg *config.Config) string {
-	localConfig, _ := provider.newConfig(cfg)
+	localConfig, _ := providerInstance.newConfig(cfg)
 	return localConfig.namespace()
 }
 
 // CreateDirs calls createDirs on the localEnviron.
 func CreateDirs(c *gc.C, cfg *config.Config) error {
-	localConfig, err := provider.newConfig(cfg)
+	localConfig, err := providerInstance.newConfig(cfg)
 	c.Assert(err, gc.IsNil)
 	return localConfig.createDirs()
 }
 
 // CheckDirs returns the list of directories to check for permissions in the test.
 func CheckDirs(c *gc.C, cfg *config.Config) []string {
-	localConfig, err := provider.newConfig(cfg)
+	localConfig, err := providerInstance.newConfig(cfg)
 	c.Assert(err, gc.IsNil)
 	return []string{
 		localConfig.rootDir(),
@@ -62,6 +63,6 @@ func MockAddressForInterface() func() {
 		return "127.0.0.1", nil
 	}
 	return func() {
-		getAddressForInterface = getAddressForInterfaceImpl
+		getAddressForInterface = utils.GetAddressForInterface
 	}
 }
