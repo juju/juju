@@ -360,8 +360,7 @@ func (s *uniterSuite) TestGetSetCharmURL(c *gc.C) {
 
 	// Now check the same through the API.
 	curl, err = unit.CharmURL()
-	c.Assert(err, gc.IsNil)
-	c.Assert(curl, gc.IsNil)
+	c.Assert(err, gc.ErrorMatches, `"unit-wordpress-0" has no charm url set`)
 
 	err = unit.SetCharmURL(s.charm.URL())
 	c.Assert(err, gc.IsNil)

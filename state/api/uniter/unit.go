@@ -401,14 +401,14 @@ func (u *Unit) CharmURL() (*charm.URL, error) {
 	if result.Error != nil {
 		return nil, result.Error
 	}
-	var curl *charm.URL
 	if result.Result != "" {
-		curl, err = charm.ParseURL(result.Result)
+		curl, err := charm.ParseURL(result.Result)
 		if err != nil {
 			return nil, err
 		}
+		return curl, nil
 	}
-	return curl, nil
+	return nil, fmt.Errorf("%q has no charm url set", u.tag)
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
