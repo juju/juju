@@ -290,6 +290,9 @@ func modeAbideDyingLoop(u *Uniter) (next Mode, err error) {
 	if err := u.unit.Refresh(); err != nil {
 		return nil, err
 	}
+	// TODO(dimitern): Once the uniter uses the API, use
+	// u.unit.DestroyAllSubordinates() here, instead of going
+	// through each subordinate calling Destroy() on it.
 	for _, name := range u.unit.SubordinateNames() {
 		if sub, err := u.st.Unit(name); errors.IsNotFoundError(err) {
 			continue
