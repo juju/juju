@@ -25,10 +25,10 @@ import (
 
 const (
 	formatFilename = "format"
-	currentFormat  = format112
+	currentFormat  = format_1_12
 )
 
-var currentFormatter = &formatter112{}
+var currentFormatter = &formatter_1_12{}
 
 // The formatter defines the two methods needed by the formatters for
 // translating to and from the internal, format agnostic, structure.

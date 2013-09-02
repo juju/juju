@@ -17,12 +17,12 @@ import (
 	jc "launchpad.net/juju-core/testing/checkers"
 )
 
-type format112Suite struct {
+type format_1_12Suite struct {
 	testing.LoggingSuite
-	formatter formatter112
+	formatter formatter_1_12
 }
 
-var _ = gc.Suite(&format112Suite{})
+var _ = gc.Suite(&format_1_12Suite{})
 
 var agentParams = AgentConfigParams{
 	Tag:            "omg",
@@ -33,7 +33,7 @@ var agentParams = AgentConfigParams{
 	Nonce:          "a nonce",
 }
 
-func (s *format112Suite) newConfig(c *gc.C) *configInternal {
+func (s *format_1_12Suite) newConfig(c *gc.C) *configInternal {
 	params := agentParams
 	params.DataDir = c.MkDir()
 	config, err := newConfig(params)
@@ -41,7 +41,7 @@ func (s *format112Suite) newConfig(c *gc.C) *configInternal {
 	return config
 }
 
-func (s *format112Suite) TestWriteAgentConfig(c *gc.C) {
+func (s *format_1_12Suite) TestWriteAgentConfig(c *gc.C) {
 	config := s.newConfig(c)
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
@@ -54,7 +54,7 @@ func (s *format112Suite) TestWriteAgentConfig(c *gc.C) {
 	c.Assert(fileInfo.Size(), jc.GreaterThan, 0)
 }
 
-func (s *format112Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
+func (s *format_1_12Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	err := s.formatter.write(config)
 	c.Assert(err, gc.IsNil)
 	// The readConfig is missing the dataDir initially.
@@ -67,12 +67,12 @@ func (s *format112Suite) assertWriteAndRead(c *gc.C, config *configInternal) {
 	c.Assert(readConfig, gc.DeepEquals, config)
 }
 
-func (s *format112Suite) TestRead(c *gc.C) {
+func (s *format_1_12Suite) TestRead(c *gc.C) {
 	config := s.newConfig(c)
 	s.assertWriteAndRead(c, config)
 }
 
-func (s *format112Suite) TestWriteCommands(c *gc.C) {
+func (s *format_1_12Suite) TestWriteCommands(c *gc.C) {
 	config := s.newConfig(c)
 	commands, err := s.formatter.writeCommands(config)
 	c.Assert(err, gc.IsNil)
@@ -82,7 +82,7 @@ func (s *format112Suite) TestWriteCommands(c *gc.C) {
 	c.Assert(commands[2], gc.Matches, `printf '%s\\n' '(.|\n)*' > '\S+/agents/omg/agent.conf'`)
 }
 
-func (s *format112Suite) TestReadWriteStateConfig(c *gc.C) {
+func (s *format_1_12Suite) TestReadWriteStateConfig(c *gc.C) {
 	stateParams := StateMachineConfigParams{
 		AgentConfigParams: agentParams,
 		StateServerCert:   []byte("some special cert"),
