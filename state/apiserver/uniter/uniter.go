@@ -321,8 +321,10 @@ func (u *UniterAPI) CharmURL(args params.Entities) (params.StringBoolResults, er
 					CharmURL() (*charm.URL, bool)
 				})
 				curl, ok := charmURLer.CharmURL()
-				result.Results[i].Result = curl.String()
-				result.Results[i].Ok = ok
+				if curl != nil {
+					result.Results[i].Result = curl.String()
+					result.Results[i].Ok = ok
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
