@@ -125,6 +125,97 @@ func updateDistroInfo() error {
 	return nil
 }
 
+// The following structs define the data model used in the JSON metadata files.
+// Not every model attribute is defined here, only the ones we care about.
+// See the doc/README file in lp:simplestreams for more information.
+
+// Metadata attribute values may point to a map of attribute values (aka aliases) and these attributes
+// are used to override/augment the existing attributes.
+type attributeValues map[string]string
+type aliasesByAttribute map[string]attributeValues
+
+type CloudMetadata struct {
+	Products map[string]MetadataCatalog    `json:"products"`
+	Aliases  map[string]aliasesByAttribute `json:"_aliases,omitempty"`
+	Updated  string                        `json:"updated"`
+	Format   string                        `json:"format"`
+}
+
+type MetadataCatalog struct {
+	Series     string `json:"release,omitempty"`
+	Version    string `json:"version,omitempty"`
+	Arch       string `json:"arch,omitempty"`
+	RegionName string `json:"region,omitempty"`
+	Endpoint   string `json:"endpoint,omitempty"`
+
+	// Items is a mapping from version to an ItemCollection,
+	// where the version is the date the items were produced,
+	// in the format YYYYMMDD.
+	Items map[string]*ItemCollection `json:"versions"`
+}
+
+type ItemCollection struct {
+	rawItems   map[string]*json.RawMessage
+	Items      map[string]interface{} `json:"items"`
+	Arch       string                 `json:"arch,omitempty"`
+	Version    string                 `json:"version,omitempty"`
+	RegionName string                 `json:"region,omitempty"`
+	Endpoint   string                 `json:"endpoint,omitempty"`
+}
+
+// These structs define the model used for metadata indices.
+
+type Indices struct {
+	Indexes map[string]*IndexMetadata `json:"index"`
+	Updated string                    `json:"updated"`
+	Format  string                    `json:"format"`
+}
+
+// Exported for testing.
+type IndexReference struct {
+	Indices
+	BaseURL     string
+	valueParams ValueParams
+}
+
+type IndexMetadata struct {
+	Updated          string      `json:"updated"`
+	Format           string      `json:"format"`
+	DataType         string      `json:"datatype"`
+	CloudName        string      `json:"cloudname,omitempty"`
+	Clouds           []CloudSpec `json:"clouds,omitempty"`
+	ProductsFilePath string      `json:"path"`
+	ProductIds       []string    `json:"products"`
+}
+
+// These structs define the model used to describe download mirrors.
+
+type MirrorRefs struct {
+	Mirrors map[string][]MirrorReference `json:"mirrors"`
+	Updated string                       `json:"updated"`
+	Format  string                       `json:"format"`
+}
+
+type MirrorReference struct {
+	Updated  string      `json:"updated"`
+	Format   string      `json:"format"`
+	DataType string      `json:"datatype"`
+	Path     string      `json:"path"`
+	Clouds   []CloudSpec `json:"clouds"`
+}
+
+type MirrorMetadata struct {
+	Updated string                  `json:"updated"`
+	Format  string                  `json:"format"`
+	Mirrors map[string][]MirrorInfo `json:"mirrors"`
+}
+
+type MirrorInfo struct {
+	Clouds    []CloudSpec `json:"clouds"`
+	MirrorURL string      `json:"mirror"`
+	Path      string      `json:"path"`
+}
+
 type MirrorInfoSlice []MirrorInfo
 type MirrorRefSlice []MirrorReference
 

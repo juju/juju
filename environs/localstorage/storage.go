@@ -67,7 +67,7 @@ func (s *storage) List(prefix string) ([]string, error) {
 		// because it's only created when the first
 		// file is put.
 		if resp.StatusCode == http.StatusNotFound {
-			return nil, nil
+			return []string{}, nil
 		}
 		return nil, fmt.Errorf("%d %s", resp.StatusCode, resp.Status)
 	}
