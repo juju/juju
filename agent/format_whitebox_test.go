@@ -1,10 +1,6 @@
 // Copyright 2013 Canonical Ltd.
 // Licensed under the AGPLv3, see LICENCE file for details.
 
-// The format tests are white box tests, meaning that the tests are in the
-// same package as the code, as all the format details are internal to the
-// package.
-
 package agent
 
 import (
