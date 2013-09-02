@@ -6,6 +6,7 @@
 package uniter
 
 import (
+	"fmt"
 	"strconv"
 
 	"launchpad.net/juju-core/charm"
@@ -85,15 +86,14 @@ func (u *UniterAPI) getService(tag string) (*state.Service, error) {
 	return entity.(*state.Service), nil
 }
 
-// PublicAddress returns for each given unit, a pair of the public
-// address of the unit and whether it's valid.
-func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResults, error) {
-	result := params.StringBoolResults{
-		Results: make([]params.StringBoolResult, len(args.Entities)),
+// PublicAddress returns the public address for each given unit, if set.
+func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringBoolResults{}, err
+		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -102,8 +102,11 @@ func (u *UniterAPI) PublicAddress(args params.Entities) (params.StringBoolResult
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PublicAddress()
-				result.Results[i].Result = address
-				result.Results[i].Ok = ok
+				if ok {
+					result.Results[i].Result = address
+				} else {
+					err = fmt.Errorf("%q has no public address set", entity.Tag)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)
@@ -134,15 +137,14 @@ func (u *UniterAPI) SetPublicAddress(args params.SetEntityAddresses) (params.Err
 	return result, nil
 }
 
-// PrivateAddress returns for each given unit, a pair of the private
-// address of the unit and whether it's valid.
-func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResults, error) {
-	result := params.StringBoolResults{
-		Results: make([]params.StringBoolResult, len(args.Entities)),
+// PrivateAddress returns the private address for each given unit, if set.
+func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringResults, error) {
+	result := params.StringResults{
+		Results: make([]params.StringResult, len(args.Entities)),
 	}
 	canAccess, err := u.accessUnit()
 	if err != nil {
-		return params.StringBoolResults{}, err
+		return params.StringResults{}, err
 	}
 	for i, entity := range args.Entities {
 		err := common.ErrPerm
@@ -151,8 +153,11 @@ func (u *UniterAPI) PrivateAddress(args params.Entities) (params.StringBoolResul
 			unit, err = u.getUnit(entity.Tag)
 			if err == nil {
 				address, ok := unit.PrivateAddress()
-				result.Results[i].Result = address
-				result.Results[i].Ok = ok
+				if ok {
+					result.Results[i].Result = address
+				} else {
+					err = fmt.Errorf("%q has no private address set", entity.Tag)
+				}
 			}
 		}
 		result.Results[i].Error = common.ServerError(err)

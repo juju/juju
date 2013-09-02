@@ -257,27 +257,27 @@ func (u *Unit) HasSubordinates() (bool, error) {
 // is valid.
 //
 // NOTE: This differs from state.Unit.PublicAddres() by returning
-// an error as well, because it needs to make an API call.
+// an error instead of a bool, because it needs to make an API call.
 //
 // TODO: We might be able to drop this, once we have machine
 // addresses implemented fully.
-func (u *Unit) PublicAddress() (string, bool, error) {
-	var results params.StringBoolResults
+func (u *Unit) PublicAddress() (string, error) {
+	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
 	err := u.st.caller.Call("Uniter", "", "PublicAddress", args, &results)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", false, result.Error
+		return "", result.Error
 	}
-	return result.Result, result.Ok, nil
+	return result.Result, nil
 }
 
 // SetPublicAddress sets the public address of the unit.
@@ -302,27 +302,27 @@ func (u *Unit) SetPublicAddress(address string) error {
 // it is valid.
 //
 // NOTE: This differs from state.Unit.PrivateAddress() by returning
-// an error as well, because it needs to make an API call.
+// an error instead of a bool, because it needs to make an API call.
 //
 // TODO: We might be able to drop this, once we have machine
 // addresses implemented fully.
-func (u *Unit) PrivateAddress() (string, bool, error) {
-	var results params.StringBoolResults
+func (u *Unit) PrivateAddress() (string, error) {
+	var results params.StringResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
 	err := u.st.caller.Call("Uniter", "", "PrivateAddress", args, &results)
 	if err != nil {
-		return "", false, err
+		return "", err
 	}
 	if len(results.Results) != 1 {
-		return "", false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return "", fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return "", false, result.Error
+		return "", result.Error
 	}
-	return result.Result, result.Ok, nil
+	return result.Result, nil
 }
 
 // SetPrivateAddress sets the private address of the unit.
@@ -384,31 +384,31 @@ func (u *Unit) ClosePort(protocol string, number int) error {
 // CharmURL returns the charm URL this unit is currently using.
 //
 // NOTE: This differs from state.Unit.CharmURL() by returning
-// an error as well, because it needs to make an API call.
-func (u *Unit) CharmURL() (*charm.URL, bool, error) {
+// an error instead of a bool, because it needs to make an API call.
+func (u *Unit) CharmURL() (*charm.URL, error) {
 	var results params.StringBoolResults
 	args := params.Entities{
 		Entities: []params.Entity{{Tag: u.tag}},
 	}
 	err := u.st.caller.Call("Uniter", "", "CharmURL", args, &results)
 	if err != nil {
-		return nil, false, err
+		return nil, err
 	}
 	if len(results.Results) != 1 {
-		return nil, false, fmt.Errorf("expected one result, got %d", len(results.Results))
+		return nil, fmt.Errorf("expected one result, got %d", len(results.Results))
 	}
 	result := results.Results[0]
 	if result.Error != nil {
-		return nil, false, result.Error
+		return nil, result.Error
 	}
-	var curl *charm.URL
 	if result.Result != "" {
-		curl, err = charm.ParseURL(result.Result)
+		curl, err := charm.ParseURL(result.Result)
 		if err != nil {
-			return nil, false, err
+			return nil, err
 		}
+		return curl, nil
 	}
-	return curl, result.Ok, nil
+	return nil, fmt.Errorf("%q has no charm url set", u.tag)
 }
 
 // SetCharmURL marks the unit as currently using the supplied charm URL.
