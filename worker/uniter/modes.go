@@ -206,6 +206,8 @@ func ModeTerminating(u *Uniter) (next Mode, err error) {
 			if err := u.unit.Refresh(); err != nil {
 				return nil, err
 			}
+			// TODO(dimitern): Once the uniter uses the API, call
+			// u.unit.HasSubordinates() here instead.
 			if len(u.unit.SubordinateNames()) > 0 {
 				continue
 			}
