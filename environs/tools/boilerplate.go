@@ -75,7 +75,7 @@ func MakeBoilerplate(tm *ToolsMetadata, cloudSpec *simplestreams.CloudSpec, flat
 
 type toolsMetadataParams struct {
 	ToolsBinaryPath   string
-	ToolsBinarySize   float64
+	ToolsBinarySize   int64
 	ToolsBinarySHA256 string
 	Region            string
 	URL               string

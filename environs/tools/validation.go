@@ -21,12 +21,12 @@ type ToolsMetadataLookupParams struct {
 // ValidateToolsMetadata attempts to load tools metadata for the specified cloud attributes and returns
 // any tools versions found, or an error if the metadata could not be loaded.
 func ValidateToolsMetadata(params *ToolsMetadataLookupParams) ([]string, error) {
-	if params.Region == "" {
-		return nil, fmt.Errorf("required parameter region not specified")
-	}
-	if params.Endpoint == "" {
-		return nil, fmt.Errorf("required parameter endpoint not specified")
-	}
+//	if params.Region == "" {
+//		return nil, fmt.Errorf("required parameter region not specified")
+//	}
+//	if params.Endpoint == "" {
+//		return nil, fmt.Errorf("required parameter endpoint not specified")
+//	}
 	if len(params.Architectures) == 0 {
 		return nil, fmt.Errorf("required parameter arches not specified")
 	}
