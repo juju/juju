@@ -56,8 +56,8 @@ type Context interface {
 // via ctx, taking a machine id to operate on.
 func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 	d := &Deployer{
-		st:         st,
-		ctx:        ctx,
+		st:  st,
+		ctx: ctx,
 	}
 	return worker.NewStringsWorker(d)
 }
@@ -67,7 +67,7 @@ func isNotFoundOrUnauthorized(err error) bool {
 }
 
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
-	machineTag := ctx.AgentConfig().Tag()
+	machineTag := d.ctx.AgentConfig().Tag()
 	machine, err := d.st.Machine(machineTag)
 	if err != nil {
 		return nil, err
