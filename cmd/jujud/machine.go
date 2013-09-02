@@ -172,18 +172,14 @@ func (a *MachineAgent) APIWorker(ensureStateWorker func()) (worker.Worker, error
 		return machiner.NewMachiner(st.Machiner(), agentConfig), nil
 	})
 	runner.StartWorker("upgrader", func() (worker.Worker, error) {
-		// TODO(rog) use id instead of *Machine (or introduce Clone method)
 		return upgrader.NewUpgrader(st.Upgrader(), agentConfig), nil
 	})
 	for _, job := range entity.Jobs() {
 		switch job {
 		case params.JobHostUnits:
-			deployerTask, err := newDeployer(st.Deployer(), agentConfig)
-			if err != nil {
-				return nil, err
-			}
 			runner.StartWorker("deployer", func() (worker.Worker, error) {
-				return deployerTask, nil
+				context := newDeployContext(st, agentConfig)
+				return deployer.NewDeployer(st.Deployer(), context), nil
 			})
 		case params.JobManageEnviron:
 			// Not yet implemented with the API.

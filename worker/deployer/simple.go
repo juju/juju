@@ -28,17 +28,13 @@ type SimpleContext struct {
 	// the given unit is deployed.
 	addresser Addresser
 
-	// caCert holds the CA certificate that will be used
-	// to validate the state server's certificate, in PEM format.
-	caCert []byte
+	// agentConfig returns the agent config for the machine agent that is
+	// running the deployer.
+	agentConfig agent.Config
 
 	// initDir specifies the directory used by upstart on the local system.
 	// It is typically set to "/etc/init".
 	initDir string
-
-	// dataDir specifies the directory used by juju to store its state. It
-	// is typically set to "/var/lib/juju".
-	dataDir string
 
 	// logDir specifies the directory to which installed units will write
 	// their log files. It is typically set to "/var/log/juju".
@@ -58,19 +54,18 @@ var _ Context = (*SimpleContext)(nil)
 // NewSimpleContext returns a new SimpleContext, acting on behalf of the
 // specified deployer, that deploys unit agents as upstart jobs in
 // "/etc/init" logging to "/var/log/juju". Paths to which agents and tools
-// are installed are relative to dataDir; if dataDir is empty, it will be
-// set to "/var/lib/juju".
-func NewSimpleContext(dataDir string, caCert []byte, addresser Addresser) *SimpleContext {
-	if dataDir == "" {
-		dataDir = "/var/lib/juju"
-	}
+// are installed are relative to dataDir.
+func NewSimpleContext(agentConfig agent.Config, addresser Addresser) *SimpleContext {
 	return &SimpleContext{
-		addresser: addresser,
-		caCert:    caCert,
-		initDir:   "/etc/init",
-		dataDir:   dataDir,
-		logDir:    "/var/log/juju",
+		addresser:   addresser,
+		agentConfig: agentConfig,
+		initDir:     "/etc/init",
+		logDir:      "/var/log/juju",
 	}
+}
+
+func (ctx *SimpleContext) AgentConfig() agent.Config {
+	return ctx.agentConfig
 }
 
 func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err error) {
@@ -82,8 +77,9 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	// Link the current tools for use by the new agent.
 	tag := names.UnitTag(unitName)
-	_, err = tools.ChangeAgentTools(ctx.dataDir, tag, version.Current)
-	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
+	dataDir := ctx.agentConfig.DataDir()
+	_, err = tools.ChangeAgentTools(dataDir, tag, version.Current)
+	toolsDir := tools.ToolsDir(dataDir, tag)
 	defer removeOnErr(&err, toolsDir)
 
 	// Retrieve the state addresses.
@@ -100,13 +96,13 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 	logger.Debugf("API addresses: %q", apiAddrs)
 	conf, err := agent.NewAgentConfig(
 		agent.AgentConfigParams{
-			DataDir:        ctx.dataDir,
+			DataDir:        dataDir,
 			Tag:            tag,
 			Password:       initialPassword,
 			Nonce:          "unused",
 			StateAddresses: stateAddrs,
 			APIAddresses:   apiAddrs,
-			CACert:         ctx.caCert,
+			CACert:         ctx.agentConfig.CACert(),
 		})
 	if err != nil {
 		return err
@@ -132,7 +128,7 @@ func (ctx *SimpleContext) DeployUnit(unitName, initialPassword string) (err erro
 
 	cmd := strings.Join([]string{
 		path.Join(toolsDir, "jujud"), "unit",
-		"--data-dir", conf.DataDir(),
+		"--data-dir", dataDir,
 		"--unit-name", unitName,
 		"--debug", // TODO: propagate debug state sensibly
 	}, " ")
@@ -176,7 +172,8 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 		return err
 	}
 	tag := names.UnitTag(unitName)
-	agentDir := agent.Dir(ctx.dataDir, tag)
+	dataDir := ctx.agentConfig.DataDir()
+	agentDir := agent.Dir(dataDir, tag)
 	if err := os.RemoveAll(agentDir); err != nil {
 		return err
 	}
@@ -189,7 +186,7 @@ func (ctx *SimpleContext) RecallUnit(unitName string) error {
 			logger.Warningf("installer: cannot restart syslog daemon: %v", err)
 		}
 	}()
-	toolsDir := tools.ToolsDir(ctx.dataDir, tag)
+	toolsDir := tools.ToolsDir(dataDir, tag)
 	return os.Remove(toolsDir)
 }
 

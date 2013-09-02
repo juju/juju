@@ -8,6 +8,7 @@ import (
 
 	"launchpad.net/loggo"
 
+	"launchpad.net/juju-core/agent"
 	"launchpad.net/juju-core/errors"
 	"launchpad.net/juju-core/names"
 	apideployer "launchpad.net/juju-core/state/api/deployer"
@@ -24,10 +25,9 @@ var logger = loggo.GetLogger("juju.worker.deployer")
 // to changes in a set of state units; and for the final removal of its agents'
 // units from state when they are no longer needed.
 type Deployer struct {
-	st         *apideployer.State
-	ctx        Context
-	machineTag string
-	deployed   set.Strings
+	st       *apideployer.State
+	ctx      Context
+	deployed set.Strings
 }
 
 // Context abstracts away the differences between different unit deployment
@@ -46,15 +46,18 @@ type Context interface {
 
 	// DeployedUnits returns the names of all units deployed by the manager.
 	DeployedUnits() ([]string, error)
+
+	// AgentConfig returns the agent config for the machine agent that is
+	// running the deployer.
+	AgentConfig() agent.Config
 }
 
 // NewDeployer returns a Worker that deploys and recalls unit agents
 // via ctx, taking a machine id to operate on.
-func NewDeployer(st *apideployer.State, ctx Context, machineTag string) worker.Worker {
+func NewDeployer(st *apideployer.State, ctx Context) worker.Worker {
 	d := &Deployer{
 		st:         st,
 		ctx:        ctx,
-		machineTag: machineTag,
 	}
 	return worker.NewStringsWorker(d)
 }
@@ -64,7 +67,8 @@ func isNotFoundOrUnauthorized(err error) bool {
 }
 
 func (d *Deployer) SetUp() (watcher.StringsWatcher, error) {
-	machine, err := d.st.Machine(d.machineTag)
+	machineTag := ctx.AgentConfig().Tag()
+	machine, err := d.st.Machine(machineTag)
 	if err != nil {
 		return nil, err
 	}
