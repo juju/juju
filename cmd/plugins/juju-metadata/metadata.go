@@ -34,6 +34,7 @@ func Main(args []string) {
 
 	metadatacmd.Register(&ValidateImageMetadataCommand{})
 	metadatacmd.Register(&ImageMetadataCommand{})
+	metadatacmd.Register(&ToolsMetadataCommand{})
 
 	metadatacmd.Register(&ValidateToolsMetadataCommand{})
 

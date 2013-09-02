@@ -183,7 +183,13 @@ func (fix *SimpleToolsFixture) assertUpstartCount(c *gc.C, count int) {
 }
 
 func (fix *SimpleToolsFixture) getContext(c *gc.C) *deployer.SimpleContext {
-	return deployer.NewTestSimpleContext(fix.initDir, fix.dataDir, fix.logDir, fix.syslogConfigDir)
+	config := agentConfig("machine-tag", fix.dataDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
+}
+
+func (fix *SimpleToolsFixture) getContextForMachine(c *gc.C, machineTag string) *deployer.SimpleContext {
+	config := agentConfig(machineTag, fix.dataDir)
+	return deployer.NewTestSimpleContext(config, fix.initDir, fix.logDir, fix.syslogConfigDir)
 }
 
 func (fix *SimpleToolsFixture) paths(tag string) (confPath, agentDir, toolsDir, syslogConfPath string) {
@@ -278,4 +284,26 @@ func (fix *SimpleToolsFixture) injectUnit(c *gc.C, upstartConf, unitTag string) 
 	toolsDir := filepath.Join(fix.dataDir, "tools", unitTag)
 	err = os.MkdirAll(toolsDir, 0755)
 	c.Assert(err, gc.IsNil)
+}
+
+type mockConfig struct {
+	agent.Config
+	tag     string
+	datadir string
+}
+
+func (mock *mockConfig) Tag() string {
+	return mock.tag
+}
+
+func (mock *mockConfig) DataDir() string {
+	return mock.datadir
+}
+
+func (mock *mockConfig) CACert() []byte {
+	return []byte(testing.CACert)
+}
+
+func agentConfig(tag, datadir string) agent.Config {
+	return &mockConfig{tag: tag, datadir: datadir}
 }
