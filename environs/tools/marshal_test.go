@@ -40,8 +40,9 @@ var expectedIndex = `{
             "datatype": "content-download",
             "path": "streams/v1/com.ubuntu.juju:released:tools.json",
             "products": [
-                "com.ubuntu.juju:1.2.3.4:arm",
-                "com.ubuntu.juju:4.3.2.1:amd64"
+                "com.ubuntu.juju:12.04:amd64",
+                "com.ubuntu.juju:12.04:arm",
+                "com.ubuntu.juju:13.10:arm"
             ]
         }
     },
@@ -51,35 +52,7 @@ var expectedIndex = `{
 
 var expectedProducts = `{
     "products": {
-        "com.ubuntu.juju:1.2.3.4:arm": {
-            "version": "1.2.3.4",
-            "arch": "arm",
-            "versions": {
-                "19700101": {
-                    "items": {
-                        "1.2.3.4-precise-arm": {
-                            "release": "precise",
-                            "version": "1.2.3.4",
-                            "arch": "arm",
-                            "size": 42,
-                            "path": "toenlightenment.tar.gz",
-                            "ftype": "tar.gz",
-                            "sha256": ""
-                        },
-                        "1.2.3.4-saucy-arm": {
-                            "release": "saucy",
-                            "version": "1.2.3.4",
-                            "arch": "arm",
-                            "size": 9223372036854775807,
-                            "path": "/somewhere/over/the/rainbow.tar.gz",
-                            "ftype": "tar.gz",
-                            "sha256": ""
-                        }
-                    }
-                }
-            }
-        },
-        "com.ubuntu.juju:4.3.2.1:amd64": {
+        "com.ubuntu.juju:12.04:amd64": {
             "version": "4.3.2.1",
             "arch": "amd64",
             "versions": {
@@ -93,6 +66,44 @@ var expectedProducts = `{
                             "path": "whatever.tar.gz",
                             "ftype": "tar.gz",
                             "sha256": "afb14e65c794464e378def12cbad6a96f9186d69"
+                        }
+                    }
+                }
+            }
+        },
+        "com.ubuntu.juju:12.04:arm": {
+            "version": "1.2.3.4",
+            "arch": "arm",
+            "versions": {
+                "19700101": {
+                    "items": {
+                        "1.2.3.4-precise-arm": {
+                            "release": "precise",
+                            "version": "1.2.3.4",
+                            "arch": "arm",
+                            "size": 42,
+                            "path": "toenlightenment.tar.gz",
+                            "ftype": "tar.gz",
+                            "sha256": ""
+                        }
+                    }
+                }
+            }
+        },
+        "com.ubuntu.juju:13.10:arm": {
+            "version": "1.2.3.4",
+            "arch": "arm",
+            "versions": {
+                "19700101": {
+                    "items": {
+                        "1.2.3.4-saucy-arm": {
+                            "release": "saucy",
+                            "version": "1.2.3.4",
+                            "arch": "arm",
+                            "size": 9223372036854775807,
+                            "path": "/somewhere/over/the/rainbow.tar.gz",
+                            "ftype": "tar.gz",
+                            "sha256": ""
                         }
                     }
                 }

@@ -157,11 +157,11 @@ type MetadataCatalog struct {
 type ItemCollection struct {
 	rawItems   map[string]*json.RawMessage
 	Items      map[string]interface{} `json:"items"`
-	Arch       string                 `json:"arch"`
-	Version    string                 `json:"version"`
-	Series     string                 `json:"release"`
-	RegionName string                 `json:"region"`
-	Endpoint   string                 `json:"endpoint"`
+	Arch       string                 `json:"arch,omitempty"`
+	Series     string                 `json:"release,omitempty"`
+	Version    string                 `json:"version,omitempty"`
+	RegionName string                 `json:"region,omitempty"`
+	Endpoint   string                 `json:"endpoint,omitempty"`
 }
 
 // These structs define the model used for metadata indices.

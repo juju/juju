@@ -43,6 +43,9 @@ The cloud specificaton comes from the current Juju environment, as specified in 
 from either ~/.juju/environments.yaml, the -e option, or JUJU_ENV. Series, Region, and Endpoint
 are the key attributes.
 
+It is possible to specify a local directory containing tools metadata, in which case cloud
+attributes like provider type, region etc are optional.
+
 The key environment attributes may be overridden using command arguments, so that the validation
 may be peformed on arbitary metadata.
 
@@ -63,7 +66,7 @@ Examples:
 - validate using the current environment settings and list all tools found for any series
  juju metadata validate-tools --series=
 
-- validate using the current environment settings but with series raring and using metadata from local directory
+- validate with series raring and using metadata from local directory
  juju metadata validate-images -s raring -d <some directory>
 
 A key use case is to validate newly generated metadata prior to deployment to production.
@@ -139,16 +142,22 @@ func (c *ValidateToolsMetadataCommand) Run(context *cmd.Context) error {
 
 	if c.providerType == "" {
 		environ, err := environs.NewFromName(c.EnvName)
-		if err != nil {
-			return err
-		}
-		mdLookup, ok := environ.(simplestreams.MetadataValidator)
-		if !ok {
-			return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
-		}
-		params, err = mdLookup.MetadataLookupParams(c.region)
-		if err != nil {
-			return err
+		if err == nil {
+			mdLookup, ok := environ.(simplestreams.MetadataValidator)
+			if !ok {
+				return fmt.Errorf("%s provider does not support tools metadata validation", environ.Config().Type())
+			}
+			params, err = mdLookup.MetadataLookupParams(c.region)
+			if err != nil {
+				return err
+			}
+		} else {
+			if c.metadataDir == "" {
+				return err
+			}
+			params = &simplestreams.MetadataLookupParams{
+				Architectures: []string{"amd64", "arm", "i386"},
+			}
 		}
 	} else {
 		prov, err := environs.Provider(c.providerType)

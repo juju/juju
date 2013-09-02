@@ -67,8 +67,12 @@ type ToolsMetadata struct {
 	SHA256   string `json:"sha256"`
 }
 
-func (t *ToolsMetadata) productId() string {
-	return fmt.Sprintf("com.ubuntu.juju:%s:%s", t.Version, t.Arch)
+func (t *ToolsMetadata) productId() (string, error) {
+	seriesVersion, err := simplestreams.SeriesVersion(t.Release)
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("com.ubuntu.juju:%s:%s", seriesVersion, t.Arch), nil
 }
 
 // Fetch returns a list of tools for the specified cloud matching the constraint.
